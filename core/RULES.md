@@ -1,5 +1,11 @@
 # RULES.md - Ops Rules & Standards
 
+<!--
+Based on SuperClaude Framework (https://github.com/SuperClaude-Org/SuperClaude_Framework)
+Copyright (c) 2024 SuperClaude Framework Contributors
+MIT License - https://github.com/SuperClaude-Org/SuperClaude_Framework/blob/master/LICENSE
+-->
+
 ## Legend
 | Symbol | Meaning | | Abbrev | Meaning |
 |--------|---------|---|--------|---------|

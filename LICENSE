@@ -19,3 +19,15 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
+
+---
+
+This project incorporates substantial portions of code from:
+
+SuperClaude Framework
+Copyright (c) 2024 SuperClaude Framework Contributors
+https://github.com/SuperClaude-Org/SuperClaude_Framework
+Licensed under the MIT License
+
+Specifically: core/RULES.md operational standards, severity notation system,
+rule priority structure, thinking modes framework, and workflow patterns.

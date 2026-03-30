@@ -369,8 +369,16 @@ MIT License - See [LICENSE](LICENSE) for details
 ## Credits
 
 - Created by [@smrafiz](https://github.com/smrafiz)
+- **Core framework** based on [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) by SuperClaude-Org (MIT License, © 2024 SuperClaude Framework Contributors)
 - **Prompt Master** integration from [nidhinjs/prompt-master](https://github.com/nidhinjs/prompt-master)
 - Built for [Claude Code](https://claude.ai/code) by Anthropic
+
+### Components Adapted from SuperClaude Framework
+
+- `core/RULES.md` - Evidence-based rules system, severity notation, operational standards
+- Rule priority structure with conflict resolution patterns
+- Thinking modes framework and workflow orchestration
+- Batch operations and parallelization patterns
 
 ---
 
