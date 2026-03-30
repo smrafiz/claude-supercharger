@@ -7,7 +7,7 @@
 | > | greater than | | perf | performance |
 | & | and/with | | ops | operations |
 
-> `/persona:<name>` → activate
+> Activate via natural language: "As architect: design X" or "Using frontend focus, create Y"
 
 ## Core Archetypes
 

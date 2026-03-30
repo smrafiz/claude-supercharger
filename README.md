@@ -198,29 +198,47 @@ See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete guide with API key setup
 
 ### Activating Personas
 
-```bash
-/persona:architect    # System design focus
-/persona:frontend     # UX-first development
-/persona:security     # Threat modeling
-/persona:analyzer     # Root cause debugging
+Personas are activated through natural language:
+
 ```
+You: "load the frontend persona"
+→ Frontend persona active (UX-first, mobile-first, user needs > technical elegance)
+
+You: "load the security persona"
+→ Security persona active (threat modeling, defense-in-depth, assume breach)
+
+You: "switch to architect persona"
+You: "As performance mindset: optimize this query"
+You: "With analyzer approach, debug this crash"
+```
+
+**Available personas:** architect, frontend, backend, analyzer, security, mentor, refactorer, performance, qa
+
+**Auto-activation:** Claude Supercharger automatically adopts appropriate personas based on context (file types, keywords, task nature).
 
 ### Thinking Modes
 
-```bash
---think              # Multi-file analysis (4K tokens)
---think-hard         # Architecture planning (10K tokens)
---ultrathink         # Critical redesign (32K tokens)
+Request deeper analysis naturally:
+
+```
+You: "Think deeply about this architecture decision"
+You: "Analyze this thoroughly before implementing"
+You: "Consider all implications of this refactor"
 ```
 
-### MCP Control
+**Automatic activation:** Complex tasks trigger appropriate thinking depth automatically.
 
-```bash
---c7                 # Force Context7 docs lookup
---seq                # Force Sequential analysis
---magic              # Force Magic UI generation
---no-mcp             # Disable all MCP servers
-```
+### MCP Servers (Optional)
+
+If you've run `mcp-setup.sh`, MCP servers are available automatically:
+
+- **Context7** - Latest library documentation
+- **Sequential Thinking** - Multi-step reasoning
+- **Memory** - Persistent knowledge graphs
+- **GitHub** - Repository operations
+- **Brave Search** - Current information
+
+No manual activation needed - Claude selects appropriate tools per request.
 
 ---
 

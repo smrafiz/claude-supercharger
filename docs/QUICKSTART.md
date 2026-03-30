@@ -94,13 +94,22 @@ You: "verify this is done correctly"
 
 ---
 
-## 6. Activate Personas (30 seconds)
+## 6. Use Personas (30 seconds)
+
+Activate personas through natural language:
 
 ```
-/persona:architect    → System design focus
-/persona:security     → Threat modeling
-/persona:frontend     → UX-first development
+You: "load the frontend persona"
+→ Frontend persona active (UX-first, mobile-first)
+
+You: "load the security persona"
+→ Security persona active (threat modeling, defense-in-depth)
+
+You: "switch to architect persona"
+You: "As performance: optimize this"
 ```
+
+**9 available:** architect, frontend, backend, analyzer, security, mentor, refactorer, performance, qa
 
 ---
 
