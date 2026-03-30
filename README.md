@@ -103,6 +103,25 @@ echo "✅ Claude Supercharger v1.0.0 (Claude Supercharger v1.0.0) installed succ
 
 ---
 
+### Existing Configuration? Use Merge Mode
+
+**If you already have custom CLAUDE.md, RULES.md, PERSONAS.md, or MCP configurations:**
+
+```bash
+# Clone repository
+git clone https://github.com/smrafiz/claude-supercharger.git
+cd claude-supercharger
+
+# Smart merge (preserves your config + adds Supercharger enhancements)
+bash merge.sh
+```
+
+**Or run install.sh** — it will detect existing files and offer merge option.
+
+**Manual cherry-picking:** See [docs/MIGRATION.md](docs/MIGRATION.md) for full control over which features to integrate.
+
+---
+
 ### Optional: MCP Server Configuration
 
 **Core features work immediately** (anti-pattern detection, verification gates, personas, etc.).

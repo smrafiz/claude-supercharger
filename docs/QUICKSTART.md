@@ -18,6 +18,14 @@ cd claude-supercharger
 bash install.sh
 ```
 
+**Have existing configuration?** Use merge mode:
+
+```bash
+bash merge.sh  # Preserves your config + adds Supercharger features
+```
+
+See [MIGRATION.md](MIGRATION.md) for manual cherry-picking.
+
 ---
 
 ## 2. Verify Installation (10 seconds)

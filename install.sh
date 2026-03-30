@@ -15,6 +15,38 @@ echo -e "${BLUE}║  Claude Supercharger v1.0.0 Installer ║${NC}"
 echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
 echo ""
 
+# Check for existing configuration
+if [ -f ~/.claude/CLAUDE.md ] || [ -f ~/.claude/RULES.md ]; then
+    echo -e "${YELLOW}⚠️  Existing configuration detected!${NC}"
+    echo ""
+    echo -e "${BLUE}Installation options:${NC}"
+    echo "  1) Fresh install (replace everything, backup created)"
+    echo "  2) Smart merge (preserve + enhance existing config)"
+    echo "  3) Cancel (review docs/MIGRATION.md first)"
+    echo ""
+    read -p "Choose option [1-3]: " choice
+
+    case $choice in
+        1)
+            echo -e "${GREEN}→ Proceeding with fresh install${NC}"
+            ;;
+        2)
+            echo -e "${GREEN}→ Launching merge script${NC}"
+            exec bash "$(dirname "${BASH_SOURCE[0]}")/merge.sh"
+            exit 0
+            ;;
+        3)
+            echo -e "${YELLOW}Installation cancelled. See docs/MIGRATION.md for manual options.${NC}"
+            exit 0
+            ;;
+        *)
+            echo -e "${RED}Invalid choice. Installation cancelled.${NC}"
+            exit 1
+            ;;
+    esac
+    echo ""
+fi
+
 # Check if ~/.claude directory exists
 if [ ! -d ~/.claude ]; then
     echo -e "${YELLOW}⚠️  ~/.claude directory not found. Creating...${NC}"

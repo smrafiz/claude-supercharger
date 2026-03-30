@@ -45,6 +45,21 @@ All notable changes to Claude Supercharger will be documented in this file.
    - Converts vague goals to binary pass/fail
    - "make it better" → "Done when: passes tests + handles null"
 
+### Installation & Migration
+
+- **Smart Merge Script** [M:6]
+  - Detects existing configurations
+  - Preserves custom rules, personas, MCP configs
+  - Appends Supercharger enhancements without replacing
+  - Interactive installation with fresh/merge/cancel options
+
+- **Migration Guide** [M:5]
+  - Comprehensive conflict resolution strategies
+  - Cherry-picking individual features
+  - Manual merge steps with examples
+  - Persona merging, rule deduplication, MCP integration
+  - Troubleshooting and backup restoration
+
 ### Enhanced
 
 - **Execution Priority** [H:8]: 8-step workflow for complex requests
