@@ -45,6 +45,32 @@ All notable changes to Claude Supercharger will be documented in this file.
    - Converts vague goals to binary pass/fail
    - "make it better" → "Done when: passes tests + handles null"
 
+9. **Guardrails System** [H:8]
+   - Domain-specific constraints for code quality, security, accessibility, compliance
+   - 3 severity levels: CRITICAL (block), HIGH (warn), MEDIUM (suggest)
+   - 6 categories: Security, Performance, Accessibility, Quality, Ethics, Compliance
+   - Customizable template (shared/guardrails-template.yml)
+   - 4 pre-built domain examples:
+     - web-app.yml → WCAG 2.2+, OWASP Top 10, Core Web Vitals
+     - api-service.yml → Security, rate limiting, monitoring, reliability
+     - game-dev.yml → FPS budgets, comfort-first, no dark patterns
+     - mobile-app.yml → Battery, offline-first, platform guidelines
+   - Comprehensive documentation (docs/GUARDRAILS.md)
+   - Integration with ESLint, pre-commit hooks, CI/CD
+   - Enforcement at pre-commit, pre-deploy, continuous monitoring stages
+
+10. **Agent Safety Guardrails** [C:10]
+    - Universal safety protocols for AI agents operating on any codebase
+    - Four Laws: Read before editing, stay in scope, verify before committing, halt when uncertain
+    - Core template (shared/agent-guardrails-template.md)
+    - YAML reference example (examples/guardrails/agent-safety.yml)
+    - 15 halt conditions, forbidden actions across 5 categories
+    - Pre-execution checklist, git safety rules, code safety rules
+    - Test/production separation enforcement
+    - Escalation matrix for human handoff
+    - Scope boundary definitions (IN/OUT per task)
+    - Customization sections for project-specific rules, failure registry, escalation
+
 ### Installation & Migration
 
 - **Smart Merge Script** [M:6]

@@ -31,3 +31,14 @@ Licensed under the MIT License
 
 Specifically: core/RULES.md operational standards, severity notation system,
 rule priority structure, thinking modes framework, and workflow patterns.
+
+---
+
+Agent Guardrails Template
+Copyright (c) 2026 TheArchitectit
+https://github.com/TheArchitectit/agent-guardrails-template
+Licensed under the BSD 3-Clause License
+
+Specifically: shared/agent-guardrails-template.md and examples/guardrails/agent-safety.yml
+are adapted from the Four Laws of Agent Safety, halt conditions, forbidden actions,
+scope boundaries, and pre-execution checklist patterns.

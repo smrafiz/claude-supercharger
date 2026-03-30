@@ -65,6 +65,48 @@ Claude Supercharger is a comprehensive configuration system for Claude Code that
 8. **performance** → Bottleneck identification, speed optimization, profiling
 9. **qa** → Edge cases, quality gates, defect escape prevention
 
+### Guardrails (Domain-Specific Constraints)
+
+**Project-specific rules that enforce code quality, security, accessibility, and ethical standards.**
+
+**Severity Levels:**
+- **CRITICAL** → Block deployment (security, legal, system failure)
+- **HIGH** → Warn and require acknowledgment (UX, performance, accessibility)
+- **MEDIUM** → Suggest improvements (technical debt, minor UX)
+
+**Categories:**
+- **Security** → OWASP Top 10, authentication, input validation
+- **Performance** → Core Web Vitals, response times, bundle sizes
+- **Accessibility** → WCAG 2.2+, keyboard navigation, screen readers
+- **Code Quality** → Function complexity, test coverage, no debug code
+- **Ethics** → No dark patterns, user consent, transparent pricing
+- **Compliance** → GDPR, HIPAA, PCI DSS requirements
+
+**Quick Setup:**
+```bash
+# Copy template to your project
+cp shared/guardrails-template.yml docs/AGENT_GUARDRAILS.md
+
+# Edit with project-specific constraints
+nano docs/AGENT_GUARDRAILS.md
+
+# Reference in project CLAUDE.md
+echo "@docs/AGENT_GUARDRAILS.md" >> CLAUDE.md
+```
+
+**Templates:**
+- `shared/guardrails-template.yml` → Domain constraints (security, perf, a11y, ethics)
+- `shared/agent-guardrails-template.md` → Agent safety protocols (Four Laws, halt conditions, scope)
+
+**Pre-built Examples:**
+- `examples/guardrails/web-app.yml` → WCAG, OWASP, Core Web Vitals
+- `examples/guardrails/api-service.yml` → Security, rate limiting, monitoring
+- `examples/guardrails/game-dev.yml` → FPS budgets, comfort-first, no dark patterns
+- `examples/guardrails/mobile-app.yml` → Battery, offline-first, platform guidelines
+- `examples/guardrails/agent-safety.yml` → Four Laws, forbidden actions, escalation
+
+See [docs/GUARDRAILS.md](docs/GUARDRAILS.md) for complete guide.
+
 ---
 
 ## Installation
@@ -388,6 +430,7 @@ MIT License - See [LICENSE](LICENSE) for details
 
 - Created by [@smrafiz](https://github.com/smrafiz)
 - **Core framework** based on [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) by SuperClaude-Org (MIT License, © 2024 SuperClaude Framework Contributors)
+- **Agent guardrails** adapted from [Agent Guardrails Template](https://github.com/TheArchitectit/agent-guardrails-template) by TheArchitectit (BSD-3-Clause License, © 2026)
 - **Prompt Master** integration from [nidhinjs/prompt-master](https://github.com/nidhinjs/prompt-master)
 - Built for [Claude Code](https://claude.ai/code) by Anthropic
 

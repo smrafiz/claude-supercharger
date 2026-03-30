@@ -1,0 +1,148 @@
+# Guardrails Template
+# Copy this to your project as GUARDRAILS.md or docs/AGENT_GUARDRAILS.md
+# Customize for your domain-specific constraints
+
+guardrails:
+  # Security Constraints
+  security:
+    critical: []
+      # - "NEVER expose API keys, secrets, or credentials"
+      # - "ALWAYS validate and sanitize user input"
+      # - "NEVER use eval() or exec() with user data"
+
+    high: []
+      # - "Use parameterized queries for all database operations"
+      # - "Implement rate limiting on public endpoints"
+      # - "Hash passwords with bcrypt/argon2, minimum 12 rounds"
+
+    medium: []
+      # - "Set secure HTTP headers (CSP, X-Frame-Options, etc.)"
+      # - "Use HTTPS for all external communications"
+
+  # Performance Constraints
+  performance:
+    critical: []
+      # - "NEVER block main thread for >50ms"
+      # - "Database queries must complete in <100ms"
+
+    high: []
+      # - "Bundle size must be <500KB (initial load)"
+      # - "Core Web Vitals: LCP <2.5s, FID <100ms, CLS <0.1"
+      # - "API response time <200ms p95"
+
+    medium: []
+      # - "Optimize images (WebP/AVIF, lazy loading)"
+      # - "Use CDN for static assets"
+
+  # Accessibility Constraints
+  accessibility:
+    critical: []
+      # - "ALL interactive elements must be keyboard accessible"
+      # - "ALL images must have meaningful alt text"
+      # - "Color contrast ratio must meet WCAG AA (4.5:1)"
+
+    high: []
+      # - "Semantic HTML structure (headings, landmarks)"
+      # - "Focus indicators visible on all interactive elements"
+      # - "Form inputs must have associated labels"
+
+    medium: []
+      # - "Support screen reader announcements for dynamic content"
+      # - "Provide skip links for navigation"
+
+  # Code Quality Constraints
+  quality:
+    critical: []
+      # - "NEVER commit console.log or debug code"
+      # - "NEVER use any, disable type checking, or ignore errors"
+
+    high: []
+      # - "Functions must be <50 lines"
+      # - "Cyclomatic complexity <10"
+      # - "Test coverage >80% for critical paths"
+
+    medium: []
+      # - "Prefer composition over inheritance"
+      # - "Extract magic numbers to named constants"
+
+  # Domain-Specific Constraints
+  domain:
+    critical: []
+      # Add your domain-specific critical constraints
+      # Examples:
+      # - Medical: "NEVER store PHI without encryption"
+      # - Finance: "ALL transactions must be logged and auditable"
+      # - Gaming: "Frame rate must maintain 60fps minimum"
+
+    high: []
+      # Add your domain-specific high-priority constraints
+
+    medium: []
+      # Add your domain-specific medium-priority constraints
+
+  # Ethical Constraints
+  ethics:
+    critical: []
+      # - "NEVER implement dark patterns (hidden costs, forced continuity, trick questions)"
+      # - "NEVER manipulate users through emotional exploitation"
+      # - "User data deletion must be honored within 30 days"
+
+    high: []
+      # - "Privacy policy must be clear and accessible"
+      # - "Opt-in required for marketing communications"
+      # - "User consent required before data collection"
+
+    medium: []
+      # - "Provide clear unsubscribe mechanisms"
+      # - "Respect user's reduced motion preferences"
+
+  # Compliance Constraints
+  compliance:
+    critical: []
+      # Add regulatory requirements for your domain
+      # Examples:
+      # - Medical: "HIPAA compliance required for all PHI"
+      # - Finance: "PCI DSS compliance for payment data"
+      # - EU: "GDPR compliance for EU user data"
+
+    high: []
+      # Add high-priority compliance requirements
+
+    medium: []
+      # Add medium-priority compliance requirements
+
+# Enforcement
+enforcement:
+  # How to enforce these guardrails
+  pre_commit: []
+    # - "Run linter and type checker"
+    # - "Check for console.log statements"
+    # - "Validate test coverage threshold"
+
+  pre_deploy: []
+    # - "Run security audit (npm audit, Snyk)"
+    # - "Check bundle size limits"
+    # - "Run accessibility tests (axe, pa11y)"
+
+  continuous: []
+    # - "Monitor Core Web Vitals in production"
+    # - "Alert on error rate >1%"
+    # - "Review security headers weekly"
+
+# Violation Handling
+violations:
+  critical: "BLOCK - Cannot proceed until resolved"
+  high: "WARN - Must fix before merge/deploy"
+  medium: "SUGGEST - Fix when practical"
+
+# Usage in Project
+# Reference this in your project's CLAUDE.md:
+#
+# ```markdown
+# ## Guardrails
+# @docs/AGENT_GUARDRAILS.md
+#
+# Critical constraints MUST be enforced.
+# High constraints strongly encouraged.
+# Medium constraints apply when practical.
+# ```
