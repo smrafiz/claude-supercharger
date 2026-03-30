@@ -1,0 +1,132 @@
+# Anti-Pattern Library
+# 35 credit-killing patterns | Scan before execution | Fix silently unless changes intent
+
+task:
+  vague_verb:
+    bad: "help me with X"
+    fix: "Refactor X to use Y and handle Z"
+
+  two_tasks_one_prompt:
+    bad: "explain AND rewrite"
+    fix: "Split sequential"
+
+  no_success_criteria:
+    bad: "make it better"
+    fix: "Done when: passes tests + handles null"
+
+  emotional_description:
+    bad: "totally broken, fix everything"
+    fix: "Throws TypeError line 43 when user is null"
+
+  build_whole_thing:
+    bad: "build entire app"
+    fix: "Break into Prompt 1/2/3"
+
+  implicit_reference:
+    bad: "add the other thing we discussed"
+    fix: "Always restate full task"
+
+context:
+  assumed_prior_knowledge:
+    bad: "continue where we left off"
+    fix: "Include Memory Block"
+
+  no_project_context:
+    bad: "write a cover letter"
+    fix: "Add role/industry/experience/transition"
+
+  forgotten_stack:
+    bad: "New prompt contradicts tech choice"
+    fix: "Memory Block with established stack"
+
+  hallucination_invite:
+    bad: "what do experts say"
+    fix: "Cite only certain sources. If uncertain, say so."
+
+  undefined_audience:
+    bad: "write for users"
+    fix: "Non-technical B2B buyers, decision-maker level"
+
+  no_prior_failures:
+    bad: "(blank)"
+    fix: "Already tried X, didn't work because Y. Do not suggest X."
+
+format:
+  missing_output_format:
+    bad: "explain this"
+    fix: "3 bullets, each <20 words, 1-sentence summary at top"
+
+  implicit_length:
+    bad: "write summary"
+    fix: "Exactly 3 sentences"
+
+  no_role_assignment:
+    bad: "(blank)"
+    fix: "You are senior backend engineer specializing in Node.js + PostgreSQL"
+
+  vague_aesthetic:
+    bad: "make it professional"
+    fix: "Monochrome palette, 16px base, 24px line-height, no decorative elements"
+
+scope:
+  no_scope_boundary:
+    bad: "fix my app"
+    fix: "Fix only login form validation in src/auth.js. Touch nothing else."
+
+  no_stack_constraints:
+    bad: "build React component"
+    fix: "React 18, TS strict, no external libs, Tailwind only"
+
+  no_stop_condition:
+    bad: "build whole feature"
+    fix: "Explicit stop conditions + checkpoint output"
+
+  no_file_path:
+    bad: "update login function"
+    fix: "Update handleLogin() in src/pages/Login.tsx only"
+
+  pasting_entire_codebase:
+    bad: "Full repo context"
+    fix: "Scope to relevant function + file only"
+
+reasoning:
+  no_cot_for_logic:
+    bad: "which approach better?"
+    fix: "Think through both step-by-step before recommending"
+
+  cot_on_reasoning_models:
+    bad: "think step by step to o1/o3/R1"
+    fix: "REMOVE (degrades output)"
+
+  expecting_inter_session_memory:
+    bad: "you already know my project"
+    fix: "Re-provide Memory Block every new session"
+
+  contradicting_prior_work:
+    bad: "New prompt ignores earlier architecture"
+    fix: "Include Memory Block"
+
+  no_grounding_rule:
+    bad: "summarize what experts say"
+    fix: "Use only info highly confident. Say [uncertain] if not."
+
+agentic:
+  no_starting_state:
+    bad: "build REST API"
+    fix: "Empty Node.js, Express installed, src/app.js exists"
+
+  no_target_state:
+    bad: "add authentication"
+    fix: "src/middleware/auth.js with JWT verify. POST /login + /register in src/routes/auth.js"
+
+  silent_agent:
+    bad: "No progress output"
+    fix: "After each step output: ✅ [what was completed]"
+
+  unlocked_filesystem:
+    bad: "No file restrictions"
+    fix: "Only edit src/. Do not touch package.json, .env, config."
+
+  no_human_review_trigger:
+    bad: "Agent decides autonomously"
+    fix: "Stop and ask before: deleting file, adding dependency, changing DB schema"
