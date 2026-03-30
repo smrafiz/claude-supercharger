@@ -60,6 +60,14 @@ All notable changes to Claude Supercharger will be documented in this file.
   - Persona merging, rule deduplication, MCP integration
   - Troubleshooting and backup restoration
 
+- **MCP Server Setup** [M:6]
+  - Interactive installation script (mcp-setup.sh)
+  - 12 recommended servers across 3 tiers
+  - API key management and validation
+  - Preserves existing MCP configurations
+  - Tier 1 (Context7, Sequential, Memory), Tier 2 (GitHub, Brave, Filesystem), Tier 3 (Playwright, Puppeteer, Prisma, Neon, Magic UI, Slack)
+  - Complete setup guide (docs/MCP_SETUP.md) with API key instructions, manual config, troubleshooting
+
 ### Enhanced
 
 - **Execution Priority** [H:8]: 8-step workflow for complex requests

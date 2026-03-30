@@ -122,22 +122,39 @@ bash merge.sh
 
 ---
 
-### Optional: MCP Server Configuration
+### Optional: MCP Server Setup
 
 **Core features work immediately** (anti-pattern detection, verification gates, personas, etc.).
 
-**Advanced MCP features** require additional setup:
+**Advanced MCP servers** add powerful capabilities:
 
-- **Context7** (documentation lookup) - Requires API key from [context.ai](https://context.ai)
-- **Magic** (UI component generation) - MCP server setup required
-- **Sequential Thinking** (complex analysis) - MCP server setup required
-- **Puppeteer** (browser automation) - MCP server setup required
+```bash
+# Interactive MCP server installation
+cd claude-supercharger
+bash mcp-setup.sh
+```
 
-**Without MCP:** All core features work (35 anti-patterns, intent extraction, verification gates, memory blocks, personas, output discipline).
+**Recommended Stack (2026):**
 
-**With MCP:** Additional capabilities for documentation lookup, UI generation, and browser automation.
+**Tier 1 (Must-Have):**
+- Context7 - Latest version-specific docs (React, Next.js, Prisma, etc.)
+- Sequential Thinking - Multi-step reasoning framework
+- Memory - Persistent knowledge graphs
 
-See [Claude Code MCP documentation](https://docs.claude.ai/docs/mcp) for setup instructions.
+**Tier 2 (Highly Useful):**
+- GitHub - Repository operations, PRs, issues
+- Brave Search - Current information beyond training cutoff
+- Filesystem - Secure file operations
+
+**Tier 3 (Specialized):**
+- Playwright/Puppeteer - Browser automation
+- Prisma/Neon - Database operations
+- Magic UI - React component library
+- Slack - Team communication context
+
+**API Keys Required:** Context7, GitHub, Brave Search, Neon, Slack (all have free tiers)
+
+See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete guide with API key setup, manual configuration, and troubleshooting.
 
 
 ## Quick Start
