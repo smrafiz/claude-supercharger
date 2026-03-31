@@ -11,6 +11,7 @@ source "$SCRIPT_DIR/lib/backup.sh"
 source "$SCRIPT_DIR/lib/roles.sh"
 source "$SCRIPT_DIR/lib/hooks.sh"
 source "$SCRIPT_DIR/lib/extras.sh"
+source "$SCRIPT_DIR/lib/mcp.sh"
 
 # --- Argument parsing ---
 ARG_MODE=""
@@ -209,6 +210,19 @@ else
   info "Skipped hooks installation"
 fi
 
+# Deploy MCP servers (zero-config)
+if [[ "$SETTINGS_ACTION" != "skip" ]]; then
+  ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
+  if merge_mcp_into_settings "$ROLES_CSV"; then
+    MCP_TOTAL=$(count_mcp_servers "$ROLES_CSV")
+    MCP_ROLE=$(count_role_servers "$ROLES_CSV")
+    MCP_CORE=$((MCP_TOTAL - MCP_ROLE))
+    success "${MCP_TOTAL} MCP server(s) configured (${MCP_CORE} core + ${MCP_ROLE} for your roles)"
+  else
+    error "Failed to configure MCP servers."
+  fi
+fi
+
 # Deploy extras (Full mode)
 deploy_extras "$SCRIPT_DIR" "$MODE"
 
@@ -220,6 +234,7 @@ echo ""
 echo -e "  Mode:  ${BOLD}${MODE_LABEL}${NC}"
 echo -e "  Roles: ${BOLD}${ROLES_LIST}${NC}"
 echo ""
+echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
   echo -e "  Run ${BOLD}claude-check${NC} to verify installation."
 else
