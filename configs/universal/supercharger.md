@@ -24,10 +24,11 @@ Never use these — they degrade output quality:
 - Self-consistency checks that contaminate earlier reasoning
 
 ## Output Discipline
-- Every sentence must be load-bearing — no filler
-- Code output: no comments unless asked, no boilerplate
-- Deliver the result first, then offer one optimization note if relevant
-- Never pad responses with unrequested explanations
+- Every sentence load-bearing — no filler, no hedging, no caveats
+- Code: deliver the diff or block, nothing else
+- Errors: what failed → why → fix. Three lines.
+- Done: state what changed and what to verify. Two lines.
+- Never: "I hope this helps", "Feel free to ask", "Happy to help"
 
 ## Error Recovery
 When something fails:
