@@ -39,6 +39,14 @@ begin_test "safety: sudo rm -rf / is blocked"
 run_hook "$SAFETY_HOOK" "sudo rm -rf /"
 assert_exit_code 2 $? && pass
 
+begin_test "safety: sudo command rm -rf / is blocked (multi-layer)"
+run_hook "$SAFETY_HOOK" "sudo command rm -rf /"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: env sudo rm -rf / is blocked (multi-layer)"
+run_hook "$SAFETY_HOOK" "env sudo rm -rf /"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: rm -rf ~ is blocked"
 run_hook "$SAFETY_HOOK" "rm -rf ~"
 assert_exit_code 2 $? && pass

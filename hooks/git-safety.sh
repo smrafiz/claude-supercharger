@@ -11,7 +11,9 @@ fi
 CMD="$COMMAND"
 CMD=$(echo "$CMD" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
 CMD=$(echo "$CMD" | sed 's/^\\//')
-CMD=$(echo "$CMD" | sed -E 's/^(sudo|command|env)[[:space:]]+//')
+while echo "$CMD" | grep -qE '^(sudo|command|env)[[:space:]]+'; do
+  CMD=$(echo "$CMD" | sed -E 's/^(sudo|command|env)[[:space:]]+//')
+done
 CMD=$(echo "$CMD" | tr -s ' ')
 
 block() {
