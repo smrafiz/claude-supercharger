@@ -13,7 +13,7 @@ NC='\033[0m'
 
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════╗"
-echo "║   Claude Supercharger v1.0 Uninstaller    ║"
+echo "║  Claude Supercharger v1.0.0 Uninstaller   ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -83,19 +83,20 @@ if [ -f "$HOME/.claude/CLAUDE.md" ] && grep -q "^# --- Claude Supercharger" "$HO
 fi
 
 # Remove Supercharger rule files
-for f in supercharger.md guardrails.md developer.md writer.md student.md data.md pm.md; do
+for f in supercharger.md guardrails.md developer.md writer.md student.md data.md pm.md anti-patterns.yml; do
   rm -f "$HOME/.claude/rules/$f"
 done
 echo -e "  ${GREEN}✓${NC} Rule files removed"
 
-# Remove shared assets
+# Remove shared assets (current and legacy paths)
 rm -f "$HOME/.claude/shared/anti-patterns.yml"
 rm -f "$HOME/.claude/shared/guardrails-template.yml"
+rmdir "$HOME/.claude/shared" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Shared assets removed"
 
-# Remove hook scripts
+# Remove hook scripts and roles
 rm -rf "$HOME/.claude/supercharger"
-echo -e "  ${GREEN}✓${NC} Hook scripts removed"
+echo -e "  ${GREEN}✓${NC} Hook scripts and roles removed"
 
 # Remove claude-check
 rm -f "$HOME/.claude/claude-check.sh"

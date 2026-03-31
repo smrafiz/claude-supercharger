@@ -35,9 +35,9 @@ check_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md"
 check_file "$HOME/.claude/rules/supercharger.md" "rules/supercharger.md — universal rules"
 check_file "$HOME/.claude/rules/guardrails.md" "rules/guardrails.md — Four Laws + safety"
 
-# Detect installed roles
+# Primary roles (active in rules/)
 echo ""
-echo -e "${BLUE}Roles:${NC}"
+echo -e "${BLUE}Primary Roles (active):${NC}"
 ROLES_FOUND=""
 for role in developer writer student data pm; do
   if [ -f "$HOME/.claude/rules/${role}.md" ]; then
@@ -47,13 +47,28 @@ for role in developer writer student data pm; do
   fi
 done
 if [ -z "$ROLES_FOUND" ]; then
-  echo -e "  ${YELLOW}○${NC} No role overlays found"
+  echo -e "  ${YELLOW}○${NC} No primary roles found"
+fi
+
+echo ""
+echo -e "${BLUE}Available Roles (mode switching):${NC}"
+AVAILABLE_FOUND=""
+for role in developer writer student data pm; do
+  if [ -f "$HOME/.claude/supercharger/roles/${role}.md" ]; then
+    ROLE_LABEL="$(echo "${role:0:1}" | tr '[:lower:]' '[:upper:]')${role:1}"
+    AVAILABLE_FOUND="${AVAILABLE_FOUND:+$AVAILABLE_FOUND, }$ROLE_LABEL"
+  fi
+done
+if [ -n "$AVAILABLE_FOUND" ]; then
+  echo -e "  ${GREEN}✓${NC} ${AVAILABLE_FOUND}"
+else
+  echo -e "  ${YELLOW}○${NC} No role files in supercharger/roles/"
 fi
 
 # Shared assets
 echo ""
 echo -e "${BLUE}Shared Assets:${NC}"
-check_file "$HOME/.claude/shared/anti-patterns.yml" "anti-patterns.yml"
+check_file "$HOME/.claude/rules/anti-patterns.yml" "rules/anti-patterns.yml"
 if [ -f "$HOME/.claude/shared/guardrails-template.yml" ]; then
   echo -e "  ${GREEN}✓${NC} guardrails-template.yml (Full mode)"
 else
