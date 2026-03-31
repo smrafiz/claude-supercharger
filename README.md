@@ -67,7 +67,7 @@ Non-interactive:
 
 ## What You Get
 
-**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **token economy** (concrete response targets, ~40-50% output reduction), context management with compaction guidance, quick mode switches, clarification mode, session handoff
+**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **token economy** (~40-50% output reduction), **auto-configured MCP servers** (zero-setup), context management, quick mode switches, session handoff
 
 **For developers:** Git safety, auto-format (Prettier/Black/rustfmt/gofmt), stack detection, regression prevention, scope discipline
 
@@ -111,6 +111,19 @@ Select one or more during installation. Switch mid-conversation with "as develop
 | **auto-format** | Standard+ | Runs project formatter after edits (Developer role only) |
 | **prompt-validator** | Full | Scans prompts for anti-patterns, suggests improvements |
 | **compaction-backup** | Full | Saves transcript before context compaction |
+
+## MCP Servers
+
+Supercharger auto-configures MCP servers during install — zero API keys, zero JSON editing.
+
+| Tier | Servers | Setup |
+|------|---------|-------|
+| **Core** (all roles) | Context7, Sequential Thinking, Memory | Automatic |
+| **Developer** | + Playwright, Magic UI | Automatic |
+| **Writer/Student/Data/PM** | + DuckDuckGo Search | Automatic |
+| **Advanced** | GitHub, Brave Search, Slack, Notion, + more | `bash tools/mcp-setup.sh` |
+
+Total: 3-5 servers per role (research shows 3 is the sweet spot, 5 is the max before token overhead).
 
 ---
 
