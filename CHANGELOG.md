@@ -15,6 +15,20 @@
 - claude-check diagnostic tool
 - Clean uninstaller with backup restore
 - Anti-patterns library (35 patterns)
+- Non-interactive install via CLI flags (`--mode`, `--roles`, `--config`, `--settings`)
+- MIT LICENSE with BSD-3 attribution for guardrails content
+
+### Ship-Ready Fixes
+- **Role prioritization:** Only selected roles deploy to `rules/` (auto-loaded); all 5 stored in `supercharger/roles/` for mode switching
+- **Safety hook hardening:** Command normalization (strips `sudo`/`command`/`env`/`\` prefixes, collapses whitespace) + flag-aware `rm` detection + new patterns (fork bomb, `truncate`, `mv /`, `kill -9 -1`)
+- **Git-safety hardening:** Position-independent flag matching for `--force`, `--hard`, `--clean`
+- **Prompt validator expanded:** 3 → 10 checks (vague scope, multiple tasks, emotional descriptions, implicit references, etc.)
+- **Anti-patterns integration:** Moved from `shared/` to `rules/` so Claude Code auto-loads the 35-pattern library
+- **CLAUDE.md merge fix:** Merge mode now appends full rendered config (not just a 4-line comment)
+- **CLAUDE.md template:** Added role priority line, removed dead `@` import references
+- **Version consistency:** Standardized to `1.0.0` across all files
+- **README trimmed:** 555 → 180 lines; overflow examples moved to `docs/examples.md`
+- **Test suite added:** 55+ tests covering install, uninstall, hooks (with bypass attempts), and role deployment
 
 ### Credits
 - Inspired by SuperClaude Framework (MIT) — execution workflow patterns
