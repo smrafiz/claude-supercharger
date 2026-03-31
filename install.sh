@@ -12,28 +12,84 @@ source "$SCRIPT_DIR/lib/roles.sh"
 source "$SCRIPT_DIR/lib/hooks.sh"
 source "$SCRIPT_DIR/lib/extras.sh"
 
+# --- Argument parsing ---
+ARG_MODE=""
+ARG_ROLES=""
+ARG_CONFIG=""
+ARG_SETTINGS=""
+
+show_usage() {
+  echo "Usage: install.sh [OPTIONS]"
+  echo ""
+  echo "Options:"
+  echo "  --mode MODE        Install mode: safe, standard, full (default: interactive)"
+  echo "  --roles ROLES      Comma-separated roles: developer,writer,student,data,pm"
+  echo "  --config ACTION    CLAUDE.md handling: deploy, merge, replace, skip"
+  echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
+  echo "  --help             Show this help message"
+  echo ""
+  echo "Examples:"
+  echo "  ./install.sh                                              # Interactive"
+  echo "  ./install.sh --mode standard --roles developer,pm         # Partial (prompts for rest)"
+  echo "  ./install.sh --mode standard --roles developer --config deploy --settings deploy  # Fully silent"
+  exit 0
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --mode)     ARG_MODE="$2"; shift 2 ;;
+    --roles)    ARG_ROLES="$2"; shift 2 ;;
+    --config)   ARG_CONFIG="$2"; shift 2 ;;
+    --settings) ARG_SETTINGS="$2"; shift 2 ;;
+    --help)     show_usage ;;
+    *)          echo "Unknown option: $1"; show_usage ;;
+  esac
+done
+
 detect_platform
 
 # Step 1: Banner + Mode
 show_banner
-echo -e "${BOLD}Step 1 of 4: Install Mode${NC}"
-echo ""
-echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks only"
-echo -e "  ${BOLD}2)${NC} Standard   — recommended (configs + hooks + productivity)"
-echo -e "  ${BOLD}3)${NC} Full       — everything (+ MCP setup + diagnostics)"
-echo ""
-read -rp "> " mode_choice
-case "$mode_choice" in
-  1) MODE="safe" ;;
-  3) MODE="full" ;;
-  *) MODE="standard" ;;
-esac
-echo ""
+
+if [ -n "$ARG_MODE" ]; then
+  MODE="$ARG_MODE"
+else
+  echo -e "${BOLD}Step 1 of 4: Install Mode${NC}"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks only"
+  echo -e "  ${BOLD}2)${NC} Standard   — recommended (configs + hooks + productivity)"
+  echo -e "  ${BOLD}3)${NC} Full       — everything (+ MCP setup + diagnostics)"
+  echo ""
+  read -rp "> " mode_choice
+  case "$mode_choice" in
+    1) MODE="safe" ;;
+    3) MODE="full" ;;
+    *) MODE="standard" ;;
+  esac
+  echo ""
+fi
 
 # Step 2: Roles
-echo -e "${BOLD}Step 2 of 4: Your Roles${NC}"
-select_roles
-echo ""
+if [ -n "$ARG_ROLES" ]; then
+  IFS=',' read -ra role_names <<< "$ARG_ROLES"
+  SELECTED_ROLES=()
+  for r in "${role_names[@]}"; do
+    r=$(echo "$r" | tr -d ' ' | tr '[:upper:]' '[:lower:]')
+    for valid in "${AVAILABLE_ROLES[@]}"; do
+      if [[ "$r" == "$valid" ]]; then
+        SELECTED_ROLES+=("$r")
+        break
+      fi
+    done
+  done
+  if [ ${#SELECTED_ROLES[@]} -eq 0 ]; then
+    SELECTED_ROLES=("writer")
+  fi
+else
+  echo -e "${BOLD}Step 2 of 4: Your Roles${NC}"
+  select_roles
+  echo ""
+fi
 
 # Check if Developer role is selected
 HAS_DEVELOPER="false"
@@ -42,11 +98,12 @@ for role in "${SELECTED_ROLES[@]}"; do
 done
 
 # Step 3: Existing config handling
-echo -e "${BOLD}Step 3 of 4: Existing Config${NC}"
-echo ""
-
 CLAUDE_MD_ACTION="deploy"
-if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+if [ -n "$ARG_CONFIG" ]; then
+  CLAUDE_MD_ACTION="$ARG_CONFIG"
+elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
+  echo -e "${BOLD}Step 3 of 4: Existing Config${NC}"
+  echo ""
   info "Found existing CLAUDE.md"
   echo ""
   echo -e "  ${BOLD}1)${NC} Merge   — append Supercharger to your existing file"
@@ -63,7 +120,9 @@ if [ -f "$HOME/.claude/CLAUDE.md" ]; then
 fi
 
 SETTINGS_ACTION="deploy"
-if [ -f "$HOME/.claude/settings.json" ]; then
+if [ -n "$ARG_SETTINGS" ]; then
+  SETTINGS_ACTION="$ARG_SETTINGS"
+elif [ -f "$HOME/.claude/settings.json" ]; then
   info "Found existing settings.json"
   echo ""
   echo -e "  ${BOLD}1)${NC} Merge   — add Supercharger hooks to your config"
