@@ -30,6 +30,7 @@
 - **README trimmed:** 555 → 180 lines; overflow examples moved to `docs/examples.md`
 - **Test suite added:** 57 tests covering install, uninstall, hooks (with bypass attempts), and role deployment
 - **Token economy:** Concrete response length targets, upgraded output discipline, role-specific token efficiency rules, and compaction preserve/discard guidance
+- **Role-based MCP servers:** Auto-configures 3-5 zero-config MCP servers based on role selection (Context7, Sequential Thinking, Memory as core; Playwright, Magic UI, DuckDuckGo as role-specific). Rewritten `mcp-setup.sh` for advanced key-required servers (GitHub, Brave, Slack, etc.). 65 tests total.
 
 ### Credits
 - Inspired by SuperClaude Framework (MIT) — execution workflow patterns
