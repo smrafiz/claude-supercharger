@@ -4,6 +4,14 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 SAFETY_HOOK="$REPO_DIR/hooks/safety.sh"
 GIT_HOOK="$REPO_DIR/hooks/git-safety.sh"
+PROMPT_HOOK="$REPO_DIR/hooks/prompt-validator.sh"
+
+# Helper: pipe prompt text to the validator hook
+run_prompt_hook() {
+  local prompt="$1"
+  local json_input="{\"input\":{\"prompt\":\"$prompt\"}}"
+  echo "$json_input" | bash "$PROMPT_HOOK" 2>&1
+}
 
 echo "=== Safety Hook Tests ==="
 
@@ -161,5 +169,31 @@ assert_exit_code 2 $? && pass
 begin_test "git: git checkout main is allowed"
 run_hook "$GIT_HOOK" "git checkout main"
 assert_exit_code 0 $? && pass
+
+# --- Prompt Validator Tests ---
+
+begin_test "prompt: vague scope triggers note"
+OUTPUT=$(run_prompt_hook "fix the app")
+echo "$OUTPUT" | grep -qi "specif" && pass || fail "no note about specificity"
+
+begin_test "prompt: emotional description triggers note"
+OUTPUT=$(run_prompt_hook "everything is totally broken fix it all")
+echo "$OUTPUT" | grep -qi "specific error" && pass || fail "no note about specific errors"
+
+begin_test "prompt: build whole thing triggers note"
+OUTPUT=$(run_prompt_hook "build me a full app with auth and dashboard")
+echo "$OUTPUT" | grep -qi "break" && pass || fail "no note about breaking down"
+
+begin_test "prompt: implicit reference triggers note"
+OUTPUT=$(run_prompt_hook "continue with the thing we discussed earlier")
+echo "$OUTPUT" | grep -qi "restate\|specify\|context" && pass || fail "no note about restating"
+
+begin_test "prompt: assumed prior knowledge triggers note"
+OUTPUT=$(run_prompt_hook "you already know my project just keep going")
+echo "$OUTPUT" | grep -qi "context\|restate\|re-provide" && pass || fail "no note about context"
+
+begin_test "prompt: specific request passes clean"
+OUTPUT=$(run_prompt_hook "fix the typo in src/Header.tsx on line 12")
+[ -z "$OUTPUT" ] && pass || fail "unexpected note on specific prompt"
 
 report
