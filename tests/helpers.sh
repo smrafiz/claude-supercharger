@@ -105,7 +105,9 @@ assert_exit_code() {
 run_hook() {
   local hook_script="$1"
   local command="$2"
-  local json_input="{\"input\":{\"command\":\"$command\"}}"
+  local escaped_command
+  escaped_command=$(echo "$command" | sed 's/\\/\\\\/g')
+  local json_input="{\"input\":{\"command\":\"$escaped_command\"}}"
   echo "$json_input" | bash "$hook_script" >/dev/null 2>&1
   return $?
 }

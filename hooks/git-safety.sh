@@ -1,8 +1,4 @@
 #!/usr/bin/env bash
-# Claude Supercharger — Git Safety Hook
-# Event: PreToolUse | Matcher: Bash
-# Blocks dangerous git operations. Exit 2 = block.
-
 set -euo pipefail
 
 INPUT=$(cat)
@@ -12,28 +8,45 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-# Block force push to main/master
-if echo "$COMMAND" | grep -qiE 'git push.*(--force|-f).*(main|master)'; then
-  echo "BLOCKED by Supercharger: force push to main/master is not allowed" >&2
+CMD="$COMMAND"
+CMD=$(echo "$CMD" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
+CMD=$(echo "$CMD" | sed 's/^\\//')
+CMD=$(echo "$CMD" | sed -E 's/^(sudo|command|env)[[:space:]]+//')
+CMD=$(echo "$CMD" | tr -s ' ')
+
+block() {
+  echo "BLOCKED by Supercharger git safety: $1" >&2
+  echo "Command: $COMMAND" >&2
   exit 2
+}
+
+if echo "$CMD" | grep -qE '^git push[[:space:]]'; then
+  has_force=false
+  has_protected=false
+
+  if echo "$CMD" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|$)'; then
+    has_force=true
+  fi
+
+  if echo "$CMD" | grep -qE '(^|[[:space:]])(main|master)([[:space:]]|$)'; then
+    has_protected=true
+  fi
+
+  if $has_force && $has_protected; then
+    block "force push to protected branch"
+  fi
 fi
 
-# Block git reset --hard
-if echo "$COMMAND" | grep -qiE 'git reset\s+--hard'; then
-  echo "BLOCKED by Supercharger: git reset --hard can destroy uncommitted work" >&2
-  exit 2
+if echo "$CMD" | grep -qE '^git reset[[:space:]]' && echo "$CMD" | grep -qE '(^|[[:space:]])--hard([[:space:]]|$)'; then
+  block "git reset --hard can destroy uncommitted work"
 fi
 
-# Block git checkout . / git restore .
-if echo "$COMMAND" | grep -qiE 'git (checkout|restore)\s+\.'; then
-  echo "BLOCKED by Supercharger: this discards all unstaged changes" >&2
-  exit 2
+if echo "$CMD" | grep -qE '^git (checkout|restore)[[:space:]]+\.$'; then
+  block "discards all unstaged changes"
 fi
 
-# Block git clean -f (removes untracked files)
-if echo "$COMMAND" | grep -qiE 'git clean\s+(-f|--force)'; then
-  echo "BLOCKED by Supercharger: git clean -f permanently removes untracked files" >&2
-  exit 2
+if echo "$CMD" | grep -qE '^git clean[[:space:]]' && echo "$CMD" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|$)'; then
+  block "git clean with force permanently removes untracked files"
 fi
 
 exit 0
