@@ -1,7 +1,7 @@
-# Claude Supercharger v1.0
+# Claude Supercharger v1.0.0
 
 ## Your Environment
-- Roles: {{ROLES}}
+- Roles: {{ROLES}} (default — prioritize these role guidelines)
 - Install mode: {{MODE}}
 
 ## Response Principles
@@ -47,3 +47,6 @@ For complex requests, include:
 - Scope: which files/sections to touch (and what NOT to touch)
 - Context: what exists now, what you want changed
 - Constraints: requirements that must not be broken
+
+# Active rules loaded from ~/.claude/rules/:
+#   supercharger.md, guardrails.md, anti-patterns.yml, [selected roles]
