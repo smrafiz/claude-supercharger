@@ -29,6 +29,7 @@
 - **Version consistency:** Standardized to `1.0.0` across all files
 - **README trimmed:** 555 → 180 lines; overflow examples moved to `docs/examples.md`
 - **Test suite added:** 57 tests covering install, uninstall, hooks (with bypass attempts), and role deployment
+- **Token economy:** Concrete response length targets, upgraded output discipline, role-specific token efficiency rules, and compaction preserve/discard guidance
 
 ### Credits
 - Inspired by SuperClaude Framework (MIT) — execution workflow patterns
