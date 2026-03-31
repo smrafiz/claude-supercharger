@@ -85,7 +85,6 @@ echo ""
 
 # Ensure directories exist
 mkdir -p "$HOME/.claude/rules"
-mkdir -p "$HOME/.claude/shared"
 
 # Backup
 create_backup
@@ -104,14 +103,16 @@ elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
     sed -i.bak '/^# --- Claude Supercharger/,$d' "$HOME/.claude/CLAUDE.md"
     rm -f "$HOME/.claude/CLAUDE.md.bak"
   fi
-  # Append Supercharger block
-  cat >> "$HOME/.claude/CLAUDE.md" << MERGEBLOCK
-
-# --- Claude Supercharger v${VERSION} ---
-# Do not edit below this line. Managed by Supercharger.
-# To remove: run uninstall.sh or delete this block.
-# Roles: ${ROLES_LIST} | Mode: ${MODE_LABEL}
-MERGEBLOCK
+  # Append full Supercharger config below marker
+  {
+    echo ""
+    echo "# --- Claude Supercharger v${VERSION} ---"
+    echo "# Do not edit below this line. Managed by Supercharger."
+    echo "# To remove: run uninstall.sh or delete this block."
+    echo ""
+    sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" \
+      "$SCRIPT_DIR/configs/universal/CLAUDE.md"
+  } >> "$HOME/.claude/CLAUDE.md"
   success "Universal config merged (your CLAUDE.md preserved)"
 elif [[ "$CLAUDE_MD_ACTION" == "skip" ]]; then
   info "Skipped CLAUDE.md"
@@ -128,8 +129,8 @@ success "Guardrails installed"
 deploy_roles "$SCRIPT_DIR"
 
 # Deploy shared assets
-cp "$SCRIPT_DIR/shared/anti-patterns.yml" "$HOME/.claude/shared/anti-patterns.yml"
-success "Anti-patterns library installed"
+cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"
+success "Anti-patterns library installed (rules/)"
 
 # Deploy hooks
 if [[ "$SETTINGS_ACTION" != "skip" ]]; then
