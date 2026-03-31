@@ -44,6 +44,16 @@ For multi-turn tasks (3+ related prompts):
 - When referencing prior work, state what you're building on
 - If context was compacted, reconstruct key decisions before proceeding
 
+Preserve through compaction:
+- Decisions made and constraints locked
+- File paths and patterns established
+- What was tried and failed
+
+Discard through compaction:
+- Full file contents already read (re-read if needed)
+- Verbose tool output (keep only the result line)
+- Exploratory discussion that led to a decision (keep the decision)
+
 ## Scope Discipline
 - Only change what was requested — no drive-by refactoring
 - If you notice something worth improving, mention it without fixing
