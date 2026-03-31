@@ -32,6 +32,211 @@ Claude Supercharger takes a different approach.
 
 ---
 
+## Before and After
+
+### Verification Gate
+
+**Your prompt:** "Add a login form to the app"
+
+**Before (vanilla Claude Code):**
+> Here's the login form component I've created. It should work correctly with your authentication system.
+
+**After (Supercharger):**
+> Login form added to `src/components/LoginForm.tsx`. Ran `npm test` — 3/3 tests pass. Ran `npm run build` — no errors. Form handles empty fields, invalid email format, and server errors. Try it: `npm run dev` and navigate to `/login`.
+
+---
+
+### Scope Discipline
+
+**Your prompt:** "Fix the typo in the header"
+
+**Before (vanilla Claude Code):**
+> Fixed the typo. While I was there, I also refactored the header component to use a more modern pattern, updated the CSS to use Tailwind, and extracted the navigation into a separate component.
+
+**After (Supercharger):**
+> Fixed "Welcom" → "Welcome" in `src/components/Header.tsx:12`. No other changes. (Also noticed the nav links could use `aria-label` attributes — want me to add those?)
+
+---
+
+### Safety Hooks
+
+**Your prompt:** "Clean up the old build files"
+
+**Before (vanilla Claude Code):**
+> Running `rm -rf /` to clean up... (catastrophic)
+
+**After (Supercharger):**
+> BLOCKED by Supercharger safety hook: destructive command detected.
+> Let me use a safer approach: `rm -rf ./dist/` to remove only the build output directory.
+
+---
+
+### Role: Developer
+
+**Your prompt:** "How do I center a div?"
+
+**Before (vanilla Claude Code):**
+> There are several ways to center a div in CSS. Let me explain the history of centering in web development, starting with the table-based layouts of the 1990s... (500 words later) ...here's the code.
+
+**After (Supercharger — Developer role):**
+> ```css
+> .container { display: grid; place-items: center; }
+> ```
+
+---
+
+### Role: Student
+
+**Your prompt:** "How do I center a div?"
+
+**Before (vanilla Claude Code):**
+> ```css
+> .container { display: grid; place-items: center; }
+> ```
+
+**After (Supercharger — Student role):**
+> Great question! Centering is something every web developer needs. Let's build up to it:
+>
+> First, do you know what `display` does in CSS? It controls how an element behaves in the layout. Think of it like choosing between a bookshelf (block), a sentence (inline), or a grid (grid).
+>
+> The simplest modern approach is CSS Grid:
+> ```css
+> .container { display: grid; place-items: center; }
+> ```
+> `place-items: center` is a shorthand that centers both horizontally and vertically. Does this make sense? Want to try it and see what happens if you change `center` to `start`?
+
+---
+
+### Role: Writer
+
+**Your prompt:** "Write an intro for our product launch blog post"
+
+**Before (vanilla Claude Code):**
+> In today's rapidly evolving technological landscape, we are thrilled to announce the launch of our groundbreaking new product that will revolutionize the way you think about productivity...
+
+**After (Supercharger — Writer role):**
+> Before I draft, two quick questions:
+> 1. Who's the audience — existing users or new prospects?
+> 2. What tone — formal announcement or casual/excited?
+>
+> Here are 3 opening options once I know:
+> - **A (Direct):** "Starting today, [Product] does X. Here's what that means for your workflow."
+> - **B (Story):** "Last month, a customer asked us why X was so hard. We didn't have a good answer. Now we do."
+> - **C (Data):** "Teams using [Product] ship 40% faster. Today's update makes that gap wider."
+
+---
+
+### Role: Data
+
+**Your prompt:** "Analyze the sales data"
+
+**Before (vanilla Claude Code):**
+> Sales are increasing. Q3 was better than Q2. Revenue is up.
+
+**After (Supercharger — Data role):**
+> **Key finding:** Q3 revenue grew 23% vs Q2, but this is driven entirely by Enterprise tier (+41%). SMB revenue declined 8%.
+>
+> | Segment | Q2 | Q3 | Change |
+> |---------|-----|-----|--------|
+> | Enterprise | $1.2M | $1.7M | +41% |
+> | SMB | $800K | $736K | -8% |
+> | Total | $2.0M | $2.4M | +23% |
+>
+> **Assumptions:** Revenue = recognized, not booked. Currency: USD. Source: `sales_q2q3_2026.csv`.
+>
+> **Caveat:** SMB sample size is small (n=47). The -8% decline is not statistically significant (p=0.12). More data needed before concluding a trend.
+>
+> Query used: `SELECT segment, quarter, SUM(revenue) FROM sales GROUP BY segment, quarter`
+
+---
+
+### Role: PM
+
+**Your prompt:** "How long will the auth migration take?"
+
+**Before (vanilla Claude Code):**
+> The auth migration should take about 2 weeks.
+
+**After (Supercharger — PM role):**
+> **Estimate (range):**
+> - Optimistic: 5 days (no blockers, clean data migration)
+> - Likely: 8 days (1-2 integration issues, testing buffer)
+> - Pessimistic: 14 days (legacy edge cases, third-party API changes)
+>
+> **Assumptions that could change this:**
+> - Current session tokens are well-structured (not verified)
+> - Third-party OAuth providers don't require re-registration
+> - No compliance review required for the new token format
+>
+> **Risks:**
+> - [High] Legacy sessions may not migrate cleanly — suggest a parallel-run period
+> - [Medium] OAuth callback URLs may need updating across 3 environments
+>
+> **Recommendation:** Start with a spike (1 day) to validate the session migration path before committing to the full estimate.
+
+---
+
+### Quick Mode Switch
+
+**Your prompt:** "as student: explain how git rebase works"
+
+**Before (vanilla Claude Code):**
+> `git rebase` re-applies commits on top of another base tip. Usage: `git rebase <branch>`.
+
+**After (Supercharger — mode switch):**
+> Let's build this up step by step.
+>
+> Imagine you're writing a book with a friend. You both started from chapter 5. Your friend finished chapters 6-7, and you wrote chapters 6-8 separately. Now you need to combine.
+>
+> **Merge** is like stapling both versions together with a note saying "combined here."
+>
+> **Rebase** is like rewriting your chapters 6-8 so they start *after* your friend's chapter 7 — as if you always had their work first.
+>
+> The result is the same content, but the history looks cleaner.
+>
+> Want to try it? Create a test repo and I'll walk you through it step by step.
+
+---
+
+### Clarification Mode
+
+**Your prompt:** "interview me — I want to build a dashboard"
+
+**Before (vanilla Claude Code):**
+> Sure! Here's a React dashboard with charts, tables, and a sidebar navigation... (starts building immediately)
+
+**After (Supercharger — clarification mode):**
+> Let's think this through before building anything.
+>
+> First question: Who will use this dashboard — internal team members, external customers, or both?
+
+(Then asks follow-up questions one at a time about data sources, update frequency, key metrics, access control — and summarizes understanding before writing a single line of code.)
+
+---
+
+### Session Handoff
+
+**Your prompt:** "We're done for today, summarize where we are"
+
+**Before (vanilla Claude Code):**
+> We worked on some things today. Good progress!
+
+**After (Supercharger — session handoff):**
+> **Session summary — paste this into your next conversation:**
+>
+> ```
+> ## Context (carry forward)
+> - Building: auth migration for user-service
+> - Stack: Node.js, Express, PostgreSQL, JWT
+> - Decisions made: using refresh token rotation, 15min access token TTL
+> - Files changed: src/auth/middleware.ts, src/auth/tokens.ts, tests/auth.test.ts
+> - Current state: middleware done, token generation done, tests passing (8/8)
+> - Left to do: session migration script, OAuth callback updates
+> - Blocker: need to verify legacy session token format (check with backend team)
+> ```
+
+---
+
 ## What makes it different
 
 **It asks who you are.** Not everyone using Claude Code is a developer. Writers, students, data analysts, project managers — they all use Claude Code differently. Supercharger configures Claude for your specific workflow, not a generic "coding assistant" profile.
@@ -55,6 +260,9 @@ Claude Supercharger takes a different approach.
 - **Autonomy levels** — Low-risk work proceeds without asking. Medium-risk states intent first. High-risk stops and confirms. Claude makes fewer unnecessary interruptions while still checking on things that matter.
 - **Structured escalation** — when Claude is stuck, it reports what it tried, what's blocking it, and what it recommends. No more vague "I'm not sure" responses.
 - **Context management** — proactive compaction suggestions at 60% context usage, with key decisions preserved across compaction.
+- **Quick mode switches** — say "as developer", "as writer", "as student", "as data", or "as pm" mid-conversation to switch role behavior without reinstalling.
+- **Clarification mode** — say "interview me" or "help me think through this" to trigger Socratic questioning before Claude starts executing. Exposes hidden assumptions and confirms scope.
+- **Session handoff** — when a conversation ends or gets complex, Claude summarizes decisions, files changed, and blockers in a copy-pasteable block for your next session.
 
 ### For developers
 
@@ -175,7 +383,8 @@ Step 1 of 4: Install Mode
 
 Step 2 of 4: Your Roles
 
-  Which roles describe you? (comma-separated, or 'all')
+  Which roles describe you best? (comma-separated, or 'all')
+  These will be your default. All roles are available via mode switching.
 
   1) Developer  — build things
   2) Writer     — communicate things
@@ -336,6 +545,7 @@ Yes. Supercharger uses `~/.claude/rules/` (scoped rules) and `settings.json` (ho
 
 - [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) (MIT) — execution workflow patterns, anti-patterns library
 - [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, halt conditions, autonomy levels
+- [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (MIT) — magic keyword switching, clarification mode, session handoff patterns
 
 ---
 

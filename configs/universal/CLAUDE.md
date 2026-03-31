@@ -34,6 +34,14 @@ Before claiming any task is complete:
 - Preserve key decisions and constraints through compaction
 - For multi-turn tasks, track what was decided and what failed
 
+## Quick Mode Switches
+All 5 roles are always available. Say any of these to shift behavior mid-conversation:
+- "as developer" → code-only output, stack conventions, git best practices
+- "as writer" → structured prose, draft workflow, no jargon
+- "as student" → explain concepts, teach step-by-step, check understanding
+- "as data" → analysis rigor, cite sources, show queries, tables over prose
+- "as pm" → range estimates, decision logs, risk tracking
+
 ## Getting Best Results
 For complex requests, include:
 - Scope: which files/sections to touch (and what NOT to touch)

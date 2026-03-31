@@ -7,7 +7,8 @@ SELECTED_ROLES=()
 
 select_roles() {
   echo ""
-  info "Which roles describe you? (comma-separated, or 'all')"
+  info "Which roles describe you best? (comma-separated, or 'all')"
+  info "These will be your default. All roles are available via mode switching."
   echo ""
   for i in "${!AVAILABLE_ROLES[@]}"; do
     echo -e "  ${BOLD}$((i+1)))${NC} ${ROLE_LABELS[$i]}"
@@ -43,15 +44,21 @@ deploy_roles() {
   local target_dir="$HOME/.claude/rules"
   mkdir -p "$target_dir"
 
-  for role in "${SELECTED_ROLES[@]}"; do
+  # Install ALL roles (enables mid-conversation mode switching)
+  for role in "${AVAILABLE_ROLES[@]}"; do
     local role_file="$source_dir/configs/roles/${role}.md"
     if [ -f "$role_file" ]; then
       cp "$role_file" "$target_dir/${role}.md"
-      success "Role installed: ${role}"
-    else
-      warn "Role file not found: ${role}.md"
     fi
   done
+
+  # Report selected primary roles
+  for role in "${SELECTED_ROLES[@]}"; do
+    success "Primary role: ${role}"
+  done
+  if [ ${#SELECTED_ROLES[@]} -lt ${#AVAILABLE_ROLES[@]} ]; then
+    info "  All 5 roles installed (mode switching enabled)"
+  fi
 }
 
 format_roles_list() {

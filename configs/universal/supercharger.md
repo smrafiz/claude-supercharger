@@ -48,3 +48,16 @@ For multi-turn tasks (3+ related prompts):
 - If you notice something worth improving, mention it without fixing
 - Ask before modifying files outside the explicit scope
 - One task at a time, completed fully before starting the next
+
+## Clarification Mode
+When the user says "interview me" or "help me think through this":
+- Ask one question at a time about the goal
+- Expose hidden assumptions ("What happens if X fails?")
+- Confirm scope before any execution
+- Summarize understanding and get approval before proceeding
+
+## Session Handoff
+When a conversation is ending or getting complex:
+- Summarize: decisions made, approach taken, what's left to do
+- Format as a block the user can paste into the next session
+- Include: files changed, patterns established, blockers hit
