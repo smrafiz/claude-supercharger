@@ -140,7 +140,7 @@ cp shared/anti-patterns.yml ~/.claude/shared/
 
 # Verify installation
 grep "Claude Supercharger v1.0.0" ~/.claude/RULES.md
-echo "✅ Claude Supercharger v1.0.0 (Claude Supercharger v1.0.0) installed successfully"
+echo "✅ Claude Supercharger v1.0.0 installed successfully"
 ```
 
 ---
@@ -347,7 +347,7 @@ custom:
 
 ## Initial Release v1.0.0
 
-**Prompt Master Integration** (8 novel techniques):
+**Prompt Master Integration** (10 novel techniques):
 
 1. **35 Anti-Pattern Library** → Proactive detection before execution
 2. **Pre-Delivery Verification** → 6-point quality checklist
@@ -395,10 +395,6 @@ Full Prompt Master skill integration for generating optimized prompts for 30+ AI
 ## Documentation
 
 - [Quick Start Guide](docs/QUICKSTART.md) - 5-minute setup
-- [Architecture](docs/ARCHITECTURE.md) - How it all works
-- [Customization](docs/CUSTOMIZATION.md) - Tailoring to your needs
-- [Troubleshooting](docs/TROUBLESHOOTING.md) - Common issues
-- [Contributing](docs/CONTRIBUTING.md) - How to contribute
 
 ---
 

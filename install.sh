@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Claude Supercharger v1.0.0 Installer
 # One-command installation for Claude Code configuration
+# Note: No integrity/checksum verification of source files
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -16,7 +18,7 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 # Check for existing configuration
-if [ -f ~/.claude/CLAUDE.md ] || [ -f ~/.claude/RULES.md ]; then
+if [ -f "$HOME/.claude/CLAUDE.md" ] || [ -f "$HOME/.claude/RULES.md" ]; then
     echo -e "${YELLOW}⚠️  Existing configuration detected!${NC}"
     echo ""
     echo -e "${BLUE}Installation options:${NC}"
@@ -48,18 +50,19 @@ if [ -f ~/.claude/CLAUDE.md ] || [ -f ~/.claude/RULES.md ]; then
 fi
 
 # Check if ~/.claude directory exists
-if [ ! -d ~/.claude ]; then
+if [ ! -d "$HOME/.claude" ]; then
     echo -e "${YELLOW}⚠️  ~/.claude directory not found. Creating...${NC}"
-    mkdir -p ~/.claude
+    mkdir -p "$HOME/.claude"
 fi
 
 # Backup existing configuration
-BACKUP_DIR=~/.claude/backups/$(date +%Y%m%d-%H%M%S)
-if [ -f ~/.claude/CLAUDE.md ] || [ -f ~/.claude/RULES.md ]; then
+BACKUP_DIR="$HOME/.claude/backups/$(date +%Y%m%d-%H%M%S)"
+if [ -f "$HOME/.claude/CLAUDE.md" ] || [ -f "$HOME/.claude/RULES.md" ]; then
     echo -e "${BLUE}📦 Creating backup at $BACKUP_DIR${NC}"
     mkdir -p "$BACKUP_DIR"
-    cp ~/.claude/*.md "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r ~/.claude/shared "$BACKUP_DIR/" 2>/dev/null || true
+    chmod 700 "$BACKUP_DIR"
+    cp "$HOME/.claude/"*.md "$BACKUP_DIR/" 2>/dev/null || true
+    cp -r "$HOME/.claude/shared" "$BACKUP_DIR/" 2>/dev/null || true
     echo -e "${GREEN}✓ Backup created${NC}"
 fi
 
@@ -68,37 +71,37 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Install core files
 echo -e "${BLUE}📥 Installing core files...${NC}"
-cp "$SCRIPT_DIR/core/CLAUDE.md" ~/.claude/
-cp "$SCRIPT_DIR/core/RULES.md" ~/.claude/
-cp "$SCRIPT_DIR/core/MCP.md" ~/.claude/
-cp "$SCRIPT_DIR/core/PERSONAS.md" ~/.claude/
+cp "$SCRIPT_DIR/core/CLAUDE.md" "$HOME/.claude/"
+cp "$SCRIPT_DIR/core/RULES.md" "$HOME/.claude/"
+cp "$SCRIPT_DIR/core/MCP.md" "$HOME/.claude/"
+cp "$SCRIPT_DIR/core/PERSONAS.md" "$HOME/.claude/"
 echo -e "${GREEN}✓ Core files installed${NC}"
 
 # Install shared resources
 echo -e "${BLUE}📥 Installing shared resources...${NC}"
-mkdir -p ~/.claude/shared
-cp "$SCRIPT_DIR/shared/anti-patterns.yml" ~/.claude/shared/
+mkdir -p "$HOME/.claude/shared"
+cp "$SCRIPT_DIR/shared/anti-patterns.yml" "$HOME/.claude/shared/"
 echo -e "${GREEN}✓ Shared resources installed${NC}"
 
 # Verify installation
 echo ""
 echo -e "${BLUE}🔍 Verifying installation...${NC}"
 
-if grep -q "Claude Supercharger v1.0.0" ~/.claude/RULES.md 2>/dev/null; then
+if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/RULES.md" 2>/dev/null; then
     echo -e "${GREEN}✓ RULES.md Claude Supercharger v1.0.0 verified${NC}"
 else
     echo -e "${RED}✗ RULES.md verification failed${NC}"
     exit 1
 fi
 
-if grep -q "Claude Supercharger v1.0.0" ~/.claude/MCP.md 2>/dev/null; then
+if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/MCP.md" 2>/dev/null; then
     echo -e "${GREEN}✓ MCP.md Claude Supercharger v1.0.0 verified${NC}"
 else
     echo -e "${RED}✗ MCP.md verification failed${NC}"
     exit 1
 fi
 
-if [ -f ~/.claude/shared/anti-patterns.yml ]; then
+if [ -f "$HOME/.claude/shared/anti-patterns.yml" ]; then
     echo -e "${GREEN}✓ anti-patterns.yml verified${NC}"
 else
     echo -e "${RED}✗ anti-patterns.yml verification failed${NC}"

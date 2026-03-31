@@ -132,9 +132,7 @@ When you make a request, Claude Supercharger follows this 8-step workflow:
 
 ## Next Steps
 
-- Read [ARCHITECTURE.md](ARCHITECTURE.md) to understand how it works
-- Read [CUSTOMIZATION.md](CUSTOMIZATION.md) to tailor to your needs
-- Check [TROUBLESHOOTING.md](TROUBLESHOOTING.md) if you hit issues
+Customize Claude Supercharger by creating a project-specific `CLAUDE.md` in your project root. See the main [README](../README.md) for customization details.
 
 ---
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Claude Supercharger v1.0.0 - MCP Server Setup
 # Installs recommended MCP servers for Claude Code
+# Note: No integrity/checksum verification of downloaded packages
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -16,14 +18,14 @@ echo -e "${BLUE}║  Claude Supercharger MCP Server Setup   ║${NC}"
 echo -e "${BLUE}╚═══════════════════════════════════════════╝${NC}"
 echo ""
 
-CONFIG_FILE=~/.claude/claude_desktop_config.json
-BACKUP_FILE=~/.claude/claude_desktop_config.backup.$(date +%Y%m%d-%H%M%S).json
+CONFIG_FILE="$HOME/.claude/claude_desktop_config.json"
+BACKUP_FILE="$HOME/.claude/claude_desktop_config.backup.$(date +%Y%m%d-%H%M%S).json"
 
 # Check if Claude Desktop config exists
 if [ ! -f "$CONFIG_FILE" ]; then
     echo -e "${YELLOW}⚠️  Claude Desktop config not found at $CONFIG_FILE${NC}"
     echo -e "${BLUE}Creating new configuration...${NC}"
-    mkdir -p ~/.claude
+    mkdir -p "$HOME/.claude"
     echo '{"mcpServers": {}}' > "$CONFIG_FILE"
 else
     echo -e "${GREEN}✓ Found existing Claude Desktop config${NC}"
@@ -122,22 +124,36 @@ add_server() {
     local server_name=$1
     local server_config=$2
 
-    # Check if server already exists
-    if grep -q "\"$server_name\"" "$CONFIG_FILE" 2>/dev/null; then
+    # Check if server already exists using proper JSON parsing
+    if command -v python3 &> /dev/null; then
+        if MCP_CONFIG_FILE="$CONFIG_FILE" MCP_SERVER_NAME="$server_name" python3 -c '
+import json, os
+with open(os.environ["MCP_CONFIG_FILE"], "r") as f:
+    config = json.load(f)
+exit(0 if os.environ["MCP_SERVER_NAME"] in config.get("mcpServers", {}) else 1)
+' 2>/dev/null; then
+            echo -e "${YELLOW}  ⚠️  $server_name already configured, skipping${NC}"
+            return
+        fi
+    elif grep -q "\"$server_name\"" "$CONFIG_FILE" 2>/dev/null; then
         echo -e "${YELLOW}  ⚠️  $server_name already configured, skipping${NC}"
         return
     fi
 
-    # Use Python to safely merge JSON (fallback to manual if not available)
+    # Use Python to safely merge JSON via environment variables (no shell interpolation)
     if command -v python3 &> /dev/null; then
-        python3 << EOF
-import json
-with open("$CONFIG_FILE", "r") as f:
+        MCP_CONFIG_FILE="$CONFIG_FILE" MCP_SERVER_NAME="$server_name" MCP_SERVER_CONFIG="$server_config" \
+        python3 << 'EOF'
+import json, os
+config_file = os.environ["MCP_CONFIG_FILE"]
+server_name = os.environ["MCP_SERVER_NAME"]
+server_config = json.loads(os.environ["MCP_SERVER_CONFIG"])
+with open(config_file, "r") as f:
     config = json.load(f)
 if "mcpServers" not in config:
     config["mcpServers"] = {}
-config["mcpServers"]["$server_name"] = $server_config
-with open("$CONFIG_FILE", "w") as f:
+config["mcpServers"][server_name] = server_config
+with open(config_file, "w") as f:
     json.dump(config, f, indent=2)
 EOF
         echo -e "${GREEN}  ✓ $server_name configured${NC}"
@@ -153,16 +169,14 @@ for server in "${INSTALL_SERVERS[@]}"; do
         "context7")
             echo -e "${BLUE}📥 Installing Context7...${NC}"
             echo -e "${YELLOW}   API Key required from: https://context.ai${NC}"
-            read -p "   Enter Context7 API key (or press Enter to skip): " context7_key
+            read -sp "   Enter Context7 API key (or press Enter to skip): " context7_key
+            echo
 
             if [ -n "$context7_key" ]; then
-                add_server "context7" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@upstash/context7-mcp\"],
-  \"env\": {
-    \"CONTEXT7_API_KEY\": \"$context7_key\"
-  }
-}"
+                MCP_USER_SECRET="$context7_key" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@upstash/context7-mcp"],"env":{"CONTEXT7_API_KEY":os.environ["MCP_USER_SECRET"]}}))
+' | { read -r server_json; add_server "context7" "$server_json"; }
             else
                 echo -e "${YELLOW}   ⚠️  Skipped. Add API key later in $CONFIG_FILE${NC}"
             fi
@@ -187,16 +201,14 @@ for server in "${INSTALL_SERVERS[@]}"; do
         "github")
             echo -e "${BLUE}📥 Installing GitHub...${NC}"
             echo -e "${YELLOW}   GitHub token required from: https://github.com/settings/tokens${NC}"
-            read -p "   Enter GitHub Personal Access Token (or press Enter to skip): " github_token
+            read -sp "   Enter GitHub Personal Access Token (or press Enter to skip): " github_token
+            echo
 
             if [ -n "$github_token" ]; then
-                add_server "github" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@modelcontextprotocol/server-github\"],
-  \"env\": {
-    \"GITHUB_PERSONAL_ACCESS_TOKEN\": \"$github_token\"
-  }
-}"
+                MCP_USER_SECRET="$github_token" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@modelcontextprotocol/server-github"],"env":{"GITHUB_PERSONAL_ACCESS_TOKEN":os.environ["MCP_USER_SECRET"]}}))
+' | { read -r server_json; add_server "github" "$server_json"; }
             else
                 echo -e "${YELLOW}   ⚠️  Skipped. Add token later in $CONFIG_FILE${NC}"
             fi
@@ -205,16 +217,14 @@ for server in "${INSTALL_SERVERS[@]}"; do
         "brave-search")
             echo -e "${BLUE}📥 Installing Brave Search...${NC}"
             echo -e "${YELLOW}   API Key required from: https://brave.com/search/api/${NC}"
-            read -p "   Enter Brave Search API key (or press Enter to skip): " brave_key
+            read -sp "   Enter Brave Search API key (or press Enter to skip): " brave_key
+            echo
 
             if [ -n "$brave_key" ]; then
-                add_server "brave-search" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@modelcontextprotocol/server-brave-search\"],
-  \"env\": {
-    \"BRAVE_API_KEY\": \"$brave_key\"
-  }
-}"
+                MCP_USER_SECRET="$brave_key" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@modelcontextprotocol/server-brave-search"],"env":{"BRAVE_API_KEY":os.environ["MCP_USER_SECRET"]}}))
+' | { read -r server_json; add_server "brave-search" "$server_json"; }
             else
                 echo -e "${YELLOW}   ⚠️  Skipped. Add API key later in $CONFIG_FILE${NC}"
             fi
@@ -222,14 +232,24 @@ for server in "${INSTALL_SERVERS[@]}"; do
 
         "filesystem")
             echo -e "${BLUE}📥 Installing Filesystem...${NC}"
-            echo -e "${YELLOW}   Default allowed directory: $HOME${NC}"
+            echo -e "${RED}   WARNING: Default is current project directory. Using \$HOME grants access to ALL files.${NC}"
+            echo -e "${YELLOW}   Default allowed directory: $(pwd)${NC}"
             read -p "   Custom directory (or press Enter for default): " fs_dir
-            fs_dir=${fs_dir:-$HOME}
+            fs_dir=${fs_dir:-$(pwd)}
 
-            add_server "filesystem" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@modelcontextprotocol/server-filesystem\", \"$fs_dir\"]
-}"
+            # Validate path: must be absolute, no '..' components, must exist as directory
+            if [[ "$fs_dir" != /* ]]; then
+                echo -e "${RED}   ✗ Path must be absolute (start with /). Skipping.${NC}"
+            elif [[ "$fs_dir" == *".."* ]]; then
+                echo -e "${RED}   ✗ Path must not contain '..' components. Skipping.${NC}"
+            elif [ ! -d "$fs_dir" ]; then
+                echo -e "${RED}   ✗ Directory does not exist: $fs_dir. Skipping.${NC}"
+            else
+                MCP_USER_PATH="$fs_dir" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@modelcontextprotocol/server-filesystem",os.environ["MCP_USER_PATH"]]}))
+' | { read -r server_json; add_server "filesystem" "$server_json"; }
+            fi
             ;;
 
         "playwright")
@@ -260,16 +280,14 @@ for server in "${INSTALL_SERVERS[@]}"; do
         "neon")
             echo -e "${BLUE}📥 Installing Neon...${NC}"
             echo -e "${YELLOW}   Connection string required from: https://neon.tech${NC}"
-            read -p "   Enter Neon connection string (or press Enter to skip): " neon_conn
+            read -sp "   Enter Neon connection string (or press Enter to skip): " neon_conn
+            echo
 
             if [ -n "$neon_conn" ]; then
-                add_server "neon" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@neondatabase/mcp-server-neon\"],
-  \"env\": {
-    \"DATABASE_URL\": \"$neon_conn\"
-  }
-}"
+                MCP_USER_SECRET="$neon_conn" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@neondatabase/mcp-server-neon"],"env":{"DATABASE_URL":os.environ["MCP_USER_SECRET"]}}))
+' | { read -r server_json; add_server "neon" "$server_json"; }
             else
                 echo -e "${YELLOW}   ⚠️  Skipped. Add connection string later in $CONFIG_FILE${NC}"
             fi
@@ -286,16 +304,14 @@ for server in "${INSTALL_SERVERS[@]}"; do
         "slack")
             echo -e "${BLUE}📥 Installing Slack...${NC}"
             echo -e "${YELLOW}   Bot token required from: https://api.slack.com/apps${NC}"
-            read -p "   Enter Slack Bot Token (or press Enter to skip): " slack_token
+            read -sp "   Enter Slack Bot Token (or press Enter to skip): " slack_token
+            echo
 
             if [ -n "$slack_token" ]; then
-                add_server "slack" "{
-  \"command\": \"npx\",
-  \"args\": [\"-y\", \"@modelcontextprotocol/server-slack\"],
-  \"env\": {
-    \"SLACK_BOT_TOKEN\": \"$slack_token\"
-  }
-}"
+                MCP_USER_SECRET="$slack_token" python3 -c '
+import json, os
+print(json.dumps({"command":"npx","args":["-y","@modelcontextprotocol/server-slack"],"env":{"SLACK_BOT_TOKEN":os.environ["MCP_USER_SECRET"]}}))
+' | { read -r server_json; add_server "slack" "$server_json"; }
             else
                 echo -e "${YELLOW}   ⚠️  Skipped. Add token later in $CONFIG_FILE${NC}"
             fi
@@ -306,13 +322,15 @@ done
 echo ""
 echo -e "${GREEN}╔═══════════════════════════════════════════╗${NC}"
 echo -e "${GREEN}║     ✓ MCP Setup Complete!                ║${NC}"
-echo -e "${GREEN}╚═══════════════════════════════════════════╗${NC}"
+echo -e "${GREEN}╚═══════════════════════════════════════════╝${NC}"
 echo ""
 
 echo -e "${BLUE}📋 Summary:${NC}"
 echo "  • Installed: ${#INSTALL_SERVERS[@]} MCP server(s)"
 echo "  • Config: $CONFIG_FILE"
-echo "  • Backup: $BACKUP_FILE"
+if [ -f "$BACKUP_FILE" ]; then
+    echo "  • Backup: $BACKUP_FILE"
+fi
 echo ""
 
 echo -e "${YELLOW}Next steps:${NC}"
@@ -333,7 +351,8 @@ if [[ $REPLY =~ ^[Yy]$ ]]; then
         python3 << 'EOF'
 import json
 try:
-    with open("~/.claude/claude_desktop_config.json".replace("~", __import__("os").path.expanduser("~")), "r") as f:
+    import os
+    with open(os.path.expanduser("~/.claude/claude_desktop_config.json"), "r") as f:
         config = json.load(f)
     if "mcpServers" in config and len(config["mcpServers"]) > 0:
         print("\033[0;32m✓ Configuration valid\033[0m")

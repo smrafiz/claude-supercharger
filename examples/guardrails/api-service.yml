@@ -1,125 +1,129 @@
+schema_version: "1.0"
+
 # API Service Guardrails
 # Security, performance, monitoring, reliability
 
-security:
-  critical:
-    - "NEVER trust user input - validate all request bodies (Zod/Joi/express-validator)"
-    - "Rate limiting REQUIRED on all public endpoints (prevent DoS)"
-    - "ALWAYS use parameterized queries (prevent SQL injection)"
-    - "NEVER log sensitive data (passwords, tokens, API keys, PII)"
-    - "Authentication REQUIRED for non-public endpoints (JWT/OAuth2)"
-    - "ALWAYS hash passwords with bcrypt (12+ rounds) or Argon2"
-    - "NEVER expose stack traces in production errors"
 
-  high:
-    - "Input validation on ALL endpoints (whitelisting > blacklisting)"
-    - "CORS configured correctly (whitelist origins, no * in production)"
-    - "Helmet.js security headers enabled"
-    - "API keys rotated regularly (90-day max)"
-    - "Principle of least privilege for database access"
-    - "Encrypt sensitive data at rest (AES-256)"
-    - "TLS 1.2+ only (disable older protocols)"
+guardrails:
+  security:
+    critical:
+      - "NEVER trust user input - validate all request bodies (Zod/Joi/express-validator)"
+      - "Rate limiting REQUIRED on all public endpoints (prevent DoS)"
+      - "ALWAYS use parameterized queries (prevent SQL injection)"
+      - "NEVER log sensitive data (passwords, tokens, API keys, PII)"
+      - "Authentication REQUIRED for non-public endpoints (JWT/OAuth2)"
+      - "ALWAYS hash passwords with bcrypt (12+ rounds) or Argon2"
+      - "NEVER expose stack traces in production errors"
 
-performance:
-  critical:
-    - "API response time p95 <200ms (excluding external calls)"
-    - "Database queries MUST use indexes (no table scans on large tables)"
-    - "Connection pooling configured (prevent connection exhaustion)"
-    - "Request timeout <30s (prevent hanging connections)"
+    high:
+      - "Input validation on ALL endpoints (whitelisting > blacklisting)"
+      - "CORS configured correctly (whitelist origins, no * in production)"
+      - "Helmet.js security headers enabled"
+      - "API keys rotated regularly (90-day max)"
+      - "Principle of least privilege for database access"
+      - "Encrypt sensitive data at rest (AES-256)"
+      - "TLS 1.2+ only (disable older protocols)"
 
-  high:
-    - "Caching strategy for read-heavy endpoints (Redis/Memcached)"
-    - "Pagination for list endpoints (max 100 items per page)"
-    - "Avoid N+1 queries (use joins or batch loading)"
-    - "Compress responses (gzip/brotli for >1KB)"
-    - "Async processing for long-running tasks (queues: Bull/RabbitMQ)"
-    - "Database query timeout <5s"
+  performance:
+    critical:
+      - "API response time p95 <200ms (excluding external calls)"
+      - "Database queries MUST use indexes (no table scans on large tables)"
+      - "Connection pooling configured (prevent connection exhaustion)"
+      - "Request timeout <30s (prevent hanging connections)"
 
-  medium:
-    - "CDN for static API documentation"
-    - "HTTP/2 for multiplexing"
-    - "GraphQL DataLoader for batching (if using GraphQL)"
+    high:
+      - "Caching strategy for read-heavy endpoints (Redis/Memcached)"
+      - "Pagination for list endpoints (max 100 items per page)"
+      - "Avoid N+1 queries (use joins or batch loading)"
+      - "Compress responses (gzip/brotli for >1KB)"
+      - "Async processing for long-running tasks (queues: Bull/RabbitMQ)"
+      - "Database query timeout <5s"
 
-monitoring:
-  critical:
-    - "ALL errors logged with context (user ID, request ID, endpoint, stack trace)"
-    - "Alert on error rate >1% over 5min window"
-    - "Health check endpoint (/health or /status) always available"
+    medium:
+      - "CDN for static API documentation"
+      - "HTTP/2 for multiplexing"
+      - "GraphQL DataLoader for batching (if using GraphQL)"
 
-  high:
-    - "Request tracing (correlation IDs across services)"
-    - "Metrics: request count, latency (p50/p95/p99), error rate"
-    - "Database connection pool monitoring"
-    - "Alert on API latency p95 >500ms"
-    - "Alert on 5xx rate >0.5%"
-    - "Uptime monitoring from multiple regions"
+  monitoring:
+    critical:
+      - "ALL errors logged with context (pseudonymized/hashed user ID, request ID, endpoint, stack trace) to access-controlled logging targets"
+      - "Alert on error rate >1% over 5min window"
+      - "Health check endpoint (/health or /status) always available"
 
-  medium:
-    - "API usage analytics (endpoint popularity, user behavior)"
-    - "Slow query logging (>1s)"
-    - "Rate limit hit monitoring"
+    high:
+      - "Request tracing (correlation IDs across services)"
+      - "Metrics: request count, latency (p50/p95/p99), error rate"
+      - "Database connection pool monitoring"
+      - "Alert on API latency p95 >500ms"
+      - "Alert on 5xx rate >0.5%"
+      - "Uptime monitoring from multiple regions"
 
-reliability:
-  critical:
-    - "Database transactions for multi-step writes (prevent partial updates)"
-    - "Idempotency for non-GET endpoints (prevent duplicate operations)"
-    - "Graceful shutdown (finish in-flight requests before exit)"
+    medium:
+      - "API usage analytics (endpoint popularity, user behavior)"
+      - "Slow query logging (>1s)"
+      - "Rate limit hit monitoring"
 
-  high:
-    - "Retry logic with exponential backoff for external calls"
-    - "Circuit breaker for unreliable dependencies"
-    - "Database connection retry on transient failures"
-    - "Automated backups (daily, 30-day retention)"
-    - "Blue-green or canary deployment strategy"
+  reliability:
+    critical:
+      - "Database transactions for multi-step writes (prevent partial updates)"
+      - "Idempotency for non-GET endpoints (prevent duplicate operations)"
+      - "Graceful shutdown (finish in-flight requests before exit)"
 
-  medium:
-    - "Load balancing across multiple instances"
-    - "Auto-scaling based on CPU/memory/request count"
-    - "Database read replicas for read-heavy workloads"
+    high:
+      - "Retry logic with exponential backoff for external calls"
+      - "Circuit breaker for unreliable dependencies"
+      - "Database connection retry on transient failures"
+      - "Automated backups (daily, 30-day retention)"
+      - "Blue-green or canary deployment strategy"
 
-quality:
-  high:
-    - "API versioning (/v1/, /v2/) with deprecation notices"
-    - "OpenAPI/Swagger documentation auto-generated"
-    - "Consistent error response format (RFC 7807 Problem Details)"
-    - "Request/response validation with JSON schemas"
-    - "Test coverage >80% for critical paths"
+    medium:
+      - "Load balancing across multiple instances"
+      - "Auto-scaling based on CPU/memory/request count"
+      - "Database read replicas for read-heavy workloads"
 
-  medium:
-    - "API changelog maintained"
-    - "Postman/Insomnia collection for manual testing"
-    - "Contract tests for API consumers"
+  quality:
+    high:
+      - "API versioning (/v1/, /v2/) with deprecation notices"
+      - "OpenAPI/Swagger documentation auto-generated"
+      - "Consistent error response format (RFC 7807 Problem Details)"
+      - "Request/response validation with JSON schemas"
+      - "Test coverage >80% for critical paths"
 
-compliance:
-  critical:
-    - "GDPR: User data deletion within 30 days of request"
-    - "GDPR: Data export within 30 days of request"
-    - "PCI DSS: No plaintext credit card storage (use Stripe/PayPal tokenization)"
+    medium:
+      - "API changelog maintained"
+      - "Postman/Insomnia collection for manual testing"
+      - "Contract tests for API consumers"
 
-  high:
-    - "Audit logs for data access/modification (compliance trail)"
-    - "Data retention policy enforced (auto-delete old logs)"
-    - "SOC 2 controls if handling sensitive data"
+  compliance:
+    critical:
+      - "GDPR: User data deletion within 30 days of request"
+      - "GDPR: Data export within 30 days of request"
+      - "PCI DSS: No plaintext credit card storage (use Stripe/PayPal tokenization)"
 
-enforcement:
-  pre_commit:
-    - "ESLint/TSLint: no-console, security rules"
-    - "TypeScript: strict mode"
-    - "Unit tests pass"
+    high:
+      - "Audit logs for data access/modification (compliance trail)"
+      - "Data retention policy enforced (auto-delete old logs)"
+      - "SOC 2 controls if handling sensitive data"
 
-  pre_deploy:
-    - "Integration tests pass"
-    - "Security scan: npm audit, Snyk, or Dependabot"
-    - "Load tests: handle 2x expected peak traffic"
-    - "Database migration tests (up + down)"
+  enforcement:
+    pre_commit:
+      - "ESLint/@typescript-eslint: no-console, security rules"
+      - "TypeScript: strict mode"
+      - "Unit tests pass"
 
-  continuous:
-    - "Error rate monitoring (Sentry, Datadog, New Relic)"
-    - "Latency monitoring (p95 <200ms alert)"
-    - "Uptime monitoring (99.9% SLA)"
-    - "Security vulnerability scanning (daily)"
+    pre_deploy:
+      - "Integration tests pass"
+      - "Security scan: npm audit, Snyk, or Dependabot"
+      - "Load tests: handle 2x expected peak traffic"
+      - "Database migration tests (up + down)"
 
-violation_handling:
-  critical: "Block deployment, rollback if in production"
-  high: "Create incident, fix within 24 hours"
-  medium: "Create ticket, fix in next sprint"
+    continuous:
+      - "Error rate monitoring (Sentry, Datadog, New Relic)"
+      - "Latency monitoring (p95 <200ms alert)"
+      - "Uptime monitoring (99.9% SLA)"
+      - "Security vulnerability scanning (daily)"
+
+  violation_handling:
+    critical: "Block deployment, rollback if in production"
+    high: "Create incident, fix within 24 hours"
+    medium: "Create ticket, fix in next sprint"

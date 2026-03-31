@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Claude Supercharger v1.0.0 Merge Script
 # Smart merge for existing configurations
+# Note: No integrity/checksum verification of source files
 
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
@@ -16,12 +18,16 @@ echo -e "${BLUE}╚════════════════════�
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKUP_DIR=~/.claude/backups/merge-$(date +%Y%m%d-%H%M%S)
+BACKUP_DIR="$HOME/.claude/backups/merge-$(date +%Y%m%d-%H%M%S)"
 
-# Create backup
+# Create backup (only .md and shared/ — avoids copying sensitive files)
 echo -e "${BLUE}📦 Creating backup at $BACKUP_DIR${NC}"
 mkdir -p "$BACKUP_DIR"
-[ -d ~/.claude ] && cp -r ~/.claude/* "$BACKUP_DIR/" 2>/dev/null || true
+chmod 700 "$BACKUP_DIR"
+if [ -d "$HOME/.claude" ]; then
+    cp "$HOME/.claude/"*.md "$BACKUP_DIR/" 2>/dev/null || true
+    [ -d "$HOME/.claude/shared" ] && cp -r "$HOME/.claude/shared" "$BACKUP_DIR/" 2>/dev/null || true
+fi
 echo -e "${GREEN}✓ Backup created${NC}"
 echo ""
 
@@ -33,11 +39,11 @@ HAS_MCP_MD=false
 HAS_PERSONAS_MD=false
 HAS_SHARED=false
 
-[ -f ~/.claude/CLAUDE.md ] && HAS_CLAUDE_MD=true
-[ -f ~/.claude/RULES.md ] && HAS_RULES_MD=true
-[ -f ~/.claude/MCP.md ] && HAS_MCP_MD=true
-[ -f ~/.claude/PERSONAS.md ] && HAS_PERSONAS_MD=true
-[ -d ~/.claude/shared ] && HAS_SHARED=true
+[ -f "$HOME/.claude/CLAUDE.md" ] && HAS_CLAUDE_MD=true
+[ -f "$HOME/.claude/RULES.md" ] && HAS_RULES_MD=true
+[ -f "$HOME/.claude/MCP.md" ] && HAS_MCP_MD=true
+[ -f "$HOME/.claude/PERSONAS.md" ] && HAS_PERSONAS_MD=true
+[ -d "$HOME/.claude/shared" ] && HAS_SHARED=true
 
 if [ "$HAS_CLAUDE_MD" = false ] && [ "$HAS_RULES_MD" = false ]; then
     echo -e "${YELLOW}⚠️  No existing configuration found. Use install.sh instead.${NC}"
@@ -52,11 +58,11 @@ if [ "$HAS_CLAUDE_MD" = true ]; then
     echo -e "${BLUE}🔧 Merging CLAUDE.md...${NC}"
 
     # Check if already has Supercharger markers
-    if grep -q "Claude Supercharger v1.0.0" ~/.claude/CLAUDE.md 2>/dev/null; then
+    if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
         echo -e "${YELLOW}  ⚠️  Claude Supercharger already integrated in CLAUDE.md${NC}"
     else
         # Append Supercharger integration marker
-        cat >> ~/.claude/CLAUDE.md << 'EOF'
+        cat >> "$HOME/.claude/CLAUDE.md" << 'EOF'
 
 # ═══════════════════════════════════════
 # Claude Supercharger v1.0.0 Integration
@@ -69,7 +75,7 @@ EOF
         echo -e "${GREEN}  ✓ Added Supercharger integration to CLAUDE.md${NC}"
     fi
 else
-    cp "$SCRIPT_DIR/core/CLAUDE.md" ~/.claude/
+    cp "$SCRIPT_DIR/core/CLAUDE.md" "$HOME/.claude/"
     echo -e "${GREEN}  ✓ Installed CLAUDE.md${NC}"
 fi
 
@@ -77,11 +83,11 @@ fi
 if [ "$HAS_RULES_MD" = true ]; then
     echo -e "${BLUE}🔧 Merging RULES.md...${NC}"
 
-    if grep -q "Claude Supercharger v1.0.0" ~/.claude/RULES.md 2>/dev/null; then
+    if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/RULES.md" 2>/dev/null; then
         echo -e "${YELLOW}  ⚠️  Claude Supercharger already in RULES.md${NC}"
     else
         # Create merged version
-        cat >> ~/.claude/RULES.md << 'EOF'
+        cat >> "$HOME/.claude/RULES.md" << 'EOF'
 
 # ═══════════════════════════════════════════════════════════
 # Claude Supercharger v1.0.0 - Enhanced Rules
@@ -158,7 +164,7 @@ EOF
         echo -e "${GREEN}  ✓ Merged Supercharger rules into RULES.md${NC}"
     fi
 else
-    cp "$SCRIPT_DIR/core/RULES.md" ~/.claude/
+    cp "$SCRIPT_DIR/core/RULES.md" "$HOME/.claude/"
     echo -e "${GREEN}  ✓ Installed RULES.md${NC}"
 fi
 
@@ -166,10 +172,10 @@ fi
 if [ "$HAS_MCP_MD" = true ]; then
     echo -e "${BLUE}🔧 Merging MCP.md...${NC}"
 
-    if grep -q "Tool-Specific Optimization" ~/.claude/MCP.md 2>/dev/null; then
+    if grep -q "Tool-Specific Optimization" "$HOME/.claude/MCP.md" 2>/dev/null; then
         echo -e "${YELLOW}  ⚠️  Tool-Specific Optimization already in MCP.md${NC}"
     else
-        cat >> ~/.claude/MCP.md << 'EOF'
+        cat >> "$HOME/.claude/MCP.md" << 'EOF'
 
 # ═══════════════════════════════════════════════════════════
 # Claude Supercharger v1.0.0 - Tool-Specific Optimization
@@ -211,7 +217,7 @@ EOF
         echo -e "${GREEN}  ✓ Merged Tool-Specific Optimization into MCP.md${NC}"
     fi
 else
-    cp "$SCRIPT_DIR/core/MCP.md" ~/.claude/
+    cp "$SCRIPT_DIR/core/MCP.md" "$HOME/.claude/"
     echo -e "${GREEN}  ✓ Installed MCP.md${NC}"
 fi
 
@@ -220,7 +226,8 @@ if [ "$HAS_PERSONAS_MD" = true ]; then
     echo -e "${BLUE}🔧 Merging PERSONAS.md...${NC}"
 
     # Check if Supercharger personas already exist
-    EXISTING_PERSONAS=$(grep -E "^### (architect|frontend|backend|analyzer|security|mentor|refactorer|performance|qa)$" ~/.claude/PERSONAS.md 2>/dev/null | wc -l || echo 0)
+    EXISTING_PERSONAS=$(grep -cE "^### (architect|frontend|backend|analyzer|security|mentor|refactorer|performance|qa)$" "$HOME/.claude/PERSONAS.md" 2>/dev/null || echo 0)
+    EXISTING_PERSONAS=$((EXISTING_PERSONAS + 0))
 
     if [ "$EXISTING_PERSONAS" -ge 5 ]; then
         echo -e "${YELLOW}  ⚠️  Similar personas already exist (found $EXISTING_PERSONAS)${NC}"
@@ -228,12 +235,12 @@ if [ "$HAS_PERSONAS_MD" = true ]; then
     else
         echo -e "${YELLOW}  ⚠️  Custom PERSONAS.md detected${NC}"
         echo -e "${YELLOW}  ⚠️  Installing Supercharger personas to ~/.claude/shared/supercharger-personas.md${NC}"
-        mkdir -p ~/.claude/shared
-        cp "$SCRIPT_DIR/core/PERSONAS.md" ~/.claude/shared/supercharger-personas.md
+        mkdir -p "$HOME/.claude/shared"
+        cp "$SCRIPT_DIR/core/PERSONAS.md" "$HOME/.claude/shared/supercharger-personas.md"
 
         # Add reference in existing PERSONAS.md
-        if ! grep -q "supercharger-personas.md" ~/.claude/PERSONAS.md 2>/dev/null; then
-            cat >> ~/.claude/PERSONAS.md << 'EOF'
+        if ! grep -q "supercharger-personas.md" "$HOME/.claude/PERSONAS.md" 2>/dev/null; then
+            cat >> "$HOME/.claude/PERSONAS.md" << 'EOF'
 
 # ═══════════════════════════════════════
 # Claude Supercharger Personas
@@ -245,18 +252,18 @@ EOF
         echo -e "${GREEN}  ✓ Installed to shared/supercharger-personas.md${NC}"
     fi
 else
-    cp "$SCRIPT_DIR/core/PERSONAS.md" ~/.claude/
+    cp "$SCRIPT_DIR/core/PERSONAS.md" "$HOME/.claude/"
     echo -e "${GREEN}  ✓ Installed PERSONAS.md${NC}"
 fi
 
 # Install shared resources
 echo -e "${BLUE}🔧 Installing shared resources...${NC}"
-mkdir -p ~/.claude/shared
+mkdir -p "$HOME/.claude/shared"
 
-if [ -f ~/.claude/shared/anti-patterns.yml ]; then
+if [ -f "$HOME/.claude/shared/anti-patterns.yml" ]; then
     echo -e "${YELLOW}  ⚠️  anti-patterns.yml already exists${NC}"
 else
-    cp "$SCRIPT_DIR/shared/anti-patterns.yml" ~/.claude/shared/
+    cp "$SCRIPT_DIR/shared/anti-patterns.yml" "$HOME/.claude/shared/"
     echo -e "${GREEN}  ✓ Installed anti-patterns.yml${NC}"
 fi
 

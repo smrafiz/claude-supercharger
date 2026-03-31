@@ -1,7 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
+umask 077
 
 # Claude Supercharger v1.0.0 Uninstaller
+# Note: No integrity/checksum verification
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -22,8 +24,13 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 0
 fi
 
-# Find most recent backup
-BACKUP_DIR=$(ls -dt ~/.claude/backups/*/ 2>/dev/null | head -1)
+# Find most recent backup using glob-based approach (avoids parsing ls output)
+BACKUP_DIR=""
+if [ -d "$HOME/.claude/backups" ]; then
+    for d in "$HOME/.claude/backups"/*/; do
+        [ -d "$d" ] && BACKUP_DIR="$d"
+    done
+fi
 
 if [ -n "$BACKUP_DIR" ]; then
     echo -e "${BLUE}📦 Found backup: $BACKUP_DIR${NC}"
@@ -31,9 +38,9 @@ if [ -n "$BACKUP_DIR" ]; then
     echo
     if [[ ! $REPLY =~ ^[Nn]$ ]]; then
         echo -e "${BLUE}🔄 Restoring backup...${NC}"
-        cp "$BACKUP_DIR"/*.md ~/.claude/ 2>/dev/null || true
-        if [ -d "$BACKUP_DIR/shared" ]; then
-            cp -r "$BACKUP_DIR/shared" ~/.claude/ 2>/dev/null || true
+        cp "${BACKUP_DIR}"*.md "$HOME/.claude/" 2>/dev/null || true
+        if [ -d "${BACKUP_DIR}shared" ]; then
+            cp -r "${BACKUP_DIR}shared" "$HOME/.claude/" 2>/dev/null || true
         fi
         echo -e "${GREEN}✓ Backup restored${NC}"
     fi
@@ -43,10 +50,12 @@ fi
 
 # Remove Claude Supercharger-specific files
 echo -e "${BLUE}🗑️  Removing Claude Supercharger files...${NC}"
-rm -f ~/.claude/shared/anti-patterns.yml
+rm -f "$HOME/.claude/shared/anti-patterns.yml"
 
 echo -e "${GREEN}✓ Uninstall complete${NC}"
 echo ""
 echo -e "${YELLOW}Note: Core files (CLAUDE.md, RULES.md, MCP.md, PERSONAS.md) were${NC}"
 echo -e "${YELLOW}restored from backup if available. If no backup existed, they remain unchanged.${NC}"
+echo -e "${YELLOW}MCP server config (~/.claude/claude_desktop_config.json) is not modified by uninstall.${NC}"
+echo -e "${YELLOW}To fully clean up, manually review and edit that file if needed.${NC}"
 echo ""

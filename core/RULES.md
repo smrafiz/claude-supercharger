@@ -336,6 +336,7 @@ Verification Gate[H:8]: Before claiming "done" on any task
 
   Rule: Evidence before assertion | Run check→read output→then claim done
   Never: "Should work" | "Looks correct" | "I believe this fixes it" w/o verification
+```
 
 ## 7. Efficiency & Mgmt
 
@@ -346,7 +347,7 @@ Cost[H:8]: Simple→sonnet$ | Complex→sonnet4$$ | Critical→opus4$$$ | Respon
 Advanced: Orchestration[H:7]: Parallel|Shared context | Iterative[H:8]: Boomerang|Measure|Refine
 Root Cause[H:7]: Five whys|Document|Prevent | Memory[M:6]: Store decisions|Share context
 Automation[H:7-8]: Validate env|Error handling|Timeouts | CI/CD: Idempotent|Retry|Secure creds
-Integration: Security: shared/*.yml | Ambiguity: analyzer→clarify | shared/impl.yml
+Integration: Security: shared/*.yml | Ambiguity: analyzer→clarify
 Session Notes[M:5]: End of complex session→note what approach worked/failed
   Save: "Tried X→failed because Y, Z worked" as feedback memory
   Skip: Simple sessions | Single-file edits | Obvious outcomes

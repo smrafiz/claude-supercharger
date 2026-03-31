@@ -1,3 +1,5 @@
+schema_version: "1.0"
+
 # Anti-Pattern Library
 # 35 credit-killing patterns | Scan before execution | Fix silently unless changes intent
 

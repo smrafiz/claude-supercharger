@@ -1,170 +1,179 @@
+schema_version: "1.0"
+
 # Agent Safety Guardrails
 # Adapted from: https://github.com/TheArchitectit/agent-guardrails-template
 # Copyright (c) 2026 TheArchitectit (BSD-3-Clause License)
 # Universal safety protocols for AI agents operating on any codebase
 # For full template: shared/agent-guardrails-template.md
 
-four_laws:
-  1_read_before_editing:
-    rule: "NEVER modify code without reading the file first"
-    level: "CRITICAL"
-    rationale: "One read costs fewer tokens than fixing a blind edit"
 
-  2_stay_in_scope:
-    rule: "Only modify files explicitly listed in the task"
-    level: "CRITICAL"
-    rationale: "No feature creep, no 'improvements' to surrounding code"
+guardrails:
+  four_laws:
+    1_read_before_editing:
+      rule: "NEVER modify code without reading the file first"
+      level: "CRITICAL"
+      rationale: "One read costs fewer tokens than fixing a blind edit"
 
-  3_verify_before_committing:
-    rule: "Run relevant tests after every modification"
-    level: "CRITICAL"
-    rationale: "A failed test in dev costs minutes; in production, hours"
+    2_stay_in_scope:
+      rule: "Only modify files explicitly listed in the task"
+      level: "CRITICAL"
+      rationale: "No feature creep, no 'improvements' to surrounding code"
 
-  4_halt_when_uncertain:
-    rule: "Stop and ask when unsure about any step"
-    level: "CRITICAL"
-    rationale: "One question is cheaper than building the wrong thing"
+    3_verify_before_committing:
+      rule: "Run relevant tests after every modification"
+      level: "CRITICAL"
+      rationale: "A failed test in dev costs minutes; in production, hours"
 
-pre_execution:
-  critical:
-    - "Read target file before any edit"
-    - "Verify scope — only modify listed files"
-    - "No feature creep — no unrelated refactoring or improvements"
-    - "Know the rollback command before editing (git checkout HEAD -- <file>)"
-    - "Confirm previous fixes are not being undone"
+    4_halt_when_uncertain:
+      rule: "Stop and ask when unsure about any step"
+      level: "CRITICAL"
+      rationale: "One question is cheaper than building the wrong thing"
 
-  high:
-    - "Production code created BEFORE test code"
-    - "Test infrastructure separate from production"
-    - "All tests pass before committing"
+  pre_execution:
+    critical:
+      - "Read target file before any edit"
+      - "Verify scope — only modify listed files"
+      - "No feature creep — no unrelated refactoring or improvements"
+      - "Know the rollback command before editing (git restore <file>)"
+      - "Confirm previous fixes are not being undone"
 
-git_safety:
-  critical:
-    - "NEVER force push (git push --force)"
-    - "NEVER amend commits not created this session"
-    - "NEVER rebase shared branches"
-    - "NEVER use --no-verify to skip hooks"
-    - "NEVER push without explicit user permission"
-    - "NEVER delete branches without permission"
-    - "NEVER modify git config"
-    - "NEVER reset --hard on shared branches"
+    high:
+      - "Test code created alongside or before production code"
+      - "Test infrastructure separate from production"
+      - "All tests pass before committing"
 
-  high:
-    - "One focused commit per task"
-    - "Descriptive commit messages"
-    - "Check git status before and after operations"
+  git_safety:
+    critical:
+      - "NEVER force push (git push --force)"
+      - "NEVER amend commits not created this session"
+      - "NEVER rebase shared branches"
+      - "NEVER use --no-verify to skip hooks"
+      - "NEVER push without explicit user permission"
+      - "NEVER delete branches without permission"
+      - "NEVER modify git config"
+      - "NEVER reset --hard on shared branches"
 
-code_safety:
-  critical:
-    - "NEVER commit credentials, keys, tokens, or secrets"
-    - "NEVER modify auth/security code without explicit review"
-    - "NEVER change security configurations without permission"
+    high:
+      - "One focused commit per task"
+      - "Descriptive commit messages"
+      - "Check git status before and after operations"
 
-  high:
-    - "Use provided code exactly — no unsolicited improvements"
-    - "No new imports unless required by the task"
-    - "Preserve existing type hints"
-    - "No deletions outside scope"
-    - "Match existing indentation and style"
-    - "No build artifacts or generated code in commits"
+  code_safety:
+    critical:
+      - "NEVER commit credentials, keys, tokens, or secrets"
+      - "NEVER modify auth/security code without explicit review"
+      - "NEVER change security configurations without permission"
 
-test_production_separation:
-  critical:
-    - "NEVER use production database for tests"
-    - "NEVER create test users in production"
-    - "NEVER expose production credentials in test code"
-    - "NEVER deploy test code to production"
-    - "NEVER mix test and production data"
+    high:
+      - "Use provided code exactly — no unsolicited improvements"
+      - "No new imports unless required by the task"
+      - "Preserve existing type hints"
+      - "No deletions outside scope"
+      - "Match existing indentation and style"
+      - "No build artifacts or generated code in commits"
 
-  high:
-    - "Separate database connections for test/prod"
-    - "Separate service configurations for test/prod"
-    - "If boundary unclear → HALT and ask user"
+  test_production_separation:
+    critical:
+      - "NEVER use production database for tests"
+      - "NEVER create test users in production"
+      - "NEVER expose production credentials in test code"
+      - "NEVER deploy test code to production"
+      - "NEVER mix test and production data"
 
-halt_conditions:
-  description: "Stop immediately and report to user if ANY occur"
-  triggers:
-    - "Target file does not exist"
-    - "Line numbers don't match expected"
-    - "File has unexpected modifications"
-    - "Syntax check fails after edit"
-    - "Any test fails after edit"
-    - "Merge conflicts encountered"
-    - "Uncertain about ANY step"
-    - "Edit tool reports 'string not found'"
-    - "Permission denied errors"
-    - "Import errors when testing"
-    - "Timeout or out-of-memory errors"
-    - "User requests stop"
-    - "Test/production boundary unclear"
+    high:
+      - "Separate database connections for test/prod"
+      - "Separate service configurations for test/prod"
+      - "If boundary unclear → HALT and ask user"
 
-forbidden_actions:
-  file_operations:
-    - "Modify files outside declared scope"
-    - "Delete files without explicit permission"
-    - "Create files without explicit need"
-    - "Modify hidden/system files without permission"
-    - "Change file permissions"
+  halt_conditions:
+    description: "Stop immediately and report to user if ANY occur"
+    triggers:
+      - "Target file does not exist"
+      - "Line numbers don't match expected"
+      - "File has unexpected modifications"
+      - "Syntax check fails after edit"
+      - "Any test fails after edit"
+      - "Merge conflicts encountered"
+      - "Uncertain about ANY step"
+      - "Edit tool reports 'string not found'"
+      - "Permission denied errors"
+      - "Import errors when testing"
+      - "Timeout or out-of-memory errors"
+      - "User requests stop"
+      - "Test/production boundary unclear"
 
-  code_changes:
-    - "Add logging/debugging to production code"
-    - "Add comments that weren't requested"
-    - "Clean up or improve surrounding code"
-    - "Update version numbers without request"
-    - "Modify auth code without review"
+  forbidden_actions:
+    file_operations:
+      - "Modify files outside declared scope"
+      - "Delete files without explicit permission"
+      - "Create files without explicit need"
+      - "Modify hidden/system files without permission"
+      - "Change file permissions"
 
-  system_operations:
-    - "Run servers or long-running services"
-    - "Execute commands requiring user input"
-    - "Make network requests to unknown endpoints"
-    - "Install dependencies without permission"
-    - "Modify CI/CD pipelines without permission"
-    - "Execute commands with elevated privileges"
-    - "Access or modify environment variables"
+    code_changes:
+      - "Add logging/debugging to production code"
+      - "Add comments that weren't requested"
+      - "Clean up or improve surrounding code"
+      - "Update version numbers without request"
+      - "Modify auth code without review"
 
-  data_operations:
-    - "Access databases without permission"
-    - "Modify production data"
-    - "Export or transmit user data"
-    - "Store credentials or secrets"
+    system_operations:
+      - "Run servers or long-running services"
+      - "Execute commands requiring user input"
+      - "Make network requests to unknown endpoints"
+      - "Install dependencies without permission"
+      - "Modify CI/CD pipelines without permission"
+      - "Execute commands with elevated privileges"
+      - "Access or modify environment variables"
 
-scope_boundaries:
-  in_scope:
-    - "Specific file(s) listed in task"
-    - "Specific line ranges identified"
-    - "Exact changes described"
-    - "Production code (before test code)"
+    data_operations:
+      - "Access databases without permission"
+      - "Modify production data"
+      - "Export or transmit user data"
+      - "Store credentials or secrets"
 
-  out_of_scope:
-    - "All other files"
-    - "Other methods/functions in target file"
-    - "Tests (unless task is test-related)"
-    - "Documentation (unless task is doc-related)"
-    - "Git hooks and configs"
-    - "CI/CD configurations"
-    - "Dependencies/package files"
-    - "Environment configurations"
-    - "Security-related files"
+  scope_boundaries:
+    in_scope:
+      - "Specific file(s) listed in task"
+      - "Specific line ranges identified"
+      - "Exact changes described"
+      - "Production code (alongside or after test code)"
 
-escalation:
-  high:
-    - "Security-related file modified → Require human review"
-    - ">5 files changed in one task → Request confirmation"
-    - "Database schema changes → Halt and notify"
-    - "3+ failed attempts on same task → Report and ask for guidance"
+    out_of_scope:
+      - "All other files"
+      - "Other methods/functions in target file"
+      - "Tests (unless task is test-related)"
+      - "Documentation (unless task is doc-related)"
+      - "Git hooks and configs"
+      - "CI/CD configurations"
+      - "Dependencies/package files"
+      - "Environment configurations"
+      - "Security-related files"
 
-enforcement:
-  pre_commit:
-    - "Scope check (only listed files modified)"
-    - "No secrets in diff (grep for API keys, tokens, passwords)"
-    - "Tests pass"
+  escalation:
+    critical:
+      - "Security-related code modified (auth, crypto, permissions) → Immediate halt, require human review"
+      - "Secrets or credentials detected in diff → Block commit, alert user"
+      - "Production environment targeted → Require explicit confirmation"
 
-  continuous:
-    - "Monitor agent actions against scope boundaries"
-    - "Log all file modifications for audit trail"
-    - "Track halt condition triggers"
+    high:
+      - "Security-related file modified → Require human review"
+      - ">5 files changed in one task → Request confirmation"
+      - "Database schema changes → Halt and notify"
+      - "3+ failed attempts on same task → Report and ask for guidance"
 
-  violation_handling:
-    critical: "Immediate halt, rollback, report to user"
-    high: "Warn user, request acknowledgment before proceeding"
-    medium: "Log and suggest correction"
+  enforcement:
+    pre_commit:
+      - "Scope check (only listed files modified)"
+      - "No secrets in diff (grep for API keys, tokens, passwords)"
+      - "Tests pass"
+
+    continuous:
+      - "Monitor agent actions against scope boundaries"
+      - "Log all file modifications for audit trail"
+      - "Track halt condition triggers"
+
+    violation_handling:
+      critical: "Immediate halt, rollback, report to user"
+      high: "Warn user, request acknowledgment before proceeding"
+      medium: "Log and suggest correction"

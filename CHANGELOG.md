@@ -6,7 +6,7 @@ All notable changes to Claude Supercharger will be documented in this file.
 
 ### Added - Prompt Master Integration
 
-**8 Novel Techniques:**
+**10 Novel Techniques:**
 
 1. **35 Anti-Pattern Library** [H:8]
    - Comprehensive credit-killing pattern detection across 6 categories
@@ -109,7 +109,7 @@ All notable changes to Claude Supercharger will be documented in this file.
 
 ---
 
-## [4.0.0] - 2025-XX-XX
+## Based on SuperClaude Framework v4.0.0
 
 ### Initial Release
 

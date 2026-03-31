@@ -1,3 +1,5 @@
+schema_version: "1.0"
+
 # Guardrails Template
 # Copy this to your project as GUARDRAILS.md or docs/AGENT_GUARDRAILS.md
 # Customize for your domain-specific constraints
@@ -111,29 +113,29 @@ guardrails:
     medium: []
       # Add medium-priority compliance requirements
 
-# Enforcement
-enforcement:
-  # How to enforce these guardrails
-  pre_commit: []
-    # - "Run linter and type checker"
-    # - "Check for console.log statements"
-    # - "Validate test coverage threshold"
+  # Enforcement
+  enforcement:
+    # How to enforce these guardrails
+    pre_commit: []
+      # - "Run linter and type checker"
+      # - "Check for console.log statements"
+      # - "Validate test coverage threshold"
 
-  pre_deploy: []
-    # - "Run security audit (npm audit, Snyk)"
-    # - "Check bundle size limits"
-    # - "Run accessibility tests (axe, pa11y)"
+    pre_deploy: []
+      # - "Run security audit (npm audit, Snyk)"
+      # - "Check bundle size limits"
+      # - "Run accessibility tests (axe, pa11y)"
 
-  continuous: []
-    # - "Monitor Core Web Vitals in production"
-    # - "Alert on error rate >1%"
-    # - "Review security headers weekly"
+    continuous: []
+      # - "Monitor Core Web Vitals in production"
+      # - "Alert on error rate >1%"
+      # - "Review security headers weekly"
 
-# Violation Handling
-violations:
-  critical: "BLOCK - Cannot proceed until resolved"
-  high: "WARN - Must fix before merge/deploy"
-  medium: "SUGGEST - Fix when practical"
+  # Violation Handling
+  violation_handling:
+    critical: "BLOCK - Cannot proceed until resolved"
+    high: "WARN - Must fix before merge/deploy"
+    medium: "SUGGEST - Fix when practical"
 
 # Usage in Project
 # Reference this in your project's CLAUDE.md:
