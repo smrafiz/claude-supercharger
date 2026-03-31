@@ -104,6 +104,35 @@ else
   echo -e "  ${YELLOW}○${NC} No settings.json — no hooks installed"
 fi
 
+# MCP Servers
+echo ""
+echo -e "${BLUE}MCP Servers:${NC}"
+if [ -f "$HOME/.claude/settings.json" ]; then
+  python3 -c "
+import json
+with open('$HOME/.claude/settings.json') as f:
+    s = json.load(f)
+servers = s.get('mcpServers', {})
+sc = {k: v for k, v in servers.items() if '#supercharger' in k}
+user = {k: v for k, v in servers.items() if '#supercharger' not in k}
+if sc:
+    for k in sorted(sc):
+        name = k.replace(' #supercharger', '')
+        print(f'  \033[0;32m✓\033[0m {name}')
+else:
+    print('  \033[1;33m○\033[0m No Supercharger MCP servers configured')
+if user:
+    for k in sorted(user):
+        print(f'  \033[0;34m●\033[0m {k} (user-configured)')
+core = ['context7', 'sequential-thinking', 'memory']
+missing = [c for c in core if not any(c in k for k in sc)]
+if missing:
+    print(f'  \033[0;31m✗\033[0m Missing core: {\", \".join(missing)}')
+" 2>/dev/null
+else
+  echo -e "  ${YELLOW}○${NC} No settings.json — no MCP servers"
+fi
+
 # Tools
 echo ""
 echo -e "${BLUE}Tools:${NC}"
