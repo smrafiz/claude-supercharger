@@ -41,24 +41,32 @@ select_roles() {
 
 deploy_roles() {
   local source_dir="$1"
-  local target_dir="$HOME/.claude/rules"
-  mkdir -p "$target_dir"
+  local rules_dir="$HOME/.claude/rules"
+  local available_dir="$HOME/.claude/supercharger/roles"
+  mkdir -p "$rules_dir"
+  mkdir -p "$available_dir"
 
-  # Install ALL roles (enables mid-conversation mode switching)
+  # Install ALL roles to supercharger/roles/ (for mode switching reference)
   for role in "${AVAILABLE_ROLES[@]}"; do
     local role_file="$source_dir/configs/roles/${role}.md"
     if [ -f "$role_file" ]; then
-      cp "$role_file" "$target_dir/${role}.md"
+      cp "$role_file" "$available_dir/${role}.md"
     fi
   done
 
-  # Report selected primary roles
+  # Install ONLY selected roles to rules/ (auto-loaded by Claude Code)
+  for role in "${SELECTED_ROLES[@]}"; do
+    local role_file="$source_dir/configs/roles/${role}.md"
+    if [ -f "$role_file" ]; then
+      cp "$role_file" "$rules_dir/${role}.md"
+    fi
+  done
+
+  # Report
   for role in "${SELECTED_ROLES[@]}"; do
     success "Primary role: ${role}"
   done
-  if [ ${#SELECTED_ROLES[@]} -lt ${#AVAILABLE_ROLES[@]} ]; then
-    info "  All 5 roles installed (mode switching enabled)"
-  fi
+  info "  All 5 roles available for mode switching"
 }
 
 format_roles_list() {
