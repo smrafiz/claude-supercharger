@@ -72,6 +72,30 @@ with open(settings_file, 'w') as f:
 " 2>/dev/null && echo -e "  ${GREEN}✓${NC} Hooks removed from settings.json"
 fi
 
+# Remove MCP servers from settings.json
+if [ -f "$HOME/.claude/settings.json" ]; then
+  python3 -c "
+import json, os
+
+settings_file = os.path.expanduser('$HOME/.claude/settings.json')
+tag = '#supercharger'
+
+with open(settings_file, 'r') as f:
+    settings = json.load(f)
+
+if 'mcpServers' in settings:
+    settings['mcpServers'] = {
+        k: v for k, v in settings['mcpServers'].items()
+        if tag not in k
+    }
+    if not settings['mcpServers']:
+        del settings['mcpServers']
+
+with open(settings_file, 'w') as f:
+    json.dump(settings, f, indent=2)
+" 2>/dev/null && echo -e "  ${GREEN}✓${NC} MCP servers removed from settings.json"
+fi
+
 # Remove Supercharger block from CLAUDE.md
 if [ -f "$HOME/.claude/CLAUDE.md" ] && grep -q "^# --- Claude Supercharger" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
   sed -i.bak '/^# --- Claude Supercharger/,$d' "$HOME/.claude/CLAUDE.md"
