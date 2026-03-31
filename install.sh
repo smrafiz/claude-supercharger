@@ -2,134 +2,167 @@
 set -euo pipefail
 umask 077
 
-# Claude Supercharger v1.0.0 Installer
-# One-command installation for Claude Code configuration
-# Note: No integrity/checksum verification of source files
-
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-RED='\033[0;31m'
-NC='\033[0m' # No Color
-
-echo -e "${BLUE}╔══════════════════════════════════════════╗${NC}"
-echo -e "${BLUE}║  Claude Supercharger v1.0.0 Installer ║${NC}"
-echo -e "${BLUE}╚══════════════════════════════════════════╝${NC}"
-echo ""
-
-# Check for existing configuration
-if [ -f "$HOME/.claude/CLAUDE.md" ] || [ -f "$HOME/.claude/RULES.md" ]; then
-    echo -e "${YELLOW}⚠️  Existing configuration detected!${NC}"
-    echo ""
-    echo -e "${BLUE}Installation options:${NC}"
-    echo "  1) Fresh install (replace everything, backup created)"
-    echo "  2) Smart merge (preserve + enhance existing config)"
-    echo "  3) Cancel (review docs/MIGRATION.md first)"
-    echo ""
-    read -p "Choose option [1-3]: " choice
-
-    case $choice in
-        1)
-            echo -e "${GREEN}→ Proceeding with fresh install${NC}"
-            ;;
-        2)
-            echo -e "${GREEN}→ Launching merge script${NC}"
-            exec bash "$(dirname "${BASH_SOURCE[0]}")/merge.sh"
-            exit 0
-            ;;
-        3)
-            echo -e "${YELLOW}Installation cancelled. See docs/MIGRATION.md for manual options.${NC}"
-            exit 0
-            ;;
-        *)
-            echo -e "${RED}Invalid choice. Installation cancelled.${NC}"
-            exit 1
-            ;;
-    esac
-    echo ""
-fi
-
-# Check if ~/.claude directory exists
-if [ ! -d "$HOME/.claude" ]; then
-    echo -e "${YELLOW}⚠️  ~/.claude directory not found. Creating...${NC}"
-    mkdir -p "$HOME/.claude"
-fi
-
-# Backup existing configuration
-BACKUP_DIR="$HOME/.claude/backups/$(date +%Y%m%d-%H%M%S)"
-if [ -f "$HOME/.claude/CLAUDE.md" ] || [ -f "$HOME/.claude/RULES.md" ]; then
-    echo -e "${BLUE}📦 Creating backup at $BACKUP_DIR${NC}"
-    mkdir -p "$BACKUP_DIR"
-    chmod 700 "$BACKUP_DIR"
-    cp "$HOME/.claude/"*.md "$BACKUP_DIR/" 2>/dev/null || true
-    cp -r "$HOME/.claude/shared" "$BACKUP_DIR/" 2>/dev/null || true
-    echo -e "${GREEN}✓ Backup created${NC}"
-fi
-
-# Determine script directory
+# Resolve source directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-# Install core files
-echo -e "${BLUE}📥 Installing core files...${NC}"
-cp "$SCRIPT_DIR/core/CLAUDE.md" "$HOME/.claude/"
-cp "$SCRIPT_DIR/core/RULES.md" "$HOME/.claude/"
-cp "$SCRIPT_DIR/core/MCP.md" "$HOME/.claude/"
-cp "$SCRIPT_DIR/core/PERSONAS.md" "$HOME/.claude/"
-echo -e "${GREEN}✓ Core files installed${NC}"
+# Source modules
+source "$SCRIPT_DIR/lib/utils.sh"
+source "$SCRIPT_DIR/lib/backup.sh"
+source "$SCRIPT_DIR/lib/roles.sh"
+source "$SCRIPT_DIR/lib/hooks.sh"
+source "$SCRIPT_DIR/lib/extras.sh"
 
-# Install shared resources
-echo -e "${BLUE}📥 Installing shared resources...${NC}"
+detect_platform
+
+# Step 1: Banner + Mode
+show_banner
+echo -e "${BOLD}Step 1 of 4: Install Mode${NC}"
+echo ""
+echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks only"
+echo -e "  ${BOLD}2)${NC} Standard   — recommended (configs + hooks + productivity)"
+echo -e "  ${BOLD}3)${NC} Full       — everything (+ MCP setup + diagnostics)"
+echo ""
+read -rp "> " mode_choice
+case "$mode_choice" in
+  1) MODE="safe" ;;
+  3) MODE="full" ;;
+  *) MODE="standard" ;;
+esac
+echo ""
+
+# Step 2: Roles
+echo -e "${BOLD}Step 2 of 4: Your Roles${NC}"
+select_roles
+echo ""
+
+# Check if Developer role is selected
+HAS_DEVELOPER="false"
+for role in "${SELECTED_ROLES[@]}"; do
+  [[ "$role" == "developer" ]] && HAS_DEVELOPER="true"
+done
+
+# Step 3: Existing config handling
+echo -e "${BOLD}Step 3 of 4: Existing Config${NC}"
+echo ""
+
+CLAUDE_MD_ACTION="deploy"
+if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+  info "Found existing CLAUDE.md"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Merge   — append Supercharger to your existing file"
+  echo -e "  ${BOLD}2)${NC} Replace — back up yours, use Supercharger's"
+  echo -e "  ${BOLD}3)${NC} Skip    — keep yours, install everything else"
+  echo ""
+  read -rp "> " claude_choice
+  case "$claude_choice" in
+    1) CLAUDE_MD_ACTION="merge" ;;
+    3) CLAUDE_MD_ACTION="skip" ;;
+    *) CLAUDE_MD_ACTION="replace" ;;
+  esac
+  echo ""
+fi
+
+SETTINGS_ACTION="deploy"
+if [ -f "$HOME/.claude/settings.json" ]; then
+  info "Found existing settings.json"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Merge   — add Supercharger hooks to your config"
+  echo -e "  ${BOLD}2)${NC} Replace — back up yours, use Supercharger's"
+  echo -e "  ${BOLD}3)${NC} Skip    — keep yours, no hooks installed"
+  echo ""
+  read -rp "> " settings_choice
+  case "$settings_choice" in
+    1) SETTINGS_ACTION="merge" ;;
+    3) SETTINGS_ACTION="skip" ;;
+    *) SETTINGS_ACTION="replace" ;;
+  esac
+  echo ""
+fi
+
+# Step 4: Install
+echo -e "${BOLD}Step 4 of 4: Installing...${NC}"
+echo ""
+
+# Ensure directories exist
+mkdir -p "$HOME/.claude/rules"
 mkdir -p "$HOME/.claude/shared"
-cp "$SCRIPT_DIR/shared/anti-patterns.yml" "$HOME/.claude/shared/"
-echo -e "${GREEN}✓ Shared resources installed${NC}"
 
-# Verify installation
-echo ""
-echo -e "${BLUE}🔍 Verifying installation...${NC}"
+# Backup
+create_backup
 
-if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/RULES.md" 2>/dev/null; then
-    echo -e "${GREEN}✓ RULES.md Claude Supercharger v1.0.0 verified${NC}"
-else
-    echo -e "${RED}✗ RULES.md verification failed${NC}"
-    exit 1
+# Deploy CLAUDE.md
+ROLES_LIST=$(format_roles_list)
+MODE_LABEL=$(echo "$MODE" | sed 's/^./\U&/')
+
+if [[ "$CLAUDE_MD_ACTION" == "deploy" || "$CLAUDE_MD_ACTION" == "replace" ]]; then
+  sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" \
+    "$SCRIPT_DIR/configs/universal/CLAUDE.md" > "$HOME/.claude/CLAUDE.md"
+  success "Universal config installed"
+elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
+  # Remove existing Supercharger block if present
+  if grep -q "^# --- Claude Supercharger" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
+    sed -i.bak '/^# --- Claude Supercharger/,$d' "$HOME/.claude/CLAUDE.md"
+    rm -f "$HOME/.claude/CLAUDE.md.bak"
+  fi
+  # Append Supercharger block
+  cat >> "$HOME/.claude/CLAUDE.md" << MERGEBLOCK
+
+# --- Claude Supercharger v${VERSION} ---
+# Do not edit below this line. Managed by Supercharger.
+# To remove: run uninstall.sh or delete this block.
+# Roles: ${ROLES_LIST} | Mode: ${MODE_LABEL}
+MERGEBLOCK
+  success "Universal config merged (your CLAUDE.md preserved)"
+elif [[ "$CLAUDE_MD_ACTION" == "skip" ]]; then
+  info "Skipped CLAUDE.md"
 fi
 
-if grep -q "Claude Supercharger v1.0.0" "$HOME/.claude/MCP.md" 2>/dev/null; then
-    echo -e "${GREEN}✓ MCP.md Claude Supercharger v1.0.0 verified${NC}"
+# Deploy universal rules
+cp "$SCRIPT_DIR/configs/universal/supercharger.md" "$HOME/.claude/rules/supercharger.md"
+success "Universal rules installed"
+
+cp "$SCRIPT_DIR/configs/universal/guardrails.md" "$HOME/.claude/rules/guardrails.md"
+success "Guardrails installed"
+
+# Deploy roles
+deploy_roles "$SCRIPT_DIR"
+
+# Deploy shared assets
+cp "$SCRIPT_DIR/shared/anti-patterns.yml" "$HOME/.claude/shared/anti-patterns.yml"
+success "Anti-patterns library installed"
+
+# Deploy hooks
+if [[ "$SETTINGS_ACTION" != "skip" ]]; then
+  deploy_hook_scripts "$SCRIPT_DIR"
+
+  if [[ "$SETTINGS_ACTION" == "replace" ]] && [ -f "$HOME/.claude/settings.json" ]; then
+    rm "$HOME/.claude/settings.json"
+  fi
+
+  if merge_hooks_into_settings "$MODE" "$HAS_DEVELOPER"; then
+    HOOK_COUNT=$(count_installed_hooks "$MODE" "$HAS_DEVELOPER")
+    success "${HOOK_COUNT} hook(s) installed (${MODE_LABEL} mode)"
+  else
+    error "Failed to configure hooks. Run claude-check for details."
+  fi
 else
-    echo -e "${RED}✗ MCP.md verification failed${NC}"
-    exit 1
+  info "Skipped hooks installation"
 fi
 
-if [ -f "$HOME/.claude/shared/anti-patterns.yml" ]; then
-    echo -e "${GREEN}✓ anti-patterns.yml verified${NC}"
-else
-    echo -e "${RED}✗ anti-patterns.yml verification failed${NC}"
-    exit 1
-fi
+# Deploy extras (Full mode)
+deploy_extras "$SCRIPT_DIR" "$MODE"
 
-# Success message
+# Summary
 echo ""
-echo -e "${GREEN}╔══════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║     ✓ Installation Successful!          ║${NC}"
-echo -e "${GREEN}╚══════════════════════════════════════════╝${NC}"
+echo -e "${CYAN}────────────────────────────────────────────${NC}"
+echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
 echo ""
-echo -e "${BLUE}Claude Supercharger v1.0.0 is now active (config: Claude Supercharger v1.0.0).${NC}"
+echo -e "  Mode:  ${BOLD}${MODE_LABEL}${NC}"
+echo -e "  Roles: ${BOLD}${ROLES_LIST}${NC}"
 echo ""
-echo -e "${YELLOW}What's new:${NC}"
-echo "  • 35 Anti-Pattern Detection"
-echo "  • 9-Dimensional Intent Extraction"
-echo "  • Tool-Specific Optimization (10+ models)"
-echo "  • 10-Point Verification Gate"
-echo "  • Memory Block System"
-echo "  • Output Lock Discipline"
-echo ""
-echo -e "${BLUE}Next steps:${NC}"
-echo "  1. Restart Claude Code (if running)"
-echo "  2. Try: 'fix the login bug' → See anti-pattern detection"
-echo "  3. Try: 'load the frontend persona' → Activate personas"
-echo "  4. Read docs: $SCRIPT_DIR/docs/"
-echo ""
-echo -e "${YELLOW}Backup location: $BACKUP_DIR${NC}"
-echo -e "${YELLOW}Uninstall: bash $SCRIPT_DIR/uninstall.sh${NC}"
+if [[ "$MODE" == "full" ]]; then
+  echo -e "  Run ${BOLD}claude-check${NC} to verify installation."
+else
+  echo -e "  Upgrade anytime: ${BOLD}./install.sh${NC} (choose Full)"
+fi
 echo ""

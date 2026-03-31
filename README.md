@@ -1,449 +1,344 @@
-# Claude Supercharger v1.0.0
+# Claude Supercharger
 
-**Transform Claude Code into a hyper-efficient AI coding assistant with advanced prompting patterns, anti-pattern detection, and intelligent automation.**
+A role-aware, zero-dependency configuration kit for Claude Code. Drop it in, things get better.
 
-[![Version](https://img.shields.io/badge/version-1.0.0-blue.svg)](https://github.com/smrafiz/claude-supercharger)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+### Quick Install
 
----
-
-## What is Claude Supercharger?
-
-Claude Supercharger is a comprehensive configuration system for Claude Code that provides:
-
-- **35 Anti-Pattern Detection** → Automatically fixes vague requests, missing scope, and common errors
-- **9-Dimensional Intent Extraction** → Structured requirement gathering (max 3 questions)
-- **Tool-Specific Optimization** → Per-model constraints (Claude Opus 4.x, o3/o4-mini, GPT-5.x, Gemini, DeepSeek, Qwen, Ollama)
-- **8-Step Execution Priority** → Systematic workflow from detection to delivery
-- **10-Point Verification Gate** → Quality assurance before claiming "done"
-- **Memory Block System** → Explicit context carry-forward for multi-turn sessions
-- **9 Cognitive Personas** → Specialized behavioral profiles (architect, frontend, backend, analyzer, security, mentor, refactorer, performance, qa)
-- **MCP Orchestration** → Intelligent routing for Context7, Sequential Thinking, Magic UI, Puppeteer (optional, requires MCP setup)
-- **Output Lock Discipline** → Eliminates ceremonial text and unprompted explanations
-- **Forbidden Techniques Enforcement** → Prevents fabrication-prone methods (Mixture of Experts, Tree of Thought, etc.)
-
----
-
-## Features
-
-### Core Systems
-
-**Anti-Pattern Detection [H:8]**
-- Scans requests for 35 credit-killing patterns across 6 categories
-- Task: vague verbs, two tasks in one, no success criteria
-- Context: assumed knowledge, hallucination invites, undefined audience
-- Format: missing output format, implicit length, vague aesthetics
-- Scope: no boundaries, no stop conditions, unlocked filesystem
-- Reasoning: missing CoT for logic, CoT on reasoning models
-- Agentic: no start/target state, silent agents, no review triggers
-
-**Intent Extraction [H:7]**
-- 9-dimension analysis: Task, Target tool, Output format, Constraints, Input, Context, Audience, Success criteria, Examples
-- Max 3 clarifying questions before execution
-- Risk-based response (HIGH→more questions, LOW→safe defaults)
-
-**Verification Gate [H:8]**
-- Technical: TypeScript compilation, tests, imports, git diff, no debug code
-- Quality: Correct tool ID, constraints preserved, strong signal words, no fabrication, token efficiency, binary success
-
-**Tool-Specific Optimization [M:6]**
-- Claude Opus 4.x: Prevent over-engineering
-- o3/o4-mini: SHORT instructions, no CoT (degrades output)
-- GPT-5.x: Compact structured outputs, verbosity constraints
-- Gemini 2.x/3 Pro: Grounding for hallucinated citations
-- DeepSeek-R1, Qwen variants, Ollama: Model-specific guidance
-
-### Personas (9 Archetypes)
-
-1. **architect** → Systems design, long-term maintainability, proven patterns
-2. **frontend** → UX-first, mobile-responsive, user satisfaction
-3. **backend** → Reliability, performance, 10x scale planning
-4. **analyzer** → Root cause identification, evidence-based debugging
-5. **security** → Threat modeling, defense-in-depth, zero trust
-6. **mentor** → Guided discovery, student context, adaptive teaching
-7. **refactorer** → Code health, complexity reduction, maintainability
-8. **performance** → Bottleneck identification, speed optimization, profiling
-9. **qa** → Edge cases, quality gates, defect escape prevention
-
-### Guardrails (Domain-Specific Constraints)
-
-**Project-specific rules that enforce code quality, security, accessibility, and ethical standards.**
-
-**Severity Levels:**
-- **CRITICAL** → Block deployment (security, legal, system failure)
-- **HIGH** → Warn and require acknowledgment (UX, performance, accessibility)
-- **MEDIUM** → Suggest improvements (technical debt, minor UX)
-
-**Categories:**
-- **Security** → OWASP Top 10, authentication, input validation
-- **Performance** → Core Web Vitals, response times, bundle sizes
-- **Accessibility** → WCAG 2.2+, keyboard navigation, screen readers
-- **Code Quality** → Function complexity, test coverage, no debug code
-- **Ethics** → No dark patterns, user consent, transparent pricing
-- **Compliance** → GDPR, HIPAA, PCI DSS requirements
-
-**Quick Setup:**
-```bash
-# Copy template to your project
-cp shared/guardrails-template.yml docs/AGENT_GUARDRAILS.md
-
-# Edit with project-specific constraints
-nano docs/AGENT_GUARDRAILS.md
-
-# Reference in project CLAUDE.md
-echo "@docs/AGENT_GUARDRAILS.md" >> CLAUDE.md
-```
-
-**Templates:**
-- `shared/guardrails-template.yml` → Domain constraints (security, perf, a11y, ethics)
-- `shared/agent-guardrails-template.md` → Agent safety protocols (Four Laws, halt conditions, scope)
-
-**Pre-built Examples:**
-- `examples/guardrails/web-app.yml` → WCAG, OWASP, Core Web Vitals
-- `examples/guardrails/api-service.yml` → Security, rate limiting, monitoring
-- `examples/guardrails/game-dev.yml` → FPS budgets, comfort-first, no dark patterns
-- `examples/guardrails/mobile-app.yml` → Battery, offline-first, platform guidelines
-- `examples/guardrails/agent-safety.yml` → Four Laws, forbidden actions, escalation
-
-See [docs/GUARDRAILS.md](docs/GUARDRAILS.md) for complete guide.
-
----
-
-## Installation
-
-### One-Command Install
+Run this in your terminal to install Claude Supercharger:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/smrafiz/claude-supercharger/main/install.sh | bash
 ```
 
-### Manual Install
-
-```bash
-# Clone repository
-git clone https://github.com/smrafiz/claude-supercharger.git
-cd claude-supercharger
-
-# Backup existing config (optional but recommended)
-mkdir -p ~/.claude/backups/$(date +%Y%m%d)
-cp ~/.claude/*.md ~/.claude/backups/$(date +%Y%m%d)/ 2>/dev/null || true
-
-# Install core files
-cp core/CLAUDE.md ~/.claude/
-cp core/RULES.md ~/.claude/
-cp core/MCP.md ~/.claude/
-cp core/PERSONAS.md ~/.claude/
-
-# Install shared resources
-mkdir -p ~/.claude/shared
-cp shared/anti-patterns.yml ~/.claude/shared/
-
-# Verify installation
-grep "Claude Supercharger v1.0.0" ~/.claude/RULES.md
-echo "✅ Claude Supercharger v1.0.0 installed successfully"
-```
+The interactive installer will guide you through mode selection, role setup, and config handling. See [Manual Install](#manual-install) if you prefer to review before running.
 
 ---
 
-### Existing Configuration? Use Merge Mode
+## Why this exists
 
-**If you already have custom CLAUDE.md, RULES.md, PERSONAS.md, or MCP configurations:**
+Claude Code is powerful out of the box. But out of the box, it also:
 
-```bash
-# Clone repository
-git clone https://github.com/smrafiz/claude-supercharger.git
-cd claude-supercharger
+- Claims tasks are "done" without running tests or verifying output
+- Refactors code you didn't ask it to touch
+- Runs destructive commands (`rm -rf`, `git push --force`) without hesitation
+- Gives the same response style whether you're a senior developer or a student
+- Halluccinates library names, function signatures, and CLI flags
+- Loses context in long sessions and forgets what was decided
+- Adds ceremonial text ("I'll now proceed to...") that wastes your time
 
-# Smart merge (preserves your config + adds Supercharger enhancements)
-bash merge.sh
-```
+Every Claude Code configuration project tries to fix these problems. Most of them are built for developers only, require npm/pip/docker to install, ship 500+ lines of rules that Claude ignores 20% of the time, and feel overwhelming on first use.
 
-**Or run install.sh** — it will detect existing files and offer merge option.
-
-**Manual cherry-picking:** See [docs/MIGRATION.md](docs/MIGRATION.md) for full control over which features to integrate.
-
----
-
-### Optional: MCP Server Setup
-
-**Core features work immediately** (anti-pattern detection, verification gates, personas, etc.).
-
-**Advanced MCP servers** add powerful capabilities:
-
-```bash
-# Interactive MCP server installation
-cd claude-supercharger
-bash mcp-setup.sh
-```
-
-**Recommended Stack (2026):**
-
-**Tier 1 (Must-Have):**
-- Context7 - Latest version-specific docs (React, Next.js, Prisma, etc.)
-- Sequential Thinking - Multi-step reasoning framework
-- Memory - Persistent knowledge graphs
-
-**Tier 2 (Highly Useful):**
-- GitHub - Repository operations, PRs, issues
-- Brave Search - Current information beyond training cutoff
-- Filesystem - Secure file operations
-
-**Tier 3 (Specialized):**
-- Playwright/Puppeteer - Browser automation
-- Prisma/Neon - Database operations
-- Magic UI - React component library
-- Slack - Team communication context
-
-**API Keys Required:** Context7, GitHub, Brave Search, Neon, Slack (all have free tiers)
-
-See [docs/MCP_SETUP.md](docs/MCP_SETUP.md) for complete guide with API key setup, manual configuration, and troubleshooting.
-
-
-## Quick Start
-
-**Claude Supercharger activates automatically.** No configuration needed.
-
-### Example 1: Automatic Anti-Pattern Correction
-
-**You:** "fix the login bug"
-
-**Before:** Random search, unclear scope
-
-**After Claude Supercharger:** Detects "vague scope" anti-pattern → asks "Which file contains the login bug, and what's the symptom?" (max 3 questions)
-
-### Example 2: Multi-Turn Context
-
-**You:** "now add logout using the same pattern"
-
-**Claude Supercharger prepends Memory Block:**
-```
-## Context (carry forward)
-- Stack: React 18, TypeScript, Tailwind
-- Auth pattern: JWT in httpOnly cookie
-- Component location: src/components/auth/
-- Already tried: localStorage (rejected for security)
-```
-
-### Example 3: Verification Before "Done"
-
-**Claude Supercharger checks 10 items before claiming done:**
-- ✓ tsc --noEmit passes
-- ✓ Tests pass
-- ✓ No debug code left
-- ✓ Constraints preserved
-- ✓ Token efficiency maintained
-- ✓ Binary success criteria met
+Claude Supercharger takes a different approach.
 
 ---
 
-## Usage
+## What makes it different
 
-### Activating Personas
+**It asks who you are.** Not everyone using Claude Code is a developer. Writers, students, data analysts, project managers — they all use Claude Code differently. Supercharger configures Claude for your specific workflow, not a generic "coding assistant" profile.
 
-Personas are activated through natural language:
+**Hooks enforce, rules advise.** Research shows CLAUDE.md rules are followed ~80% of the time. Hooks are followed 100% of the time. Supercharger uses hooks for safety-critical behavior (blocking `rm -rf`, preventing force-push to main) and rules for behavioral guidance (output style, workflow patterns). The right enforcement at the right layer.
 
-```
-You: "load the frontend persona"
-→ Frontend persona active (UX-first, mobile-first, user needs > technical elegance)
+**It's not a framework.** No package manager. No build step. No runtime dependencies. Just a shell script that copies markdown files and configures hooks. Install takes under 10 seconds. Uninstall restores your original config completely.
 
-You: "load the security persona"
-→ Security persona active (threat modeling, defense-in-depth, assume breach)
-
-You: "switch to architect persona"
-You: "As performance mindset: optimize this query"
-You: "With analyzer approach, debug this crash"
-```
-
-**Available personas:** architect, frontend, backend, analyzer, security, mentor, refactorer, performance, qa
-
-**Auto-activation:** Claude Supercharger automatically adopts appropriate personas based on context (file types, keywords, task nature).
-
-### Thinking Modes
-
-Request deeper analysis naturally:
-
-```
-You: "Think deeply about this architecture decision"
-You: "Analyze this thoroughly before implementing"
-You: "Consider all implications of this refactor"
-```
-
-**Automatic activation:** Complex tasks trigger appropriate thinking depth automatically.
-
-### MCP Servers (Optional)
-
-If you've run `mcp-setup.sh`, MCP servers are available automatically:
-
-- **Context7** - Latest library documentation
-- **Sequential Thinking** - Multi-step reasoning
-- **Memory** - Persistent knowledge graphs
-- **GitHub** - Repository operations
-- **Brave Search** - Current information
-
-No manual activation needed - Claude selects appropriate tools per request.
+**It respects what you already have.** Existing CLAUDE.md? The installer offers to merge, replace, or skip — your config is never overwritten without consent. A timestamped backup is always created first.
 
 ---
 
-## Customization
+## What you get
 
-### Project-Specific Overrides
+### For everyone (all roles)
 
-Create `CLAUDE.md` in your project root:
+- **Safety hooks** — destructive commands like `rm -rf`, `DROP TABLE`, `chmod 777` are blocked before execution. Not advised against. Blocked.
+- **Verification gates** — Claude must provide evidence before claiming work is done. No more "should work" or "looks correct" without actually checking.
+- **Anti-pattern detection** — 35 common prompt patterns that waste tokens and produce poor results, caught and fixed automatically.
+- **Four Laws** — Read before editing. Stay in scope. Verify before committing. Halt when uncertain. Simple rules that prevent the most common Claude mistakes.
+- **Autonomy levels** — Low-risk work proceeds without asking. Medium-risk states intent first. High-risk stops and confirms. Claude makes fewer unnecessary interruptions while still checking on things that matter.
+- **Structured escalation** — when Claude is stuck, it reports what it tried, what's blocking it, and what it recommends. No more vague "I'm not sure" responses.
+- **Context management** — proactive compaction suggestions at 60% context usage, with key decisions preserved across compaction.
 
-```markdown
-# My Project
+### For developers
 
-Stack: Next.js 16, Prisma 7, PostgreSQL
-Conventions: 2-space indent, async/await only
-Constraints: No class components, hooks only
-```
+- **Git safety hooks** — force-push to main/master, `git reset --hard`, `git checkout .` are blocked. Your work is protected.
+- **Auto-format** — Prettier, Black, rustfmt, gofmt run automatically after Claude edits a file. Detects your project's formatter.
+- **Stack detection** — reads package.json, Cargo.toml, pyproject.toml to understand your toolchain. Won't suggest npm if you use pnpm.
+- **Regression prevention** — checks recent git history before modifying files, avoids reintroducing patterns that were explicitly removed.
+- **Scope discipline** — only changes what was requested. If Claude notices something else worth improving, it mentions it without touching the code.
 
-Claude Supercharger will merge project rules with global config.
+### For writers
 
-### Adding Custom Anti-Patterns
+- **Clarity-first output** — no technical jargon unless requested. Headers, bullets, and structured prose.
+- **Draft workflow** — outlines before long-form content, version tracking (v1, v2), 2-3 alternatives for key phrases.
+- **Source citation** — flags when claims are uncertain rather than fabricating sources.
 
-Edit `~/.claude/shared/anti-patterns.yml`:
+### For students
 
-```yaml
-custom:
-  my_pattern:
-    bad: "use legacy API"
-    fix: "Use v2 API endpoint (see docs/migration.md)"
-```
+- **Teach, don't do** — explains concepts before showing solutions. Uses analogies. Builds complexity gradually.
+- **Guided learning** — encourages the student to try first, offers simpler alternatives before advanced patterns, suggests what to learn next.
+- **Understanding checks** — asks "Does this make sense?" instead of steamrolling through explanations.
+
+### For data analysts
+
+- **Analysis rigor** — states assumptions, cites sources, distinguishes correlation from causation.
+- **Reproducibility** — includes the query/code that produced every result. Tables for comparisons, not prose.
+- **Data validation** — flags missing values, outliers, and anomalies. Never silently drops data.
+
+### For project managers
+
+- **Range estimates** — optimistic/likely/pessimistic, never single numbers.
+- **Decision logs** — options considered, decision made, rationale documented.
+- **Risk management** — flags risks with likelihood and impact, proposes mitigations rather than just warnings.
 
 ---
 
-## Architecture
+## Install modes
 
-### Execution Flow (Complex Requests)
+Choose your comfort level during installation:
 
-```
-1. Anti-Pattern Detection → Scan 35 patterns
-2. Ambiguity Resolution   → Detect unclear elements
-3. Intent Extraction      → 9-dimension analysis, max 3 questions
-4. Session Awareness      → Track implicit context
-5. Memory Block           → Prepend explicit context if multi-turn
-6. Execute Task           → Use appropriate tools
-7. Pre-Delivery Verify    → 10-point quality gate
-8. Output Lock            → Deliverable + optimization note
-```
+| Mode | Features | Best for |
+|------|----------|----------|
+| **Safe** | 7 | Cautious users, corporate environments. Configs + safety hook only. |
+| **Standard** | 10 | Most users. Configs + productivity hooks. Recommended. |
+| **Full** | 15 | Power users. Everything + MCP setup + diagnostics. |
 
-**Simple requests skip to step 6.**
+Every mode includes the universal configs, role overlays, anti-patterns library, and clean uninstaller. They differ in which hooks are activated.
 
-### File Structure
+---
+
+## Roles
+
+Select one or more during installation. Combine any roles freely.
+
+| Role | Who it's for | What changes |
+|------|-------------|--------------|
+| **Developer** | Engineers, full-stack, backend, frontend | Code-only output, git safety, auto-format, TDD workflow, stack detection |
+| **Writer** | Content creators, marketers, copywriters | Structured prose, draft versioning, no jargon, source citation |
+| **Student** | Learners, bootcamp students, career changers | Explanations first, progressive complexity, guided learning |
+| **Data** | Analysts, data scientists, researchers | Analysis rigor, reproducibility, data validation, visualization |
+| **PM** | Project managers, product owners, team leads | Range estimates, decision logs, stakeholder summaries, risk tracking |
+
+---
+
+## Hooks
+
+Safety and productivity enforcement that can't be ignored.
+
+| Hook | Modes | What it does |
+|------|-------|-------------|
+| **safety** | All | Blocks `rm -rf`, `DROP TABLE`, `chmod 777`, `curl\|bash`, and 11 other destructive patterns |
+| **notify** | Standard, Full | Sends desktop notification (macOS/Linux) when Claude needs your input |
+| **git-safety** | Standard, Full | Blocks `git push --force` to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
+| **auto-format** | Standard, Full | Runs Prettier/Black/rustfmt/gofmt after edits. Developer role only. |
+| **prompt-validator** | Full | Scans your prompt for vague scope, multiple tasks, missing success criteria. Suggests improvements, never blocks. |
+| **compaction-backup** | Full | Saves conversation transcript before context compaction. Never lose session history. |
+
+---
+
+## How it works
+
+Supercharger deploys to `~/.claude/` using Claude Code's native configuration system:
 
 ```
 ~/.claude/
-├── CLAUDE.md              # Global base config
-├── RULES.md               # v1.0.0 Ops rules + Prompt Master
-├── MCP.md                 # v1.0.0 MCP routing + Tool optimization
-├── PERSONAS.md            # 9 cognitive archetypes
-└── shared/
-    └── anti-patterns.yml  # 35 credit-killing patterns
+  CLAUDE.md                  # Universal config (merged with yours if exists)
+  rules/
+    supercharger.md          # Execution workflow, anti-patterns, output discipline
+    guardrails.md            # Four Laws, autonomy levels, halt conditions
+    developer.md             # Your selected role(s)
+    pm.md
+  shared/
+    anti-patterns.yml        # 35 prompt anti-pattern library
+  supercharger/
+    hooks/                   # Hook scripts referenced by settings.json
+  settings.json              # Hooks registered here (merged with existing)
 ```
 
----
-
-
-## Initial Release v1.0.0
-
-**Prompt Master Integration** (10 novel techniques):
-
-1. **35 Anti-Pattern Library** → Proactive detection before execution
-2. **Pre-Delivery Verification** → 6-point quality checklist
-3. **Forbidden Techniques Blacklist** → Prevents fabrication-prone methods
-4. **Output Lock Discipline** → Reduces ceremonial text by ~40%
-5. **Intent Extraction Framework** → Structures requirement gathering
-6. **Memory Block Template** → Formalizes session context carry-forward
-7. **Tool-Specific Optimization** → Per-model constraints (10+ models)
-8. **Success Criteria Extraction** → Converts vague goals to binary pass/fail
+Files in `~/.claude/rules/` are automatically loaded by Claude Code on every conversation. No manual activation needed. Hooks in `settings.json` execute deterministically on every tool use.
 
 ---
 
-## Benefits
+## Install walkthrough
 
-**For You:**
-- Fewer re-prompts (35 patterns auto-corrected)
-- Smarter questions (max 3, structured)
-- Better first-attempt success (10-point verification)
-- Context preservation (Memory Block system)
-- Persona specialization (9 archetypes)
+```
+$ curl -fsSL .../install.sh | bash
 
-**For Teams:**
-- Shareable configuration (one repo, many users)
-- Consistent coding standards
-- Knowledge transfer (patterns documented)
-- Onboarding acceleration (install script)
+╔═══════════════════════════════════════════╗
+║    Claude Supercharger v1.0.0 Installer   ║
+╚═══════════════════════════════════════════╝
+
+Step 1 of 4: Install Mode
+
+  1) Safe       — configs + safety hooks only
+  2) Standard   — recommended (configs + hooks + productivity)
+  3) Full       — everything (+ MCP setup + diagnostics)
+
+> 2
+
+Step 2 of 4: Your Roles
+
+  Which roles describe you? (comma-separated, or 'all')
+
+  1) Developer  — build things
+  2) Writer     — communicate things
+  3) Student    — learn things
+  4) Data       — analyze things
+  5) PM         — plan things
+
+> 1,5
+
+Step 3 of 4: Existing Config
+
+  Found existing CLAUDE.md:
+
+  1) Merge   — append Supercharger to your existing file
+  2) Replace — back up yours, use Supercharger's
+  3) Skip    — keep yours, install everything else
+
+> 1
+
+Step 4 of 4: Installing...
+
+  ✓ Backed up ~/.claude/ to ~/.claude/backups/20260331-142305/
+  ✓ Universal config merged (your CLAUDE.md preserved)
+  ✓ Universal rules installed
+  ✓ Guardrails installed
+  ✓ Roles configured: Developer, PM
+  ✓ Anti-patterns library installed
+  ✓ 4 hooks installed (Standard mode)
+  ✓ Done! Run 'claude-check' to verify.
+```
+
+Total install time: under 10 seconds.
 
 ---
 
-## Integrations
+## Verify installation
 
-### Prompt Master
+```bash
+bash tools/claude-check.sh
+```
 
-Full Prompt Master skill integration for generating optimized prompts for 30+ AI tools (ChatGPT, Midjourney, Cursor, Devin, etc.). See `integrations/prompt-master/` for details.
+Output:
 
-### MCP Servers
+```
+Config Files:
+  ✓ CLAUDE.md
+  ✓ rules/supercharger.md — universal rules
+  ✓ rules/guardrails.md — Four Laws + safety
 
-- **Context7** → External library documentation
-- **Sequential Thinking** → Complex analysis
-- **Magic** → UI component generation
-- **Puppeteer** → Browser automation
+Roles:
+  ✓ Developer
+  ✓ Pm
 
----
+Hooks (Standard mode):
+  ✓ safety — active
+  ✓ notify — active
+  ✓ git-safety — active
+  ✓ auto-format — active (Developer)
 
-## Documentation
-
-- [Quick Start Guide](docs/QUICKSTART.md) - 5-minute setup
+All checks passed ✓
+```
 
 ---
 
 ## Uninstall
 
-```bash
-bash uninstall.sh
-```
-
-Or manually:
+From the repo directory:
 
 ```bash
-# Restore backup
-cp ~/.claude/backups/YYYYMMDD/*.md ~/.claude/
-
-# Remove Claude Supercharger files
-rm ~/.claude/shared/anti-patterns.yml
+./uninstall.sh
 ```
+
+The uninstaller:
+- Removes all Supercharger hooks from `settings.json` (preserves your own hooks)
+- Removes the Supercharger block from `CLAUDE.md` (preserves your content above it)
+- Removes all rule files, shared assets, and hook scripts
+- Offers to restore from the backup created during installation
+
+Your original config is never lost.
 
 ---
 
-## License
+## Manual install
 
-MIT License - See [LICENSE](LICENSE) for details
+If you don't trust `curl | bash` (fair), clone and review first:
+
+```bash
+git clone https://github.com/smrafiz/claude-supercharger.git
+cd claude-supercharger
+cat install.sh          # review the installer
+./install.sh            # run locally
+```
+
+The installer is ~170 lines of bash. No hidden downloads. No network calls. Everything it installs is in this repo.
+
+---
+
+## Existing config handling
+
+| Scenario | What happens |
+|----------|-------------|
+| No existing `CLAUDE.md` | Supercharger's config is deployed directly |
+| Existing `CLAUDE.md` + Merge | Your content preserved, Supercharger block appended below a marker |
+| Existing `CLAUDE.md` + Replace | Your file backed up, Supercharger's deployed |
+| Existing `CLAUDE.md` + Skip | Your file untouched, everything else installed |
+| No existing `settings.json` | Created with Supercharger hooks only |
+| Existing `settings.json` + Merge | Your hooks preserved, Supercharger hooks added alongside |
+| Existing `settings.json` + Replace | Your file backed up, Supercharger hooks deployed |
+| Existing `settings.json` + Skip | No hooks installed |
+
+A timestamped backup is always created before any changes.
+
+---
+
+## Requirements
+
+- Claude Code (Anthropic's CLI)
+- Bash (macOS or Linux)
+- Python 3 (for JSON merge operations — comes with Claude Code)
+
+No npm. No pip. No Docker. No build step.
+
+---
+
+## FAQ
+
+**Will this break my existing setup?**
+No. The installer backs up your `~/.claude/` directory before making any changes. If you choose "Merge", your existing configs are preserved with Supercharger content appended below a clear marker. Uninstall restores everything.
+
+**How do I change roles after install?**
+Run `./install.sh` again. It's idempotent — existing Supercharger configs are replaced, your personal configs are preserved.
+
+**Can I use multiple roles?**
+Yes. Enter comma-separated numbers during install (e.g., `1,5` for Developer + PM). All selected role overlays are loaded by Claude Code simultaneously.
+
+**How do I upgrade?**
+`git pull && ./install.sh` — the installer detects existing Supercharger content and replaces it cleanly.
+
+**What if a hook blocks something I need?**
+Hooks block known-dangerous patterns. If you need to run a blocked command, you can run it directly in your terminal (outside Claude Code). To permanently disable a hook, remove its entry from `~/.claude/settings.json`.
+
+**Does this work with other Claude Code plugins/skills?**
+Yes. Supercharger uses `~/.claude/rules/` (scoped rules) and `settings.json` (hooks) — both are standard Claude Code features. It doesn't conflict with skills, MCP servers, or other plugins.
+
+---
+
+## Contributing
+
+**Add a role:** Create a new `.md` file in `configs/roles/`, add the role name to the arrays in `lib/roles.sh`.
+
+**Add a hook:** Create a new `.sh` file in `hooks/`, add it to the mode mapping in `lib/hooks.sh`.
+
+**Improve configs:** Edit files in `configs/universal/`. Keep CLAUDE.md under 50 lines, supercharger.md under 70 lines.
 
 ---
 
 ## Credits
 
-- Created by [@smrafiz](https://github.com/smrafiz)
-- **Core framework** based on [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) by SuperClaude-Org (MIT License, © 2024 SuperClaude Framework Contributors)
-- **Agent guardrails** adapted from [Agent Guardrails Template](https://github.com/TheArchitectit/agent-guardrails-template) by TheArchitectit (BSD-3-Clause License, © 2026)
-- **Prompt Master** integration from [nidhinjs/prompt-master](https://github.com/nidhinjs/prompt-master)
-- Built for [Claude Code](https://claude.ai/code) by Anthropic
-
-### Components Adapted from SuperClaude Framework
-
-- `core/RULES.md` - Evidence-based rules system, severity notation, operational standards
-- Rule priority structure with conflict resolution patterns
-- Thinking modes framework and workflow orchestration
-- Batch operations and parallelization patterns
+- [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) (MIT) — execution workflow patterns, anti-patterns library
+- [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, halt conditions, autonomy levels
 
 ---
 
-## Support
+## License
 
-- Issues: [GitHub Issues](https://github.com/smrafiz/claude-supercharger/issues)
-- Discussions: [GitHub Discussions](https://github.com/smrafiz/claude-supercharger/discussions)
-
----
-
-**Made with ❤️ for the Claude Code community**
+MIT — see [LICENSE](LICENSE)

@@ -1,23 +1,5 @@
-# macOS
 .DS_Store
-.AppleDouble
-.LSOverride
-
-# Backups
-*.backup
-*.bak
-*~
-
-# Temp files
-*.tmp
 *.swp
 *.swo
-
-# Editor directories
-.vscode/
-.idea/
-*.sublime-*
-
-# Test outputs
-test-output/
-.test-*
+*~
+.claude/
