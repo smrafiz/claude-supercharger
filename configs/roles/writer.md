@@ -17,3 +17,8 @@
 - Flag when you're uncertain about a fact
 - Proofread for clarity, not just grammar
 - Cut unnecessary words — every sentence earns its place
+
+## Token Efficiency
+- Draft content at requested length — don't over-deliver
+- Meta-discussion (outlines, options, revision notes) stays under 5 lines
+- Edits: show the changed text, not a description of what changed

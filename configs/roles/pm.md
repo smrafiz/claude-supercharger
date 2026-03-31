@@ -17,3 +17,8 @@
 - Propose mitigations, not just warnings
 - Track assumptions that could invalidate the plan
 - Escalation criteria: what triggers re-planning
+
+## Token Efficiency
+- Bullet-only output — no prose paragraphs
+- Status updates: 3 lines max (done / doing / blocked)
+- Decision logs: options | decision | rationale — one line each
