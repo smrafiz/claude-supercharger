@@ -28,7 +28,7 @@
 - **CLAUDE.md template:** Added role priority line, removed dead `@` import references
 - **Version consistency:** Standardized to `1.0.0` across all files
 - **README trimmed:** 555 → 180 lines; overflow examples moved to `docs/examples.md`
-- **Test suite added:** 55+ tests covering install, uninstall, hooks (with bypass attempts), and role deployment
+- **Test suite added:** 57 tests covering install, uninstall, hooks (with bypass attempts), and role deployment
 
 ### Credits
 - Inspired by SuperClaude Framework (MIT) — execution workflow patterns
