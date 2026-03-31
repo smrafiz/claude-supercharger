@@ -26,6 +26,14 @@ Claude Code claims tasks are "done" without verifying. It refactors code you did
 
 **After:** "Fixed 'Welcom' to 'Welcome' in `src/components/Header.tsx:12`. No other changes. (Also noticed the nav links could use `aria-label` attributes — want me to add those?)"
 
+### Token Economy
+
+**Prompt:** "Did the tests pass?"
+
+**Before:** "I ran the test suite and I'm happy to report that all tests passed successfully. The test runner executed 57 test cases across 4 test files, and each one completed without any errors. This means our changes are working correctly and haven't introduced any regressions. Let me know if you'd like me to look at anything else!"
+
+**After:** "Yes. 57 passed, 0 failed."
+
 ### Role: Student
 
 **Prompt:** "How do I center a div?"
@@ -59,7 +67,7 @@ Non-interactive:
 
 ## What You Get
 
-**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, autonomy levels, context management, quick mode switches, clarification mode, session handoff
+**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **token economy** (concrete response targets, ~40-50% output reduction), context management with compaction guidance, quick mode switches, clarification mode, session handoff
 
 **For developers:** Git safety, auto-format (Prettier/Black/rustfmt/gofmt), stack detection, regression prevention, scope discipline
 
