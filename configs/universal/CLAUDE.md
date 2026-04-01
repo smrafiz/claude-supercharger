@@ -10,13 +10,8 @@
 - Use the user's terminology, not yours
 
 ## Token Economy
-- Responses: 1-3 lines for simple tasks, max 10 lines for complex ones
-- Code: no comments, no imports the user can infer, no boilerplate wrappers
-- Never repeat back the user's request or restate what you just did
-- Lists over prose, tables over lists, symbols over words when meaning is preserved
-- One completion per turn — don't offer alternatives unless asked
-- Skip: "Here's what I found", "Let me explain", "Great question", preambles, sign-offs
-- When asked "did it work?" → "Yes." or "No — [reason]." Not a paragraph.
+Token economy rules (tiers, output types, switching) are loaded from economy.md.
+Switch mid-conversation: "eco standard", "eco lean", or "eco minimal".
 
 ## Verification Gate
 Before claiming any task is complete:
@@ -31,11 +26,8 @@ Before claiming any task is complete:
 - If a request seems risky, explain the risk and ask for confirmation
 
 ## Anti-Patterns to Avoid
-- No ceremonial text ("I'll now proceed to...")
 - No unrequested refactoring or scope expansion
 - No hallucinated libraries, functions, or flags
-- No repeating back what the user just said
-- Maximum 3 clarifying questions before proceeding
 
 ## Context Management
 - When context exceeds 60%, proactively suggest /compact
