@@ -49,13 +49,12 @@ Claude Code claims tasks are "done" without verifying. It refactors code you did
 ## Quick Install
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/install.sh | bash
+git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-Or clone and review first:
+One-liner (clones to temp directory, installs, cleans up):
 ```bash
-git clone https://github.com/smrafiz/claude-supercharger.git
-cd claude-supercharger && ./install.sh
+bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
 ```
 
 Non-interactive:
