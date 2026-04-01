@@ -2,7 +2,7 @@
 
 A role-aware, zero-dependency configuration kit for Claude Code. Drop it in, things get better.
 
-![Version](https://img.shields.io/badge/version-1.0.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![Version](https://img.shields.io/badge/version-1.1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 ## The Problem
 
@@ -60,14 +60,14 @@ cd claude-supercharger && ./install.sh
 
 Non-interactive:
 ```bash
-./install.sh --mode standard --roles developer,pm --config deploy --settings deploy
+./install.sh --mode standard --roles developer,pm --economy lean --config deploy --settings deploy
 ```
 
 ---
 
 ## What You Get
 
-**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **token economy** (~40-50% output reduction), **auto-configured MCP servers** (zero-setup), context management, quick mode switches, session handoff
+**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **tiered token economy** (Standard/Lean/Minimal — 30-60% output reduction), **auto-configured MCP servers** (zero-setup), context management, quick mode switches, session handoff
 
 **For developers:** Git safety, auto-format (Prettier/Black/rustfmt/gofmt), stack detection, regression prevention, scope discipline
 
@@ -100,6 +100,24 @@ Non-interactive:
 | **PM** | Project managers — range estimates, decision logs, risk tracking |
 
 Select one or more during installation. Switch mid-conversation with "as developer", "as student", etc.
+
+## Token Economy
+
+Three tiers of output compression, selectable at install and switchable mid-conversation:
+
+| Tier | Reduction | Character |
+|------|-----------|-----------|
+| **Standard** | ~30% | Concise, natural English. Complete sentences. |
+| **Lean** | ~45% | Every word load-bearing. Fragments OK. Default. |
+| **Minimal** | ~60% | Telegraphic. Bare deliverables only. |
+
+Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanation**, **Diagnosis**, **Coordination**.
+
+**Role-aware constraints** prevent bad combinations. Student floors at Standard (explanations need room). Writer floors at Standard (prose needs sentences). Developer/Data/PM are unrestricted.
+
+Switch mid-conversation: `eco standard`, `eco lean`, `eco minimal`
+
+Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
 
 ## Hooks
 
@@ -135,13 +153,15 @@ Deploys to `~/.claude/` using Claude Code's native config system:
 ~/.claude/
   CLAUDE.md                  # Universal config (merged with yours if exists)
   rules/
-    supercharger.md          # Execution workflow, anti-patterns, output discipline
+    supercharger.md          # Execution workflow, anti-patterns
     guardrails.md            # Four Laws, autonomy levels, halt conditions
+    economy.md               # Token economy (universal rules + active tier)
     developer.md             # Your selected role(s)
     anti-patterns.yml        # 35 prompt anti-pattern library
   supercharger/
     hooks/                   # Hook scripts referenced by settings.json
     roles/                   # All role files (for mode switching)
+    economy/                 # Tier templates (for switching)
   settings.json              # Hooks registered here
 ```
 
@@ -185,6 +205,8 @@ Removes all Supercharger content, preserves your configs, offers backup restore.
 **How do I change roles?** Run `./install.sh` again — it's idempotent.
 
 **How do I upgrade?** `git pull && ./install.sh`
+
+**How do I change the token economy tier?** Say `eco lean` mid-conversation, or run `bash tools/economy-switch.sh lean` for a permanent change.
 
 **What if a hook blocks something I need?** Run the command directly in your terminal (outside Claude Code), or remove the hook from `~/.claude/settings.json`.
 

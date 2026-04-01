@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 begin_test "install: non-interactive fresh install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 assert_file_exists "$HOME/.claude/CLAUDE.md" &&
 assert_file_exists "$HOME/.claude/rules/supercharger.md" &&
@@ -16,6 +16,7 @@ assert_file_exists "$HOME/.claude/rules/anti-patterns.yml" &&
 assert_file_not_exists "$HOME/.claude/rules/writer.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/writer.md" &&
 assert_file_exists "$HOME/.claude/settings.json" &&
+assert_file_exists "$HOME/.claude/rules/economy.md" &&
 pass
 teardown_test_home
 
@@ -26,7 +27,7 @@ mkdir -p "$HOME/.claude"
 echo "# My Existing Config" > "$HOME/.claude/CLAUDE.md"
 echo "keep this" >> "$HOME/.claude/CLAUDE.md"
 
-bash "$REPO_DIR/install.sh" --mode safe --roles writer --config merge --settings deploy >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode safe --roles writer --config merge --settings deploy --economy standard >/dev/null 2>&1
 
 assert_file_contains "$HOME/.claude/CLAUDE.md" "My Existing Config" &&
 assert_file_contains "$HOME/.claude/CLAUDE.md" "keep this" &&
@@ -41,7 +42,7 @@ setup_test_home
 mkdir -p "$HOME/.claude"
 echo "# Untouched" > "$HOME/.claude/CLAUDE.md"
 
-bash "$REPO_DIR/install.sh" --mode safe --roles developer --config skip --settings skip >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode safe --roles developer --config skip --settings skip --economy lean >/dev/null 2>&1
 
 assert_file_contains "$HOME/.claude/CLAUDE.md" "Untouched" &&
 assert_file_not_contains "$HOME/.claude/CLAUDE.md" "Supercharger" &&
@@ -53,8 +54,8 @@ teardown_test_home
 begin_test "install: idempotent — no duplicate hooks after double install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy >/dev/null 2>&1
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 HOOK_COUNT=$(python3 -c "
 import json

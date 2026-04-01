@@ -1,5 +1,34 @@
 # Changelog
 
+## [1.1.0] - 2026-04-01
+
+### Added
+- **Tiered token economy**: Standard (~30%), Lean (~45%), Minimal (~60%) reduction tiers
+- **5 output types**: Code, Commands, Explanation, Diagnosis, Coordination — each with per-tier rules
+- **Role-aware constraints**: Student floors at Standard, Writer floors at Standard, Student ceiling at Lean
+- **Mid-conversation switching**: "eco standard", "eco lean", "eco minimal" keywords
+- **Economy selection at install**: New installer step after role selection
+- **Post-install switching**: `bash tools/economy-switch.sh [tier]` CLI tool
+- **Universal output rules**: 7 always-on rules (no ceremony, no restating, lead with deliverable)
+- New file: `configs/universal/economy.md` — single source of truth for token economy
+- New file: `lib/economy.sh` — tier selection, validation, deployment logic
+- New file: `tools/economy-switch.sh` — CLI for changing tiers after install
+- New files: `configs/economy/standard.md`, `lean.md`, `minimal.md` — tier templates
+- 18 new tests covering tier deployment, validation, constraint enforcement, and integration
+
+### Changed
+- Role configs now declare economy metadata (2 lines) instead of role-specific token rules
+- CLAUDE.md template references economy.md instead of inline token rules
+- supercharger.md Output Discipline section references economy.md
+- Installer now has economy tier selection step
+- Uninstaller cleans up economy.md
+
+### Removed
+- Inline Token Economy section from CLAUDE.md template
+- Per-role Token Efficiency bullet lists (replaced with economy metadata)
+- Redundant anti-pattern bullets (ceremony, repeating — now in economy.md universal rules)
+- Output Discipline rules from supercharger.md (moved to economy.md)
+
 ## [1.0.0] - 2026-03-31
 
 ### New

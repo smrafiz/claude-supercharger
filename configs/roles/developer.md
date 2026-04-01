@@ -29,6 +29,5 @@
 - Never reintroduce a pattern that was explicitly removed
 
 ## Token Efficiency
-- Code blocks only — no surrounding explanation unless asked
-- One-line commit messages unless change is multi-faceted
-- Error fixes: show the diff, not the reasoning
+Default economy: Lean
+Economy range: unrestricted
