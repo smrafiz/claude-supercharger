@@ -9,6 +9,8 @@ get_hooks_for_mode() {
   local hooks_dir="$3"
   local hooks=()
 
+  # Format: event|matcher|command
+  # matcher is empty for events that don't support it
   hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh")
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
@@ -66,14 +68,16 @@ else:
 if 'hooks' not in settings:
     settings['hooks'] = {}
 
+# Remove existing supercharger hook entries
 for event in list(settings['hooks'].keys()):
     settings['hooks'][event] = [
-        h for h in settings['hooks'][event]
-        if tag not in h.get('command', '')
+        entry for entry in settings['hooks'][event]
+        if not any(tag in h.get('command', '') for h in entry.get('hooks', []))
     ]
     if not settings['hooks'][event]:
         del settings['hooks'][event]
 
+# Add new entries in the new format
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
@@ -85,7 +89,14 @@ for line in hooks_input.strip().split('\n'):
     if event not in settings['hooks']:
         settings['hooks'][event] = []
 
-    hook_entry = {'command': command + ' ' + tag}
+    hook_entry = {
+        'hooks': [
+            {
+                'type': 'command',
+                'command': command + ' ' + tag
+            }
+        ]
+    }
     if matcher:
         hook_entry['matcher'] = matcher
 
@@ -117,8 +128,8 @@ with open(settings_file, 'r') as f:
 if 'hooks' in settings:
     for event in list(settings['hooks'].keys()):
         settings['hooks'][event] = [
-            h for h in settings['hooks'][event]
-            if tag not in h.get('command', '')
+            entry for entry in settings['hooks'][event]
+            if not any(tag in h.get('command', '') for h in entry.get('hooks', []))
         ]
         if not settings['hooks'][event]:
             del settings['hooks'][event]

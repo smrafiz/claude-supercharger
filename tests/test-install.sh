@@ -57,12 +57,14 @@ setup_test_home
 bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
-HOOK_COUNT=$(python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
-count = sum(1 for event in hooks.values() for h in event if '#supercharger' in h.get('command',''))
+count = sum(1 for event in hooks.values() for entry in event
+            for h in entry.get('hooks', [])
+            if '#supercharger' in h.get('command',''))
 print(count)
 ")
 # Standard mode + developer = safety + notify + git-safety + auto-format = 4
