@@ -61,11 +61,12 @@ merge_mcp_into_settings() {
   local server_list
   server_list=$(build_server_list "$roles")
 
-  python3 -c "
+  SETTINGS_FILE="$settings_file" MCP_TAG="$tag" SERVERS_INPUT="$server_list" python3 -c "
 import json, os, sys
 
-settings_file = '$settings_file'
-tag = '$tag'
+settings_file = os.environ['SETTINGS_FILE']
+tag = os.environ['MCP_TAG']
+servers_input = os.environ['SERVERS_INPUT']
 
 if os.path.exists(settings_file):
     with open(settings_file, 'r') as f:
@@ -87,7 +88,6 @@ settings['mcpServers'] = {
 }
 
 # Add new entries
-servers_input = '''$server_list'''
 for line in servers_input.strip().split('\n'):
     if not line.strip():
         continue
@@ -116,11 +116,11 @@ remove_supercharger_mcp() {
     return 0
   fi
 
-  python3 -c "
+  SETTINGS_FILE="$settings_file" MCP_TAG="$tag" python3 -c "
 import json, os
 
-settings_file = '$settings_file'
-tag = '$tag'
+settings_file = os.environ['SETTINGS_FILE']
+tag = os.environ['MCP_TAG']
 
 with open(settings_file, 'r') as f:
     settings = json.load(f)

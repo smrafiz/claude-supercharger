@@ -46,11 +46,12 @@ merge_hooks_into_settings() {
   local hooks_list
   hooks_list=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir")
 
-  python3 -c "
+  SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" HOOKS_INPUT="$hooks_list" python3 -c "
 import json, os, sys
 
-settings_file = '$settings_file'
-tag = '$SUPERCHARGER_TAG'
+settings_file = os.environ['SETTINGS_FILE']
+tag = os.environ['SUPERCHARGER_TAG']
+hooks_input = os.environ['HOOKS_INPUT']
 
 if os.path.exists(settings_file):
     with open(settings_file, 'r') as f:
@@ -73,7 +74,6 @@ for event in list(settings['hooks'].keys()):
     if not settings['hooks'][event]:
         del settings['hooks'][event]
 
-hooks_input = '''$hooks_list'''
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
@@ -105,11 +105,11 @@ remove_supercharger_hooks() {
     return 0
   fi
 
-  python3 -c "
+  SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" python3 -c "
 import json, os
 
-settings_file = '$settings_file'
-tag = '$SUPERCHARGER_TAG'
+settings_file = os.environ['SETTINGS_FILE']
+tag = os.environ['SUPERCHARGER_TAG']
 
 with open(settings_file, 'r') as f:
     settings = json.load(f)
