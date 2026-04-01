@@ -56,7 +56,7 @@ if [ ! -f "$ECONOMY_FILE" ]; then
   exit 1
 fi
 
-# Check tier template exists
+# Check tier template exists (pre-check on requested tier)
 TIER_FILE="$ECONOMY_DIR/${TIER}.md"
 if [ ! -f "$TIER_FILE" ]; then
   error "Tier template not found: $TIER_FILE"
@@ -72,23 +72,27 @@ else
   VALIDATED_TIER="$TIER"
 fi
 
-# Read new tier content
+# Read new tier content (use validated tier, not original)
+TIER_FILE="$ECONOMY_DIR/${VALIDATED_TIER}.md"
+if [ ! -f "$TIER_FILE" ]; then
+  error "Tier template not found: $TIER_FILE"
+  exit 1
+fi
 NEW_TIER_CONTENT=$(cat "$TIER_FILE")
 
 # Replace active tier block in economy.md
-python3 -c "
-import re
+ECONOMY_FILE_PATH="$ECONOMY_FILE" NEW_CONTENT="$NEW_TIER_CONTENT" python3 -c "
+import re, os
 
-with open('$ECONOMY_FILE', 'r') as f:
+with open(os.environ['ECONOMY_FILE_PATH'], 'r') as f:
     content = f.read()
 
-# Match from '### Active Tier:' to the next '##' heading or end of file
 pattern = r'### Active Tier:.*?(?=\n## |\Z)'
-replacement = '''$NEW_TIER_CONTENT'''
+replacement = os.environ['NEW_CONTENT'].strip()
 
-result = re.sub(pattern, replacement.strip(), content, count=1, flags=re.DOTALL)
+result = re.sub(pattern, replacement, content, count=1, flags=re.DOTALL)
 
-with open('$ECONOMY_FILE', 'w') as f:
+with open(os.environ['ECONOMY_FILE_PATH'], 'w') as f:
     f.write(result)
 "
 

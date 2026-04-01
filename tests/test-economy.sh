@@ -190,4 +190,53 @@ assert_file_contains "$HOME/.claude/rules/economy.md" "Active Tier: Lean" &&
 pass
 teardown_test_home
 
+# --- Test: economy-switch.sh switches tier ---
+begin_test "economy: economy-switch.sh switches lean to standard"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+mkdir -p "$HOME/.claude/supercharger/economy"
+
+deploy_economy "$REPO_DIR" "lean"
+
+bash "$REPO_DIR/tools/economy-switch.sh" standard >/dev/null 2>&1
+
+assert_file_contains "$HOME/.claude/rules/economy.md" "Active Tier: Standard" &&
+assert_file_not_contains "$HOME/.claude/rules/economy.md" "Active Tier: Lean" &&
+pass
+teardown_test_home
+
+# --- Test: economy-switch.sh validates against roles ---
+begin_test "economy: economy-switch.sh respects student ceiling"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+mkdir -p "$HOME/.claude/supercharger/economy"
+
+deploy_economy "$REPO_DIR" "lean"
+# Deploy student role to rules/ so switch tool detects it
+cp "$REPO_DIR/configs/roles/student.md" "$HOME/.claude/rules/student.md"
+
+bash "$REPO_DIR/tools/economy-switch.sh" minimal >/dev/null 2>&1
+
+assert_file_contains "$HOME/.claude/rules/economy.md" "Active Tier: Lean" &&
+pass
+teardown_test_home
+
+# --- Test: economy-switch.sh rejects invalid tier ---
+begin_test "economy: economy-switch.sh rejects invalid tier name"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+mkdir -p "$HOME/.claude/supercharger/economy"
+
+deploy_economy "$REPO_DIR" "lean"
+
+bash "$REPO_DIR/tools/economy-switch.sh" turbo >/dev/null 2>&1
+EXIT_CODE=$?
+
+if [ "$EXIT_CODE" -ne 0 ]; then
+  pass
+else
+  fail "expected non-zero exit code for invalid tier"
+fi
+teardown_test_home
+
 report

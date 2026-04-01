@@ -47,7 +47,7 @@ get_default_tier_for_roles() {
 
   for constraint in "${ROLE_CONSTRAINTS[@]}"; do
     IFS='|' read -r role default floor ceiling <<< "$constraint"
-    if echo "$roles" | grep -q "$role"; then
+    if echo "$roles" | grep -qw "$role"; then
       local rank
       rank=$(tier_rank "$default")
       if [ "$rank" -lt "$most_restrictive_rank" ]; then
@@ -66,7 +66,7 @@ get_floor_for_roles() {
 
   for constraint in "${ROLE_CONSTRAINTS[@]}"; do
     IFS='|' read -r role default floor ceiling <<< "$constraint"
-    if echo "$roles" | grep -q "$role"; then
+    if echo "$roles" | grep -qw "$role"; then
       if [ -n "$floor" ]; then
         local rank
         rank=$(tier_rank "$floor")
@@ -91,7 +91,7 @@ get_ceiling_for_roles() {
 
   for constraint in "${ROLE_CONSTRAINTS[@]}"; do
     IFS='|' read -r role default floor ceiling <<< "$constraint"
-    if echo "$roles" | grep -q "$role"; then
+    if echo "$roles" | grep -qw "$role"; then
       if [ -n "$ceiling" ]; then
         local rank
         rank=$(tier_rank "$ceiling")
@@ -215,17 +215,15 @@ deploy_economy() {
   local economy_template="$source_dir/configs/universal/economy.md"
   if [ -f "$economy_template" ]; then
     # Replace {{ACTIVE_TIER}} placeholder with tier content
-    python3 -c "
-import sys
+    TIER_CONTENT="$tier_content" ECONOMY_TEMPLATE="$economy_template" ECONOMY_OUTPUT="$rules_dir/economy.md" python3 -c "
+import os
 
-with open('$economy_template', 'r') as f:
+with open(os.environ['ECONOMY_TEMPLATE'], 'r') as f:
     template = f.read()
 
-tier_content = '''$tier_content'''
+result = template.replace('{{ACTIVE_TIER}}', os.environ['TIER_CONTENT'])
 
-result = template.replace('{{ACTIVE_TIER}}', tier_content)
-
-with open('$rules_dir/economy.md', 'w') as f:
+with open(os.environ['ECONOMY_OUTPUT'], 'w') as f:
     f.write(result)
 "
   fi
