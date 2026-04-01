@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-set -euo pipefail
+set -eo pipefail
 umask 077
 
 GREEN='\033[0;32m'
@@ -25,18 +25,19 @@ fi
 
 # Show currently configured servers
 echo -e "${BLUE}Currently configured MCP servers:${NC}"
-python3 -c "
-import json
-with open('$SETTINGS_FILE') as f:
+SETTINGS_FILE="$SETTINGS_FILE" MCP_TAG="$TAG" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_FILE']) as f:
     s = json.load(f)
+tag = os.environ['MCP_TAG']
 servers = s.get('mcpServers', {})
 if not servers:
     print('  (none)')
 else:
     for k in sorted(servers):
-        tag = ' (Supercharger)' if '$TAG' in k else ' (user)'
-        name = k.replace(' $TAG', '')
-        print(f'  - {name}{tag}')
+        label = ' (Supercharger)' if tag in k else ' (user)'
+        name = k.replace(' ' + tag, '')
+        print(f'  - {name}{label}')
 " 2>/dev/null
 echo ""
 
@@ -104,11 +105,11 @@ add_server() {
   local args="$2"
   local env_json="${3:-}"
 
-  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" \
+  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" SETTINGS_FILE="$SETTINGS_FILE" \
   python3 -c "
 import json, os
 
-settings_file = os.path.expanduser('$SETTINGS_FILE')
+settings_file = os.environ['SETTINGS_FILE']
 name = os.environ['MCP_NAME']
 tag = os.environ['MCP_TAG']
 args = os.environ['MCP_ARGS'].split()
