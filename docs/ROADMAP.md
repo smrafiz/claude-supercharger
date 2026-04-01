@@ -50,30 +50,12 @@ Zero-code vision: every feature works out of the box. No JSON editing, no script
 - MCP Usage Tips in install summary
 - 133 tests passing
 
----
-
-## v1.5 — Team & Sharing
-
-### Profile System
-Bundle role + economy + MCP into named profiles:
-- `bash tools/profile-switch.sh frontend-dev` → Developer role, Lean tier, Playwright + Magic UI
-- `bash tools/profile-switch.sh data-analyst` → Data role, Standard tier, DuckDuckGo
-- Profiles are just JSON files in `~/.claude/supercharger/profiles/`
-
-*Inspired by: ClaudeCTX (foxj77) — switch entire config with one command*
-
-### Team Presets
-- `bash tools/export-preset.sh` — exports config (mode, roles, economy, MCP) as `.supercharger` file
-- `bash tools/import-preset.sh team.supercharger` — applies shared config
-- Team lead creates once, entire team imports
-
-### Project-Level Config
-- `.supercharger.json` in project root — auto-applies roles and economy when Claude Code opens that project
-- Overrides user-level config for project scope
-- Version-controlled per project
-
-### Onboarding Mode
-First-time Claude Code user? Supercharger detects no prior config and runs an interactive tutorial explaining each feature during install.
+### v1.5.0 — Team & Sharing
+- Profile System (5 built-in + custom profiles, one-command switch)
+- Project-Level Config (`.supercharger.json` SessionStart hook)
+- Team Presets (export/import `.supercharger` files)
+- Onboarding Mode (first-time user guidance)
+- 140 tests passing
 
 ---
 

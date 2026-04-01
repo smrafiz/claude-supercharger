@@ -18,6 +18,7 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
     hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
+    hooks+=("SessionStart||${hooks_dir}/project-config.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
@@ -161,7 +162,7 @@ count_installed_hooks() {
   local count=1  # safety always
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    count=$((count + 4))  # notify, git-safety, enforce-pkg-manager, audit-trail
+    count=$((count + 5))  # notify, git-safety, enforce-pkg-manager, audit-trail, project-config
     if [[ "$has_developer" == "true" ]]; then
       count=$((count + 1))  # quality-gate
     fi

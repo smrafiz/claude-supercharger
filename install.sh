@@ -53,8 +53,29 @@ done
 
 detect_platform
 
+# Detect first-time user
+FIRST_TIME="false"
+if [ ! -d "$HOME/.claude" ] || [ ! -f "$HOME/.claude/CLAUDE.md" ]; then
+  FIRST_TIME="true"
+fi
+
 # Step 1: Banner + Mode
 show_banner
+
+if [[ "$FIRST_TIME" == "true" ]] && [ -z "$ARG_MODE" ]; then
+  echo -e "${CYAN}Welcome! Looks like this is your first time with Claude Supercharger.${NC}"
+  echo ""
+  echo -e "  Supercharger configures Claude Code to be safer, more focused, and more efficient."
+  echo -e "  It deploys to ${BOLD}~/.claude/${NC} — Claude Code's native config directory."
+  echo ""
+  echo -e "  ${BOLD}What you'll choose:${NC}"
+  echo -e "    1. Install mode — how many features to enable"
+  echo -e "    2. Roles — what kind of work you do (code, write, analyze, etc.)"
+  echo -e "    3. Economy — how concise Claude's responses should be"
+  echo ""
+  echo -e "  Everything is reversible. Run ${BOLD}./uninstall.sh${NC} to remove cleanly."
+  echo ""
+fi
 
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"

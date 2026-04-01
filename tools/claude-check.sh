@@ -39,7 +39,7 @@ check_file "$HOME/.claude/rules/guardrails.md" "rules/guardrails.md — Four Law
 echo ""
 echo -e "${BLUE}Primary Roles (active):${NC}"
 ROLES_FOUND=""
-for role in developer writer student data pm; do
+for role in developer writer student data pm designer devops researcher; do
   if [ -f "$HOME/.claude/rules/${role}.md" ]; then
     ROLE_LABEL="$(echo "${role:0:1}" | tr '[:lower:]' '[:upper:]')${role:1}"
     echo -e "  ${GREEN}✓${NC} ${ROLE_LABEL}"
@@ -53,7 +53,7 @@ fi
 echo ""
 echo -e "${BLUE}Available Roles (mode switching):${NC}"
 AVAILABLE_FOUND=""
-for role in developer writer student data pm; do
+for role in developer writer student data pm designer devops researcher; do
   if [ -f "$HOME/.claude/supercharger/roles/${role}.md" ]; then
     ROLE_LABEL="$(echo "${role:0:1}" | tr '[:lower:]' '[:upper:]')${role:1}"
     AVAILABLE_FOUND="${AVAILABLE_FOUND:+$AVAILABLE_FOUND, }$ROLE_LABEL"
@@ -90,7 +90,7 @@ print(count)
   echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
 
   if [ -d "$HOME/.claude/supercharger/hooks" ]; then
-    for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail prompt-validator compaction-backup; do
+    for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config prompt-validator compaction-backup; do
       if [ -f "$HOME/.claude/supercharger/hooks/${hook}.sh" ]; then
         if grep -q "${hook}.sh" "$HOME/.claude/settings.json" 2>/dev/null; then
           echo -e "    ${GREEN}✓${NC} ${hook} — active"
@@ -254,7 +254,14 @@ echo -e "${CYAN}─────────────────────�
 if [ -n "$ROLES_FOUND" ]; then
   echo -e "Roles: ${BOLD}$ROLES_FOUND${NC}"
 fi
-echo -e "Version: ${BOLD}1.4.0${NC}"
+ACTIVE_PROFILE="$HOME/.claude/supercharger/.active-profile"
+if [ -f "$ACTIVE_PROFILE" ]; then
+  echo -e "Profile: ${BOLD}$(cat "$ACTIVE_PROFILE")${NC}"
+fi
+if [ -f ".supercharger.json" ]; then
+  echo -e "Project config: ${GREEN}.supercharger.json detected${NC}"
+fi
+echo -e "Version: ${BOLD}1.5.0${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then

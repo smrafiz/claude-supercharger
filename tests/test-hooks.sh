@@ -460,4 +460,82 @@ OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
 echo "$OUTPUT" | grep -q "detected=false" && pass || fail "should report detected=false"
 rm -rf "$STACK_DIR"
 
+# --- Project Config Hook Tests ---
+
+echo ""
+echo "=== Project Config Hook Tests ==="
+
+PROJECT_HOOK="$REPO_DIR/hooks/project-config.sh"
+
+begin_test "project-config: outputs systemMessage when .supercharger.json found"
+PROJ_DIR=$(mktemp -d)
+echo '{"roles":["developer","designer"],"economy":"lean","hints":"React + Tailwind project"}' > "$PROJ_DIR/.supercharger.json"
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -q "systemMessage" && echo "$OUTPUT" | grep -q "developer" && pass || fail "no systemMessage with roles"
+rm -rf "$PROJ_DIR"
+
+begin_test "project-config: exits cleanly with no .supercharger.json"
+PROJ_DIR=$(mktemp -d)
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+[ -z "$OUTPUT" ] && pass || fail "should produce no output without config"
+rm -rf "$PROJ_DIR"
+
+begin_test "project-config: includes hints in systemMessage"
+PROJ_DIR=$(mktemp -d)
+echo '{"hints":"Use pnpm, prefer Vitest over Jest"}' > "$PROJ_DIR/.supercharger.json"
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -q "pnpm" && pass || fail "hints not in systemMessage"
+rm -rf "$PROJ_DIR"
+
+# --- Profile Switch Tests ---
+
+echo ""
+echo "=== Profile Switch Tests ==="
+
+PROFILE_TOOL="$REPO_DIR/tools/profile-switch.sh"
+
+begin_test "profile: --list runs without error"
+bash "$PROFILE_TOOL" --list >/dev/null 2>&1
+[ $? -eq 0 ] && pass || fail "list failed"
+
+begin_test "profile: --save creates profile JSON"
+setup_test_home
+mkdir -p "$HOME/.claude/rules" "$HOME/.claude/supercharger/profiles"
+cp "$REPO_DIR/configs/roles/developer.md" "$HOME/.claude/rules/developer.md"
+echo "## Active Tier" > "$HOME/.claude/rules/economy.md"
+bash "$PROFILE_TOOL" --save test-profile >/dev/null 2>&1
+if [ -f "$HOME/.claude/supercharger/profiles/test-profile.json" ]; then
+  pass
+else
+  fail "profile JSON not created"
+fi
+teardown_test_home
+
+begin_test "profile: built-in frontend-dev has correct roles"
+OUTPUT=$(bash "$PROFILE_TOOL" --list 2>/dev/null)
+echo "$OUTPUT" | grep -q "frontend-dev" && echo "$OUTPUT" | grep -q "Designer" && pass || fail "frontend-dev not listed correctly"
+
+# --- Team Preset Tests ---
+
+echo ""
+echo "=== Team Preset Tests ==="
+
+EXPORT_TOOL="$REPO_DIR/tools/export-preset.sh"
+
+begin_test "preset: export creates .supercharger file"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+cp "$REPO_DIR/configs/roles/developer.md" "$HOME/.claude/rules/developer.md"
+echo "{}" > "$HOME/.claude/settings.json"
+echo "## Active Tier" > "$HOME/.claude/rules/economy.md"
+PRESET_OUT=$(mktemp)
+bash "$EXPORT_TOOL" "$PRESET_OUT" >/dev/null 2>&1
+if [ -s "$PRESET_OUT" ] && python3 -c "import json; json.load(open('$PRESET_OUT'))" 2>/dev/null; then
+  pass
+else
+  fail "preset file not valid JSON"
+fi
+rm -f "$PRESET_OUT"
+teardown_test_home
+
 report

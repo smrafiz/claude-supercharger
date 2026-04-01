@@ -1,5 +1,21 @@
 # Changelog
 
+## [1.5.0] - 2026-04-02
+
+### Added
+- **Profile System**: Bundle role + economy + MCP into named profiles. 5 built-in (frontend-dev, backend-dev, data-analyst, tech-writer, team-lead) + custom profiles. `bash tools/profile-switch.sh <name>`
+- **Project-Level Config**: `.supercharger.json` in project root auto-applies roles, economy, and project hints on session start via SessionStart hook
+- **Team Presets**: Export/import config as `.supercharger` files. `bash tools/export-preset.sh` / `bash tools/import-preset.sh`
+- **Onboarding Mode**: First-time users get a welcome guide during install explaining what each step does
+- `project-config` SessionStart hook added to standard+ mode
+- 7 new tests (140 total)
+
+### Changed
+- Standard mode now includes `project-config` hook (7 hooks for standard+developer, was 6)
+- claude-check shows active profile and detects `.supercharger.json` in current directory
+- claude-check hook list includes `project-config`
+- claude-check role loops check all 8 roles (was 5)
+
 ## [1.4.0] - 2026-04-02
 
 ### Added

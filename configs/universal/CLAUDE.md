@@ -1,4 +1,4 @@
-# Claude Supercharger v1.4.0
+# Claude Supercharger v1.5.0
 
 ## Your Environment
 - Roles: {{ROLES}} (default — prioritize these role guidelines)

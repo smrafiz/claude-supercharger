@@ -4,7 +4,7 @@
 
 A role-aware, zero-dependency configuration kit that transforms Claude Code from a talented but undisciplined assistant into a focused, safe, and efficient one — tailored to how *you* work.
 
-![Version](https://img.shields.io/badge/version-1.4.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-140%20passing-brightgreen)
 
 ---
 
@@ -136,6 +136,10 @@ The installer walks you through 4 steps: install mode → roles → economy tier
 | **Enhanced Statusline** | 2-line status bar: model, project, git branch, context %, cost, cache hit rate | `statusLine` in settings.json |
 | **Stack Auto-Detection** | Detects language, framework, package manager, test framework from project files | Python, JS/TS, Rust, Go |
 | **Config Validation** | Lints rule files, checks hooks are executable, validates settings.json | `claude-check` |
+| **Profile System** | Bundle role + economy + MCP into named profiles, switch with one command | 5 built-in + custom |
+| **Project-Level Config** | `.supercharger.json` in project root auto-applies roles, economy, hints | SessionStart hook |
+| **Team Presets** | Export/import config as `.supercharger` files for team sharing | CLI tools |
+| **Onboarding Mode** | First-time user guidance during install | Auto-detected |
 
 ---
 
@@ -183,6 +187,42 @@ Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanatio
 Switch anytime: `eco standard`, `eco lean`, or `eco minimal`
 
 Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
+
+---
+
+## Profiles & Team Sharing
+
+### Profiles
+
+Bundle role + economy + MCP into a named profile. Switch everything with one command:
+
+```bash
+bash tools/profile-switch.sh frontend-dev    # Developer+Designer, Lean, Playwright+Magic UI
+bash tools/profile-switch.sh data-analyst    # Data+Researcher, Standard, DuckDuckGo
+bash tools/profile-switch.sh --save my-setup # Save current config as a custom profile
+bash tools/profile-switch.sh --list          # See all available profiles
+```
+
+Built-in profiles: `frontend-dev`, `backend-dev`, `data-analyst`, `tech-writer`, `team-lead`
+
+### Project-Level Config
+
+Drop a `.supercharger.json` in your project root. Claude Code picks it up automatically on session start:
+
+```json
+{
+  "roles": ["developer", "designer"],
+  "economy": "lean",
+  "hints": "React + Tailwind project, use pnpm, prefer Vitest"
+}
+```
+
+### Team Presets
+
+```bash
+bash tools/export-preset.sh team.supercharger    # Export your config
+bash tools/import-preset.sh team.supercharger    # Teammate imports it
+```
 
 ---
 
@@ -242,6 +282,7 @@ bash tools/resume.sh --show FILE  # view a specific summary
 | **quality-gate** | Standard+ | *(Doesn't block — 3-stage lint→auto-fix→re-check pipeline: ruff, eslint, clippy, rustfmt, gofmt)* |
 | **audit-trail** | Standard+ | *(Doesn't block — JSONL log of all mutations: file edits, git commits, installs. 30-day rotation)* |
 | **notify** | Standard+ | *(Doesn't block — desktop notification when Claude needs input)* |
+| **project-config** | Standard+ | *(Doesn't block — reads `.supercharger.json` from project root on session start, injects roles/economy/hints)* |
 | **prompt-validator** | Full | Scans your prompts for 20 anti-patterns, suggests improvements |
 | **compaction-backup** | Full | Saves transcript + prepares summaries directory before compaction |
 
@@ -297,6 +338,7 @@ Deploys to `~/.claude/` using Claude Code's native config system:
     economy/                 # Tier templates (for economy switching)
     summaries/               # Session summaries (created by compaction hook)
     audit/                   # Mutation audit trail (JSONL, 30-day rotation)
+    profiles/                # Named profiles (JSON, for profile-switch)
   settings.json              # Hooks + MCP servers registered here
 ```
 
@@ -329,6 +371,9 @@ A timestamped backup is **always** created before any changes.
 | **MCP Setup** | `bash tools/mcp-setup.sh` | Add advanced MCP servers (GitHub, Brave, Slack, etc.) |
 | **Resume** | `bash tools/resume.sh` | Show latest session summary, copy resume prompt |
 | **Hook Toggle** | `bash tools/hook-toggle.sh safety off` | Enable/disable any hook without editing JSON |
+| **Profile Switch** | `bash tools/profile-switch.sh frontend-dev` | Switch role + economy + MCP in one command |
+| **Export Preset** | `bash tools/export-preset.sh team.supercharger` | Export current config for team sharing |
+| **Import Preset** | `bash tools/import-preset.sh team.supercharger` | Apply a teammate's config preset |
 
 ---
 
