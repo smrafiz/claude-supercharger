@@ -2,18 +2,17 @@
 set -euo pipefail
 umask 077
 
-# Colors
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-BLUE='\033[0;34m'
-YELLOW='\033[1;33m'
-CYAN='\033[0;36m'
-BOLD='\033[1m'
-NC='\033[0m'
+# Resolve source directory
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Source modules
+source "$SCRIPT_DIR/lib/utils.sh"
+source "$SCRIPT_DIR/lib/hooks.sh"
+source "$SCRIPT_DIR/lib/mcp.sh"
 
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════╗"
-echo "║  Claude Supercharger v1.1.0 Uninstaller   ║"
+echo "║  Claude Supercharger v${VERSION} Uninstaller   ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
@@ -45,55 +44,14 @@ fi
 echo ""
 echo -e "${BLUE}Removing Supercharger...${NC}"
 
-# Remove hooks from settings.json
+# Remove hooks from settings.json (uses lib/hooks.sh)
 if [ -f "$HOME/.claude/settings.json" ]; then
-  python3 -c "
-import json, os
-
-settings_file = os.path.expanduser('$HOME/.claude/settings.json')
-tag = '#supercharger'
-
-with open(settings_file, 'r') as f:
-    settings = json.load(f)
-
-if 'hooks' in settings:
-    for event in list(settings['hooks'].keys()):
-        settings['hooks'][event] = [
-            h for h in settings['hooks'][event]
-            if tag not in h.get('command', '')
-        ]
-        if not settings['hooks'][event]:
-            del settings['hooks'][event]
-    if not settings['hooks']:
-        del settings['hooks']
-
-with open(settings_file, 'w') as f:
-    json.dump(settings, f, indent=2)
-" 2>/dev/null && echo -e "  ${GREEN}✓${NC} Hooks removed from settings.json"
+  remove_supercharger_hooks 2>/dev/null && echo -e "  ${GREEN}✓${NC} Hooks removed from settings.json"
 fi
 
-# Remove MCP servers from settings.json
+# Remove MCP servers from settings.json (uses lib/mcp.sh)
 if [ -f "$HOME/.claude/settings.json" ]; then
-  python3 -c "
-import json, os
-
-settings_file = os.path.expanduser('$HOME/.claude/settings.json')
-tag = '#supercharger'
-
-with open(settings_file, 'r') as f:
-    settings = json.load(f)
-
-if 'mcpServers' in settings:
-    settings['mcpServers'] = {
-        k: v for k, v in settings['mcpServers'].items()
-        if tag not in k
-    }
-    if not settings['mcpServers']:
-        del settings['mcpServers']
-
-with open(settings_file, 'w') as f:
-    json.dump(settings, f, indent=2)
-" 2>/dev/null && echo -e "  ${GREEN}✓${NC} MCP servers removed from settings.json"
+  remove_supercharger_mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} MCP servers removed from settings.json"
 fi
 
 # Remove Supercharger block from CLAUDE.md
@@ -118,9 +76,9 @@ rm -f "$HOME/.claude/shared/guardrails-template.yml"
 rmdir "$HOME/.claude/shared" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Shared assets removed"
 
-# Remove hook scripts and roles
+# Remove hook scripts, roles, and economy tiers
 rm -rf "$HOME/.claude/supercharger"
-echo -e "  ${GREEN}✓${NC} Hook scripts and roles removed"
+echo -e "  ${GREEN}✓${NC} Hook scripts, roles, and economy tiers removed"
 
 # Remove claude-check
 rm -f "$HOME/.claude/claude-check.sh"
