@@ -99,7 +99,7 @@ Non-interactive:
 | **Data** | Analysts — reproducibility, data validation, tables |
 | **PM** | Project managers — range estimates, decision logs, risk tracking |
 
-Select one or more during installation. Switch mid-conversation with "as developer", "as student", etc.
+Select one or more during installation. Switch mid-conversation by saying "as developer", "as student", etc. Claude honors these in most contexts — if it doesn't respond to a switch, repeat the keyword at the start of your next message.
 
 ## Token Economy
 
@@ -115,7 +115,7 @@ Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanatio
 
 **Role-aware constraints** prevent bad combinations. Student floors at Standard (explanations need room). Writer floors at Standard (prose needs sentences). Developer/Data/PM are unrestricted.
 
-Switch mid-conversation: `eco standard`, `eco lean`, `eco minimal`
+Switch mid-conversation by saying `eco standard`, `eco lean`, or `eco minimal`.
 
 Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
 
