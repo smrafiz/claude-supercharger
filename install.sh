@@ -12,12 +12,14 @@ source "$SCRIPT_DIR/lib/roles.sh"
 source "$SCRIPT_DIR/lib/hooks.sh"
 source "$SCRIPT_DIR/lib/extras.sh"
 source "$SCRIPT_DIR/lib/mcp.sh"
+source "$SCRIPT_DIR/lib/economy.sh"
 
 # --- Argument parsing ---
 ARG_MODE=""
 ARG_ROLES=""
 ARG_CONFIG=""
 ARG_SETTINGS=""
+ARG_ECONOMY=""
 
 show_usage() {
   echo "Usage: install.sh [OPTIONS]"
@@ -27,12 +29,13 @@ show_usage() {
   echo "  --roles ROLES      Comma-separated roles: developer,writer,student,data,pm"
   echo "  --config ACTION    CLAUDE.md handling: deploy, merge, replace, skip"
   echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
+  echo "  --economy TIER     Economy tier: standard, lean, minimal (default: lean)"
   echo "  --help             Show this help message"
   echo ""
   echo "Examples:"
   echo "  ./install.sh                                              # Interactive"
   echo "  ./install.sh --mode standard --roles developer,pm         # Partial (prompts for rest)"
-  echo "  ./install.sh --mode standard --roles developer --config deploy --settings deploy  # Fully silent"
+  echo "  ./install.sh --mode standard --roles developer --economy lean --config deploy --settings deploy  # Fully silent"
   exit 0
 }
 
@@ -42,6 +45,7 @@ while [[ $# -gt 0 ]]; do
     --roles)    ARG_ROLES="$2"; shift 2 ;;
     --config)   ARG_CONFIG="$2"; shift 2 ;;
     --settings) ARG_SETTINGS="$2"; shift 2 ;;
+    --economy)  ARG_ECONOMY="$2"; shift 2 ;;
     --help)     show_usage ;;
     *)          echo "Unknown option: $1"; show_usage ;;
   esac
@@ -97,6 +101,17 @@ HAS_DEVELOPER="false"
 for role in "${SELECTED_ROLES[@]}"; do
   [[ "$role" == "developer" ]] && HAS_DEVELOPER="true"
 done
+
+# Economy tier selection
+if [ -n "$ARG_ECONOMY" ]; then
+  SELECTED_TIER=$(echo "$ARG_ECONOMY" | tr '[:upper:]' '[:lower:]')
+  ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
+  SELECTED_TIER=$(validate_tier_for_roles "$SELECTED_TIER" "$ROLES_CSV")
+else
+  echo -e "${BOLD}Select Token Economy:${NC}"
+  ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
+  select_economy_tier "$ROLES_CSV"
+fi
 
 # Step 3: Existing config handling
 CLAUDE_MD_ACTION="deploy"
@@ -188,6 +203,9 @@ success "Guardrails installed"
 # Deploy roles
 deploy_roles "$SCRIPT_DIR"
 
+# Deploy economy
+deploy_economy "$SCRIPT_DIR" "$SELECTED_TIER"
+
 # Deploy shared assets
 cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"
 success "Anti-patterns library installed (rules/)"
@@ -233,6 +251,7 @@ echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
 echo ""
 echo -e "  Mode:  ${BOLD}${MODE_LABEL}${NC}"
 echo -e "  Roles: ${BOLD}${ROLES_LIST}${NC}"
+echo -e "  Economy: ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
 echo ""
 echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
