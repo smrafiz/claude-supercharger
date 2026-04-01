@@ -93,6 +93,8 @@ Upgrade hook from 10 checks to 20+:
 
 ## v1.4 — More Roles & Detection
 
+Inspired by patterns from the [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) ecosystem.
+
 ### New Roles
 - **Designer** — UI/UX focus, design system awareness, accessibility checks, component naming
 - **DevOps** — Infrastructure, Dockerfile best practices, CI/CD, security scanning
@@ -104,6 +106,17 @@ Read `package.json` / `Cargo.toml` / `requirements.txt` / `go.mod` during instal
 - Auto-detect framework for developer role hints (Next.js vs Express vs Django)
 - Show detected stack in claude-check
 
+*Inspired by: Context Priming (disler/just-prompt), Claude Code Infrastructure Showcase (diet103)*
+
+### Config Validation
+Enhance `claude-check.sh` with linting:
+- Detect empty rule files, broken references, conflicting rules
+- Warn about oversized CLAUDE.md (context waste)
+- Validate hook scripts are executable and syntactically correct
+- Verify MCP servers are reachable (npx dry-run)
+
+*Inspired by: agnix (agent-sh) — linter for Claude Code agent files*
+
 ### MCP Usage Tips
 After install, generate a cheat sheet:
 - "Try: 'Look up React useEffect docs' (Context7)"
@@ -113,6 +126,14 @@ After install, generate a cheat sheet:
 ---
 
 ## v1.5 — Team & Sharing
+
+### Profile System
+Bundle role + economy + MCP into named profiles:
+- `bash tools/profile-switch.sh frontend-dev` → Developer role, Lean tier, Playwright + Magic UI
+- `bash tools/profile-switch.sh data-analyst` → Data role, Standard tier, DuckDuckGo
+- Profiles are just JSON files in `~/.claude/supercharger/profiles/`
+
+*Inspired by: ClaudeCTX (foxj77) — switch entire config with one command*
 
 ### Team Presets
 - `bash tools/export-preset.sh` — exports config (mode, roles, economy, MCP) as `.supercharger` file
@@ -142,6 +163,16 @@ Instead of just warning about vague prompts, enhance them:
 - "Fix the bug" → adds file context, recent git changes, error logs
 - Requires opt-in (Full mode only)
 
+### Enhanced Resume (Multi-Factor)
+Upgrade `tools/resume.sh` to combine multiple context sources:
+- Session summaries (existing)
+- Recent git log (new commits since last session)
+- Modified files diff
+- Open GitHub issues on the repo
+- Generate a richer, auto-assembled context block
+
+*Inspired by: Claude Session Restore (ZENG3LD), claude-code-tools (pchalasani)*
+
 ### Multi-Session Memory
 Use Memory MCP server to build persistent project knowledge base:
 - Key decisions, architecture choices, and patterns survive across sessions
@@ -152,6 +183,27 @@ Use Memory MCP server to build persistent project knowledge base:
 Track tokens per session, log to `~/.claude/supercharger/stats.json`:
 - Show trends in claude-check ("Avg session: 45K tokens, down 38% since install")
 - Identify which economy tier saves the most per role
+
+### Prompt Injection Scanner
+New hook: scan MCP tool outputs for injection attempts:
+- Detect prompt injection in fetched web content
+- Flag suspicious patterns in tool responses
+- Lightweight regex-based, no external dependencies
+
+*Inspired by: parry (vaporif) — prompt injection scanner for Claude Code hooks*
+
+---
+
+## Ecosystem
+
+These projects complement Supercharger — not competitors, but tools that work well alongside it:
+
+- **[agnix](https://github.com/agent-sh/agnix)** — lint your Supercharger config files
+- **[awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code)** — curated list of Claude Code tools, hooks, and skills
+- **[Superpowers](https://github.com/obra/superpowers)** — engineering skills (our skills system is adapted from this)
+- **[prompt-master](https://github.com/nidhinjs/prompt-master)** — prompt engineering patterns (v1.3 incorporates several)
+- **[Claude Session Restore](https://github.com/ZENG3LD/claude-session-restore)** — advanced session recovery
+- **[Dippy](https://github.com/ldayton/Dippy)** — AST-based safe command auto-approval
 
 ---
 
