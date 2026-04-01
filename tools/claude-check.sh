@@ -133,6 +133,18 @@ else
   echo -e "  ${YELLOW}○${NC} No settings.json — no MCP servers"
 fi
 
+# Session Summaries
+echo ""
+echo -e "${BLUE}Session Summaries:${NC}"
+SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
+if [ -d "$SUMMARIES_DIR" ] && [ -n "$(ls -A "$SUMMARIES_DIR" 2>/dev/null)" ]; then
+  SUMMARY_COUNT=$(ls "$SUMMARIES_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
+  LATEST=$(ls -t "$SUMMARIES_DIR"/*.md 2>/dev/null | head -1 | xargs basename 2>/dev/null)
+  echo -e "  ${GREEN}✓${NC} ${SUMMARY_COUNT} summary file(s) — latest: ${LATEST}"
+else
+  echo -e "  ${YELLOW}○${NC} No session summaries yet — say 'session summary' in Claude Code"
+fi
+
 # Tools
 echo ""
 echo -e "${BLUE}Tools:${NC}"
@@ -148,7 +160,7 @@ echo -e "${CYAN}─────────────────────�
 if [ -n "$ROLES_FOUND" ]; then
   echo -e "Roles: ${BOLD}$ROLES_FOUND${NC}"
 fi
-echo -e "Version: ${BOLD}1.0.0${NC}"
+echo -e "Version: ${BOLD}1.2.0${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then

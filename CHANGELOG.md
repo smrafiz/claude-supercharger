@@ -1,5 +1,23 @@
 # Changelog
 
+## [1.2.0] - 2026-04-01
+
+### Added
+- **Enhanced clarification mode**: Lightweight scan on all prompts + scored deep interview (4 dimensions, threshold-based questioning)
+- **Session summary**: Structured handoff block with decisions, files changed, and paste-ready resume prompt
+- **Auto-summary triggers**: Fires on "session summary" keyword, context compaction, and rate limits
+- **Resume tool**: `bash tools/resume.sh` — shows latest summary, copies resume prompt to clipboard
+- **Resume --list/--show**: Browse and view past session summaries
+- **Summaries directory**: `~/.claude/supercharger/summaries/` — created by compaction hook
+- 7 new tests for resume tool (93 total)
+
+### Changed
+- Clarification Mode in supercharger.md upgraded from 4 bullets to two-tier system (lightweight + deep interview)
+- Session Handoff now references Session Summary format
+- Compaction backup hook creates summaries directory alongside transcript backup
+- claude-check shows session summary count and latest file
+- Uninstaller cleans up summaries directory
+
 ## [1.1.0] - 2026-04-01
 
 ### Added

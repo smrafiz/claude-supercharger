@@ -2,7 +2,7 @@
 
 A role-aware, zero-dependency configuration kit for Claude Code. Drop it in, things get better.
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
 
 ## The Problem
 
@@ -66,7 +66,7 @@ Non-interactive:
 
 ## What You Get
 
-**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **tiered token economy** (Standard/Lean/Minimal — 30-60% output reduction), **auto-configured MCP servers** (zero-setup), context management, quick mode switches, session handoff
+**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **tiered token economy** (Standard/Lean/Minimal — 30-60% output reduction), **auto-configured MCP servers** (zero-setup), **scored clarification mode** (deep interview for complex prompts), **session summaries** (structured handoff with paste-ready resume prompts), context management, quick mode switches
 
 **For developers:** Git safety, auto-format (Prettier/Black/rustfmt/gofmt), stack detection, regression prevention, scope discipline
 
@@ -141,6 +141,22 @@ Supercharger auto-configures MCP servers during install — zero API keys, zero 
 | **Advanced** | GitHub, Brave Search, Slack, Notion, + more | `bash tools/mcp-setup.sh` |
 
 Total: 3-5 servers per role (research shows 3 is the sweet spot, 5 is the max before token overhead).
+
+## Session Intelligence
+
+### Clarification Mode
+Every prompt is scanned for vague verbs, missing scope, and unclear success criteria. Max 3 questions, then Claude proceeds.
+
+For complex requests, say **"deep interview"** — Claude scores your prompt across 4 dimensions (Scope, Success, Constraints, Context) and asks targeted questions for the weakest areas.
+
+### Session Summary & Resume
+Say **"session summary"** to generate a structured handoff block with decisions, files changed, and a paste-ready resume prompt. Also auto-generates on context compaction and rate limits.
+
+Resume a previous session:
+```bash
+bash tools/resume.sh           # show latest summary, copy resume to clipboard
+bash tools/resume.sh --list    # list all saved summaries
+```
 
 ---
 

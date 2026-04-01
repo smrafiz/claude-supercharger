@@ -57,14 +57,57 @@ Discard through compaction:
 - One task at a time, completed fully before starting the next
 
 ## Clarification Mode
-When the user says "interview me" or "help me think through this":
-- Ask one question at a time about the goal
-- Expose hidden assumptions ("What happens if X fails?")
-- Confirm scope before any execution
-- Summarize understanding and get approval before proceeding
+
+### Lightweight (default — active on all prompts)
+Scan every prompt for:
+- Vague verbs ("fix it", "make it better") → ask what specifically
+- Missing scope ("update the app") → ask which files/functions
+- No success criteria → derive a binary pass/fail condition
+- Multiple tasks in one request → split and confirm priority
+Max 3 questions, then proceed with best understanding.
+
+### Deep Interview (say "deep interview" or "interview me")
+Score the prompt across 4 dimensions (0-3 each):
+
+| Dimension | What's being assessed |
+|-----------|----------------------|
+| Scope | Which files/functions? Clear boundaries? |
+| Success | What does "done" look like? Binary pass/fail? |
+| Constraints | What must NOT change? Dependencies? |
+| Context | Why now? What exists? What was tried? |
+
+Behavior by total score:
+- 9-12: Proceed — prompt is clear enough
+- 5-8: Ask about the lowest-scoring dimension, then proceed
+- 0-4: Full interview — one question per low dimension, don't proceed until total reaches 8+
+
+After interview, summarize understanding as a numbered list. Get explicit "yes" before executing.
+
+## Session Summary
+When the user says "session summary", or after context compaction, or when
+detecting a rate limit — generate this block:
+
+```
+## Session Summary — [date]
+**Working on:** [one-line description]
+**Decisions made:**
+- [decision 1]
+- [decision 2]
+**Files changed:** [list]
+**What was tried and failed:** [if any]
+**Next steps:** [what remains]
+**Resume with:** [paste-ready prompt for next session]
+```
+
+Rules:
+- After compaction, your first response MUST be this summary
+- If rate limited, generate the summary immediately before stopping
+- Format as a fenced code block so the user can copy it
+- The "Resume with:" section should be a self-contained prompt that
+  gives the next session full context to continue
 
 ## Session Handoff
 When a conversation is ending or getting complex:
-- Summarize: decisions made, approach taken, what's left to do
+- Generate a Session Summary (format above)
 - Format as a block the user can paste into the next session
 - Include: files changed, patterns established, blockers hit

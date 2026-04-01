@@ -76,9 +76,9 @@ rm -f "$HOME/.claude/shared/guardrails-template.yml"
 rmdir "$HOME/.claude/shared" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Shared assets removed"
 
-# Remove hook scripts, roles, and economy tiers
+# Remove hook scripts, roles, economy tiers, and summaries
 rm -rf "$HOME/.claude/supercharger"
-echo -e "  ${GREEN}✓${NC} Hook scripts, roles, and economy tiers removed"
+echo -e "  ${GREEN}✓${NC} Hook scripts, roles, economy tiers, and summaries removed"
 
 # Remove claude-check
 rm -f "$HOME/.claude/claude-check.sh"
