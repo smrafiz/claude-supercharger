@@ -116,27 +116,28 @@ validate_tier_for_roles() {
   local tier_r
   tier_r=$(tier_rank "$tier")
 
-  local floor
-  floor=$(get_floor_for_roles "$roles")
-  if [ -n "$floor" ]; then
-    local floor_r
-    floor_r=$(tier_rank "$floor")
-    if [ "$tier_r" -gt "$floor_r" ]; then
-      # tier is more aggressive than floor allows
-      warn "$(capitalize "$tier") is below the floor for your roles. Setting to $(capitalize "$floor")."
-      echo "$floor"
-      return
-    fi
-  fi
-
   local ceiling
   ceiling=$(get_ceiling_for_roles "$roles")
   if [ -n "$ceiling" ]; then
     local ceiling_r
     ceiling_r=$(tier_rank "$ceiling")
-    if [ "$tier_r" -lt "$ceiling_r" ]; then
-      warn "$(capitalize "$tier") exceeds the ceiling for your roles. Setting to $(capitalize "$ceiling")."
+    if [ "$tier_r" -gt "$ceiling_r" ]; then
+      # tier is more aggressive than ceiling allows
+      { warn "$(capitalize "$tier") is below the floor for your roles. Setting to $(capitalize "$ceiling")."; } >&2
       echo "$ceiling"
+      return
+    fi
+  fi
+
+  local floor
+  floor=$(get_floor_for_roles "$roles")
+  if [ -n "$floor" ]; then
+    local floor_r
+    floor_r=$(tier_rank "$floor")
+    if [ "$tier_r" -lt "$floor_r" ]; then
+      # tier is less aggressive than floor requires
+      { warn "$(capitalize "$tier") is below the floor for your roles. Setting to $(capitalize "$floor")."; } >&2
+      echo "$floor"
       return
     fi
   fi
