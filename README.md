@@ -1,48 +1,89 @@
 # Claude Supercharger
 
-A role-aware, zero-dependency configuration kit for Claude Code. Drop it in, things get better.
+**Make Claude Code actually work the way you expect.**
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)
+A role-aware, zero-dependency configuration kit that transforms Claude Code from a talented but undisciplined assistant into a focused, safe, and efficient one — tailored to how *you* work.
 
-## The Problem
+![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)
 
-Claude Code claims tasks are "done" without verifying. It refactors code you didn't ask it to touch. It runs destructive commands without hesitation. And it gives the same response whether you're a senior developer or a student.
+---
 
-## Before and After
+## Why?
 
-### Verification Gate
+Out of the box, Claude Code:
 
-**Prompt:** "Add a login form to the app"
+- Claims tasks are **"done" without running tests** or verifying output
+- **Refactors code you didn't ask it to touch** (the "while I was here..." problem)
+- **Runs destructive commands** (`rm -rf`, `git push --force`) without hesitation
+- Gives the **same verbose response** whether you're a senior dev or a student learning CSS
+- **Wastes tokens** on preambles, caveats, and paragraphs where one line would do
+- **Loses all context** when a session ends, rate limits, or compacts
 
-**Before:** "Here's the login form component I've created. It should work correctly with your authentication system."
+Supercharger fixes all of this. One install, zero config, instant improvement.
 
-**After:** "Login form added to `src/components/LoginForm.tsx`. Ran `npm test` — 3/3 tests pass. Ran `npm run build` — no errors. Form handles empty fields, invalid email format, and server errors. Try it: `npm run dev` and navigate to `/login`."
+---
 
-### Scope Discipline
+## See the Difference
 
-**Prompt:** "Fix the typo in the header"
+<table>
+<tr><td width="50%">
 
-**Before:** "Fixed the typo. While I was there, I also refactored the header component to use a more modern pattern, updated the CSS to use Tailwind, and extracted the navigation into a separate component."
+### Without Supercharger
 
-**After:** "Fixed 'Welcom' to 'Welcome' in `src/components/Header.tsx:12`. No other changes. (Also noticed the nav links could use `aria-label` attributes — want me to add those?)"
+**You:** "Add a login form"
 
-### Token Economy
+**Claude:** "Here's the login form I've created. It should work correctly with your authentication system."
 
-**Prompt:** "Did the tests pass?"
+*(No tests run. No verification. "Should work.")*
 
-**Before:** "I ran the test suite and I'm happy to report that all tests passed successfully. The test runner executed 57 test cases across 4 test files, and each one completed without any errors. This means our changes are working correctly and haven't introduced any regressions. Let me know if you'd like me to look at anything else!"
+</td><td width="50%">
 
-**After:** "Yes. 57 passed, 0 failed."
+### With Supercharger
 
-### Role: Student
+**You:** "Add a login form"
 
-**Prompt:** "How do I center a div?"
+**Claude:** "Login form added to `src/components/LoginForm.tsx`. Ran `npm test` — 3/3 pass. Ran `npm run build` — clean. Handles empty fields, invalid email, server errors. Try: `npm run dev` → `/login`."
 
-**Before:** `.container { display: grid; place-items: center; }`
+*(Verified. Specific. Actionable.)*
 
-**After:** "Great question! Centering is something every web developer needs. Let's build up to it. First, do you know what `display` does in CSS? ..." (explains concepts, checks understanding, suggests what to try next)
+</td></tr>
+<tr><td>
 
-[More examples](docs/examples.md)
+**You:** "Did the tests pass?"
+
+**Claude:** "I ran the test suite and I'm happy to report that all tests passed successfully. The test runner executed 57 test cases across 4 test files, and each one completed without any errors. This means our changes are working correctly..."
+
+*(73 words for a yes/no question)*
+
+</td><td>
+
+**You:** "Did the tests pass?"
+
+**Claude:** "Yes. 57 passed, 0 failed."
+
+*(7 words. Same information.)*
+
+</td></tr>
+<tr><td>
+
+**You:** "Fix the typo in the header"
+
+**Claude:** "Fixed the typo. While I was there, I also refactored the header to use a modern pattern, updated the CSS to Tailwind, and extracted the nav..."
+
+*(Scope creep. Unrequested changes.)*
+
+</td><td>
+
+**You:** "Fix the typo in the header"
+
+**Claude:** "Fixed 'Welcom' → 'Welcome' in `Header.tsx:12`. No other changes. (Nav links could use `aria-label` — want me to add those?)"
+
+*(Surgical. Observes but doesn't act.)*
+
+</td></tr>
+</table>
+
+[More examples →](docs/examples.md)
 
 ---
 
@@ -52,111 +93,170 @@ Claude Code claims tasks are "done" without verifying. It refactors code you did
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-One-liner (clones to temp directory, installs, cleans up):
+<details>
+<summary>Other install methods</summary>
+
+**One-liner** (clones to temp dir, installs, cleans up):
 ```bash
 bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
 ```
 
-Non-interactive:
+**Non-interactive** (CI/scripted):
 ```bash
 ./install.sh --mode standard --roles developer,pm --economy lean --config deploy --settings deploy
+```
+</details>
+
+The installer walks you through 4 steps: install mode → roles → economy tier → config handling. Takes about 30 seconds.
+
+---
+
+## Features at a Glance
+
+| Feature | What it does | How |
+|---------|-------------|-----|
+| **Safety Hooks** | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, force-push to main | Deterministic — runs on every command |
+| **Verification Gate** | Forces Claude to run tests/build before claiming "done" | Rules in CLAUDE.md |
+| **Scope Discipline** | Prevents unrequested refactoring and drive-by changes | Rules + guardrails |
+| **Token Economy** | 30-60% output reduction in 3 tiers (Standard/Lean/Minimal) | Per-output-type rules |
+| **5 Roles** | Developer, Writer, Student, Data, PM — each with tuned behavior | Auto-loaded from `~/.claude/rules/` |
+| **MCP Servers** | 3-5 zero-config MCP servers auto-configured per role | `settings.json` integration |
+| **Clarification Mode** | Scans prompts for vague/ambiguous requests, asks before acting | Lightweight (auto) + Deep Interview |
+| **Session Summary** | Structured handoff with paste-ready resume prompt | Keyword, compaction, rate limit triggers |
+| **Resume Tool** | Retrieve and clipboard-copy past session summaries | `bash tools/resume.sh` |
+| **Anti-Patterns** | 35-pattern library catches common prompt mistakes | Auto-loaded YAML + hook |
+| **Guardrails** | Four Laws, autonomy levels, halt conditions | Always active |
+| **Mode Switching** | Switch roles mid-conversation: "as developer", "as student" | All 5 roles always available |
+
+---
+
+## Roles
+
+| Role | Optimized for | Key behaviors |
+|------|--------------|---------------|
+| **Developer** | Engineers & coders | Code-only output, git safety, auto-format, stack detection, regression prevention |
+| **Writer** | Content creators & authors | Structured prose, asks about audience/tone first, draft workflow, no jargon |
+| **Student** | Learners at any level | Explains concepts before code, analogies, checks understanding, progressive complexity |
+| **Data** | Analysts & data scientists | Tables over prose, shows queries, cites assumptions, statistical rigor |
+| **PM** | Project managers | Range estimates (not single numbers), decision logs, risk tracking, bullet-only |
+
+Select one or more during install. Switch mid-conversation:
+
+```
+"as developer" → code-only mode
+"as student"   → teaching mode
+"as writer"    → prose mode
 ```
 
 ---
 
-## What You Get
+## Token Economy
 
-**For everyone:** Safety hooks (block `rm -rf`, `DROP TABLE`), verification gates, anti-pattern detection, **tiered token economy** (Standard/Lean/Minimal — 30-60% output reduction), **auto-configured MCP servers** (zero-setup), **scored clarification mode** (deep interview for complex prompts), **session summaries** (structured handoff with paste-ready resume prompts), context management, quick mode switches
+Three tiers of output compression — selectable at install, switchable mid-conversation:
 
-**For developers:** Git safety, auto-format (Prettier/Black/rustfmt/gofmt), stack detection, regression prevention, scope discipline
+| Tier | Reduction | What it looks like |
+|------|-----------|-------------------|
+| **Standard** | ~30% | Concise, natural English. Complete sentences. Good for learning. |
+| **Lean** | ~45% | Every word earns its place. Fragments OK. *Default.* |
+| **Minimal** | ~60% | Telegraphic. Bare deliverables only. Maximum efficiency. |
 
-**For writers:** Structured prose, draft versioning, source citation, no jargon
+Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanation**, **Diagnosis**, **Coordination**.
 
-**For students:** Teach-first approach, guided learning, understanding checks
+**Role-aware constraints** prevent bad combinations:
+- Student floors at Standard (explanations need room)
+- Writer floors at Standard (prose needs sentences)
+- Developer/Data/PM are unrestricted
 
-**For data analysts:** Analysis rigor, reproducibility, data validation
+Switch anytime: `eco standard`, `eco lean`, or `eco minimal`
 
-**For PMs:** Range estimates, decision logs, risk management
+Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
+
+---
+
+## Session Intelligence
+
+### Clarification Mode
+
+**Lightweight** (always on): Every prompt is scanned for vague verbs, missing scope, and unclear success criteria. Max 3 questions, then Claude proceeds.
+
+**Deep Interview** (say `"deep interview"` or `"interview me"`): Claude scores your prompt across 4 dimensions and asks targeted questions for the weakest areas:
+
+| Dimension | What's assessed |
+|-----------|----------------|
+| **Scope** | Which files/functions? Clear boundaries? |
+| **Success** | What does "done" look like? |
+| **Constraints** | What must NOT change? |
+| **Context** | What exists? What was tried? |
+
+Score 9-12 → proceed. Score 5-8 → one question. Score 0-4 → full interview before executing.
+
+### Session Summary & Resume
+
+Say **`"session summary"`** and Claude generates a structured handoff:
+
+```
+## Session Summary — 2026-04-01
+Working on: Auth migration for user-service
+Decisions made:
+- Using refresh token rotation, 15min access token TTL
+Files changed: src/auth/middleware.ts, src/auth/tokens.ts
+What failed: bcrypt 5.x had a breaking change, reverted to 4.x
+Next steps: Session migration script, OAuth callback updates
+Resume with: Continue the auth migration. Middleware and token
+  generation are done (8/8 tests passing). Next: write the session
+  migration script in src/auth/migrate-sessions.ts.
+```
+
+Also auto-generates on **context compaction** and **rate limits** — so you never lose progress.
+
+Resume a previous session:
+```bash
+bash tools/resume.sh           # show latest, copy resume prompt to clipboard
+bash tools/resume.sh --list    # list all saved summaries
+bash tools/resume.sh --show FILE  # view a specific summary
+```
+
+---
+
+## Safety & Hooks
+
+| Hook | Modes | What it blocks |
+|------|-------|---------------|
+| **safety** | All | `rm -rf /`, `DROP TABLE`, `chmod 777`, `mkfs`, fork bombs, `curl \| bash`, and more |
+| **git-safety** | Standard+ | Force-push to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
+| **auto-format** | Standard+ | *(Doesn't block — runs formatter after edits: Prettier, Black, rustfmt, gofmt)* |
+| **notify** | Standard+ | *(Doesn't block — desktop notification when Claude needs input)* |
+| **prompt-validator** | Full | Scans your prompts for 10 anti-patterns, suggests improvements |
+| **compaction-backup** | Full | Saves transcript + prepares summaries directory before compaction |
+
+Safety hooks are **deterministic** — they execute on every command, every time. Claude can't talk its way past them.
+
+Multi-layer bypass protection: `sudo rm -rf /`, `command rm -rf /`, `env sudo command rm -rf /` — all blocked.
+
+---
+
+## MCP Servers
+
+Auto-configured during install. Zero API keys, zero JSON editing.
+
+| Tier | Servers | Who gets them |
+|------|---------|--------------|
+| **Core** | Context7, Sequential Thinking, Memory | Everyone |
+| **Developer** | + Playwright, Magic UI | Developer role |
+| **Non-dev** | + DuckDuckGo Search | Writer, Student, Data, PM |
+| **Advanced** | GitHub, Brave, Slack, Notion, Sentry, + more | `bash tools/mcp-setup.sh` (API keys needed) |
+
+3-5 servers per role. Research shows 3 is the sweet spot; beyond 5, token overhead hurts performance.
 
 ---
 
 ## Install Modes
 
-| Mode | What it adds | What it skips |
-|------|-------------|---------------|
-| **Safe** | Configs + safety hooks | No notifications, no auto-format, no prompt checking |
-| **Standard** | + notifications, git-safety, auto-format | No prompt checking, no compaction backup |
-| **Full** | + prompt validation, compaction backup, diagnostics | Nothing — everything installed |
-
-## Roles
-
-| Role | Who it's for |
-|------|-------------|
-| **Developer** | Engineers — code-only output, git safety, auto-format |
-| **Writer** | Content creators — structured prose, draft workflow |
-| **Student** | Learners — explanations first, progressive complexity |
-| **Data** | Analysts — reproducibility, data validation, tables |
-| **PM** | Project managers — range estimates, decision logs, risk tracking |
-
-Select one or more during installation. Switch mid-conversation by saying "as developer", "as student", etc. Claude honors these in most contexts — if it doesn't respond to a switch, repeat the keyword at the start of your next message.
-
-## Token Economy
-
-Three tiers of output compression, selectable at install and switchable mid-conversation:
-
-| Tier | Reduction | Character |
-|------|-----------|-----------|
-| **Standard** | ~30% | Concise, natural English. Complete sentences. |
-| **Lean** | ~45% | Every word load-bearing. Fragments OK. Default. |
-| **Minimal** | ~60% | Telegraphic. Bare deliverables only. |
-
-Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanation**, **Diagnosis**, **Coordination**.
-
-**Role-aware constraints** prevent bad combinations. Student floors at Standard (explanations need room). Writer floors at Standard (prose needs sentences). Developer/Data/PM are unrestricted.
-
-Switch mid-conversation by saying `eco standard`, `eco lean`, or `eco minimal`.
-
-Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
-
-## Hooks
-
-| Hook | Modes | What it does |
-|------|-------|-------------|
-| **safety** | All | Blocks destructive commands (`rm -rf`, `DROP TABLE`, `chmod 777`, etc.) |
-| **notify** | Standard+ | Desktop notification when Claude needs input |
-| **git-safety** | Standard+ | Blocks force-push to main, `git reset --hard`, `git checkout .` |
-| **auto-format** | Standard+ | Runs project formatter after edits (Developer role only) |
-| **prompt-validator** | Full | Scans prompts for anti-patterns, suggests improvements |
-| **compaction-backup** | Full | Saves transcript before context compaction |
-
-## MCP Servers
-
-Supercharger auto-configures MCP servers during install — zero API keys, zero JSON editing.
-
-| Tier | Servers | Setup |
-|------|---------|-------|
-| **Core** (all roles) | Context7, Sequential Thinking, Memory | Automatic |
-| **Developer** | + Playwright, Magic UI | Automatic |
-| **Writer/Student/Data/PM** | + DuckDuckGo Search | Automatic |
-| **Advanced** | GitHub, Brave Search, Slack, Notion, + more | `bash tools/mcp-setup.sh` |
-
-Total: 3-5 servers per role (research shows 3 is the sweet spot, 5 is the max before token overhead).
-
-## Session Intelligence
-
-### Clarification Mode
-Every prompt is scanned for vague verbs, missing scope, and unclear success criteria. Max 3 questions, then Claude proceeds.
-
-For complex requests, say **"deep interview"** — Claude scores your prompt across 4 dimensions (Scope, Success, Constraints, Context) and asks targeted questions for the weakest areas.
-
-### Session Summary & Resume
-Say **"session summary"** to generate a structured handoff block with decisions, files changed, and a paste-ready resume prompt. Also auto-generates on context compaction and rate limits.
-
-Resume a previous session:
-```bash
-bash tools/resume.sh           # show latest summary, copy resume to clipboard
-bash tools/resume.sh --list    # list all saved summaries
-```
+| Mode | What's included |
+|------|----------------|
+| **Safe** | Configs + safety hooks. Nothing that auto-runs or notifies. |
+| **Standard** | + notifications, git-safety, auto-format. Recommended for most users. |
+| **Full** | + prompt validation, compaction backup, diagnostics. Everything. |
 
 ---
 
@@ -168,36 +268,49 @@ Deploys to `~/.claude/` using Claude Code's native config system:
 ~/.claude/
   CLAUDE.md                  # Universal config (merged with yours if exists)
   rules/
-    supercharger.md          # Execution workflow, anti-patterns
+    supercharger.md          # Execution workflow, clarification mode, session summary
     guardrails.md            # Four Laws, autonomy levels, halt conditions
     economy.md               # Token economy (universal rules + active tier)
     developer.md             # Your selected role(s)
     anti-patterns.yml        # 35 prompt anti-pattern library
   supercharger/
     hooks/                   # Hook scripts referenced by settings.json
-    roles/                   # All role files (for mode switching)
-    economy/                 # Tier templates (for switching)
-  settings.json              # Hooks registered here
+    roles/                   # All role files (for mid-conversation switching)
+    economy/                 # Tier templates (for economy switching)
+    summaries/               # Session summaries (created by compaction hook)
+  settings.json              # Hooks + MCP servers registered here
 ```
 
-Files in `~/.claude/rules/` are automatically loaded by Claude Code. Hooks execute deterministically on every tool use.
+- Files in `~/.claude/rules/` are **automatically loaded** by Claude Code
+- Hooks execute **deterministically** on every tool use
+- MCP servers are configured in `settings.json` with `#supercharger` tags for clean management
+- Everything is **idempotent** — run the installer again anytime
 
-## Existing Config
+---
+
+## Your Existing Config
 
 | Scenario | What happens |
 |----------|-------------|
 | No existing config | Supercharger's deployed directly |
-| Merge | Your content preserved, Supercharger appended below a marker |
-| Replace | Your file backed up, Supercharger's deployed |
-| Skip | Your file untouched, everything else installed |
+| **Merge** | Your content preserved, Supercharger appended below a marker |
+| **Replace** | Your file backed up first, then Supercharger's deployed |
+| **Skip** | Your file untouched, everything else installed |
 
-A timestamped backup is always created first.
+A timestamped backup is **always** created before any changes.
 
-## Verify
+---
 
-```bash
-bash tools/claude-check.sh
-```
+## Tools
+
+| Tool | Command | What it does |
+|------|---------|-------------|
+| **Health Check** | `bash tools/claude-check.sh` | Verify installation, show active roles/hooks/MCP/summaries |
+| **Economy Switch** | `bash tools/economy-switch.sh lean` | Permanently change token economy tier |
+| **MCP Setup** | `bash tools/mcp-setup.sh` | Add advanced MCP servers (GitHub, Brave, Slack, etc.) |
+| **Resume** | `bash tools/resume.sh` | Show latest session summary, copy resume prompt |
+
+---
 
 ## Uninstall
 
@@ -205,26 +318,66 @@ bash tools/claude-check.sh
 ./uninstall.sh
 ```
 
-Removes all Supercharger content, preserves your configs, offers backup restore.
+Removes all Supercharger content. Preserves your configs. Offers backup restore. Clean exit.
 
-## Requirements
-
-- Claude Code (Anthropic's CLI)
-- Bash (macOS or Linux)
-- Python 3 (for JSON operations — comes with Claude Code)
-- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (recommended) or Git Bash. Native PowerShell is not supported.
+---
 
 ## FAQ
 
-**Will this break my existing setup?** No. Everything is backed up first. Uninstall restores everything.
+<details>
+<summary><strong>Will this break my existing setup?</strong></summary>
 
-**How do I change roles?** Run `./install.sh` again — it's idempotent.
+No. Everything is backed up before any changes. Uninstall restores everything. Supercharger content is tagged with markers so it never touches your own config.
+</details>
 
-**How do I upgrade?** `git pull && ./install.sh`
+<details>
+<summary><strong>How do I change roles after install?</strong></summary>
 
-**How do I change the token economy tier?** Say `eco lean` mid-conversation, or run `bash tools/economy-switch.sh lean` for a permanent change.
+Run `./install.sh` again — it's idempotent. Or switch mid-conversation by saying "as developer", "as student", etc.
+</details>
 
-**What if a hook blocks something I need?** Run the command directly in your terminal (outside Claude Code), or remove the hook from `~/.claude/settings.json`.
+<details>
+<summary><strong>How do I upgrade?</strong></summary>
+
+```bash
+git pull && ./install.sh
+```
+</details>
+
+<details>
+<summary><strong>How do I change the token economy tier?</strong></summary>
+
+Mid-conversation: say `eco lean`, `eco standard`, or `eco minimal`.
+
+Permanent: `bash tools/economy-switch.sh lean`
+</details>
+
+<details>
+<summary><strong>What if a hook blocks something I need?</strong></summary>
+
+Run the command directly in your terminal (outside Claude Code). Or remove the specific hook from `~/.claude/settings.json` — Supercharger hooks are tagged with `#supercharger` so they're easy to identify.
+</details>
+
+<details>
+<summary><strong>Does this work with my existing MCP servers?</strong></summary>
+
+Yes. Supercharger MCP entries are tagged with `#supercharger`. Your own servers are never touched during install or uninstall.
+</details>
+
+<details>
+<summary><strong>How do I resume a session after a rate limit?</strong></summary>
+
+Supercharger rules tell Claude to generate a session summary before stopping. Run `bash tools/resume.sh` to retrieve it and copy the resume prompt to your clipboard. Paste it into your next session.
+</details>
+
+---
+
+## Requirements
+
+- [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI)
+- Bash 3.2+ (macOS or Linux)
+- Python 3 (for JSON operations — ships with Claude Code)
+- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (recommended) or Git Bash
 
 ---
 
