@@ -19,6 +19,5 @@
 - Prefer SQL/pandas operations over manual calculation
 
 ## Token Efficiency
-- Tables and queries are the product — deliver at full fidelity
-- Narrative summaries stay under 3 lines
-- Methodology notes: 1-2 lines, not paragraphs
+Default economy: Lean
+Economy range: unrestricted

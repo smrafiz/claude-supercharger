@@ -19,6 +19,5 @@
 - Celebrate progress without being patronizing
 
 ## Token Efficiency
-- Explanations are the product — don't cut them for brevity
-- Cap examples at 1 per concept unless asked for more
-- After teaching, stop — don't add "you might also want to know..."
+Default economy: Standard
+Economy range: Standard–Lean
