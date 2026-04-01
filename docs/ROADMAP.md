@@ -51,7 +51,7 @@ Zero-code vision: every feature works out of the box. No JSON editing, no script
 - 133 tests passing
 
 ### v1.5.0 — Team & Sharing
-- Profile System (5 built-in + custom profiles, one-command switch)
+- Profile System — 5 built-in + custom profiles, one-command switch. *Inspired by: ClaudeCTX (foxj77)*
 - Project-Level Config (`.supercharger.json` SessionStart hook)
 - Team Presets (export/import `.supercharger` files)
 - Onboarding Mode (first-time user guidance)

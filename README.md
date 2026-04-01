@@ -458,6 +458,7 @@ Supercharger rules tell Claude to generate a session summary before stopping. Ru
 - [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) — safety hook patterns informed by Claude Code's internal security monitor rules
 - [claude-code-tips](https://github.com/ykdojo/claude-code-tips) — statusline context bar pattern
 - [agnix](https://github.com/agent-sh/agnix) — config validation and linting concept
+- ClaudeCTX (foxj77) — profile switching concept (switch entire config with one command)
 
 ## License
 
