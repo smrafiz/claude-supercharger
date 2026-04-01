@@ -138,6 +138,67 @@ New hook: scan MCP tool outputs and file writes for injection attempts:
 
 ---
 
+## v1.7 — Automation & Learning
+
+### Learn from Sessions
+Analyze past conversation history to improve CLAUDE.md files:
+- Batch recent conversations, detect user corrections and repeated patterns
+- Surface violated instructions (need reinforcement), missing rules, outdated entries
+- Suggest additions to both global and project-level CLAUDE.md
+- `bash tools/learn-from-sessions.sh` with optional `--apply`
+
+*Inspired by: review-claudemd skill from [claude-code-tips](https://github.com/ykdojo/claude-code-tips)*
+
+### Smart Command Auto-Approval
+PermissionRequest hook that auto-approves safe, read-only commands:
+- Whitelist-based: `ls`, `git status`, `cat`, `grep`, `npm list`, etc.
+- Chain-aware: `git status && rm -rf /` is NOT approved
+- Redirect detection: any `>`, `tee`, pipe-to-write blocks auto-approval
+- Graceful degradation if PermissionRequest event not yet supported
+
+*Inspired by: [Dippy](https://github.com/ldayton/Dippy) — AST-based safe command auto-approval*
+
+### Session End Handler
+SessionEnd hook for cleanup and logging:
+- Auto-save session summary if none was generated during session
+- Log session stats to audit trail (duration, transcript size, exit reason)
+- Clean up temp files older than 7 days
+- Suggest learn-from-sessions when 10+ sessions have accumulated
+
+### Subagent Monitor
+SubagentStart/SubagentStop hooks to track Task tool activity:
+- Log all subagent starts and stops to audit trail with duration
+- Optional concurrent subagent limit (`SUPERCHARGER_MAX_SUBAGENTS` env var)
+- Graceful degradation if subagent events not yet supported
+
+### Enhanced Notifications
+Enrich notification messages with project context:
+- Git branch, project name, context percentage in every notification
+- Platform-aware: macOS `osascript`, Linux `notify-send`
+- Optional notification sounds (`SUPERCHARGER_NOTIFY_SOUND=1`)
+
+*Inspired by: [claude-notifications-go](https://github.com/777genius/claude-notifications-go) — smart notifications with git branch display*
+
+### Config Health Score
+Single number (0-100) in claude-check showing config quality:
+- 5 categories: Core (40pts), Hooks (25pts), Economy (15pts), Team (10pts), Hygiene (10pts)
+- Color-coded bar chart with per-category breakdown
+- Actionable suggestions for improving score
+
+### Adaptive Economy
+Auto-suggest or auto-apply economy tier changes based on context usage:
+- At 50% context + standard tier → suggest lean
+- At 70% context + standard tier → strongly recommend lean (or auto-apply if opted in)
+- Session-end analysis: if avg context > 80% across 5 sessions → suggest starting with lean
+
+### Hook Pipeline Composer
+Tool to chain multiple hooks into sequential pipelines:
+- `bash tools/hook-compose.sh --event UserPromptSubmit --chain "prompt-validator,prompt-rewriter"`
+- Output of one hook feeds into the next
+- Block propagation: if any hook blocks (exit 2), pipeline stops
+
+---
+
 ## Ecosystem
 
 These projects complement Supercharger — not competitors, but tools that work well alongside it:
@@ -156,6 +217,8 @@ These projects complement Supercharger — not competitors, but tools that work 
 - **[claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook)** — three-stage lint/fix pipeline with git worktree parallelization (v1.3 quality gate informed by this)
 - **[ccusage](https://github.com/ryoppippi/ccusage)** — Claude Code usage analyzer from JSONL files, 10k+ stars (v1.6 session analytics parsing approach)
 - **[claude-code-otel](https://github.com/ColeMurray/claude-code-otel)** — OpenTelemetry observability for Claude Code (session data format insights for v1.6)
+- **[claude-notifications-go](https://github.com/777genius/claude-notifications-go)** — smart notifications with click-to-focus, git branch display, webhook integrations (v1.7 enhanced notifications inspired by this)
+- **[claude-code-hooks](https://github.com/karanb192/claude-code-hooks)** — ready-to-use hooks with safety levels and testing patterns (v1.7 hook architecture informed by this)
 
 ---
 
