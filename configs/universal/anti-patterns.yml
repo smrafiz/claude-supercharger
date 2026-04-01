@@ -1,7 +1,9 @@
 schema_version: "1.0"
 
-# Anti-Pattern Library
-# 35 credit-killing patterns | Scan before execution | Fix silently unless changes intent
+# Anti-Pattern Library — Soft Guidance
+# 35 credit-killing patterns | Loaded into Claude's context via rules/
+# Claude reads these to understand WHY patterns are bad and what to ask instead.
+# For deterministic enforcement, see hooks/prompt-validator.sh (hard blocks).
 
 task:
   vague_verb:

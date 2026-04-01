@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Prompt Validator Hook
 # Event: UserPromptSubmit | Matcher: (none)
-# Scans prompt for anti-patterns. Adds notes, never blocks.
+# Deterministic enforcement: catches obvious anti-patterns via regex.
+# For soft guidance (why patterns are bad, what to ask instead), see rules/anti-patterns.yml.
 
 set -euo pipefail
 
