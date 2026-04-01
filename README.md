@@ -402,6 +402,8 @@ Supercharger rules tell Claude to generate a session summary before stopping. Ru
 - [prompt-master](https://github.com/nidhinjs/prompt-master) — deep interview dimensions, verification gate patterns
 - [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — package manager enforcement, audit trail patterns
 - [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook) — three-stage lint/fix quality gate pipeline
+- [get-shit-done](https://github.com/gsd-build/get-shit-done) — verification gate patterns
+- [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) — safety hook patterns informed by Claude Code's internal security monitor rules
 
 ## License
 
