@@ -123,7 +123,7 @@ validate_tier_for_roles() {
     ceiling_r=$(tier_rank "$ceiling")
     if [ "$tier_r" -gt "$ceiling_r" ]; then
       # tier is more aggressive than ceiling allows
-      { warn "$(capitalize "$tier") is below the floor for your roles. Setting to $(capitalize "$ceiling")."; } >&2
+      { warn "$(capitalize "$tier") exceeds the ceiling for your roles. Setting to $(capitalize "$ceiling")."; } >&2
       echo "$ceiling"
       return
     fi
