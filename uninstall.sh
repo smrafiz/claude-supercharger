@@ -13,7 +13,7 @@ NC='\033[0m'
 
 echo -e "${CYAN}"
 echo "╔═══════════════════════════════════════════╗"
-echo "║  Claude Supercharger v1.0.0 Uninstaller   ║"
+echo "║  Claude Supercharger v1.1.0 Uninstaller   ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
