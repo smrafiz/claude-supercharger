@@ -399,6 +399,9 @@ Supercharger rules tell Claude to generate a session summary before stopping. Ru
 - [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) (MIT) — execution workflow patterns, anti-patterns library
 - [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, halt conditions, autonomy levels
 - [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (MIT) — magic keyword switching, clarification mode, session handoff patterns
+- [prompt-master](https://github.com/nidhinjs/prompt-master) — deep interview dimensions, verification gate patterns
+- [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — package manager enforcement, audit trail patterns
+- [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook) — three-stage lint/fix quality gate pipeline
 
 ## License
 
