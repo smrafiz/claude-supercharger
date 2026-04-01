@@ -407,10 +407,12 @@ Supercharger rules tell Claude to generate a session summary before stopping. Ru
 - [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, halt conditions, autonomy levels
 - [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (MIT) — magic keyword switching, clarification mode, session handoff patterns
 - [prompt-master](https://github.com/nidhinjs/prompt-master) — deep interview dimensions, verification gate patterns
-- [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — package manager enforcement, audit trail patterns
+- [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — statusline, package manager enforcement, audit trail patterns
 - [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook) — three-stage lint/fix quality gate pipeline
 - [get-shit-done](https://github.com/gsd-build/get-shit-done) — verification gate patterns
 - [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) — safety hook patterns informed by Claude Code's internal security monitor rules
+- [claude-code-tips](https://github.com/ykdojo/claude-code-tips) — statusline context bar pattern
+- [agnix](https://github.com/agent-sh/agnix) — config validation and linting concept
 
 ## License
 
