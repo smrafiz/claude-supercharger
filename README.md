@@ -197,6 +197,7 @@ Removes all Supercharger content, preserves your configs, offers backup restore.
 - Claude Code (Anthropic's CLI)
 - Bash (macOS or Linux)
 - Python 3 (for JSON operations — comes with Claude Code)
+- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (recommended) or Git Bash. Native PowerShell is not supported.
 
 ## FAQ
 
