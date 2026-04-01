@@ -46,49 +46,48 @@ echo -e "${CYAN}  Advanced MCP Servers (API key required)  ${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
 echo ""
 
-ORDERED_SERVERS=("github" "brave-search" "slack" "neon" "notion" "prisma" "sentry" "figma")
-
-declare -A SERVER_LABELS=(
-  ["github"]="GitHub (Personal Access Token)"
-  ["brave-search"]="Brave Search (API Key — free: 2K/mo)"
-  ["slack"]="Slack (Bot Token)"
-  ["neon"]="Neon (Connection String)"
-  ["notion"]="Notion (API Key)"
-  ["prisma"]="Prisma (project CLI — no key)"
-  ["sentry"]="Sentry (Auth Token)"
-  ["figma"]="Figma (Access Token)"
+# Parallel indexed arrays (Bash 3 compatible — no declare -A)
+SERVER_NAMES=("github" "brave-search" "slack" "neon" "notion" "prisma" "sentry" "figma")
+SERVER_LABELS=(
+  "GitHub (Personal Access Token)"
+  "Brave Search (API Key — free: 2K/mo)"
+  "Slack (Bot Token)"
+  "Neon (Connection String)"
+  "Notion (API Key)"
+  "Prisma (project CLI — no key)"
+  "Sentry (Auth Token)"
+  "Figma (Access Token)"
 )
-
-declare -A SERVER_CMDS=(
-  ["github"]="-y @modelcontextprotocol/server-github"
-  ["brave-search"]="-y @modelcontextprotocol/server-brave-search"
-  ["slack"]="-y @modelcontextprotocol/server-slack"
-  ["neon"]="-y @neondatabase/mcp-server-neon"
-  ["notion"]="-y @notionhq/notion-mcp-server"
-  ["prisma"]="prisma mcp"
-  ["sentry"]="-y @sentry/mcp-server"
-  ["figma"]="-y @anthropic/figma-mcp-server"
+SERVER_CMDS=(
+  "-y @modelcontextprotocol/server-github"
+  "-y @modelcontextprotocol/server-brave-search"
+  "-y @modelcontextprotocol/server-slack"
+  "-y @neondatabase/mcp-server-neon"
+  "-y @notionhq/notion-mcp-server"
+  "prisma mcp"
+  "-y @sentry/mcp-server"
+  "-y @anthropic/figma-mcp-server"
 )
-
-declare -A SERVER_ENV_KEYS=(
-  ["github"]="GITHUB_PERSONAL_ACCESS_TOKEN"
-  ["brave-search"]="BRAVE_API_KEY"
-  ["slack"]="SLACK_BOT_TOKEN"
-  ["neon"]="DATABASE_URL"
-  ["notion"]="NOTION_API_KEY"
-  ["sentry"]="SENTRY_AUTH_TOKEN"
-  ["figma"]="FIGMA_ACCESS_TOKEN"
+SERVER_ENV_KEYS=(
+  "GITHUB_PERSONAL_ACCESS_TOKEN"
+  "BRAVE_API_KEY"
+  "SLACK_BOT_TOKEN"
+  "DATABASE_URL"
+  "NOTION_API_KEY"
+  ""
+  "SENTRY_AUTH_TOKEN"
+  "FIGMA_ACCESS_TOKEN"
 )
 
 echo "Select servers to configure (enter y/n for each):"
 echo ""
 
 SELECTED=()
-for server in "${ORDERED_SERVERS[@]}"; do
-  read -rp "  ${SERVER_LABELS[$server]}? [y/N]: " -n 1
+for i in "${!SERVER_NAMES[@]}"; do
+  read -rp "  ${SERVER_LABELS[$i]}? [y/N]: " -n 1
   echo
   if [[ $REPLY =~ ^[Yy]$ ]]; then
-    SELECTED+=("$server")
+    SELECTED+=("$i")
   fi
 done
 
@@ -133,8 +132,11 @@ with open(settings_file, 'w') as f:
 " 2>/dev/null
 }
 
-for server in "${SELECTED[@]}"; do
-  args="${SERVER_CMDS[$server]}"
+for idx in "${SELECTED[@]}"; do
+  server="${SERVER_NAMES[$idx]}"
+  args="${SERVER_CMDS[$idx]}"
+  env_key="${SERVER_ENV_KEYS[$idx]}"
+  label="${SERVER_LABELS[$idx]}"
 
   if [ "$server" = "prisma" ]; then
     echo -e "${BLUE}Configuring Prisma (no key needed)...${NC}"
@@ -143,9 +145,8 @@ for server in "${SELECTED[@]}"; do
     continue
   fi
 
-  env_key="${SERVER_ENV_KEYS[$server]:-}"
   if [ -n "$env_key" ]; then
-    read -rsp "  Enter ${SERVER_LABELS[$server]%% (*} key (or Enter to skip): " secret
+    read -rsp "  Enter ${label%% (*} key (or Enter to skip): " secret
     echo
     if [ -n "$secret" ]; then
       env_json=$(MCP_USER_SECRET="$secret" MCP_ENV_KEY="$env_key" python3 -c "
