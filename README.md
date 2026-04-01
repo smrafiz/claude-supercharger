@@ -4,7 +4,7 @@
 
 A role-aware, zero-dependency configuration kit that transforms Claude Code from a talented but undisciplined assistant into a focused, safe, and efficient one — tailored to how *you* work.
 
-![Version](https://img.shields.io/badge/version-1.3.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-118%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.4.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-133%20passing-brightgreen)
 
 ---
 
@@ -120,7 +120,7 @@ The installer walks you through 4 steps: install mode → roles → economy tier
 | **Quality Gate** | 3-stage lint→auto-fix→re-check pipeline after every edit (ruff, eslint, clippy, rustfmt, gofmt) | PostToolUse hook |
 | **Scope Discipline** | Prevents unrequested refactoring and drive-by changes | Rules + guardrails |
 | **Token Economy** | 30-60% output reduction in 3 tiers (Standard/Lean/Minimal) | Per-output-type rules |
-| **5 Roles** | Developer, Writer, Student, Data, PM — each with tuned behavior | Auto-loaded from `~/.claude/rules/` |
+| **8 Roles** | Developer, Writer, Student, Data, PM, Designer, DevOps, Researcher — each with tuned behavior | Auto-loaded from `~/.claude/rules/` |
 | **MCP Servers** | 3-5 zero-config MCP servers auto-configured per role | `settings.json` integration |
 | **Clarification Mode** | Scans prompts for vague/ambiguous requests, asks before acting | Lightweight (auto) + Deep Interview (9 dims) |
 | **Session Summary** | Structured handoff with Memory Block and paste-ready resume prompt | Keyword, compaction, rate limit triggers |
@@ -132,7 +132,10 @@ The installer walks you through 4 steps: install mode → roles → economy tier
 | **Hook Toggle** | `bash tools/hook-toggle.sh safety off` — snooze any hook without editing JSON | CLI tool |
 | **Stop Conditions** | Start/target state, checkpoints, forbidden actions, human review triggers | Rules in guardrails.md |
 | **Guardrails** | Four Laws, autonomy levels, halt conditions | Always active |
-| **Mode Switching** | Switch roles mid-conversation: "as developer", "as student" | All 5 roles always available |
+| **Mode Switching** | Switch roles mid-conversation: "as developer", "as designer" | All 8 roles always available |
+| **Enhanced Statusline** | 2-line status bar: model, project, git branch, context %, cost, cache hit rate | `statusLine` in settings.json |
+| **Stack Auto-Detection** | Detects language, framework, package manager, test framework from project files | Python, JS/TS, Rust, Go |
+| **Config Validation** | Lints rule files, checks hooks are executable, validates settings.json | `claude-check` |
 
 ---
 
@@ -145,13 +148,17 @@ The installer walks you through 4 steps: install mode → roles → economy tier
 | **Student** | Learners at any level | Explains concepts before code, analogies, checks understanding, progressive complexity |
 | **Data** | Analysts & data scientists | Tables over prose, shows queries, cites assumptions, statistical rigor |
 | **PM** | Project managers | Range estimates (not single numbers), decision logs, risk tracking, bullet-only |
+| **Designer** | UI/UX designers | Component-first, accessibility, design tokens, visual hierarchy, interactive states |
+| **DevOps** | Infrastructure & ops | IaC, Docker best practices, CI/CD pipelines, security scanning, least privilege |
+| **Researcher** | Academics & investigators | Citations, methodology, evidence-based claims, literature review, reproducibility |
 
 Select one or more during install. Switch mid-conversation:
 
 ```
 "as developer" → code-only mode
+"as designer"  → design mode
+"as devops"    → infrastructure mode
 "as student"   → teaching mode
-"as writer"    → prose mode
 ```
 
 ---

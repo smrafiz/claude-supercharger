@@ -18,6 +18,9 @@ ROLE_CONSTRAINTS=(
   "writer|standard|standard|"
   "data|lean||"
   "pm|lean||"
+  "designer|lean||"
+  "devops|lean||"
+  "researcher|standard|standard|"
 )
 
 # Map tier name to numeric rank for comparison

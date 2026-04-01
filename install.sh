@@ -260,3 +260,17 @@ else
   echo -e "  Upgrade anytime: ${BOLD}./install.sh${NC} (choose Full)"
 fi
 echo ""
+
+# MCP Usage Tips
+if [[ "$SETTINGS_ACTION" != "skip" ]]; then
+  echo -e "${CYAN}  MCP Quick Tips:${NC}"
+  echo -e "  Try: ${BOLD}\"Look up React useEffect docs\"${NC} → Context7"
+  echo -e "  Try: ${BOLD}\"Think through this step by step\"${NC} → Sequential Thinking"
+  if echo "$ROLES_CSV" | grep -q "developer"; then
+    echo -e "  Try: ${BOLD}\"Test the login page in a browser\"${NC} → Playwright"
+  fi
+  if echo "$ROLES_CSV" | grep -qE "(writer|student|data|pm|designer|researcher)"; then
+    echo -e "  Try: ${BOLD}\"Search for CSS grid examples\"${NC} → DuckDuckGo"
+  fi
+  echo ""
+fi

@@ -31,153 +31,24 @@ Zero-code vision: every feature works out of the box. No JSON editing, no script
 - Resume tool with clipboard copy
 - 93 tests passing
 
----
+### v1.3.0 — Prompt Intelligence
+- Package Manager Enforcement (lockfile-based PreToolUse hook)
+- Quality Gate Pipeline (3-stage lint→fix→recheck PostToolUse hook)
+- Mutation Audit Trail (JSONL logging with 30-day rotation)
+- Hook Toggle Tool (enable/disable without editing JSON)
+- Expanded Safety Hooks (credential leaks, SSH key ops, shell profile, self-modification)
+- Expanded Prompt Validator (10→20 checks)
+- Stop Conditions Framework, Enhanced Verification Gate (4-level)
+- Deep Interview expanded to 9 dimensions, Memory Block Template
+- 118 tests passing
 
-## v1.3 — Prompt Intelligence *(next)*
-
-Inspired by [prompt-master](https://github.com/nidhinjs/prompt-master) patterns. Focus: make Claude ask better questions, remember more, and enforce quality before execution.
-
-### Stop Conditions Framework
-Add structured start/target state requirements to `guardrails.md`:
-- **Starting state** — what exists now (files, state, dependencies)
-- **Target state** — what "done" looks like (output files, test criteria)
-- **Checkpoint output** — progress reporting after each major step
-- **Forbidden actions** — files/dirs agent must not touch
-- **Human review triggers** — "stop and ask before: deleting files, adding deps, touching DB"
-
-*Pure rules addition to guardrails.md. No infrastructure.*
-
-### Expanded Deep Interview (9 dimensions)
-Upgrade from 4 to 9 scoring dimensions:
-
-| Current (4) | Added (5) |
-|-------------|-----------|
-| Scope | **Input** — what data/material starts the work? |
-| Success | **Output** — format, structure, deliverable type? |
-| Constraints | **Audience** — who uses this? Technical level? |
-| Context | **Memory** — prior decisions that must carry forward? |
-| | **Examples** — reference outputs or patterns to match? |
-
-*Update supercharger.md deep interview section.*
-
-### Memory Block Template
-Replace vague "track decisions" in Context Carry-Forward with a prescriptive format:
-```
-## Memory (Carry Forward)
-- Stack: [tech choices locked]
-- Architecture: [patterns established]
-- Naming: [conventions in use]
-- Forbidden: [what was rejected and why]
-- What failed: [approaches tried and abandoned]
-```
-
-Auto-generated in session summaries. Claude references it after compaction.
-
-*Update supercharger.md Context Carry-Forward section.*
-
-### Expanded Prompt Validator
-Upgrade hook from 10 checks to 20+:
-- Add: no output format specified, implicit length, missing role/audience
-- Add: no file scope for code tasks, template mismatch (prose to code tool)
-- Add: no negative constraints ("what NOT to do"), no starting state for agent tasks
-- Keep: all existing checks (vague scope, emotional, implicit reference, etc.)
-
-*Expand hooks/prompt-validator.sh patterns.*
-
-### Expanded Safety Hooks
-Add new pattern categories to `safety.sh` beyond destructive commands and git force-push:
-- **Credential leakage** — detect secrets in metadata, URLs, labels, or commit content (`/api[_-]?key|token|secret/`)
-- **Unauthorized persistence** — block cron jobs (`crontab`), shell profile edits (`.bashrc`, `.zshrc`, `.profile`), SSH key additions
-- **Self-modification prevention** — block agent from editing its own config (`.claude/settings.json`, `CLAUDE.md`)
-- **Production reads** — warn on `kubectl exec`, `docker exec` into production (live creds leak into transcript)
-
-*Informed by: security monitor rules from [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts)*
-
-### Enhanced Verification Gate
-Upgrade "did tests pass?" to "is the code real?" with stub detection:
-- **Existence** — file is present at expected path
-- **Substantive** — content is real implementation, not placeholder (detect TODO/FIXME/placeholder/empty returns)
-- **Wired** — connected to the rest of the system (imports resolve, component is used)
-- **Functional** — actually works when invoked (tests pass, build succeeds)
-
-*Pure rules addition to supercharger.md. Informed by: verification patterns from [get-shit-done](https://github.com/gsd-build/get-shit-done)*
-
-### Package Manager Enforcement
-PreToolUse hook that auto-detects the project's package manager from lockfiles and blocks the wrong one:
-- `pnpm-lock.yaml` present → blocks `npm install`, `npm run`, etc.
-- `yarn.lock` present → blocks `npm install`
-- `uv.lock` / `poetry.lock` present → blocks raw `pip install`
-- Generalizable pattern: detect convention from lockfile, enforce it deterministically
-
-*New hook: hooks/enforce-pkg-manager.sh (~20 lines). Informed by: [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config)*
-
-### Quality Gate Pipeline
-Upgrade `auto-format.sh` from "run formatter" to a multi-stage quality gate:
-- **Stage 1: Lint** — run project linter (`ruff`/`eslint`/`clippy`) after every edit, detect issues
-- **Stage 2: Auto-fix** — apply deterministic fixes (`ruff check --fix`, `eslint --fix`)
-- **Stage 3: Re-check** — if fixes introduced new issues, report to Claude for AI-powered resolution
-- Max 3 iterations, then stop and report remaining issues
-- Backups created before any auto-fix modification
-
-*Upgrade hooks/auto-format.sh → hooks/quality-gate.sh. Informed by: [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook)*
-
-### Mutation Audit Trail
-PostToolUse hook that logs all write operations to a JSONL audit file:
-- Tracks: file edits, git commits, package installs, file deletions
-- Format: `{"timestamp", "action", "command", "status", "file_path"}`
-- Stored at `~/.claude/supercharger/audit/YYYY-MM-DD.jsonl`
-- Queryable: "what did Claude change yesterday?"
-- Rotated automatically (keep 30 days)
-
-*New hook: hooks/audit-trail.sh (~40 lines). Informed by: log-gam.sh pattern from [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config)*
-
-### Hook Toggle Tool
-`bash tools/hook-toggle.sh safety off` — temporarily disable a hook without editing JSON. Re-enable with `on`. Status shown in claude-check.
-
-*New tool: tools/hook-toggle.sh (~60 lines)*
-
----
-
-## v1.4 — More Roles & Detection
-
-Inspired by patterns from the [awesome-claude-code](https://github.com/hesreallyhim/awesome-claude-code) ecosystem.
-
-### New Roles
-- **Designer** — UI/UX focus, design system awareness, accessibility checks, component naming
-- **DevOps** — Infrastructure, Dockerfile best practices, CI/CD, security scanning
-- **Researcher** — Citations, literature review structure, methodology rigor, reproducibility
-
-### Stack Auto-Detection
-Read `package.json` / `Cargo.toml` / `requirements.txt` / `go.mod` during install:
-- Auto-suggest relevant MCP servers (Prisma project → Prisma MCP)
-- Auto-detect framework for developer role hints (Next.js vs Express vs Django)
-- Show detected stack in claude-check
-
-*Inspired by: Context Priming (disler/just-prompt), Claude Code Infrastructure Showcase (diet103)*
-
-### Config Validation
-Enhance `claude-check.sh` with linting:
-- Detect empty rule files, broken references, conflicting rules
-- Warn about oversized CLAUDE.md (context waste)
-- Validate hook scripts are executable and syntactically correct
-- Verify MCP servers are reachable (npx dry-run)
-
-*Inspired by: agnix (agent-sh) — linter for Claude Code agent files*
-
-### Enhanced Statusline
-Two-line status bar at the bottom of the terminal showing live session intelligence:
-- **Line 1**: Model name, project folder, git branch
-- **Line 2**: Context usage progress bar (color-coded: green <50%, yellow 50-79%, red 80%+), session cost ($), elapsed time, prompt cache hit rate (%)
-- Uses Claude Code's `remaining_percentage` from statusline stdin JSON — no external API calls
-- Pure bash + `jq`, zero-config — auto-configured by `install.sh` via `statusLine` in settings.json
-
-*Inspired by: statusline.sh from [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config); context-bar.sh from [claude-code-tips](https://github.com/ykdojo/claude-code-tips)*
-
-### MCP Usage Tips
-After install, generate a cheat sheet:
-- "Try: 'Look up React useEffect docs' (Context7)"
-- "Try: 'Search for CSS grid examples' (DuckDuckGo)"
-- Shown in install summary and claude-check
+### v1.4.0 — More Roles & Detection
+- Enhanced Statusline (2-line: model, project, git branch, context %, cost, cache hit rate)
+- Stack Auto-Detection (Python, JS/TS, Rust, Go — language, framework, package manager, test/build tools)
+- 3 New Roles: Designer, DevOps, Researcher (8 total)
+- Config Validation in claude-check (empty files, oversized CLAUDE.md, non-executable hooks, syntax errors)
+- MCP Usage Tips in install summary
+- 133 tests passing
 
 ---
 

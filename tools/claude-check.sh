@@ -104,6 +104,28 @@ else
   echo -e "  ${YELLOW}○${NC} No settings.json — no hooks installed"
 fi
 
+# Statusline
+echo ""
+echo -e "${BLUE}Statusline:${NC}"
+if [ -f "$HOME/.claude/settings.json" ]; then
+  SL_CMD=$(python3 -c "
+import json
+with open('$HOME/.claude/settings.json') as f:
+    s = json.load(f)
+cmd = s.get('statusLine', {}).get('command', '')
+print(cmd)
+" 2>/dev/null)
+  if echo "$SL_CMD" | grep -q "#supercharger"; then
+    echo -e "  ${GREEN}✓${NC} Enhanced statusline — active"
+  elif [ -n "$SL_CMD" ]; then
+    echo -e "  ${YELLOW}○${NC} Custom statusline configured (not Supercharger)"
+  else
+    echo -e "  ${YELLOW}○${NC} No statusline configured"
+  fi
+else
+  echo -e "  ${YELLOW}○${NC} No settings.json — no statusline"
+fi
+
 # MCP Servers
 echo ""
 echo -e "${BLUE}MCP Servers:${NC}"
@@ -133,6 +155,30 @@ else
   echo -e "  ${YELLOW}○${NC} No settings.json — no MCP servers"
 fi
 
+# Stack Detection
+echo ""
+echo -e "${BLUE}Detected Stack:${NC}"
+DETECT_SCRIPT="$HOME/.claude/supercharger/hooks/detect-stack.sh"
+if [ -f "$DETECT_SCRIPT" ]; then
+  STACK_OUTPUT=$(bash "$DETECT_SCRIPT" 2>/dev/null || echo "detected=false")
+  if echo "$STACK_OUTPUT" | grep -q "detected=true"; then
+    LANG=$(echo "$STACK_OUTPUT" | grep '^language=' | cut -d= -f2-)
+    FW=$(echo "$STACK_OUTPUT" | grep '^framework=' | cut -d= -f2-)
+    PM=$(echo "$STACK_OUTPUT" | grep '^package_manager=' | cut -d= -f2-)
+    TEST_FW=$(echo "$STACK_OUTPUT" | grep '^test_framework=' | cut -d= -f2-)
+    BUILD=$(echo "$STACK_OUTPUT" | grep '^build_tool=' | cut -d= -f2-)
+    [ -n "$LANG" ] && echo -e "  ${GREEN}✓${NC} Language: ${BOLD}${LANG}${NC}"
+    [ -n "$FW" ] && echo -e "  ${GREEN}✓${NC} Framework: ${BOLD}${FW}${NC}"
+    [ -n "$PM" ] && echo -e "  ${GREEN}✓${NC} Package manager: ${BOLD}${PM}${NC}"
+    [ -n "$TEST_FW" ] && echo -e "  ${GREEN}✓${NC} Testing: ${BOLD}${TEST_FW}${NC}"
+    [ -n "$BUILD" ] && echo -e "  ${GREEN}✓${NC} Build: ${BOLD}${BUILD}${NC}"
+  else
+    echo -e "  ${YELLOW}○${NC} No project files detected in current directory"
+  fi
+else
+  echo -e "  ${YELLOW}○${NC} detect-stack not installed"
+fi
+
 # Session Summaries
 echo ""
 echo -e "${BLUE}Session Summaries:${NC}"
@@ -145,13 +191,61 @@ else
   echo -e "  ${YELLOW}○${NC} No session summaries yet — say 'session summary' in Claude Code"
 fi
 
-# Tools
+# Config Validation
 echo ""
-echo -e "${BLUE}Tools:${NC}"
-if [ -f "$HOME/.claude/claude-check.sh" ]; then
-  echo -e "  ${GREEN}✓${NC} claude-check — installed"
-else
-  echo -e "  ${YELLOW}○${NC} claude-check — not installed (Full mode)"
+echo -e "${BLUE}Config Validation:${NC}"
+LINT_ISSUES=0
+
+# Check for empty rule files
+for rule in "$HOME/.claude/rules/"*.md "$HOME/.claude/rules/"*.yml; do
+  if [ -f "$rule" ] && [ ! -s "$rule" ]; then
+    echo -e "  ${RED}✗${NC} Empty file: $(basename "$rule")"
+    LINT_ISSUES=$((LINT_ISSUES + 1))
+  fi
+done
+
+# Check CLAUDE.md size (warn if > 200 lines — wastes context)
+if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+  LINE_COUNT=$(wc -l < "$HOME/.claude/CLAUDE.md" | tr -d ' ')
+  if [ "$LINE_COUNT" -gt 200 ]; then
+    echo -e "  ${YELLOW}⚠${NC} CLAUDE.md is ${LINE_COUNT} lines (>200) — may waste context tokens"
+    LINT_ISSUES=$((LINT_ISSUES + 1))
+  fi
+fi
+
+# Check hook scripts are executable
+if [ -d "$HOME/.claude/supercharger/hooks" ]; then
+  for hook_script in "$HOME/.claude/supercharger/hooks/"*.sh; do
+    if [ -f "$hook_script" ] && [ ! -x "$hook_script" ]; then
+      echo -e "  ${RED}✗${NC} Not executable: $(basename "$hook_script")"
+      LINT_ISSUES=$((LINT_ISSUES + 1))
+    fi
+  done
+fi
+
+# Check for syntax errors in hook scripts
+if [ -d "$HOME/.claude/supercharger/hooks" ]; then
+  for hook_script in "$HOME/.claude/supercharger/hooks/"*.sh; do
+    if [ -f "$hook_script" ]; then
+      if ! bash -n "$hook_script" 2>/dev/null; then
+        echo -e "  ${RED}✗${NC} Syntax error: $(basename "$hook_script")"
+        LINT_ISSUES=$((LINT_ISSUES + 1))
+      fi
+    fi
+  done
+fi
+
+# Check settings.json is valid JSON
+if [ -f "$HOME/.claude/settings.json" ]; then
+  if ! python3 -c "import json; json.load(open('$HOME/.claude/settings.json'))" 2>/dev/null; then
+    echo -e "  ${RED}✗${NC} settings.json is malformed JSON"
+    LINT_ISSUES=$((LINT_ISSUES + 1))
+    ERRORS=$((ERRORS + 1))
+  fi
+fi
+
+if [ "$LINT_ISSUES" -eq 0 ]; then
+  echo -e "  ${GREEN}✓${NC} All config files valid"
 fi
 
 # Summary
@@ -160,7 +254,7 @@ echo -e "${CYAN}─────────────────────�
 if [ -n "$ROLES_FOUND" ]; then
   echo -e "Roles: ${BOLD}$ROLES_FOUND${NC}"
 fi
-echo -e "Version: ${BOLD}1.3.0${NC}"
+echo -e "Version: ${BOLD}1.4.0${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then

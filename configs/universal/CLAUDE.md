@@ -1,4 +1,4 @@
-# Claude Supercharger v1.3.0
+# Claude Supercharger v1.4.0
 
 ## Your Environment
 - Roles: {{ROLES}} (default — prioritize these role guidelines)
@@ -35,12 +35,15 @@ Before claiming any task is complete:
 - For multi-turn tasks, track what was decided and what failed
 
 ## Quick Mode Switches
-All 5 roles are always available. Say any of these to shift behavior mid-conversation:
+All 8 roles are always available. Say any of these to shift behavior mid-conversation:
 - "as developer" → code-only output, stack conventions, git best practices
 - "as writer" → structured prose, draft workflow, no jargon
 - "as student" → explain concepts, teach step-by-step, check understanding
 - "as data" → analysis rigor, cite sources, show queries, tables over prose
 - "as pm" → range estimates, decision logs, risk tracking
+- "as designer" → component-first, accessibility, design systems, visual hierarchy
+- "as devops" → infrastructure as code, CI/CD, containers, security scanning
+- "as researcher" → citations, methodology, evidence-based, literature review
 
 ## Getting Best Results
 For complex requests, include:

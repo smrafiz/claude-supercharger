@@ -75,6 +75,22 @@ else
 fi
 teardown_test_home
 
+# --- Test: statusline is registered in settings.json ---
+begin_test "install: statusline registered in settings.json"
+setup_test_home
+
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+HAS_STATUSLINE=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS']) as f:
+    s = json.load(f)
+sl = s.get('statusLine', {}).get('command', '')
+print('yes' if '#supercharger' in sl else 'no')
+")
+[ "$HAS_STATUSLINE" = "yes" ] && pass || fail "statusLine not found in settings.json"
+teardown_test_home
+
 # --- Test: help flag ---
 begin_test "install: --help prints usage and exits"
 OUTPUT=$(bash "$REPO_DIR/install.sh" --help 2>&1) || true

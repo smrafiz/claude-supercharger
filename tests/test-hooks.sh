@@ -375,4 +375,89 @@ fi
 export HOME="$HOME_ORIG"
 rm -rf "$AUDIT_DIR"
 
+# --- Statusline Tests ---
+
+echo ""
+echo "=== Statusline Tests ==="
+
+STATUSLINE_HOOK="$REPO_DIR/hooks/statusline.sh"
+
+begin_test "statusline: outputs 2 lines with valid JSON"
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/test"},"cost":{"total_cost_usd":0.5,"total_duration_ms":60000},"context_window":{"used_percentage":25,"current_usage":{"cache_read_input_tokens":1000,"cache_creation_input_tokens":500}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
+LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
+[ "$LINE_COUNT" -eq 2 ] && pass || fail "expected 2 lines, got $LINE_COUNT"
+
+begin_test "statusline: line 1 contains model name"
+OUTPUT=$(echo '{"model":{"display_name":"Sonnet"},"workspace":{"current_dir":"/tmp/myproj"},"cost":{},"context_window":{}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
+echo "$OUTPUT" | head -1 | grep -q "Sonnet" && pass || fail "model name not in line 1"
+
+begin_test "statusline: line 1 contains project dir basename"
+echo "$OUTPUT" | head -1 | grep -q "myproj" && pass || fail "dirname not in line 1"
+
+begin_test "statusline: line 2 contains percentage"
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/x"},"cost":{"total_cost_usd":1.23},"context_window":{"used_percentage":75,"current_usage":{}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
+echo "$OUTPUT" | tail -1 | grep -q "75%" && pass || fail "percentage not in line 2"
+
+begin_test "statusline: line 2 contains cost"
+echo "$OUTPUT" | tail -1 | grep -q '1.23' && pass || fail "cost not in line 2"
+
+begin_test "statusline: cache hit rate calculated correctly"
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/x"},"cost":{},"context_window":{"used_percentage":10,"current_usage":{"cache_read_input_tokens":800,"cache_creation_input_tokens":200}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
+echo "$OUTPUT" | tail -1 | grep -q "cache 80%" && pass || fail "cache rate not 80%"
+
+begin_test "statusline: handles missing fields gracefully"
+OUTPUT=$(echo '{"model":{},"workspace":{},"cost":{},"context_window":{}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
+LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
+[ "$LINE_COUNT" -eq 2 ] && pass || fail "should still output 2 lines with missing fields"
+
+# --- Stack Detection Tests ---
+
+echo ""
+echo "=== Stack Detection Tests ==="
+
+DETECT_HOOK="$REPO_DIR/hooks/detect-stack.sh"
+
+begin_test "stack: detects TypeScript + React from package.json"
+STACK_DIR=$(mktemp -d)
+echo '{"dependencies":{"react":"18.0.0"},"devDependencies":{"typescript":"5.0.0"}}' > "$STACK_DIR/package.json"
+touch "$STACK_DIR/tsconfig.json"
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "language=TypeScript" && echo "$OUTPUT" | grep -q "framework=React" && pass || fail "didn't detect TS+React"
+rm -rf "$STACK_DIR"
+
+begin_test "stack: detects Python + Django from requirements.txt"
+STACK_DIR=$(mktemp -d)
+echo -e "django==5.0\npytest==8.0" > "$STACK_DIR/requirements.txt"
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "language=Python" && echo "$OUTPUT" | grep -q "framework=Django" && pass || fail "didn't detect Python+Django"
+rm -rf "$STACK_DIR"
+
+begin_test "stack: detects Rust from Cargo.toml"
+STACK_DIR=$(mktemp -d)
+echo -e '[package]\nname = "test"' > "$STACK_DIR/Cargo.toml"
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "language=Rust" && pass || fail "didn't detect Rust"
+rm -rf "$STACK_DIR"
+
+begin_test "stack: detects Go from go.mod"
+STACK_DIR=$(mktemp -d)
+echo -e 'module test\ngo 1.22\nrequire github.com/gin-gonic/gin v1.9.0' > "$STACK_DIR/go.mod"
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "language=Go" && echo "$OUTPUT" | grep -q "framework=Gin" && pass || fail "didn't detect Go+Gin"
+rm -rf "$STACK_DIR"
+
+begin_test "stack: detects package manager from lockfile"
+STACK_DIR=$(mktemp -d)
+echo '{"dependencies":{}}' > "$STACK_DIR/package.json"
+touch "$STACK_DIR/pnpm-lock.yaml"
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "package_manager=pnpm" && pass || fail "didn't detect pnpm"
+rm -rf "$STACK_DIR"
+
+begin_test "stack: returns detected=false for empty directory"
+STACK_DIR=$(mktemp -d)
+OUTPUT=$(bash "$DETECT_HOOK" "$STACK_DIR" 2>/dev/null)
+echo "$OUTPUT" | grep -q "detected=false" && pass || fail "should report detected=false"
+rm -rf "$STACK_DIR"
+
 report

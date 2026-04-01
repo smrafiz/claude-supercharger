@@ -1,5 +1,22 @@
 # Changelog
 
+## [1.4.0] - 2026-04-02
+
+### Added
+- **Enhanced Statusline**: 2-line status bar showing model, project, git branch, context usage bar (color-coded), session cost, duration, and prompt cache hit rate
+- **Stack Auto-Detection**: Detects language, framework, package manager, test framework, and build tool from project files (Python, JS/TS, Rust, Go ecosystems)
+- **3 New Roles**: Designer (UI/UX, accessibility, design systems), DevOps (IaC, Docker, CI/CD, security scanning), Researcher (citations, methodology, evidence-based)
+- **Config Validation**: claude-check lints empty rule files, oversized CLAUDE.md, non-executable hooks, syntax errors in hook scripts, malformed settings.json
+- **MCP Usage Tips**: Post-install cheat sheet showing example prompts for installed MCP servers
+- Designer gets Magic UI MCP server; DevOps and Researcher get DuckDuckGo Search
+- 15 new tests (133 total)
+
+### Changed
+- Roles expanded from 5 to 8 (added Designer, DevOps, Researcher)
+- Economy constraints added for new roles: Designer/DevOps unrestricted, Researcher floors at Standard
+- Mode switching updated for 8 roles in CLAUDE.md template
+- claude-check updated with statusline check, stack detection, config validation sections, version 1.4.0
+
 ## [1.3.0] - 2026-04-02
 
 ### Added

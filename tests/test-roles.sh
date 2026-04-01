@@ -40,7 +40,7 @@ pass
 teardown_test_home
 
 # --- Test: all roles available in supercharger/roles/ ---
-begin_test "roles: all 5 roles in supercharger/roles/ for mode switching"
+begin_test "roles: all 8 roles in supercharger/roles/ for mode switching"
 setup_test_home
 mkdir -p "$HOME/.claude/rules"
 mkdir -p "$HOME/.claude/supercharger/roles"
@@ -53,6 +53,23 @@ assert_file_exists "$HOME/.claude/supercharger/roles/writer.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/student.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/data.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/pm.md" &&
+assert_file_exists "$HOME/.claude/supercharger/roles/designer.md" &&
+assert_file_exists "$HOME/.claude/supercharger/roles/devops.md" &&
+assert_file_exists "$HOME/.claude/supercharger/roles/researcher.md" &&
+pass
+teardown_test_home
+
+# --- Test: new role selected ---
+begin_test "roles: designer role deploys to rules/"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+mkdir -p "$HOME/.claude/supercharger/roles"
+
+SELECTED_ROLES=("designer")
+deploy_roles "$REPO_DIR"
+
+assert_file_exists "$HOME/.claude/rules/designer.md" &&
+assert_file_not_exists "$HOME/.claude/rules/developer.md" &&
 pass
 teardown_test_home
 

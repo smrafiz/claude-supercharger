@@ -23,7 +23,12 @@ playwright|npx|-y @playwright/mcp --headless
 magic-ui|npx|-y @magicuidesign/mcp-server-magicui"
   fi
 
-  if echo "$roles" | grep -qE "(writer|student|data|pm)"; then
+  if echo "$roles" | grep -q "designer"; then
+    servers="${servers}
+magic-ui|npx|-y @magicuidesign/mcp-server-magicui"
+  fi
+
+  if echo "$roles" | grep -qE "(writer|student|data|pm|devops|researcher)"; then
     servers="${servers}
 duckduckgo-search|npx|-y duckduckgo-mcp-server"
   fi

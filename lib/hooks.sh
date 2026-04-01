@@ -104,6 +104,13 @@ for line in hooks_input.strip().split('\n'):
 
     settings['hooks'][event].append(hook_entry)
 
+statusline_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh')
+if os.path.isfile(statusline_path):
+    settings['statusLine'] = {
+        'type': 'command',
+        'command': statusline_path + ' ' + tag
+    }
+
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
@@ -137,6 +144,11 @@ if 'hooks' in settings:
             del settings['hooks'][event]
     if not settings['hooks']:
         del settings['hooks']
+
+if 'statusLine' in settings:
+    cmd = settings['statusLine'].get('command', '')
+    if tag in cmd:
+        del settings['statusLine']
 
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)

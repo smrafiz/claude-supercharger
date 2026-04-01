@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Role Selection & Deployment
 
-AVAILABLE_ROLES=("developer" "writer" "student" "data" "pm")
-ROLE_LABELS=("Developer — build things" "Writer — communicate things" "Student — learn things" "Data — analyze things" "PM — plan things")
+AVAILABLE_ROLES=("developer" "writer" "student" "data" "pm" "designer" "devops" "researcher")
+ROLE_LABELS=("Developer — build things" "Writer — communicate things" "Student — learn things" "Data — analyze things" "PM — plan things" "Designer — design things" "DevOps — deploy things" "Researcher — investigate things")
 SELECTED_ROLES=()
 
 select_roles() {
@@ -66,7 +66,7 @@ deploy_roles() {
   for role in "${SELECTED_ROLES[@]}"; do
     success "Primary role: ${role}"
   done
-  info "  All 5 roles available for mode switching"
+  info "  All ${#AVAILABLE_ROLES[@]} roles available for mode switching"
 }
 
 format_roles_list() {
