@@ -61,9 +61,9 @@ if [ -n "$ARG_MODE" ]; then
 else
   echo -e "${BOLD}Step 1 of 4: Install Mode${NC}"
   echo ""
-  echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks only"
-  echo -e "  ${BOLD}2)${NC} Standard   — recommended (configs + hooks + productivity)"
-  echo -e "  ${BOLD}3)${NC} Full       — everything (+ MCP setup + diagnostics)"
+  echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks (no notifications, no auto-format)"
+  echo -e "  ${BOLD}2)${NC} Standard   — adds notifications, git-safety, auto-format [recommended]"
+  echo -e "  ${BOLD}3)${NC} Full       — adds prompt validation, compaction backup, diagnostics"
   echo ""
   read -rp "> " mode_choice
   case "$mode_choice" in

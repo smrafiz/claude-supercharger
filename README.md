@@ -83,11 +83,11 @@ Non-interactive:
 
 ## Install Modes
 
-| Mode | Features | Best for |
-|------|----------|----------|
-| **Safe** | 7 | Cautious users, corporate environments |
-| **Standard** | 10 | Most users. Recommended. |
-| **Full** | 15 | Power users. Everything. |
+| Mode | What it adds | What it skips |
+|------|-------------|---------------|
+| **Safe** | Configs + safety hooks | No notifications, no auto-format, no prompt checking |
+| **Standard** | + notifications, git-safety, auto-format | No prompt checking, no compaction backup |
+| **Full** | + prompt validation, compaction backup, diagnostics | Nothing — everything installed |
 
 ## Roles
 
