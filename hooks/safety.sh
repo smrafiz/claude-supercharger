@@ -73,4 +73,46 @@ if echo "$CMD" | grep -qE '^mv[[:space:]]+(\/|~|\$HOME)[[:space:]]'; then
   block "mv from root or home directory"
 fi
 
+# --- Credential leakage ---
+CRED_PATTERNS=(
+  '[Aa][Pp][Ii][_-]?[Kk][Ee][Yy][[:space:]]*='
+  '[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy][[:space:]]*='
+  '[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn][[:space:]]*='
+  'AKIA[0-9A-Z]{16}'
+  'ghp_[0-9a-zA-Z]{36}'
+  'sk-[0-9a-zA-Z]{48}'
+)
+
+for pattern in "${CRED_PATTERNS[@]}"; do
+  if echo "$CMD" | grep -qE "$pattern"; then
+    block "potential credential in command — never embed secrets in commands"
+  fi
+done
+
+# --- Unauthorized persistence ---
+if echo "$CMD" | grep -qE '(crontab[[:space:]]+-e|crontab[[:space:]]+-)'; then
+  block "cron job modification — agent should not create persistent scheduled tasks"
+fi
+
+if echo "$CMD" | grep -qE '(>>?[[:space:]]*(~|\$HOME)?/?\.(bashrc|zshrc|profile|bash_profile|zprofile))'; then
+  block "shell profile modification — agent should not modify shell startup files"
+fi
+
+if echo "$CMD" | grep -qE 'ssh-keygen|ssh-add|ssh-copy-id'; then
+  block "SSH key operation — agent should not manage SSH keys"
+fi
+
+# --- Self-modification prevention ---
+if echo "$CMD" | grep -qE '(\.claude/settings\.json|\.claude/CLAUDE\.md)'; then
+  if echo "$CMD" | grep -qE '(>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>)'; then
+    block "self-modification — agent should not directly edit its own config files"
+  fi
+fi
+
+# --- Production reads (warn only — exit 1, not exit 2) ---
+if echo "$CMD" | grep -qE '(kubectl[[:space:]]+exec|docker[[:space:]]+exec).*prod'; then
+  echo "WARNING: Production container access detected. Live credentials may leak into transcript." >&2
+  exit 0
+fi
+
 exit 0

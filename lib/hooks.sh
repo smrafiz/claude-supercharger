@@ -16,8 +16,10 @@ get_hooks_for_mode() {
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
     hooks+=("Notification||${hooks_dir}/notify.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
+    hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
+    hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
     if [[ "$has_developer" == "true" ]]; then
-      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/auto-format.sh")
+      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
   fi
 
@@ -144,17 +146,17 @@ with open(settings_file, 'w') as f:
 count_installed_hooks() {
   local mode="$1"
   local has_developer="$2"
-  local count=1
+  local count=1  # safety always
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    count=$((count + 2))
+    count=$((count + 4))  # notify, git-safety, enforce-pkg-manager, audit-trail
     if [[ "$has_developer" == "true" ]]; then
-      count=$((count + 1))
+      count=$((count + 1))  # quality-gate
     fi
   fi
 
   if [[ "$mode" == "full" ]]; then
-    count=$((count + 2))
+    count=$((count + 2))  # prompt-validator, compaction-backup
   fi
 
   echo "$count"

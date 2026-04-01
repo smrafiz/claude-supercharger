@@ -84,6 +84,53 @@ Upgrade hook from 10 checks to 20+:
 
 *Expand hooks/prompt-validator.sh patterns.*
 
+### Expanded Safety Hooks
+Add new pattern categories to `safety.sh` beyond destructive commands and git force-push:
+- **Credential leakage** — detect secrets in metadata, URLs, labels, or commit content (`/api[_-]?key|token|secret/`)
+- **Unauthorized persistence** — block cron jobs (`crontab`), shell profile edits (`.bashrc`, `.zshrc`, `.profile`), SSH key additions
+- **Self-modification prevention** — block agent from editing its own config (`.claude/settings.json`, `CLAUDE.md`)
+- **Production reads** — warn on `kubectl exec`, `docker exec` into production (live creds leak into transcript)
+
+*Informed by: security monitor rules from [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts)*
+
+### Enhanced Verification Gate
+Upgrade "did tests pass?" to "is the code real?" with stub detection:
+- **Existence** — file is present at expected path
+- **Substantive** — content is real implementation, not placeholder (detect TODO/FIXME/placeholder/empty returns)
+- **Wired** — connected to the rest of the system (imports resolve, component is used)
+- **Functional** — actually works when invoked (tests pass, build succeeds)
+
+*Pure rules addition to supercharger.md. Informed by: verification patterns from [get-shit-done](https://github.com/gsd-build/get-shit-done)*
+
+### Package Manager Enforcement
+PreToolUse hook that auto-detects the project's package manager from lockfiles and blocks the wrong one:
+- `pnpm-lock.yaml` present → blocks `npm install`, `npm run`, etc.
+- `yarn.lock` present → blocks `npm install`
+- `uv.lock` / `poetry.lock` present → blocks raw `pip install`
+- Generalizable pattern: detect convention from lockfile, enforce it deterministically
+
+*New hook: hooks/enforce-pkg-manager.sh (~20 lines). Informed by: [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config)*
+
+### Quality Gate Pipeline
+Upgrade `auto-format.sh` from "run formatter" to a multi-stage quality gate:
+- **Stage 1: Lint** — run project linter (`ruff`/`eslint`/`clippy`) after every edit, detect issues
+- **Stage 2: Auto-fix** — apply deterministic fixes (`ruff check --fix`, `eslint --fix`)
+- **Stage 3: Re-check** — if fixes introduced new issues, report to Claude for AI-powered resolution
+- Max 3 iterations, then stop and report remaining issues
+- Backups created before any auto-fix modification
+
+*Upgrade hooks/auto-format.sh → hooks/quality-gate.sh. Informed by: [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook)*
+
+### Mutation Audit Trail
+PostToolUse hook that logs all write operations to a JSONL audit file:
+- Tracks: file edits, git commits, package installs, file deletions
+- Format: `{"timestamp", "action", "command", "status", "file_path"}`
+- Stored at `~/.claude/supercharger/audit/YYYY-MM-DD.jsonl`
+- Queryable: "what did Claude change yesterday?"
+- Rotated automatically (keep 30 days)
+
+*New hook: hooks/audit-trail.sh (~40 lines). Informed by: log-gam.sh pattern from [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config)*
+
 ### Hook Toggle Tool
 `bash tools/hook-toggle.sh safety off` — temporarily disable a hook without editing JSON. Re-enable with `on`. Status shown in claude-check.
 
@@ -116,6 +163,15 @@ Enhance `claude-check.sh` with linting:
 - Verify MCP servers are reachable (npx dry-run)
 
 *Inspired by: agnix (agent-sh) — linter for Claude Code agent files*
+
+### Enhanced Statusline
+Two-line status bar at the bottom of the terminal showing live session intelligence:
+- **Line 1**: Model name, project folder, git branch
+- **Line 2**: Context usage progress bar (color-coded: green <50%, yellow 50-79%, red 80%+), session cost ($), elapsed time, prompt cache hit rate (%)
+- Uses Claude Code's `remaining_percentage` from statusline stdin JSON — no external API calls
+- Pure bash + `jq`, zero-config — auto-configured by `install.sh` via `statusLine` in settings.json
+
+*Inspired by: statusline.sh from [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config); context-bar.sh from [claude-code-tips](https://github.com/ykdojo/claude-code-tips)*
 
 ### MCP Usage Tips
 After install, generate a cheat sheet:
@@ -158,6 +214,16 @@ Live tracking of context usage:
 - At 70% → auto-suggest /compact with pre-built summary of what to preserve
 - At 90% → generate session summary immediately
 
+*Builds on: check-context.sh from [claude-code-tips](https://github.com/ykdojo/claude-code-tips) — stop hook that blocks at 85% context*
+
+### Half-Clone Tool
+Clone the later half of a conversation, discarding early context to continue with a fresh token budget:
+- `bash tools/half-clone.sh` — auto-detects current session, clones later half
+- Triggered automatically by Context Budget Monitor at 85%
+- Resume cloned conversation with `claude -r`
+
+*Inspired by: half-clone-conversation.sh from [claude-code-tips](https://github.com/ykdojo/claude-code-tips)*
+
 ### Prompt Rewriter Hook
 Instead of just warning about vague prompts, enhance them:
 - "Fix the bug" → adds file context, recent git changes, error logs
@@ -179,18 +245,43 @@ Use Memory MCP server to build persistent project knowledge base:
 - Automatically populated from session summaries
 - Queryable: "What did we decide about auth?"
 
+### Learn from Sessions
+Analyze past conversation history to improve CLAUDE.md files:
+- Batch recent conversations, dispatch subagents to find patterns
+- Surface violated instructions (need reinforcement), missing rules, outdated entries
+- Suggest additions to both global and project-level CLAUDE.md
+
+*Inspired by: review-claudemd skill from [claude-code-tips](https://github.com/ykdojo/claude-code-tips)*
+
 ### Session Analytics
-Track tokens per session, log to `~/.claude/supercharger/stats.json`:
-- Show trends in claude-check ("Avg session: 45K tokens, down 38% since install")
+Parse Claude Code's native JSONL session files (`~/.claude/projects/*/`) to build usage reports:
+- Extract token counts (input, output, cache reads, cache creation), model selection, and cost per session
+- Daily/weekly/monthly cost trends shown in `claude-check` ("This week: $4.20 across 12 sessions, avg 45K tokens")
 - Identify which economy tier saves the most per role
+- Python script reads JSONL directly — no npm, no external service, no API calls
+- Historical data from all past sessions, not just current
+
+*Informed by: [ccusage](https://github.com/ryoppippi/ccusage) — JSONL parsing approach; [claude-code-otel](https://github.com/ColeMurray/claude-code-otel) — session data format insights*
+
+### Trace Compactor
+UserPromptSubmit + PostToolUse hook that automatically compresses Python tracebacks before they enter the context window:
+- Detects traceback blocks in prompts (pasted errors) and tool outputs (failed scripts)
+- Replaces 250+ token stack traces with ~40 token compact summaries
+- Keeps only project-relevant frames, drops stdlib/site-packages noise
+- Deterministic fingerprinting for error deduplication across a session
+- Pure Python, zero dependencies
+
+*Inspired by: [claude-tools](https://github.com/tarekziade/claude-tools) — trace compactor module*
 
 ### Prompt Injection Scanner
-New hook: scan MCP tool outputs for injection attempts:
-- Detect prompt injection in fetched web content
-- Flag suspicious patterns in tool responses
+New hook: scan MCP tool outputs and file writes for injection attempts:
+- Detect prompt injection in fetched web content and written files
+- 13+ regex patterns: "ignore previous instructions", role hijacking, system prompt extraction, XML/tag injection
+- Invisible Unicode detection (zero-width spaces, soft hyphens)
+- Advisory mode (warn, don't block) to avoid false-positive deadlocks
 - Lightweight regex-based, no external dependencies
 
-*Inspired by: parry (vaporif) — prompt injection scanner for Claude Code hooks*
+*Inspired by: parry (vaporif) — prompt injection scanner; gsd-prompt-guard.js from [get-shit-done](https://github.com/gsd-build/get-shit-done)*
 
 ---
 
@@ -203,7 +294,15 @@ These projects complement Supercharger — not competitors, but tools that work 
 - **[Superpowers](https://github.com/obra/superpowers)** — engineering skills (our skills system is adapted from this)
 - **[prompt-master](https://github.com/nidhinjs/prompt-master)** — prompt engineering patterns (v1.3 incorporates several)
 - **[Claude Session Restore](https://github.com/ZENG3LD/claude-session-restore)** — advanced session recovery
+- **[claude-code-tips](https://github.com/ykdojo/claude-code-tips)** — context bar, conversation cloning, and handoff patterns (v1.4/v1.6 incorporates several)
+- **[claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts)** — Claude Code's internal system prompts, version-tracked (v1.3 safety hooks informed by security monitor rules)
+- **[get-shit-done](https://github.com/gsd-build/get-shit-done)** — verification patterns and prompt injection guard (v1.3 verification gate and v1.6 injection scanner informed by these)
 - **[Dippy](https://github.com/ldayton/Dippy)** — AST-based safe command auto-approval
+- **[Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config)** — opinionated defaults from a security firm: statusline, sandboxing, package manager enforcement (v1.3/v1.4 incorporates several)
+- **[claude-tools](https://github.com/tarekziade/claude-tools)** — trace compactor for Python tracebacks, zero deps (v1.6 trace compactor inspired by this)
+- **[claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook)** — three-stage lint/fix pipeline with git worktree parallelization (v1.3 quality gate informed by this)
+- **[ccusage](https://github.com/ryoppippi/ccusage)** — Claude Code usage analyzer from JSONL files, 10k+ stars (v1.6 session analytics parsing approach)
+- **[claude-code-otel](https://github.com/ColeMurray/claude-code-otel)** — OpenTelemetry observability for Claude Code (session data format insights for v1.6)
 
 ---
 

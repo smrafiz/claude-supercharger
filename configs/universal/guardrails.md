@@ -36,3 +36,18 @@
 - Validate output before claiming done
 - One task at a time, completed fully
 - If something breaks, fix it before moving on
+
+## Stop Conditions Framework
+For any non-trivial task, establish these before starting:
+
+**Starting state** — what exists now (files, state, dependencies)
+**Target state** — what "done" looks like (output files, test criteria, behavior change)
+**Checkpoint output** — report progress after each major step
+**Forbidden actions** — files/dirs that must not be touched
+**Human review triggers** — stop and ask before: deleting files, adding dependencies, touching database schemas, modifying CI/CD, changing auth logic
+
+If the user doesn't provide these, derive them from context:
+- Starting state: check git status, read existing files
+- Target state: extract from the request ("add X" → X exists and works)
+- Forbidden: anything outside the explicit scope
+- Review triggers: anything destructive or security-adjacent

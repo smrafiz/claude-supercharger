@@ -65,6 +65,58 @@ if echo "$PROMPT" | grep -qiE '\b(write for users|write documentation|write a gu
   NOTES="${NOTES}[Supercharger] Consider specifying the target audience (e.g., developers, beginners, stakeholders).\n"
 fi
 
+# 11. No output format specified
+if echo "$PROMPT" | grep -qiE '\b(generate|create|produce|write|output)\b' && ! echo "$PROMPT" | grep -qiE '\b(json|yaml|csv|markdown|html|table|list|xml|typescript|python|bash)\b'; then
+  if echo "$PROMPT" | grep -qiE '\b(report|summary|analysis|data|results|response)\b'; then
+    NOTES="${NOTES}[Supercharger] Consider specifying output format (JSON, markdown, table, etc.).\n"
+  fi
+fi
+
+# 12. Implicit length
+if echo "$PROMPT" | grep -qiE '\b(write a (long|short|brief|detailed|comprehensive|thorough))\b' && ! echo "$PROMPT" | grep -qiE '\b([0-9]+ (words|lines|paragraphs|pages|sentences))\b'; then
+  NOTES="${NOTES}[Supercharger] Consider specifying approximate length (e.g., 200 words, 10 lines).\n"
+fi
+
+# 13. No file scope for code tasks
+if echo "$PROMPT" | grep -qiE '\b(refactor|extract|move|rename|split|merge|inline)\b' && ! echo "$PROMPT" | grep -qiE '(/|\.tsx?|\.jsx?|\.py|\.rs|\.go|\.java|\.rb|src/|lib/|app/|components/)'; then
+  NOTES="${NOTES}[Supercharger] Refactoring request without file path — specify which files to modify.\n"
+fi
+
+# 14. No negative constraints
+if echo "$PROMPT" | grep -qiE '\b(rewrite|redesign|rebuild|restructure|overhaul|rearchitect)\b' && ! echo "$PROMPT" | grep -qiE '\b(don.t|do not|must not|without|except|avoid|keep|preserve|maintain)\b'; then
+  NOTES="${NOTES}[Supercharger] Large change without constraints — specify what to preserve or avoid changing.\n"
+fi
+
+# 15. No starting state for agent tasks
+if echo "$PROMPT" | grep -qiE '\b(set up|configure|deploy|migrate|initialize|bootstrap)\b' && ! echo "$PROMPT" | grep -qiE '\b(currently|existing|already|right now|at the moment|from scratch|new project)\b'; then
+  NOTES="${NOTES}[Supercharger] Setup task without starting state — clarify what exists now.\n"
+fi
+
+# 16. Template mismatch (prose to code tool)
+if echo "$PROMPT" | grep -qiE '\b(explain|describe|summarize|tell me about|what is)\b' && echo "$PROMPT" | grep -qiE '\b(write code|implement|build|create a function)\b'; then
+  NOTES="${NOTES}[Supercharger] Mixed intent: both explanation and implementation. Consider splitting.\n"
+fi
+
+# 17. Missing role/persona
+if echo "$PROMPT" | grep -qiE '\b(act as|pretend|you are a|behave like|roleplay)\b'; then
+  NOTES="${NOTES}[Supercharger] Use Supercharger roles instead: 'as developer', 'as writer', etc.\n"
+fi
+
+# 18. Unscoped "all" or "every"
+if echo "$PROMPT" | grep -qiE '\b(fix all|update all|change every|modify all|refactor all|test all)\b' && ! echo "$PROMPT" | grep -qiE '\b(in (this|the) (file|folder|directory|module|component))\b'; then
+  NOTES="${NOTES}[Supercharger] 'All' without scope — specify which files/directories.\n"
+fi
+
+# 19. Version/dependency without pinning
+if echo "$PROMPT" | grep -qiE '\b(install|add|upgrade|update)\b.*\b(latest|newest|recent)\b' && ! echo "$PROMPT" | grep -qiE '\b(@[0-9]|==[0-9]|>=[0-9]|~[0-9]|\^[0-9]|version [0-9])\b'; then
+  NOTES="${NOTES}[Supercharger] Consider pinning to a specific version instead of 'latest'.\n"
+fi
+
+# 20. No error context
+if echo "$PROMPT" | grep -qiE '\b(getting an error|there.s a bug|it.s broken|not working|fails|crashes)\b' && ! echo "$PROMPT" | grep -qiE '(Error:|Exception:|Traceback|stack trace|TypeError|SyntaxError|ReferenceError|RuntimeError|KeyError|ValueError|stderr|\.log\b|line [0-9]+|at .+:[0-9]|ENOENT|EACCES|exit code|segfault|panic:)'; then
+  NOTES="${NOTES}[Supercharger] Include the actual error message or stack trace for faster debugging.\n"
+fi
+
 if [ -n "$NOTES" ]; then
   echo -e "$NOTES" >&2
 fi

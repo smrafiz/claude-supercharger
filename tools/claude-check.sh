@@ -90,7 +90,7 @@ print(count)
   echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
 
   if [ -d "$HOME/.claude/supercharger/hooks" ]; then
-    for hook in safety notify git-safety auto-format prompt-validator compaction-backup; do
+    for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail prompt-validator compaction-backup; do
       if [ -f "$HOME/.claude/supercharger/hooks/${hook}.sh" ]; then
         if grep -q "${hook}.sh" "$HOME/.claude/settings.json" 2>/dev/null; then
           echo -e "    ${GREEN}✓${NC} ${hook} — active"
@@ -160,7 +160,7 @@ echo -e "${CYAN}─────────────────────�
 if [ -n "$ROLES_FOUND" ]; then
   echo -e "Roles: ${BOLD}$ROLES_FOUND${NC}"
 fi
-echo -e "Version: ${BOLD}1.2.0${NC}"
+echo -e "Version: ${BOLD}1.3.0${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then

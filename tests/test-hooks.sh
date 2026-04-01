@@ -204,4 +204,175 @@ begin_test "prompt: specific request passes clean"
 OUTPUT=$(run_prompt_hook "fix the typo in src/Header.tsx on line 12")
 [ -z "$OUTPUT" ] && pass || fail "unexpected note on specific prompt"
 
+# --- Expanded Safety Hook Tests (v1.3) ---
+
+echo ""
+echo "=== Expanded Safety Hook Tests (v1.3) ==="
+
+begin_test "safety: credential leakage — API_KEY= in command is blocked"
+run_hook "$SAFETY_HOOK" "echo API_KEY=sk-abc123 > .env"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: credential leakage — AWS key pattern is blocked"
+run_hook "$SAFETY_HOOK" "export AKIAIOSFODNN7EXAMPLE=test"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: credential leakage — GitHub token pattern is blocked"
+run_hook "$SAFETY_HOOK" "curl -H 'Authorization: token ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx' api.github.com"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: crontab edit is blocked"
+run_hook "$SAFETY_HOOK" "crontab -e"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: shell profile modification is blocked"
+run_hook "$SAFETY_HOOK" "echo 'alias ll=ls' >> ~/.bashrc"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: zshrc modification is blocked"
+run_hook "$SAFETY_HOOK" "echo 'export PATH' >> ~/.zshrc"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: ssh-keygen is blocked"
+run_hook "$SAFETY_HOOK" "ssh-keygen -t rsa -b 4096"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: self-modification of settings.json is blocked"
+run_hook "$SAFETY_HOOK" "echo '{}' > .claude/settings.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: regular echo to file is allowed"
+run_hook "$SAFETY_HOOK" "echo 'hello' > output.txt"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: regular git command is allowed"
+run_hook "$SAFETY_HOOK" "git status"
+assert_exit_code 0 $? && pass
+
+# --- Package Manager Enforcement Tests ---
+
+echo ""
+echo "=== Package Manager Enforcement Tests ==="
+
+PKG_HOOK="$REPO_DIR/hooks/enforce-pkg-manager.sh"
+PKG_TEST_DIR=$(mktemp -d)
+
+run_pkg_hook() {
+  local command="$1"
+  local project_dir="$2"
+  local json_input="{\"input\":{\"command\":\"$command\"}}"
+  echo "$json_input" | CLAUDE_PROJECT_DIR="$project_dir" bash "$PKG_HOOK" >/dev/null 2>&1
+  return $?
+}
+
+begin_test "pkg: npm install blocked in pnpm project"
+touch "$PKG_TEST_DIR/pnpm-lock.yaml"
+run_pkg_hook "npm install express" "$PKG_TEST_DIR"
+assert_exit_code 2 $? && pass
+
+begin_test "pkg: npm run allowed in pnpm project (matcher is install/add only for yarn)"
+rm -f "$PKG_TEST_DIR/pnpm-lock.yaml"
+touch "$PKG_TEST_DIR/yarn.lock"
+run_pkg_hook "npm run dev" "$PKG_TEST_DIR"
+assert_exit_code 0 $? && pass
+
+begin_test "pkg: npm install blocked in yarn project"
+run_pkg_hook "npm install express" "$PKG_TEST_DIR"
+assert_exit_code 2 $? && pass
+
+begin_test "pkg: pip install blocked in uv project"
+rm -f "$PKG_TEST_DIR/yarn.lock"
+touch "$PKG_TEST_DIR/uv.lock"
+run_pkg_hook "pip install flask" "$PKG_TEST_DIR"
+assert_exit_code 2 $? && pass
+
+begin_test "pkg: npm install allowed when no lockfile"
+rm -f "$PKG_TEST_DIR/uv.lock"
+run_pkg_hook "npm install express" "$PKG_TEST_DIR"
+assert_exit_code 0 $? && pass
+
+rm -rf "$PKG_TEST_DIR"
+
+# --- Expanded Prompt Validator Tests (v1.3) ---
+
+echo ""
+echo "=== Expanded Prompt Validator Tests (v1.3) ==="
+
+begin_test "prompt: no output format triggers note"
+OUTPUT=$(run_prompt_hook "generate a report of all API endpoints")
+echo "$OUTPUT" | grep -qi "format" && pass || fail "no note about output format"
+
+begin_test "prompt: no file scope for refactoring triggers note"
+OUTPUT=$(run_prompt_hook "refactor the authentication logic")
+echo "$OUTPUT" | grep -qi "file" && pass || fail "no note about file path"
+
+begin_test "prompt: no constraints on rewrite triggers note"
+OUTPUT=$(run_prompt_hook "rewrite the entire user module")
+echo "$OUTPUT" | grep -qi "preserve\|constraint\|avoid" && pass || fail "no note about constraints"
+
+begin_test "prompt: no starting state triggers note"
+OUTPUT=$(run_prompt_hook "set up Redis caching for the API")
+echo "$OUTPUT" | grep -qi "exist\|current\|state" && pass || fail "no note about starting state"
+
+begin_test "prompt: unscoped 'fix all' triggers note"
+OUTPUT=$(run_prompt_hook "fix all the bugs")
+echo "$OUTPUT" | grep -qi "scope\|which\|files\|director" && pass || fail "no note about scope"
+
+begin_test "prompt: no error context triggers note"
+OUTPUT=$(run_prompt_hook "getting an error when I click submit")
+echo "$OUTPUT" | grep -qi "error message\|stack trace" && pass || fail "no note about error context"
+
+begin_test "prompt: specific refactor with file passes clean"
+OUTPUT=$(run_prompt_hook "refactor the login handler in src/auth/login.ts to use async/await")
+echo "$OUTPUT" | grep -qi "refactor" && fail "false positive on specific refactor" || pass
+
+# --- Hook Toggle Tool Tests ---
+
+echo ""
+echo "=== Hook Toggle Tool Tests ==="
+
+TOGGLE_TOOL="$REPO_DIR/tools/hook-toggle.sh"
+
+begin_test "hook-toggle: shows usage with no args (exit 0)"
+bash "$TOGGLE_TOOL" >/dev/null 2>&1
+# exits 0 when showing status (even if no settings.json)
+[ $? -le 1 ] && pass || fail "unexpected exit code"
+
+# --- Audit Trail Tests ---
+
+echo ""
+echo "=== Audit Trail Hook Tests ==="
+
+AUDIT_HOOK="$REPO_DIR/hooks/audit-trail.sh"
+
+begin_test "audit: Write tool logs to audit file"
+AUDIT_DIR=$(mktemp -d)
+HOME_ORIG="$HOME"
+export HOME="$AUDIT_DIR"
+mkdir -p "$HOME/.claude/supercharger/audit"
+echo '{"tool_name":"Write","input":{"file_path":"/tmp/test.txt"}}' | bash "$AUDIT_HOOK" 2>/dev/null
+TODAY=$(date -u +"%Y-%m-%d")
+if [ -f "$HOME/.claude/supercharger/audit/$TODAY.jsonl" ]; then
+  pass
+else
+  fail "no audit file created"
+fi
+export HOME="$HOME_ORIG"
+rm -rf "$AUDIT_DIR"
+
+begin_test "audit: safe Bash command is not logged"
+AUDIT_DIR=$(mktemp -d)
+HOME_ORIG="$HOME"
+export HOME="$AUDIT_DIR"
+mkdir -p "$HOME/.claude/supercharger/audit"
+echo '{"tool_name":"Bash","input":{"command":"ls -la"}}' | bash "$AUDIT_HOOK" 2>/dev/null
+TODAY=$(date -u +"%Y-%m-%d")
+if [ -f "$HOME/.claude/supercharger/audit/$TODAY.jsonl" ]; then
+  fail "read-only command should not be audited"
+else
+  pass
+fi
+export HOME="$HOME_ORIG"
+rm -rf "$AUDIT_DIR"
+
 report

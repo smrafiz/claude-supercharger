@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.3.0] - 2026-04-02
+
+### Added
+- **Package Manager Enforcement**: PreToolUse hook blocks wrong package manager based on lockfile detection (pnpm-lock.yaml, yarn.lock, uv.lock, poetry.lock, bun.lockb)
+- **Quality Gate Pipeline**: PostToolUse hook runs 3-stage lint→auto-fix→re-check after every edit (ruff, eslint, clippy, rustfmt, gofmt, Prettier, Black)
+- **Mutation Audit Trail**: PostToolUse hook logs all mutations (file edits, git commits, installs) to JSONL with 30-day rotation at `~/.claude/supercharger/audit/`
+- **Hook Toggle Tool**: `bash tools/hook-toggle.sh safety off` — enable/disable any hook without editing JSON
+- **Credential Leak Detection**: Safety hook blocks API keys, AWS AKIA patterns, GitHub `ghp_` tokens, OpenAI `sk-` keys in commands
+- **SSH Key Operation Blocking**: Safety hook blocks `ssh-keygen`, `ssh-add`, `ssh-copy-id`
+- **Shell Profile Protection**: Safety hook blocks writes to `.bashrc`, `.zshrc`, `.profile`, `.bash_profile`
+- **Self-Modification Prevention**: Safety hook blocks agent from writing to `.claude/settings.json` or `.claude/CLAUDE.md`
+- **Stop Conditions Framework**: Guardrails now include start/target state, checkpoints, forbidden actions, and human review triggers
+- **Deep Interview expanded**: 4→9 dimensions (added Input, Output, Audience, Memory, Examples) with Critical vs Conditional scoring
+- **Enhanced Verification Gate**: 4-level check — Existence → Substantive → Wired → Functional
+- **Memory Block Template**: Structured context carry-forward format for multi-turn tasks after compaction
+- 10 new prompt validator checks (11-20): output format, implicit length, file scope, negative constraints, starting state, template mismatch, role/persona, unscoped "all", version pinning, error context
+- 25 new tests (118 total)
+
+### Changed
+- Safety hook expanded with 4 new blocking categories (credentials, persistence, self-modification, production reads)
+- Prompt validator expanded from 10 to 20 checks
+- Developer role hook changed from `auto-format` to `quality-gate` (3-stage pipeline replaces single formatter)
+- Standard mode now includes `enforce-pkg-manager` and `audit-trail` hooks (6 hooks total, was 4)
+- Install modes description updated (Standard now mentions quality gate, pkg enforcement, audit trail)
+- claude-check updated with new hook names and v1.3.0 version
+
 ## [1.2.0] - 2026-04-01
 
 ### Added

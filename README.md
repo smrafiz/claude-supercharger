@@ -4,7 +4,7 @@
 
 A role-aware, zero-dependency configuration kit that transforms Claude Code from a talented but undisciplined assistant into a focused, safe, and efficient one — tailored to how *you* work.
 
-![Version](https://img.shields.io/badge/version-1.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-93%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.3.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-118%20passing-brightgreen)
 
 ---
 
@@ -115,16 +115,22 @@ The installer walks you through 4 steps: install mode → roles → economy tier
 
 | Feature | What it does | How |
 |---------|-------------|-----|
-| **Safety Hooks** | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, force-push to main | Deterministic — runs on every command |
-| **Verification Gate** | Forces Claude to run tests/build before claiming "done" | Rules in CLAUDE.md |
+| **Safety Hooks** | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, force-push, credential leaks, SSH key ops, self-modification | Deterministic — runs on every command |
+| **Verification Gate** | 4-level check: Exists → Substantive → Wired → Functional. Catches stubs and placeholders. | Rules in supercharger.md |
+| **Quality Gate** | 3-stage lint→auto-fix→re-check pipeline after every edit (ruff, eslint, clippy, rustfmt, gofmt) | PostToolUse hook |
 | **Scope Discipline** | Prevents unrequested refactoring and drive-by changes | Rules + guardrails |
 | **Token Economy** | 30-60% output reduction in 3 tiers (Standard/Lean/Minimal) | Per-output-type rules |
 | **5 Roles** | Developer, Writer, Student, Data, PM — each with tuned behavior | Auto-loaded from `~/.claude/rules/` |
 | **MCP Servers** | 3-5 zero-config MCP servers auto-configured per role | `settings.json` integration |
-| **Clarification Mode** | Scans prompts for vague/ambiguous requests, asks before acting | Lightweight (auto) + Deep Interview |
-| **Session Summary** | Structured handoff with paste-ready resume prompt | Keyword, compaction, rate limit triggers |
+| **Clarification Mode** | Scans prompts for vague/ambiguous requests, asks before acting | Lightweight (auto) + Deep Interview (9 dims) |
+| **Session Summary** | Structured handoff with Memory Block and paste-ready resume prompt | Keyword, compaction, rate limit triggers |
 | **Resume Tool** | Retrieve and clipboard-copy past session summaries | `bash tools/resume.sh` |
 | **Anti-Patterns** | 35-pattern library catches common prompt mistakes | Auto-loaded YAML + hook |
+| **Prompt Validator** | 20 checks: vague scope, missing format, no constraints, no error context, and more | UserPromptSubmit hook |
+| **Pkg Manager Enforce** | Blocks `npm` in pnpm projects, `pip` in uv projects — auto-detects from lockfiles | PreToolUse hook |
+| **Audit Trail** | JSONL log of all mutations (file edits, git commits, installs) — 30-day rotation | PostToolUse hook |
+| **Hook Toggle** | `bash tools/hook-toggle.sh safety off` — snooze any hook without editing JSON | CLI tool |
+| **Stop Conditions** | Start/target state, checkpoints, forbidden actions, human review triggers | Rules in guardrails.md |
 | **Guardrails** | Four Laws, autonomy levels, halt conditions | Always active |
 | **Mode Switching** | Switch roles mid-conversation: "as developer", "as student" | All 5 roles always available |
 
@@ -179,14 +185,15 @@ Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
 
 **Lightweight** (always on): Every prompt is scanned for vague verbs, missing scope, and unclear success criteria. Max 3 questions, then Claude proceeds.
 
-**Deep Interview** (say `"deep interview"` or `"interview me"`): Claude scores your prompt across 4 dimensions and asks targeted questions for the weakest areas:
+**Deep Interview** (say `"deep interview"` or `"interview me"`): Claude scores your prompt across 9 dimensions and asks targeted questions for the weakest areas:
 
-| Dimension | What's assessed |
-|-----------|----------------|
-| **Scope** | Which files/functions? Clear boundaries? |
-| **Success** | What does "done" look like? |
-| **Constraints** | What must NOT change? |
-| **Context** | What exists? What was tried? |
+| Critical (always) | Conditional (complex tasks) |
+|-------------------|---------------------------|
+| **Scope** — files/functions? | **Input** — what data starts it? |
+| **Success** — what's "done"? | **Output** — format/deliverable? |
+| **Constraints** — don't touch? | **Audience** — who uses this? |
+| **Context** — what exists? | **Memory** — prior decisions? |
+| | **Examples** — reference patterns? |
 
 Score 9-12 → proceed. Score 5-8 → one question. Score 0-4 → full interview before executing.
 
@@ -220,18 +227,22 @@ bash tools/resume.sh --show FILE  # view a specific summary
 
 ## Safety & Hooks
 
-| Hook | Modes | What it blocks |
-|------|-------|---------------|
-| **safety** | All | `rm -rf /`, `DROP TABLE`, `chmod 777`, `mkfs`, fork bombs, `curl \| bash`, and more |
-| **git-safety** | Standard+ | Force-push to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
-| **auto-format** | Standard+ | *(Doesn't block — runs formatter after edits: Prettier, Black, rustfmt, gofmt)* |
+| Hook | Modes | What it does |
+|------|-------|-------------|
+| **safety** | All | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, `mkfs`, fork bombs, `curl \| bash`, credential leaks, SSH key ops, shell profile writes, self-modification |
+| **git-safety** | Standard+ | Blocks force-push to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
+| **enforce-pkg-manager** | Standard+ | Blocks `npm` in pnpm/yarn/bun projects, `pip` in uv/poetry projects — auto-detects from lockfiles |
+| **quality-gate** | Standard+ | *(Doesn't block — 3-stage lint→auto-fix→re-check pipeline: ruff, eslint, clippy, rustfmt, gofmt)* |
+| **audit-trail** | Standard+ | *(Doesn't block — JSONL log of all mutations: file edits, git commits, installs. 30-day rotation)* |
 | **notify** | Standard+ | *(Doesn't block — desktop notification when Claude needs input)* |
-| **prompt-validator** | Full | Scans your prompts for 10 anti-patterns, suggests improvements |
+| **prompt-validator** | Full | Scans your prompts for 20 anti-patterns, suggests improvements |
 | **compaction-backup** | Full | Saves transcript + prepares summaries directory before compaction |
 
 Safety hooks are **deterministic** — they execute on every command, every time. Claude can't talk its way past them.
 
 Multi-layer bypass protection: `sudo rm -rf /`, `command rm -rf /`, `env sudo command rm -rf /` — all blocked.
+
+Toggle any hook without editing JSON: `bash tools/hook-toggle.sh safety off`
 
 ---
 
@@ -255,7 +266,7 @@ Auto-configured during install. Zero API keys, zero JSON editing.
 | Mode | What's included |
 |------|----------------|
 | **Safe** | Configs + safety hooks. Nothing that auto-runs or notifies. |
-| **Standard** | + notifications, git-safety, auto-format. Recommended for most users. |
+| **Standard** | + notifications, git-safety, quality gate, pkg-manager enforcement, audit trail. Recommended for most users. |
 | **Full** | + prompt validation, compaction backup, diagnostics. Everything. |
 
 ---
@@ -278,6 +289,7 @@ Deploys to `~/.claude/` using Claude Code's native config system:
     roles/                   # All role files (for mid-conversation switching)
     economy/                 # Tier templates (for economy switching)
     summaries/               # Session summaries (created by compaction hook)
+    audit/                   # Mutation audit trail (JSONL, 30-day rotation)
   settings.json              # Hooks + MCP servers registered here
 ```
 
@@ -309,6 +321,7 @@ A timestamped backup is **always** created before any changes.
 | **Economy Switch** | `bash tools/economy-switch.sh lean` | Permanently change token economy tier |
 | **MCP Setup** | `bash tools/mcp-setup.sh` | Add advanced MCP servers (GitHub, Brave, Slack, etc.) |
 | **Resume** | `bash tools/resume.sh` | Show latest session summary, copy resume prompt |
+| **Hook Toggle** | `bash tools/hook-toggle.sh safety off` | Enable/disable any hook without editing JSON |
 
 ---
 
@@ -355,7 +368,7 @@ Permanent: `bash tools/economy-switch.sh lean`
 <details>
 <summary><strong>What if a hook blocks something I need?</strong></summary>
 
-Run the command directly in your terminal (outside Claude Code). Or remove the specific hook from `~/.claude/settings.json` — Supercharger hooks are tagged with `#supercharger` so they're easy to identify.
+Toggle it off: `bash tools/hook-toggle.sh safety off` — re-enable with `on`. Or run the command directly in your terminal (outside Claude Code). Supercharger hooks are tagged with `#supercharger` in `settings.json` so they're easy to identify.
 </details>
 
 <details>

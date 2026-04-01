@@ -67,11 +67,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Standard mode + developer = safety + notify + git-safety + auto-format = 4
-if [ "$HOOK_COUNT" -eq 4 ]; then
+# Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail + quality-gate = 6
+if [ "$HOOK_COUNT" -eq 6 ]; then
   pass
 else
-  fail "expected 4 hooks, got $HOOK_COUNT"
+  fail "expected 6 hooks, got $HOOK_COUNT"
 fi
 teardown_test_home
 
