@@ -530,7 +530,7 @@ echo "{}" > "$HOME/.claude/settings.json"
 echo "## Active Tier" > "$HOME/.claude/rules/economy.md"
 PRESET_OUT=$(mktemp)
 bash "$EXPORT_TOOL" "$PRESET_OUT" >/dev/null 2>&1
-if [ -s "$PRESET_OUT" ] && python3 -c "import json; json.load(open('$PRESET_OUT'))" 2>/dev/null; then
+if [ -s "$PRESET_OUT" ] && PRESET_OUT="$PRESET_OUT" python3 -c "import json, os; json.load(open(os.environ['PRESET_OUT']))" 2>/dev/null; then
   pass
 else
   fail "preset file not valid JSON"

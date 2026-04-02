@@ -29,16 +29,17 @@ if [ $# -eq 0 ]; then
     exit 0
   fi
   echo "Hook Status:"
-  python3 -c "
-import json
-with open('$SETTINGS_FILE') as f:
+  SETTINGS_FILE="$SETTINGS_FILE" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_FILE']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
+tag = os.environ['SUPERCHARGER_TAG']
 for event, entries in sorted(hooks.items()):
     for entry in entries:
         for h in entry.get('hooks', []):
             cmd = h.get('command', '')
-            if '$SUPERCHARGER_TAG' in cmd:
+            if tag in cmd:
                 name = cmd.split('/')[-1].split('.sh')[0].split(' ')[0]
                 disabled = cmd.startswith('# ')
                 status = 'OFF' if disabled else 'ON'
@@ -64,14 +65,15 @@ if [ ! -f "$SETTINGS_FILE" ]; then
   exit 1
 fi
 
-python3 -c "
-import json, sys
+SETTINGS_FILE="$SETTINGS_FILE" HOOK_NAME="$HOOK_NAME" ACTION="$ACTION" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" python3 -c "
+import json, sys, os
 
-hook_name = '$HOOK_NAME'
-action = '$ACTION'
-tag = '$SUPERCHARGER_TAG'
+hook_name = os.environ['HOOK_NAME']
+action = os.environ['ACTION']
+tag = os.environ['SUPERCHARGER_TAG']
+settings_file = os.environ['SETTINGS_FILE']
 
-with open('$SETTINGS_FILE') as f:
+with open(settings_file) as f:
     settings = json.load(f)
 
 found = False
@@ -97,7 +99,7 @@ if not found:
     print(f'Hook not found: {hook_name}', file=sys.stderr)
     sys.exit(1)
 
-with open('$SETTINGS_FILE', 'w') as f:
+with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
 

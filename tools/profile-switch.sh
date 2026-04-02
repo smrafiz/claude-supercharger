@@ -74,8 +74,8 @@ list_profiles() {
       local name
       name=$(basename "$f" .json)
       local roles economy
-      roles=$(python3 -c "import json; print(', '.join(json.load(open('$f')).get('roles',[])))" 2>/dev/null || echo "?")
-      economy=$(python3 -c "import json; print(json.load(open('$f')).get('economy','?'))" 2>/dev/null || echo "?")
+      roles=$(PROFILE_FILE="$f" python3 -c "import json, os; print(', '.join(json.load(open(os.environ['PROFILE_FILE'])).get('roles',[])))" 2>/dev/null || echo "?")
+      economy=$(PROFILE_FILE="$f" python3 -c "import json, os; print(json.load(open(os.environ['PROFILE_FILE'])).get('economy','?'))" 2>/dev/null || echo "?")
       echo -e "    ${name}    — ${roles}, ${economy}"
     done
   fi
@@ -149,9 +149,9 @@ save_profile() {
   # Detect current economy tier
   local economy="lean"
   if [ -f "$RULES_DIR/economy.md" ]; then
-    economy=$(python3 -c "
-import re
-with open('$RULES_DIR/economy.md') as f:
+    economy=$(ECONOMY_FILE="$RULES_DIR/economy.md" python3 -c "
+import re, os
+with open(os.environ['ECONOMY_FILE']) as f:
     content = f.read()
 m = re.search(r'Active tier:\s*(\w+)', content, re.IGNORECASE)
 if m:

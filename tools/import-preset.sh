@@ -27,11 +27,11 @@ if [ ! -f "$PRESET_FILE" ]; then
 fi
 
 # Parse preset
-PARSED=$(python3 -c "
-import json, sys
+PARSED=$(PRESET_FILE="$PRESET_FILE" python3 -c "
+import json, sys, os
 
 try:
-    with open('$PRESET_FILE') as f:
+    with open(os.environ['PRESET_FILE']) as f:
         preset = json.load(f)
 except (json.JSONDecodeError, IOError) as e:
     print(f'ERROR: {e}', file=sys.stderr)

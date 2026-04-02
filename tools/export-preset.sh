@@ -32,9 +32,9 @@ fi
 # Detect economy tier
 ECONOMY="lean"
 if [ -f "$RULES_DIR/economy.md" ]; then
-  ECONOMY=$(python3 -c "
-import re
-with open('$RULES_DIR/economy.md') as f:
+  ECONOMY=$(ECONOMY_FILE="$RULES_DIR/economy.md" python3 -c "
+import re, os
+with open(os.environ['ECONOMY_FILE']) as f:
     content = f.read()
 for tier in ['minimal', 'lean', 'standard']:
     if tier.upper() in content[:500] or ('Active tier' in content and tier in content.lower()):
@@ -48,9 +48,9 @@ fi
 # Detect mode from hook count
 MODE="safe"
 if [ -f "$HOME/.claude/settings.json" ]; then
-  MODE=$(python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  MODE=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
@@ -68,17 +68,17 @@ fi
 # Build preset
 ROLES_JSON=$(printf '%s\n' "${ROLES[@]}" | python3 -c "import sys,json; print(json.dumps([l.strip() for l in sys.stdin]))")
 
-python3 -c "
-import json
+OUTPUT_FILE="$OUTPUT" PRESET_MODE="$MODE" PRESET_ECONOMY="$ECONOMY" python3 -c "
+import json, os
 
 preset = {
     'version': '1.5.0',
-    'mode': '$MODE',
+    'mode': os.environ['PRESET_MODE'],
     'roles': $ROLES_JSON,
-    'economy': '$ECONOMY'
+    'economy': os.environ['PRESET_ECONOMY']
 }
 
-with open('$OUTPUT', 'w') as f:
+with open(os.environ['OUTPUT_FILE'], 'w') as f:
     json.dump(preset, f, indent=2)
 "
 

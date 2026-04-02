@@ -6,9 +6,9 @@ source "$REPO_DIR/lib/mcp.sh"
 
 # Helper: count MCP entries with supercharger tag in settings.json
 count_tagged_mcp() {
-  python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 count = sum(1 for k in s.get('mcpServers', {}) if '#supercharger' in k)
 print(count)
@@ -18,11 +18,12 @@ print(count)
 # Helper: check if a specific server name exists (tagged)
 has_mcp_server() {
   local name="$1"
-  python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  SETTINGS_PATH="$HOME/.claude/settings.json" MCP_NAME="$name" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
-found = any('$name' in k and '#supercharger' in k for k in s.get('mcpServers', {}))
+name = os.environ['MCP_NAME']
+found = any(name in k and '#supercharger' in k for k in s.get('mcpServers', {}))
 print('yes' if found else 'no')
 " 2>/dev/null || echo "no"
 }
@@ -30,11 +31,12 @@ print('yes' if found else 'no')
 # Helper: check if a specific server name exists (untagged, user's own)
 has_user_mcp_server() {
   local name="$1"
-  python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  SETTINGS_PATH="$HOME/.claude/settings.json" MCP_NAME="$name" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
-found = any(k == '$name' for k in s.get('mcpServers', {}))
+name = os.environ['MCP_NAME']
+found = any(k == name for k in s.get('mcpServers', {}))
 print('yes' if found else 'no')
 " 2>/dev/null || echo "no"
 }
@@ -90,9 +92,9 @@ setup_test_home
 echo '{}' > "$HOME/.claude/settings.json"
 merge_mcp_into_settings "developer,pm"
 TOTAL=$(count_tagged_mcp)
-DDG_COUNT=$(python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+DDG_COUNT=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 print(sum(1 for k in s.get('mcpServers', {}) if 'duckduckgo' in k))
 " 2>/dev/null || echo "0")

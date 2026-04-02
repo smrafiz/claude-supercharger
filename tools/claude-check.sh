@@ -79,9 +79,9 @@ fi
 echo ""
 echo -e "${BLUE}Hooks:${NC}"
 if [ -f "$HOME/.claude/settings.json" ]; then
-  HOOK_COUNT=$(python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  HOOK_COUNT=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for h in event if '#supercharger' in h.get('command',''))
@@ -108,9 +108,9 @@ fi
 echo ""
 echo -e "${BLUE}Statusline:${NC}"
 if [ -f "$HOME/.claude/settings.json" ]; then
-  SL_CMD=$(python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  SL_CMD=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 cmd = s.get('statusLine', {}).get('command', '')
 print(cmd)
@@ -130,9 +130,9 @@ fi
 echo ""
 echo -e "${BLUE}MCP Servers:${NC}"
 if [ -f "$HOME/.claude/settings.json" ]; then
-  python3 -c "
-import json
-with open('$HOME/.claude/settings.json') as f:
+  SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 servers = s.get('mcpServers', {})
 sc = {k: v for k, v in servers.items() if '#supercharger' in k}
@@ -237,7 +237,7 @@ fi
 
 # Check settings.json is valid JSON
 if [ -f "$HOME/.claude/settings.json" ]; then
-  if ! python3 -c "import json; json.load(open('$HOME/.claude/settings.json'))" 2>/dev/null; then
+  if ! SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "import json, os; json.load(open(os.environ['SETTINGS_PATH']))" 2>/dev/null; then
     echo -e "  ${RED}✗${NC} settings.json is malformed JSON"
     LINT_ISSUES=$((LINT_ISSUES + 1))
     ERRORS=$((ERRORS + 1))
