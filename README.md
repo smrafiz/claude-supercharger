@@ -1,50 +1,48 @@
 # Claude Supercharger
 
-**Make Claude Code actually work the way you expect.**
+**Claude Code is powerful. It's also reckless, verbose, and treats everyone the same.**
 
-A role-aware, zero-dependency configuration kit that transforms Claude Code from a talented but undisciplined assistant into a focused, safe, and efficient one — tailored to how *you* work.
+Supercharger fixes that. It adds the guardrails, output discipline, and role awareness that Claude Code should have shipped with — through deterministic hooks that can't be talked past, not suggestions that get ignored.
 
-![Version](https://img.shields.io/badge/version-1.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-140%20passing-brightgreen)
+Zero dependencies. 30-second install. Clean uninstall. Everything backed up.
 
----
-
-## Why?
-
-Out of the box, Claude Code:
-
-- Claims tasks are **"done" without running tests** or verifying output
-- **Refactors code you didn't ask it to touch** (the "while I was here..." problem)
-- **Runs destructive commands** (`rm -rf`, `git push --force`) without hesitation
-- Gives the **same verbose response** whether you're a senior dev or a student learning CSS
-- **Wastes tokens** on preambles, caveats, and paragraphs where one line would do
-- **Loses all context** when a session ends, rate limits, or compacts
-
-Supercharger fixes all of this. One install, zero config, instant improvement.
+![Version](https://img.shields.io/badge/version-1.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-150%20passing-brightgreen)
 
 ---
 
-## See the Difference
+## The Problem
+
+I got tired of Claude Code:
+
+- Saying **"should work"** without running a single test
+- **Refactoring code I didn't ask it to touch** — the classic "while I was here..." move
+- Running `rm -rf` and `git push --force` **without blinking**
+- Writing **four paragraphs** when one line would do
+- Giving a **senior engineer and a student** the exact same response
+- **Losing everything** when the session ends or hits a rate limit
+
+So I built this.
+
+---
+
+## Before / After
 
 <table>
 <tr><td width="50%">
-
-### Without Supercharger
 
 **You:** "Add a login form"
 
 **Claude:** "Here's the login form I've created. It should work correctly with your authentication system."
 
-*(No tests run. No verification. "Should work.")*
+*No tests. No verification. "Should work."*
 
 </td><td width="50%">
 
-### With Supercharger
-
 **You:** "Add a login form"
 
-**Claude:** "Login form added to `src/components/LoginForm.tsx`. Ran `npm test` — 3/3 pass. Ran `npm run build` — clean. Handles empty fields, invalid email, server errors. Try: `npm run dev` → `/login`."
+**Claude:** "Login form added to `LoginForm.tsx`. `npm test` — 3/3 pass. Build clean. Handles empty fields, invalid email, server errors."
 
-*(Verified. Specific. Actionable.)*
+*Verified. Specific. Done.*
 
 </td></tr>
 <tr><td>
@@ -53,7 +51,7 @@ Supercharger fixes all of this. One install, zero config, instant improvement.
 
 **Claude:** "I ran the test suite and I'm happy to report that all tests passed successfully. The test runner executed 57 test cases across 4 test files, and each one completed without any errors. This means our changes are working correctly..."
 
-*(73 words for a yes/no question)*
+*73 words for a yes/no question.*
 
 </td><td>
 
@@ -61,7 +59,7 @@ Supercharger fixes all of this. One install, zero config, instant improvement.
 
 **Claude:** "Yes. 57 passed, 0 failed."
 
-*(7 words. Same information.)*
+*Done.*
 
 </td></tr>
 <tr><td>
@@ -70,15 +68,15 @@ Supercharger fixes all of this. One install, zero config, instant improvement.
 
 **Claude:** "Fixed the typo. While I was there, I also refactored the header to use a modern pattern, updated the CSS to Tailwind, and extracted the nav..."
 
-*(Scope creep. Unrequested changes.)*
+*Nobody asked for that.*
 
 </td><td>
 
 **You:** "Fix the typo in the header"
 
-**Claude:** "Fixed 'Welcom' → 'Welcome' in `Header.tsx:12`. No other changes. (Nav links could use `aria-label` — want me to add those?)"
+**Claude:** "Fixed 'Welcom' → 'Welcome' in `Header.tsx:12`. No other changes."
 
-*(Surgical. Observes but doesn't act.)*
+*Surgical. Stays in scope.*
 
 </td></tr>
 </table>
@@ -87,16 +85,18 @@ Supercharger fixes all of this. One install, zero config, instant improvement.
 
 ---
 
-## Quick Install
+## Install
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-<details>
-<summary>Other install methods</summary>
+The installer walks you through 4 choices: install mode → roles → economy tier → config handling. About 30 seconds.
 
-**One-liner** (clones to temp dir, installs, cleans up):
+<details>
+<summary>Other install options</summary>
+
+**One-liner** (temp clone, install, clean up):
 ```bash
 bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
 ```
@@ -105,275 +105,238 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 ```bash
 ./install.sh --mode standard --roles developer,pm --economy lean --config deploy --settings deploy
 ```
+
+**Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 </details>
 
-The installer walks you through 4 steps: install mode → roles → economy tier → config handling. Takes about 30 seconds.
-
 ---
 
-## Features at a Glance
+## What You Actually Get
 
-| Feature | What it does | How |
-|---------|-------------|-----|
-| **Safety Hooks** | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, force-push, credential leaks, SSH key ops, self-modification | Deterministic — runs on every command |
-| **Verification Gate** | 4-level check: Exists → Substantive → Wired → Functional. Catches stubs and placeholders. | Rules in supercharger.md |
-| **Quality Gate** | 3-stage lint→auto-fix→re-check pipeline after every edit (ruff, eslint, clippy, rustfmt, gofmt) | PostToolUse hook |
-| **Scope Discipline** | Prevents unrequested refactoring and drive-by changes | Rules + guardrails |
-| **Token Economy** | 30-60% output reduction in 3 tiers (Standard/Lean/Minimal) | Per-output-type rules |
-| **8 Roles** | Developer, Writer, Student, Data, PM, Designer, DevOps, Researcher — each with tuned behavior | Auto-loaded from `~/.claude/rules/` |
-| **MCP Servers** | 3-5 zero-config MCP servers auto-configured per role | `settings.json` integration |
-| **Clarification Mode** | Scans prompts for vague/ambiguous requests, asks before acting | Lightweight (auto) + Deep Interview (9 dims) |
-| **Session Summary** | Structured handoff with Memory Block and paste-ready resume prompt | Keyword, compaction, rate limit triggers |
-| **Resume Tool** | Retrieve and clipboard-copy past session summaries | `bash tools/resume.sh` |
-| **Anti-Patterns** | 35-pattern library catches common prompt mistakes | Auto-loaded YAML + hook |
-| **Prompt Validator** | 20 checks: vague scope, missing format, no constraints, no error context, and more | UserPromptSubmit hook |
-| **Pkg Manager Enforce** | Blocks `npm` in pnpm projects, `pip` in uv projects — auto-detects from lockfiles | PreToolUse hook |
-| **Audit Trail** | JSONL log of all mutations (file edits, git commits, installs) — 30-day rotation | PostToolUse hook |
-| **Hook Toggle** | `bash tools/hook-toggle.sh safety off` — snooze any hook without editing JSON | CLI tool |
-| **Stop Conditions** | Start/target state, checkpoints, forbidden actions, human review triggers | Rules in guardrails.md |
-| **Guardrails** | Four Laws, autonomy levels, halt conditions | Always active |
-| **Mode Switching** | Switch roles mid-conversation: "as developer", "as designer" | All 8 roles always available |
-| **Enhanced Statusline** | 2-line status bar: model, project, git branch, context %, cost, cache hit rate | `statusLine` in settings.json |
-| **Stack Auto-Detection** | Detects language, framework, package manager, test framework from project files | Python, JS/TS, Rust, Go |
-| **Config Validation** | Lints rule files, checks hooks are executable, validates settings.json | `claude-check` |
-| **Profile System** | Bundle role + economy + MCP into named profiles, switch with one command | 5 built-in + custom |
-| **Project-Level Config** | `.supercharger.json` in project root auto-applies roles, economy, hints | SessionStart hook |
-| **Team Presets** | Export/import config as `.supercharger` files for team sharing | CLI tools |
-| **Onboarding Mode** | First-time user guidance during install | Auto-detected |
+### Hooks That Actually Block Things
 
----
+These aren't suggestions. They run on every command, every time. Claude can't override them.
 
-## Roles
+| Hook | What it stops |
+|------|--------------|
+| **safety** | `rm -rf /`, `DROP TABLE`, `chmod 777`, fork bombs, `curl \| bash`, credential leaks, SSH key ops, self-modification — and handles bypass attempts (`sudo`, `command`, `env` prefixes) |
+| **git-safety** | Force-push to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
+| **enforce-pkg-manager** | `npm install` in a pnpm project, `pip install` in a uv project — detects from lockfiles |
+| **quality-gate** | Doesn't block — runs lint→auto-fix→re-check after every edit (ruff, eslint, clippy, rustfmt, gofmt) |
+| **audit-trail** | Doesn't block — logs every mutation as JSONL with 30-day rotation |
+| **prompt-validator** | Scans your prompts for 20 anti-patterns before Claude sees them |
+| **session-complete** | Doesn't block — saves session metadata and sends webhook on exit |
+| **notify** | Desktop notification + optional webhook (Slack/Discord/Telegram) when Claude needs input |
 
-| Role | Optimized for | Key behaviors |
-|------|--------------|---------------|
-| **Developer** | Engineers & coders | Code-only output, git safety, auto-format, stack detection, regression prevention |
-| **Writer** | Content creators & authors | Structured prose, asks about audience/tone first, draft workflow, no jargon |
-| **Student** | Learners at any level | Explains concepts before code, analogies, checks understanding, progressive complexity |
-| **Data** | Analysts & data scientists | Tables over prose, shows queries, cites assumptions, statistical rigor |
-| **PM** | Project managers | Range estimates (not single numbers), decision logs, risk tracking, bullet-only |
-| **Designer** | UI/UX designers | Component-first, accessibility, design tokens, visual hierarchy, interactive states |
-| **DevOps** | Infrastructure & ops | IaC, Docker best practices, CI/CD pipelines, security scanning, least privilege |
-| **Researcher** | Academics & investigators | Citations, methodology, evidence-based claims, literature review, reproducibility |
+Toggle any hook: `bash tools/hook-toggle.sh safety off`
 
-Select one or more during install. Switch mid-conversation:
+### 8 Roles — Because Not Everyone Writes Code
 
-```
-"as developer" → code-only mode
-"as designer"  → design mode
-"as devops"    → infrastructure mode
-"as student"   → teaching mode
-```
+| Role | What changes |
+|------|-------------|
+| **Developer** | Code-only output, git best practices, stack detection, regression checks |
+| **Writer** | Structured prose, asks about audience first, draft versioning, no jargon |
+| **Student** | Explains concepts before code, checks understanding, builds complexity gradually |
+| **Data** | Tables over prose, shows queries, cites assumptions, statistical rigor |
+| **PM** | Range estimates, decision logs, risk tracking, bullet-only output |
+| **Designer** | Component-first, accessibility, design tokens, visual hierarchy |
+| **DevOps** | IaC, Docker best practices, CI/CD, security scanning, least privilege |
+| **Researcher** | Citations, methodology, evidence-based claims, reproducibility |
 
----
+Pick during install. Switch mid-conversation: `"as developer"`, `"as designer"`, etc.
 
-## Token Economy
+### Token Economy — Claude Talks Less, Says More
 
-Three tiers of output compression — selectable at install, switchable mid-conversation:
+| Tier | What it does |
+|------|-------------|
+| **Standard** (~30% reduction) | Concise English. Complete sentences. Good for learning. |
+| **Lean** (~45% reduction) | Every word earns its place. Fragments OK. *Default.* |
+| **Minimal** (~60% reduction) | Telegraphic. Bare output only. |
 
-| Tier | Reduction | What it looks like |
-|------|-----------|-------------------|
-| **Standard** | ~30% | Concise, natural English. Complete sentences. Good for learning. |
-| **Lean** | ~45% | Every word earns its place. Fragments OK. *Default.* |
-| **Minimal** | ~60% | Telegraphic. Bare deliverables only. Maximum efficiency. |
+Rules are per output type — Code, Commands, Explanation, Diagnosis, Coordination each have their own targets. Role constraints prevent bad combos (Student can't go below Standard — explanations need room).
 
-Each tier defines rules for 5 output types: **Code**, **Commands**, **Explanation**, **Diagnosis**, **Coordination**.
+Switch anytime: `eco lean` / `eco standard` / `eco minimal`
 
-**Role-aware constraints** prevent bad combinations:
-- Student floors at Standard (explanations need room)
-- Writer floors at Standard (prose needs sentences)
-- Developer/Data/PM are unrestricted
+### Session Intelligence
 
-Switch anytime: `eco standard`, `eco lean`, or `eco minimal`
-
-Switch permanently: `bash tools/economy-switch.sh [standard|lean|minimal]`
-
----
-
-## Profiles & Team Sharing
-
-### Profiles
-
-Bundle role + economy + MCP into a named profile. Switch everything with one command:
+**Your context survives.** When a session compacts, hits a rate limit, or you say `"session summary"`, Claude generates a structured handoff with decisions, files changed, what failed, and a paste-ready resume prompt.
 
 ```bash
-bash tools/profile-switch.sh frontend-dev    # Developer+Designer, Lean, Playwright+Magic UI
-bash tools/profile-switch.sh data-analyst    # Data+Researcher, Standard, DuckDuckGo
-bash tools/profile-switch.sh --save my-setup # Save current config as a custom profile
-bash tools/profile-switch.sh --list          # See all available profiles
+bash tools/resume.sh        # show latest summary, copy resume prompt to clipboard
+bash tools/resume.sh --list  # see all saved summaries
 ```
 
-Built-in profiles: `frontend-dev`, `backend-dev`, `data-analyst`, `tech-writer`, `team-lead`
+**Vague prompts get caught.** Every prompt is scanned for missing scope, unclear success criteria, and multiple tasks crammed together. For complex work, say `"deep interview"` — Claude scores your prompt across 9 dimensions and asks targeted questions before writing a line of code.
 
-### Project-Level Config
+### Verification Gate
 
-Drop a `.supercharger.json` in your project root. Claude Code picks it up automatically on session start:
+Claude has to prove it's done, not just claim it. Four levels:
+
+1. **Exists** — file is at the expected path
+2. **Substantive** — real code, not stubs or TODOs
+3. **Wired** — imports resolve, component is used, route is registered
+4. **Functional** — tests pass, build succeeds, endpoint responds
+
+### Webhook Notifications
+
+Get notified on Slack, Discord, Telegram, or any webhook URL when Claude needs input or finishes a session.
+
+```bash
+bash tools/webhook-setup.sh          # interactive setup
+bash tools/webhook-setup.sh test     # send a test message
+bash tools/webhook-setup.sh disable  # turn off temporarily
+```
+
+### Clean Git History
+
+Supercharger disables Claude's Co-Authored-By commit trailers automatically. Your commits, your name.
+
+### Profiles & Teams
+
+Bundle role + economy into named profiles. Switch everything with one command:
+
+```bash
+bash tools/profile-switch.sh frontend-dev   # Developer+Designer, Lean
+bash tools/profile-switch.sh --save my-setup # save current config
+```
+
+Drop `.supercharger.json` in a project root — Claude picks it up on session start:
 
 ```json
-{
-  "roles": ["developer", "designer"],
-  "economy": "lean",
-  "hints": "React + Tailwind project, use pnpm, prefer Vitest"
-}
+{"roles": ["developer", "designer"], "economy": "lean", "hints": "React + Tailwind, use pnpm"}
 ```
 
-### Team Presets
+Share configs with teammates:
 
 ```bash
-bash tools/export-preset.sh team.supercharger    # Export your config
-bash tools/import-preset.sh team.supercharger    # Teammate imports it
+bash tools/export-preset.sh team.supercharger   # export
+bash tools/import-preset.sh team.supercharger   # import
 ```
+
+### MCP Servers (Auto-Configured)
+
+3-5 servers added during install. No API keys, no JSON editing.
+
+| Who | Servers |
+|-----|---------|
+| Everyone | Context7, Sequential Thinking, Memory |
+| Developer | + Playwright, Magic UI |
+| Non-dev roles | + DuckDuckGo Search |
+| Advanced | GitHub, Brave, Slack, Notion — `bash tools/mcp-setup.sh` |
+
+### 30+ Anti-Patterns
+
+A YAML library of prompt anti-patterns that Claude reads as context. It learns *why* patterns like "fix it" or "build the whole thing" are bad, and what to ask instead. Separate from the prompt-validator hook — soft guidance vs. hard enforcement.
 
 ---
 
-## Session Intelligence
+## All the Tools
 
-### Clarification Mode
-
-**Lightweight** (always on): Every prompt is scanned for vague verbs, missing scope, and unclear success criteria. Max 3 questions, then Claude proceeds.
-
-**Deep Interview** (say `"deep interview"` or `"interview me"`): Claude scores your prompt across 9 dimensions and asks targeted questions for the weakest areas:
-
-| Critical (always) | Conditional (complex tasks) |
-|-------------------|---------------------------|
-| **Scope** — files/functions? | **Input** — what data starts it? |
-| **Success** — what's "done"? | **Output** — format/deliverable? |
-| **Constraints** — don't touch? | **Audience** — who uses this? |
-| **Context** — what exists? | **Memory** — prior decisions? |
-| | **Examples** — reference patterns? |
-
-Score 9-12 → proceed. Score 5-8 → one question. Score 0-4 → full interview before executing.
-
-### Session Summary & Resume
-
-Say **`"session summary"`** and Claude generates a structured handoff:
-
-```
-## Session Summary — 2026-04-01
-Working on: Auth migration for user-service
-Decisions made:
-- Using refresh token rotation, 15min access token TTL
-Files changed: src/auth/middleware.ts, src/auth/tokens.ts
-What failed: bcrypt 5.x had a breaking change, reverted to 4.x
-Next steps: Session migration script, OAuth callback updates
-Resume with: Continue the auth migration. Middleware and token
-  generation are done (8/8 tests passing). Next: write the session
-  migration script in src/auth/migrate-sessions.ts.
-```
-
-Also auto-generates on **context compaction** and **rate limits** — so you never lose progress.
-
-Resume a previous session:
-```bash
-bash tools/resume.sh           # show latest, copy resume prompt to clipboard
-bash tools/resume.sh --list    # list all saved summaries
-bash tools/resume.sh --show FILE  # view a specific summary
-```
-
----
-
-## Safety & Hooks
-
-| Hook | Modes | What it does |
-|------|-------|-------------|
-| **safety** | All | Blocks `rm -rf /`, `DROP TABLE`, `chmod 777`, `mkfs`, fork bombs, `curl \| bash`, credential leaks, SSH key ops, shell profile writes, self-modification |
-| **git-safety** | Standard+ | Blocks force-push to main/master, `git reset --hard`, `git checkout .`, `git clean -f` |
-| **enforce-pkg-manager** | Standard+ | Blocks `npm` in pnpm/yarn/bun projects, `pip` in uv/poetry projects — auto-detects from lockfiles |
-| **quality-gate** | Standard+ | *(Doesn't block — 3-stage lint→auto-fix→re-check pipeline: ruff, eslint, clippy, rustfmt, gofmt)* |
-| **audit-trail** | Standard+ | *(Doesn't block — JSONL log of all mutations: file edits, git commits, installs. 30-day rotation)* |
-| **notify** | Standard+ | *(Doesn't block — desktop notification when Claude needs input)* |
-| **project-config** | Standard+ | *(Doesn't block — reads `.supercharger.json` from project root on session start, injects roles/economy/hints)* |
-| **prompt-validator** | Full | Scans your prompts for 20 anti-patterns, suggests improvements |
-| **compaction-backup** | Full | Saves transcript + prepares summaries directory before compaction |
-
-Safety hooks are **deterministic** — they execute on every command, every time. Claude can't talk its way past them.
-
-Multi-layer bypass protection: `sudo rm -rf /`, `command rm -rf /`, `env sudo command rm -rf /` — all blocked.
-
-Toggle any hook without editing JSON: `bash tools/hook-toggle.sh safety off`
-
----
-
-## MCP Servers
-
-Auto-configured during install. Zero API keys, zero JSON editing.
-
-| Tier | Servers | Who gets them |
-|------|---------|--------------|
-| **Core** | Context7, Sequential Thinking, Memory | Everyone |
-| **Developer** | + Playwright, Magic UI | Developer role |
-| **Non-dev** | + DuckDuckGo Search | Writer, Student, Data, PM |
-| **Advanced** | GitHub, Brave, Slack, Notion, Sentry, + more | `bash tools/mcp-setup.sh` (API keys needed) |
-
-3-5 servers per role. Research shows 3 is the sweet spot; beyond 5, token overhead hurts performance.
+| Tool | What it does |
+|------|-------------|
+| `bash tools/supercharger.sh` | One-screen overview of everything you can do |
+| `bash tools/claude-check.sh` | Health check + "features you're not using" |
+| `bash tools/economy-switch.sh lean` | Change economy tier permanently |
+| `bash tools/resume.sh` | Retrieve session summaries |
+| `bash tools/hook-toggle.sh safety off` | Enable/disable any hook |
+| `bash tools/profile-switch.sh frontend-dev` | Switch role+economy in one command |
+| `bash tools/webhook-setup.sh` | Set up Slack/Discord/Telegram notifications |
+| `bash tools/export-preset.sh team.supercharger` | Export config for sharing |
+| `bash tools/import-preset.sh team.supercharger` | Import a teammate's config |
+| `bash tools/mcp-setup.sh` | Add advanced MCP servers (API keys needed) |
 
 ---
 
 ## Install Modes
 
-| Mode | What's included |
-|------|----------------|
+| Mode | What you get |
+|------|-------------|
 | **Safe** | Configs + safety hooks. Nothing that auto-runs or notifies. |
-| **Standard** | + notifications, git-safety, quality gate, pkg-manager enforcement, audit trail. Recommended for most users. |
-| **Full** | + prompt validation, compaction backup, diagnostics. Everything. |
+| **Standard** | + notifications, git-safety, quality gate, pkg-manager enforcement, audit trail. *Recommended.* |
+| **Full** | + prompt validation, compaction backup, session-complete hook. Everything. |
 
 ---
 
 ## How It Works
 
-Deploys to `~/.claude/` using Claude Code's native config system:
+Everything deploys to `~/.claude/` — Claude Code's native config directory:
 
 ```
 ~/.claude/
-  CLAUDE.md                  # Universal config (merged with yours if exists)
+  CLAUDE.md                  # Universal config (merged if yours exists)
   rules/
-    supercharger.md          # Execution workflow, clarification mode, session summary
-    guardrails.md            # Four Laws, autonomy levels, halt conditions
-    economy.md               # Token economy (universal rules + active tier)
-    developer.md             # Your selected role(s)
-    anti-patterns.yml        # 35 prompt anti-pattern library
+    supercharger.md          # Execution workflow, clarification, session summary
+    guardrails.md            # Four Laws, stop conditions, autonomy levels
+    economy.md               # Token economy rules + active tier
+    [role].md                # Your selected roles
+    anti-patterns.yml        # 30+ prompt anti-patterns
   supercharger/
-    hooks/                   # Hook scripts referenced by settings.json
-    roles/                   # All role files (for mid-conversation switching)
+    hooks/                   # Hook scripts (referenced by settings.json)
+    roles/                   # All 8 roles (for mid-conversation switching)
     economy/                 # Tier templates (for economy switching)
-    summaries/               # Session summaries (created by compaction hook)
-    audit/                   # Mutation audit trail (JSONL, 30-day rotation)
-    profiles/                # Named profiles (JSON, for profile-switch)
-  settings.json              # Hooks + MCP servers registered here
+    summaries/               # Session summaries
+    audit/                   # Mutation log (JSONL, 30-day rotation)
+    profiles/                # Named profiles
+  settings.json              # Hooks, MCP servers, statusline, attribution
 ```
 
-- Files in `~/.claude/rules/` are **automatically loaded** by Claude Code
-- Hooks execute **deterministically** on every tool use
-- MCP servers are configured in `settings.json` with `#supercharger` tags for clean management
-- Everything is **idempotent** — run the installer again anytime
+Files in `rules/` are auto-loaded by Claude Code. Hooks run deterministically. MCP servers are tagged with `#supercharger` for clean add/remove. Everything is idempotent.
 
 ---
 
 ## Your Existing Config
 
-| Scenario | What happens |
-|----------|-------------|
-| No existing config | Supercharger's deployed directly |
-| **Merge** | Your content preserved, Supercharger appended below a marker |
-| **Replace** | Your file backed up first, then Supercharger's deployed |
-| **Skip** | Your file untouched, everything else installed |
+| Choice | What happens |
+|--------|-------------|
+| **Merge** | Your config preserved. Supercharger appended below a marker. |
+| **Replace** | Your file backed up first. Supercharger's deployed. |
+| **Skip** | Your file untouched. Everything else still installs. |
 
-A timestamped backup is **always** created before any changes.
+Backup is always created first. Always.
 
 ---
 
-## Tools
+## FAQ
 
-| Tool | Command | What it does |
-|------|---------|-------------|
-| **Health Check** | `bash tools/claude-check.sh` | Verify installation, show active roles/hooks/MCP/summaries |
-| **Economy Switch** | `bash tools/economy-switch.sh lean` | Permanently change token economy tier |
-| **MCP Setup** | `bash tools/mcp-setup.sh` | Add advanced MCP servers (GitHub, Brave, Slack, etc.) |
-| **Resume** | `bash tools/resume.sh` | Show latest session summary, copy resume prompt |
-| **Hook Toggle** | `bash tools/hook-toggle.sh safety off` | Enable/disable any hook without editing JSON |
-| **Profile Switch** | `bash tools/profile-switch.sh frontend-dev` | Switch role + economy + MCP in one command |
-| **Export Preset** | `bash tools/export-preset.sh team.supercharger` | Export current config for team sharing |
-| **Import Preset** | `bash tools/import-preset.sh team.supercharger` | Apply a teammate's config preset |
+<details>
+<summary><strong>Will this break my setup?</strong></summary>
+No. Backup before any changes. Uninstall restores everything. Supercharger content is tagged so it never touches your own config.
+</details>
+
+<details>
+<summary><strong>How do I change roles?</strong></summary>
+Mid-conversation: say "as developer", "as student", etc. Permanent: re-run <code>./install.sh</code>.
+</details>
+
+<details>
+<summary><strong>How do I upgrade?</strong></summary>
+<code>git pull && ./install.sh</code>
+</details>
+
+<details>
+<summary><strong>How do I change the economy tier?</strong></summary>
+Mid-conversation: <code>eco lean</code>. Permanent: <code>bash tools/economy-switch.sh lean</code>.
+</details>
+
+<details>
+<summary><strong>What if a hook blocks something I need?</strong></summary>
+<code>bash tools/hook-toggle.sh safety off</code> — re-enable with <code>on</code>. Or run the command in your terminal directly.
+</details>
+
+<details>
+<summary><strong>Does this work with my existing MCP servers?</strong></summary>
+Yes. Supercharger entries are tagged. Your servers are never touched.
+</details>
+
+<details>
+<summary><strong>How do I resume after a rate limit?</strong></summary>
+Claude generates a session summary automatically. Run <code>bash tools/resume.sh</code> to get it and copy the resume prompt to your clipboard.
+</details>
+
+<details>
+<summary><strong>Can I disable the Co-Authored-By commit trailers?</strong></summary>
+Already done. Supercharger sets <code>attribution.commit</code> and <code>attribution.pr</code> to empty strings in settings.json.
+</details>
 
 ---
 
@@ -383,57 +346,7 @@ A timestamped backup is **always** created before any changes.
 ./uninstall.sh
 ```
 
-Removes all Supercharger content. Preserves your configs. Offers backup restore. Clean exit.
-
----
-
-## FAQ
-
-<details>
-<summary><strong>Will this break my existing setup?</strong></summary>
-
-No. Everything is backed up before any changes. Uninstall restores everything. Supercharger content is tagged with markers so it never touches your own config.
-</details>
-
-<details>
-<summary><strong>How do I change roles after install?</strong></summary>
-
-Run `./install.sh` again — it's idempotent. Or switch mid-conversation by saying "as developer", "as student", etc.
-</details>
-
-<details>
-<summary><strong>How do I upgrade?</strong></summary>
-
-```bash
-git pull && ./install.sh
-```
-</details>
-
-<details>
-<summary><strong>How do I change the token economy tier?</strong></summary>
-
-Mid-conversation: say `eco lean`, `eco standard`, or `eco minimal`.
-
-Permanent: `bash tools/economy-switch.sh lean`
-</details>
-
-<details>
-<summary><strong>What if a hook blocks something I need?</strong></summary>
-
-Toggle it off: `bash tools/hook-toggle.sh safety off` — re-enable with `on`. Or run the command directly in your terminal (outside Claude Code). Supercharger hooks are tagged with `#supercharger` in `settings.json` so they're easy to identify.
-</details>
-
-<details>
-<summary><strong>Does this work with my existing MCP servers?</strong></summary>
-
-Yes. Supercharger MCP entries are tagged with `#supercharger`. Your own servers are never touched during install or uninstall.
-</details>
-
-<details>
-<summary><strong>How do I resume a session after a rate limit?</strong></summary>
-
-Supercharger rules tell Claude to generate a session summary before stopping. Run `bash tools/resume.sh` to retrieve it and copy the resume prompt to your clipboard. Paste it into your next session.
-</details>
+Removes everything. Offers backup restore. Your own config stays untouched.
 
 ---
 
@@ -441,24 +354,32 @@ Supercharger rules tell Claude to generate a session summary before stopping. Ru
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI)
 - Bash 3.2+ (macOS or Linux)
-- Python 3 (for JSON operations — ships with Claude Code)
-- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) (recommended) or Git Bash
+- Python 3 (ships with Claude Code)
+- **Windows:** [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash
+
+---
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) for hook authoring, testing conventions, and the Python-in-Bash rules.
 
 ---
 
 ## Credits
 
-- [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) (MIT) — execution workflow patterns, anti-patterns library
-- [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, halt conditions, autonomy levels
-- [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (MIT) — magic keyword switching, clarification mode, session handoff patterns
-- [prompt-master](https://github.com/nidhinjs/prompt-master) — deep interview dimensions, verification gate patterns
-- [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — statusline, package manager enforcement, audit trail patterns
-- [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook) — three-stage lint/fix quality gate pipeline
+Built on patterns from:
+
+- [SuperClaude Framework](https://github.com/SuperClaude-Org/SuperClaude_Framework) (MIT) — execution workflow, anti-patterns
+- [TheArchitectit/agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template) (BSD-3) — Four Laws, autonomy levels
+- [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode) (MIT) — keyword switching, clarification mode
+- [prompt-master](https://github.com/nidhinjs/prompt-master) — deep interview dimensions, verification gate
+- [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config) — statusline, pkg-manager enforcement, audit trail
+- [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook) — three-stage quality gate pipeline
 - [get-shit-done](https://github.com/gsd-build/get-shit-done) — verification gate patterns
-- [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) — safety hook patterns informed by Claude Code's internal security monitor rules
-- [claude-code-tips](https://github.com/ykdojo/claude-code-tips) — statusline context bar pattern
-- [agnix](https://github.com/agent-sh/agnix) — config validation and linting concept
-- ClaudeCTX (foxj77) — profile switching concept (switch entire config with one command)
+- [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts) — safety hook patterns
+- [claude-code-tips](https://github.com/ykdojo/claude-code-tips) — statusline context bar
+- [agnix](https://github.com/agent-sh/agnix) — config validation concept
+- ClaudeCTX (foxj77) — profile switching concept
 
 ## License
 
