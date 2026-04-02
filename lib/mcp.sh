@@ -20,12 +20,12 @@ get_role_servers() {
   if echo "$roles" | grep -q "developer"; then
     servers="${servers}
 playwright|npx|-y @playwright/mcp --headless
-magic-ui|npx|-y @magicuidesign/mcp-server-magicui"
+magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
 
   if echo "$roles" | grep -q "designer"; then
     servers="${servers}
-magic-ui|npx|-y @magicuidesign/mcp-server-magicui"
+magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
 
   if echo "$roles" | grep -qE "(writer|student|data|pm|devops|researcher)"; then

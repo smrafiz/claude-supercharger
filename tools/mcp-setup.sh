@@ -65,7 +65,7 @@ SERVER_CMDS=(
   "-y @modelcontextprotocol/server-slack"
   "-y @neondatabase/mcp-server-neon"
   "-y @notionhq/notion-mcp-server"
-  "prisma mcp"
+  "-y prisma mcp"
   "-y @sentry/mcp-server"
   "-y @anthropic/figma-mcp-server"
 )
