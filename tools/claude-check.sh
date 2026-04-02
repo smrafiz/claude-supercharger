@@ -248,6 +248,66 @@ if [ "$LINT_ISSUES" -eq 0 ]; then
   echo -e "  ${GREEN}✓${NC} All config files valid"
 fi
 
+# Features you're not using
+echo ""
+echo -e "${BLUE}Features You're Not Using:${NC}"
+UNUSED=0
+
+# Check webhook
+if [ ! -f "$HOME/.claude/supercharger/webhook.json" ]; then
+  echo -e "  ${YELLOW}→${NC} Webhook notifications — get Slack/Discord/Telegram alerts"
+  echo -e "    Run: ${BOLD}bash tools/webhook-setup.sh${NC}"
+  UNUSED=$((UNUSED + 1))
+fi
+
+# Check profiles
+if [ ! -f "$HOME/.claude/supercharger/.active-profile" ]; then
+  echo -e "  ${YELLOW}→${NC} Profiles — switch role+economy+MCP in one command"
+  echo -e "    Run: ${BOLD}bash tools/profile-switch.sh --list${NC}"
+  UNUSED=$((UNUSED + 1))
+fi
+
+# Check project config
+if [ ! -f ".supercharger.json" ]; then
+  echo -e "  ${YELLOW}→${NC} Project config — auto-apply roles/economy when opening this project"
+  echo -e "    Create: ${BOLD}.supercharger.json${NC} in project root"
+  UNUSED=$((UNUSED + 1))
+fi
+
+# Check economy tier (default lean may not be optimal)
+if [ -f "$HOME/.claude/rules/economy.md" ]; then
+  ACTIVE_TIER=$(grep -i "Active Tier:" "$HOME/.claude/rules/economy.md" 2>/dev/null | head -1 | sed 's/.*Active Tier:[[:space:]]*//' | sed 's/[[:space:]].*//' || echo "")
+  if [ -z "$ACTIVE_TIER" ]; then
+    echo -e "  ${YELLOW}→${NC} Economy tier — not detected. Run: ${BOLD}bash tools/economy-switch.sh lean${NC}"
+    UNUSED=$((UNUSED + 1))
+  fi
+fi
+
+# Check inactive roles (installed in supercharger/roles/ but not in rules/)
+INACTIVE_ROLES=""
+for role in developer writer student data pm designer devops researcher; do
+  if [ -f "$HOME/.claude/supercharger/roles/${role}.md" ] && [ ! -f "$HOME/.claude/rules/${role}.md" ]; then
+    ROLE_LABEL="$(echo "${role:0:1}" | tr '[:lower:]' '[:upper:]')${role:1}"
+    INACTIVE_ROLES="${INACTIVE_ROLES:+$INACTIVE_ROLES, }$ROLE_LABEL"
+  fi
+done
+if [ -n "$INACTIVE_ROLES" ]; then
+  echo -e "  ${YELLOW}→${NC} Inactive roles available: ${INACTIVE_ROLES}"
+  echo -e "    Switch mid-conversation: ${BOLD}\"as [role]\"${NC}"
+  UNUSED=$((UNUSED + 1))
+fi
+
+# Check session summaries
+if [ ! -d "$HOME/.claude/supercharger/summaries" ] || [ -z "$(ls -A "$HOME/.claude/supercharger/summaries" 2>/dev/null)" ]; then
+  echo -e "  ${YELLOW}→${NC} Session summaries — never lose context across sessions"
+  echo -e "    Say: ${BOLD}\"session summary\"${NC} in Claude Code"
+  UNUSED=$((UNUSED + 1))
+fi
+
+if [ "$UNUSED" -eq 0 ]; then
+  echo -e "  ${GREEN}✓${NC} You're using everything!"
+fi
+
 # Summary
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
@@ -269,3 +329,5 @@ if [ "$ERRORS" -eq 0 ]; then
 else
   echo -e "${RED}${ERRORS} issue(s) found. Run install.sh to fix.${NC}"
 fi
+echo ""
+echo -e "For full capability overview: ${BOLD}bash tools/supercharger.sh${NC}"
