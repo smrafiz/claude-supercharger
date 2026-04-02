@@ -222,7 +222,7 @@ bash tools/import-preset.sh team.supercharger   # import
 | Everyone | Context7, Sequential Thinking, Memory |
 | Developer | + Playwright, Magic UI |
 | Non-dev roles | + DuckDuckGo Search |
-| Advanced | GitHub, Brave, Slack, Notion — `bash tools/mcp-setup.sh` |
+| Advanced | Brave Search, Notion, Sentry, Figma, Slack — `bash tools/mcp-setup.sh` |
 
 ### 30+ Anti-Patterns
 
