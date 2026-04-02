@@ -95,7 +95,7 @@ echo -e "  ${CYAN}Stack detected:${NC} ${BOLD}$DETECTED_STACK${NC}${DETECTED_FRA
 # --- Define agent sets per stack ---
 case "$STACK_KEY" in
   node|typescript|javascript)
-    AGENT_SET=("orchestrator" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR="src/components"
     BACKEND_DIR="src/lib"
     # Try to detect actual dirs
@@ -104,12 +104,12 @@ case "$STACK_KEY" in
     done
     ;;
   shopify)
-    AGENT_SET=("orchestrator" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR="web/features"
     BACKEND_DIR="web/lib"
     ;;
   python)
-    AGENT_SET=("orchestrator" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "backend-engineer" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR=""
     BACKEND_DIR="app"
     for d in "app" "src" "api" "backend"; do
@@ -117,18 +117,18 @@ case "$STACK_KEY" in
     done
     ;;
   wordpress|php)
-    AGENT_SET=("orchestrator" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer")
+    AGENT_SET=("orchestrator" "architect" "frontend-engineer" "backend-engineer" "debugger" "code-reviewer")
     FRONTEND_DIR="."
     BACKEND_DIR="."
     [ -f "$PROJECT_DIR/wp-config.php" ] && BACKEND_DIR="wp-content"
     ;;
   rust)
-    AGENT_SET=("orchestrator" "systems-engineer" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "systems-engineer" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR=""
     BACKEND_DIR="src"
     ;;
   go)
-    AGENT_SET=("orchestrator" "systems-engineer" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "systems-engineer" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR=""
     BACKEND_DIR="."
     for d in "cmd" "pkg" "internal" "src"; do
@@ -136,7 +136,7 @@ case "$STACK_KEY" in
     done
     ;;
   *)
-    AGENT_SET=("orchestrator" "debugger" "code-reviewer" "qa-engineer")
+    AGENT_SET=("orchestrator" "architect" "debugger" "code-reviewer" "qa-engineer")
     FRONTEND_DIR="src"
     BACKEND_DIR="src"
     ;;

@@ -15,6 +15,7 @@ EXPECTED_AGENTS=(
   "planner"
   "data-analyst"
   "general"
+  "architect"
 )
 
 for agent in "${EXPECTED_AGENTS[@]}"; do
@@ -51,5 +52,60 @@ grep -q "^model: claude-sonnet" "$AGENTS_DIR/code-helper.md" && pass || fail "co
 
 begin_test "agents: debugger uses sonnet model"
 grep -q "^model: claude-sonnet" "$AGENTS_DIR/debugger.md" && pass || fail "debugger should use sonnet"
+
+begin_test "agents: architect uses sonnet model"
+grep -q "^model: claude-sonnet" "$AGENTS_DIR/architect.md" && pass || fail "architect should use sonnet"
+
+echo ""
+echo "=== Reviewer Severity Model Tests ==="
+
+begin_test "agents: reviewer has MUST FIX severity level"
+grep -q "MUST FIX" "$AGENTS_DIR/reviewer.md" && pass || fail "reviewer missing MUST FIX severity"
+
+begin_test "agents: reviewer has failure-mode reasoning instruction"
+grep -q "When.*fails.*resulting" "$AGENTS_DIR/reviewer.md" && pass || fail "reviewer missing failure-mode reasoning"
+
+echo ""
+echo "=== Debugger Evidence Threshold Tests ==="
+
+begin_test "agents: debugger has evidence threshold rule"
+grep -q "Evidence threshold\|evidence threshold" "$AGENTS_DIR/debugger.md" && pass || fail "debugger missing evidence threshold"
+
+echo ""
+echo "=== Command File Tests ==="
+
+COMMANDS_DIR="$REPO_DIR/configs/commands"
+EXPECTED_COMMANDS=("think" "refactor" "challenge" "audit")
+
+for cmd in "${EXPECTED_COMMANDS[@]}"; do
+  begin_test "commands: $cmd.md exists in configs/commands/"
+  assert_file_exists "$COMMANDS_DIR/$cmd.md" && pass
+done
+
+for cmd in "${EXPECTED_COMMANDS[@]}"; do
+  begin_test "commands: $cmd.md has non-empty content"
+  CONTENT=$(cat "$COMMANDS_DIR/$cmd.md")
+  [ -n "$CONTENT" ] && pass || fail "$cmd.md is empty"
+done
+
+echo ""
+echo "=== Project Template Tests ==="
+
+TEMPLATES_DIR="$REPO_DIR/configs/project-agent-templates"
+
+begin_test "project-templates: architect.md exists"
+assert_file_exists "$TEMPLATES_DIR/architect.md" && pass
+
+begin_test "project-templates: architect has PROJECT_NAME placeholder"
+grep -q "{{PROJECT_NAME}}" "$TEMPLATES_DIR/architect.md" && pass || fail "missing {{PROJECT_NAME}}"
+
+begin_test "project-templates: architect has STACK placeholder"
+grep -q "{{STACK}}" "$TEMPLATES_DIR/architect.md" && pass || fail "missing {{STACK}}"
+
+begin_test "project-templates: code-reviewer has MUST FIX severity"
+grep -q "MUST FIX" "$TEMPLATES_DIR/code-reviewer.md" && pass || fail "code-reviewer missing MUST FIX"
+
+begin_test "project-templates: debugger has evidence threshold rule"
+grep -q "Evidence threshold\|evidence threshold" "$TEMPLATES_DIR/debugger.md" && pass || fail "project debugger missing evidence threshold"
 
 report

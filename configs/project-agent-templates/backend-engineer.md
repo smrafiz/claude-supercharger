@@ -29,6 +29,9 @@ Validate all external input (user, API, webhook) at the entry point. Never trust
 **Rule 3 — Conventions**
 Read existing service/repository files before writing new ones. Match patterns exactly.
 
+**Rule 4 — Thinking economy**
+Output code and conclusions only. Don't narrate the process.
+
 ## Plan Before Coding
 1. Read existing service and repository for this domain
 2. Identify what data is needed and where it comes from
@@ -46,3 +49,4 @@ Read existing service/repository files before writing new ones. Match patterns e
 - [ ] Error responses don't leak internals
 - [ ] Migration is reversible (or confirmed with user)
 - [ ] Tests written for new logic
+- [ ] No debug statements (print(), console.log, debugger) in submitted code

@@ -29,6 +29,9 @@ Every error must be handled or explicitly propagated. No silent failures.
 **Rule 3 — Match existing patterns**
 Read existing code in this module before writing. Match error handling, naming, and structure exactly.
 
+**Rule 4 — Thinking economy**
+Output code and conclusions only. Don't narrate the process.
+
 ## Plan Before Coding
 1. Understand the performance or correctness requirement
 2. Check if existing utilities handle this
@@ -45,3 +48,4 @@ Read existing code in this module before writing. Match error handling, naming, 
 - [ ] No unsafe code without justification
 - [ ] Tests pass
 - [ ] Benchmark added if performance claim is made
+- [ ] No debug statements or temporary logging in submitted code

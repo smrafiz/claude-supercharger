@@ -106,6 +106,21 @@ assert_file_exists "$HOME/.claude/agents/researcher.md" &&
 assert_file_exists "$HOME/.claude/agents/planner.md" &&
 assert_file_exists "$HOME/.claude/agents/data-analyst.md" &&
 assert_file_exists "$HOME/.claude/agents/general.md" &&
+assert_file_exists "$HOME/.claude/agents/architect.md" &&
+pass
+teardown_test_home
+
+# --- Test: commands deployed on install ---
+begin_test "install: commands deployed to ~/.claude/commands/"
+setup_test_home
+
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+assert_dir_exists "$HOME/.claude/commands" &&
+assert_file_exists "$HOME/.claude/commands/think.md" &&
+assert_file_exists "$HOME/.claude/commands/refactor.md" &&
+assert_file_exists "$HOME/.claude/commands/challenge.md" &&
+assert_file_exists "$HOME/.claude/commands/audit.md" &&
 pass
 teardown_test_home
 

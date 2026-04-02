@@ -258,6 +258,22 @@ bash tools/import-preset.sh team.supercharger
 </details>
 
 <details>
+<summary>Commands — /think, /refactor, /challenge, /audit</summary>
+
+**Four reusable workflows**, installed automatically. Type them in any Claude Code session.
+
+| Command | What it does |
+|---|---|
+| `/think [problem]` | Structured reasoning: clarify → hypotheses → stress-test → decide. For ambiguous problems. |
+| `/refactor [file or dir]` | Code quality sweep across 7 dimensions. Prioritized findings, read-only. |
+| `/challenge [decision]` | Adversarial stress-test. Assumptions, failure modes, strongest alternative, verdict. |
+| `/audit [file or dir]` | Inconsistency sweep: naming, patterns, docs, interfaces, structure. Flags divergences. |
+
+These live in `~/.claude/commands/` and work in every project without setup.
+
+</details>
+
+<details>
 <summary>Project Agents — scaffold a specialist team for any repo</summary>
 
 **One command gives your project a full agent team**, pre-wired with project name, stack, and file paths.

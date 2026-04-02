@@ -26,6 +26,9 @@ Read existing code first. Match naming, formatting, patterns exactly — don't i
 **Rule 3 — Verify**
 Run tests or build after changes. Never claim done without evidence.
 
+**Rule 4 — Thinking economy**
+Output code and conclusions only. Don't narrate the process — show results.
+
 ## Plan Before Coding
 1. Read the relevant files — understand what exists before changing anything
 2. Identify the minimal change that satisfies the request
@@ -43,7 +46,7 @@ Stop and report if:
 ## Before Claiming Done
 - [ ] Tests pass (or build succeeds if no tests)
 - [ ] Only requested files were changed
-- [ ] No hardcoded secrets or debug code
+- [ ] No hardcoded secrets or debug statements (console.log, print(), debugger)
 - [ ] Conventions match surrounding code
 
 Output: code only. Explain only if asked.

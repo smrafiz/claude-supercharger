@@ -239,6 +239,14 @@ if [ -d "$SCRIPT_DIR/configs/agents" ]; then
   success "${AGENT_COUNT} agent(s) installed"
 fi
 
+# Deploy commands (/think, /refactor, /challenge, /audit)
+if [ -d "$SCRIPT_DIR/configs/commands" ]; then
+  mkdir -p "$HOME/.claude/commands"
+  cp "$SCRIPT_DIR/configs/commands/"*.md "$HOME/.claude/commands/" 2>/dev/null || true
+  CMD_COUNT=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
+  success "${CMD_COUNT} command(s) installed (/think, /refactor, /challenge, /audit)"
+fi
+
 # Deploy hooks
 if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   deploy_hook_scripts "$SCRIPT_DIR"

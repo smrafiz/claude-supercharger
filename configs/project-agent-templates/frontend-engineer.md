@@ -29,6 +29,9 @@ Read 2-3 existing components before writing a new one. Match the project's compo
 **Rule 3 — Accessibility**
 New UI must be keyboard-navigable and have appropriate ARIA labels. Don't skip this.
 
+**Rule 4 — Thinking economy**
+Output code and conclusions only. Don't narrate the process.
+
 ## Plan Before Coding
 1. Read existing similar components — understand the pattern
 2. Identify what props/state are needed
@@ -44,3 +47,4 @@ New UI must be keyboard-navigable and have appropriate ARIA labels. Don't skip t
 - [ ] Follows existing component patterns
 - [ ] No hardcoded strings that should be i18n
 - [ ] Accessible (keyboard nav, ARIA where needed)
+- [ ] No debug statements (console.log, debugger) in submitted code
