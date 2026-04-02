@@ -187,7 +187,7 @@ create_backup
 
 # Deploy CLAUDE.md
 ROLES_LIST=$(format_roles_list)
-MODE_LABEL=$(echo "$MODE" | sed 's/^./\U&/')
+MODE_LABEL=$(capitalize "$MODE")
 
 if [[ "$CLAUDE_MD_ACTION" == "deploy" || "$CLAUDE_MD_ACTION" == "replace" ]]; then
   sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" \
