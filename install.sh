@@ -26,7 +26,7 @@ show_usage() {
   echo ""
   echo "Options:"
   echo "  --mode MODE        Install mode: safe, standard, full (default: interactive)"
-  echo "  --roles ROLES      Comma-separated roles: developer,writer,student,data,pm"
+  echo "  --roles ROLES      Comma-separated roles: developer,writer,student,data,pm,designer,devops,researcher"
   echo "  --config ACTION    CLAUDE.md handling: deploy, merge, replace, skip"
   echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
   echo "  --economy TIER     Economy tier: standard, lean, minimal (default: lean)"

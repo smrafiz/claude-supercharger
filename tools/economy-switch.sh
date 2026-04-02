@@ -23,7 +23,7 @@ show_usage() {
 # Get currently active roles from rules/
 get_active_roles() {
   local roles=""
-  for role in developer writer student data pm; do
+  for role in developer writer student data pm designer devops researcher; do
     if [ -f "$ROLES_DIR/${role}.md" ]; then
       if [ -n "$roles" ]; then
         roles="$roles,$role"

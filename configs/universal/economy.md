@@ -39,6 +39,9 @@ When multiple roles are active, the most restrictive floor wins.
 | Writer        | Standard | Standard–unlimited |
 | Data Analyst  | Lean     | unrestricted       |
 | PM            | Lean     | unrestricted       |
+| Designer      | Lean     | unrestricted       |
+| DevOps        | Lean     | unrestricted       |
+| Researcher    | Standard | Standard–unlimited |
 
 If a selected tier falls outside the active role's range, it auto-corrects to the nearest allowed tier.
 
