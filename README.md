@@ -5,7 +5,7 @@ It's also capable of deleting your files without asking, writing four paragraphs
 
 **One install fixes all three.**
 
-![Version](https://img.shields.io/badge/version-1.6.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-204%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
 
 ---
 

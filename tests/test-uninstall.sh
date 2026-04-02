@@ -83,4 +83,57 @@ else
 fi
 teardown_test_home
 
+# --- Test: agents removed on uninstall ---
+begin_test "uninstall: supercharger agents removed"
+setup_test_home
+mkdir -p "$HOME/.claude/agents"
+for agent in code-helper debugger writer reviewer researcher planner data-analyst general architect; do
+  echo "agent" > "$HOME/.claude/agents/$agent.md"
+done
+echo '{}' > "$HOME/.claude/settings.json"
+touch "$HOME/.claude/CLAUDE.md"
+
+printf 'y\nn\n' | bash "$REPO_DIR/uninstall.sh" >/dev/null 2>&1 || true
+
+assert_file_not_exists "$HOME/.claude/agents/code-helper.md" &&
+assert_file_not_exists "$HOME/.claude/agents/architect.md" &&
+assert_file_not_exists "$HOME/.claude/agents/debugger.md" &&
+pass
+teardown_test_home
+
+# --- Test: user-added agents preserved on uninstall ---
+begin_test "uninstall: user-added agents preserved"
+setup_test_home
+mkdir -p "$HOME/.claude/agents"
+echo "agent" > "$HOME/.claude/agents/code-helper.md"
+echo "my custom agent" > "$HOME/.claude/agents/my-custom-agent.md"
+echo '{}' > "$HOME/.claude/settings.json"
+touch "$HOME/.claude/CLAUDE.md"
+
+printf 'y\nn\n' | bash "$REPO_DIR/uninstall.sh" >/dev/null 2>&1 || true
+
+assert_file_exists "$HOME/.claude/agents/my-custom-agent.md" &&
+assert_file_not_exists "$HOME/.claude/agents/code-helper.md" &&
+pass
+teardown_test_home
+
+# --- Test: commands removed on uninstall ---
+begin_test "uninstall: supercharger commands removed"
+setup_test_home
+mkdir -p "$HOME/.claude/commands"
+for cmd in think refactor challenge audit; do
+  echo "cmd" > "$HOME/.claude/commands/$cmd.md"
+done
+echo '{}' > "$HOME/.claude/settings.json"
+touch "$HOME/.claude/CLAUDE.md"
+
+printf 'y\nn\n' | bash "$REPO_DIR/uninstall.sh" >/dev/null 2>&1 || true
+
+assert_file_not_exists "$HOME/.claude/commands/think.md" &&
+assert_file_not_exists "$HOME/.claude/commands/refactor.md" &&
+assert_file_not_exists "$HOME/.claude/commands/challenge.md" &&
+assert_file_not_exists "$HOME/.claude/commands/audit.md" &&
+pass
+teardown_test_home
+
 report

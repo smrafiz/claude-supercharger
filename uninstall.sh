@@ -78,6 +78,20 @@ echo -e "  ${GREEN}✓${NC} Shared assets removed"
 rm -rf "$HOME/.claude/supercharger"
 echo -e "  ${GREEN}✓${NC} Hook scripts, roles, economy tiers, and summaries removed"
 
+# Remove agents installed by Supercharger (only known ones — preserve user-added agents)
+for agent in code-helper debugger writer reviewer researcher planner data-analyst general architect; do
+  rm -f "$HOME/.claude/agents/$agent.md"
+done
+rmdir "$HOME/.claude/agents" 2>/dev/null || true
+echo -e "  ${GREEN}✓${NC} Agents removed"
+
+# Remove commands installed by Supercharger
+for cmd in think refactor challenge audit; do
+  rm -f "$HOME/.claude/commands/$cmd.md"
+done
+rmdir "$HOME/.claude/commands" 2>/dev/null || true
+echo -e "  ${GREEN}✓${NC} Commands removed"
+
 # Remove claude-check
 rm -f "$HOME/.claude/claude-check.sh"
 
