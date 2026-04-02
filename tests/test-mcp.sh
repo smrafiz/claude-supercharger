@@ -6,7 +6,7 @@ source "$REPO_DIR/lib/mcp.sh"
 
 # Helper: count MCP entries with supercharger tag in settings.json
 count_tagged_mcp() {
-  SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+  SETTINGS_PATH="$HOME/.claude.json" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
@@ -18,7 +18,7 @@ print(count)
 # Helper: check if a specific server name exists (tagged)
 has_mcp_server() {
   local name="$1"
-  SETTINGS_PATH="$HOME/.claude/settings.json" MCP_NAME="$name" python3 -c "
+  SETTINGS_PATH="$HOME/.claude.json" MCP_NAME="$name" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
@@ -31,7 +31,7 @@ print('yes' if found else 'no')
 # Helper: check if a specific server name exists (untagged, user's own)
 has_user_mcp_server() {
   local name="$1"
-  SETTINGS_PATH="$HOME/.claude/settings.json" MCP_NAME="$name" python3 -c "
+  SETTINGS_PATH="$HOME/.claude.json" MCP_NAME="$name" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
@@ -44,7 +44,7 @@ print('yes' if found else 'no')
 # --- Test 1: Core servers present ---
 begin_test "mcp: core servers present after install"
 setup_test_home
-echo '{}' > "$HOME/.claude/settings.json"
+echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "writer"
 CORE_COUNT=$(count_tagged_mcp)
 CTX=$(has_mcp_server "context7")
@@ -60,7 +60,7 @@ teardown_test_home
 # --- Test 2: Developer role adds Playwright + Magic UI ---
 begin_test "mcp: developer role adds playwright and magic-ui"
 setup_test_home
-echo '{}' > "$HOME/.claude/settings.json"
+echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer"
 PW=$(has_mcp_server "playwright")
 MU=$(has_mcp_server "magic-ui")
@@ -75,7 +75,7 @@ teardown_test_home
 # --- Test 3: Writer role adds DuckDuckGo ---
 begin_test "mcp: writer role adds duckduckgo-search"
 setup_test_home
-echo '{}' > "$HOME/.claude/settings.json"
+echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "writer"
 DDG=$(has_mcp_server "duckduckgo-search")
 TOTAL=$(count_tagged_mcp)
@@ -89,10 +89,10 @@ teardown_test_home
 # --- Test 4: Multi-role deduplication ---
 begin_test "mcp: developer+pm deduplicates duckduckgo-search"
 setup_test_home
-echo '{}' > "$HOME/.claude/settings.json"
+echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer,pm"
 TOTAL=$(count_tagged_mcp)
-DDG_COUNT=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+DDG_COUNT=$(SETTINGS_PATH="$HOME/.claude.json" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
@@ -108,7 +108,7 @@ teardown_test_home
 # --- Test 5: Uninstall removes only supercharger MCP entries ---
 begin_test "mcp: uninstall removes only supercharger entries"
 setup_test_home
-echo '{"mcpServers":{"my-custom-server":{"command":"npx","args":["-y","my-server"]}}}' > "$HOME/.claude/settings.json"
+echo '{"mcpServers":{"my-custom-server":{"command":"npx","args":["-y","my-server"]}}}' > "$HOME/.claude.json"
 merge_mcp_into_settings "writer"
 remove_supercharger_mcp
 TAGGED=$(count_tagged_mcp)
@@ -123,7 +123,7 @@ teardown_test_home
 # --- Test 6: User's existing MCP servers preserved after install ---
 begin_test "mcp: user MCP servers preserved after install"
 setup_test_home
-echo '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@my/server"]}}}' > "$HOME/.claude/settings.json"
+echo '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@my/server"]}}}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer"
 CUSTOM=$(has_user_mcp_server "my-server")
 if [ "$CUSTOM" = "yes" ]; then
@@ -136,7 +136,7 @@ teardown_test_home
 # --- Test 7: User's existing MCP servers preserved after uninstall ---
 begin_test "mcp: user MCP servers preserved after uninstall"
 setup_test_home
-echo '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@my/server"]}}}' > "$HOME/.claude/settings.json"
+echo '{"mcpServers":{"my-server":{"command":"npx","args":["-y","@my/server"]}}}' > "$HOME/.claude.json"
 merge_mcp_into_settings "writer"
 remove_supercharger_mcp
 CUSTOM=$(has_user_mcp_server "my-server")
@@ -150,7 +150,7 @@ teardown_test_home
 # --- Test 8: Idempotent — no duplicates after double install ---
 begin_test "mcp: idempotent — no duplicates after double install"
 setup_test_home
-echo '{}' > "$HOME/.claude/settings.json"
+echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer"
 FIRST=$(count_tagged_mcp)
 merge_mcp_into_settings "developer"

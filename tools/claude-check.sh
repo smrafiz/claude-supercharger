@@ -129,8 +129,8 @@ fi
 # MCP Servers
 echo ""
 echo -e "${BLUE}MCP Servers:${NC}"
-if [ -f "$HOME/.claude/settings.json" ]; then
-  SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+if [ -f "$HOME/.claude.json" ]; then
+  SETTINGS_PATH="$HOME/.claude.json" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
@@ -152,7 +152,7 @@ if missing:
     print(f'  \033[0;31m✗\033[0m Missing core: {\", \".join(missing)}')
 " 2>/dev/null
 else
-  echo -e "  ${YELLOW}○${NC} No settings.json — no MCP servers"
+  echo -e "  ${YELLOW}○${NC} No ~/.claude.json — no MCP servers"
 fi
 
 # Stack Detection

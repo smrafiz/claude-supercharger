@@ -57,14 +57,11 @@ count_role_servers() {
   get_role_servers "$roles" | wc -l | tr -d ' '
 }
 
-# Merge MCP servers into settings.json
-merge_mcp_into_settings() {
-  local roles="$1"
-  local settings_file="$HOME/.claude/settings.json"
-  local tag="$SUPERCHARGER_MCP_TAG"
-
-  local server_list
-  server_list=$(build_server_list "$roles")
+# Write MCP entries to a single config file
+_write_mcp_to_file() {
+  local settings_file="$1"
+  local tag="$2"
+  local server_list="$3"
 
   SETTINGS_FILE="$settings_file" MCP_TAG="$tag" SERVERS_INPUT="$server_list" python3 -c "
 import json, os, sys
@@ -78,7 +75,7 @@ if os.path.exists(settings_file):
         try:
             settings = json.load(f)
         except json.JSONDecodeError:
-            print('ERROR: settings.json is malformed.', file=sys.stderr)
+            print('ERROR: ' + settings_file + ' is malformed.', file=sys.stderr)
             sys.exit(1)
 else:
     settings = {}
@@ -108,18 +105,30 @@ for line in servers_input.strip().split('\n'):
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
-
-  return $?
 }
 
-# Remove only supercharger MCP entries
-remove_supercharger_mcp() {
-  local settings_file="$HOME/.claude/settings.json"
+# Merge MCP servers into both config files (covers all Claude Code versions)
+merge_mcp_into_settings() {
+  local roles="$1"
   local tag="$SUPERCHARGER_MCP_TAG"
+  local server_list
+  server_list=$(build_server_list "$roles")
 
-  if [ ! -f "$settings_file" ]; then
-    return 0
-  fi
+  # ~/.claude.json — Claude Code current (User MCPs shown in /mcp)
+  _write_mcp_to_file "$HOME/.claude.json" "$tag" "$server_list" || return 1
+
+  # ~/.claude/settings.json — Claude Code legacy fallback
+  _write_mcp_to_file "$HOME/.claude/settings.json" "$tag" "$server_list" || return 1
+
+  return 0
+}
+
+# Remove supercharger MCP entries from a single file
+_remove_mcp_from_file() {
+  local settings_file="$1"
+  local tag="$2"
+
+  [ -f "$settings_file" ] || return 0
 
   SETTINGS_FILE="$settings_file" MCP_TAG="$tag" python3 -c "
 import json, os
@@ -141,4 +150,11 @@ if 'mcpServers' in settings:
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
+}
+
+# Remove supercharger MCP entries from both config files
+remove_supercharger_mcp() {
+  local tag="$SUPERCHARGER_MCP_TAG"
+  _remove_mcp_from_file "$HOME/.claude.json" "$tag"
+  _remove_mcp_from_file "$HOME/.claude/settings.json" "$tag"
 }

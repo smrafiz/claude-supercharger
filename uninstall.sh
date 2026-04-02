@@ -49,10 +49,8 @@ if [ -f "$HOME/.claude/settings.json" ]; then
   remove_supercharger_hooks 2>/dev/null && echo -e "  ${GREEN}✓${NC} Hooks removed from settings.json"
 fi
 
-# Remove MCP servers from settings.json (uses lib/mcp.sh)
-if [ -f "$HOME/.claude/settings.json" ]; then
-  remove_supercharger_mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} MCP servers removed from settings.json"
-fi
+# Remove MCP servers from both config files (uses lib/mcp.sh)
+remove_supercharger_mcp 2>/dev/null && echo -e "  ${GREEN}✓${NC} MCP servers removed"
 
 # Remove Supercharger block from CLAUDE.md
 if [ -f "$HOME/.claude/CLAUDE.md" ] && grep -q "^# --- Claude Supercharger" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then

@@ -10,7 +10,8 @@ CYAN='\033[0;36m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-SETTINGS_FILE="$HOME/.claude/settings.json"
+SETTINGS_FILE="$HOME/.claude.json"
+SETTINGS_FILE_LEGACY="$HOME/.claude/settings.json"
 TAG="#supercharger"
 
 echo -e "${CYAN}╔═══════════════════════════════════════════╗${NC}"
@@ -98,12 +99,15 @@ fi
 
 echo ""
 
-add_server() {
-  local name="$1"
-  local args="$2"
-  local env_json="${3:-}"
+_add_server_to_file() {
+  local settings_file="$1"
+  local name="$2"
+  local args="$3"
+  local env_json="${4:-}"
 
-  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" SETTINGS_FILE="$SETTINGS_FILE" \
+  [ -f "$settings_file" ] || return 0
+
+  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" SETTINGS_FILE="$settings_file" \
   python3 -c "
 import json, os
 
@@ -131,6 +135,14 @@ with open(settings_file, 'w') as f:
 " 2>/dev/null
 }
 
+add_server() {
+  local name="$1"
+  local args="$2"
+  local env_json="${3:-}"
+  _add_server_to_file "$SETTINGS_FILE" "$name" "$args" "$env_json"
+  _add_server_to_file "$SETTINGS_FILE_LEGACY" "$name" "$args" "$env_json"
+}
+
 for idx in "${SELECTED[@]}"; do
   server="${SERVER_NAMES[$idx]}"
   args="${SERVER_CMDS[$idx]}"
@@ -145,6 +157,7 @@ for idx in "${SELECTED[@]}"; do
   fi
 
   if [ -n "$env_key" ]; then
+    secret=""
     read -rsp "  Enter ${label%% (*} key (or Enter to skip): " secret
     echo
     if [ -n "$secret" ]; then
