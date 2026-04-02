@@ -6,7 +6,7 @@
 
 set -eo pipefail
 
-MESSAGE="Claude Code needs your input"
+MESSAGE="Claude Code needs your attention"
 
 # Desktop notification (always)
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -17,54 +17,13 @@ else
   printf '\a'
 fi
 
-# Webhook notification (if configured)
-WEBHOOK_CONFIG="$HOME/.claude/supercharger/webhook.json"
-if [ -f "$WEBHOOK_CONFIG" ]; then
-  PROJECT=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
-  WEBHOOK_CONFIG_FILE="$WEBHOOK_CONFIG" PROJECT="$PROJECT" python3 -c "
-import json, os, subprocess, sys
-
-config_file = os.environ['WEBHOOK_CONFIG_FILE']
-project = os.environ['PROJECT']
-
-try:
-    with open(config_file, 'r') as f:
-        config = json.load(f)
-except:
-    sys.exit(0)
-
-if not config.get('enabled', False):
-    sys.exit(0)
-
-platform = config.get('platform', 'custom')
-message = f'Claude Code needs your input — {project}'
-
-try:
-    if platform == 'slack':
-        url = config.get('url', '')
-        payload = json.dumps({'text': message})
-        subprocess.run(['curl', '-s', '-X', 'POST', '-H', 'Content-Type: application/json',
-                         '-d', payload, url], capture_output=True, timeout=10)
-    elif platform == 'discord':
-        url = config.get('url', '')
-        payload = json.dumps({'content': message})
-        subprocess.run(['curl', '-s', '-X', 'POST', '-H', 'Content-Type: application/json',
-                         '-d', payload, url], capture_output=True, timeout=10)
-    elif platform == 'telegram':
-        token = config.get('bot_token', '')
-        chat_id = config.get('chat_id', '')
-        url = f'https://api.telegram.org/bot{token}/sendMessage'
-        payload = json.dumps({'chat_id': chat_id, 'text': message})
-        subprocess.run(['curl', '-s', '-X', 'POST', '-H', 'Content-Type: application/json',
-                         '-d', payload, url], capture_output=True, timeout=10)
-    elif platform == 'custom':
-        url = config.get('url', '')
-        payload = json.dumps({'text': message, 'project': project})
-        subprocess.run(['curl', '-s', '-X', 'POST', '-H', 'Content-Type: application/json',
-                         '-d', payload, url], capture_output=True, timeout=10)
-except:
-    pass
-" 2>/dev/null || true
+# Webhook notification (if configured) — uses shared webhook lib
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HOOKS_DIR/webhook-lib.sh" ]; then
+  source "$HOOKS_DIR/webhook-lib.sh"
+  if webhook_enabled; then
+    send_webhook "Claude Code needs your attention" || true
+  fi
 fi
 
 exit 0

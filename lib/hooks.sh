@@ -40,7 +40,8 @@ deploy_hook_scripts() {
   chmod 700 "$HOME/.claude/supercharger"
 
   cp "$source_dir/hooks/"*.sh "$target_dir/"
-  chmod +x "$target_dir/"*.sh
+  cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
+  chmod 700 "$target_dir/"*.sh
 }
 
 merge_hooks_into_settings() {

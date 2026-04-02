@@ -140,10 +140,10 @@ case "$platform_choice" in
     info "Paste your Slack Incoming Webhook URL:"
     info "  (Create one at: https://api.slack.com/messaging/webhooks)"
     read -rp "> " WEBHOOK_URL
-    PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
+    write_config "$PLATFORM" "$(PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
 import json, os
 print(json.dumps({'platform': os.environ['PLATFORM'], 'url': os.environ['URL'], 'enabled': True}, indent=2))
-" > "$WEBHOOK_CONFIG"
+")"
     ;;
   2)
     PLATFORM="discord"
@@ -151,10 +151,10 @@ print(json.dumps({'platform': os.environ['PLATFORM'], 'url': os.environ['URL'], 
     info "Paste your Discord Webhook URL:"
     info "  (Server Settings → Integrations → Webhooks → New Webhook → Copy URL)"
     read -rp "> " WEBHOOK_URL
-    PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
+    write_config "$PLATFORM" "$(PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
 import json, os
 print(json.dumps({'platform': os.environ['PLATFORM'], 'url': os.environ['URL'], 'enabled': True}, indent=2))
-" > "$WEBHOOK_CONFIG"
+")"
     ;;
   3)
     PLATFORM="telegram"
@@ -166,29 +166,26 @@ print(json.dumps({'platform': os.environ['PLATFORM'], 'url': os.environ['URL'], 
     info "Paste your Telegram Chat ID:"
     info "  (Send a message to @userinfobot to get your chat ID)"
     read -rp "Chat ID: " CHAT_ID
-    PLATFORM="$PLATFORM" BOT_TOKEN="$BOT_TOKEN" CHAT_ID="$CHAT_ID" python3 -c "
+    write_config "$PLATFORM" "$(PLATFORM="$PLATFORM" BOT_TOKEN="$BOT_TOKEN" CHAT_ID="$CHAT_ID" python3 -c "
 import json, os
 print(json.dumps({'platform': os.environ['PLATFORM'], 'bot_token': os.environ['BOT_TOKEN'], 'chat_id': os.environ['CHAT_ID'], 'enabled': True}, indent=2))
-" > "$WEBHOOK_CONFIG"
+")"
     ;;
   4)
     PLATFORM="custom"
     echo ""
     info "Paste your webhook URL (will receive POST with JSON payload):"
     read -rp "> " WEBHOOK_URL
-    PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
+    write_config "$PLATFORM" "$(PLATFORM="$PLATFORM" URL="$WEBHOOK_URL" python3 -c "
 import json, os
 print(json.dumps({'platform': os.environ['PLATFORM'], 'url': os.environ['URL'], 'enabled': True}, indent=2))
-" > "$WEBHOOK_CONFIG"
+")"
     ;;
   *)
     error "Invalid selection."
     exit 1
     ;;
 esac
-
-mkdir -p "$(dirname "$WEBHOOK_CONFIG")"
-chmod 600 "$WEBHOOK_CONFIG"
 success "Webhook configured ($PLATFORM)"
 
 echo ""

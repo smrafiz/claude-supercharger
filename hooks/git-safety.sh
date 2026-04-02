@@ -26,7 +26,7 @@ if echo "$CMD" | grep -qE '^git push[[:space:]]'; then
   has_force=false
   has_protected=false
 
-  if echo "$CMD" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|$)'; then
+  if echo "$CMD" | grep -qE '(^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$)'; then
     has_force=true
   fi
 
