@@ -24,6 +24,9 @@ detect_platform() {
     *)              PLATFORM="unknown" ;;
   esac
 
+  # Force Python to use UTF-8 on Windows (default cp1252 can't handle → and other unicode)
+  export PYTHONUTF8=1
+
   # Ensure python3 is available.
   # On Windows Git Bash: 'python3' rarely exists, 'python' may be a Windows Store
   # alias stub (zero-byte exe that opens Microsoft Store instead of running Python).
