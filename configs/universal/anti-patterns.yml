@@ -1,7 +1,7 @@
 schema_version: "1.0"
 
 # Anti-Pattern Library — Soft Guidance
-# 35 credit-killing patterns | Loaded into Claude's context via rules/
+# 31 credit-killing patterns | Loaded into Claude's context via rules/
 # Claude reads these to understand WHY patterns are bad and what to ask instead.
 # For deterministic enforcement, see hooks/prompt-validator.sh (hard blocks).
 
