@@ -195,6 +195,8 @@ Who's the audience and what's the tone? (casual / professional / technical)
 </td></tr>
 </table>
 
+More examples → [docs/examples.md](docs/examples.md)
+
 ---
 
 ## Works for everyone
