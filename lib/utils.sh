@@ -24,17 +24,28 @@ detect_platform() {
     *)              PLATFORM="unknown" ;;
   esac
 
-  # Windows Git Bash: 'python3' is a Windows Store alias stub, not real Python.
-  # Create a shim so all subsequent python3 calls resolve to 'python'.
+  # Windows Git Bash: 'python3' and 'python' may be Windows Store alias stubs.
+  # Try multiple candidates; 'py' is the Python Launcher installed by python.org
+  # and is not affected by App Execution Aliases.
   if [[ "$PLATFORM" == "windows" ]] && ! python3 --version &>/dev/null 2>&1; then
-    if python --version &>/dev/null 2>&1; then
+    local py_cmd=""
+    for candidate in python py py3; do
+      if $candidate --version &>/dev/null 2>&1; then
+        py_cmd="$candidate"
+        break
+      fi
+    done
+    if [[ -n "$py_cmd" ]]; then
       local shim_dir
       shim_dir=$(mktemp -d)
-      printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$shim_dir/python3"
+      printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$py_cmd" > "$shim_dir/python3"
       chmod +x "$shim_dir/python3"
       export PATH="$shim_dir:$PATH"
     else
       echo "Error: Python 3 is required. Install from https://python.org and re-run."
+      echo "       If already installed, disable App Execution Aliases in:"
+      echo "       Settings > Apps > Advanced app settings > App execution aliases"
+      echo "       (turn off the 'python' and 'python3' entries)"
       exit 1
     fi
   fi
