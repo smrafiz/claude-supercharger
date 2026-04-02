@@ -27,6 +27,7 @@ get_hooks_for_mode() {
   if [[ "$mode" == "full" ]]; then
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
+    hooks+=("Stop||${hooks_dir}/session-complete.sh")
   fi
 
   printf '%s\n' "${hooks[@]}"
@@ -169,7 +170,7 @@ count_installed_hooks() {
   fi
 
   if [[ "$mode" == "full" ]]; then
-    count=$((count + 2))  # prompt-validator, compaction-backup
+    count=$((count + 3))  # prompt-validator, compaction-backup, session-complete
   fi
 
   echo "$count"
