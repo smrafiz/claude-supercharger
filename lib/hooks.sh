@@ -113,6 +113,10 @@ if os.path.isfile(statusline_path):
         'command': statusline_path + ' ' + tag
     }
 
+# Disable Co-Authored-By trailers in commits and PRs
+if 'attribution' not in settings:
+    settings['attribution'] = {'commit': '', 'pr': ''}
+
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
@@ -151,6 +155,12 @@ if 'statusLine' in settings:
     cmd = settings['statusLine'].get('command', '')
     if tag in cmd:
         del settings['statusLine']
+
+# Remove attribution override (restore Claude default)
+if 'attribution' in settings:
+    attr = settings['attribution']
+    if attr.get('commit') == '' and attr.get('pr') == '':
+        del settings['attribution']
 
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
