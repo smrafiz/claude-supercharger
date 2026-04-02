@@ -38,6 +38,44 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
+## Try these after installing
+
+**Agents activate automatically — just talk naturally:**
+```
+"There's a null pointer at line 42"          → debugger agent
+"Review this file for security issues"       → reviewer agent
+"Add a login form to this page"              → code-helper agent
+"Write a README for this project"            → writer agent
+"Should I use REST or GraphQL here?"         → planner agent
+"Compare Redis vs Memcached for our use case"→ researcher agent
+```
+
+**Commands — type them anywhere:**
+```
+/think Should we use a monorepo or separate repos?
+/challenge We're going to rewrite the backend in Go
+/refactor src/utils.ts
+/audit src/
+```
+
+**Switch behavior mid-conversation:**
+```
+"as student"    → explains concepts, teaches step by step
+"as pm"         → range estimates, decision logs, risk tracking
+"eco minimal"   → telegraphic output, bare code only
+"eco standard"  → back to full sentences
+```
+
+**MCP servers (auto-installed, no API keys):**
+```
+"Look up the React useEffect docs"        → live docs via Context7
+"Test the login page in a real browser"   → Playwright automation
+"Search for Tailwind grid examples"       → DuckDuckGo
+"Remember that we use pnpm in this repo" → Memory across sessions
+```
+
+---
+
 ## What changes the moment you open Claude
 
 No config. No prompts. No learning curve. Here's what happens automatically:
