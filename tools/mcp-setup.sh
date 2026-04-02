@@ -48,34 +48,33 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 
 # Parallel indexed arrays (Bash 3 compatible — no declare -A)
-SERVER_NAMES=("github" "brave-search" "slack" "neon" "notion" "sentry" "figma")
+SERVER_NAMES=("brave-search" "notion" "sentry" "figma" "slack")
 SERVER_LABELS=(
-  "GitHub (Personal Access Token)"
   "Brave Search (API Key — free: 2K/mo)"
-  "Slack (Bot Token)"
-  "Neon (Connection String)"
   "Notion (API Key)"
   "Sentry (Auth Token)"
   "Figma (Access Token)"
+  "Slack (Bot Token — no admin approval needed)"
 )
 SERVER_CMDS=(
-  "-y @modelcontextprotocol/server-github"
-  "-y @modelcontextprotocol/server-brave-search"
-  "-y @modelcontextprotocol/server-slack"
-  "-y @neondatabase/mcp-server-neon"
+  "-y brave-search-mcp"
   "-y @notionhq/notion-mcp-server"
   "-y @sentry/mcp-server"
   "-y figma-developer-mcp"
+  "-y slack-mcp-server"
 )
 SERVER_ENV_KEYS=(
-  "GITHUB_PERSONAL_ACCESS_TOKEN"
   "BRAVE_API_KEY"
-  "SLACK_BOT_TOKEN"
-  "DATABASE_URL"
   "NOTION_API_KEY"
   "SENTRY_AUTH_TOKEN"
   "FIGMA_ACCESS_TOKEN"
+  "SLACK_BOT_TOKEN"
 )
+
+# Note: GitHub MCP is now Docker-based (ghcr.io/github/github-mcp-server)
+# and Neon MCP uses a remote server (mcp.neon.tech) — both require manual setup.
+# Run: claude mcp add github -- docker run -i ghcr.io/github/github-mcp-server
+# See: https://github.com/github/github-mcp-server for details.
 
 echo "Select servers to configure (enter y/n for each):"
 echo ""
