@@ -133,6 +133,12 @@ read_profile() {
 save_profile() {
   local name="$1"
 
+  # Validate profile name — prevent path traversal
+  if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    error "Profile name must contain only letters, numbers, hyphens, underscores"
+    exit 1
+  fi
+
   # Detect current roles from rules/
   local roles=()
   for role in "${ALL_ROLES[@]}"; do
@@ -195,6 +201,13 @@ with open(os.path.join(profiles_dir, name + '.json'), 'w') as f:
 # --- Apply profile ---
 apply_profile() {
   local name="$1"
+
+  # Validate profile name — prevent path traversal
+  if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    error "Profile name must contain only letters, numbers, hyphens, underscores"
+    exit 1
+  fi
+
   local profile_json
 
   profile_json=$(read_profile "$name") || {
@@ -293,6 +306,12 @@ with open(economy_file, 'w') as f:
 # --- Delete profile ---
 delete_profile() {
   local name="$1"
+
+  # Validate profile name — prevent path traversal
+  if [[ ! "$name" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    error "Profile name must contain only letters, numbers, hyphens, underscores"
+    exit 1
+  fi
 
   # Don't allow deleting built-ins
   if [ -n "$(get_builtin_profile "$name")" ]; then

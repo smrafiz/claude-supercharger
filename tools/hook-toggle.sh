@@ -56,6 +56,12 @@ fi
 HOOK_NAME="$1"
 ACTION="$2"
 
+# Validate hook name
+if [[ ! "$HOOK_NAME" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+  echo "Error: Invalid hook name. Use only letters, numbers, hyphens, underscores."
+  exit 1
+fi
+
 if [[ "$ACTION" != "on" && "$ACTION" != "off" ]]; then
   usage
 fi

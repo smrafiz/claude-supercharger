@@ -32,8 +32,8 @@ if [ -z "$CONFIG_FILE" ]; then
 fi
 
 # Parse the project config
-RESULT=$(CONFIG_FILE="$CONFIG_FILE" python3 -c "
-import json, os, sys
+RESULT=$(CONFIG_FILE="$CONFIG_FILE" python3 << 'PYEOF'
+import json, os, sys, re
 
 config_file = os.environ['CONFIG_FILE']
 try:
@@ -44,8 +44,17 @@ except (json.JSONDecodeError, IOError) as e:
     sys.exit(0)
 
 roles = config.get('roles', [])
+VALID_ROLES = {'developer', 'writer', 'student', 'data', 'pm', 'designer', 'devops', 'researcher'}
+roles = [r for r in roles if isinstance(r, str) and r in VALID_ROLES]
+
+VALID_ECONOMY = {'standard', 'lean', 'minimal'}
 economy = config.get('economy', '')
-hints = config.get('hints', '')
+if economy and economy not in VALID_ECONOMY:
+    economy = ''
+raw_hints = config.get('hints', '')
+
+hints = re.sub(r'[^\x20-\x7E]', '', str(raw_hints))[:200]
+hints = re.sub(r'[<>{}\[\]\\`$]', '', hints)
 
 parts = []
 if roles:
@@ -60,13 +69,13 @@ if not parts:
 
 msg = '[Supercharger] Project config loaded from ' + config_file + '. ' + '. '.join(parts) + '.'
 
-# Output hook response
 print(json.dumps({
     'continue': True,
     'suppressOutput': False,
     'systemMessage': msg
 }))
-" 2>/dev/null)
+PYEOF
+)
 
 if [ -n "$RESULT" ]; then
   echo "$RESULT"

@@ -58,13 +58,19 @@ DANGEROUS_PATTERNS=(
   'curl.*\|.*sh'
   'wget.*\|.*bash'
   'wget.*\|.*sh'
+  '\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
   'truncate[[:space:]]+-s[[:space:]]*0'
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:'
   'kill[[:space:]]+-9[[:space:]]+-1'
+  '(^|;|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
+  '(^|;|&&|\|\|)[[:space:]]*eval[[:space:]]+'
+  '(^|;|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
+  'base64.*\|.*(bash|sh|zsh)'
+  '<<<.*\|.*(bash|sh|zsh)'
 )
 
 for pattern in "${DANGEROUS_PATTERNS[@]}"; do
-  if echo "$CMD" | grep -qiE "$pattern"; then
+  if echo "$CMD" | LC_ALL=C grep -qiE "$pattern"; then
     block "dangerous pattern: $pattern"
   fi
 done
@@ -81,10 +87,20 @@ CRED_PATTERNS=(
   'AKIA[0-9A-Z]{16}'
   'ghp_[0-9a-zA-Z]{36}'
   'sk-[0-9a-zA-Z]{48}'
+  'AIza[0-9A-Za-z_-]{35}'
+  'sk_live_[0-9a-zA-Z]{24}'
+  'pk_live_[0-9a-zA-Z]{24}'
+  'npm_[0-9a-zA-Z]{36}'
+  'pypi-[0-9a-zA-Z_-]{16,}'
+  '[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][[:space:]]*='
+  'DB_PASSWORD[[:space:]]*='
+  'MYSQL_ROOT_PASSWORD[[:space:]]*='
+  '-----BEGIN[[:space:]]+(RSA|EC|DSA|OPENSSH)?[[:space:]]*PRIVATE[[:space:]]+KEY-----'
+  'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.'
 )
 
 for pattern in "${CRED_PATTERNS[@]}"; do
-  if echo "$CMD" | grep -qE "$pattern"; then
+  if echo "$CMD" | LC_ALL=C grep -qE "$pattern"; then
     block "potential credential in command — never embed secrets in commands"
   fi
 done
