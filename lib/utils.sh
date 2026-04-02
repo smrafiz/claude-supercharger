@@ -24,13 +24,15 @@ detect_platform() {
     *)              PLATFORM="unknown" ;;
   esac
 
-  # Windows Git Bash: 'python3' and 'python' may be Windows Store alias stubs.
-  # Try multiple candidates; 'py' is the Python Launcher installed by python.org
-  # and is not affected by App Execution Aliases.
-  if [[ "$PLATFORM" == "windows" ]] && ! python3 --version &>/dev/null 2>&1; then
+  # Ensure python3 is available.
+  # On Windows Git Bash: 'python3' rarely exists, 'python' may be a Windows Store
+  # alias stub (zero-byte exe that opens Microsoft Store instead of running Python).
+  # The 'py' launcher (installed by python.org) is the most reliable candidate.
+  if ! command -v python3 &>/dev/null || ! python3 -c "import sys" &>/dev/null 2>&1; then
     local py_cmd=""
-    for candidate in python py py3; do
-      if $candidate --version &>/dev/null 2>&1; then
+    # Try candidates in order: py (Windows launcher), python, py3
+    for candidate in py python py3; do
+      if command -v "$candidate" &>/dev/null && "$candidate" -c "import sys" &>/dev/null 2>&1; then
         py_cmd="$candidate"
         break
       fi
@@ -42,10 +44,21 @@ detect_platform() {
       chmod +x "$shim_dir/python3"
       export PATH="$shim_dir:$PATH"
     else
-      echo "Error: Python 3 is required. Install from https://python.org and re-run."
-      echo "       If already installed, disable App Execution Aliases in:"
-      echo "       Settings > Apps > Advanced app settings > App execution aliases"
-      echo "       (turn off the 'python' and 'python3' entries)"
+      echo ""
+      echo "Error: Python 3 is required but not found."
+      echo ""
+      echo "  Install from: https://python.org"
+      echo ""
+      if [[ "$PLATFORM" == "windows" ]]; then
+        echo "  Windows users: if Python is installed but this still fails,"
+        echo "  disable App Execution Aliases in:"
+        echo "    Settings > Apps > Advanced app settings > App execution aliases"
+        echo "    (turn off the 'python' and 'python3' entries)"
+        echo ""
+        echo "  Or install Python from python.org (not Microsoft Store)"
+        echo "  and ensure 'Add to PATH' is checked during install."
+      fi
+      echo ""
       exit 1
     fi
   fi
