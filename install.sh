@@ -231,6 +231,14 @@ deploy_economy "$SCRIPT_DIR" "$SELECTED_TIER"
 cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"
 success "Anti-patterns library installed (rules/)"
 
+# Deploy agents
+if [ -d "$SCRIPT_DIR/configs/agents" ]; then
+  mkdir -p "$HOME/.claude/agents"
+  cp "$SCRIPT_DIR/configs/agents/"*.md "$HOME/.claude/agents/" 2>/dev/null || true
+  AGENT_COUNT=$(ls "$SCRIPT_DIR/configs/agents/"*.md 2>/dev/null | wc -l | tr -d ' ')
+  success "${AGENT_COUNT} agent(s) installed"
+fi
+
 # Deploy hooks
 if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   deploy_hook_scripts "$SCRIPT_DIR"

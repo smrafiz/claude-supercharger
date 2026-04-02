@@ -17,8 +17,12 @@ done
 CMD=$(echo "$CMD" | tr -s ' ')
 
 block() {
-  echo "BLOCKED by Supercharger safety hook: $1" >&2
-  echo "Command: $COMMAND" >&2
+  echo "" >&2
+  echo "Supercharger blocked this command." >&2
+  echo "  Reason : $1" >&2
+  echo "  Command: $COMMAND" >&2
+  echo "  Tell me to confirm if you want to proceed anyway." >&2
+  echo "" >&2
   exit 2
 }
 
@@ -127,7 +131,10 @@ fi
 
 # --- Production reads (warn only — exit 1, not exit 2) ---
 if echo "$CMD" | grep -qE '(kubectl[[:space:]]+exec|docker[[:space:]]+exec).*prod'; then
-  echo "WARNING: Production container access detected. Live credentials may leak into transcript." >&2
+  echo "" >&2
+  echo "Supercharger warning: Production container access detected." >&2
+  echo "  Live credentials may appear in your conversation transcript." >&2
+  echo "" >&2
   exit 0
 fi
 

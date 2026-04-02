@@ -91,6 +91,24 @@ print('yes' if '#supercharger' in sl else 'no')
 [ "$HAS_STATUSLINE" = "yes" ] && pass || fail "statusLine not found in settings.json"
 teardown_test_home
 
+# --- Test: agents deployed on install ---
+begin_test "install: agents deployed to ~/.claude/agents/"
+setup_test_home
+
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+assert_dir_exists "$HOME/.claude/agents" &&
+assert_file_exists "$HOME/.claude/agents/code-helper.md" &&
+assert_file_exists "$HOME/.claude/agents/debugger.md" &&
+assert_file_exists "$HOME/.claude/agents/writer.md" &&
+assert_file_exists "$HOME/.claude/agents/reviewer.md" &&
+assert_file_exists "$HOME/.claude/agents/researcher.md" &&
+assert_file_exists "$HOME/.claude/agents/planner.md" &&
+assert_file_exists "$HOME/.claude/agents/data-analyst.md" &&
+assert_file_exists "$HOME/.claude/agents/general.md" &&
+pass
+teardown_test_home
+
 # --- Test: help flag ---
 begin_test "install: --help prints usage and exits"
 OUTPUT=$(bash "$REPO_DIR/install.sh" --help 2>&1) || true

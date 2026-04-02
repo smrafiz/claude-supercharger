@@ -59,8 +59,40 @@ try:
 except Exception:
     pass
 
-# Line 1: Model, project, git branch
-line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}'
+# Stack detection
+stack = ''
+try:
+    if cwd:
+        import json as _json
+        stack_parts = []
+        pkg = os.path.join(cwd, 'package.json')
+        if os.path.isfile(pkg):
+            with open(pkg) as f:
+                pdata = _json.load(f)
+            deps = {}
+            deps.update(pdata.get('dependencies', {}))
+            deps.update(pdata.get('devDependencies', {}))
+            if 'typescript' in deps or os.path.isfile(os.path.join(cwd, 'tsconfig.json')):
+                stack_parts.append('TypeScript')
+            for fw, label in [('next','Next.js'),('react','React'),('vue','Vue'),('@angular/core','Angular'),('svelte','Svelte')]:
+                if fw in deps:
+                    stack_parts.append(label)
+                    break
+        elif os.path.isfile(os.path.join(cwd, 'requirements.txt')) or os.path.isfile(os.path.join(cwd, 'pyproject.toml')):
+            stack_parts.append('Python')
+        elif os.path.isfile(os.path.join(cwd, 'Cargo.toml')):
+            stack_parts.append('Rust')
+        elif os.path.isfile(os.path.join(cwd, 'go.mod')):
+            stack_parts.append('Go')
+        elif os.path.isfile(os.path.join(cwd, 'wp-config.php')) or os.path.isfile(os.path.join(cwd, 'functions.php')):
+            stack_parts.append('WordPress')
+        if stack_parts:
+            stack = f' {DIM}|{RESET} ' + ', '.join(stack_parts)
+except Exception:
+    pass
+
+# Line 1: Model, project, git branch, stack
+line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}'
 
 # Line 2: Context bar, cost, duration, cache hit rate
 cost_fmt = f'\${cost:.2f}'

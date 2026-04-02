@@ -17,8 +17,12 @@ done
 CMD=$(echo "$CMD" | tr -s ' ')
 
 block() {
-  echo "BLOCKED by Supercharger git safety: $1" >&2
-  echo "Command: $COMMAND" >&2
+  echo "" >&2
+  echo "Supercharger blocked this git operation." >&2
+  echo "  Reason : $1" >&2
+  echo "  Command: $COMMAND" >&2
+  echo "  Tell me to confirm if you really want to proceed." >&2
+  echo "" >&2
   exit 2
 }
 

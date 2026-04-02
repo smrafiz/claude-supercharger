@@ -474,11 +474,15 @@ OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
 echo "$OUTPUT" | grep -q "systemMessage" && echo "$OUTPUT" | grep -q "developer" && pass || fail "no systemMessage with roles"
 rm -rf "$PROJ_DIR"
 
-begin_test "project-config: exits cleanly with no .supercharger.json"
+begin_test "project-config: no output on returning user with empty project"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger"
+touch "$HOME/.claude/supercharger/.welcomed"
 PROJ_DIR=$(mktemp -d)
 OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
-[ -z "$OUTPUT" ] && pass || fail "should produce no output without config"
+[ -z "$OUTPUT" ] && pass || fail "should produce no output for returning user with no stack and no config"
 rm -rf "$PROJ_DIR"
+teardown_test_home
 
 begin_test "project-config: includes hints in systemMessage"
 PROJ_DIR=$(mktemp -d)
@@ -521,6 +525,97 @@ echo ""
 echo "=== Team Preset Tests ==="
 
 EXPORT_TOOL="$REPO_DIR/tools/export-preset.sh"
+
+# --- Human-Readable Hook Message Tests ---
+
+echo ""
+echo "=== Human-Readable Hook Message Tests ==="
+
+begin_test "safety: blocked message contains 'Reason' label"
+MSG=$(echo '{"input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
+echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in block message"
+
+begin_test "safety: blocked message tells user how to proceed"
+MSG=$(echo '{"input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
+echo "$MSG" | grep -qi "confirm" && pass || fail "no confirm instruction in block message"
+
+begin_test "git-safety: blocked message contains 'Reason' label"
+MSG=$(echo '{"input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
+echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in git block message"
+
+begin_test "git-safety: blocked message tells user how to proceed"
+MSG=$(echo '{"input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
+echo "$MSG" | grep -qi "confirm" && pass || fail "no confirm instruction in git block message"
+
+# --- First-Run Welcome Tests ---
+
+echo ""
+echo "=== First-Run Welcome Tests ==="
+
+begin_test "project-config: shows welcome message on first run"
+setup_test_home
+PROJ_DIR=$(mktemp -d)
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -qi "Supercharger" && echo "$OUTPUT" | grep -qi "active\|guardrail\|verify" && pass || fail "no welcome message on first run"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "project-config: welcome flag is created after first run"
+setup_test_home
+PROJ_DIR=$(mktemp -d)
+echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" >/dev/null 2>/dev/null || true
+[ -f "$HOME/.claude/supercharger/.welcomed" ] && pass || fail "welcome flag not created"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "project-config: welcome NOT shown on second run (no stack)"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger"
+touch "$HOME/.claude/supercharger/.welcomed"
+PROJ_DIR=$(mktemp -d)
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+[ -z "$OUTPUT" ] && pass || fail "welcome shown again on second run"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+# --- Stack Detection via Project-Config Tests ---
+
+echo ""
+echo "=== Stack Detection via Project-Config Tests ==="
+
+begin_test "project-config: detects Node/React stack without .supercharger.json"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger"
+touch "$HOME/.claude/supercharger/.welcomed"
+PROJ_DIR=$(mktemp -d)
+echo '{"dependencies":{"react":"18.0.0"},"devDependencies":{"typescript":"5.0.0"}}' > "$PROJ_DIR/package.json"
+touch "$PROJ_DIR/tsconfig.json"
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -qi "TypeScript\|React" && echo "$OUTPUT" | grep -qi "systemMessage" && pass || fail "stack not detected in systemMessage"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "project-config: detects Python stack without .supercharger.json"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger"
+touch "$HOME/.claude/supercharger/.welcomed"
+PROJ_DIR=$(mktemp -d)
+echo "django==5.0" > "$PROJ_DIR/requirements.txt"
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -qi "Python\|Django" && pass || fail "Python stack not detected"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "project-config: detects WordPress stack without .supercharger.json"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger"
+touch "$HOME/.claude/supercharger/.welcomed"
+PROJ_DIR=$(mktemp -d)
+touch "$PROJ_DIR/wp-config.php"
+OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -qi "WordPress" && pass || fail "WordPress stack not detected"
+rm -rf "$PROJ_DIR"
+teardown_test_home
 
 begin_test "preset: export creates .supercharger file"
 setup_test_home
