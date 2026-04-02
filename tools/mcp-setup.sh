@@ -84,9 +84,8 @@ echo ""
 
 SELECTED=()
 for i in "${!SERVER_NAMES[@]}"; do
-  read -rp "  ${SERVER_LABELS[$i]}? [y/N]: " -n 1
-  echo
-  if [[ $REPLY =~ ^[Yy]$ ]]; then
+  read -rp "  ${SERVER_LABELS[$i]}? [y/N]: " answer
+  if [[ "$answer" =~ ^[Yy]$ ]]; then
     SELECTED+=("$i")
   fi
 done
