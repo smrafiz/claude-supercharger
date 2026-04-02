@@ -48,14 +48,13 @@ echo -e "${CYAN}═════════════════════�
 echo ""
 
 # Parallel indexed arrays (Bash 3 compatible — no declare -A)
-SERVER_NAMES=("github" "brave-search" "slack" "neon" "notion" "prisma" "sentry" "figma")
+SERVER_NAMES=("github" "brave-search" "slack" "neon" "notion" "sentry" "figma")
 SERVER_LABELS=(
   "GitHub (Personal Access Token)"
   "Brave Search (API Key — free: 2K/mo)"
   "Slack (Bot Token)"
   "Neon (Connection String)"
   "Notion (API Key)"
-  "Prisma (project CLI — no key)"
   "Sentry (Auth Token)"
   "Figma (Access Token)"
 )
@@ -65,9 +64,8 @@ SERVER_CMDS=(
   "-y @modelcontextprotocol/server-slack"
   "-y @neondatabase/mcp-server-neon"
   "-y @notionhq/notion-mcp-server"
-  "prisma mcp"
   "-y @sentry/mcp-server"
-  "-y @anthropic/figma-mcp-server"
+  "-y figma-developer-mcp"
 )
 SERVER_ENV_KEYS=(
   "GITHUB_PERSONAL_ACCESS_TOKEN"
@@ -75,7 +73,6 @@ SERVER_ENV_KEYS=(
   "SLACK_BOT_TOKEN"
   "DATABASE_URL"
   "NOTION_API_KEY"
-  ""
   "SENTRY_AUTH_TOKEN"
   "FIGMA_ACCESS_TOKEN"
 )
@@ -149,13 +146,6 @@ for idx in "${SELECTED[@]}"; do
   env_key="${SERVER_ENV_KEYS[$idx]}"
   label="${SERVER_LABELS[$idx]}"
 
-  if [ "$server" = "prisma" ]; then
-    echo -e "${BLUE}Configuring Prisma (no key needed)...${NC}"
-    add_server "$server" "$args"
-    echo -e "  ${GREEN}✓${NC} $server configured"
-    continue
-  fi
-
   if [ -n "$env_key" ]; then
     secret=""
     read -rsp "  Enter ${label%% (*} key (or Enter to skip): " secret
@@ -172,6 +162,10 @@ print(json.dumps({os.environ['MCP_ENV_KEY']: os.environ['MCP_USER_SECRET']}))
     fi
   fi
 done
+
+# Restrict permissions on settings files containing API keys
+chmod 600 "$SETTINGS_FILE" 2>/dev/null || true
+chmod 600 "$SETTINGS_FILE_LEGACY" 2>/dev/null || true
 
 echo ""
 echo -e "${GREEN}Done!${NC} Restart Claude Code to activate new servers."
