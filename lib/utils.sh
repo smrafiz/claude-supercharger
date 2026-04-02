@@ -18,10 +18,26 @@ error()   { echo -e "${RED}  ✗ $1${NC}"; }
 
 detect_platform() {
   case "$OSTYPE" in
-    darwin*)  PLATFORM="macos" ;;
-    linux*)   PLATFORM="linux" ;;
-    *)        PLATFORM="unknown" ;;
+    darwin*)        PLATFORM="macos" ;;
+    linux*)         PLATFORM="linux" ;;
+    msys*|cygwin*)  PLATFORM="windows" ;;
+    *)              PLATFORM="unknown" ;;
   esac
+
+  # Windows Git Bash: 'python3' is a Windows Store alias stub, not real Python.
+  # Create a shim so all subsequent python3 calls resolve to 'python'.
+  if [[ "$PLATFORM" == "windows" ]] && ! python3 --version &>/dev/null 2>&1; then
+    if python --version &>/dev/null 2>&1; then
+      local shim_dir
+      shim_dir=$(mktemp -d)
+      printf '#!/usr/bin/env bash\nexec python "$@"\n' > "$shim_dir/python3"
+      chmod +x "$shim_dir/python3"
+      export PATH="$shim_dir:$PATH"
+    else
+      echo "Error: Python 3 is required. Install from https://python.org and re-run."
+      exit 1
+    fi
+  fi
 }
 
 show_banner() {

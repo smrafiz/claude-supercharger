@@ -355,7 +355,7 @@ Removes everything. Offers backup restore. Your own config stays untouched.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) (Anthropic's CLI)
 - Bash 3.2+ (macOS or Linux)
 - Python 3 (ships with Claude Code)
-- **Windows:** [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash
+- **Windows (Git Bash):** Python must be installed and on PATH as `python` — the installer auto-creates a `python3` shim. If you see *"Python was not found"*, install Python from [python.org](https://python.org) and ensure it's on PATH.
 
 ---
 
