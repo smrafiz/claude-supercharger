@@ -5,6 +5,8 @@ It's also capable of deleting your files without asking, writing four paragraphs
 
 **One install fixes all three.**
 
+Most AI behavior guides are suggestions. Claude can be talked out of them. Supercharger's guardrails run at the shell level — outside Claude's conversation context, before commands execute. Not a prompt it can be argued out of.
+
 ![Version](https://img.shields.io/badge/version-1.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
 
 ---
@@ -48,6 +50,9 @@ Supercharger reads your project files and tells Claude what it's working with �
 
 **Every task — Claude uses the right agent:**
 Writing something? The writer agent activates. Debugging? The debugger. Research? The researcher. You don't pick. Claude does.
+
+**Four commands, always available:**
+`/think` to reason through something hard. `/challenge` before committing to a decision. `/refactor` to analyze code quality. `/audit` to find inconsistencies. Type them in any project, any session.
 
 ---
 
@@ -287,10 +292,10 @@ Auto-detects your stack and scaffolds `.claude/agents/` with the right specialis
 
 | Stack | Agents scaffolded |
 |-------|-------------------|
-| Node / TypeScript / React | orchestrator, frontend-engineer, backend-engineer, debugger, code-reviewer, qa-engineer |
-| Python | orchestrator, backend-engineer, debugger, code-reviewer, qa-engineer |
-| Rust / Go | orchestrator, systems-engineer, debugger, code-reviewer, qa-engineer |
-| WordPress / PHP | orchestrator, frontend-engineer, backend-engineer, debugger, code-reviewer |
+| Node / TypeScript / React | orchestrator, architect, frontend-engineer, backend-engineer, debugger, code-reviewer, qa-engineer |
+| Python | orchestrator, architect, backend-engineer, debugger, code-reviewer, qa-engineer |
+| Rust / Go | orchestrator, architect, systems-engineer, debugger, code-reviewer, qa-engineer |
+| WordPress / PHP | orchestrator, architect, frontend-engineer, backend-engineer, debugger, code-reviewer |
 
 Every agent has project-specific scope (no cross-contamination), numbered rules (Rule 0 = safety), escalation blocks, and done checklists. Drop `.claude/agents/` in your repo to share with your team.
 
@@ -330,6 +335,22 @@ bash tools/resume.sh --list # browse past summaries
 | **Safe** | Configs + safety hooks. Nothing that auto-runs. |
 | **Standard** | + git-safety, quality gate, pkg enforcement, audit trail, notifications. *Recommended.* |
 | **Full** | + prompt validation, compaction backup, session-complete. Everything. |
+
+---
+
+## The vision
+
+What if AI coding assistants actually did what you asked? Not what they interpreted. Not what seemed impressive. What you actually requested.
+
+- **Respects scope** — fixes the typo, not the entire component
+- **Verifies before claiming done** — runs tests, confirms builds pass
+- **Asks when uncertain** — doesn't guess at intent
+- **Protects your work** — won't delete, reset, or force-push without asking
+- **Adapts to you** — different behavior for beginners vs. experienced users
+
+This isn't about limiting Claude. It's about making Claude reliable.
+
+Supercharger is open source, MIT licensed, and zero-dependency — shell scripts and config files only. No npm packages, no pip installs.
 
 ---
 
