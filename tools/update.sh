@@ -17,29 +17,22 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
-# Fetch latest version tag from GitHub API (no auth required)
+# Fetch latest version from GitHub contents API (no auth, no CDN cache)
 fetch_remote_version() {
   python3 -c "
-import urllib.request, json
+import urllib.request, json, base64
 try:
-    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/releases/latest'
+    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/contents/lib/utils.sh'
     req = urllib.request.Request(url, headers={'User-Agent': 'claude-supercharger'})
     with urllib.request.urlopen(req, timeout=5) as r:
         data = json.load(r)
-    tag = data.get('tag_name', '').lstrip('v')
-    print(tag)
+    content = base64.b64decode(data['content']).decode()
+    for line in content.splitlines():
+        if line.startswith('VERSION='):
+            print(line.split('=')[1].strip('\"'))
+            break
 except Exception:
-    # fallback: check raw version file
-    try:
-        url2 = 'https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh'
-        req2 = urllib.request.Request(url2, headers={'User-Agent': 'claude-supercharger'})
-        with urllib.request.urlopen(req2, timeout=5) as r:
-            for line in r.read().decode().splitlines():
-                if line.startswith('VERSION='):
-                    print(line.split('=')[1].strip('\"'))
-                    break
-    except Exception:
-        print('')
+    print('')
 " 2>/dev/null
 }
 
