@@ -18,7 +18,10 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
     hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
+    hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh")
+    hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
+    hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
@@ -29,6 +32,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("Stop||${hooks_dir}/session-complete.sh")
+    hooks+=("Stop||${hooks_dir}/scope-guard.sh clear")
   fi
 
   printf '%s\n' "${hooks[@]}"
