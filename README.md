@@ -1,14 +1,14 @@
 # Claude Supercharger
 
-I built this because Claude deleted my uncommitted work. Twice.
+I built this because Claude kept doing things I didn't ask for.
 
-The first time, I told it to "clean up the project." It ran `git checkout .` and wiped hours of changes. The second time, it force-pushed to main during a rebase. Both times, Claude thought it was being helpful.
+A developer says "fix the typo" — Claude rewrites the whole component. A writer asks for a short paragraph — Claude delivers five. A PM asks for a quick estimate — Claude writes a project plan nobody requested. And sometimes it goes further: deleting files, overwriting work, running commands that can't be undone.
 
-Prompts didn't fix it. I'd write "never force push" in CLAUDE.md, and Claude would find a reason to do it anyway. Suggestions can be argued with. Shell hooks can't.
+The problem isn't that Claude is bad. It's that Claude is eager. And there's no way to say "stay in your lane" that it can't find a reason to ignore.
 
-**Supercharger moves the safety net from prompts Claude can rationalize around to shell hooks that run before the command executes.** Claude sees a plain-English reason when something's blocked — not a cryptic error, not a debate.
+**Supercharger fixes this.** Safety guardrails run at the shell level — outside Claude's conversation, before commands execute. Not a prompt Claude can argue with. An actual wall.
 
-But safety was just the start. Once I had hooks working, I kept going: agents that actually stay in scope, token economy that cuts costs in half, slash commands that think harder than I do, roles that adapt to who's asking, and MCP servers that just work out of the box.
+But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that cuts your costs in half, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
 
 ![Version](https://img.shields.io/badge/version-1.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
 
@@ -349,13 +349,13 @@ Use <a href="https://learn.microsoft.com/en-us/windows/wsl/install">WSL</a> or G
 
 I wanted Claude to do what I asked. Not what it interpreted. Not what seemed impressive. What I actually requested.
 
-After the second time it wiped my uncommitted work, I stopped trying to fix Claude's behavior with better prompts. Prompts are suggestions. Claude is good at finding reasons to ignore suggestions.
+Every person who uses Claude Code has a version of the same story. The developer whose files got deleted. The writer who got four paragraphs when they asked for one. The PM who asked a simple question and got an essay. Claude is helpful — sometimes too helpful, in ways you didn't want.
 
-So I moved the enforcement to where Claude can't reach it — shell hooks that execute before the command runs. And then I built everything else I wished Claude did out of the box: staying in scope, verifying before claiming done, adapting to different kinds of work, and not costing twice what it should because it won't stop explaining things I already know.
+I stopped trying to fix this with better prompts. Prompts are suggestions. Claude is good at finding reasons to ignore suggestions. So I moved the enforcement to where Claude can't reach it — shell hooks that run before the command executes. And then I built everything else I wished Claude did out of the box.
 
 Supercharger is open source, MIT licensed, and zero-dependency — shell scripts and config files only. No npm packages, no pip installs. It backs up your existing config and `./uninstall.sh` reverses everything.
 
-If Claude has ever deleted your work, ignored your instructions, or given you four paragraphs when you wanted one line — this is what I built to fix that.
+If Claude has ever ignored your instructions, gone way beyond what you asked, or given you a wall of text when you wanted a sentence — this is what I built to fix that.
 
 ---
 
