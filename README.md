@@ -10,7 +10,7 @@ The problem isn't that Claude is bad. It's that Claude is eager. And there's no 
 
 But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that cuts your costs in half, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
 
-![Version](https://img.shields.io/badge/version-1.7.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.7.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -333,7 +333,9 @@ Yes. Supercharger tags its own entries with <code>#supercharger</code>. Your ser
 
 <details>
 <summary>How do I upgrade?</summary>
-<code>git pull && ./install.sh</code>
+If installed via git clone: <code>bash tools/update.sh</code><br>
+If installed via one-liner: <code>bash ~/.claude/supercharger/tools/update.sh</code><br>
+Just check if an update is available: <code>bash ~/.claude/supercharger/tools/update.sh --check</code>
 </details>
 
 <details>
