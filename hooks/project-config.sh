@@ -19,9 +19,16 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 WELCOME_FLAG="$SUPERCHARGER_DIR/.welcomed"
 mkdir -p "$SUPERCHARGER_DIR"
 
-# --- Update Check (background, once per day) ---
+# --- Update Check ---
+# Read any notice written by a previous session's background check.
+NOTICE_FILE="$SUPERCHARGER_DIR/.update-notice"
 UPDATE_NOTICE=""
+if [[ -f "$NOTICE_FILE" ]]; then
+  UPDATE_NOTICE=$(cat "$NOTICE_FILE" 2>/dev/null || true)
+  rm -f "$NOTICE_FILE"
+fi
 
+# Launch background check for next session (non-blocking).
 if [[ ! -f "$SUPERCHARGER_DIR/.no-update-check" ]]; then
   CACHE_FILE="$SUPERCHARGER_DIR/.update-check"
   NOW=$(date +%s)
@@ -29,24 +36,26 @@ if [[ ! -f "$SUPERCHARGER_DIR/.no-update-check" ]]; then
   [[ -f "$CACHE_FILE" ]] && LAST_CHECK=$(cat "$CACHE_FILE" 2>/dev/null || echo 0)
 
   if (( NOW - LAST_CHECK > 86400 )); then
-    REMOTE_UTILS=""
-    if command -v curl &>/dev/null; then
-      REMOTE_UTILS=$(curl --max-time 3 --silent "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
-    elif command -v wget &>/dev/null; then
-      REMOTE_UTILS=$(wget --timeout=3 --quiet -O- "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
-    fi
-
-    if [[ -n "$REMOTE_UTILS" ]]; then
-      REMOTE_VERSION=$(echo "$REMOTE_UTILS" | sed -n 's/^VERSION="\(.*\)"/\1/p' || true)
-      HOOK_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-      LOCAL_VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$HOOK_SCRIPT_DIR/../lib/utils.sh" 2>/dev/null || true)
-
-      if [[ -n "$REMOTE_VERSION" && -n "$LOCAL_VERSION" && "$REMOTE_VERSION" != "$LOCAL_VERSION" ]]; then
-        UPDATE_NOTICE="Supercharger v${REMOTE_VERSION} available (you have v${LOCAL_VERSION}). Run: bash tools/update.sh"
+    HOOK_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    (
+      REMOTE_UTILS=""
+      if command -v curl &>/dev/null; then
+        REMOTE_UTILS=$(curl --max-time 5 --silent "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
+      elif command -v wget &>/dev/null; then
+        REMOTE_UTILS=$(wget --timeout=5 --quiet -O- "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
       fi
-    fi
 
-    echo "$NOW" > "$CACHE_FILE"
+      if [[ -n "$REMOTE_UTILS" ]]; then
+        REMOTE_VERSION=$(echo "$REMOTE_UTILS" | sed -n 's/^VERSION="\(.*\)"/\1/p' || true)
+        LOCAL_VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$HOOK_SCRIPT_DIR/../lib/utils.sh" 2>/dev/null || true)
+
+        if [[ -n "$REMOTE_VERSION" && -n "$LOCAL_VERSION" && "$REMOTE_VERSION" != "$LOCAL_VERSION" ]]; then
+          echo "Supercharger v${REMOTE_VERSION} available (you have v${LOCAL_VERSION}). Run: bash tools/update.sh" > "$NOTICE_FILE"
+        fi
+
+        echo "$NOW" > "$CACHE_FILE"
+      fi
+    ) &
   fi
 fi
 

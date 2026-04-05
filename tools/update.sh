@@ -18,6 +18,8 @@ fi
 source "$REPO_DIR/lib/utils.sh"
 source "$REPO_DIR/lib/backup.sh"
 
+detect_platform
+
 DRY_RUN=false
 if [[ "${1:-}" == "--dry-run" ]]; then
   DRY_RUN=true
@@ -115,13 +117,22 @@ info "Pulling latest changes..."
 cd "$REPO_DIR"
 
 if ! git pull --rebase 2>&1; then
-  error "git pull --rebase failed. Resolve conflicts and retry."
+  git rebase --abort 2>/dev/null || true
+  error "git pull failed. Rebase aborted. Your config is unchanged."
+  error "Check your network or resolve conflicts manually."
   exit 1
 fi
 
 # Re-source utils.sh to get NEW_VERSION after pull
 source "$REPO_DIR/lib/utils.sh"
 NEW_VERSION="$VERSION"
+
+# Already up to date?
+if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
+  echo ""
+  info "Already up to date (v${OLD_VERSION}). Nothing to do."
+  exit 0
+fi
 
 # --- Changelog ---
 echo ""
@@ -132,6 +143,13 @@ else
   git log --oneline -10 2>/dev/null || true
 fi
 echo ""
+
+# --- Validate detected values ---
+if [[ -z "$DETECTED_MODE" || -z "$ROLES_CSV" || -z "$DETECTED_ECONOMY" ]]; then
+  error "Could not detect all required settings (mode=$DETECTED_MODE, roles=$ROLES_CSV, economy=$DETECTED_ECONOMY)."
+  error "Run install.sh manually to reconfigure."
+  exit 1
+fi
 
 # --- Reinstall with detected settings ---
 info "Reinstalling with preserved settings..."
