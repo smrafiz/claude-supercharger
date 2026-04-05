@@ -106,6 +106,23 @@ if [[ "${1:-}" == "--check" ]]; then
   else
     echo -e "${YELLOW}update available: v${LOCAL} → v${REMOTE}${NC}"
     echo ""
+    # Show changelog via GitHub commits API
+    python3 -c "
+import urllib.request, json
+try:
+    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/commits?per_page=8'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-supercharger'})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        commits = json.load(r)
+    print('  What changed:')
+    for c in commits:
+        msg = c['commit']['message'].splitlines()[0]
+        sha = c['sha'][:7]
+        print(f'    {sha}  {msg}')
+except Exception:
+    pass
+" 2>/dev/null
+    echo ""
     echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh${NC}"
   fi
   exit 0

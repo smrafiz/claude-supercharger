@@ -19,6 +19,7 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
     hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh")
+    hooks+=("SessionStart||${hooks_dir}/update-check.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
