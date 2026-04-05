@@ -1,0 +1,19 @@
+{
+  "agent": "data-analyst",
+  "scenarios": [
+    {
+      "name": "csv-summary",
+      "prompt": "Analyze data/sales.csv. Show the number of rows, columns, and summarize the revenue column.",
+      "must_contain": ["```", "rows", "columns"],
+      "must_not_contain": ["I cannot", "I'm unable", "as an AI"],
+      "description": "Data-analyst must show query/code and interpret the results"
+    },
+    {
+      "name": "csv-top-products",
+      "prompt": "Which product in data/sales.csv has the highest total revenue? Show your work.",
+      "must_contain": ["```"],
+      "must_not_contain": ["I cannot", "I'm unable"],
+      "description": "Data-analyst must produce code and a result, not just describe"
+    }
+  ]
+}

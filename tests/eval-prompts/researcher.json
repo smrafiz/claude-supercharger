@@ -1,0 +1,19 @@
+{
+  "agent": "researcher",
+  "scenarios": [
+    {
+      "name": "jwt-vs-sessions",
+      "prompt": "What are the trade-offs between JWT and session-based authentication for a Node.js API?",
+      "must_contain": ["JWT", "session"],
+      "must_not_contain": ["I don't know", "I cannot answer", "as an AI"],
+      "description": "Researcher must answer directly with trade-offs for both options"
+    },
+    {
+      "name": "node-concurrency",
+      "prompt": "How does Node.js handle concurrency compared to traditional multi-threaded servers?",
+      "must_contain": ["event loop", "Node"],
+      "must_not_contain": ["I don't know", "as an AI"],
+      "description": "Researcher must explain event loop model with trade-offs"
+    }
+  ]
+}

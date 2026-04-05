@@ -1,0 +1,19 @@
+{
+  "agent": "reviewer",
+  "scenarios": [
+    {
+      "name": "security-review",
+      "prompt": "Review src/api.js for security and correctness issues.",
+      "must_contain": ["MUST FIX", "SHOULD FIX", "CONSIDER", "STRENGTHS"],
+      "must_not_contain": ["I'll change", "I edited", "I modified", "I fixed"],
+      "description": "Reviewer must produce structured severity-tagged report without modifying code"
+    },
+    {
+      "name": "performance-review",
+      "prompt": "Review src/utils.js for performance issues.",
+      "must_contain": ["MUST FIX", "SHOULD FIX", "CONSIDER"],
+      "must_not_contain": ["I edited", "I modified", "I fixed"],
+      "description": "Reviewer must identify N+1 pattern and report it with file:line evidence"
+    }
+  ]
+}

@@ -1,0 +1,19 @@
+{
+  "agent": "general",
+  "scenarios": [
+    {
+      "name": "project-overview",
+      "prompt": "What does this project do?",
+      "must_contain": ["Node", "Express", "API"],
+      "must_not_contain": ["as an AI", "I'm just an AI", "I don't have access"],
+      "description": "General agent must give a direct answer about the project"
+    },
+    {
+      "name": "simple-question",
+      "prompt": "What is the difference between a bug and a feature request?",
+      "must_contain": ["bug", "feature"],
+      "must_not_contain": ["as an AI", "I'm just an AI"],
+      "description": "General agent must answer directly without jargon or AI disclaimers"
+    }
+  ]
+}

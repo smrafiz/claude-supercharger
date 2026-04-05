@@ -1,0 +1,19 @@
+{
+  "agent": "writer",
+  "scenarios": [
+    {
+      "name": "readme-section",
+      "prompt": "Write a 'Getting Started' section for the README.md of this Node.js project.",
+      "must_contain": ["#", "install", "npm"],
+      "must_not_contain": ["Certainly!", "I hope this helps", "In conclusion", "as an AI"],
+      "description": "Writer must produce a markdown section with no filler phrases"
+    },
+    {
+      "name": "contributing-guide",
+      "prompt": "Write a short CONTRIBUTING.md for this project covering how to submit a bug report.",
+      "must_contain": ["#"],
+      "must_not_contain": ["Certainly!", "I hope this helps", "as an AI"],
+      "description": "Writer must produce structured markdown without filler"
+    }
+  ]
+}

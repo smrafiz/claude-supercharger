@@ -37,6 +37,13 @@ echo "================================"
 echo "Total: $TOTAL_PASSED passed, $TOTAL_FAILED failed"
 echo ""
 
+# --- Agent Eval (opt-in: costs real API tokens) ---
+if [[ "${RUN_EVAL:-false}" == "true" ]]; then
+  echo ""
+  echo "Running agent evals (RUN_EVAL=true — makes real API calls)..."
+  bash "$(dirname "$0")/eval-agents.sh"
+fi
+
 if [ "$TOTAL_FAILED" -gt 0 ]; then
   exit 1
 fi

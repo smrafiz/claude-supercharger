@@ -1,0 +1,19 @@
+{
+  "agent": "code-helper",
+  "scenarios": [
+    {
+      "name": "write-function",
+      "prompt": "Write a function called `getMaxValue` in src/utils.js that returns the maximum value from an array of numbers.",
+      "must_contain": ["```"],
+      "must_not_contain": ["I cannot", "I'm unable"],
+      "description": "Code-helper must produce a code block with the requested function"
+    },
+    {
+      "name": "fix-bug",
+      "prompt": "Fix the ReferenceError in src/index.js where config is not defined.",
+      "must_contain": ["```"],
+      "must_not_contain": ["I cannot", "I'm unable"],
+      "description": "Code-helper must write the fix as code"
+    }
+  ]
+}

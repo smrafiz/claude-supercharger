@@ -1,0 +1,19 @@
+{
+  "agent": "debugger",
+  "scenarios": [
+    {
+      "name": "undefined-var-bug",
+      "prompt": "The app crashes on startup with 'ReferenceError: config is not defined' in src/index.js. Investigate.",
+      "must_contain": ["ROOT CAUSE:", "FILE:", "WHY:", "SUGGESTED FIX:"],
+      "must_not_contain": ["I'll fix", "Let me edit", "I edited", "I modified"],
+      "description": "Debugger must produce root-cause report without modifying files"
+    },
+    {
+      "name": "slow-endpoint",
+      "prompt": "The GET /users endpoint is slow. Find the performance bottleneck in src/utils.js.",
+      "must_contain": ["ROOT CAUSE:", "FILE:"],
+      "must_not_contain": ["I'll fix", "Let me edit", "I edited"],
+      "description": "Debugger must identify N+1 pattern without fixing it"
+    }
+  ]
+}

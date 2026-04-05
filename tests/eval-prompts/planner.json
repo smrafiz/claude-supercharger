@@ -1,0 +1,19 @@
+{
+  "agent": "planner",
+  "scenarios": [
+    {
+      "name": "error-handling-plan",
+      "prompt": "How should I add error handling to the API endpoints in src/api.js?",
+      "must_contain": ["GOAL:", "STEPS:", "RISKIEST STEP:"],
+      "must_not_contain": ["I edited", "I modified", "I created"],
+      "description": "Planner must produce numbered steps with risk flag, no implementation"
+    },
+    {
+      "name": "database-plan",
+      "prompt": "What is the plan for adding a PostgreSQL connection to this Node project?",
+      "must_contain": ["GOAL:", "STEPS:"],
+      "must_not_contain": ["I edited", "I modified"],
+      "description": "Planner must produce an ordered step plan"
+    }
+  ]
+}

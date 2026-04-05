@@ -1,0 +1,19 @@
+{
+  "agent": "architect",
+  "scenarios": [
+    {
+      "name": "auth-design",
+      "prompt": "Design JWT authentication for this Express app in src/api.js. Produce a design plan only.",
+      "must_contain": ["GOAL:", "APPROACH:", "DESIGN DECISIONS:", "ACCEPTANCE CRITERIA:"],
+      "must_not_contain": ["I edited", "I modified", "I created the file"],
+      "description": "Architect must produce structured design plan without writing implementation code"
+    },
+    {
+      "name": "logging-design",
+      "prompt": "Design request logging middleware for this Express project. Produce a design plan only.",
+      "must_contain": ["GOAL:", "APPROACH:", "FILE CHANGES:"],
+      "must_not_contain": ["I edited", "I modified"],
+      "description": "Architect must produce design with file change plan, no implementation"
+    }
+  ]
+}
