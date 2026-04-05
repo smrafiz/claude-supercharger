@@ -318,6 +318,15 @@ Yes. Install it, choose "general" as your role, and Claude just behaves better â
 </details>
 
 <details>
+<summary>How do I disable desktop notifications?</summary>
+To disable the desktop popup (macOS/Linux) while keeping webhook notifications:
+<pre>bash ~/.claude/supercharger/tools/notify-toggle.sh off</pre>
+Re-enable with <code>on</code>, check status with <code>status</code>. Or if you have the repo locally: <code>bash tools/notify-toggle.sh off</code>.<br>
+To disable notifications entirely (including webhooks):
+<pre>bash ~/.claude/supercharger/tools/hook-toggle.sh notify off</pre>
+</details>
+
+<details>
 <summary>Does this work with my existing MCP servers?</summary>
 Yes. Supercharger tags its own entries with <code>#supercharger</code>. Your servers are never touched.
 </details>

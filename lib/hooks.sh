@@ -42,6 +42,12 @@ deploy_hook_scripts() {
   cp "$source_dir/hooks/"*.sh "$target_dir/"
   cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
   chmod 700 "$target_dir/"*.sh
+
+  # Deploy tools so they're available after one-liner installs (no local repo)
+  local tools_dir="$HOME/.claude/supercharger/tools"
+  mkdir -p "$tools_dir"
+  cp "$source_dir/tools/"*.sh "$tools_dir/"
+  chmod 700 "$tools_dir/"*.sh
 }
 
 merge_hooks_into_settings() {

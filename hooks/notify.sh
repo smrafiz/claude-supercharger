@@ -8,13 +8,17 @@ set -eo pipefail
 
 MESSAGE="Claude Code needs your attention"
 
-# Desktop notification (always)
-if [[ "$OSTYPE" == "darwin"* ]]; then
-  osascript -e "display notification \"$MESSAGE\" with title \"Claude Supercharger\"" 2>/dev/null || true
-elif command -v notify-send &>/dev/null; then
-  notify-send "Claude Supercharger" "$MESSAGE" 2>/dev/null || true
-else
-  printf '\a'
+NO_NOTIFY_FLAG="$HOME/.claude/supercharger/.no-desktop-notify"
+
+# Desktop notification (skip if flag file exists or env var set)
+if [[ ! -f "$NO_NOTIFY_FLAG" && "${SUPERCHARGER_NO_DESKTOP_NOTIFY:-0}" != "1" ]]; then
+  if [[ "$OSTYPE" == "darwin"* ]]; then
+    osascript -e "display notification \"$MESSAGE\" with title \"Claude Supercharger\"" 2>/dev/null || true
+  elif command -v notify-send &>/dev/null; then
+    notify-send "Claude Supercharger" "$MESSAGE" 2>/dev/null || true
+  else
+    printf '\a'
+  fi
 fi
 
 # Webhook notification (if configured) — uses shared webhook lib

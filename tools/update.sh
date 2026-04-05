@@ -1,18 +1,103 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Smart Updater
 # Detects current settings, backs up, pulls, and reinstalls while preserving config.
-# Usage: bash tools/update.sh [--dry-run]
+# Usage: bash tools/update.sh [--dry-run|--check]
 
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
+INSTALLED_VERSION_FILE="$HOME/.claude/supercharger/.version"
+REPO_URL="https://github.com/smrafiz/claude-supercharger"
+INSTALL_CMD="bash -c 'TMP=\$(mktemp -d) && git clone ${REPO_URL}.git \"\$TMP/cs\" && \"\$TMP/cs/install.sh\" && rm -rf \"\$TMP\"'"
 
-# Verify this is a git repo
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+# Fetch latest version tag from GitHub API (no auth required)
+fetch_remote_version() {
+  python3 -c "
+import urllib.request, json
+try:
+    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/releases/latest'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-supercharger'})
+    with urllib.request.urlopen(req, timeout=5) as r:
+        data = json.load(r)
+    tag = data.get('tag_name', '').lstrip('v')
+    print(tag)
+except Exception:
+    # fallback: check raw version file
+    try:
+        url2 = 'https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh'
+        req2 = urllib.request.Request(url2, headers={'User-Agent': 'claude-supercharger'})
+        with urllib.request.urlopen(req2, timeout=5) as r:
+            for line in r.read().decode().splitlines():
+                if line.startswith('VERSION='):
+                    print(line.split('=')[1].strip('\"'))
+                    break
+    except Exception:
+        print('')
+" 2>/dev/null
+}
+
+# Read local installed version
+local_version() {
+  if [ -f "$INSTALLED_VERSION_FILE" ]; then
+    cat "$INSTALLED_VERSION_FILE"
+  elif [ -f "$REPO_DIR/lib/utils.sh" ]; then
+    grep '^VERSION=' "$REPO_DIR/lib/utils.sh" | head -1 | cut -d'"' -f2
+  else
+    echo "unknown"
+  fi
+}
+
+# --check: just compare versions, no install
+if [[ "${1:-}" == "--check" ]]; then
+  LOCAL=$(local_version)
+  echo -n "  Checking for updates... "
+  REMOTE=$(fetch_remote_version)
+  if [ -z "$REMOTE" ]; then
+    echo -e "${YELLOW}could not reach GitHub${NC}"
+    exit 0
+  fi
+  if [ "$LOCAL" = "$REMOTE" ]; then
+    echo -e "${GREEN}up to date (v${LOCAL})${NC}"
+  else
+    echo -e "${YELLOW}update available: v${LOCAL} → v${REMOTE}${NC}"
+    echo ""
+    echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh${NC}"
+  fi
+  exit 0
+fi
+
+# No git repo — re-run one-liner install
 if [ ! -d "$REPO_DIR/.git" ]; then
-  echo "  ✗ Not a git repository: $REPO_DIR" >&2
-  echo "  ✗ Update requires a git clone. See README for installation." >&2
-  exit 1
+  LOCAL=$(local_version)
+  echo ""
+  echo -e "${YELLOW}  Installed via one-liner (no local git repo).${NC}"
+  echo -n "  Checking for updates... "
+  REMOTE=$(fetch_remote_version)
+  if [ -z "$REMOTE" ]; then
+    echo -e "${YELLOW}could not reach GitHub${NC}"
+    exit 1
+  fi
+  if [ "$LOCAL" = "$REMOTE" ]; then
+    echo -e "${GREEN}already up to date (v${LOCAL})${NC}"
+    exit 0
+  fi
+  echo -e "${YELLOW}v${LOCAL} → v${REMOTE}${NC}"
+  echo ""
+  read -r -p "  Re-run installer to update? [y/N] " CONFIRM
+  if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "  Cancelled."
+    exit 0
+  fi
+  echo ""
+  eval "$INSTALL_CMD"
+  exit $?
 fi
 
 source "$REPO_DIR/lib/utils.sh"
