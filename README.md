@@ -154,20 +154,20 @@ The savings add up. If you use Claude Code daily, this pays for itself in the fi
 You don't pick an agent. You talk naturally, and the right one activates:
 
 ```
-"There's a null pointer at line 42"           → debugger agent
-"Review this file for security issues"        → reviewer agent
-"Add a login form to this page"               → code-helper agent
-"Write a README for this project"             → writer agent
-"Should I use REST or GraphQL here?"          → planner agent
-"Compare Redis vs Memcached for our use case" → researcher agent
-"Analyze this CSV and show me the top sellers"→ data-analyst agent
-"How does this codebase work?"                → general agent
-"Design the auth system before we build it"   → architect agent
+"There's a null pointer at line 42"           → Sherlock Holmes (debugger)
+"Review this file for security issues"        → Gordon Ramsay (reviewer)
+"Add a login form to this page"               → Tony Stark (code-helper)
+"Write a README for this project"             → Ernest Hemingway (writer)
+"Should I use REST or GraphQL here?"          → Sun Tzu (planner)
+"Compare Redis vs Memcached for our use case" → Marie Curie (researcher)
+"Analyze this CSV and show me the top sellers"→ Albert Einstein (data-analyst)
+"How does this codebase work?"                → Steve Jobs (general)
+"Design the auth system before we build it"   → Leonardo da Vinci (architect)
 ```
 
-Each agent has scope rules (what it can touch, what's forbidden), numbered safety-first rules (Rule 0 is always production safety), escalation blocks (when to stop and ask), and a verification gate (prove it's done before claiming it).
+Each agent has scope rules, numbered safety-first rules (Rule 0 is always production safety), escalation blocks, and a verification gate.
 
-The debugger won't guess — it reads the actual error, traces the call chain, and only forms a hypothesis after gathering evidence. The reviewer uses severity tiers: MUST FIX (security) → SHOULD FIX (conformance) → CONSIDER (quality). The writer asks about your audience before writing a single word.
+Sherlock won't guess — he reads the actual error, traces the call chain, and only forms a hypothesis after gathering evidence. Ramsay uses severity tiers: MUST FIX (security) → SHOULD FIX (conformance) → CONSIDER (quality). Hemingway asks about your audience before writing a single word.
 
 **For teams:** scaffold a project-specific agent team with one command:
 ```bash
