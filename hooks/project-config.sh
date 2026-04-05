@@ -19,6 +19,39 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 WELCOME_FLAG="$SUPERCHARGER_DIR/.welcomed"
 mkdir -p "$SUPERCHARGER_DIR"
 
+# --- Update Check (background, once per day) ---
+UPDATE_NOTICE=""
+
+if [[ ! -f "$SUPERCHARGER_DIR/.no-update-check" ]]; then
+  CACHE_FILE="$SUPERCHARGER_DIR/.update-check"
+  NOW=$(date +%s)
+  LAST_CHECK=0
+  [[ -f "$CACHE_FILE" ]] && LAST_CHECK=$(cat "$CACHE_FILE" 2>/dev/null || echo 0)
+
+  if (( NOW - LAST_CHECK > 86400 )); then
+    REMOTE_UTILS=""
+    if command -v curl &>/dev/null; then
+      REMOTE_UTILS=$(curl --max-time 3 --silent "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
+    elif command -v wget &>/dev/null; then
+      REMOTE_UTILS=$(wget --timeout=3 --quiet -O- "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null || true)
+    fi
+
+    if [[ -n "$REMOTE_UTILS" ]]; then
+      REMOTE_VERSION=$(echo "$REMOTE_UTILS" | sed -n 's/^VERSION="\(.*\)"/\1/p' || true)
+      HOOK_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+      LOCAL_VERSION=$(sed -n 's/^VERSION="\(.*\)"/\1/p' "$HOOK_SCRIPT_DIR/../lib/utils.sh" 2>/dev/null || true)
+
+      if [[ -n "$REMOTE_VERSION" && -n "$LOCAL_VERSION" && "$REMOTE_VERSION" != "$LOCAL_VERSION" ]]; then
+        UPDATE_NOTICE="Supercharger v${REMOTE_VERSION} available (you have v${LOCAL_VERSION}). Run: bash tools/update.sh"
+      fi
+    fi
+
+    echo "$NOW" > "$CACHE_FILE"
+  fi
+fi
+
+export UPDATE_NOTICE
+
 # Walk up to find .supercharger.json (max 5 levels)
 CONFIG_FILE=""
 SEARCH_DIR="$PROJECT_DIR"
@@ -145,6 +178,10 @@ if config_file and os.path.isfile(config_file):
             parts.append('Project config: ' + '. '.join(cfg_parts) + '.')
     except Exception:
         pass
+
+update_notice = os.environ.get('UPDATE_NOTICE', '')
+if update_notice:
+    parts.append(update_notice)
 
 if not parts:
     sys.exit(0)
