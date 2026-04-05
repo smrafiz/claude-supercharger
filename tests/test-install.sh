@@ -67,11 +67,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail + project-config + quality-gate = 7
-if [ "$HOOK_COUNT" -eq 7 ]; then
+# Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail +
+#   project-config + update-check + quality-gate = 8
+if [ "$HOOK_COUNT" -eq 8 ]; then
   pass
 else
-  fail "expected 6 hooks, got $HOOK_COUNT"
+  fail "expected 8 hooks in standard mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -122,6 +123,49 @@ assert_file_exists "$HOME/.claude/commands/refactor.md" &&
 assert_file_exists "$HOME/.claude/commands/challenge.md" &&
 assert_file_exists "$HOME/.claude/commands/audit.md" &&
 pass
+teardown_test_home
+
+# --- Test: full mode installs extra hooks ---
+begin_test "install: full mode installs prompt-validator + compaction-backup hooks"
+setup_test_home
+
+echo "n" | bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS']) as f:
+    s = json.load(f)
+hooks = s.get('hooks', {})
+count = sum(1 for event in hooks.values() for entry in event
+            for h in entry.get('hooks', [])
+            if '#supercharger' in h.get('command',''))
+print(count)
+")
+# Full mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail +
+#   project-config + update-check + quality-gate + prompt-validator + compaction-backup + session-complete = 11
+if [ "$HOOK_COUNT" -eq 11 ]; then
+  pass
+else
+  fail "expected 11 hooks in full mode, got $HOOK_COUNT"
+fi
+teardown_test_home
+
+# --- Test: full mode deploys claude-check diagnostic ---
+begin_test "install: full mode deploys claude-check.sh"
+setup_test_home
+
+echo "n" | bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+assert_file_exists "$HOME/.claude/claude-check.sh" && pass
+teardown_test_home
+
+# --- Test: full mode — standard mode does NOT deploy claude-check ---
+begin_test "install: standard mode does not deploy claude-check.sh"
+setup_test_home
+
+bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+assert_file_not_exists "$HOME/.claude/claude-check.sh" && pass
 teardown_test_home
 
 # --- Test: help flag ---

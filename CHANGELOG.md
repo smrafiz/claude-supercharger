@@ -1,5 +1,18 @@
 # Changelog
 
+## Contents
+
+- [1.7.0] - 2026-04-03 — Custom Commands, Architect agent, reviewer hierarchy
+- [1.6.0] - 2026-04-02 — 8 Focused Agents, Stack Detection, Project Agent Scaffolder
+- [1.5.0] - 2026-04-02 — Profile System, Project-Level Config, Team Presets
+- [1.4.0] - 2026-04-02 — Enhanced Statusline, 3 New Roles, Config Validation
+- [1.3.0] - 2026-04-02 — Package Manager Enforcement, Quality Gate, Audit Trail
+- [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
+- [1.1.0] - 2026-04-01 — Tiered Token Economy
+- [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
 ## [1.7.0] - 2026-04-03
 
 ### Added

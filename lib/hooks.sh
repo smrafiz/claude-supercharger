@@ -181,7 +181,7 @@ count_installed_hooks() {
   local count=1  # safety always
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    count=$((count + 5))  # notify, git-safety, enforce-pkg-manager, audit-trail, project-config
+    count=$((count + 6))  # notify, git-safety, enforce-pkg-manager, audit-trail, project-config, update-check
     if [[ "$has_developer" == "true" ]]; then
       count=$((count + 1))  # quality-gate
     fi

@@ -309,7 +309,7 @@ No. Supercharger backs up your existing config before touching anything. Run <co
 
 <details>
 <summary>I'm not a developer. Is this for me?</summary>
-Yes. Install it, choose "general" as your role, and Claude just behaves better — clearer answers, stays focused, asks before doing something you didn't request. You don't need to know what hooks or MCP servers are.
+Yes. Install it, choose a role that fits (like "writer" or "student"), and Claude just behaves better. A "General" agent automatically handles everyday tasks with plain language and no jargon. You don't need to know what hooks or MCP servers are.
 </details>
 
 <details>
