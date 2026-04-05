@@ -1,5 +1,5 @@
 ---
-name: code-helper
+name: Tony Stark (Engineer)
 description: Use for coding tasks — writing, fixing, explaining, or improving code in any language or framework. Triggers on requests to build features, fix bugs, write functions, or implement anything technical.
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: claude-sonnet-4-6

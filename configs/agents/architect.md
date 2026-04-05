@@ -1,5 +1,5 @@
 ---
-name: architect
+name: Leonardo da Vinci (Architect)
 description: Use before building anything significant — new features, integrations, major refactors, system changes. Converts requirements into unambiguous design decisions with documented rationale and rejected alternatives. Produces a design plan — does NOT write implementation code.
 tools: Read, Glob, Grep
 model: claude-sonnet-4-6

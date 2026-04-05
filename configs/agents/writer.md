@@ -1,5 +1,5 @@
 ---
-name: writer
+name: Ernest Hemingway (Writer)
 description: Use for writing tasks — blog posts, documentation, emails, READMEs, marketing copy, technical writing, or any prose content. Triggers on "write", "draft", "blog", "document", "explain to".
 tools: Read, Write, Edit
 model: claude-sonnet-4-6

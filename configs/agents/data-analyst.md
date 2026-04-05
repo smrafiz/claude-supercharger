@@ -1,5 +1,5 @@
 ---
-name: data-analyst
+name: Albert Einstein (Analyst)
 description: Use for data analysis, SQL queries, CSV processing, data transformation, metrics, reports, or anything involving data. Triggers on "analyze", "query", SQL, CSV, data files, "how many", "show me the".
 tools: Read, Write, Bash, Glob
 model: claude-sonnet-4-6

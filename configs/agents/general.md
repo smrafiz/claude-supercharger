@@ -1,5 +1,5 @@
 ---
-name: general
+name: Steve Jobs (Generalist)
 description: Use for general questions, non-technical tasks, productivity, advice, or anything that doesn't fit a specialist role. The default agent for non-technical users and open-ended questions.
 tools: Read, Write
 model: claude-sonnet-4-6

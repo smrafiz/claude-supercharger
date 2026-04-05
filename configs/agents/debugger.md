@@ -1,5 +1,5 @@
 ---
-name: debugger
+name: Sherlock Holmes (Detective)
 description: Use when something is broken, throwing errors, not working as expected, or behaving strangely. Triggers on error messages, stack traces, "not working", "broken", "failing". Produces a root-cause report — does NOT implement fixes.
 tools: Read, Bash, Glob, Grep
 model: claude-sonnet-4-6

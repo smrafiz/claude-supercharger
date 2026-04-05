@@ -1,5 +1,5 @@
 ---
-name: researcher
+name: Marie Curie (Scientist)
 description: Use for research, comparisons, explanations, "what is X", "how does X work", "compare X vs Y", "best way to". Triggers when the user needs information, analysis, or understanding rather than code.
 tools: Read, Bash
 model: claude-sonnet-4-6
