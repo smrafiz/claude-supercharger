@@ -124,6 +124,14 @@ if [ -d "$HOOKS_DIR" ]; then
       DESC=$(echo "$HOOK_DESCS" | grep "^${hook}:" | cut -d: -f2-)
       if [ -f "$SETTINGS" ] && grep -q "${hook}.sh" "$SETTINGS" 2>/dev/null; then
         echo -e "  $(mark_active) ${BOLD}${hook}${NC} — ${DESC}"
+        if [[ "$hook" == "notify" ]]; then
+          NO_NOTIFY_FLAG="$SUPERCHARGER_DIR/.no-desktop-notify"
+          if [ -f "$NO_NOTIFY_FLAG" ]; then
+            echo -e "    ${DIM}↳ desktop popup: off  (bash tools/notify-toggle.sh on to re-enable)${NC}"
+          else
+            echo -e "    ${DIM}↳ desktop popup: on   (bash tools/notify-toggle.sh off to disable)${NC}"
+          fi
+        fi
       else
         echo -e "  $(mark_off) ${hook} — ${DESC} ${YELLOW}(installed, not active)${NC}"
       fi
@@ -239,4 +247,28 @@ fi
 # ── Footer ───────────────────────────────────────────────────────────────
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
+
+# Inline update check (non-blocking, best-effort)
+REMOTE_VERSION=$(python3 -c "
+import urllib.request, json, base64
+try:
+    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/contents/lib/utils.sh'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-supercharger'})
+    with urllib.request.urlopen(req, timeout=3) as r:
+        data = json.load(r)
+    content = base64.b64decode(data['content']).decode()
+    for line in content.splitlines():
+        if line.startswith('VERSION='):
+            print(line.split('=')[1].strip('\"'))
+            break
+except Exception:
+    print('')
+" 2>/dev/null)
+
+if [ -n "$REMOTE_VERSION" ] && [ "$REMOTE_VERSION" != "$VERSION" ]; then
+  echo -e "${YELLOW}  Update available: v${VERSION} → v${REMOTE_VERSION}${NC}"
+  echo -e "${DIM}  Run: bash ~/.claude/supercharger/tools/update.sh${NC}"
+  echo ""
+fi
+
 echo -e "${DIM}Health check: tools/claude-check.sh  |  v${VERSION}${NC}"
