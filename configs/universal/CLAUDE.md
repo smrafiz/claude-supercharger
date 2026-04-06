@@ -53,3 +53,7 @@ For complex requests, include:
 
 # Active rules loaded from ~/.claude/rules/:
 #   supercharger.md, guardrails.md, anti-patterns.yml, [selected roles]
+
+## Agent Routing
+When [SUPERCHARGER ROUTING] appears in context, dispatch that exact agent
+as your first action. Do not reason about it — just dispatch.
