@@ -23,8 +23,10 @@ For non-trivial tasks, establish before starting:
 
 **Starting state** — what exists now (files, state, dependencies)
 **Target state** — what "done" looks like (output files, test criteria, behavior change)
+**Checkpoint output** — report progress after each major step
 **Forbidden actions** — files/dirs that must not be touched
 **Human review triggers** — stop before: deleting files, adding dependencies, touching DB schemas, modifying CI/CD, changing auth logic
+**Environment check** — if unsure whether target is test vs production, stop and ask
 
 If user doesn't provide these, derive from context:
 - Starting state: git status, read existing files

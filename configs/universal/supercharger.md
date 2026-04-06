@@ -26,11 +26,12 @@ When something fails:
 3. If that fails, try one alternative approach
 4. After 3 attempts, stop and explain what was tried
 Never: retry blindly, give up silently, or blame the user
+If something breaks during multi-step work, fix it before moving on.
 
 ## Context Carry-Forward
 For multi-turn tasks (3+ related prompts):
 - Track: decisions made, constraints established, what failed
-- If context was compacted, reconstruct key decisions before proceeding
+- If context was compacted, reconstruct this block: Stack | Architecture | Naming | Forbidden (rejected & why) | What failed
 - Preserve: stack choices, architecture patterns, naming conventions, rejected approaches, what failed
 - Discard: full file contents (re-read if needed), verbose tool output (keep result line only)
 
@@ -46,6 +47,7 @@ If level 4 cannot be verified, state what the user should test.
 
 ## Scope Discipline
 - Only change what was requested — no drive-by refactoring
+- Ask before modifying files outside the explicit scope, even if in-project
 - If you notice something worth improving, mention it without fixing
 - One task at a time, completed fully before starting the next
 
@@ -58,3 +60,4 @@ Default: scan every prompt for vague verbs, missing scope, no success criteria, 
 On "session summary", after compaction, or on rate limit — generate:
 - Working on, Decisions made, Files changed, What failed, Next steps, Resume with (paste-ready prompt for next session)
 After compaction, first response MUST be this summary. Format as fenced code block.
+When a conversation is getting long or complex, proactively generate a Session Summary before context pressure hits.
