@@ -2,6 +2,9 @@
 
 ## Contents
 
+- [1.7.6] - 2026-04-06 — Scope Guard hook, hook count fix
+- [1.7.5] - 2026-04-06 — Auto-update banner, sound-only notifications
+- [1.7.4] - 2026-04-06 — update.sh: detect and preserve config silently
 - [1.7.0] - 2026-04-03 — Custom Commands, Architect agent, reviewer hierarchy
 - [1.6.0] - 2026-04-02 — 8 Focused Agents, Stack Detection, Project Agent Scaffolder
 - [1.5.0] - 2026-04-02 — Profile System, Project-Level Config, Team Presets
@@ -10,6 +13,34 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.7.6] - 2026-04-06
+
+### Added
+- **Scope Guard hook** — `scope-guard.sh` runs in three modes: `snapshot` (SessionStart), `contract` (UserPromptSubmit), `check` (PostToolUse). Warns when writes exceed declared scope.
+
+### Fixed
+- `count_installed_hooks` was undercounting by 3 in standard mode and 1 in full mode (missing scope-guard entries and scope-guard clear).
+
+---
+
+## [1.7.5] - 2026-04-06
+
+### Added
+- **Auto-update banner** — `update-check.sh` hook prints a banner at SessionStart when a newer version is available (checks once per 24 hours, non-blocking).
+- **Sound-only notification mode** — notify hook supports sound-only output without desktop popup.
+
+### Changed
+- `--check` flag now shows changelog summary.
+
+---
+
+## [1.7.4] - 2026-04-06
+
+### Fixed
+- `update.sh` no longer re-runs the full installer on update — detects installed mode and preserves user config silently.
 
 ---
 
