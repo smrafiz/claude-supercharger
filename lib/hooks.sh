@@ -185,14 +185,17 @@ count_installed_hooks() {
   local count=1  # safety always
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    count=$((count + 6))  # notify, git-safety, enforce-pkg-manager, audit-trail, project-config, update-check
+    # notify, git-safety, enforce-pkg-manager, audit-trail,
+    # scope-guard(check+snapshot+contract), project-config, update-check
+    count=$((count + 9))
     if [[ "$has_developer" == "true" ]]; then
       count=$((count + 1))  # quality-gate
     fi
   fi
 
   if [[ "$mode" == "full" ]]; then
-    count=$((count + 3))  # prompt-validator, compaction-backup, session-complete
+    # prompt-validator, compaction-backup, session-complete, scope-guard clear
+    count=$((count + 4))
   fi
 
   echo "$count"
