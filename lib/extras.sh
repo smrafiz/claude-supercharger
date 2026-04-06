@@ -9,11 +9,6 @@ deploy_extras() {
     return 0
   fi
 
-  if [ -f "$source_dir/shared/guardrails-template.yml" ]; then
-    cp "$source_dir/shared/guardrails-template.yml" "$HOME/.claude/shared/"
-    success "Guardrails template installed"
-  fi
-
   if [ -f "$source_dir/tools/claude-check.sh" ]; then
     cp "$source_dir/tools/claude-check.sh" "$HOME/.claude/claude-check.sh"
     chmod +x "$HOME/.claude/claude-check.sh"
