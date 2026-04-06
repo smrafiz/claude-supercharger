@@ -115,11 +115,14 @@ audit-trail:Logs all file writes and deletions to .claude/audit/
 project-config:Loads .supercharger.json overrides at session start
 prompt-validator:Flags ambiguous or high-risk prompts before execution
 compaction-backup:Saves context snapshot before /compact runs
+scope-guard:Prevents writes outside declared scope during a session
+update-check:Checks for Supercharger updates at session start
+session-complete:Saves session summary on Stop event
 detect-stack:Detects project language, framework, and package manager"
 
 if [ -d "$HOOKS_DIR" ]; then
   FOUND_HOOKS=0
-  for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config prompt-validator compaction-backup; do
+  for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config scope-guard update-check prompt-validator compaction-backup session-complete; do
     if [ -f "$HOOKS_DIR/${hook}.sh" ]; then
       DESC=$(echo "$HOOK_DESCS" | grep "^${hook}:" | cut -d: -f2-)
       if [ -f "$SETTINGS" ] && grep -q "${hook}.sh" "$SETTINGS" 2>/dev/null; then
