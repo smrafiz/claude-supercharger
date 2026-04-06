@@ -1,16 +1,12 @@
 # Claude Supercharger
 
-I built this because Claude kept doing things I didn't ask for.
+Claude Code has root access to your filesystem and git history. One hallucinated `rm -rf ~`, one `git push --force main`, one committed API key — and you're spending hours recovering.
 
-A developer says "fix the typo" — Claude rewrites the whole component. A writer asks for a short paragraph — Claude delivers five. A PM asks for a quick estimate — Claude writes a project plan nobody requested. And sometimes it goes further: deleting files, overwriting work, running commands that can't be undone.
+Supercharger prevents that. Shell hooks run before commands execute, outside Claude's conversation. Claude can't argue with them, override them, or find a creative reason to ignore them. Exit code 2. Command blocked. That's it.
 
-The problem isn't that Claude is bad. It's that Claude is eager. And there's no way to say "stay in your lane" that it can't find a reason to ignore.
+The safety layer is the product. Everything else — agents, roles, economy tiers, MCP servers — is workflow improvement built on top of it.
 
-**Supercharger fixes this.** Safety guardrails run at the shell level — outside Claude's conversation, before commands execute. Not a prompt Claude can argue with. An actual wall.
-
-But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that instructs Claude to prioritize concise output, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
-
-![Version](https://img.shields.io/badge/version-1.9.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.9.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -36,42 +32,87 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
-## What happens after you install
+## What it actually does
 
-No config files to edit. No prompts to write. No learning curve.
+Supercharger has two layers. The first is enforced — shell hooks that block dangerous commands regardless of what Claude wants. The second is instructional — prompt configurations that improve Claude's behavior but can't guarantee it.
 
-**First session** — Claude introduces itself:
-> *"Supercharger is active. Guardrails on — I won't make destructive changes without asking. I verify before claiming done. Responses are lean by default."*
+### The enforced layer
 
-**Every session** — Claude already knows your project. Supercharger detects your stack (React, Python, Rust, whatever) and tells Claude before you type a word. You see it in the status bar: `[sonnet] my-project | master | TypeScript, React`
+These run as shell hooks. Claude doesn't see them, can't disable them, and gets a plain-English reason when something is blocked.
 
-**Every task** — the right agent activates automatically. You don't pick. Claude does.
+| What gets blocked | Why |
+|---|---|
+| `rm -rf /`, `rm -rf ~`, `rm -rf ..` (root, home, parent traversal), `DROP TABLE`, `chmod 777`, fork bombs | Irreversible destruction |
+| `git push --force` to main/master | Overwrites shared history |
+| `curl \| bash`, `eval`, credential patterns (AWS keys, GitHub tokens, etc.) | Remote code execution, secret exposure |
+| `git reset --hard`, `git checkout .` | Loses uncommitted work |
+| Wrong package manager (`npm` in a pnpm project) | Corrupts lockfile |
+| Writing to `.bashrc`, `.zshrc`; SSH key commands (`ssh-keygen`, `ssh-add`) | Unauthorized persistence |
+
+Other enforced features:
+- **Audit trail** — every file write and command is logged to JSONL. Credentials auto-redacted before logging. 30-day rotation. When something goes wrong, you can trace what Claude changed and when.
+- **Quality gate** — lint, auto-fix, re-check after file edits. Developer role, Standard/Full install mode only.
+- **Prompt validator** — catches 20 common anti-patterns (vague scope, missing file paths, multiple tasks in one request) before they waste a turn. Full install mode only.
+
+### The instructional layer
+
+These are prompt configurations. They shape Claude's behavior through system instructions — effective in practice, but not enforced at the shell level. Claude follows them because the instructions are well-structured, not because it's physically prevented from doing otherwise.
+
+**Token economy** — three output tiers that instruct Claude to be more concise:
+
+| Tier | What changes |
+|---|---|
+| **Standard** | Complete sentences. Good for learning. |
+| **Lean** *(default)* | Every word earns its place. Fragments OK. |
+| **Minimal** | Telegraphic. Bare output only. |
+
+Switch mid-conversation: `eco lean` / `eco standard` / `eco minimal`. These instructions work — Claude does respond more concisely — but there's no hard token limit. Some responses will still be longer than you want.
+
+**Agent routing** — your first substantive message each session is pattern-matched to one of nine agents, each with its own scope rules and verification requirements. The match sets the session's primary agent, but Claude can still dispatch other agents for subtasks (e.g., spawning a Critic for code review during a Writer session). Greetings and small talk won't trigger a match — the router only responds to task-like prompts:
+
+```
+"There's a null pointer at line 42"            → Sherlock Holmes (Detective)
+"Review this file for security issues"         → Gordon Ramsay (Critic)
+"Add a login form to this page"                → Tony Stark (Engineer)
+"Write a README for this project"              → Ernest Hemingway (Writer)
+"Compare Redis vs Memcached for our use case"  → Marie Curie (Scientist)
+"Design the auth system before we build it"    → Leonardo da Vinci (Architect)
+"Plan the rollout and prioritize the backlog"  → Sun Tzu (Strategist)
+"Analyze this CSV and show me the top sellers" → Albert Einstein (Analyst)
+```
+
+Routing uses regex matching, so it works best with clear intent. Ambiguous prompts may not match any pattern — Claude will still work, just without agent-specific rules. This isn't magic, but it does produce noticeably more focused output for common task types.
+
+**Roles** — eight behavioral profiles you can switch mid-conversation:
+
+| Say this | Claude prioritizes |
+|---|---|
+| `"as developer"` | Code only. No explanations unless asked. Git best practices. |
+| `"as writer"` | Structured prose. Asks audience first. Active voice. |
+| `"as student"` | Step-by-step explanations. Checks understanding. |
+| `"as data"` | Tables over prose. Shows queries. Cites assumptions. |
+| `"as pm"` | Range estimates. Decision logs. Risk tracking. |
+| `"as designer"` | Component-first. Accessibility. Design tokens. |
+| `"as devops"` | IaC. Docker. CI/CD. Least privilege. |
+| `"as researcher"` | Citations. Methodology. Evidence-based claims. |
+
+These are prompt configurations — the same thing you could write in your own CLAUDE.md, packaged for convenience.
+
+**Slash commands** — four structured reasoning tools:
+
+| Command | What it does |
+|---|---|
+| `/think [problem]` | Structured reasoning: clarify, inventory, hypotheses, stress-test, decide |
+| `/challenge [decision]` | Adversarial stress-test: assumptions, failure modes, alternatives |
+| `/refactor [file]` | Code quality sweep: complexity, duplication, naming, coupling, testability |
+| `/audit [scope]` | Inconsistency sweep: naming, patterns, docs, interfaces |
 
 ---
 
 ## Before and after
 
-This is the difference I was tired of:
-
 <table>
 <tr><th width="50%">Without Supercharger</th><th width="50%">With Supercharger</th></tr>
-<tr><td>
-
-**"Add a login form"**
-
-"Here's the login form I've created for your authentication system. It includes email and password fields, client-side validation, and error handling. It *should* work correctly with your existing setup. Let me know if you need any changes!"
-
-*No tests run. No build check. "Should work."*
-
-</td><td>
-
-**"Add a login form"**
-
-`LoginForm.tsx` added. `npm test` — 3/3 pass. Build clean. Handles empty fields, invalid email, server errors.
-
-*Verified. Specific. Done.*
-
-</td></tr>
 <tr><td>
 
 **"Fix the typo in the header"**
@@ -86,24 +127,24 @@ This is the difference I was tired of:
 
 Fixed `'Welcom'` → `'Welcome'` in `Header.tsx:12`. No other changes.
 
-*Surgical. Stays in scope.*
+*Stays in scope.*
 
 </td></tr>
 <tr><td>
 
-**"Help me write a product description"**
+**"Add a login form"**
 
-"Certainly! Here is a comprehensive product description you can use. It covers the key features, benefits, target audience, and unique selling points. I've written it in a professional tone with multiple paragraphs..."
+"Here's the login form I've created for your authentication system. It includes email and password fields, client-side validation, and error handling. It *should* work correctly with your existing setup."
 
-*Unprompted length, unknown audience, no iteration.*
+*No tests run. No build check. "Should work."*
 
 </td><td>
 
-**"Help me write a product description"**
+**"Add a login form"**
 
-Who's the audience and what's the tone? (casual / professional / technical)
+`LoginForm.tsx` added. `npm test` — 3/3 pass. Build clean. Handles empty fields, invalid email, server errors.
 
-*Asks first. Gets it right once.*
+*Verified. Done.*
 
 </td></tr>
 </table>
@@ -112,145 +153,43 @@ More examples → [docs/examples.md](docs/examples.md)
 
 ---
 
-## Eight things that change
+## MCP servers
 
-### 1. Guardrails that can't be argued with
-
-This is the core of Supercharger. Everything else is built on top of it.
-
-Most Claude behavior guides are prompts. Claude can be talked out of prompts. Supercharger's guardrails are shell hooks — they run outside Claude's conversation, before the command executes. Exit code 0 or 2. No negotiation.
-
-| What gets blocked | Why |
-|---|---|
-| `rm -rf /`, `rm -rf ~`, `rm -rf ..` (root, home, parent traversal), `DROP TABLE`, `chmod 777`, fork bombs | Irreversible destruction |
-| `git push --force` to main/master | Overwrites shared history |
-| `curl \| bash`, `eval`, credential patterns | Security |
-| `git reset --hard`, `git checkout .` | Loses uncommitted work |
-| Wrong package manager (`npm` in a pnpm project) | Corrupts lockfile |
-| Writing to `.bashrc`, `.zshrc`, SSH keys | Unauthorized persistence |
-
-Plus: a 3-stage quality gate runs lint → auto-fix → re-check after file edits (Developer role, Standard/Full install mode). A prompt validator catches 20 anti-patterns before they waste a turn. An audit trail logs every mutation to JSONL with 30-day rotation.
-
-When something's blocked, Claude gets a plain-English reason — not a shell error.
-
-### 2. Token economy — same results, less money
-
-Claude is verbose by default. Supercharger ships three output tiers:
-
-| Tier | What changes | Target |
-|---|---|---|
-| **Standard** | Complete sentences. Good for learning. | shorter responses |
-| **Lean** *(default)* | Every word earns its place. Fragments OK. | concise output |
-| **Minimal** | Telegraphic. Bare output only. | minimal output |
-
-Switch mid-conversation: `eco lean` / `eco standard` / `eco minimal`
-
-Role constraints apply — Student can't go below Standard because explanations need breathing room. Developer defaults to Lean because you're reading code, not prose.
-
-The savings add up. If you use Claude Code daily, this pays for itself in the first week.
-
-### 3. Nine agents. Zero selection required.
-
-You don't pick an agent. You talk naturally, and the right one activates:
-
-```
-"There's a null pointer at line 42"           → Sherlock Holmes (debugger)
-"Review this file for security issues"        → Gordon Ramsay (reviewer)
-"Add a login form to this page"               → Tony Stark (code-helper)
-"Write a README for this project"             → Ernest Hemingway (writer)
-"Should I use REST or GraphQL here?"          → Sun Tzu (planner)
-"Compare Redis vs Memcached for our use case" → Marie Curie (researcher)
-"Analyze this CSV and show me the top sellers"→ Albert Einstein (data-analyst)
-"How does this codebase work?"                → Marie Curie (researcher)
-"Design the auth system before we build it"   → Leonardo da Vinci (architect)
-"Plan the rollout and prioritize the backlog"  → Sun Tzu (planner)
-```
-
-Each agent has scope rules, numbered safety-first rules (Rule 0 is always production safety), escalation blocks, and a verification gate.
-
-Sherlock won't guess — he reads the actual error, traces the call chain, and only forms a hypothesis after gathering evidence. Ramsay uses severity tiers: MUST FIX (security) → SHOULD FIX (conformance) → CONSIDER (quality). Hemingway asks about your audience before writing a single word.
-
-**For teams:** scaffold a project-specific agent team with one command:
-```bash
-bash tools/init-agents.sh  # auto-detects stack, creates .claude/agents/
-```
-
-### 4. Four commands that think harder than you do
-
-Type these in any session, any project:
-
-| Command | What it does |
-|---|---|
-| `/think [problem]` | Structured reasoning: clarify → inventory → hypotheses → stress-test → decide |
-| `/challenge [decision]` | Adversarial stress-test: assumptions, failure modes, strongest alternative, verdict |
-| `/refactor [file]` | Code quality sweep across 7 dimensions — complexity, duplication, naming, coupling, testability, error handling, dead code |
-| `/audit [scope]` | Inconsistency sweep: naming, patterns, docs, interfaces, structure |
-
-I use `/challenge` before every architecture decision now. It's caught blind spots I wouldn't have found in review.
-
-### 5. Eight roles — one tool, every perspective
-
-Roles change how Claude thinks, not just what it says:
-
-| Say this | Claude becomes |
-|---|---|
-| `"as developer"` | Code only. No explanations unless asked. Git best practices. |
-| `"as writer"` | Structured prose. Asks audience first. No filler. Active voice. |
-| `"as student"` | Step-by-step. Checks understanding. Builds gradually. |
-| `"as data"` | Tables over prose. Shows queries. Cites assumptions. |
-| `"as pm"` | Range estimates. Decision logs. Risk tracking. |
-| `"as designer"` | Component-first. Accessibility. Design tokens. |
-| `"as devops"` | IaC. Docker. CI/CD. Least privilege. |
-| `"as researcher"` | Citations. Methodology. Evidence-based claims. |
-
-Switch mid-conversation, as many times as you want. "Build this API `as developer`, then `as pm` estimate the remaining work, then `as writer` draft the release notes."
-
-### 6. MCP servers — pro tools, zero setup
-
-These are pre-configured and auto-installed based on your roles. No API keys for the core set.
+Pre-configured and auto-installed based on your roles. No API keys needed for the core set.
 
 | Who gets it | Servers |
 |---|---|
 | Everyone | Context7 (live library docs), Sequential Thinking (structured reasoning), Memory (persistent across sessions) |
-| Developer           | + Playwright (browser automation), Magic UI (component library) |
-| Designer            | + Magic UI (component library)                                  |
+| Developer | + Playwright (browser automation), Magic UI (component library) |
+| Designer | + Magic UI (component library) |
 | Writer, Student, PM, Researcher | + DuckDuckGo Search |
-
-```
-"Look up the React useEffect docs"        → live docs via Context7
-"Test the login page in a real browser"    → Playwright automation
-"Remember that we use pnpm in this repo"   → Memory across sessions
-```
 
 Advanced servers (Brave, Notion, Sentry, Figma, Slack) available via `bash tools/mcp-setup.sh`.
 
-### 7. Session intelligence — never lose context
+---
 
-Long sessions hit context limits. Rate limits interrupt your flow. Supercharger handles both:
+## Session tools
 
-**Status bar** shows what matters in real time: model, project, branch, stack, context usage (color-coded), session cost, cache hit rate. You see context pressure building before it becomes a problem.
+**Status bar** — model, project, branch, stack, context usage (color-coded at 70%/90%), session cost, cache hit rate. You see context pressure building before it becomes a problem.
 
-**Auto-save on compaction** — when context gets compressed, Supercharger saves the conversation transcript to disk. Claude's structured summary format (decisions made, files changed, what failed, what to do next) is prompted via rules — the hook captures the raw transcript. Run `bash tools/resume.sh` to view it and copy the resume prompt to your clipboard.
+**Transcript backup** — when context gets compressed, Supercharger saves the raw conversation transcript to disk. Claude is prompted to include a structured summary (decisions, files changed, next steps), but the hook captures the full transcript regardless. Run `bash tools/resume.sh` to view it and copy a resume prompt to your clipboard.
 
-**Session resume:**
 ```bash
 bash tools/resume.sh         # latest summary + copy resume prompt
 bash tools/resume.sh --list  # browse past sessions
 ```
 
-**Verification gate** — Claude has to prove it's done:
+**Verification gate** — Claude must prove work is done:
 1. File exists at expected path
 2. Real code — not stubs or TODOs
 3. Wired — imports resolve, route registered, component used
 4. Tests pass, build succeeds
 
-No more "should work." Evidence or it didn't happen.
+---
 
-### 8. Team & compliance — share configs, track everything
+## Team features
 
-For teams and organizations that need consistency and accountability:
-
-**Audit trail** — every file edit, git commit, and package install is logged to `~/.claude/supercharger/audit/` as JSONL. Credentials auto-redacted. 30-day rotation. This is how you answer "what did the AI change and when."
+**Audit trail** — every file edit, git commit, and package install is logged to `~/.claude/supercharger/audit/` as JSONL. Credentials auto-redacted. 30-day rotation.
 
 **Webhooks** — get notified when Claude needs input or sessions complete:
 ```bash
@@ -261,7 +200,7 @@ bash tools/webhook-setup.sh  # Slack, Discord, Telegram, or custom HTTP
 ```json
 {"roles": ["developer", "designer"], "economy": "lean", "hints": "React + Tailwind, use pnpm"}
 ```
-Every team member gets the same behavior. Commit it to your repo.
+Commit it. Every team member gets the same behavior.
 
 **Profiles** — bundle role + economy + MCP into named presets:
 ```bash
@@ -275,20 +214,10 @@ bash tools/export-preset.sh team.supercharger # share with teammates
 bash tools/claude-check.sh  # verify installation, list active features
 ```
 
----
-
-## Works for everyone
-
-You don't need to be a developer. Supercharger improves Claude for any kind of work.
-
-| You do | What changes |
-|---|---|
-| **Write** (blogs, docs, emails) | Writer agent activates. Asks about audience first. Short paragraphs, active voice, no filler. |
-| **Research** (compare, summarize, explain) | Researcher agent activates. Leads with the answer, tables over prose, states what it doesn't know. |
-| **Plan** (projects, decisions, approaches) | Planner agent activates. Numbered steps, flags the riskiest part, recommends the simplest path. |
-| **Code** (build, debug, review) | Code agent + full guardrails. Stack auto-detected. Nothing deleted without asking. |
-| **Analyze data** (CSV, SQL, metrics) | Data-analyst agent activates. Shows queries, interprets results, flags data quality issues. |
-| **Anything else** | General agent. Plain language. No jargon. Asks one question if something's unclear. |
+**Agent scaffolding** for teams:
+```bash
+bash tools/init-agents.sh  # auto-detects stack, creates .claude/agents/
+```
 
 ---
 
@@ -310,22 +239,13 @@ No. Supercharger backs up your existing config before touching anything. Run <co
 </details>
 
 <details>
-<summary>I'm not a developer. Is this for me?</summary>
-Yes. Install it, choose a role that fits (like "writer" or "student"), and Claude just behaves better. A "General" agent automatically handles everyday tasks with plain language and no jargon. You don't need to know what hooks or MCP servers are.
-</details>
-
-<details>
 <summary>What if a hook blocks something I actually need?</summary>
-<code>bash tools/hook-toggle.sh safety off</code> — re-enable with <code>on</code>. Or run the command directly in your terminal.
+<code>bash tools/hook-toggle.sh safety off</code> — re-enable with <code>on</code>. Or run the command directly in your terminal outside Claude Code.
 </details>
 
 <details>
-<summary>How do I disable desktop notifications?</summary>
-To disable the desktop popup (macOS/Linux) while keeping webhook notifications:
-<pre>bash ~/.claude/supercharger/tools/notify-toggle.sh off</pre>
-Re-enable with <code>on</code>, check status with <code>status</code>. Or if you have the repo locally: <code>bash tools/notify-toggle.sh off</code>.<br>
-To disable notifications entirely (including webhooks):
-<pre>bash ~/.claude/supercharger/tools/hook-toggle.sh notify off</pre>
+<summary>I'm not a developer. Is this for me?</summary>
+The safety hooks help everyone. The roles (writer, student, researcher) shape Claude's output for non-coding work. A "General" agent handles everyday tasks with plain language.
 </details>
 
 <details>
@@ -352,23 +272,36 @@ Disabled automatically. Your commits, your name.
 </details>
 
 <details>
+<summary>How do I disable desktop notifications?</summary>
+To disable the desktop popup while keeping webhooks:
+<pre>bash ~/.claude/supercharger/tools/notify-toggle.sh off</pre>
+Re-enable with <code>on</code>. To disable all notifications: <code>bash tools/hook-toggle.sh notify off</code>.
+</details>
+
+<details>
 <summary>What about Windows?</summary>
 Use <a href="https://learn.microsoft.com/en-us/windows/wsl/install">WSL</a> or Git Bash. Install Python from <a href="https://python.org">python.org</a> if needed.
 </details>
 
 ---
 
+## Context cost
+
+Supercharger loads ~3,700 tokens into each conversation (under 2% of any Claude model's context window). You won't notice it.
+
+---
+
 ## Why I built this
 
-I wanted Claude to do what I asked. Not what it interpreted. Not what seemed impressive. What I actually requested.
+Claude Code is powerful. It's also unsupervised. It has access to your files, your git history, your terminal — and no guardrails beyond its own judgment about what you "probably" wanted.
 
-Every person who uses Claude Code has a version of the same story. The developer whose files got deleted. The writer who got four paragraphs when they asked for one. The PM who asked a simple question and got an essay. Claude is helpful — sometimes too helpful, in ways you didn't want.
+I got tired of Claude rewriting files I asked it to leave alone. Deleting things I didn't ask it to delete. Running commands I wouldn't have approved. The usual advice is "write better prompts." But prompts are suggestions. Claude is good at finding reasons to go beyond suggestions.
 
-I stopped trying to fix this with better prompts. Prompts are suggestions. Claude is good at finding reasons to ignore suggestions. So I moved the enforcement to where Claude can't reach it — shell hooks that run before the command executes. And then I built everything else I wished Claude did out of the box.
+So I moved the enforcement outside Claude's reach. Shell hooks that run before the command executes. Not a prompt it can reconsider — a wall it can't pass through.
 
-Supercharger is open source, MIT licensed, and zero-dependency for core install — shell scripts and config files only. No npm packages, no pip installs. MCP servers (optional) use npx at runtime. It backs up your existing config and `./uninstall.sh` reverses everything.
+The rest came later. Once I had safety, I added the workflow features I wished Claude had out of the box: focused agents, concise output, structured reasoning, session memory. They're useful. But the safety layer is what I'd install even if nothing else existed.
 
-If Claude has ever ignored your instructions, gone way beyond what you asked, or given you a wall of text when you wanted a sentence — this is what I built to fix that.
+Zero dependencies for core install — shell scripts and config files only. MCP servers (optional) use npx at runtime. MIT licensed. Backs up your config. Uninstall reverses everything.
 
 ---
 
@@ -377,7 +310,7 @@ If Claude has ever ignored your instructions, gone way beyond what you asked, or
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - Bash 3.2+ (macOS or Linux)
 - Python 3 (ships with macOS and Claude Code)
-- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash. Install Python from [python.org](https://python.org) if needed.
+- **Windows:** Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash
 
 ---
 

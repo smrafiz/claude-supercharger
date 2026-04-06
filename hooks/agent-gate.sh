@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Agent Gate
 # Event: PreToolUse | Matcher: Agent
-# Reads the stored agent classification and blocks dispatch of any other agent.
+# Reads the stored agent classification. Warns on mismatch but allows
+# explicit subagent dispatches — Claude may need different agents for subtasks.
 
 set -euo pipefail
 
@@ -28,13 +29,15 @@ STORED_AGENT=$(cat "$ROUTE_FILE" 2>/dev/null || echo "")
 [ -z "$STORED_AGENT" ] && exit 0
 
 # Match on first word of stored agent name (case-insensitive)
-# "Sherlock Holmes (Detective)" → check if "sherlock" appears in dispatched (lowercased)
 FIRST_WORD=$(printf '%s\n' "$STORED_AGENT" | awk '{print tolower($1)}')
-DISPATCHED_LOWER=$(echo "$DISPATCHED" | tr '[:upper:]' '[:lower:]')
+DISPATCHED_LOWER=$(printf '%s\n' "$DISPATCHED" | tr '[:upper:]' '[:lower:]')
 
 if printf '%s\n' "$DISPATCHED_LOWER" | grep -qF "$FIRST_WORD"; then
   exit 0
 fi
 
-echo "[Supercharger] Agent routing: dispatch '${STORED_AGENT}' for this task (not '${DISPATCHED}')" >&2
-exit 2
+# Mismatch — warn but allow. The routing system message already guides Claude's
+# primary agent choice. Blocking here prevents legitimate subtask dispatches
+# (e.g., spawning a Critic for code review during a Writer-routed session).
+echo "[Supercharger] Agent routing: session routed to '${STORED_AGENT}', dispatching '${DISPATCHED}'" >&2
+exit 0

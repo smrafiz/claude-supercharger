@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.3] - 2026-04-06 — README rewrite, agent gate fix, examples accuracy
 - [1.9.2] - 2026-04-06 — Context size reduction, README accuracy fixes
 - [1.9.1] - 2026-04-06 — README accuracy fixes, update integrity, cost feedback loop
 - [1.9.0] - 2026-04-06 — Hook JSON key fix, echo pipe safety
@@ -17,6 +18,20 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.3] - 2026-04-06
+
+### Changed
+- **README rewrite** — restructured around honest value hierarchy. Safety layer presented as the core product; agents, roles, economy tiers clearly labeled as instructional (prompt-based, not enforced). Removed marketing language and unverifiable claims.
+- **Agent gate** — changed from hard block (exit 2) to advisory warning (exit 0). Session routing still works via the system message directive; the gate no longer prevents legitimate subtask dispatches (e.g., spawning a Critic for code review during a Writer-routed session).
+
+### Fixed
+- **Agent name labels** — all 8 agent routing examples now match source code names exactly: (Detective), (Critic), (Engineer), (Writer), (Scientist), (Architect), (Strategist), (Analyst).
+- **SSH keys claim** — scoped from "SSH keys" to specific commands blocked (`ssh-keygen`, `ssh-add`, `ssh-copy-id`).
+- **Block message format** — 3 examples in docs/examples.md now match actual hook output (`"Supercharger blocked this command.\n  Reason: ..."` instead of single-line format).
+- **Compaction summary claim** — examples.md now states summary is "prompted, not enforced."
 
 ---
 

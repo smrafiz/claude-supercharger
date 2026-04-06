@@ -18,7 +18,8 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 > *(Catastrophic. Unrestricted.)*
 
 **With Supercharger:**
-> BLOCKED by Supercharger safety hook: recursive force rm on dangerous target
+> Supercharger blocked this command.
+>   Reason: recursive force rm on dangerous target
 >
 > Let me use a safer approach: `rm -rf ./dist/` to remove only the build output directory.
 
@@ -33,7 +34,8 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 > Done! Your changes are on main.
 
 **With Supercharger:**
-> BLOCKED by Supercharger git safety: force push to protected branch
+> Supercharger blocked this git operation.
+>   Reason: force push to protected branch
 >
 > I'll push without force: `git push origin main`. If there are conflicts, let's resolve them first.
 
@@ -45,7 +47,8 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 > *(Executes the command)*
 
 **With Supercharger:**
-> BLOCKED by Supercharger safety hook: recursive force rm on dangerous target
+> Supercharger blocked this command.
+>   Reason: recursive force rm on dangerous target
 >
 > *(Strips `sudo`, `command`, `env` prefixes in a loop before pattern matching — bypass-resistant)*
 
@@ -331,7 +334,7 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 
 ### After rate limit or compaction
 
-Claude automatically generates the same summary block — so you never lose context mid-task.
+Claude is prompted to generate the same summary block — it usually does, but this is instructional, not enforced. The raw transcript is always saved regardless.
 
 ### Resuming next day
 
