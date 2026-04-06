@@ -34,6 +34,8 @@ elif printf '%s\n' "$PROMPT" | grep -qiE '(review|security issue|code smell|what
   AGENT="Gordon Ramsay (Critic)"
 elif printf '%s\n' "$PROMPT" | grep -qiE '(analyze|query|SQL|CSV|how many|metrics|report|data file|show me the|dataset|aggregate|pivot|histogram)'; then
   AGENT="Albert Einstein (Analyst)"
+elif printf '%s\n' "$PROMPT" | grep -qiE '(write a function|write a test|write a class|write a script|write a method|write a module|write a component|write a hook|write a handler|write a parser)'; then
+  AGENT="Tony Stark (Engineer)"
 elif printf '%s\n' "$PROMPT" | grep -qiE '(write|draft|blog|README|document|explain to|email|release notes|marketing|copywriting|prose)'; then
   AGENT="Ernest Hemingway (Writer)"
 elif printf '%s\n' "$PROMPT" | grep -qiE '(design|architect|before we build|system design|how should I structure|ADR|architecture decision|diagram)'; then
