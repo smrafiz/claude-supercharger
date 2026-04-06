@@ -107,7 +107,7 @@ run_hook() {
   local command="$2"
   local escaped_command
   escaped_command=$(echo "$command" | sed 's/\\/\\\\/g')
-  local json_input="{\"input\":{\"command\":\"$escaped_command\"}}"
+  local json_input="{\"tool_input\":{\"command\":\"$escaped_command\"}}"
   echo "$json_input" | bash "$hook_script" >/dev/null 2>&1
   return $?
 }

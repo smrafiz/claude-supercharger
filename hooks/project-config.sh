@@ -7,9 +7,7 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
-
-PROJECT_DIR=$(echo "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
+PROJECT_DIR=$(python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
 
 if [ -z "$PROJECT_DIR" ]; then
   exit 0

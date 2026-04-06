@@ -41,7 +41,7 @@ fi
 if [[ "$MODE" == "contract" ]]; then
   [ -f "$CONTRACT_FILE" ] && exit 0
   INPUT=$(cat)
-  PROMPT=$(echo "$INPUT" | python3 -c "
+  PROMPT=$(printf '%s\n' "$INPUT" | python3 -c "
 import sys, json
 try:
     print(json.load(sys.stdin).get('prompt',''))
@@ -77,10 +77,10 @@ fi
 # ── check ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "check" ]]; then
   INPUT=$(cat)
-  TOUCHED=$(echo "$INPUT" | python3 -c "
+  TOUCHED=$(printf '%s\n' "$INPUT" | python3 -c "
 import sys, json
 try:
-    print(json.load(sys.stdin).get('input', {}).get('file_path', ''))
+    print(json.load(sys.stdin).get('tool_input', {}).get('file_path', ''))
 except:
     print('')
 " 2>/dev/null || echo "")

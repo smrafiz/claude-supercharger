@@ -260,7 +260,7 @@ PKG_TEST_DIR=$(mktemp -d)
 run_pkg_hook() {
   local command="$1"
   local project_dir="$2"
-  local json_input="{\"input\":{\"command\":\"$command\"}}"
+  local json_input="{\"tool_input\":{\"command\":\"$command\"}}"
   echo "$json_input" | CLAUDE_PROJECT_DIR="$project_dir" bash "$PKG_HOOK" >/dev/null 2>&1
   return $?
 }
@@ -350,7 +350,7 @@ AUDIT_DIR=$(mktemp -d)
 HOME_ORIG="$HOME"
 export HOME="$AUDIT_DIR"
 mkdir -p "$HOME/.claude/supercharger/audit"
-echo '{"tool_name":"Write","input":{"file_path":"/tmp/test.txt"}}' | bash "$AUDIT_HOOK" 2>/dev/null
+echo '{"tool_name":"Write","tool_input":{"file_path":"/tmp/test.txt"}}' | bash "$AUDIT_HOOK" 2>/dev/null
 TODAY=$(date -u +"%Y-%m-%d")
 if [ -f "$HOME/.claude/supercharger/audit/$TODAY.jsonl" ]; then
   pass
@@ -365,7 +365,7 @@ AUDIT_DIR=$(mktemp -d)
 HOME_ORIG="$HOME"
 export HOME="$AUDIT_DIR"
 mkdir -p "$HOME/.claude/supercharger/audit"
-echo '{"tool_name":"Bash","input":{"command":"ls -la"}}' | bash "$AUDIT_HOOK" 2>/dev/null
+echo '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' | bash "$AUDIT_HOOK" 2>/dev/null
 TODAY=$(date -u +"%Y-%m-%d")
 if [ -f "$HOME/.claude/supercharger/audit/$TODAY.jsonl" ]; then
   fail "read-only command should not be audited"
@@ -532,19 +532,19 @@ echo ""
 echo "=== Human-Readable Hook Message Tests ==="
 
 begin_test "safety: blocked message contains 'Reason' label"
-MSG=$(echo '{"input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
+MSG=$(echo '{"tool_input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
 echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in block message"
 
 begin_test "safety: blocked message tells user how to proceed"
-MSG=$(echo '{"input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
+MSG=$(echo '{"tool_input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
 echo "$MSG" | grep -qi "confirm" && pass || fail "no confirm instruction in block message"
 
 begin_test "git-safety: blocked message contains 'Reason' label"
-MSG=$(echo '{"input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
+MSG=$(echo '{"tool_input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
 echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in git block message"
 
 begin_test "git-safety: blocked message tells user how to proceed"
-MSG=$(echo '{"input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
+MSG=$(echo '{"tool_input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
 echo "$MSG" | grep -qi "confirm" && pass || fail "no confirm instruction in git block message"
 
 # --- First-Run Welcome Tests ---
