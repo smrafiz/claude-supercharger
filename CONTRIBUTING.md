@@ -2,19 +2,19 @@
 
 Claude Supercharger is a zero-dependency Bash toolkit that installs hooks, roles, and economy rules into Claude Code via `~/.claude`. It ships no npm packages, no pip installs — just shell scripts and config files.
 
-The installer writes to `~/.claude/settings.json` (hooks), `~/.claude/rules/` (role and economy files), and `~/.claude/CLAUDE.md` (instructions). Everything is reversible via `bash install.sh --uninstall`.
+The installer writes to `~/.claude/settings.json` (hooks), `~/.claude/rules/` (role and economy files), and `~/.claude/CLAUDE.md` (instructions). Everything is reversible via `bash uninstall.sh`.
 
 ---
 
 ## Getting Started
 
 ```bash
-git clone https://github.com/radiustheme/claude-supercharger
+git clone https://github.com/smrafiz/claude-supercharger
 cd claude-supercharger
 bash tests/run.sh
 ```
 
-All 150 tests must pass before submitting a PR.
+All 227 tests must pass before submitting a PR.
 
 ### File Structure
 
