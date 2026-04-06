@@ -50,10 +50,10 @@ except:
 " 2>/dev/null || echo "")
   [ -z "$PROMPT" ] && exit 0
 
-  python3 << PYEOF > "$CONTRACT_FILE" 2>/dev/null || echo "scope:general" > "$CONTRACT_FILE"
-import re, sys
+  SCOPE_PROMPT="$PROMPT" python3 << 'PYEOF' > "$CONTRACT_FILE" 2>/dev/null || echo "scope:general" > "$CONTRACT_FILE"
+import re, os
 
-prompt = """$PROMPT"""
+prompt = os.environ.get('SCOPE_PROMPT', '')
 signals = []
 
 paths = re.findall(r'[\w./\-]+\.(?:tsx?|jsx?|py|rs|go|rb|java|php|sh|md|json|yaml|yml|css|scss|html|vue|svelte)', prompt)
