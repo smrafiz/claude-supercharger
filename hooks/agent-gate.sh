@@ -8,12 +8,6 @@ set -euo pipefail
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 ROUTE_FILE="$SCOPE_DIR/.agent-route"
 
-# No classification stored — gate open
-[ -f "$ROUTE_FILE" ] || exit 0
-
-STORED_AGENT=$(cat "$ROUTE_FILE" 2>/dev/null || echo "")
-[ -z "$STORED_AGENT" ] && exit 0
-
 DISPATCHED=$(python3 -c "
 import sys, json
 try:
@@ -23,6 +17,15 @@ except:
 " 2>/dev/null || echo "")
 
 [ -z "$DISPATCHED" ] && exit 0
+
+# No classification stored — learn from first dispatch and latch
+if [ ! -f "$ROUTE_FILE" ]; then
+  echo "$DISPATCHED" > "$ROUTE_FILE"
+  exit 0
+fi
+
+STORED_AGENT=$(cat "$ROUTE_FILE" 2>/dev/null || echo "")
+[ -z "$STORED_AGENT" ] && exit 0
 
 # Match on first word of stored agent name (case-insensitive)
 # "Sherlock Holmes (Detective)" → check if "sherlock" appears in dispatched (lowercased)
