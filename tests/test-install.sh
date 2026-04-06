@@ -68,11 +68,12 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail +
-#   project-config + update-check + quality-gate = 8
-if [ "$HOOK_COUNT" -eq 8 ]; then
+#   scope-guard(check+snapshot+contract) + project-config + update-check +
+#   agent-router + agent-gate + quality-gate = 13
+if [ "$HOOK_COUNT" -eq 13 ]; then
   pass
 else
-  fail "expected 8 hooks in standard mode, got $HOOK_COUNT"
+  fail "expected 13 hooks in standard mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -142,11 +143,12 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # Full mode + developer = safety + notify + git-safety + enforce-pkg-manager + audit-trail +
-#   project-config + update-check + quality-gate + prompt-validator + compaction-backup + session-complete = 11
-if [ "$HOOK_COUNT" -eq 11 ]; then
+#   scope-guard(check+snapshot+contract+clear) + project-config + update-check +
+#   agent-router + agent-gate + quality-gate + prompt-validator + compaction-backup + session-complete = 17
+if [ "$HOOK_COUNT" -eq 17 ]; then
   pass
 else
-  fail "expected 11 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 17 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
