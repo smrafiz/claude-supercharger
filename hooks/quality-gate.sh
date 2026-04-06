@@ -43,7 +43,7 @@ lint_and_fix() {
       ;;
     js|jsx|ts|tsx|mjs|cjs)
       # Stage 1: Lint
-      if command -v eslint &>/dev/null && [ -f "$PROJECT_ROOT/.eslintrc"* ] 2>/dev/null || [ -f "$PROJECT_ROOT/eslint.config"* ] 2>/dev/null; then
+      if command -v eslint &>/dev/null && { compgen -G "$PROJECT_ROOT/.eslintrc*" &>/dev/null || compgen -G "$PROJECT_ROOT/eslint.config*" &>/dev/null; }; then
         issues=$(eslint "$file" 2>&1) || true
         if [ -n "$issues" ]; then
           HAD_ISSUES=true
