@@ -63,7 +63,7 @@ if [ -f "$HOME/.claude/CLAUDE.md" ] && grep -q "^# --- Claude Supercharger" "$HO
 fi
 
 # Remove Supercharger rule files
-for f in supercharger.md guardrails.md economy.md developer.md writer.md student.md data.md pm.md anti-patterns.yml; do
+for f in supercharger.md guardrails.md economy.md developer.md writer.md student.md data.md pm.md designer.md devops.md researcher.md anti-patterns.yml; do
   rm -f "$HOME/.claude/rules/$f"
 done
 echo -e "  ${GREEN}✓${NC} Rule files removed"
