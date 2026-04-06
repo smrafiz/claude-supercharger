@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.8.0] - 2026-04-06 — Enforced agent routing
 - [1.7.6] - 2026-04-06 — Scope Guard hook, hook count fix
 - [1.7.5] - 2026-04-06 — Auto-update banner, sound-only notifications
 - [1.7.4] - 2026-04-06 — update.sh: detect and preserve config silently
@@ -13,6 +14,22 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.8.0] - 2026-04-06
+
+### Added
+- **Agent routing** — `agent-router.sh` (UserPromptSubmit) classifies the first prompt using ordered regex rules and injects a mandatory routing directive into Claude's context. Covers 8 agent patterns; ambiguous prompts fall through silently.
+- **Agent gate** — `agent-gate.sh` (PreToolUse/Agent) enforces the classification: blocks dispatch of the wrong agent (exit 2). If no route was set by the router, latches on the first agent Claude dispatches and enforces from there. Achieves ~99% correct routing without any user behavior change.
+- **13 new tests** — `tests/test-agent-router.sh` (9 cases) and `tests/test-agent-gate.sh` (6 cases).
+
+### Fixed
+- `scope-guard.sh` clear mode now also removes `.agent-route` so routing state resets cleanly on session end.
+- Regex priority: `write a function/test/class/script` now correctly routes to Tony Stark (Engineer) before the generic `write` pattern reaches Ernest Hemingway (Writer).
+- Routing patterns extended: `add a`, `should I use`, `should I go with` now match correctly.
+- README routing examples corrected to match actual regex behavior.
+- Install test hook count assertions updated (standard: 13, full: 17).
 
 ---
 
