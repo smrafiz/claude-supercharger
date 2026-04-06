@@ -161,8 +161,9 @@ You don't pick an agent. You talk naturally, and the right one activates:
 "Should I use REST or GraphQL here?"          → Sun Tzu (planner)
 "Compare Redis vs Memcached for our use case" → Marie Curie (researcher)
 "Analyze this CSV and show me the top sellers"→ Albert Einstein (data-analyst)
-"How does this codebase work?"                → Steve Jobs (general)
+"How does this codebase work?"                → Marie Curie (researcher)
 "Design the auth system before we build it"   → Leonardo da Vinci (architect)
+"Hey, what should we work on?"                → Steve Jobs (general)
 ```
 
 Each agent has scope rules, numbered safety-first rules (Rule 0 is always production safety), escalation blocks, and a verification gate.

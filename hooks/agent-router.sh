@@ -40,11 +40,11 @@ elif printf '%s\n' "$PROMPT" | grep -qiE '(write|draft|blog|README|document|expl
   AGENT="Ernest Hemingway (Writer)"
 elif printf '%s\n' "$PROMPT" | grep -qiE '(design|architect|before we build|system design|how should I structure|ADR|architecture decision|diagram)'; then
   AGENT="Leonardo da Vinci (Architect)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(plan|break down|estimate|how should I|what.s the best approach|help me think|roadmap|prioritize|scope this)'; then
+elif printf '%s\n' "$PROMPT" | grep -qiE '(plan|break down|estimate|how should I|should I use|should I go with|what.s the best approach|help me think|roadmap|prioritize|scope this)'; then
   AGENT="Sun Tzu (Strategist)"
 elif printf '%s\n' "$PROMPT" | grep -qiE '(what is|how does|compare|difference between|research|best way to|explain.*concept|versus|trade.?off)'; then
   AGENT="Marie Curie (Scientist)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(build|implement|add feature|fix|create|refactor|write a function|write a test|make it|update the)'; then
+elif printf '%s\n' "$PROMPT" | grep -qiE '(build|implement|add |add a |fix|create|refactor|write a function|write a test|make it|update the)'; then
   AGENT="Tony Stark (Engineer)"
 fi
 
