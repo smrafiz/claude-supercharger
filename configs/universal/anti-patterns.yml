@@ -77,6 +77,10 @@ scope:
     fix: "Scope to relevant function + file only"
 
 reasoning:
+  no_cot_for_logic:
+    bad: "which approach is better?"
+    fix: "Think through both step-by-step before recommending"
+
   cot_on_reasoning_models:
     bad: "think step by step to o1/o3/R1"
     fix: "REMOVE (degrades output)"
