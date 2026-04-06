@@ -149,7 +149,7 @@ fi
 
 # ── clear ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "clear" ]]; then
-  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE"
+  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" "$SCOPE_DIR/.agent-route"
   exit 0
 fi
 
