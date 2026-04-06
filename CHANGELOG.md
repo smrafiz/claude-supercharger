@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.1] - 2026-04-06 — README accuracy fixes, update integrity, cost feedback loop
 - [1.9.0] - 2026-04-06 — Hook JSON key fix, echo pipe safety
 - [1.8.0] - 2026-04-06 — Enforced agent routing
 - [1.7.6] - 2026-04-06 — Scope Guard hook, hook count fix
@@ -15,6 +16,19 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.1] - 2026-04-06
+
+### Fixed
+- **README MCP table** — Designer role was incorrectly listed alongside Developer for Playwright. Designer only receives Magic UI; Playwright is Developer-only. Split into two rows.
+- **README economy claims** — Removed unverifiable percentage reduction figures (`~45%`, `~60%`). Economy tiers are prompt instructions, not enforced constraints. Column renamed from "Reduction" to "Target"; values updated to intent language (`concise output`, `minimal output`, etc.).
+- **README economy headline** — "cuts your costs in half" replaced with "instructs Claude to prioritize concise output".
+- **`tools/update.sh` integrity** — Added GitHub API commit SHA verification before executing `install.sh` from cloned repo. Mismatch aborts update and cleans up temp directory.
+
+### Added
+- **Session cost feedback loop** — `hooks/session-complete.sh` now persists session cost and active economy tier to `~/.claude/supercharger/.last-session-cost` on every Stop event. `hooks/project-config.sh` reads this at SessionStart and injects "Last session cost: $X (economy: lean)" into Claude's system context, giving a live signal instead of a static promise.
 
 ---
 

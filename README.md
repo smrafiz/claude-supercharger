@@ -8,9 +8,9 @@ The problem isn't that Claude is bad. It's that Claude is eager. And there's no 
 
 **Supercharger fixes this.** Safety guardrails run at the shell level — outside Claude's conversation, before commands execute. Not a prompt Claude can argue with. An actual wall.
 
-But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that cuts your costs in half, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
+But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that instructs Claude to prioritize concise output, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
 
-![Version](https://img.shields.io/badge/version-1.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.9.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -137,11 +137,11 @@ When something's blocked, Claude gets a plain-English reason — not a shell err
 
 Claude is verbose by default. Supercharger ships three output tiers:
 
-| Tier | What changes | Reduction |
+| Tier | What changes | Target |
 |---|---|---|
-| **Standard** | Complete sentences. Good for learning. | ~30% |
-| **Lean** *(default)* | Every word earns its place. Fragments OK. | ~45% |
-| **Minimal** | Telegraphic. Bare output only. | ~60% |
+| **Standard** | Complete sentences. Good for learning. | shorter responses |
+| **Lean** *(default)* | Every word earns its place. Fragments OK. | concise output |
+| **Minimal** | Telegraphic. Bare output only. | minimal output |
 
 Switch mid-conversation: `eco lean` / `eco standard` / `eco minimal`
 
@@ -212,7 +212,8 @@ These are pre-configured and auto-installed based on your roles. No API keys for
 | Who gets it | Servers |
 |---|---|
 | Everyone | Context7 (live library docs), Sequential Thinking (structured reasoning), Memory (persistent across sessions) |
-| Developer, Designer | + Playwright (browser automation), Magic UI (component library) |
+| Developer           | + Playwright (browser automation), Magic UI (component library) |
+| Designer            | + Magic UI (component library)                                  |
 | Writer, Student, PM, Researcher | + DuckDuckGo Search |
 
 ```

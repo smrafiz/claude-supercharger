@@ -186,6 +186,27 @@ if config_file and os.path.isfile(config_file):
     except Exception:
         pass
 
+# --- Last session cost feedback ---
+cost_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', '.last-session-cost')
+if os.path.isfile(cost_file):
+    try:
+        cost_data = {}
+        with open(cost_file) as f:
+            for line in f:
+                line = line.strip()
+                if '=' in line:
+                    k, v = line.split('=', 1)
+                    cost_data[k.strip()] = v.strip()
+        cost_val = float(cost_data.get('cost', '0') or '0')
+        economy_val = cost_data.get('economy', 'lean')
+        if cost_val > 0:
+            parts.append(
+                f'Last session cost: ${cost_val:.4f} (economy: {economy_val}). '
+                f'Target: concise output per {economy_val} tier rules.'
+            )
+    except Exception:
+        pass
+
 update_notice = os.environ.get('UPDATE_NOTICE', '')
 if update_notice:
     parts.append(update_notice)

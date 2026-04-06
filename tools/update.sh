@@ -165,7 +165,36 @@ if [ ! -d "$REPO_DIR/.git" ]; then
   fi
   echo ""
   TMP=$(mktemp -d)
+
+  # Fetch expected HEAD commit SHA from GitHub API before cloning
+  EXPECTED_SHA=$(python3 -c "
+import urllib.request, json
+try:
+    url = 'https://api.github.com/repos/smrafiz/claude-supercharger/commits/master'
+    req = urllib.request.Request(url, headers={'User-Agent': 'claude-supercharger'})
+    with urllib.request.urlopen(req, timeout=10) as r:
+        data = json.load(r)
+    print(data['sha'])
+except Exception:
+    print('')
+" 2>/dev/null)
+
+  if [ -z "$EXPECTED_SHA" ]; then
+    echo -e "${RED}  ✗ Could not fetch expected commit SHA from GitHub API. Aborting.${NC}" >&2
+    rm -rf "$TMP"
+    exit 1
+  fi
+
   git clone "${REPO_URL}.git" "$TMP/cs" --quiet
+
+  ACTUAL_SHA=$(git -C "$TMP/cs" rev-parse HEAD 2>/dev/null || echo "")
+
+  if [ -z "$ACTUAL_SHA" ] || [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+    echo -e "${RED}  ✗ Integrity check failed: cloned commit ($ACTUAL_SHA) does not match expected ($EXPECTED_SHA). Aborting.${NC}" >&2
+    rm -rf "$TMP"
+    exit 1
+  fi
+
   bash "$TMP/cs/install.sh" \
     --mode "$DETECTED_MODE" \
     --roles "$ROLES_CSV" \

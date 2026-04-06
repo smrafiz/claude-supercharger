@@ -6,8 +6,42 @@
 set -eo pipefail
 
 SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
+SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 
 mkdir -p "$SUMMARIES_DIR" 2>/dev/null || true
+
+# Parse cost from Stop event stdin (graceful fallback if not present)
+INPUT=$(cat)
+COST=$(echo "$INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.loads(sys.stdin.read())
+    cost = (d.get('cost_usd')
+            or d.get('total_cost_usd')
+            or (d.get('cost') or {}).get('total_cost_usd')
+            or 0)
+    print(f'{float(cost):.4f}')
+except Exception:
+    print('0')
+" 2>/dev/null || echo "0")
+
+# Detect active economy tier from installed rules
+ECONOMY="lean"
+if [ -f "$HOME/.claude/rules/economy.md" ]; then
+  if grep -q "Active Tier: Minimal" "$HOME/.claude/rules/economy.md" 2>/dev/null; then
+    ECONOMY="minimal"
+  elif grep -q "Active Tier: Standard" "$HOME/.claude/rules/economy.md" 2>/dev/null; then
+    ECONOMY="standard"
+  fi
+fi
+
+# Persist cost + economy for next session's feedback injection
+COST_FILE="$SUPERCHARGER_DIR/.last-session-cost"
+{
+  echo "cost=$COST"
+  echo "economy=$ECONOMY"
+  echo "timestamp=$(date +%Y-%m-%dT%H:%M:%S)"
+} > "$COST_FILE" 2>/dev/null || true
 
 # Capture session metadata
 PROJECT=$(basename "$(pwd)" 2>/dev/null || echo "unknown")
