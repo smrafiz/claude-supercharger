@@ -30,7 +30,7 @@ cmd = re.sub(r'\b(AKIA[0-9A-Z]{16})', '[REDACTED_AWS]', cmd)
 cmd = re.sub(r'\b(ghp_[0-9a-zA-Z]{36})', '[REDACTED_GH]', cmd)
 cmd = re.sub(r'\b(sk-[0-9a-zA-Z]{20,})', '[REDACTED_KEY]', cmd)
 cmd = re.sub(r'\b(\w+_(?:KEY|TOKEN|SECRET|PASSWORD))\s*=\s*\S+', r'\1=[REDACTED]', cmd, flags=re.IGNORECASE)
-entry = {'timestamp': datetime.datetime.utcnow().isoformat()+'Z', 'tool': 'Bash', 'action': cmd}
+entry = {'timestamp': datetime.datetime.now(tz=datetime.timezone.utc).isoformat().replace('+00:00','Z'), 'tool': 'Bash', 'action': cmd}
 print(json.dumps(entry))
 " "$COMMAND" >> "$AUDIT_FILE" 2>/dev/null || true
     ;;
@@ -39,7 +39,7 @@ print(json.dumps(entry))
     [ -z "$FILE_PATH" ] && exit 0
     python3 -c "
 import json, sys, datetime
-entry = {'timestamp': datetime.datetime.utcnow().isoformat()+'Z', 'tool': sys.argv[1], 'file': sys.argv[2]}
+entry = {'timestamp': datetime.datetime.now(tz=datetime.timezone.utc).isoformat().replace('+00:00','Z'), 'tool': sys.argv[1], 'file': sys.argv[2]}
 print(json.dumps(entry))
 " "$TOOL_NAME" "$FILE_PATH" >> "$AUDIT_FILE" 2>/dev/null || true
     ;;

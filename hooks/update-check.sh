@@ -17,7 +17,8 @@ LOCAL=$(cat "$VERSION_FILE")
 
 # Use cached result if fresh
 if [ -f "$CACHE_FILE" ]; then
-  CACHE_AGE=$(( $(date +%s) - $(date -r "$CACHE_FILE" +%s 2>/dev/null || echo 0) ))
+  CACHE_MTIME=$(stat -f "%m" "$CACHE_FILE" 2>/dev/null || stat -c "%Y" "$CACHE_FILE" 2>/dev/null || echo 0)
+  CACHE_AGE=$(( $(date +%s) - CACHE_MTIME ))
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     REMOTE=$(cat "$CACHE_FILE")
     if [ -n "$REMOTE" ] && [ "$REMOTE" != "$LOCAL" ]; then
