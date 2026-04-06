@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.0] - 2026-04-06 — Hook JSON key fix, echo pipe safety
 - [1.8.0] - 2026-04-06 — Enforced agent routing
 - [1.7.6] - 2026-04-06 — Scope Guard hook, hook count fix
 - [1.7.5] - 2026-04-06 — Auto-update banner, sound-only notifications
@@ -14,6 +15,15 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.0] - 2026-04-06
+
+### Fixed
+- **Critical hook JSON key bug** — `safety.sh`, `git-safety.sh`, and `enforce-pkg-manager.sh` were reading `input.command` instead of `tool_input.command`. All three safety hooks were silently passing every command through (read empty string, exited 0). Also fixed `input.file_path` → `tool_input.file_path` in `quality-gate.sh`, `audit-trail.sh`, and `scope-guard.sh` check mode.
+- **echo pipe safety** — replaced `echo "$VAR" | grep/python3` with `printf '%s\n' "$VAR"` across all 7 affected hooks to prevent flag injection when variable content starts with `-n` or `-e`.
+- **Test JSON format** — updated `tests/helpers.sh` `run_hook()` and all inline hook assertions in `tests/test-hooks.sh` to use `tool_input.*` keys, matching actual Claude Code hook protocol.
 
 ---
 

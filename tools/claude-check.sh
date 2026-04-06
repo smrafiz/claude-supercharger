@@ -321,7 +321,7 @@ fi
 if [ -f ".supercharger.json" ]; then
   echo -e "Project config: ${GREEN}.supercharger.json detected${NC}"
 fi
-echo -e "Version: ${BOLD}1.8.0${NC}"
+echo -e "Version: ${BOLD}1.9.0${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then

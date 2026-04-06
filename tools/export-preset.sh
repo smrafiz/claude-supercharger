@@ -72,7 +72,7 @@ OUTPUT_FILE="$OUTPUT" PRESET_MODE="$MODE" PRESET_ECONOMY="$ECONOMY" python3 -c "
 import json, os
 
 preset = {
-    'version': '1.8.0',
+    'version': '1.9.0',
     'mode': os.environ['PRESET_MODE'],
     'roles': $ROLES_JSON,
     'economy': os.environ['PRESET_ECONOMY']
