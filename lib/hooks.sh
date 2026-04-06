@@ -22,6 +22,8 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/project-config.sh")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract")
+    hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
@@ -186,8 +188,9 @@ count_installed_hooks() {
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
     # notify, git-safety, enforce-pkg-manager, audit-trail,
-    # scope-guard(check+snapshot+contract), project-config, update-check
-    count=$((count + 9))
+    # scope-guard(check+snapshot+contract), project-config, update-check,
+    # agent-router, agent-gate
+    count=$((count + 11))
     if [[ "$has_developer" == "true" ]]; then
       count=$((count + 1))  # quality-gate
     fi
