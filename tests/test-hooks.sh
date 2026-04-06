@@ -9,7 +9,7 @@ PROMPT_HOOK="$REPO_DIR/hooks/prompt-validator.sh"
 # Helper: pipe prompt text to the validator hook
 run_prompt_hook() {
   local prompt="$1"
-  local json_input="{\"input\":{\"prompt\":\"$prompt\"}}"
+  local json_input="{\"prompt\":\"$prompt\"}"
   echo "$json_input" | bash "$PROMPT_HOOK" 2>&1
 }
 

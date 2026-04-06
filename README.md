@@ -229,7 +229,7 @@ Long sessions hit context limits. Rate limits interrupt your flow. Supercharger 
 
 **Status bar** shows what matters in real time: model, project, branch, stack, context usage (color-coded), session cost, cache hit rate. You see context pressure building before it becomes a problem.
 
-**Auto-save on compaction** — when context gets compressed, Supercharger saves a structured summary: decisions made, files changed, what failed, what to do next. A paste-ready resume prompt gets copied to your clipboard.
+**Auto-save on compaction** — when context gets compressed, Supercharger saves a structured summary: decisions made, files changed, what failed, what to do next. Run `bash tools/resume.sh` to view it and copy the resume prompt to your clipboard.
 
 **Session resume:**
 ```bash
