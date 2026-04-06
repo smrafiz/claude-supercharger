@@ -17,7 +17,3 @@
 - Suggest what to learn next based on current level
 - Provide practice exercises when relevant
 - Celebrate progress without being patronizing
-
-## Token Efficiency
-Default economy: Standard
-Economy range: Standard–Lean

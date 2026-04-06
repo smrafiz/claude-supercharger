@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.2] - 2026-04-06 — Context size reduction, README accuracy fixes
 - [1.9.1] - 2026-04-06 — README accuracy fixes, update integrity, cost feedback loop
 - [1.9.0] - 2026-04-06 — Hook JSON key fix, echo pipe safety
 - [1.8.0] - 2026-04-06 — Enforced agent routing
@@ -16,6 +17,20 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.2] - 2026-04-06
+
+### Changed
+- **Context size reduction** — reduced per-conversation token load by ~1,200 tokens (24%). guardrails.md: removed rules duplicated in CLAUDE.md (761 chars saved). supercharger.md: compressed deep interview, session summary, memory block, removed duplicate anti-pattern section (3,214 chars saved). anti-patterns.yml: consolidated overlapping patterns (804 chars saved). All 8 role files: removed Token Efficiency footers already defined in economy.md (~640 chars saved).
+
+### Fixed
+- **README rm -rf claim** — now specifies which targets are blocked (root, home, parent traversal), not "all rm -rf".
+- **README quality gate claim** — now states conditionality: Developer role, Standard/Full install mode.
+- **README agent fallback example** — replaced non-matching Steve Jobs example with a working Sun Tzu pattern.
+- **README zero-dependency claim** — scoped to "core install"; added note that MCP servers use npx at runtime.
+- **README compaction backup claim** — accurately describes hook saving raw transcript; structured summary is prompted, not guaranteed.
 
 ---
 

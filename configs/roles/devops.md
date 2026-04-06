@@ -31,7 +31,3 @@
 - Container image scanning (Trivy, Snyk)
 - SAST in pipeline — block on critical findings
 - Rotate credentials on schedule, not on breach
-
-## Token Efficiency
-Default economy: Lean
-Economy range: unrestricted

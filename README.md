@@ -10,7 +10,7 @@ The problem isn't that Claude is bad. It's that Claude is eager. And there's no 
 
 But safety was just the start. Once I had that working, I kept going: agents that stay in scope, token economy that instructs Claude to prioritize concise output, slash commands that think harder than you'd expect, roles that adapt to how you work, MCP servers that just work out of the box, session memory that survives context limits, and team configs that keep everyone consistent.
 
-![Version](https://img.shields.io/badge/version-1.9.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.9.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -122,14 +122,14 @@ Most Claude behavior guides are prompts. Claude can be talked out of prompts. Su
 
 | What gets blocked | Why |
 |---|---|
-| `rm -rf /`, `DROP TABLE`, `chmod 777`, fork bombs | Irreversible destruction |
+| `rm -rf /`, `rm -rf ~`, `rm -rf ..` (root, home, parent traversal), `DROP TABLE`, `chmod 777`, fork bombs | Irreversible destruction |
 | `git push --force` to main/master | Overwrites shared history |
 | `curl \| bash`, `eval`, credential patterns | Security |
 | `git reset --hard`, `git checkout .` | Loses uncommitted work |
 | Wrong package manager (`npm` in a pnpm project) | Corrupts lockfile |
 | Writing to `.bashrc`, `.zshrc`, SSH keys | Unauthorized persistence |
 
-Plus: a 3-stage quality gate runs lint → auto-fix → re-check after every file edit. A prompt validator catches 20 anti-patterns before they waste a turn. An audit trail logs every mutation to JSONL with 30-day rotation.
+Plus: a 3-stage quality gate runs lint → auto-fix → re-check after file edits (Developer role, Standard/Full install mode). A prompt validator catches 20 anti-patterns before they waste a turn. An audit trail logs every mutation to JSONL with 30-day rotation.
 
 When something's blocked, Claude gets a plain-English reason — not a shell error.
 
@@ -163,7 +163,7 @@ You don't pick an agent. You talk naturally, and the right one activates:
 "Analyze this CSV and show me the top sellers"→ Albert Einstein (data-analyst)
 "How does this codebase work?"                → Marie Curie (researcher)
 "Design the auth system before we build it"   → Leonardo da Vinci (architect)
-"Hey, what should we work on?"                → Steve Jobs (general)
+"Plan the rollout and prioritize the backlog"  → Sun Tzu (planner)
 ```
 
 Each agent has scope rules, numbered safety-first rules (Rule 0 is always production safety), escalation blocks, and a verification gate.
@@ -230,7 +230,7 @@ Long sessions hit context limits. Rate limits interrupt your flow. Supercharger 
 
 **Status bar** shows what matters in real time: model, project, branch, stack, context usage (color-coded), session cost, cache hit rate. You see context pressure building before it becomes a problem.
 
-**Auto-save on compaction** — when context gets compressed, Supercharger saves a structured summary: decisions made, files changed, what failed, what to do next. Run `bash tools/resume.sh` to view it and copy the resume prompt to your clipboard.
+**Auto-save on compaction** — when context gets compressed, Supercharger saves the conversation transcript to disk. Claude's structured summary format (decisions made, files changed, what failed, what to do next) is prompted via rules — the hook captures the raw transcript. Run `bash tools/resume.sh` to view it and copy the resume prompt to your clipboard.
 
 **Session resume:**
 ```bash
@@ -366,7 +366,7 @@ Every person who uses Claude Code has a version of the same story. The developer
 
 I stopped trying to fix this with better prompts. Prompts are suggestions. Claude is good at finding reasons to ignore suggestions. So I moved the enforcement to where Claude can't reach it — shell hooks that run before the command executes. And then I built everything else I wished Claude did out of the box.
 
-Supercharger is open source, MIT licensed, and zero-dependency — shell scripts and config files only. No npm packages, no pip installs. It backs up your existing config and `./uninstall.sh` reverses everything.
+Supercharger is open source, MIT licensed, and zero-dependency for core install — shell scripts and config files only. No npm packages, no pip installs. MCP servers (optional) use npx at runtime. It backs up your existing config and `./uninstall.sh` reverses everything.
 
 If Claude has ever ignored your instructions, gone way beyond what you asked, or given you a wall of text when you wanted a sentence — this is what I built to fix that.
 

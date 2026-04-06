@@ -17,7 +17,3 @@
 - Flag missing values, outliers, and anomalies
 - Never silently drop or modify data without noting it
 - Prefer SQL/pandas operations over manual calculation
-
-## Token Efficiency
-Default economy: Lean
-Economy range: unrestricted

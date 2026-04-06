@@ -17,7 +17,3 @@
 - Propose mitigations, not just warnings
 - Track assumptions that could invalidate the plan
 - Escalation criteria: what triggers re-planning
-
-## Token Efficiency
-Default economy: Lean
-Economy range: unrestricted

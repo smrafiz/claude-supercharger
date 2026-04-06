@@ -27,7 +27,3 @@
 - Before fixing a bug, check if the same file had recent fixes
 - After fixing, note what was changed and why
 - Never reintroduce a pattern that was explicitly removed
-
-## Token Efficiency
-Default economy: Lean
-Economy range: unrestricted

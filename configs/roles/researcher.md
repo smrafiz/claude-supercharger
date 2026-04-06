@@ -29,7 +29,3 @@
 - Never extrapolate beyond what the data supports
 - Flag conflicts of interest or funding biases in cited work
 - Distinguish primary sources from secondary/tertiary
-
-## Token Efficiency
-Default economy: Standard
-Economy range: unrestricted

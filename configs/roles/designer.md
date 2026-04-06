@@ -23,7 +23,3 @@
 - Include usage examples showing key states
 - Note design decisions: why this spacing, why this color, why this layout
 - Flag deviations from project design system
-
-## Token Efficiency
-Default economy: Lean
-Economy range: unrestricted

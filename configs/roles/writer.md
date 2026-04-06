@@ -17,7 +17,3 @@
 - Flag when you're uncertain about a fact
 - Proofread for clarity, not just grammar
 - Cut unnecessary words — every sentence earns its place
-
-## Token Efficiency
-Default economy: Standard
-Economy range: Standard–unrestricted
