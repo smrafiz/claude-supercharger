@@ -99,8 +99,7 @@ try:
         with open(route_file) as f:
             agent_name = f.read().strip()
         if agent_name:
-            short = agent_name.split()[0] if agent_name else ''
-            agent = f' {DIM}|{RESET} {CYAN}{short}{RESET}'
+            agent = f' {DIM}|{RESET} {CYAN}Agent: {agent_name}{RESET}'
 except Exception:
     pass
 
