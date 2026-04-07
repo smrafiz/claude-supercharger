@@ -34,21 +34,6 @@ input_tok = usage.get('input_tokens', 0) or 0
 output_tok = usage.get('output_tokens', 0) or 0
 total_tok = input_tok + output_tok
 
-# Track per-prompt cost delta
-# agent-router.sh deletes .prompt-cost on each new prompt
-# First statusline render saves current cost as the start point
-prompt_cost_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.prompt-cost')
-prompt_cost_delta = 0.0
-try:
-    if os.path.isfile(prompt_cost_file):
-        with open(prompt_cost_file) as f:
-            start_cost = float(f.read().strip())
-        prompt_cost_delta = cost - start_cost
-    else:
-        with open(prompt_cost_file, 'w') as f:
-            f.write(str(cost))
-except Exception:
-    pass
 
 # Colors
 CYAN = '\033[36m'
@@ -144,8 +129,7 @@ def fmt_tokens(n):
         return f'{n/1_000:.1f}K'
     return str(n)
 
-prompt_cost_fmt = f'\${prompt_cost_delta:.4f}' if prompt_cost_delta > 0 else ''
-tok_str = f' {DIM}|{RESET} prompt: {prompt_cost_fmt}' if prompt_cost_delta > 0.0001 else ''
+tok_str = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok ({fmt_tokens(input_tok)} in / {fmt_tokens(output_tok)} out)' if total_tok > 0 else ''
 
 line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 
