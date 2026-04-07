@@ -68,18 +68,18 @@ else
 fi
 teardown_test_home
 
-# Test 6: Second call is idempotent (preserves first result)
-begin_test "agent-router: idempotent on second call"
+# Test 6: Second call re-classifies (per-prompt routing)
+begin_test "agent-router: re-classifies on each prompt"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"debug this stack trace"}' | bash "$ROUTER" >/dev/null 2>&1
 FIRST=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
 echo '{"prompt":"write a blog post"}' | bash "$ROUTER" >/dev/null 2>&1
 SECOND=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
-if [ "$FIRST" = "$SECOND" ] && [ -n "$FIRST" ]; then
+if [ "$FIRST" != "$SECOND" ] && echo "$FIRST" | grep -q "Sherlock" && echo "$SECOND" | grep -q "Ernest"; then
   pass
 else
-  fail "idempotence failed: first='$FIRST' second='$SECOND'"
+  fail "re-classify failed: first='$FIRST' second='$SECOND'"
 fi
 teardown_test_home
 

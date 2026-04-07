@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Agent Router
 # Event: UserPromptSubmit | Matcher: (none)
-# Classifies the first user prompt and injects a routing directive into
-# Claude's context. Stores result in .agent-route for agent-gate.sh to enforce.
+# Classifies each user prompt and injects a routing directive into
+# Claude's context. Updates .agent-route for agent-gate.sh reference.
 
 set -euo pipefail
 
@@ -11,9 +11,6 @@ SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
 ROUTE_FILE="$SCOPE_DIR/.agent-route"
-
-# Only classify once per session (idempotent)
-[ -f "$ROUTE_FILE" ] && exit 0
 
 PROMPT=$(python3 -c "
 import sys, json
