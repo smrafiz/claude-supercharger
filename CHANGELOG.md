@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.4] - 2026-04-07 — Token usage display in statusline, install detection, feature doc rewrite
 - [1.9.3] - 2026-04-06 — README rewrite, agent gate fix, examples accuracy
 - [1.9.2] - 2026-04-06 — Context size reduction, README accuracy fixes
 - [1.9.1] - 2026-04-06 — README accuracy fixes, update integrity, cost feedback loop
@@ -18,6 +19,22 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.4] - 2026-04-07
+
+### Added
+- **Token usage in statusline** — shows total tokens with input/output breakdown (e.g. `1.2K tok (1.1K in / 96 out)`). Updates per response.
+- **Full agent name in statusline** — shows `Agent: Sherlock Holmes (Detective)` instead of just `Sherlock`.
+- **Install detection** — `install.sh` detects existing installation and offers Update (preserves config) vs Reinstall. Non-interactive installs bypass the prompt.
+
+### Fixed
+- **Statusline syntax error** — nested double quotes in a Python comment inside `python3 -c` block broke bash quoting. Caused statusline to disappear after install.
+- **MCP setup prompt** — no longer blocks non-interactive installs (full args provided).
+
+### Changed
+- **Feature recommendations doc** — rewrote entirely. Removed 11 items that already exist, removed hallucinated URLs, added 11 genuine recommendations with effort/risk/context-cost assessment.
 
 ---
 

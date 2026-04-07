@@ -30,6 +30,10 @@ cache_create = usage.get('cache_creation_input_tokens', 0) or 0
 cache_total = cache_read + cache_create
 cache_pct = int((cache_read / cache_total * 100)) if cache_total > 0 else 0
 
+input_tok = usage.get('input_tokens', 0) or 0
+output_tok = usage.get('output_tokens', 0) or 0
+total_tok = input_tok + output_tok
+
 # Colors
 CYAN = '\033[36m'
 GREEN = '\033[32m'
@@ -108,7 +112,18 @@ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}'
 
 # Line 2: Context bar, cost, duration, cache hit rate
 cost_fmt = f'\${cost:.2f}'
-line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
+
+# Token display
+def fmt_tokens(n):
+    if n >= 1_000_000:
+        return f'{n/1_000_000:.1f}M'
+    elif n >= 1_000:
+        return f'{n/1_000:.1f}K'
+    return str(n)
+
+tok_str = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok ({fmt_tokens(input_tok)} in / {fmt_tokens(output_tok)} out)' if total_tok > 0 else ''
+
+line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 
 print(line1)
 print(line2)
