@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.4] - 2026-04-07 — Consistency audit: hook safety, install accuracy, version placeholder
 - [2.0.3] - 2026-04-07 — Stack assumption verification, .claudedocs gitignored
 - [2.0.2] - 2026-04-07 — Stabilization: per-step token display, redundant safety rules removed, MCP deferred loading confirmed
 - [2.0.1] - 2026-04-07 — Performance: jq fallback, background quality-gate, stack cache, daily audit rotation
@@ -27,6 +28,18 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.4] - 2026-04-07
+
+### Fixed
+- **Version placeholder** — `configs/universal/CLAUDE.md` now uses `{{VERSION}}` instead of hardcoded `v1.8.0`; substituted at install time alongside `{{ROLES}}` and `{{MODE}}`
+- **Silent hook failures** — `quality-gate.sh` and `prompt-validator.sh` now capture stdin before parsing; missing `python3` no longer causes all checks to silently pass
+- **Hook consistency** — `agent-gate.sh` aligned to jq-first + python3 fallback pattern; `notify.sh`, `session-complete.sh`, `update-check.sh` updated to `set -euo pipefail`
+- **Install accuracy** — step counter now shows "Step 3 of 6" for economy tier; summary derives command names dynamically from `configs/commands/`
+- **Block message format** — `enforce-pkg-manager.sh` aligned to multi-line Reason/Command format used by all sibling hooks
+- **Test badge** — corrected from 253 to 207
 
 ---
 

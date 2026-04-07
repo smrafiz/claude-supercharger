@@ -6,7 +6,11 @@
 
 set -euo pipefail
 
-PROMPT=$(python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
+INPUT=$(cat)
+PROMPT=$(printf '%s\n' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+if [ -z "$PROMPT" ]; then
+  PROMPT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
+fi
 
 if [ -z "$PROMPT" ]; then
   exit 0

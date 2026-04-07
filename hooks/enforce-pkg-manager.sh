@@ -26,7 +26,12 @@ CMD=$(printf '%s\n' "$CMD" | tr -s ' ')
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
 block() {
-  echo "BLOCKED by Supercharger: $1" >&2
+  echo "" >&2
+  echo "Supercharger blocked this command." >&2
+  echo "  Reason : $1" >&2
+  echo "  Command: $COMMAND" >&2
+  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
+  echo "" >&2
   exit 2
 }
 

@@ -4,7 +4,7 @@
 # Alerts user only when Claude genuinely needs input.
 # Filters out informational events (auth, computer-use, elicitation).
 
-set -eo pipefail
+set -euo pipefail
 
 # Read notification payload and filter by type
 PAYLOAD=$(cat)

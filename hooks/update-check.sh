@@ -3,7 +3,7 @@
 # Event: SessionStart | Matcher: (none)
 # Checks for updates once per day and prints a banner if one is available.
 
-set -eo pipefail
+set -euo pipefail
 
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 VERSION_FILE="$SUPERCHARGER_DIR/.version"

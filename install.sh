@@ -164,6 +164,8 @@ if [ -n "$ARG_ECONOMY" ]; then
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   SELECTED_TIER=$(validate_tier_for_roles "$SELECTED_TIER" "$ROLES_CSV")
 else
+  echo -e "${BOLD}Step 3 of 6: Token Economy${NC}"
+  echo ""
   echo -e "${BOLD}Select Token Economy:${NC}"
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   select_economy_tier "$ROLES_CSV"
@@ -265,7 +267,7 @@ ROLES_LIST=$(format_roles_list)
 MODE_LABEL=$(capitalize "$MODE")
 
 if [[ "$CLAUDE_MD_ACTION" == "deploy" || "$CLAUDE_MD_ACTION" == "replace" ]]; then
-  sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" \
+  sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" -e "s/{{VERSION}}/v${VERSION}/g" \
     "$SCRIPT_DIR/configs/universal/CLAUDE.md" > "$HOME/.claude/CLAUDE.md"
   success "Universal config installed"
 elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
@@ -281,7 +283,7 @@ elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
     echo "# Do not edit below this line. Managed by Supercharger."
     echo "# To remove: run uninstall.sh or delete this block."
     echo ""
-    sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" \
+    sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" -e "s/{{VERSION}}/v${VERSION}/g" \
       "$SCRIPT_DIR/configs/universal/CLAUDE.md"
   } >> "$HOME/.claude/CLAUDE.md"
   success "Universal config merged (your CLAUDE.md preserved)"
@@ -314,12 +316,13 @@ if [ -d "$SCRIPT_DIR/configs/agents" ]; then
   success "${AGENT_COUNT} agent(s) installed"
 fi
 
-# Deploy commands (/think, /refactor, /challenge, /audit)
+# Deploy commands
 if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   mkdir -p "$HOME/.claude/commands"
   cp "$SCRIPT_DIR/configs/commands/"*.md "$HOME/.claude/commands/" 2>/dev/null || true
+  CMD_NAMES=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | xargs -I{} basename {} .md | sed 's/^/\//' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
   CMD_COUNT=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  success "${CMD_COUNT} command(s) installed (/think, /refactor, /challenge, /audit)"
+  success "${CMD_COUNT} command(s) installed (${CMD_NAMES})"
 fi
 
 # Deploy hooks

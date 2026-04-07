@@ -3,7 +3,7 @@
 # Event: Stop | Matcher: (none)
 # Logs session metadata on exit. Sends webhook if configured.
 
-set -eo pipefail
+set -euo pipefail
 
 SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"

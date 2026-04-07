@@ -9,13 +9,11 @@ set -euo pipefail
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 ROUTE_FILE="$SCOPE_DIR/.agent-route"
 
-DISPATCHED=$(python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('tool_input', {}).get('subagent_type', ''))
-except:
-    print('')
-" 2>/dev/null || echo "")
+_INPUT=$(cat)
+DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+if [ -z "$DISPATCHED" ]; then
+  DISPATCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('subagent_type',''))" 2>/dev/null || echo "")
+fi
 
 [ -z "$DISPATCHED" ] && exit 0
 
