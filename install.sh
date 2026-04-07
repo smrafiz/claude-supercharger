@@ -20,6 +20,7 @@ ARG_ROLES=""
 ARG_CONFIG=""
 ARG_SETTINGS=""
 ARG_ECONOMY=""
+ARG_NOTIFY=""
 
 show_usage() {
   echo "Usage: install.sh [OPTIONS]"
@@ -30,6 +31,7 @@ show_usage() {
   echo "  --config ACTION    CLAUDE.md handling: deploy, merge, replace, skip"
   echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
   echo "  --economy TIER     Economy tier: standard, lean, minimal (default: lean)"
+  echo "  --notify MODE      Desktop notifications: on, off, sound (default: on)"
   echo "  --help             Show this help message"
   echo ""
   echo "Examples:"
@@ -46,6 +48,7 @@ while [[ $# -gt 0 ]]; do
     --config)   ARG_CONFIG="$2"; shift 2 ;;
     --settings) ARG_SETTINGS="$2"; shift 2 ;;
     --economy)  ARG_ECONOMY="$2"; shift 2 ;;
+    --notify)   ARG_NOTIFY="$2"; shift 2 ;;
     --help)     show_usage ;;
     *)          echo "Unknown option: $1"; show_usage ;;
   esac
@@ -161,6 +164,26 @@ else
   echo -e "${BOLD}Select Token Economy:${NC}"
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   select_economy_tier "$ROLES_CSV"
+fi
+
+# Desktop notifications
+NOTIFY_MODE="on"
+if [ -n "$ARG_NOTIFY" ]; then
+  NOTIFY_MODE=$(echo "$ARG_NOTIFY" | tr '[:upper:]' '[:lower:]')
+elif [[ "$NON_INTERACTIVE" == "false" ]]; then
+  echo -e "${BOLD}Desktop Notifications:${NC}"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} On     — popup when Claude needs your attention [default]"
+  echo -e "  ${BOLD}2)${NC} Sound  — beep only, no popup"
+  echo -e "  ${BOLD}3)${NC} Off    — no desktop notifications (webhooks still work)"
+  echo ""
+  read -rp "> " notify_choice
+  case "$notify_choice" in
+    2) NOTIFY_MODE="sound" ;;
+    3) NOTIFY_MODE="off" ;;
+    *) NOTIFY_MODE="on" ;;
+  esac
+  echo ""
 fi
 
 # Step 3: Existing config handling
@@ -290,6 +313,20 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   else
     error "Failed to configure hooks. Run claude-check for details."
   fi
+
+  # Apply notification preference
+  NOTIFY_FLAG_OFF="$HOME/.claude/supercharger/.no-desktop-notify"
+  NOTIFY_FLAG_SOUND="$HOME/.claude/supercharger/.sound-only-notify"
+  rm -f "$NOTIFY_FLAG_OFF" "$NOTIFY_FLAG_SOUND"
+  if [[ "$NOTIFY_MODE" == "off" ]]; then
+    touch "$NOTIFY_FLAG_OFF"
+    success "Desktop notifications disabled"
+  elif [[ "$NOTIFY_MODE" == "sound" ]]; then
+    touch "$NOTIFY_FLAG_SOUND"
+    success "Desktop notifications set to sound only"
+  else
+    success "Desktop notifications enabled"
+  fi
 else
   info "Skipped hooks installation"
 fi
@@ -318,9 +355,10 @@ echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
 echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
 echo ""
-echo -e "  Mode:  ${BOLD}${MODE_LABEL}${NC}"
-echo -e "  Roles: ${BOLD}${ROLES_LIST}${NC}"
-echo -e "  Economy: ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
+echo -e "  Mode:     ${BOLD}${MODE_LABEL}${NC}"
+echo -e "  Roles:    ${BOLD}${ROLES_LIST}${NC}"
+echo -e "  Economy:  ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
+echo -e "  Notify:   ${BOLD}$(capitalize "$NOTIFY_MODE")${NC}"
 echo ""
 echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
