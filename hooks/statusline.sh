@@ -91,8 +91,22 @@ try:
 except Exception:
     pass
 
-# Line 1: Model, project, git branch, stack
-line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}'
+# Active agent
+agent = ''
+try:
+    route_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.agent-route')
+    if os.path.isfile(route_file):
+        with open(route_file) as f:
+            agent_name = f.read().strip()
+        if agent_name:
+            # Extract short name: "Sherlock Holmes (Detective)" → "Sherlock"
+            short = agent_name.split()[0] if agent_name else ''
+            agent = f' {DIM}|{RESET} {CYAN}{short}{RESET}'
+except Exception:
+    pass
+
+# Line 1: Model, project, git branch, stack, agent
+line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}'
 
 # Line 2: Context bar, cost, duration, cache hit rate
 cost_fmt = f'\${cost:.2f}'
