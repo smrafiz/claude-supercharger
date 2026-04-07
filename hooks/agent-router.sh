@@ -20,6 +20,9 @@ fi
 
 [ -z "$PROMPT" ] && exit 0
 
+# Reset prompt token accumulator for new prompt
+rm -f "$SCOPE_DIR/.prompt-tokens"
+
 AGENT=""
 
 # Ordered by specificity — most specific first
