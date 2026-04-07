@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.2] - 2026-04-07 — Stabilization: per-step token display, redundant safety rules removed, MCP deferred loading confirmed
 - [2.0.1] - 2026-04-07 — Performance: jq fallback, background quality-gate, stack cache, daily audit rotation
 - [2.0.0] - 2026-04-07 — New features: conventional commits, GitHub MCP, /test, /doc, safety improvements
 - [1.9.8] - 2026-04-07 — Notification filtering, statusline updates, install step count fix
@@ -25,6 +26,16 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.2] - 2026-04-07
+
+### Changed
+- **Statusline token display** — settled on per-step tokens with in/out breakdown after 3 accumulation approaches proved unreliable due to statusline rendering architecture. Simple, accurate, real-time.
+- **CLAUDE.md safety rules** — replaced 3 redundant lines with 1: "Destructive commands are blocked at the shell level." Hooks enforce these already.
+- **README context cost** — clarified MCP tool definitions are deferred by default in Claude Code 2.x (no hidden overhead).
+- **MCP deferred loading** — confirmed already active by default. No config change needed or possible from settings.json.
 
 ---
 
