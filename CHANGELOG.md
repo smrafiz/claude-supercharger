@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.6] - 2026-04-07 — Statusline per-prompt token display with in/out breakdown
 - [1.9.5] - 2026-04-07 — Session token accumulation, statusline prompt/session display
 - [1.9.4] - 2026-04-07 — Token usage display in statusline, install detection, feature doc rewrite
 - [1.9.3] - 2026-04-06 — README rewrite, agent gate fix, examples accuracy
@@ -20,6 +21,13 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.6] - 2026-04-07
+
+### Changed
+- **Statusline token display** — shows per-prompt tokens with input/output breakdown: `180 tok (1 in / 179 out)`. Removed session accumulation (was delayed by one render, confusing to users). Cost display still tracks session total.
 
 ---
 
