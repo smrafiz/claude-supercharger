@@ -112,7 +112,7 @@ fi
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"
 else
-  echo -e "${BOLD}Step 1 of 4: Install Mode${NC}"
+  echo -e "${BOLD}Step 1 of 5: Install Mode${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks (no notifications, no auto-format)"
   echo -e "  ${BOLD}2)${NC} Standard   — adds notifications, git-safety, auto-format [recommended]"
@@ -144,7 +144,7 @@ if [ -n "$ARG_ROLES" ]; then
     SELECTED_ROLES=("writer")
   fi
 else
-  echo -e "${BOLD}Step 2 of 4: Your Roles${NC}"
+  echo -e "${BOLD}Step 2 of 5: Your Roles${NC}"
   select_roles
   echo ""
 fi
@@ -171,7 +171,7 @@ NOTIFY_MODE="on"
 if [ -n "$ARG_NOTIFY" ]; then
   NOTIFY_MODE=$(echo "$ARG_NOTIFY" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]]; then
-  echo -e "${BOLD}Desktop Notifications:${NC}"
+  echo -e "${BOLD}Step 4 of 5: Desktop Notifications${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} On     — popup when Claude needs your attention [default]"
   echo -e "  ${BOLD}2)${NC} Sound  — beep only, no popup"
@@ -191,7 +191,7 @@ CLAUDE_MD_ACTION="deploy"
 if [ -n "$ARG_CONFIG" ]; then
   CLAUDE_MD_ACTION="$ARG_CONFIG"
 elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo -e "${BOLD}Step 3 of 4: Existing Config${NC}"
+  echo -e "${BOLD}Step 3 of 5: Existing Config${NC}"
   echo ""
   info "Found existing CLAUDE.md"
   echo ""
@@ -228,7 +228,7 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
 fi
 
 # Step 4: Install
-echo -e "${BOLD}Step 4 of 4: Installing...${NC}"
+echo -e "${BOLD}Step 5 of 5: Installing...${NC}"
 echo ""
 
 # Ensure directories exist
