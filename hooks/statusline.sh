@@ -153,7 +153,21 @@ def fmt_tokens(n):
         return f'{n/1_000:.1f}K'
     return str(n)
 
-tok_str = f' {DIM}|{RESET} {fmt_tokens(prompt_total)} tok ({fmt_tokens(prompt_in)} in / {fmt_tokens(prompt_out)} out)' if prompt_total > 0 else ''
+# Show previous prompt's completed total (always accurate)
+last_tok_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.last-prompt-tokens')
+last_in = 0
+last_out = 0
+try:
+    if os.path.isfile(last_tok_file):
+        with open(last_tok_file) as f:
+            for line in f:
+                k, v = line.strip().split('=', 1)
+                if k == 'in': last_in = int(v)
+                elif k == 'out': last_out = int(v)
+except Exception:
+    pass
+last_total = last_in + last_out
+tok_str = f' {DIM}|{RESET} last: {fmt_tokens(last_total)} tok ({fmt_tokens(last_in)} in / {fmt_tokens(last_out)} out)' if last_total > 0 else ''
 
 line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 

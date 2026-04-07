@@ -20,7 +20,10 @@ fi
 
 [ -z "$PROMPT" ] && exit 0
 
-# Reset prompt token accumulator for new prompt
+# Save previous prompt's tokens before resetting
+if [ -f "$SCOPE_DIR/.prompt-tokens" ]; then
+  cp "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-prompt-tokens"
+fi
 rm -f "$SCOPE_DIR/.prompt-tokens"
 
 AGENT=""
