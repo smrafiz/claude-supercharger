@@ -170,7 +170,7 @@ Advanced servers (Brave, Notion, Sentry, Figma, Slack) available via `bash tools
 
 ## Session tools
 
-**Status bar** — model, project, branch, stack, context usage (color-coded at 70%/90%), session cost, cache hit rate. You see context pressure building before it becomes a problem.
+**Status bar** — model, project, branch, stack, active agent, context usage (color-coded at 70%/90%), session cost, per-prompt token usage with in/out breakdown, cache hit rate. You see context pressure building before it becomes a problem.
 
 **Transcript backup** — when context gets compressed, Supercharger saves the raw conversation transcript to disk. Claude is prompted to include a structured summary (decisions, files changed, next steps), but the hook captures the full transcript regardless. Run `bash tools/resume.sh` to view it and copy a resume prompt to your clipboard.
 
