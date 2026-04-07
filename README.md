@@ -287,7 +287,7 @@ Use <a href="https://learn.microsoft.com/en-us/windows/wsl/install">WSL</a> or G
 
 ## Context cost
 
-Supercharger loads ~3,700 tokens into each conversation (under 2% of any Claude model's context window). You won't notice it.
+Supercharger loads ~3,700 tokens of config into each conversation (under 2% of any Claude model's context window). MCP server tool definitions are deferred by default in Claude Code 2.x — they load on first use, not at session start. You won't notice the overhead.
 
 ---
 

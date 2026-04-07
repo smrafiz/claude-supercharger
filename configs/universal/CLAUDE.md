@@ -20,8 +20,7 @@ Before claiming any task is complete:
 - If you cannot verify, say what the user should check
 
 ## Safety Boundaries
-- Never run destructive commands (rm -rf, DROP TABLE, git push --force)
-- Never commit secrets, credentials, or API keys
+Destructive commands are blocked at the shell level — you will receive an error if you attempt them.
 - Never modify files outside the project directory without asking
 - If a request seems risky, explain the risk and ask for confirmation
 
