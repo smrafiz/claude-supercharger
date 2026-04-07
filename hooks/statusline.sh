@@ -34,31 +34,6 @@ input_tok = usage.get('input_tokens', 0) or 0
 output_tok = usage.get('output_tokens', 0) or 0
 total_tok = input_tok + output_tok
 
-# Accumulate session totals (deduplicate re-renders)
-session_tok_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.session-tokens')
-session_in = 0
-session_out = 0
-last_in = 0
-last_out = 0
-try:
-    if os.path.isfile(session_tok_file):
-        with open(session_tok_file) as f:
-            for line in f:
-                k, v = line.strip().split('=', 1)
-                if k == 'in': session_in = int(v)
-                elif k == 'out': session_out = int(v)
-                elif k == 'last_in': last_in = int(v)
-                elif k == 'last_out': last_out = int(v)
-    if input_tok != last_in or output_tok != last_out:
-        session_in += input_tok
-        session_out += output_tok
-        with open(session_tok_file, 'w') as f:
-            f.write(f'in={session_in}\nout={session_out}\nlast_in={input_tok}\nlast_out={output_tok}\n')
-except Exception:
-    session_in = input_tok
-    session_out = output_tok
-session_total = session_in + session_out
-
 # Colors
 CYAN = '\033[36m'
 GREEN = '\033[32m'
@@ -146,9 +121,7 @@ def fmt_tokens(n):
         return f'{n/1_000:.1f}K'
     return str(n)
 
-tok_session = f'{fmt_tokens(session_total)}' if session_total > 0 else '0'
-tok_prompt = f'{fmt_tokens(total_tok)}' if total_tok > 0 else '0'
-tok_str = f' {DIM}|{RESET} session: {tok_session} tok {DIM}|{RESET} prompt: {tok_prompt} tok'
+tok_str = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok' if total_tok > 0 else ''
 
 line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 
