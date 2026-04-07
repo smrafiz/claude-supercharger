@@ -12,13 +12,11 @@ mkdir -p "$SCOPE_DIR"
 
 ROUTE_FILE="$SCOPE_DIR/.agent-route"
 
-PROMPT=$(python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('prompt', ''))
-except:
-    print('')
-" 2>/dev/null || echo "")
+_INPUT=$(cat)
+PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+if [ -z "$PROMPT" ]; then
+  PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
+fi
 
 [ -z "$PROMPT" ] && exit 0
 
@@ -51,15 +49,6 @@ echo "$AGENT" > "$ROUTE_FILE"
 
 echo "[Supercharger] Agent: $AGENT" >&2
 
-ROUTE_AGENT="$AGENT" python3 -c "
-import json, os
-agent = os.environ['ROUTE_AGENT']
-print(json.dumps({
-    'hookSpecificOutput': {
-        'hookEventName': 'UserPromptSubmit',
-        'additionalContext': f'[SUPERCHARGER ROUTING] Classified as: {agent}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch.'
-    }
-}))
-"
+printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"[SUPERCHARGER ROUTING] Classified as: %s. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch."}}\n' "$AGENT"
 
 exit 0

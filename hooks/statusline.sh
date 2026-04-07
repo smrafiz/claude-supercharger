@@ -63,10 +63,17 @@ try:
 except Exception:
     pass
 
-# Stack detection
+# Stack detection — read from cache written by project-config.sh (SessionStart)
 stack = ''
 try:
-    if cwd:
+    cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.stack-cache')
+    if os.path.isfile(cache_path):
+        with open(cache_path) as f:
+            cached = f.read().strip()
+        if cached:
+            stack = f' {DIM}|{RESET} ' + cached
+    elif cwd:
+        # Fallback: inline detection when cache is absent
         import json as _json
         stack_parts = []
         pkg = os.path.join(cwd, 'package.json')

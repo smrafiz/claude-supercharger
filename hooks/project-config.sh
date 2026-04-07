@@ -155,6 +155,14 @@ except Exception:
 
 if stack_parts:
     parts.append('Detected stack: ' + ', '.join(stack_parts) + '. Use matching conventions.')
+    # Cache detected stack for statusline
+    try:
+        cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+        os.makedirs(cache_dir, exist_ok=True)
+        with open(os.path.join(cache_dir, '.stack-cache'), 'w') as f:
+            f.write(', '.join(stack_parts))
+    except Exception:
+        pass
 
 # --- Project config (.supercharger.json) ---
 if config_file and os.path.isfile(config_file):

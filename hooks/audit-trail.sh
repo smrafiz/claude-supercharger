@@ -45,7 +45,14 @@ print(json.dumps(entry))
     ;;
 esac
 
-# Rotate: remove audit files older than 30 days
-find "$AUDIT_DIR" -name "*.jsonl" -mtime +30 -delete 2>/dev/null || true
+# Rotate: remove audit files older than 30 days (at most once per day)
+ROTATION_CHECK="$AUDIT_DIR/.last-rotation"
+NOW=$(date +%s)
+LAST_ROTATION=0
+[ -f "$ROTATION_CHECK" ] && LAST_ROTATION=$(cat "$ROTATION_CHECK" 2>/dev/null || echo 0)
+if (( NOW - LAST_ROTATION > 86400 )); then
+  find "$AUDIT_DIR" -name "*.jsonl" -mtime +30 -delete 2>/dev/null || true
+  echo "$NOW" > "$ROTATION_CHECK"
+fi
 
 exit 0

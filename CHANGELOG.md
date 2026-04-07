@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.1] - 2026-04-07 — Performance: jq fallback, background quality-gate, stack cache, daily audit rotation
 - [2.0.0] - 2026-04-07 — New features: conventional commits, GitHub MCP, /test, /doc, safety improvements
 - [1.9.8] - 2026-04-07 — Notification filtering, statusline updates, install step count fix
 - [1.9.7] - 2026-04-07 — Desktop notification prompt in installer
@@ -24,6 +25,18 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.1] - 2026-04-07
+
+### Performance
+- **jq-first JSON parsing** — safety.sh, git-safety.sh, enforce-pkg-manager.sh, commit-check.sh now try `jq` (~5ms) before falling back to `python3` (~35ms). Saves ~90ms per Bash tool call.
+- **agent-router.sh** — merged 2 python3 calls into 1 (jq for stdin, printf for JSON output). Saves ~35ms per prompt.
+- **quality-gate.sh background execution** — linters now run in a background subshell. Hook returns immediately. Eliminates 300-2000ms blocking per Write/Edit call.
+- **Linter timeout** — all linter invocations prefixed with 30s timeout (gtimeout/timeout). Prevents indefinite stalls on large projects.
+- **audit-trail.sh daily rotation** — `find -mtime +30 -delete` now gated behind daily timestamp check instead of running on every tool call.
+- **Stack detection cache** — project-config.sh writes detected stack to `.stack-cache` at SessionStart. statusline.sh reads from cache instead of re-parsing package.json on every render.
 
 ---
 

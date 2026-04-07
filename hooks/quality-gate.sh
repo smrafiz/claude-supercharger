@@ -18,6 +18,15 @@ MAX_ITERATIONS=3
 ITERATION=0
 HAD_ISSUES=false
 
+# Resolve timeout command: prefer gtimeout (macOS coreutils), then timeout, else plain execution
+if command -v gtimeout &>/dev/null; then
+  TIMEOUT_CMD="gtimeout 30"
+elif command -v timeout &>/dev/null; then
+  TIMEOUT_CMD="timeout 30"
+else
+  TIMEOUT_CMD=""
+fi
+
 lint_and_fix() {
   local file="$1"
   local issues=""
@@ -26,52 +35,52 @@ lint_and_fix() {
     py)
       # Stage 1: Lint
       if command -v ruff &>/dev/null; then
-        issues=$(ruff check "$file" 2>&1) || true
+        issues=$($TIMEOUT_CMD ruff check "$file" 2>&1) || true
         if [ -n "$issues" ]; then
           HAD_ISSUES=true
           # Stage 2: Auto-fix
-          ruff check --fix "$file" 2>/dev/null || true
+          $TIMEOUT_CMD ruff check --fix "$file" 2>/dev/null || true
           # Also format
-          ruff format "$file" 2>/dev/null || true
+          $TIMEOUT_CMD ruff format "$file" 2>/dev/null || true
           return 0
         fi
-        ruff format "$file" 2>/dev/null || true
+        $TIMEOUT_CMD ruff format "$file" 2>/dev/null || true
       elif command -v black &>/dev/null; then
-        black -q "$file" 2>/dev/null || true
+        $TIMEOUT_CMD black -q "$file" 2>/dev/null || true
       fi
       ;;
     js|jsx|ts|tsx|mjs|cjs)
       # Stage 1: Lint
       if command -v eslint &>/dev/null && { compgen -G "$PROJECT_ROOT/.eslintrc*" &>/dev/null || compgen -G "$PROJECT_ROOT/eslint.config*" &>/dev/null; }; then
-        issues=$(eslint "$file" 2>&1) || true
+        issues=$($TIMEOUT_CMD eslint "$file" 2>&1) || true
         if [ -n "$issues" ]; then
           HAD_ISSUES=true
           # Stage 2: Auto-fix
-          eslint --fix "$file" 2>/dev/null || true
+          $TIMEOUT_CMD eslint --fix "$file" 2>/dev/null || true
         fi
       fi
       # Format
       if [ -f "$PROJECT_ROOT/package.json" ] && grep -q '"prettier"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
         if command -v npx &>/dev/null; then
-          npx --yes prettier --write "$file" 2>/dev/null || true
+          $TIMEOUT_CMD npx --yes prettier --write "$file" 2>/dev/null || true
         fi
       fi
       ;;
     rs)
       if command -v rustfmt &>/dev/null; then
-        rustfmt "$file" 2>/dev/null || true
+        $TIMEOUT_CMD rustfmt "$file" 2>/dev/null || true
       fi
       if command -v cargo &>/dev/null && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
-        issues=$(cargo clippy --message-format=short 2>&1 | grep "$file" || true)
+        issues=$($TIMEOUT_CMD cargo clippy --message-format=short 2>&1 | grep "$file" || true)
         [ -n "$issues" ] && HAD_ISSUES=true
       fi
       ;;
     go)
       if command -v gofmt &>/dev/null; then
-        gofmt -w "$file" 2>/dev/null || true
+        $TIMEOUT_CMD gofmt -w "$file" 2>/dev/null || true
       fi
       if command -v golangci-lint &>/dev/null; then
-        issues=$(golangci-lint run "$file" 2>&1) || true
+        issues=$($TIMEOUT_CMD golangci-lint run "$file" 2>&1) || true
         [ -n "$issues" ] && HAD_ISSUES=true
       fi
       ;;
@@ -84,21 +93,23 @@ lint_and_fix() {
   return 0
 }
 
-# Run the pipeline with iteration
-while [ $ITERATION -lt $MAX_ITERATIONS ]; do
-  HAD_ISSUES=false
-  lint_and_fix "$FILE_PATH"
+# Run the pipeline in the background so the hook returns immediately
+(
+  while [ $ITERATION -lt $MAX_ITERATIONS ]; do
+    HAD_ISSUES=false
+    lint_and_fix "$FILE_PATH"
 
-  if ! $HAD_ISSUES; then
-    break
-  fi
+    if ! $HAD_ISSUES; then
+      break
+    fi
 
-  ITERATION=$((ITERATION + 1))
+    ITERATION=$((ITERATION + 1))
 
-  # Stage 3: Re-check — only continue if auto-fix actually changed something
-  if [ $ITERATION -lt $MAX_ITERATIONS ]; then
-    sleep 0.1
-  fi
-done
+    # Stage 3: Re-check — only continue if auto-fix actually changed something
+    if [ $ITERATION -lt $MAX_ITERATIONS ]; then
+      sleep 0.1
+    fi
+  done
+) &
 
 exit 0

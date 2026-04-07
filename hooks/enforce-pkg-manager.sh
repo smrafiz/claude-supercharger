@@ -5,7 +5,11 @@
 
 set -euo pipefail
 
-COMMAND=$(python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
+_INPUT=$(cat)
+COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+if [ -z "$COMMAND" ]; then
+  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
+fi
 
 if [ -z "$COMMAND" ]; then
   exit 0
