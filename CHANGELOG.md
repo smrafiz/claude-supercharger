@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.3] - 2026-04-07 — Stack assumption verification, .claudedocs gitignored
 - [2.0.2] - 2026-04-07 — Stabilization: per-step token display, redundant safety rules removed, MCP deferred loading confirmed
 - [2.0.1] - 2026-04-07 — Performance: jq fallback, background quality-gate, stack cache, daily audit rotation
 - [2.0.0] - 2026-04-07 — New features: conventional commits, GitHub MCP, /test, /doc, safety improvements
@@ -26,6 +27,14 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.3] - 2026-04-07
+
+### Fixed
+- **Stack assumption verification** — SessionStart message now prompts Claude to ask before proceeding if any detected stack assumptions seem wrong.
+- **Gitignore** — added `.claudedocs/` to prevent per-user audit reports from being committed.
 
 ---
 
