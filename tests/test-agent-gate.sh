@@ -26,15 +26,15 @@ if [ $EXIT_CODE -eq 0 ]; then pass
 else fail "expected exit code 0, got $EXIT_CODE"; fi
 teardown_test_home
 
-# Test 3: Wrong agent dispatched → exits 2
-begin_test "agent-gate: wrong agent dispatched → exits 2"
+# Test 3: Wrong agent dispatched → warns but allows (exit 0)
+begin_test "agent-gate: wrong agent dispatched → warns but allows (exit 0)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo "Sherlock Holmes (Detective)" > "$HOME/.claude/supercharger/scope/.agent-route"
-echo '{"tool_name":"Agent","tool_input":{"subagent_type":"Tony Stark (Engineer)"}}' | bash "$GATE" >/dev/null 2>&1
+STDERR=$(echo '{"tool_name":"Agent","tool_input":{"subagent_type":"Tony Stark (Engineer)"}}' | bash "$GATE" 2>&1 >/dev/null)
 EXIT_CODE=$?
-if [ $EXIT_CODE -eq 2 ]; then pass
-else fail "expected exit code 2, got $EXIT_CODE"; fi
+if [ $EXIT_CODE -eq 0 ] && echo "$STDERR" | grep -q "Agent routing"; then pass
+else fail "expected exit 0 + warning on stderr, got exit=$EXIT_CODE"; fi
 teardown_test_home
 
 # Test 4: Case-insensitive match works → exits 0
@@ -59,17 +59,17 @@ if [ $EXIT_CODE -eq 0 ]; then pass
 else fail "expected exit code 0, got $EXIT_CODE"; fi
 teardown_test_home
 
-# Test 6: After learn-from-dispatch, second wrong dispatch is blocked
-begin_test "agent-gate: enforces latched route after learning from first dispatch"
+# Test 6: After learn-from-dispatch, second wrong dispatch warns but allows
+begin_test "agent-gate: warns on mismatch after learning from first dispatch"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 # First dispatch — no file, gate learns Tony Stark
 echo '{"tool_name":"Agent","tool_input":{"subagent_type":"Tony Stark (Engineer)"}}' | bash "$GATE" >/dev/null 2>&1
-# Second dispatch — wrong agent, should be blocked
-echo '{"tool_name":"Agent","tool_input":{"subagent_type":"Sherlock Holmes (Detective)"}}' | bash "$GATE" >/dev/null 2>&1
+# Second dispatch — different agent, should warn but allow
+STDERR=$(echo '{"tool_name":"Agent","tool_input":{"subagent_type":"Sherlock Holmes (Detective)"}}' | bash "$GATE" 2>&1 >/dev/null)
 EXIT_CODE=$?
-if [ $EXIT_CODE -eq 2 ]; then pass
-else fail "expected exit code 2 after latch, got $EXIT_CODE"; fi
+if [ $EXIT_CODE -eq 0 ] && echo "$STDERR" | grep -q "Agent routing"; then pass
+else fail "expected exit 0 + warning after latch, got exit=$EXIT_CODE"; fi
 teardown_test_home
 
 report

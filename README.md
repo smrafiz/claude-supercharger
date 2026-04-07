@@ -52,7 +52,7 @@ These run as shell hooks. Claude doesn't see them, can't disable them, and gets 
 Other enforced features:
 - **Audit trail** — every file write and command is logged to JSONL. Credentials auto-redacted before logging. 30-day rotation. When something goes wrong, you can trace what Claude changed and when.
 - **Quality gate** — lint, auto-fix, re-check after file edits. Developer role, Standard/Full install mode only.
-- **Prompt validator** — catches 20 common anti-patterns (vague scope, missing file paths, multiple tasks in one request) before they waste a turn. Full install mode only.
+- **Prompt validator** — catches common anti-patterns (vague scope, missing file paths, multiple tasks in one request) before they waste a turn. Full install mode only.
 
 ### The instructional layer
 
@@ -68,7 +68,7 @@ These are prompt configurations. They shape Claude's behavior through system ins
 
 Switch mid-conversation: `eco lean` / `eco standard` / `eco minimal`. These instructions work — Claude does respond more concisely — but there's no hard token limit. Some responses will still be longer than you want.
 
-**Agent routing** — your first substantive message each session is pattern-matched to one of nine agents, each with its own scope rules and verification requirements. The match sets the session's primary agent, but Claude can still dispatch other agents for subtasks (e.g., spawning a Critic for code review during a Writer session). Greetings and small talk won't trigger a match — the router only responds to task-like prompts:
+**Agent routing** — your first substantive message each session is pattern-matched to one of eight agents, each with its own scope rules and verification requirements. The match sets the session's primary agent, but Claude can still dispatch other agents for subtasks (e.g., spawning a Critic for code review during a Writer session). Greetings and small talk won't trigger a match — the router only responds to task-like prompts:
 
 ```
 "There's a null pointer at line 42"            → Sherlock Holmes (Detective)
@@ -162,7 +162,7 @@ Pre-configured and auto-installed based on your roles. No API keys needed for th
 | Everyone | Context7 (live library docs), Sequential Thinking (structured reasoning), Memory (persistent across sessions) |
 | Developer | + Playwright (browser automation), Magic UI (component library) |
 | Designer | + Magic UI (component library) |
-| Writer, Student, PM, Researcher | + DuckDuckGo Search |
+| Writer, Student, PM, Data, DevOps, Researcher | + DuckDuckGo Search |
 
 Advanced servers (Brave, Notion, Sentry, Figma, Slack) available via `bash tools/mcp-setup.sh`.
 
@@ -245,7 +245,7 @@ No. Supercharger backs up your existing config before touching anything. Run <co
 
 <details>
 <summary>I'm not a developer. Is this for me?</summary>
-The safety hooks help everyone. The roles (writer, student, researcher) shape Claude's output for non-coding work. A "General" agent handles everyday tasks with plain language.
+The safety hooks help everyone. The roles (writer, student, researcher) shape Claude's output for non-coding work. If your prompt doesn't match a specific agent, Claude works normally — just with the safety and economy rules active.
 </details>
 
 <details>

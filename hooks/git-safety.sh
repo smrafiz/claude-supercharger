@@ -20,7 +20,7 @@ block() {
   echo "Supercharger blocked this git operation." >&2
   echo "  Reason : $1" >&2
   echo "  Command: $COMMAND" >&2
-  echo "  Tell me to confirm if you really want to proceed." >&2
+  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
   echo "" >&2
   exit 2
 }

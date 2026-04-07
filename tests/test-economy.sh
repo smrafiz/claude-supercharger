@@ -6,34 +6,25 @@ source "$REPO_DIR/lib/utils.sh"
 source "$REPO_DIR/lib/roles.sh"
 source "$REPO_DIR/lib/economy.sh"
 
-# --- Test: developer role has economy metadata ---
-begin_test "economy: developer role contains economy metadata"
-assert_file_contains "$REPO_DIR/configs/roles/developer.md" "Default economy: Lean" &&
-assert_file_contains "$REPO_DIR/configs/roles/developer.md" "Economy range: unrestricted" &&
+# --- Test: economy.md has role constraints table ---
+begin_test "economy: economy.md contains Developer role constraint"
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Developer     | Lean     | unrestricted" &&
 pass
 
-# --- Test: student role has correct constraints ---
-begin_test "economy: student role has Standard floor and Lean ceiling"
-assert_file_contains "$REPO_DIR/configs/roles/student.md" "Default economy: Standard" &&
-assert_file_contains "$REPO_DIR/configs/roles/student.md" "Economy range: Standard–Lean" &&
+begin_test "economy: economy.md contains Student role constraint"
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Student       | Standard | Standard–Lean" &&
 pass
 
-# --- Test: writer role has correct constraints ---
-begin_test "economy: writer role has Standard floor"
-assert_file_contains "$REPO_DIR/configs/roles/writer.md" "Default economy: Standard" &&
-assert_file_contains "$REPO_DIR/configs/roles/writer.md" "Economy range: Standard–unrestricted" &&
+begin_test "economy: economy.md contains Writer role constraint"
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Writer        | Standard | Standard–unlimited" &&
 pass
 
-# --- Test: data role has economy metadata ---
-begin_test "economy: data role has economy metadata"
-assert_file_contains "$REPO_DIR/configs/roles/data.md" "Default economy: Lean" &&
-assert_file_contains "$REPO_DIR/configs/roles/data.md" "Economy range: unrestricted" &&
+begin_test "economy: economy.md contains Data Analyst role constraint"
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Data Analyst  | Lean     | unrestricted" &&
 pass
 
-# --- Test: pm role has economy metadata ---
-begin_test "economy: pm role has economy metadata"
-assert_file_contains "$REPO_DIR/configs/roles/pm.md" "Default economy: Lean" &&
-assert_file_contains "$REPO_DIR/configs/roles/pm.md" "Economy range: unrestricted" &&
+begin_test "economy: economy.md contains PM role constraint"
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| PM            | Lean     | unrestricted" &&
 pass
 
 # --- Test: economy.md deployed with active tier ---

@@ -20,7 +20,7 @@ block() {
   echo "Supercharger blocked this command." >&2
   echo "  Reason : $1" >&2
   echo "  Command: $COMMAND" >&2
-  echo "  Tell me to confirm if you want to proceed anyway." >&2
+  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
   echo "" >&2
   exit 2
 }

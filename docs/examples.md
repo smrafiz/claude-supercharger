@@ -19,7 +19,7 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 
 **With Supercharger:**
 > Supercharger blocked this command.
->   Reason: recursive force rm on dangerous target
+>   Reason : recursive force rm on dangerous target
 >
 > Let me use a safer approach: `rm -rf ./dist/` to remove only the build output directory.
 
@@ -35,7 +35,7 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 
 **With Supercharger:**
 > Supercharger blocked this git operation.
->   Reason: force push to protected branch
+>   Reason : force push to protected branch
 >
 > I'll push without force: `git push origin main`. If there are conflicts, let's resolve them first.
 
@@ -48,7 +48,7 @@ Real before/after comparisons showing how Supercharger changes Claude Code behav
 
 **With Supercharger:**
 > Supercharger blocked this command.
->   Reason: recursive force rm on dangerous target
+>   Reason : recursive force rm on dangerous target
 >
 > *(Strips `sudo`, `command`, `env` prefixes in a loop before pattern matching — bypass-resistant)*
 
