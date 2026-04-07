@@ -121,7 +121,7 @@ def fmt_tokens(n):
         return f'{n/1_000:.1f}K'
     return str(n)
 
-tok_str = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok' if total_tok > 0 else ''
+tok_str = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok ({fmt_tokens(input_tok)} in / {fmt_tokens(output_tok)} out)' if total_tok > 0 else ''
 
 line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 
