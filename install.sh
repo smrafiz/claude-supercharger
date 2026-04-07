@@ -21,6 +21,7 @@ ARG_CONFIG=""
 ARG_SETTINGS=""
 ARG_ECONOMY=""
 ARG_NOTIFY=""
+ARG_COMMITS=""
 
 show_usage() {
   echo "Usage: install.sh [OPTIONS]"
@@ -32,6 +33,7 @@ show_usage() {
   echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
   echo "  --economy TIER     Economy tier: standard, lean, minimal (default: lean)"
   echo "  --notify MODE      Desktop notifications: on, off, sound (default: on)"
+  echo "  --commits MODE     Conventional commits: on, off (default: off)"
   echo "  --help             Show this help message"
   echo ""
   echo "Examples:"
@@ -49,6 +51,7 @@ while [[ $# -gt 0 ]]; do
     --settings) ARG_SETTINGS="$2"; shift 2 ;;
     --economy)  ARG_ECONOMY="$2"; shift 2 ;;
     --notify)   ARG_NOTIFY="$2"; shift 2 ;;
+    --commits)  ARG_COMMITS="$2"; shift 2 ;;
     --help)     show_usage ;;
     *)          echo "Unknown option: $1"; show_usage ;;
   esac
@@ -112,7 +115,7 @@ fi
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"
 else
-  echo -e "${BOLD}Step 1 of 5: Install Mode${NC}"
+  echo -e "${BOLD}Step 1 of 6: Install Mode${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks (no notifications, no auto-format)"
   echo -e "  ${BOLD}2)${NC} Standard   — adds notifications, git-safety, auto-format [recommended]"
@@ -144,7 +147,7 @@ if [ -n "$ARG_ROLES" ]; then
     SELECTED_ROLES=("writer")
   fi
 else
-  echo -e "${BOLD}Step 2 of 5: Your Roles${NC}"
+  echo -e "${BOLD}Step 2 of 6: Your Roles${NC}"
   select_roles
   echo ""
 fi
@@ -171,7 +174,7 @@ NOTIFY_MODE="on"
 if [ -n "$ARG_NOTIFY" ]; then
   NOTIFY_MODE=$(echo "$ARG_NOTIFY" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]]; then
-  echo -e "${BOLD}Step 4 of 5: Desktop Notifications${NC}"
+  echo -e "${BOLD}Step 4 of 6: Desktop Notifications${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} On     — popup when Claude needs your attention [default]"
   echo -e "  ${BOLD}2)${NC} Sound  — beep only, no popup"
@@ -186,12 +189,32 @@ elif [[ "$NON_INTERACTIVE" == "false" ]]; then
   echo ""
 fi
 
+# Conventional commits (opt-in)
+COMMITS_MODE="off"
+if [ -n "$ARG_COMMITS" ]; then
+  COMMITS_MODE=$(echo "$ARG_COMMITS" | tr '[:upper:]' '[:lower:]')
+elif [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$HAS_DEVELOPER" == "true" ]]; then
+  echo -e "${BOLD}Step 5 of 6: Conventional Commits${NC}"
+  echo ""
+  echo -e "  Enforce conventional commit format? (feat:, fix:, chore:, etc.)"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Off  — no commit message checks [default]"
+  echo -e "  ${BOLD}2)${NC} On   — block non-conventional commits"
+  echo ""
+  read -rp "> " commits_choice
+  case "$commits_choice" in
+    2) COMMITS_MODE="on" ;;
+    *) COMMITS_MODE="off" ;;
+  esac
+  echo ""
+fi
+
 # Step 3: Existing config handling
 CLAUDE_MD_ACTION="deploy"
 if [ -n "$ARG_CONFIG" ]; then
   CLAUDE_MD_ACTION="$ARG_CONFIG"
 elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo -e "${BOLD}Step 3 of 5: Existing Config${NC}"
+  echo -e "${BOLD}Step 5 of 6: Existing Config${NC}"
   echo ""
   info "Found existing CLAUDE.md"
   echo ""
@@ -228,7 +251,7 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
 fi
 
 # Step 4: Install
-echo -e "${BOLD}Step 5 of 5: Installing...${NC}"
+echo -e "${BOLD}Step 6 of 6: Installing...${NC}"
 echo ""
 
 # Ensure directories exist
@@ -326,6 +349,16 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
     success "Desktop notifications set to sound only"
   else
     success "Desktop notifications enabled"
+  fi
+
+  # Apply conventional commits preference
+  COMMITS_FLAG="$HOME/.claude/supercharger/.conventional-commits"
+  rm -f "$COMMITS_FLAG"
+  if [[ "$COMMITS_MODE" == "on" ]]; then
+    touch "$COMMITS_FLAG"
+    success "Conventional commit enforcement enabled"
+  else
+    info "Conventional commits: off (enable with --commits on)"
   fi
 else
   info "Skipped hooks installation"

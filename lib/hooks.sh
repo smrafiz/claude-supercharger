@@ -16,7 +16,9 @@ get_hooks_for_mode() {
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
     hooks+=("Notification||${hooks_dir}/notify.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
-    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")
+    if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
+      hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")
+    fi
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
     hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
     hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check")
@@ -188,10 +190,13 @@ count_installed_hooks() {
   local count=1  # safety always
 
   if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    # notify, git-safety, commit-check, enforce-pkg-manager, audit-trail,
+    # notify, git-safety, enforce-pkg-manager, audit-trail,
     # scope-guard(check+snapshot+contract), project-config, update-check,
     # agent-router, agent-gate
-    count=$((count + 12))
+    count=$((count + 11))
+    if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
+      count=$((count + 1))  # commit-check
+    fi
     if [[ "$has_developer" == "true" ]]; then
       count=$((count + 1))  # quality-gate
     fi

@@ -67,13 +67,13 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Standard mode + developer = safety + notify + git-safety + commit-check + enforce-pkg-manager +
+# Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager +
 #   audit-trail + scope-guard(check+snapshot+contract) + project-config + update-check +
-#   agent-router + agent-gate + quality-gate = 14
-if [ "$HOOK_COUNT" -eq 14 ]; then
+#   agent-router + agent-gate + quality-gate = 13 (commit-check is opt-in)
+if [ "$HOOK_COUNT" -eq 13 ]; then
   pass
 else
-  fail "expected 14 hooks in standard mode, got $HOOK_COUNT"
+  fail "expected 13 hooks in standard mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -142,13 +142,14 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Full mode + developer = safety + notify + git-safety + commit-check + enforce-pkg-manager +
+# Full mode + developer = safety + notify + git-safety + enforce-pkg-manager +
 #   audit-trail + scope-guard(check+snapshot+contract+clear) + project-config + update-check +
-#   agent-router + agent-gate + quality-gate + prompt-validator + compaction-backup + session-complete = 18
-if [ "$HOOK_COUNT" -eq 18 ]; then
+#   agent-router + agent-gate + quality-gate + prompt-validator + compaction-backup + session-complete = 17
+#   (commit-check is opt-in, not counted here)
+if [ "$HOOK_COUNT" -eq 17 ]; then
   pass
 else
-  fail "expected 18 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 17 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 

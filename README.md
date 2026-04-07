@@ -12,7 +12,7 @@ The safety layer is the product. Everything else — agents, roles, economy tier
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-30 seconds. Five questions. Done. `./uninstall.sh` reverses everything.
+30 seconds. Six questions. Done. `./uninstall.sh` reverses everything.
 
 <details>
 <summary>Other install options</summary>

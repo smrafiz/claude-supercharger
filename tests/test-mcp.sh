@@ -57,19 +57,21 @@ else
 fi
 teardown_test_home
 
-# --- Test 2: Developer role adds GitHub + Playwright + Magic UI ---
-begin_test "mcp: developer role adds github, playwright and magic-ui"
+# --- Test 2: Developer role adds Playwright + Magic UI (+ GitHub if gh CLI present) ---
+begin_test "mcp: developer role adds playwright and magic-ui"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer"
-GH=$(has_mcp_server "github")
 PW=$(has_mcp_server "playwright")
 MU=$(has_mcp_server "magic-ui")
 TOTAL=$(count_tagged_mcp)
-if [ "$GH" = "yes" ] && [ "$PW" = "yes" ] && [ "$MU" = "yes" ] && [ "$TOTAL" -eq 6 ]; then
+HAS_GH="no"
+command -v gh &>/dev/null && HAS_GH="yes"
+if [ "$HAS_GH" = "yes" ]; then EXPECTED=6; else EXPECTED=5; fi
+if [ "$PW" = "yes" ] && [ "$MU" = "yes" ] && [ "$TOTAL" -eq "$EXPECTED" ]; then
   pass
 else
-  fail "expected github=$GH playwright=$PW magic-ui=$MU total=6, got total=$TOTAL"
+  fail "expected pw=$PW mu=$MU total=$EXPECTED (gh=$HAS_GH), got total=$TOTAL"
 fi
 teardown_test_home
 
@@ -99,10 +101,13 @@ with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 print(sum(1 for k in s.get('mcpServers', {}) if 'duckduckgo' in k))
 " 2>/dev/null || echo "0")
-if [ "$TOTAL" -eq 7 ] && [ "$DDG_COUNT" -eq 1 ]; then
+HAS_GH="no"
+command -v gh &>/dev/null && HAS_GH="yes"
+if [ "$HAS_GH" = "yes" ]; then EXPECTED=7; else EXPECTED=6; fi
+if [ "$TOTAL" -eq "$EXPECTED" ] && [ "$DDG_COUNT" -eq 1 ]; then
   pass
 else
-  fail "expected total=7 ddg_count=1, got total=$TOTAL ddg=$DDG_COUNT"
+  fail "expected total=$EXPECTED ddg_count=1, got total=$TOTAL ddg=$DDG_COUNT"
 fi
 teardown_test_home
 

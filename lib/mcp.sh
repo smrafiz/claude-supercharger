@@ -18,8 +18,11 @@ get_role_servers() {
   local servers=""
 
   if echo "$roles" | grep -q "developer"; then
+    if command -v gh &>/dev/null; then
+      servers="${servers}
+github|npx|-y @modelcontextprotocol/server-github|{\"GITHUB_PERSONAL_ACCESS_TOKEN\":\"\"}"
+    fi
     servers="${servers}
-github|npx|-y @modelcontextprotocol/server-github|{\"GITHUB_PERSONAL_ACCESS_TOKEN\":\"\"}
 playwright|npx|-y @playwright/mcp --headless
 magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
