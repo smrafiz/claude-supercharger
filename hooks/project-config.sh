@@ -154,7 +154,7 @@ except Exception:
     pass
 
 if stack_parts:
-    parts.append('Detected stack: ' + ', '.join(stack_parts) + '. Use matching conventions.')
+    parts.append('Detected stack: ' + ', '.join(stack_parts) + '. Use matching conventions. If any assumption seems wrong, ask before proceeding.')
     # Cache detected stack for statusline
     try:
         cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
