@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.9.8] - 2026-04-07 — Notification filtering, statusline updates, install step count fix
 - [1.9.7] - 2026-04-07 — Desktop notification prompt in installer
 - [1.9.6] - 2026-04-07 — Statusline per-prompt token display with in/out breakdown
 - [1.9.5] - 2026-04-07 — Session token accumulation, statusline prompt/session display
@@ -22,6 +23,15 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [1.9.8] - 2026-04-07
+
+### Fixed
+- **Phantom notifications** — `notify.sh` was firing on all 7 Claude Code notification types. Now filters to only `idle_prompt` (Claude waiting) and `worker_permission_prompt` (subagent needs permission). Silently exits for auth, computer-use, and elicitation events. Uses payload's message field instead of hardcoded string.
+- **Install step count** — updated from "4 of 4" to "5 of 5" and README from "Four questions" to "Five questions" (notification prompt was added in v1.9.7).
+- **README statusline description** — now mentions active agent display and per-prompt token usage with in/out breakdown.
 
 ---
 

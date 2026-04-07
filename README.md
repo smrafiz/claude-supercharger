@@ -6,7 +6,7 @@ Supercharger prevents that. Shell hooks run before commands execute, outside Cla
 
 The safety layer is the product. Everything else — agents, roles, economy tiers, MCP servers — is workflow improvement built on top of it.
 
-![Version](https://img.shields.io/badge/version-1.9.7-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.9.8-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-253%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
