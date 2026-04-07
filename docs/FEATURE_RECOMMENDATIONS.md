@@ -1,294 +1,180 @@
-# Claude Supercharger - Feature Recommendations
+# Feature Recommendations
 
-A comprehensive list of valuable features to add to Claude Supercharger, organized by category and priority.
+What's genuinely missing, what would actually help users, and what to avoid.
 
----
-
-## Project Vision
-
-> "One line install, zero manual setup, genuine value for all Claude Code users."
+Last updated: April 2026 | v1.9.3
 
 ---
 
-## Current Features (v1.9.3)
+## Guiding principles
 
-### Safety Layer (Enforced)
-- ✅ Block `rm -rf /`, `rm -rf ~`, `rm -rf ..`
-- ✅ Block `git push --force` to main/master
-- ✅ Block credential exposure (AWS keys, GitHub tokens)
-- ✅ Block `DROP TABLE`, `chmod 777`, fork bombs
-- ✅ Block `curl | bash`, `eval`
-- ✅ Block `git reset --hard`, `git checkout .`
-- ✅ Block wrong package manager (npm in pnpm project)
-- ✅ Block unauthorized persistence (`.bashrc`, `.zshrc`, SSH commands)
-
-### Instructional Layer
-- **Token Economy** - Standard / Lean / Minimal tiers
-- **Roles** - 8 behavioral profiles (developer, writer, student, data, pm, designer, devops, researcher)
-- **Agents** - 9 specialized agents (Detective, Critic, Engineer, Writer, Scientist, Architect, Strategist, Analyst, General)
-- **Slash Commands** - /think, /challenge, /refactor, /audit
-
-### MCP Servers (Auto-Included)
-- Context7 (documentation)
-- Sequential Thinking (reasoning)
-- Memory (persistent sessions)
-- Playwright (browser automation - dev role)
-- Magic UI (component library - dev/designer)
-- DuckDuckGo (search - writer/student/pm/researcher)
+1. **Safety is the moat.** No other Claude Code tool does shell-level enforcement. Every new feature should either strengthen safety or stay out of its way.
+2. **Don't duplicate what exists.** If Claude Code or an existing hook already does it, don't add another version.
+3. **Context cost is real.** Every config file, rule, and agent description eats tokens. A feature that adds 200 tokens of config must save more than 200 tokens of value per session.
+4. **Enforced > instructional.** A shell hook that blocks a bad command is worth more than a prompt that asks Claude to avoid it.
 
 ---
 
-## 🎯 PRIORITY RECOMMENDATIONS
+## What exists today
 
-### Phase 1: Quick Wins (Low Effort, High Value)
+### Enforced (shell hooks, exit 2)
+- Dangerous command blocking (`rm -rf /~/../`, `DROP TABLE`, `chmod 777`, fork bombs, `curl|bash`, `eval`)
+- Git safety (`push --force` to main/master, `reset --hard`, `checkout .`)
+- Package manager enforcement (`npm` in pnpm project, etc.)
+- Credential pattern blocking (AWS keys, GitHub tokens, Stripe, etc.)
+- Shell profile / SSH command blocking (`.bashrc`, `.zshrc`, `ssh-keygen`)
+- Audit trail with credential redaction (JSONL, 30-day rotation)
+- Quality gate — lint/fix/re-check (developer role, standard/full mode)
+- Prompt validator — 20 anti-pattern checks (full mode)
 
-| Feature | What It Does | Auto-Install? | Why Valuable |
-|---------|--------------|---------------|--------------|
-| **Git Enhanced Hooks** | Block force pushes, require commit messages, prevent commit without tests | ✅ Yes | Everyone uses git |
-| **Auto-Lint on Save** | Run ESLint/Prettier after every file edit | ✅ Yes (dev role) | Keeps code clean |
-| **File Template Hooks** | Auto-scaffold new files from templates | ✅ Project-level | Saves boilerplate |
-| **Context Backup** | Save conversation before compaction | ✅ Full mode | Never lose context |
-| **Import Organizer** | Auto-add/remove imports | ✅ Yes | No more unused imports |
-| **Add `/test` command** | Generate unit tests for selected code | ✅ Full mode | Huge time saver |
-| **Add GitHub MCP** | Issues, PRs, repos, code search | ✅ Yes (dev role) | Popular request |
-| **Add PostgreSQL MCP** | Database queries | ❌ Opt-in | Very popular for devs |
-| **Commit Message Enforcement** | Require conventional commits | ✅ Opt-in | Better history |
+### Instructional (prompt-based, not enforced)
+- Token economy (standard / lean / minimal tiers)
+- 9 agents with per-prompt routing
+- 8 roles with mid-conversation switching
+- 4 slash commands (/think, /challenge, /refactor, /audit)
+- Session summary on compaction/rate limit
+- Cost feedback loop (Stop → SessionStart injection)
 
-### Phase 2: High Value (Medium Effort)
+### MCP servers (auto-installed by role)
+- Everyone: Context7, Sequential Thinking, Memory
+- Developer: + Playwright, Magic UI
+- Designer: + Magic UI
+- Writer, Student, PM, Data, DevOps, Researcher: + DuckDuckGo
 
-| Feature | What It Does | Auto-Install? | Why Valuable |
-|---------|--------------|---------------|--------------|
-| **PostgreSQL MCP** | Query databases directly | ❌ Opt-in | Very popular |
-| **Supabase MCP** | Database + Auth + Edge Functions | ❌ Opt-in | Full-stack devs |
-| **Figma MCP** | Read designs, export assets | ❌ Opt-in | Designers need this |
-| **Slack/Teams MCP** | Send notifications, read channels | ❌ Opt-in | Team workflows |
-| **Test Generator** | Auto-generate unit tests from code | ✅ Full mode | Huge time saver |
-| **Smart File Templates** | Auto-detect file type, apply template | ✅ Yes | Eliminates boilerplate |
-| **Doc Generator** | Auto-generate README, JSDoc | ✅ Yes | Always needed |
-| **Security Scanner** | Scan for vulnerabilities | ✅ Opt-in | Important |
-
-### Phase 3: Future (Experimental)
-
-| Feature | What It Does | Why Valuable |
-|---------|--------------|--------------|
-| **AI Code Review** | Auto-review on commit (LLM-based) | Professional quality |
-| **Smart Context Loading** | Auto-detect and load relevant docs | Less manual context |
-| **Project Health Dashboard** | Show code health metrics | Visibility |
-| **Multi-Model Routing** | Route to different models based on task | Cost optimization |
+### Infrastructure
+- Statusline (model, project, branch, stack, context %, cost, cache %, active agent)
+- Compaction transcript backup
+- Session resume tool
+- Project-level config (`.supercharger.json`)
+- Profiles, presets, export/import
+- Install mode detection (offers update vs reinstall)
 
 ---
 
-## 🚀 SLASH COMMANDS TO ADD
+## Recommended: Safety layer improvements
 
-### Currently in Supercharger:
-- `/think` - Structured reasoning
-- `/challenge` - Adversarial testing
-- `/refactor` - Code quality sweep
-- `/audit` - Consistency check
+These are enforced features (shell hooks) that close real gaps.
 
-### Recommended Additions:
+### 1. Conventional commit enforcement
+**What:** PreToolUse hook on `git commit` that validates the commit message follows conventional commit format (`feat:`, `fix:`, `chore:`, etc.).
+**Why:** Bad commit messages are common when Claude commits. This enforces structure without relying on Claude's judgment.
+**Effort:** Low — single regex check in a new hook or added to `git-safety.sh`.
+**Risk:** Low — exit 2 on bad format, Claude retries with correct format.
 
-| Command | What It Does | Auto-Install? |
-|---------|--------------|---------------|
-| `/test` | Generate unit tests for selected code | ✅ Full mode |
-| `/doc` | Auto-generate README, JSDoc, comments | ✅ Yes |
-| `/explain` | Explain code in plain language | ✅ Yes |
-| `/migrate` | Upgrade deprecated patterns | ✅ Full mode |
-| `/security` | Scan for vulnerabilities | ✅ Opt-in |
-| `/optimize` | Performance suggestions | ✅ Opt-in |
-| `/review` | Full code review with report | ✅ Opt-in |
-| `/scaffold` | Create file from template | ✅ Yes |
-| `/git pr` | Create PR, run checks, post link | ✅ Yes |
-| `/deploy` | Run deploy sequence (customizable) | ✅ Opt-in |
+### 2. TypeScript type-check hook
+**What:** PostToolUse hook on Write/Edit that runs `tsc --noEmit` on the changed file (or project) after TypeScript edits.
+**Why:** Claude frequently writes TypeScript that passes lint but fails type-checking. Catching this immediately saves debugging cycles.
+**Effort:** Medium — need to detect tsconfig.json, handle monorepos, keep it fast (incremental check).
+**Risk:** Medium — `tsc` can be slow on large projects. Need a timeout and skip-on-slow mechanism.
 
----
+### 3. Prefix stripping in enforce-pkg-manager.sh
+**What:** Add the same `sudo`/`command`/`env` prefix stripping loop that `safety.sh` already has.
+**Why:** `sudo npm install` in a pnpm project currently bypasses the pkg manager hook. This is a known gap from the audit.
+**Effort:** Low — copy the 3-line stripping loop from safety.sh.
+**Risk:** None.
 
-## 🔗 ADDITIONAL MCP SERVERS
+### 4. Schema validation hook
+**What:** PostToolUse hook on Write/Edit that validates JSON and YAML files against schema (if a schema is defined in the file or project).
+**Why:** Claude frequently generates invalid JSON configs (trailing commas, wrong key names). Catching this immediately is better than a runtime error.
+**Effort:** Medium — need `python3 -c` with json.loads for JSON, optional jsonschema for schema validation.
+**Risk:** Low — JSON syntax validation is fast and reliable. Schema validation is optional.
 
-### Must-Have (Add to Auto-Include):
-| MCP Server | What It Does | Value Level |
-|------------|--------------|-------------|
-| **Filesystem** | File operations, read/write/glob | Must-have |
-| **GitHub** | Issues, PRs, repos, code search | Must-have |
-| **Brave Search** | Web search | Must-have |
-
-### High Value (Add to Opt-in):
-| MCP Server | What It Does | Value Level |
-|------------|--------------|-------------|
-| **PostgreSQL** | Database queries | High |
-| **Supabase** | DB + Auth + Edge Functions | High |
-| **Slack** | Send/read messages | Medium |
-| **Notion** | Read/write pages | Medium |
-| **Sentry** | Error monitoring | Medium |
-| **Figma** | Design access | Medium (design) |
-
-### Nice to Have:
-| MCP Server | What It Does |
-|------------|--------------|
-| **Google Drive** | File access |
-| **Puppeteer** | Browser scraping |
-| **Sequential Thinking** | Reasoning enhancement (already included) |
-| **Memory** | Cross-session memory (already included) |
+### 5. Protect additional dangerous git patterns
+**What:** Block `git branch -D` (force-delete) on main/master, `git stash drop` without confirmation, `git clean -fd` (removes untracked files).
+**Why:** These are destructive and commonly hallucinated by Claude. Currently unblocked.
+**Effort:** Low — add patterns to git-safety.sh.
+**Risk:** Low — same pattern as existing git-safety checks.
 
 ---
 
-## ⚡ HOOK AUTOMATIONS TO ADD
+## Recommended: Ecosystem additions
 
-### Safety Hooks (Already Implemented):
-- ✅ rm -rf blocking
-- ✅ git push --force blocking
-- ✅ Credential detection
-- ✅ chmod 777 blocking
-- ✅ DROP TABLE blocking
+### 6. GitHub MCP server (auto-install for developer role)
+**What:** Add the official GitHub MCP server to auto-install for developer role. Uses `gh` CLI auth (already installed for most developers).
+**Why:** Issues, PRs, code search, and repo operations are the most common developer workflow outside of editing code. Currently requires manual `mcp-setup.sh`.
+**Effort:** Low — add to `lib/mcp.sh` role mapping.
+**Risk:** Low — `gh` auth is standard. Fails gracefully if not authenticated.
 
-### New Hooks to Add:
+### 7. /test slash command
+**What:** A command that generates unit tests for a specified file or function, using the project's existing test framework.
+**Why:** "Write tests for this" is the most common follow-up after implementing a feature. A dedicated command with structured output (test file path, framework detection, coverage target) would be more focused than a general prompt.
+**Effort:** Low — it's a markdown command config, similar to /refactor.
+**Risk:** None — it's instructional, not enforced.
 
-| Hook | When It Runs | Value |
-|------|--------------|-------|
-| **Auto-format** | PostToolUse (Edit/Write) | High |
-| **Auto-lint** | PostToolUse | High |
-| **Auto-test** | PostToolUse (dev files) | High |
-| **Commit-check** | PreToolUse (git commit) | High |
-| **Prettier** | PostToolUse (code files) | High |
-| **ESLint fix** | PostToolUse (JS/TS) | Medium |
-| **Import-sort** | PostToolUse (Python/JS) | Medium |
-| **Schema-validate** | PostToolUse (JSON/YAML) | Medium |
-| **Type-check** | PostToolUse (TS) | High |
-| **Secret-scan** | PostToolUse (Write) | High |
-| **License-header** | PostToolUse (new files) | Low |
-| **Conventional-commit** | PreToolUse (git commit) | High |
+### 8. /doc slash command
+**What:** Generate documentation for a file, module, or function — JSDoc, docstrings, README sections.
+**Why:** Documentation is the second most common follow-up. A structured command ensures consistent output format.
+**Effort:** Low — markdown command config.
+**Risk:** None.
 
 ---
 
-## 🎯 AGENTS TO ADD
+## Recommended: Reliability improvements
 
-### Currently in Supercharger:
-- Detective (debugger)
-- Critic (reviewer)
-- Engineer (builder)
-- Writer (prose)
-- Scientist (researcher)
-- Architect (design)
-- Strategist (planning)
-- Analyst (data)
-- General (everyday tasks)
+### 9. Generalist agent fallback route
+**What:** When no regex matches in `agent-router.sh`, write "Steve Jobs (Generalist)" to `.agent-route` instead of exiting silently.
+**Why:** The README says the Generalist handles unmatched prompts. The code doesn't do this — it exits with no routing. Making them match would close the gap.
+**Effort:** Low — change `[ -z "$AGENT" ] && exit 0` to set AGENT to Generalist.
+**Risk:** Low — the Generalist agent config already exists.
 
-### Recommended Additions:
+### 10. Economy tier per-prompt reinforcement
+**What:** Inject the active economy tier into every `UserPromptSubmit` hook response (not just SessionStart).
+**Why:** Claude's compliance with economy instructions degrades over long sessions as the SessionStart context drifts further away. Reinforcing every prompt keeps the signal fresh.
+**Effort:** Low — add economy tier reading to `agent-router.sh` output (it already runs per-prompt).
+**Risk:** Low — adds ~10 tokens per prompt.
 
-| Agent | What It Does | Best For |
-|-------|--------------|----------|
-| **Migrations** | DB migrations, schema changes | Backend |
-| **Security** | Vulnerability scanning | All |
-| **Performance** | Profiling, optimization | Devs |
-| **Accessibility** | a11y audits | Frontend |
-| **Docs** | Documentation generator | All |
-| **Tests** | Test generation | Devs |
-| **Refactor** | Pattern upgrades | Devs |
-| **DevOps** | Deploy, infra, Docker | DevOps |
+### 11. Hook self-test command
+**What:** `bash tools/hook-test.sh` that runs a quick smoke test against each installed hook — pipes test JSON and checks exit codes.
+**Why:** After install or update, users have no way to verify hooks are working without triggering them accidentally. A diagnostic tool would catch issues like the statusline syntax error that was shipped.
+**Effort:** Medium — need to craft test inputs for each hook type.
+**Risk:** None.
 
 ---
 
-## 🧠 INTELLIGENT AUTOMATION
+## Not recommended (and why)
 
-| Feature | What It Does | Auto-Install? |
-|---------|--------------|---------------|
-| **Smart File Templates** | Auto-apply templates by file type | ✅ Yes |
-| **Project Type Detection** | Detect React/Node/Python and configure | ✅ Yes |
-| **Auto-Import Resolution** | Auto-add missing imports | ✅ Full |
-| **Context-Aware Suggestions** | Load relevant docs based on current task | ✅ Full |
-| **Pattern Detection** | Detect and fix anti-patterns | ✅ Full |
-| **Semantic Search** | Find code by meaning, not just text | ✅ Opt-in |
-| **Smart Rename** | Rename with all references | ✅ Opt-in |
-
----
-
-## 📊 MONITORING & VISIBILITY
-
-| Feature | What It Does | Auto-Install? |
-|---------|--------------|---------------|
-| **Token Usage** | Real-time token counter | ✅ Yes |
-| **Cost Tracking** | Session cost estimation | ✅ Yes |
-| **Context Pressure** | 60%/80%/90% warnings | ✅ Yes |
-| **Session Timeline** | Show what was done in session | ✅ Full |
-| **Code Coverage** | Track test coverage | ✅ Opt-in |
-| **Performance Metrics** | Show slow commands | ✅ Opt-in |
-| **Activity Log** | Full audit trail | ✅ Yes |
+| Feature | Why not |
+|---|---|
+| **Filesystem MCP** | Claude Code already has native Read/Write/Edit/Glob/Grep. Redundant. |
+| **AI Code Review on commit** | Too slow for a hook (LLM call on every commit). Use /challenge or Gordon Ramsay agent instead. |
+| **Multi-model routing** | Claude Code manages model selection. Supercharger can't control this. |
+| **Auto-import resolution** | IDE territory (VS Code, JetBrains). Claude already handles imports when writing code. |
+| **Smart rename across files** | Claude Code's Grep + Edit already does this. A hook would duplicate native capability. |
+| **Docker/K8s helpers** | Too niche for a general tool. Better as a project-level `.supercharger.json` hint. |
+| **More agents** (Security, Docs, Tests, etc.) | Existing agents already cover these tasks. Adding more dilutes routing accuracy and increases context cost. |
+| **Brave Search as auto-include** | Requires an API key. Already in opt-in via `mcp-setup.sh`. |
+| **Performance metrics/dashboards** | Claude Code doesn't expose the data needed. Would require external tooling. |
 
 ---
 
-## 🔄 WORKFLOW AUTOMATION
+## Implementation priority
 
-| Feature | What It Does | Auto-Install? |
-|---------|--------------|---------------|
-| **One-Command Deploy** | Build + test + deploy sequence | ✅ Opt-in |
-| **Auto-PR** | Create PR with description | ✅ Yes |
-| **Branch Cleanup** | Auto-delete merged branches | ✅ Opt-in |
-| **Version Bump** | Auto-increment versions | ✅ Opt-in |
-| **Changelog Gen** | Auto-generate changelog | ✅ Opt-in |
-| **Release Notes** | Generate release notes | ✅ Opt-in |
+### Do now (low effort, high value)
+1. Prefix stripping in enforce-pkg-manager.sh (#3)
+2. Protect additional git patterns (#5)
+3. Generalist agent fallback (#9)
+4. /test and /doc commands (#7, #8)
 
----
+### Do next (medium effort, high value)
+5. Conventional commit enforcement (#1)
+6. GitHub MCP auto-install (#6)
+7. Economy tier per-prompt reinforcement (#10)
 
-## 🛠️ PROJECT-SPECIFIC AUTOMATION
-
-| Feature | What It Does | Auto-Install? |
-|---------|--------------|---------------|
-| **Framework Detection** | Detect Next.js/React/Vue/Django | ✅ Yes |
-| **Config Generator** | Auto-generate configs | ✅ Yes |
-| **Env Validator** | Check .env completeness | ✅ Yes |
-| **Package Manager Enforce** | Prevent npm in pnpm projects | ✅ Yes |
-| **Docker Helper** | Container commands | ✅ Opt-in |
-| **K8s Helper** | Kubernetes commands | ✅ Opt-in |
-| **CI/CD Helper** | GitHub Actions / GitLab CI | ✅ Opt-in |
+### Do later (medium effort, medium value)
+8. TypeScript type-check hook (#2)
+9. Schema validation hook (#4)
+10. Hook self-test command (#11)
 
 ---
 
-## 📋 QUICK-IMPLEMENTATION CHECKLIST
+## Context budget
 
-### High Priority (Do First):
-- [ ] Add `/test` command
-- [ ] Add GitHub MCP to auto-install
-- [ ] Add PostgreSQL MCP to opt-in list
-- [ ] Add auto-format hook
-- [ ] Add commit message checker hook
-- [ ] Add Supabase MCP to opt-in
+Current per-session cost: ~3,700 tokens (~1.9% of 200K context).
 
-### Medium Priority:
-- [ ] Add `/doc` command
-- [ ] Add `/security` command
-- [ ] Add `/review` command
-- [ ] Add smart file templates
-- [ ] Add test-on-commit hook
-- [ ] Add secret-scanning hook
-- [ ] Add Figma MCP to opt-in
+Each new feature should declare its token cost:
+- New hook (shell only, no config): 0 tokens
+- New slash command (markdown config): ~50-150 tokens
+- New agent config: ~200-400 tokens
+- New rule file: ~100-500 tokens
 
-### Nice to Have:
-- [ ] Add `/scaffold` command
-- [ ] Add `/deploy` command
-- [ ] Add Docker helper tools
-- [ ] Add K8s helper tools
-
----
-
-## 📚 REFERENCE LINKS
-
-- [Claude Code Hooks Documentation](https://code.claude.com/docs/en/hooks)
-- [Best MCP Servers 2026](https://explainmcp.com/mcp-servers/best-mcp-servers-2026/)
-- [Custom Slash Commands Guide](https://www.reddit.com/r/ClaudeAI/comments/1or0idm/15_custom_slash_commands_turned_claude_code_into/)
-- [Claude Code Skills Guide](https://claudelab.net/en/articles/claude-code/claude-code-custom-skills-development-guide)
-
----
-
-## 🎯 Vision Reminder
-
-> "One line install, zero manual setup, genuine value for all."
-
-Every feature added should maintain:
-1. **Zero manual setup** - Works out of the box
-2. **One line install** - No complex configuration
-3. **Genuine value** - Not just fluff, but real utility
-
----
-
-*Last updated: April 2026*
-*Claude Supercharger v1.9.3*
+Target: stay under 4,500 tokens total (2.25% of 200K). That leaves ~800 tokens of budget for new features.
