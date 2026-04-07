@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.5] - 2026-04-07 — Refactor: shared cmd-normalize, dynamic uninstall command list
 - [2.0.4] - 2026-04-07 — Consistency audit: hook safety, install accuracy, version placeholder
 - [2.0.3] - 2026-04-07 — Stack assumption verification, .claudedocs gitignored
 - [2.0.2] - 2026-04-07 — Stabilization: per-step token display, redundant safety rules removed, MCP deferred loading confirmed
@@ -28,6 +29,16 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.5] - 2026-04-07
+
+### Fixed
+- **Uninstall completeness** — `uninstall.sh` now derives command removal list dynamically from `configs/commands/*.md`; `/test` and `/doc` are no longer left behind after uninstall
+
+### Changed
+- **Shared normalization** — extracted 7-line command normalization block into `hooks/cmd-normalize.sh`; `safety.sh`, `git-safety.sh`, `enforce-pkg-manager.sh`, and `commit-check.sh` now source it
 
 ---
 

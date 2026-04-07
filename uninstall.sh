@@ -86,7 +86,8 @@ rmdir "$HOME/.claude/agents" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Agents removed"
 
 # Remove commands installed by Supercharger
-for cmd in think refactor challenge audit; do
+for cmd_file in "$SCRIPT_DIR/configs/commands/"*.md; do
+  cmd=$(basename "$cmd_file" .md)
   rm -f "$HOME/.claude/commands/$cmd.md"
 done
 rmdir "$HOME/.claude/commands" 2>/dev/null || true

@@ -15,13 +15,8 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-CMD="$COMMAND"
-CMD=$(printf '%s\n' "$CMD" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-CMD=$(printf '%s\n' "$CMD" | sed 's/^\\//')
-while printf '%s\n' "$CMD" | grep -qE '^(sudo|command|env)[[:space:]]+'; do
-  CMD=$(printf '%s\n' "$CMD" | sed -E 's/^(sudo|command|env)[[:space:]]+//')
-done
-CMD=$(printf '%s\n' "$CMD" | tr -s ' ')
+source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
+CMD=$(normalize_cmd "$COMMAND")
 
 PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
 
