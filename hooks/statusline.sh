@@ -99,7 +99,6 @@ try:
         with open(route_file) as f:
             agent_name = f.read().strip()
         if agent_name:
-            # Extract short name: "Sherlock Holmes (Detective)" → "Sherlock"
             short = agent_name.split()[0] if agent_name else ''
             agent = f' {DIM}|{RESET} {CYAN}{short}{RESET}'
 except Exception:

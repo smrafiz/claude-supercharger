@@ -53,6 +53,35 @@ done
 
 detect_platform
 
+# Determine if running non-interactively (all args provided)
+NON_INTERACTIVE="false"
+if [ -n "$ARG_MODE" ] && [ -n "$ARG_ROLES" ] && [ -n "$ARG_CONFIG" ] && [ -n "$ARG_SETTINGS" ]; then
+  NON_INTERACTIVE="true"
+fi
+
+# Detect existing Supercharger installation → offer update
+INSTALLED_VERSION_FILE="$HOME/.claude/supercharger/.version"
+if [ -f "$INSTALLED_VERSION_FILE" ] && [[ "$NON_INTERACTIVE" == "false" ]]; then
+  INSTALLED_VER=$(cat "$INSTALLED_VERSION_FILE" 2>/dev/null || echo "unknown")
+  show_banner
+  echo -e "${CYAN}  Supercharger v${INSTALLED_VER} is already installed.${NC}"
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Update  — pull latest changes, preserve your config [recommended]"
+  echo -e "  ${BOLD}2)${NC} Reinstall — fresh install (re-prompts mode, roles, economy)"
+  echo ""
+  read -rp "> " upgrade_choice
+  echo ""
+  if [[ "$upgrade_choice" != "2" ]]; then
+    if [ -f "$SCRIPT_DIR/tools/update.sh" ]; then
+      exec bash "$SCRIPT_DIR/tools/update.sh"
+    elif [ -f "$HOME/.claude/supercharger/tools/update.sh" ]; then
+      exec bash "$HOME/.claude/supercharger/tools/update.sh"
+    else
+      echo -e "${RED}  ✗ update.sh not found. Running fresh install instead.${NC}"
+    fi
+  fi
+fi
+
 # Detect first-time user
 FIRST_TIME="false"
 if [ ! -d "$HOME/.claude" ] || [ ! -f "$HOME/.claude/CLAUDE.md" ]; then
@@ -279,7 +308,7 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
 fi
 
 # Deploy extras (Full mode)
-deploy_extras "$SCRIPT_DIR" "$MODE"
+deploy_extras "$SCRIPT_DIR" "$MODE" "$NON_INTERACTIVE"
 
 # Summary
 echo ""
