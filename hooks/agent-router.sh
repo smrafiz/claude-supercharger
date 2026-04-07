@@ -49,6 +49,8 @@ fi
 
 echo "$AGENT" > "$ROUTE_FILE"
 
+echo "[Supercharger] Agent: $AGENT" >&2
+
 ROUTE_AGENT="$AGENT" python3 -c "
 import json, os
 agent = os.environ['ROUTE_AGENT']
