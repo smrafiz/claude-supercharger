@@ -68,7 +68,7 @@ These are prompt configurations. They shape Claude's behavior through system ins
 
 Switch mid-conversation: `eco lean` / `eco standard` / `eco minimal`. These instructions work — Claude does respond more concisely — but there's no hard token limit. Some responses will still be longer than you want.
 
-**Agent routing** — your first substantive message each session is pattern-matched to one of eight agents, each with its own scope rules and verification requirements. The match sets the session's primary agent, but Claude can still dispatch other agents for subtasks (e.g., spawning a Critic for code review during a Writer session). Greetings and small talk won't trigger a match — the router only responds to task-like prompts:
+**Agent routing** — your first substantive message each session is pattern-matched to one of nine agents, each with its own scope rules and verification requirements. Eight agents have specific regex routes (shown below); the ninth — Steve Jobs (Generalist) — handles prompts that don't match any pattern. The match sets the session's primary agent, but Claude can still dispatch other agents for subtasks (e.g., spawning a Critic for code review during a Writer session). Greetings and small talk won't trigger a match — the router only responds to task-like prompts:
 
 ```
 "There's a null pointer at line 42"            → Sherlock Holmes (Detective)
