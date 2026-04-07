@@ -34,30 +34,21 @@ input_tok = usage.get('input_tokens', 0) or 0
 output_tok = usage.get('output_tokens', 0) or 0
 total_tok = input_tok + output_tok
 
-# Accumulate prompt tokens using cost as change discriminator
-# Cost only changes on new API calls (steps), not on UI re-renders
-prompt_tok_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.prompt-tokens')
-cost_rounded = round(cost, 6)
-prompt_in = 0
-prompt_out = 0
+# Track per-prompt cost delta
+# agent-router.sh deletes .prompt-cost on each new prompt
+# First statusline render saves current cost as the start point
+prompt_cost_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.prompt-cost')
+prompt_cost_delta = 0.0
 try:
-    last_cost = -1.0
-    if os.path.isfile(prompt_tok_file):
-        with open(prompt_tok_file) as f:
-            for line in f:
-                k, v = line.strip().split('=', 1)
-                if k == 'cost': last_cost = float(v)
-                elif k == 'in': prompt_in = int(v)
-                elif k == 'out': prompt_out = int(v)
-    if cost_rounded != last_cost:
-        prompt_in += input_tok
-        prompt_out += output_tok
-        with open(prompt_tok_file, 'w') as f:
-            f.write(f'cost={cost_rounded}\nin={prompt_in}\nout={prompt_out}\n')
+    if os.path.isfile(prompt_cost_file):
+        with open(prompt_cost_file) as f:
+            start_cost = float(f.read().strip())
+        prompt_cost_delta = cost - start_cost
+    else:
+        with open(prompt_cost_file, 'w') as f:
+            f.write(str(cost))
 except Exception:
-    prompt_in = input_tok
-    prompt_out = output_tok
-prompt_total = prompt_in + prompt_out
+    pass
 
 # Colors
 CYAN = '\033[36m'
@@ -153,21 +144,8 @@ def fmt_tokens(n):
         return f'{n/1_000:.1f}K'
     return str(n)
 
-# Show previous prompt's completed total (always accurate)
-last_tok_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.last-prompt-tokens')
-last_in = 0
-last_out = 0
-try:
-    if os.path.isfile(last_tok_file):
-        with open(last_tok_file) as f:
-            for line in f:
-                k, v = line.strip().split('=', 1)
-                if k == 'in': last_in = int(v)
-                elif k == 'out': last_out = int(v)
-except Exception:
-    pass
-last_total = last_in + last_out
-tok_str = f' {DIM}|{RESET} last: {fmt_tokens(last_total)} tok ({fmt_tokens(last_in)} in / {fmt_tokens(last_out)} out)' if last_total > 0 else ''
+prompt_cost_fmt = f'\${prompt_cost_delta:.4f}' if prompt_cost_delta > 0 else ''
+tok_str = f' {DIM}|{RESET} prompt: {prompt_cost_fmt}' if prompt_cost_delta > 0.0001 else ''
 
 line2 = f'{bar_color}{bar}{RESET} {pct}% {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET}{tok_str} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} cache {cache_pct}%'
 

@@ -20,11 +20,8 @@ fi
 
 [ -z "$PROMPT" ] && exit 0
 
-# Save previous prompt's tokens before resetting
-if [ -f "$SCOPE_DIR/.prompt-tokens" ]; then
-  cp "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-prompt-tokens"
-fi
-rm -f "$SCOPE_DIR/.prompt-tokens"
+# Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
+rm -f "$SCOPE_DIR/.prompt-cost" "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-prompt-tokens"
 
 AGENT=""
 
