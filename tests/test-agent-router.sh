@@ -56,15 +56,16 @@ else
 fi
 teardown_test_home
 
-# Test 5: Ambiguous prompt writes nothing
-begin_test "agent-router: ambiguous prompt does not write .agent-route"
+# Test 5: Ambiguous prompt falls back to Generalist
+begin_test "agent-router: ambiguous prompt routes to Steve Jobs (Generalist)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"help me"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ ! -f "$HOME/.claude/supercharger/scope/.agent-route" ]; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
+   grep -q "Steve Jobs" "$HOME/.claude/supercharger/scope/.agent-route"; then
   pass
 else
-  fail ".agent-route was created for ambiguous prompt"
+  fail "expected Generalist fallback"
 fi
 teardown_test_home
 

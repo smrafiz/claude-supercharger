@@ -45,7 +45,7 @@ elif printf '%s\n' "$PROMPT" | grep -qiE '(build|implement|add |add a |fix|creat
   AGENT="Tony Stark (Engineer)"
 fi
 
-[ -z "$AGENT" ] && exit 0
+[ -z "$AGENT" ] && AGENT="Steve Jobs (Generalist)"
 
 echo "$AGENT" > "$ROUTE_FILE"
 

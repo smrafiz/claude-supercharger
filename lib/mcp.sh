@@ -19,6 +19,7 @@ get_role_servers() {
 
   if echo "$roles" | grep -q "developer"; then
     servers="${servers}
+github|npx|-y @modelcontextprotocol/server-github|{\"GITHUB_PERSONAL_ACCESS_TOKEN\":\"\"}
 playwright|npx|-y @playwright/mcp --headless
 magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
@@ -93,13 +94,19 @@ settings['mcpServers'] = {
 for line in servers_input.strip().split('\n'):
     if not line.strip():
         continue
-    parts = line.split('|', 2)
+    parts = line.split('|', 3)
     name = parts[0].strip()
     command = parts[1].strip() if len(parts) > 1 else 'npx'
     args_str = parts[2].strip() if len(parts) > 2 else ''
+    env_str = parts[3].strip() if len(parts) > 3 else ''
 
     key = name + ' ' + tag
     entry = {'command': command, 'args': args_str.split()}
+    if env_str:
+        try:
+            entry['env'] = json.loads(env_str)
+        except json.JSONDecodeError:
+            pass
     settings['mcpServers'][key] = entry
 
 with open(settings_file, 'w') as f:

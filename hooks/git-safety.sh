@@ -46,12 +46,22 @@ if printf '%s\n' "$CMD" | grep -qE '^git reset[[:space:]]' && printf '%s\n' "$CM
   block "git reset --hard can destroy uncommitted work"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git (checkout|restore)[[:space:]]+\.$'; then
+if printf '%s\n' "$CMD" | grep -qE '^git (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)'; then
   block "discards all unstaged changes"
 fi
 
 if printf '%s\n' "$CMD" | grep -qE '^git clean[[:space:]]' && printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|$)'; then
   block "git clean with force permanently removes untracked files"
+fi
+
+if printf '%s\n' "$CMD" | grep -qE '^git branch[[:space:]]' && printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])-D([[:space:]]|$)'; then
+  if printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(main|master)([[:space:]]|$)'; then
+    block "force-deleting a protected branch (main/master)"
+  fi
+fi
+
+if printf '%s\n' "$CMD" | grep -qE '^git stash (drop|clear)([[:space:]]|$)'; then
+  block "git stash drop/clear permanently removes stashed changes"
 fi
 
 exit 0

@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.0] - 2026-04-07 — New features: conventional commits, GitHub MCP, /test, /doc, safety improvements
 - [1.9.8] - 2026-04-07 — Notification filtering, statusline updates, install step count fix
 - [1.9.7] - 2026-04-07 — Desktop notification prompt in installer
 - [1.9.6] - 2026-04-07 — Statusline per-prompt token display with in/out breakdown
@@ -23,6 +24,22 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.0] - 2026-04-07
+
+### Added
+- **Conventional commit enforcement** — new `commit-check.sh` hook blocks non-conventional commit messages (`feat:`, `fix:`, `chore:`, etc.). Handles `-m "..."`, `-m '...'`, and HEREDOC patterns. Allows `--amend` and merge commits.
+- **GitHub MCP server** — auto-installed for developer role. Uses `@modelcontextprotocol/server-github` via npx. Works zero-config with `gh` CLI auth.
+- **/test command** — generate unit tests with framework detection, coverage targets, and automatic test execution.
+- **/doc command** — generate documentation with style detection (JSDoc, docstrings, rustdoc) and scope inference.
+- **Generalist agent fallback** — unmatched prompts now route to Steve Jobs (Generalist) instead of getting no agent.
+
+### Fixed
+- **Package manager bypass** — `sudo npm install` in pnpm project was not blocked. Added prefix stripping (sudo/command/env) matching safety.sh pattern.
+- **Git safety gaps** — added blocks for `git branch -D main/master`, `git clean -f`, `git stash drop`, `git stash clear`, and `git checkout -- .` variant.
+- **Commit-check HEREDOC handling** — uses Python regex to extract messages from HEREDOC patterns, not just simple `-m "..."` strings.
 
 ---
 
