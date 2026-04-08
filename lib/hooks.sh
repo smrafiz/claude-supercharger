@@ -58,6 +58,13 @@ deploy_hook_scripts() {
   mkdir -p "$tools_dir"
   cp "$source_dir/tools/"*.sh "$tools_dir/"
   chmod 700 "$tools_dir/"*.sh
+
+  # Deploy lib dependencies that tools/ scripts source at runtime
+  local lib_dir="$HOME/.claude/supercharger/lib"
+  mkdir -p "$lib_dir"
+  cp "$source_dir/lib/utils.sh" "$lib_dir/"
+  cp "$source_dir/lib/economy.sh" "$lib_dir/"
+  chmod 700 "$lib_dir/"*.sh
 }
 
 merge_hooks_into_settings() {
