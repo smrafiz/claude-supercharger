@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.12] - 2026-04-08 — Fix economy tier detection in update.sh (loose substring → Active Tier heading regex)
 - [2.0.11] - 2026-04-08 — Deploy tools/ and lib/ to install target so economy-switch runs without local repo
 - [2.0.10] - 2026-04-08 — Audit log redaction expanded, macOS CI runner, shellcheck lib/tools/tests, agent name normalization (title case, dash→space)
 - [2.0.9] - 2026-04-08 — Fix awk field variable bug in project agent parsing, 273 passing

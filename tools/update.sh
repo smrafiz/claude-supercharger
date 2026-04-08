@@ -60,15 +60,11 @@ detect_config() {
   DETECTED_ECONOMY="lean"
   if [ -f "$RULES_DIR/economy.md" ]; then
     DETECTED_ECONOMY=$(ECONOMY_FILE="$RULES_DIR/economy.md" python3 -c "
-import os
+import re, os
 with open(os.environ['ECONOMY_FILE']) as f:
     content = f.read()
-for tier in ['minimal', 'lean', 'standard']:
-    if tier.capitalize() in content[:800] or ('Active Tier' in content and tier in content.lower()[:800]):
-        print(tier)
-        break
-else:
-    print('lean')
+m = re.search(r'### Active Tier:\s*(standard|lean|minimal)', content, re.IGNORECASE)
+print(m.group(1).lower() if m else 'lean')
 " 2>/dev/null || echo "lean")
   fi
 
