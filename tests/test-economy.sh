@@ -24,7 +24,7 @@ assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Data Analyst  |
 pass
 
 begin_test "economy: economy.md contains PM role constraint"
-assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| PM            | Lean     | unrestricted" &&
+assert_file_contains "$REPO_DIR/configs/universal/economy.md" "| Project Manager | Lean" &&
 pass
 
 # --- Test: economy.md deployed with active tier ---

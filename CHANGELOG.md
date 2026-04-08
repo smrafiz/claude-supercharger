@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.8] - 2026-04-08 — Fix agent-gate mismatch detection regression, test suite green
 - [2.0.7] - 2026-04-08 — Fix project agent CWD resolution and statusline agent name
 - [2.0.6] - 2026-04-08 — Project agent priority routing in agent-router.sh
 - [2.0.5] - 2026-04-07 — Refactor: shared cmd-normalize, dynamic uninstall command list
@@ -31,6 +32,15 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.8] - 2026-04-08
+
+### Fixed
+- **agent-gate mismatch detection** — route file was overwritten with dispatched agent before mismatch check, so warning never fired. Now reads stored route first, then updates file. Mismatch warnings restored.
+- **Test suite** — `test-economy.sh` PM row assertion updated to match renamed `Project Manager` table entry. 253 passing, 0 failing.
+- **README test badge** — corrected to 253 (actual passing count).
 
 ---
 
