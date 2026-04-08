@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.9] - 2026-04-08 — Fix awk field variable bug in project agent parsing, 273 passing
 - [2.0.8] - 2026-04-08 — Fix agent-gate mismatch detection regression, test suite green
 - [2.0.7] - 2026-04-08 — Fix project agent CWD resolution and statusline agent name
 - [2.0.6] - 2026-04-08 — Project agent priority routing in agent-router.sh
@@ -32,6 +33,16 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.9] - 2026-04-08
+
+### Fixed
+- **Project agent parsing** — `parse_agent_field` in `agent-router.sh` was not passing the `field` variable to awk (`-v field="$field"` missing). `name` and `description` were never extracted from agent frontmatter — project agents were silently never detected. Smoke tests caught this.
+
+### Added
+- **Agent routing smoke tests** — `tests/test-agent-routing-project.sh` covers: project agent injection, fallback when no agents dir, skipping nameless agents, `workspace.current_dir` priority over `$PWD`, description truncation and JSON validity. 273 passing, 0 failing.
 
 ---
 

@@ -59,7 +59,7 @@ echo "[Supercharger] Agent: $AGENT" >&2
 # Detect project agents in .claude/agents/ — prefer them over global classification
 parse_agent_field() {
   local file="$1" field="$2"
-  awk 'BEGIN{in_fm=0}
+  awk -v field="$field" 'BEGIN{in_fm=0}
     /^---/{in_fm++; next}
     in_fm==1 && $0 ~ ("^" field ":") {sub("^" field ":[[:space:]]*",""); print; exit}
     in_fm>=2{exit}' "$file" 2>/dev/null || echo ""
