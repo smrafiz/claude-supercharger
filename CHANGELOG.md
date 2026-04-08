@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.6] - 2026-04-08 — Project agent priority routing in agent-router.sh
 - [2.0.5] - 2026-04-07 — Refactor: shared cmd-normalize, dynamic uninstall command list
 - [2.0.4] - 2026-04-07 — Consistency audit: hook safety, install accuracy, version placeholder
 - [2.0.3] - 2026-04-07 — Stack assumption verification, .claudedocs gitignored
@@ -29,6 +30,13 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.6] - 2026-04-08
+
+### Added
+- **Project agent priority routing** — `agent-router.sh` now detects `.claude/agents/` in the current project, parses `name` and `description` from each agent's frontmatter, and injects them into `additionalContext` with an explicit precedence signal. Project agents take priority over global classification when they better fit the task. Conflict rule: if a project agent and global agent would both handle the same request, the project agent wins. Falls back to global routing when no project agents are present.
 
 ---
 

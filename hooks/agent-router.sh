@@ -52,6 +52,41 @@ echo "$AGENT" > "$ROUTE_FILE"
 
 echo "[Supercharger] Agent: $AGENT" >&2
 
-printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":"[SUPERCHARGER ROUTING] Classified as: %s. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch."}}\n' "$AGENT"
+# Detect project agents in .claude/agents/ — prefer them over global classification
+parse_agent_field() {
+  local file="$1" field="$2"
+  awk 'BEGIN{in_fm=0}
+    /^---/{in_fm++; next}
+    in_fm==1 && $0 ~ ("^" field ":") {sub("^" field ":[[:space:]]*",""); print; exit}
+    in_fm>=2{exit}' "$file" 2>/dev/null || echo ""
+}
+
+PROJECT_AGENTS_LIST=""
+PROJECT_AGENTS_DIR="$PWD/.claude/agents"
+if [ -d "$PROJECT_AGENTS_DIR" ]; then
+  for agent_file in "$PROJECT_AGENTS_DIR"/*.md; do
+    [ -f "$agent_file" ] || continue
+    name=$(parse_agent_field "$agent_file" "name")
+    desc=$(parse_agent_field "$agent_file" "description")
+    [ -z "$name" ] && continue
+    # Truncate to first sentence, strip JSON-unsafe chars
+    short_desc=$(printf '%s' "$desc" | sed 's/\. .*//' | tr -d '"\\')
+    if [ -n "$PROJECT_AGENTS_LIST" ]; then
+      PROJECT_AGENTS_LIST="${PROJECT_AGENTS_LIST}; ${name}: ${short_desc}"
+    else
+      PROJECT_AGENTS_LIST="${name}: ${short_desc}"
+    fi
+  done
+fi
+
+if [ -n "$PROJECT_AGENTS_LIST" ]; then
+  echo "[Supercharger] Project agents detected — will prefer over global" >&2
+  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch. Project agents available — these take precedence over global agents: ${PROJECT_AGENTS_LIST}. If any project agent fits the task, always prefer it over the global classification. If a project agent and global agent would both handle the same request, route to the project agent."
+else
+  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch."
+fi
+
+CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
+printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 exit 0
