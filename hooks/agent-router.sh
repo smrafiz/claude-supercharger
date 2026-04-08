@@ -84,11 +84,27 @@ if [ -d "$PROJECT_AGENTS_DIR" ]; then
   done
 fi
 
+# Read active economy tier: prefer scope file, fall back to economy.md heading
+TIER=""
+ECONOMY_TIER_FILE="$SCOPE_DIR/.economy-tier"
+if [ -f "$ECONOMY_TIER_FILE" ]; then
+  TIER=$(cat "$ECONOMY_TIER_FILE" 2>/dev/null | tr -d '[:space:]')
+fi
+if [ -z "$TIER" ]; then
+  ECONOMY_MD="$HOME/.claude/rules/economy.md"
+  if [ -f "$ECONOMY_MD" ]; then
+    TIER=$(grep -m1 '^### Active Tier:' "$ECONOMY_MD" 2>/dev/null | sed 's/^### Active Tier:[[:space:]]*//' | sed 's/[[:space:]].*//' | tr -d '[:space:]')
+  fi
+fi
+[ -z "$TIER" ] && TIER="lean"
+
+TIER_SUFFIX=" Active economy tier: ${TIER}. Maintain this verbosity level throughout your response."
+
 if [ -n "$PROJECT_AGENTS_LIST" ]; then
   echo "[Supercharger] Project agents detected — will prefer over global" >&2
-  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch. Project agents available — these take precedence over global agents: ${PROJECT_AGENTS_LIST}. If any project agent fits the task, always prefer it over the global classification. If a project agent and global agent would both handle the same request, route to the project agent."
+  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch. Project agents available — these take precedence over global agents: ${PROJECT_AGENTS_LIST}. If any project agent fits the task, always prefer it over the global classification. If a project agent and global agent would both handle the same request, route to the project agent.${TIER_SUFFIX}"
 else
-  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch."
+  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch.${TIER_SUFFIX}"
 fi
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")

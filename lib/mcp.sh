@@ -20,7 +20,7 @@ get_role_servers() {
   if echo "$roles" | grep -q "developer"; then
     if command -v gh &>/dev/null; then
       servers="${servers}
-github|npx|-y @modelcontextprotocol/server-github|{\"GITHUB_PERSONAL_ACCESS_TOKEN\":\"\"}"
+github|gh|extension exec github-mcp-server stdio"
     fi
     servers="${servers}
 playwright|npx|-y @playwright/mcp --headless
