@@ -9,8 +9,8 @@ begin_test "agent-router: error prompt routes to Sherlock Holmes"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"there is a null pointer exception at line 42"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
-   grep -q "Sherlock" "$HOME/.claude/supercharger/scope/.agent-route"; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
+   grep -q "Sherlock" "$HOME/.claude/supercharger/scope/.agent-classified"; then
   pass
 else
   fail "agent route not set to Sherlock"
@@ -22,8 +22,8 @@ begin_test "agent-router: review prompt routes to Gordon Ramsay"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"review this file for security issues"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
-   grep -q "Gordon" "$HOME/.claude/supercharger/scope/.agent-route"; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
+   grep -q "Gordon" "$HOME/.claude/supercharger/scope/.agent-classified"; then
   pass
 else
   fail "agent route not set to Gordon"
@@ -35,8 +35,8 @@ begin_test "agent-router: implement prompt routes to Tony Stark"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"implement a login function in auth.py"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
-   grep -q "Tony" "$HOME/.claude/supercharger/scope/.agent-route"; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
+   grep -q "Tony" "$HOME/.claude/supercharger/scope/.agent-classified"; then
   pass
 else
   fail "agent route not set to Tony"
@@ -48,8 +48,8 @@ begin_test "agent-router: write prompt routes to Ernest Hemingway"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"write a README for this project"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
-   grep -q "Ernest" "$HOME/.claude/supercharger/scope/.agent-route"; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
+   grep -q "Ernest" "$HOME/.claude/supercharger/scope/.agent-classified"; then
   pass
 else
   fail "agent route not set to Ernest"
@@ -61,8 +61,8 @@ begin_test "agent-router: ambiguous prompt routes to Steve Jobs (Generalist)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"help me"}' | bash "$ROUTER" >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/scope/.agent-route" ] && \
-   grep -q "Steve Jobs" "$HOME/.claude/supercharger/scope/.agent-route"; then
+if [ -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
+   grep -q "Steve Jobs" "$HOME/.claude/supercharger/scope/.agent-classified"; then
   pass
 else
   fail "expected Generalist fallback"
@@ -74,9 +74,9 @@ begin_test "agent-router: re-classifies on each prompt"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"debug this stack trace"}' | bash "$ROUTER" >/dev/null 2>&1
-FIRST=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
+FIRST=$(cat "$HOME/.claude/supercharger/scope/.agent-classified" 2>/dev/null || echo "")
 echo '{"prompt":"write a blog post"}' | bash "$ROUTER" >/dev/null 2>&1
-SECOND=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
+SECOND=$(cat "$HOME/.claude/supercharger/scope/.agent-classified" 2>/dev/null || echo "")
 if [ "$FIRST" != "$SECOND" ] && echo "$FIRST" | grep -q "Sherlock" && echo "$SECOND" | grep -q "Ernest"; then
   pass
 else
@@ -98,12 +98,12 @@ else
 fi
 teardown_test_home
 
-# Test 8: .agent-route contains exact agent name with no extra whitespace
-begin_test "agent-router: .agent-route contains exact agent name"
+# Test 8: .agent-classified contains exact agent name with no extra whitespace
+begin_test "agent-router: .agent-classified contains exact agent name"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"there is a null pointer exception"}' | bash "$ROUTER" >/dev/null 2>&1
-CONTENT=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
+CONTENT=$(cat "$HOME/.claude/supercharger/scope/.agent-classified" 2>/dev/null || echo "")
 if [ "$CONTENT" = "Sherlock Holmes (Detective)" ]; then
   pass
 else
@@ -116,9 +116,9 @@ begin_test "agent-router: write-a-function prompt routes to Tony Stark not Hemin
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"write a function to parse JSON"}' | bash "$ROUTER" >/dev/null 2>&1
-ROUTE=$(cat "$HOME/.claude/supercharger/scope/.agent-route" 2>/dev/null || echo "")
+ROUTE=$(cat "$HOME/.claude/supercharger/scope/.agent-classified" 2>/dev/null || echo "")
 if echo "$ROUTE" | grep -qi "Tony"; then pass
-else fail ".agent-route wrong: $ROUTE (expected Tony Stark)"; fi
+else fail ".agent-classified wrong: $ROUTE (expected Tony Stark)"; fi
 teardown_test_home
 
 report

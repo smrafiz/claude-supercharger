@@ -7,7 +7,8 @@
 set -euo pipefail
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
-ROUTE_FILE="$SCOPE_DIR/.agent-route"
+CLASSIFIED_FILE="$SCOPE_DIR/.agent-classified"
+DISPATCHED_FILE="$SCOPE_DIR/.agent-dispatched"
 
 _INPUT=$(cat)
 DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
@@ -17,12 +18,12 @@ fi
 
 [ -z "$DISPATCHED" ] && exit 0
 
-# Read stored route before updating (needed for mismatch detection below)
-STORED_AGENT=$(cat "$ROUTE_FILE" 2>/dev/null || echo "")
+# Read classifier's route for mismatch detection
+STORED_AGENT=$(cat "$CLASSIFIED_FILE" 2>/dev/null || echo "")
 
-# Always update route file with actual dispatched agent — statusline reads this
+# Write dispatched agent separately — statusline reads this, not .agent-classified
 mkdir -p "$SCOPE_DIR"
-echo "$DISPATCHED" > "$ROUTE_FILE"
+echo "$DISPATCHED" > "$DISPATCHED_FILE"
 
 [ -z "$STORED_AGENT" ] && exit 0
 

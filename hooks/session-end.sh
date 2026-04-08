@@ -20,7 +20,8 @@ fi
 
 # Read transient scope stats
 AGENT="none"
-[ -f "$SCOPE_DIR/.agent-route" ] && AGENT=$(cat "$SCOPE_DIR/.agent-route" 2>/dev/null || echo "none")
+[ -f "$SCOPE_DIR/.agent-dispatched" ] && AGENT=$(cat "$SCOPE_DIR/.agent-dispatched" 2>/dev/null || echo "none")
+[ "$AGENT" = "none" ] && [ -f "$SCOPE_DIR/.agent-classified" ] && AGENT=$(cat "$SCOPE_DIR/.agent-classified" 2>/dev/null || echo "none")
 
 COST="none"
 [ -f "$SCOPE_DIR/.prompt-cost" ] && COST=$(cat "$SCOPE_DIR/.prompt-cost" 2>/dev/null || echo "none")
@@ -34,7 +35,8 @@ rm -f \
   "$SCOPE_DIR/.prompt-cost" \
   "$SCOPE_DIR/.prompt-tokens" \
   "$SCOPE_DIR/.last-prompt-tokens" \
-  "$SCOPE_DIR/.agent-route" \
+  "$SCOPE_DIR/.agent-classified" \
+  "$SCOPE_DIR/.agent-dispatched" \
   2>/dev/null || true
 
 echo "[Supercharger] session-end: cleaned up (reason=$REASON)" >&2

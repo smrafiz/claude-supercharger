@@ -103,15 +103,20 @@ try:
 except Exception:
     pass
 
-# Active agent
+# Active agent — prefer .agent-dispatched (actual dispatch) over .agent-classified (router guess)
 agent = ''
 try:
-    route_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.agent-route')
-    if os.path.isfile(route_file):
-        with open(route_file) as f:
-            agent_name = f.read().strip()
-        if agent_name:
-            agent = f' {DIM}|{RESET} {CYAN}Agent: {agent_name}{RESET}'
+    scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+    agent_name = ''
+    for fname in ('.agent-dispatched', '.agent-classified'):
+        fpath = os.path.join(scope, fname)
+        if os.path.isfile(fpath):
+            with open(fpath) as f:
+                agent_name = f.read().strip()
+            if agent_name:
+                break
+    if agent_name:
+        agent = f' {DIM}|{RESET} {CYAN}Agent: {agent_name}{RESET}'
 except Exception:
     pass
 

@@ -2,7 +2,7 @@
 # Claude Supercharger — Agent Router
 # Event: UserPromptSubmit | Matcher: (none)
 # Classifies each user prompt and injects a routing directive into
-# Claude's context. Updates .agent-route for agent-gate.sh reference.
+# Claude's context. Writes classification to .agent-classified for agent-gate.sh.
 
 set -euo pipefail
 
@@ -10,7 +10,7 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
-ROUTE_FILE="$SCOPE_DIR/.agent-route"
+ROUTE_FILE="$SCOPE_DIR/.agent-classified"
 
 _INPUT=$(cat)
 PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
