@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.10] - 2026-04-08 — Audit log redaction expanded, macOS CI runner, shellcheck lib/tools/tests, agent name normalization (title case, dash→space)
 - [2.0.9] - 2026-04-08 — Fix awk field variable bug in project agent parsing, 273 passing
 - [2.0.8] - 2026-04-08 — Fix agent-gate mismatch detection regression, test suite green
 - [2.0.7] - 2026-04-08 — Fix project agent CWD resolution and statusline agent name

@@ -3,6 +3,13 @@
 # Usage: bash detect-stack.sh [project_dir]
 # Outputs detected stack info as key=value pairs.
 # Used by claude-check and can be sourced by other tools.
+#
+# NOTE: This is a standalone utility invoked directly by tools/claude-check.sh
+# and tools/init-agents.sh. It outputs key=value pairs to stdout.
+#
+# hooks/project-config.sh contains its own inline stack detection (embedded
+# Python, richer framework coverage) and does NOT source this file.
+# TODO: consolidate both into a shared lib once output formats are unified.
 
 set -euo pipefail
 

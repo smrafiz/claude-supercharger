@@ -25,11 +25,21 @@ case "$TOOL_NAME" in
     python3 -c "
 import json, sys, datetime, re
 cmd = sys.argv[1][:200]
-# Redact inline credentials
-cmd = re.sub(r'\b(AKIA[0-9A-Z]{16})', '[REDACTED_AWS]', cmd)
-cmd = re.sub(r'\b(ghp_[0-9a-zA-Z]{36})', '[REDACTED_GH]', cmd)
-cmd = re.sub(r'\b(sk-[0-9a-zA-Z]{20,})', '[REDACTED_KEY]', cmd)
-cmd = re.sub(r'\b(\w+_(?:KEY|TOKEN|SECRET|PASSWORD))\s*=\s*\S+', r'\1=[REDACTED]', cmd, flags=re.IGNORECASE)
+# Redact inline credentials — mirrors safety.sh CRED_PATTERNS
+cmd = re.sub(r'\bAKIA[0-9A-Z]{16}\b', '[REDACTED_AWS]', cmd)
+cmd = re.sub(r'\bghp_[0-9a-zA-Z]{36}\b', '[REDACTED_GH]', cmd)
+cmd = re.sub(r'\bsk-[0-9a-zA-Z]{20,}\b', '[REDACTED_KEY]', cmd)
+cmd = re.sub(r'\bAIza[0-9A-Za-z_-]{35}\b', '[REDACTED_GOOG]', cmd)
+cmd = re.sub(r'\bsk_live_[0-9a-zA-Z]{24}\b', '[REDACTED_STRIPE]', cmd)
+cmd = re.sub(r'\bpk_live_[0-9a-zA-Z]{24}\b', '[REDACTED_STRIPE]', cmd)
+cmd = re.sub(r'\bnpm_[0-9a-zA-Z]{36}\b', '[REDACTED_NPM]', cmd)
+cmd = re.sub(r'\bpypi-[0-9a-zA-Z_-]{16,}\b', '[REDACTED_PYPI]', cmd)
+cmd = re.sub(r'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.', '[REDACTED_JWT]', cmd)
+cmd = re.sub(r'-----BEGIN[[:space:]]*(RSA|EC|DSA|OPENSSH)?[[:space:]]*PRIVATE KEY-----', '[REDACTED_PRIVKEY]', cmd)
+cmd = re.sub(r'(?i)(https?|ftp)://[^:@/\s]+:[^@/\s]+@', r'\1://[REDACTED]@', cmd)
+cmd = re.sub(r'(?i)\bBearer\s+[0-9a-zA-Z\-_.~+/]+=*\b', 'Bearer [REDACTED]', cmd)
+cmd = re.sub(r'\b(\w+_(?:KEY|TOKEN|SECRET|PASSWORD|API_KEY))\s*=\s*\S+', r'\1=[REDACTED]', cmd, flags=re.IGNORECASE)
+cmd = re.sub(r'(?i)\b(api[_-]?key|secret[_-]?key|access[_-]?token|password|db_password|mysql_root_password)\s*=\s*\S+', r'\1=[REDACTED]', cmd)
 entry = {'timestamp': datetime.datetime.now(tz=datetime.timezone.utc).isoformat().replace('+00:00','Z'), 'tool': 'Bash', 'action': cmd}
 print(json.dumps(entry))
 " "$COMMAND" >> "$AUDIT_FILE" 2>/dev/null || true

@@ -71,6 +71,7 @@ if [ -d "$PROJECT_AGENTS_DIR" ]; then
   for agent_file in "$PROJECT_AGENTS_DIR"/*.md; do
     [ -f "$agent_file" ] || continue
     name=$(parse_agent_field "$agent_file" "name")
+    name=$(printf '%s' "$name" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
     desc=$(parse_agent_field "$agent_file" "description")
     [ -z "$name" ] && continue
     # Truncate to first sentence, strip JSON-unsafe chars

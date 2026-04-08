@@ -9,7 +9,10 @@ on:
 jobs:
   test:
     name: Test suite
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
@@ -38,12 +41,21 @@ jobs:
 
   shellcheck:
     name: Shellcheck
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
     steps:
       - uses: actions/checkout@v4
 
       - name: Install shellcheck
-        run: sudo apt-get install -y shellcheck
+        run: |
+          if command -v apt-get &>/dev/null; then
+            sudo apt-get install -y shellcheck
+          elif command -v brew &>/dev/null; then
+            brew install shellcheck
+          fi
 
-      - name: Check hooks for errors
-        run: shellcheck --severity=error hooks/*.sh
+      - name: Check hooks, lib, tools, and tests for errors
+        run: |
+          find hooks/ lib/ tools/ tests/ -name '*.sh' -print0 | xargs -0 shellcheck --severity=error
