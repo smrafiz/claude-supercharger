@@ -24,6 +24,14 @@ block() {
   exit 2
 }
 
+rewrite() {
+  local safe_cmd="$1" reason="$2"
+  echo "[Supercharger] git-safety: rewrote unsafe command — ${reason}" >&2
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":%s}}}\n' \
+    "$(printf '%s' "$safe_cmd" | jq -Rs '.')"
+  exit 0
+}
+
 if printf '%s\n' "$CMD" | grep -qE '^git push[[:space:]]'; then
   has_force=false
   has_protected=false
@@ -38,6 +46,10 @@ if printf '%s\n' "$CMD" | grep -qE '^git push[[:space:]]'; then
 
   if $has_force && $has_protected; then
     block "force push to protected branch"
+  elif $has_force; then
+    # Non-protected branch — strip force flag, push safely
+    safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
+    rewrite "$safe" "stripped --force from non-protected branch push"
   fi
 fi
 

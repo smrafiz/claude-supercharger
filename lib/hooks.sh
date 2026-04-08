@@ -38,6 +38,9 @@ get_hooks_for_mode() {
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("Stop||${hooks_dir}/session-complete.sh")
     hooks+=("Stop||${hooks_dir}/scope-guard.sh clear")
+    hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
+    hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
+    hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh")
   fi
 
   printf '%s\n' "${hooks[@]}"
