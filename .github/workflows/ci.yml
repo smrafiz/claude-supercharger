@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  test:
+    name: Test suite
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests
+        run: bash tests/run.sh
+
+  version-check:
+    name: Version consistency
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check version strings match
+        run: |
+          LIB=$(grep -m1 '^VERSION=' lib/utils.sh | tr -d '"' | cut -d= -f2)
+          TOOL=$(grep -m1 '^VERSION=' tools/supercharger.sh | tr -d '"' | cut -d= -f2)
+          README=$(grep -oP 'version-\K[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
+          echo "lib/utils.sh:          $LIB"
+          echo "tools/supercharger.sh: $TOOL"
+          echo "README.md:             $README"
+          if [ "$LIB" != "$TOOL" ] || [ "$LIB" != "$README" ]; then
+            echo "ERROR: Version mismatch — all three must match."
+            exit 1
+          fi
+          echo "OK: all versions are $LIB"
+
+  shellcheck:
+    name: Shellcheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck
+        run: sudo apt-get install -y shellcheck
+
+      - name: Check hooks for errors
+        run: shellcheck --severity=error hooks/*.sh
