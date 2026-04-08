@@ -17,11 +17,9 @@ fi
 
 [ -z "$DISPATCHED" ] && exit 0
 
-# No classification stored — learn from first dispatch and latch
-if [ ! -f "$ROUTE_FILE" ]; then
-  echo "$DISPATCHED" > "$ROUTE_FILE"
-  exit 0
-fi
+# Always update route file with the actual dispatched agent — statusline reads this
+mkdir -p "$SCOPE_DIR"
+echo "$DISPATCHED" > "$ROUTE_FILE"
 
 STORED_AGENT=$(cat "$ROUTE_FILE" 2>/dev/null || echo "")
 [ -z "$STORED_AGENT" ] && exit 0

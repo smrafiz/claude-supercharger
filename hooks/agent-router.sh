@@ -20,6 +20,10 @@ fi
 
 [ -z "$PROMPT" ] && exit 0
 
+# Resolve project directory from hook JSON payload — $PWD is not reliable in hook context
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null)
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
 rm -f "$SCOPE_DIR/.prompt-cost" "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-prompt-tokens"
 
@@ -62,7 +66,7 @@ parse_agent_field() {
 }
 
 PROJECT_AGENTS_LIST=""
-PROJECT_AGENTS_DIR="$PWD/.claude/agents"
+PROJECT_AGENTS_DIR="$PROJECT_DIR/.claude/agents"
 if [ -d "$PROJECT_AGENTS_DIR" ]; then
   for agent_file in "$PROJECT_AGENTS_DIR"/*.md; do
     [ -f "$agent_file" ] || continue

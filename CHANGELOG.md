@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.7] - 2026-04-08 — Fix project agent CWD resolution and statusline agent name
 - [2.0.6] - 2026-04-08 — Project agent priority routing in agent-router.sh
 - [2.0.5] - 2026-04-07 — Refactor: shared cmd-normalize, dynamic uninstall command list
 - [2.0.4] - 2026-04-07 — Consistency audit: hook safety, install accuracy, version placeholder
@@ -30,6 +31,14 @@
 - [1.2.0] - 2026-04-01 — Session Summary, Resume Tool
 - [1.1.0] - 2026-04-01 — Tiered Token Economy
 - [1.0.0] - 2026-03-31 — Initial Release
+
+---
+
+## [2.0.7] - 2026-04-08
+
+### Fixed
+- **Project agent CWD resolution** — `agent-router.sh` was using `$PWD` to locate `.claude/agents/`, which resolves to the hook process directory, not the open project. Now parses project path from hook JSON payload (`workspace.current_dir` / `cwd`), falling back to `$PWD`. Project agents now auto-activate correctly.
+- **Statusline agent name** — `agent-gate.sh` now updates the route file on every agent dispatch, not just the first. Statusline now shows the actual dispatched agent (e.g., `shopify-integration-engineer`) instead of the global pre-classification.
 
 ---
 
