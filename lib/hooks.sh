@@ -35,12 +35,15 @@ get_hooks_for_mode() {
 
   if [[ "$mode" == "full" ]]; then
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh")
+    hooks+=("UserPromptSubmit||${hooks_dir}/context-monitor.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("Stop||${hooks_dir}/session-complete.sh")
     hooks+=("Stop||${hooks_dir}/scope-guard.sh clear")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
     hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh")
+    hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
+    hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
   fi
 
   printf '%s\n' "${hooks[@]}"
