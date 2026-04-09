@@ -41,13 +41,10 @@ fi
 if [[ "$MODE" == "contract" ]]; then
   [ -f "$CONTRACT_FILE" ] && exit 0
   INPUT=$(cat)
-  PROMPT=$(printf '%s\n' "$INPUT" | python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('prompt',''))
-except:
-    print('')
-" 2>/dev/null || echo "")
+  PROMPT=$(printf '%s\n' "$INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+  if [ -z "$PROMPT" ]; then
+    PROMPT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
+  fi
   [ -z "$PROMPT" ] && exit 0
 
   SCOPE_PROMPT="$PROMPT" python3 << 'PYEOF' > "$CONTRACT_FILE" 2>/dev/null || echo "scope:general" > "$CONTRACT_FILE"
@@ -77,13 +74,10 @@ fi
 # ── check ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "check" ]]; then
   INPUT=$(cat)
-  TOUCHED=$(printf '%s\n' "$INPUT" | python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('tool_input', {}).get('file_path', ''))
-except:
-    print('')
-" 2>/dev/null || echo "")
+  TOUCHED=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+  if [ -z "$TOUCHED" ]; then
+    TOUCHED=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
+  fi
   [ -z "$TOUCHED" ] && exit 0
   [ -f "$SNAPSHOT_FILE" ] || exit 0
 

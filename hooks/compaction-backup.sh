@@ -23,4 +23,14 @@ chmod 600 "$BACKUP_FILE"
 echo "Transcript backed up to $BACKUP_FILE" >&2
 echo "Session summary directory ready at $SUMMARIES_DIR" >&2
 
+# Rotate: remove backups older than 30 days (at most once per day)
+ROTATION_CHECK="$BACKUP_DIR/.last-rotation"
+NOW=$(date +%s)
+LAST_ROTATION=$(cat "$ROTATION_CHECK" 2>/dev/null || echo "0")
+[ -z "$LAST_ROTATION" ] && LAST_ROTATION=0
+if (( NOW - LAST_ROTATION > 86400 )); then
+  find "$BACKUP_DIR" -name "*.md" -mtime +30 -delete 2>/dev/null || true
+  echo "$NOW" > "$ROTATION_CHECK"
+fi
+
 exit 0

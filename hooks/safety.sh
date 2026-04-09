@@ -24,26 +24,24 @@ block() {
   exit 2
 }
 
-if printf '%s\n' "$CMD" | grep -qE '^rm[[:space:]]'; then
+if [[ "$CMD" =~ ^rm[[:space:]] ]]; then
   has_recursive=false
   has_force=false
 
-  set +e
   args="${CMD#rm }"
 
-  if printf '%s\n' "$args" | grep -qE '(^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$)' || \
-     printf '%s\n' "$args" | grep -qE '(^|[[:space:]])--recursive([[:space:]]|$)'; then
+  if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
+     [[ "$args" =~ (^|[[:space:]])--recursive([[:space:]]|$) ]]; then
     has_recursive=true
   fi
 
-  if printf '%s\n' "$args" | grep -qE '(^|[[:space:]])-[a-zA-Z]*f[a-zA-Z]*([[:space:]]|$)' || \
-     printf '%s\n' "$args" | grep -qE '(^|[[:space:]])--force([[:space:]]|$)'; then
+  if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*f[a-zA-Z]*([[:space:]]|$) ]] || \
+     [[ "$args" =~ (^|[[:space:]])--force([[:space:]]|$) ]]; then
     has_force=true
   fi
-  set -e
 
   if $has_recursive && $has_force; then
-    if printf '%s\n' "$args" | grep -qE '(^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$)'; then
+    if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$) ]]; then
       block "recursive force rm on dangerous target"
     fi
   fi
@@ -80,7 +78,7 @@ if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
   done
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^mv[[:space:]]+(\/|~|\$HOME)[[:space:]]'; then
+if [[ "$CMD" =~ ^mv[[:space:]]+(\/|~|\$HOME)[[:space:]] ]]; then
   block "mv from root or home directory"
 fi
 
@@ -110,27 +108,27 @@ if printf '%s\n' "$CMD" | LC_ALL=C grep -qE "$JOINED_CRED"; then
 fi
 
 # --- Unauthorized persistence ---
-if printf '%s\n' "$CMD" | grep -qE '(crontab[[:space:]]+-e|crontab[[:space:]]+-)'; then
+if [[ "$CMD" =~ (crontab[[:space:]]+-e|crontab[[:space:]]+-) ]]; then
   block "cron job modification — agent should not create persistent scheduled tasks"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '(>>?[[:space:]]*(~|\$HOME)?/?\.(bashrc|zshrc|profile|bash_profile|zprofile))'; then
+if [[ "$CMD" =~ (>>?[[:space:]]*(~|\$HOME)?/?\.(bashrc|zshrc|profile|bash_profile|zprofile)) ]]; then
   block "shell profile modification — agent should not modify shell startup files"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE 'ssh-keygen|ssh-add|ssh-copy-id'; then
+if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then
   block "SSH key operation — agent should not manage SSH keys"
 fi
 
 # --- Self-modification prevention ---
-if printf '%s\n' "$CMD" | grep -qE '(\.claude/settings\.json|\.claude/CLAUDE\.md)'; then
-  if printf '%s\n' "$CMD" | grep -qE '(>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>)'; then
+if [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAUDE\.md) ]]; then
+  if [[ "$CMD" =~ (>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>) ]]; then
     block "self-modification — agent should not directly edit its own config files"
   fi
 fi
 
 # --- Production reads (warn only — exit 1, not exit 2) ---
-if printf '%s\n' "$CMD" | grep -qE '(kubectl[[:space:]]+exec|docker[[:space:]]+exec).*prod'; then
+if [[ "$CMD" =~ (kubectl[[:space:]]+exec|docker[[:space:]]+exec).*prod ]]; then
   echo "" >&2
   echo "Supercharger warning: Production container access detected." >&2
   echo "  Live credentials may appear in your conversation transcript." >&2

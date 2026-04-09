@@ -32,15 +32,15 @@ rewrite() {
   exit 0
 }
 
-if printf '%s\n' "$CMD" | grep -qE '^git push[[:space:]]'; then
+if [[ "$CMD" =~ ^git\ push[[:space:]] ]]; then
   has_force=false
   has_protected=false
 
-  if printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$)'; then
+  if [[ "$CMD" =~ (^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$) ]]; then
     has_force=true
   fi
 
-  if printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(main|master)([[:space:]]|$)'; then
+  if [[ "$CMD" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
     has_protected=true
   fi
 
@@ -53,25 +53,25 @@ if printf '%s\n' "$CMD" | grep -qE '^git push[[:space:]]'; then
   fi
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git reset[[:space:]]' && printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])--hard([[:space:]]|$)'; then
+if [[ "$CMD" =~ ^git\ reset[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])--hard([[:space:]]|$) ]]; then
   block "git reset --hard can destroy uncommitted work"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$)'; then
+if [[ "$CMD" =~ ^git\ (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
   block "discards all unstaged changes"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git clean[[:space:]]' && printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(--force|-f)([[:space:]]|$)'; then
+if [[ "$CMD" =~ ^git\ clean[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
   block "git clean with force permanently removes untracked files"
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git branch[[:space:]]' && printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])-D([[:space:]]|$)'; then
-  if printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])(main|master)([[:space:]]|$)'; then
+if [[ "$CMD" =~ ^git\ branch[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])-D([[:space:]]|$) ]]; then
+  if [[ "$CMD" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
     block "force-deleting a protected branch (main/master)"
   fi
 fi
 
-if printf '%s\n' "$CMD" | grep -qE '^git stash (drop|clear)([[:space:]]|$)'; then
+if [[ "$CMD" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
   block "git stash drop/clear permanently removes stashed changes"
 fi
 

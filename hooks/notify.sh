@@ -8,7 +8,8 @@ set -euo pipefail
 
 # Read notification payload and filter by type
 PAYLOAD=$(cat)
-NOTIF_TYPE=$(printf '%s\n' "$PAYLOAD" | python3 -c "
+NOTIF_TYPE=$(printf '%s\n' "$PAYLOAD" | jq -r '.notification_type // empty' 2>/dev/null || \
+  printf '%s\n' "$PAYLOAD" | python3 -c "
 import sys, json
 try:
     print(json.load(sys.stdin).get('notification_type', ''))
@@ -23,13 +24,18 @@ case "$NOTIF_TYPE" in
 esac
 
 # Extract message from payload, fallback to default
-MESSAGE=$(printf '%s\n' "$PAYLOAD" | python3 -c "
+MESSAGE=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null || \
+  printf '%s\n' "$PAYLOAD" | python3 -c "
 import sys, json
 try:
     print(json.load(sys.stdin).get('message', 'Claude Code needs your attention'))
 except:
     print('Claude Code needs your attention')
-" 2>/dev/null || echo "Claude Code needs your attention")
+" 2>/dev/null || echo "")
+MESSAGE="${MESSAGE:-Claude Code needs your attention}"
+
+# Sanitize message to prevent osascript command injection
+SAFE_MESSAGE=$(printf '%s' "$MESSAGE" | sed 's/\\/\\\\/g; s/"/\\"/g')
 
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 FLAG_OFF="$SUPERCHARGER_DIR/.no-desktop-notify"
@@ -41,7 +47,7 @@ if [[ "${SUPERCHARGER_NO_DESKTOP_NOTIFY:-0}" == "1" || -f "$FLAG_OFF" ]]; then
 elif [[ -f "$FLAG_SOUND" ]]; then
   printf '\a'  # sound only
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-  osascript -e "display notification \"$MESSAGE\" with title \"Claude Supercharger\"" 2>/dev/null || true
+  osascript -e "display notification \"$SAFE_MESSAGE\" with title \"Claude Supercharger\"" 2>/dev/null || true
 elif command -v notify-send &>/dev/null; then
   notify-send "Claude Supercharger" "$MESSAGE" 2>/dev/null || true
 else
