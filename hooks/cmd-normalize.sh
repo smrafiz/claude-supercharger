@@ -7,8 +7,8 @@ normalize_cmd() {
   local cmd="$1"
   cmd=$(printf '%s\n' "$cmd" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
   cmd=$(printf '%s\n' "$cmd" | sed 's/^\\//')
-  while printf '%s\n' "$cmd" | grep -qE '^(sudo|command|env)[[:space:]]+'; do
-    cmd=$(printf '%s\n' "$cmd" | sed -E 's/^(sudo|command|env)[[:space:]]+//')
+  while [[ "$cmd" =~ ^(sudo|command|env)[[:space:]]+ ]]; do
+    cmd="${cmd#${BASH_REMATCH[0]}}"
   done
   cmd=$(printf '%s\n' "$cmd" | tr -s ' ')
   printf '%s\n' "$cmd"

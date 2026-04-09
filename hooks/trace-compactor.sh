@@ -7,13 +7,6 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-if [ -z "$TOOL_NAME" ]; then
-  TOOL_NAME=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
-fi
-
-[ "$TOOL_NAME" != "Bash" ] && exit 0
-
 OUTPUT=$(printf '%s\n' "$INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
   OUTPUT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
@@ -21,15 +14,14 @@ fi
 
 [ -z "$OUTPUT" ] && exit 0
 
-python3 -c "
+# Skip python startup cost for short outputs
+[ "${#OUTPUT}" -lt 2000 ] && exit 0
+
+printf '%s' "$OUTPUT" | python3 - <<'PYEOF'
 import sys, json, re
 
-output = sys.argv[1]
+output = sys.stdin.read()
 original_len = len(output)
-
-# Under threshold — no action
-if original_len < 2000:
-    sys.exit(0)
 
 summary = None
 
@@ -54,7 +46,7 @@ if 'Traceback (most recent call last):' in output:
             last_line = l.strip()
             break
     # Split on first colon for type vs message
-    exc_match = re.match(r'^(\S+(?:Error|Exception|Warning|Exit|Interrupt|Fault|Killed|Stop|Break|Abort|Overflow|Underflow|Timeout|Missing|Not|Value|Type|Key|Index|Attribute|Import|OS|IO|File|Name|Runtime|Syntax|Indent|Unicode|Arithmetic|Zero|Recursion|Memory|Overflow|Reference|Assertion|Base|Environment|System|Permission|Blocked|Closed|Timeout|Lookup|Buffer|Broken|Connection|Refused|Reset|Timeout|Address|Unreachable|Exists|Not|Is|Child|Process|Exec|Spawn|Timeout)[^\s:]*)\s*:(.*)', last_line)
+    exc_match = re.match(r'^(\w+(?:Error|Exception|Warning))\s*:(.*)', last_line)
     if exc_match:
         exc_type = exc_match.group(1)
         exc_msg = exc_match.group(2).strip()
@@ -100,6 +92,6 @@ print(json.dumps({
     }
 }))
 sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
-" "$OUTPUT"
+PYEOF
 
 exit 0

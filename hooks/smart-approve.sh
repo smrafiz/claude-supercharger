@@ -41,13 +41,13 @@ if [ "$TOOL_NAME" = "Bash" ]; then
     allow
   fi
 
-  # Read-only git subcommands
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|show)([[:space:]]|$)'; then
+  # Read-only shell, git, and search commands (consolidated)
+  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|printf|which|type|grep|find|rg)([[:space:]]|$)'; then
     allow
   fi
 
-  # Basic shell read/inspection commands
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|echo|printf|which|type)([[:space:]]|$)'; then
+  # Read-only git subcommands
+  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|show|remote|tag)([[:space:]]|$)'; then
     allow
   fi
 
@@ -56,16 +56,8 @@ if [ "$TOOL_NAME" = "Bash" ]; then
     allow
   fi
 
-  # Search tools
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(grep|find|rg)([[:space:]]|$)'; then
-    allow
-  fi
-
-  # Test runners
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(npm|yarn|pnpm)[[:space:]]+test([[:space:]]|$)'; then
-    allow
-  fi
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(cargo[[:space:]]+test|pytest|go[[:space:]]+test)([[:space:]]|$)'; then
+  # Test runners (consolidated)
+  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(npm|yarn|pnpm)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*(cargo|go)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*pytest([[:space:]]|$)'; then
     allow
   fi
 

@@ -35,7 +35,7 @@ cmd = re.sub(r'\bpk_live_[0-9a-zA-Z]{24}\b', '[REDACTED_STRIPE]', cmd)
 cmd = re.sub(r'\bnpm_[0-9a-zA-Z]{36}\b', '[REDACTED_NPM]', cmd)
 cmd = re.sub(r'\bpypi-[0-9a-zA-Z_-]{16,}\b', '[REDACTED_PYPI]', cmd)
 cmd = re.sub(r'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.', '[REDACTED_JWT]', cmd)
-cmd = re.sub(r'-----BEGIN[[:space:]]*(RSA|EC|DSA|OPENSSH)?[[:space:]]*PRIVATE KEY-----', '[REDACTED_PRIVKEY]', cmd)
+cmd = re.sub(r'-----BEGIN\s*(RSA|EC|DSA|OPENSSH)?\s*PRIVATE KEY-----', '[REDACTED_PRIVKEY]', cmd)
 cmd = re.sub(r'(?i)(https?|ftp)://[^:@/\s]+:[^@/\s]+@', r'\1://[REDACTED]@', cmd)
 cmd = re.sub(r'(?i)\bBearer\s+[0-9a-zA-Z\-_.~+/]+=*\b', 'Bearer [REDACTED]', cmd)
 cmd = re.sub(r'\b(\w+_(?:KEY|TOKEN|SECRET|PASSWORD|API_KEY))\s*=\s*\S+', r'\1=[REDACTED]', cmd, flags=re.IGNORECASE)
@@ -58,8 +58,8 @@ esac
 # Rotate: remove audit files older than 30 days (at most once per day)
 ROTATION_CHECK="$AUDIT_DIR/.last-rotation"
 NOW=$(date +%s)
-LAST_ROTATION=0
-[ -f "$ROTATION_CHECK" ] && LAST_ROTATION=$(cat "$ROTATION_CHECK" 2>/dev/null || echo 0)
+LAST_ROTATION=$(cat "$ROTATION_CHECK" 2>/dev/null || echo "0")
+[ -z "$LAST_ROTATION" ] && LAST_ROTATION=0
 if (( NOW - LAST_ROTATION > 86400 )); then
   find "$AUDIT_DIR" -name "*.jsonl" -mtime +30 -delete 2>/dev/null || true
   echo "$NOW" > "$ROTATION_CHECK"

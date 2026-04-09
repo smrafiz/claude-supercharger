@@ -71,11 +71,14 @@ DANGEROUS_PATTERNS=(
   '<<<.*\|.*(bash|sh|zsh)'
 )
 
-for pattern in "${DANGEROUS_PATTERNS[@]}"; do
-  if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$pattern"; then
-    block "dangerous pattern: $pattern"
-  fi
-done
+JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
+if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
+  for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+    if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$pattern"; then
+      block "dangerous pattern: $pattern"
+    fi
+  done
+fi
 
 if printf '%s\n' "$CMD" | grep -qE '^mv[[:space:]]+(\/|~|\$HOME)[[:space:]]'; then
   block "mv from root or home directory"
@@ -101,11 +104,10 @@ CRED_PATTERNS=(
   'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.'
 )
 
-for pattern in "${CRED_PATTERNS[@]}"; do
-  if printf '%s\n' "$CMD" | LC_ALL=C grep -qE "$pattern"; then
-    block "potential credential in command — never embed secrets in commands"
-  fi
-done
+JOINED_CRED=$(IFS='|'; echo "${CRED_PATTERNS[*]}")
+if printf '%s\n' "$CMD" | LC_ALL=C grep -qE "$JOINED_CRED"; then
+  block "potential credential in command — never embed secrets in commands"
+fi
 
 # --- Unauthorized persistence ---
 if printf '%s\n' "$CMD" | grep -qE '(crontab[[:space:]]+-e|crontab[[:space:]]+-)'; then

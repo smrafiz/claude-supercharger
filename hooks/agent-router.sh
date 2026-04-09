@@ -29,24 +29,26 @@ rm -f "$SCOPE_DIR/.prompt-cost" "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-pr
 
 AGENT=""
 
+PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
+
 # Ordered by specificity — most specific first
-if printf '%s\n' "$PROMPT" | grep -qiE '(error|exception|stack trace|not working|broken|failing|crash|null pointer|undefined is not|bug at line|segfault|traceback|exit code [0-9])'; then
+if [[ "$PROMPT_LOWER" =~ (error|exception|stack\ trace|not\ working|broken|failing|crash|null\ pointer|undefined\ is\ not|bug\ at\ line|segfault|traceback|exit\ code\ [0-9]) ]]; then
   AGENT="Sherlock Holmes (Detective)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(review|security issue|code smell|what do you think of|look at this|check my|critique|audit this|LGTM)'; then
+elif [[ "$PROMPT_LOWER" =~ (review|security\ issue|code\ smell|what\ do\ you\ think\ of|look\ at\ this|check\ my|critique|audit\ this|lgtm) ]]; then
   AGENT="Gordon Ramsay (Critic)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(analyze|query|SQL|CSV|how many|metrics|report|data file|show me the|dataset|aggregate|pivot|histogram)'; then
+elif [[ "$PROMPT_LOWER" =~ (analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
   AGENT="Albert Einstein (Analyst)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(write a function|write a test|write a class|write a script|write a method|write a module|write a component|write a hook|write a handler|write a parser)'; then
+elif [[ "$PROMPT_LOWER" =~ (write\ a\ function|write\ a\ test|write\ a\ class|write\ a\ script|write\ a\ method|write\ a\ module|write\ a\ component|write\ a\ hook|write\ a\ handler|write\ a\ parser) ]]; then
   AGENT="Tony Stark (Engineer)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(write|draft|blog|README|document|explain to|email|release notes|marketing|copywriting|prose)'; then
+elif [[ "$PROMPT_LOWER" =~ (write|draft|blog|readme|document|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
   AGENT="Ernest Hemingway (Writer)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(design|architect|before we build|system design|how should I structure|ADR|architecture decision|diagram)'; then
+elif [[ "$PROMPT_LOWER" =~ (design|architect|before\ we\ build|system\ design|how\ should\ i\ structure|adr|architecture\ decision|diagram) ]]; then
   AGENT="Leonardo da Vinci (Architect)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(plan|break down|estimate|how should I|should I use|should I go with|what.s the best approach|help me think|roadmap|prioritize|scope this)'; then
+elif [[ "$PROMPT_LOWER" =~ (plan|break\ down|estimate|how\ should\ i|should\ i\ use|should\ i\ go\ with|what.s\ the\ best\ approach|help\ me\ think|roadmap|prioritize|scope\ this) ]]; then
   AGENT="Sun Tzu (Strategist)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(what is|how does|compare|difference between|research|best way to|explain.*concept|versus|trade.?off)'; then
+elif [[ "$PROMPT_LOWER" =~ (what\ is|how\ does|compare|difference\ between|research|best\ way\ to|explain.*concept|versus|trade.?off) ]]; then
   AGENT="Marie Curie (Scientist)"
-elif printf '%s\n' "$PROMPT" | grep -qiE '(build|implement|add |add a |fix|create|refactor|write a function|write a test|make it|update the)'; then
+elif [[ "$PROMPT_LOWER" =~ (build|implement|add\ |add\ a\ |fix|create|refactor|write\ a\ function|write\ a\ test|make\ it|update\ the) ]]; then
   AGENT="Tony Stark (Engineer)"
 fi
 
@@ -70,12 +72,14 @@ echo "$AGENT" > "$ROUTE_FILE"
 echo "[Supercharger] Agent: $AGENT" >&2
 
 # Detect project agents in .claude/agents/ — prefer them over global classification
-parse_agent_field() {
-  local file="$1" field="$2"
-  awk -v field="$field" 'BEGIN{in_fm=0}
+parse_agent_fields() {
+  local file="$1"
+  awk 'BEGIN{in_fm=0; name=""; desc=""}
     /^---/{in_fm++; next}
-    in_fm==1 && $0 ~ ("^" field ":") {sub("^" field ":[[:space:]]*",""); print; exit}
-    in_fm>=2{exit}' "$file" 2>/dev/null || echo ""
+    in_fm==1 && /^name:/ {sub("^name:[[:space:]]*",""); name=$0}
+    in_fm==1 && /^description:/ {sub("^description:[[:space:]]*",""); desc=$0}
+    in_fm>=2{print name "\t" desc; exit}
+    END{if(in_fm<2 && (name!="" || desc!="")) print name "\t" desc}' "$file" 2>/dev/null
 }
 
 PROJECT_AGENTS_LIST=""
@@ -83,10 +87,9 @@ PROJECT_AGENTS_DIR="$PROJECT_DIR/.claude/agents"
 if [ -d "$PROJECT_AGENTS_DIR" ]; then
   for agent_file in "$PROJECT_AGENTS_DIR"/*.md; do
     [ -f "$agent_file" ] || continue
-    name=$(parse_agent_field "$agent_file" "name")
-    name=$(printf '%s' "$name" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
-    desc=$(parse_agent_field "$agent_file" "description")
+    IFS=$'\t' read -r name desc <<< "$(parse_agent_fields "$agent_file")"
     [ -z "$name" ] && continue
+    name=$(printf '%s' "$name" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
     # Truncate to first sentence, strip JSON-unsafe chars
     short_desc=$(printf '%s' "$desc" | sed 's/\. .*//' | tr -d '"\\')
     if [ -n "$PROJECT_AGENTS_LIST" ]; then

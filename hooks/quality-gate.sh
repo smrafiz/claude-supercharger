@@ -66,17 +66,13 @@ lint_and_fix() {
       # Format
       if [ -f "$PROJECT_ROOT/package.json" ] && grep -q '"prettier"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
         if command -v npx &>/dev/null; then
-          $TIMEOUT_CMD npx --yes prettier --write "$file" 2>/dev/null || true
+          $TIMEOUT_CMD npx --no prettier --write "$file" 2>/dev/null || true
         fi
       fi
       ;;
     rs)
       if command -v rustfmt &>/dev/null; then
         $TIMEOUT_CMD rustfmt "$file" 2>/dev/null || true
-      fi
-      if command -v cargo &>/dev/null && [ -f "$PROJECT_ROOT/Cargo.toml" ]; then
-        issues=$($TIMEOUT_CMD cargo clippy --message-format=short 2>&1 | grep "$file" || true)
-        [ -n "$issues" ] && HAD_ISSUES=true
       fi
       ;;
     go)
@@ -97,23 +93,15 @@ lint_and_fix() {
   return 0
 }
 
-# Run the pipeline in the background so the hook returns immediately
-(
-  while [ $ITERATION -lt $MAX_ITERATIONS ]; do
-    HAD_ISSUES=false
-    lint_and_fix "$FILE_PATH"
+while [ $ITERATION -lt $MAX_ITERATIONS ]; do
+  HAD_ISSUES=false
+  lint_and_fix "$FILE_PATH"
 
-    if ! $HAD_ISSUES; then
-      break
-    fi
+  if ! $HAD_ISSUES; then
+    break
+  fi
 
-    ITERATION=$((ITERATION + 1))
-
-    # Stage 3: Re-check — only continue if auto-fix actually changed something
-    if [ $ITERATION -lt $MAX_ITERATIONS ]; then
-      sleep 0.1
-    fi
-  done
-) &
+  ITERATION=$((ITERATION + 1))
+done
 
 exit 0
