@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.0.3] - 2026-04-09 — Fix update.sh hang, quality-gate lint loop early-break, shellcheck SC2259 fix, all CI green
 - [3.0.2] - 2026-04-09 — Fix notify.sh RCE, bash-native regex in git-safety/enforce-pkg-manager/safety.sh, jq-first in scope-guard/project-config, dedup update-check, injection scanner grep consolidation, compaction-backup rotation
 - [3.0.1] - 2026-04-09 — Performance: grep consolidation (~36 forks eliminated in safety.sh), bash-native regex in agent-router, fix audit-trail POSIX regex bug, fix quality-gate race condition, statusline token display improvements
 - [3.0.0] - 2026-04-09 — Major pruning: 24→17 hooks, 3→2 install modes, forced agent dispatch removed, 7 tools cut, context-monitor+adaptive-economy merged
