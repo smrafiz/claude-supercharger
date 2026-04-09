@@ -6,7 +6,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 begin_test "install: non-interactive fresh install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 assert_file_exists "$HOME/.claude/CLAUDE.md" &&
 assert_file_exists "$HOME/.claude/rules/supercharger.md" &&
@@ -54,8 +54,8 @@ teardown_test_home
 begin_test "install: idempotent — no duplicate hooks after double install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
 import json, os
@@ -67,13 +67,16 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Standard mode + developer = safety + notify + git-safety + enforce-pkg-manager +
-#   audit-trail + scope-guard(check+snapshot+contract) + project-config + update-check +
-#   agent-router + agent-gate + quality-gate = 13 (commit-check is opt-in)
-if [ "$HOOK_COUNT" -eq 13 ]; then
+# Full mode + developer = safe base (safety + smart-approve + audit-trail +
+#   trace-compactor + injection-scanner) + full (notify + git-safety +
+#   enforce-pkg-manager + scope-guard(check+snapshot) + project-config +
+#   update-check + agent-router + context-advisor + compaction-backup +
+#   session-end + quality-gate) = 16
+#   (commit-check is opt-in, not counted here)
+if [ "$HOOK_COUNT" -eq 17 ]; then
   pass
 else
-  fail "expected 13 hooks in standard mode, got $HOOK_COUNT"
+  fail "expected 17 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -81,7 +84,7 @@ teardown_test_home
 begin_test "install: statusline registered in settings.json"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 HAS_STATUSLINE=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
 import json, os
@@ -97,7 +100,7 @@ teardown_test_home
 begin_test "install: agents deployed to ~/.claude/agents/"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 assert_dir_exists "$HOME/.claude/agents" &&
 assert_file_exists "$HOME/.claude/agents/code-helper.md" &&
@@ -116,7 +119,7 @@ teardown_test_home
 begin_test "install: commands deployed to ~/.claude/commands/"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 assert_dir_exists "$HOME/.claude/commands" &&
 assert_file_exists "$HOME/.claude/commands/think.md" &&
@@ -126,11 +129,11 @@ assert_file_exists "$HOME/.claude/commands/audit.md" &&
 pass
 teardown_test_home
 
-# --- Test: full mode installs extra hooks ---
-begin_test "install: full mode installs prompt-validator + compaction-backup hooks"
+# --- Test: safe mode installs base hooks only ---
+begin_test "install: safe mode installs 5 base hooks"
 setup_test_home
 
-echo "n" | bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode safe --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
 HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
 import json, os
@@ -142,16 +145,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command',''))
 print(count)
 ")
-# Full mode + developer = safety + notify + git-safety + enforce-pkg-manager +
-#   audit-trail + scope-guard(check+snapshot+contract+clear) + project-config + update-check +
-#   agent-router + agent-gate + quality-gate + prompt-validator + compaction-backup + session-complete +
-#   session-end + smart-approve + subagent-safety +
-#   context-monitor + adaptive-economy + trace-compactor + prompt-injection-scanner = 24
-#   (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 24 ]; then
+# Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner = 5
+if [ "$HOOK_COUNT" -eq 5 ]; then
   pass
 else
-  fail "expected 24 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 5 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -164,13 +162,28 @@ echo "n" | bash "$REPO_DIR/install.sh" --mode full --roles developer --config de
 assert_file_exists "$HOME/.claude/claude-check.sh" && pass
 teardown_test_home
 
-# --- Test: full mode — standard mode does NOT deploy claude-check ---
-begin_test "install: standard mode does not deploy claude-check.sh"
+# --- Test: backward compat — standard maps to full ---
+begin_test "install: --mode standard maps to full"
 setup_test_home
 
 bash "$REPO_DIR/install.sh" --mode standard --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 
-assert_file_not_exists "$HOME/.claude/claude-check.sh" && pass
+HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS']) as f:
+    s = json.load(f)
+hooks = s.get('hooks', {})
+count = sum(1 for event in hooks.values() for entry in event
+            for h in entry.get('hooks', [])
+            if '#supercharger' in h.get('command',''))
+print(count)
+")
+# standard maps to full = 16 hooks (with developer)
+if [ "$HOOK_COUNT" -eq 17 ]; then
+  pass
+else
+  fail "expected 17 hooks (standard→full), got $HOOK_COUNT"
+fi
 teardown_test_home
 
 # --- Test: help flag ---

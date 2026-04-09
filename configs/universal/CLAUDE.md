@@ -54,5 +54,4 @@ For complex requests, include:
 #   supercharger.md, guardrails.md, anti-patterns.yml, [selected roles]
 
 ## Agent Routing
-When [SUPERCHARGER ROUTING] appears in context, dispatch that exact agent
-as your first action. Do not reason about it — just dispatch.
+When [SUPERCHARGER CONTEXT] appears, use the classification to calibrate your response approach. Use sub-agents when the task complexity warrants it, not on every prompt.

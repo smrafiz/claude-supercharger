@@ -52,6 +52,19 @@ fi
 
 [ -z "$AGENT" ] && AGENT="Steve Jobs (Generalist)"
 
+# Map agent names to task categories
+case "$AGENT" in
+  "Sherlock Holmes (Detective)")   CATEGORY="debugging" ;;
+  "Gordon Ramsay (Critic)")        CATEGORY="review/critique" ;;
+  "Albert Einstein (Analyst)")     CATEGORY="data analysis" ;;
+  "Tony Stark (Engineer)")         CATEGORY="engineering/implementation" ;;
+  "Ernest Hemingway (Writer)")     CATEGORY="writing/documentation" ;;
+  "Leonardo da Vinci (Architect)") CATEGORY="architecture/design" ;;
+  "Sun Tzu (Strategist)")          CATEGORY="planning/strategy" ;;
+  "Marie Curie (Scientist)")       CATEGORY="research/investigation" ;;
+  *)                               CATEGORY="general" ;;
+esac
+
 echo "$AGENT" > "$ROUTE_FILE"
 
 echo "[Supercharger] Agent: $AGENT" >&2
@@ -102,9 +115,9 @@ TIER_SUFFIX=" Active economy tier: ${TIER}. Maintain this verbosity level throug
 
 if [ -n "$PROJECT_AGENTS_LIST" ]; then
   echo "[Supercharger] Project agents detected — will prefer over global" >&2
-  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch. Project agents available — these take precedence over global agents: ${PROJECT_AGENTS_LIST}. If any project agent fits the task, always prefer it over the global classification. If a project agent and global agent would both handle the same request, route to the project agent.${TIER_SUFFIX}"
+  CONTEXT="[SUPERCHARGER CONTEXT] This looks like a ${CATEGORY} task. Project agents available: ${PROJECT_AGENTS_LIST}. When a project agent fits the task, always prefer it over global agents. Global agent: ${AGENT}.${TIER_SUFFIX}"
 else
-  CONTEXT="[SUPERCHARGER ROUTING] Classified as: ${AGENT}. Dispatch this agent with the Agent tool as your first action. Do not reason about it — just dispatch.${TIER_SUFFIX}"
+  CONTEXT="[SUPERCHARGER CONTEXT] This looks like a ${CATEGORY} task. Available agent: ${AGENT}.${TIER_SUFFIX}"
 fi
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")

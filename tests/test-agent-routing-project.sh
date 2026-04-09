@@ -41,7 +41,7 @@ mkdir -p "$HOME/.claude/supercharger/scope"
 PROJECT_DIR=$(mktemp -d)
 OUTPUT=$(printf '{"prompt":"deploy the app","workspace":{"current_dir":"%s"}}' "$PROJECT_DIR" | bash "$ROUTER" 2>/dev/null)
 rm -rf "$PROJECT_DIR"
-if printf '%s\n' "$OUTPUT" | grep -q "SUPERCHARGER ROUTING" && \
+if printf '%s\n' "$OUTPUT" | grep -q "SUPERCHARGER CONTEXT" && \
    ! printf '%s\n' "$OUTPUT" | grep -qi "project agents"; then pass
 else fail "unexpected project agent injection with no agents dir — output: $OUTPUT"; fi
 teardown_test_home

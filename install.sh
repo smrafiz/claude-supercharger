@@ -27,7 +27,7 @@ show_usage() {
   echo "Usage: install.sh [OPTIONS]"
   echo ""
   echo "Options:"
-  echo "  --mode MODE        Install mode: safe, standard, full (default: interactive)"
+  echo "  --mode MODE        Install mode: safe, full (default: interactive; 'standard' maps to full)"
   echo "  --roles ROLES      Comma-separated roles: developer,writer,student,data,pm,designer,devops,researcher"
   echo "  --config ACTION    CLAUDE.md handling: deploy, merge, replace, skip"
   echo "  --settings ACTION  settings.json handling: deploy, merge, replace, skip"
@@ -38,8 +38,8 @@ show_usage() {
   echo ""
   echo "Examples:"
   echo "  ./install.sh                                              # Interactive"
-  echo "  ./install.sh --mode standard --roles developer,pm         # Partial (prompts for rest)"
-  echo "  ./install.sh --mode standard --roles developer --economy lean --config deploy --settings deploy  # Fully silent"
+  echo "  ./install.sh --mode full --roles developer,pm              # Partial (prompts for rest)"
+  echo "  ./install.sh --mode full --roles developer --economy lean --config deploy --settings deploy  # Fully silent"
   exit 0
 }
 
@@ -112,20 +112,21 @@ if [[ "$FIRST_TIME" == "true" ]] && [ -z "$ARG_MODE" ]; then
   echo ""
 fi
 
+# Backward compat: standard → full
+[[ "$ARG_MODE" == "standard" ]] && ARG_MODE="full"
+
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"
 else
   echo -e "${BOLD}Step 1 of 6: Install Mode${NC}"
   echo ""
-  echo -e "  ${BOLD}1)${NC} Safe       — configs + safety hooks (no notifications, no auto-format)"
-  echo -e "  ${BOLD}2)${NC} Standard   — adds notifications, git-safety, auto-format [recommended]"
-  echo -e "  ${BOLD}3)${NC} Full       — adds prompt validation, compaction backup, diagnostics"
+  echo -e "  ${BOLD}1)${NC} Safe       — safety hooks + auto-approve + audit trail (5 hooks)"
+  echo -e "  ${BOLD}2)${NC} Full       — everything: git-safety, agent routing, context advisor, quality gate [recommended]"
   echo ""
   read -rp "> " mode_choice
   case "$mode_choice" in
     1) MODE="safe" ;;
-    3) MODE="full" ;;
-    *) MODE="standard" ;;
+    *) MODE="full" ;;
   esac
   echo ""
 fi

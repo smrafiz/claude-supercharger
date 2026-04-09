@@ -91,10 +91,10 @@ mkdir -p "$HOME/.claude/supercharger/scope"
 OUTPUT=$(echo '{"prompt":"debug this error"}' | bash "$ROUTER" 2>/dev/null)
 if echo "$OUTPUT" | grep -q '"hookSpecificOutput"' && \
    echo "$OUTPUT" | grep -q '"additionalContext"' && \
-   echo "$OUTPUT" | grep -q 'SUPERCHARGER ROUTING'; then
+   echo "$OUTPUT" | grep -q 'SUPERCHARGER CONTEXT'; then
   pass
 else
-  fail "stdout missing expected JSON structure or SUPERCHARGER ROUTING text: $OUTPUT"
+  fail "stdout missing expected JSON structure or SUPERCHARGER CONTEXT text: $OUTPUT"
 fi
 teardown_test_home
 

@@ -84,28 +84,18 @@ bash "$REPO_DIR/tools/webhook-setup.sh" remove >/dev/null 2>&1
 assert_file_not_exists "$HOME/.claude/supercharger/webhook.json" && pass
 teardown_test_home
 
-# --- Test: session-complete hook exits 0 with no webhook ---
-begin_test "webhook: session-complete hook exits clean with no webhook"
+# --- Test: session-end hook exits 0 ---
+begin_test "webhook: session-end hook exits clean"
 setup_test_home
-mkdir -p "$HOME/.claude/supercharger"
+mkdir -p "$HOME/.claude/supercharger/scope"
 
-echo "" | bash "$REPO_DIR/hooks/session-complete.sh" >/dev/null 2>&1
+echo '{"reason":"user_exit"}' | bash "$REPO_DIR/hooks/session-end.sh" >/dev/null 2>&1
 EXIT_CODE=$?
 if [ "$EXIT_CODE" -eq 0 ]; then
   pass
 else
   fail "expected exit code 0, got $EXIT_CODE"
 fi
-teardown_test_home
-
-# --- Test: session-complete hook creates .last-session marker ---
-begin_test "webhook: session-complete creates .last-session marker"
-setup_test_home
-mkdir -p "$HOME/.claude/supercharger/summaries"
-
-echo "" | bash "$REPO_DIR/hooks/session-complete.sh" >/dev/null 2>&1
-
-assert_file_exists "$HOME/.claude/supercharger/summaries/.last-session" && pass
 teardown_test_home
 
 # --- Test: notify hook still works without webhook ---
@@ -122,11 +112,11 @@ else
 fi
 teardown_test_home
 
-# --- Test: session-complete hook registered in full mode ---
-begin_test "webhook: session-complete hook in full mode hook list"
+# --- Test: session-end hook registered in full mode ---
+begin_test "webhook: session-end hook in full mode hook list"
 source "$REPO_DIR/lib/hooks.sh"
 
 HOOKS=$(get_hooks_for_mode "full" "false" "/tmp/hooks")
-echo "$HOOKS" | grep -q "session-complete.sh" && pass || fail "expected session-complete.sh in full mode hooks"
+echo "$HOOKS" | grep -q "session-end.sh" && pass || fail "expected session-end.sh in full mode hooks"
 
 report

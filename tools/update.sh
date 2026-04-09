@@ -78,10 +78,8 @@ hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
             for h in entry.get('hooks', [])
             if '#supercharger' in h.get('command',''))
-if count >= 8:
+if count > 5:
     print('full')
-elif count >= 5:
-    print('standard')
 else:
     print('safe')
 " 2>/dev/null || echo "safe")

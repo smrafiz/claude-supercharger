@@ -11,40 +11,33 @@ get_hooks_for_mode() {
 
   # Format: event|matcher|command
   # matcher is empty for events that don't support it
-  hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh")
 
-  if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
+  # ── Safe mode: core safety + smart UX (always on) ──
+  hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh")
+  hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
+  hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
+  hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
+  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
+
+  # ── Full mode: everything ──
+  if [[ "$mode" == "full" ]]; then
     hooks+=("Notification||${hooks_dir}/notify.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")
     fi
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
-    hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
     hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
-    hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract")
-    hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
-    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
+    hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
+    hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
+    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
+    hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
-  fi
-
-  if [[ "$mode" == "full" ]]; then
-    hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh")
-    hooks+=("UserPromptSubmit||${hooks_dir}/context-monitor.sh")
-    hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh")
-    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
-    hooks+=("Stop||${hooks_dir}/session-complete.sh")
-    hooks+=("Stop||${hooks_dir}/scope-guard.sh clear")
-    hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
-    hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
-    hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh")
-    hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
-    hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
   fi
 
   printf '%s\n' "${hooks[@]}"

@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.0.0] - 2026-04-09 — Major pruning: 24→17 hooks, 3→2 install modes, forced agent dispatch removed, 7 tools cut, context-monitor+adaptive-economy merged
 - [2.0.17] - 2026-04-09 — v1.7: adaptive economy, session analytics CLI, config health score tool
 - [2.0.16] - 2026-04-09 — v1.6 Intelligence Layer: context budget monitor, trace compactor, prompt injection scanner
 - [2.0.15] - 2026-04-08 — Economy tier injected into every prompt context; GitHub MCP uses gh extension; quality-gate eslint glob fix

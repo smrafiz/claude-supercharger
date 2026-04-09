@@ -493,38 +493,6 @@ rm -rf "$PROJ_DIR"
 
 # --- Profile Switch Tests ---
 
-echo ""
-echo "=== Profile Switch Tests ==="
-
-PROFILE_TOOL="$REPO_DIR/tools/profile-switch.sh"
-
-begin_test "profile: --list runs without error"
-bash "$PROFILE_TOOL" --list >/dev/null 2>&1
-[ $? -eq 0 ] && pass || fail "list failed"
-
-begin_test "profile: --save creates profile JSON"
-setup_test_home
-mkdir -p "$HOME/.claude/rules" "$HOME/.claude/supercharger/profiles"
-cp "$REPO_DIR/configs/roles/developer.md" "$HOME/.claude/rules/developer.md"
-echo "## Active Tier" > "$HOME/.claude/rules/economy.md"
-bash "$PROFILE_TOOL" --save test-profile >/dev/null 2>&1
-if [ -f "$HOME/.claude/supercharger/profiles/test-profile.json" ]; then
-  pass
-else
-  fail "profile JSON not created"
-fi
-teardown_test_home
-
-begin_test "profile: built-in frontend-dev has correct roles"
-OUTPUT=$(bash "$PROFILE_TOOL" --list 2>/dev/null)
-echo "$OUTPUT" | grep -q "frontend-dev" && echo "$OUTPUT" | grep -q "Designer" && pass || fail "frontend-dev not listed correctly"
-
-# --- Team Preset Tests ---
-
-echo ""
-echo "=== Team Preset Tests ==="
-
-EXPORT_TOOL="$REPO_DIR/tools/export-preset.sh"
 
 # --- Human-Readable Hook Message Tests ---
 
@@ -615,22 +583,6 @@ touch "$PROJ_DIR/wp-config.php"
 OUTPUT=$(echo "{\"cwd\":\"$PROJ_DIR\"}" | bash "$PROJECT_HOOK" 2>/dev/null)
 echo "$OUTPUT" | grep -qi "WordPress" && pass || fail "WordPress stack not detected"
 rm -rf "$PROJ_DIR"
-teardown_test_home
-
-begin_test "preset: export creates .supercharger file"
-setup_test_home
-mkdir -p "$HOME/.claude/rules"
-cp "$REPO_DIR/configs/roles/developer.md" "$HOME/.claude/rules/developer.md"
-echo "{}" > "$HOME/.claude/settings.json"
-echo "## Active Tier" > "$HOME/.claude/rules/economy.md"
-PRESET_OUT=$(mktemp)
-bash "$EXPORT_TOOL" "$PRESET_OUT" >/dev/null 2>&1
-if [ -s "$PRESET_OUT" ] && PRESET_OUT="$PRESET_OUT" python3 -c "import json, os; json.load(open(os.environ['PRESET_OUT']))" 2>/dev/null; then
-  pass
-else
-  fail "preset file not valid JSON"
-fi
-rm -f "$PRESET_OUT"
 teardown_test_home
 
 report
