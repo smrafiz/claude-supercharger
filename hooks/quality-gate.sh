@@ -93,6 +93,7 @@ lint_and_fix() {
   return 0
 }
 
+PREV_ISSUES=""
 while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   HAD_ISSUES=false
   lint_and_fix "$FILE_PATH"
@@ -100,6 +101,13 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   if ! $HAD_ISSUES; then
     break
   fi
+
+  # Compare with previous iteration — break if issues unchanged (fix can't resolve them)
+  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || echo "")
+  if [ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$PREV_ISSUES" ]; then
+    break
+  fi
+  PREV_ISSUES="$CURRENT_HASH"
 
   ITERATION=$((ITERATION + 1))
 done
