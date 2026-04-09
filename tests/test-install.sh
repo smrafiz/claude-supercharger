@@ -146,12 +146,12 @@ print(count)
 #   audit-trail + scope-guard(check+snapshot+contract+clear) + project-config + update-check +
 #   agent-router + agent-gate + quality-gate + prompt-validator + compaction-backup + session-complete +
 #   session-end + smart-approve + subagent-safety +
-#   context-monitor + trace-compactor + prompt-injection-scanner = 23
+#   context-monitor + adaptive-economy + trace-compactor + prompt-injection-scanner = 24
 #   (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 23 ]; then
+if [ "$HOOK_COUNT" -eq 24 ]; then
   pass
 else
-  fail "expected 23 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 24 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 

@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.0.17] - 2026-04-09 — v1.7: adaptive economy, session analytics CLI, config health score tool
 - [2.0.16] - 2026-04-09 — v1.6 Intelligence Layer: context budget monitor, trace compactor, prompt injection scanner
 - [2.0.15] - 2026-04-08 — Economy tier injected into every prompt context; GitHub MCP uses gh extension; quality-gate eslint glob fix
 - [2.0.14] - 2026-04-08 — Fix statusline showing classifier name instead of dispatched agent (.agent-classified / .agent-dispatched split)

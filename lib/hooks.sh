@@ -36,6 +36,7 @@ get_hooks_for_mode() {
   if [[ "$mode" == "full" ]]; then
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-monitor.sh")
+    hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("Stop||${hooks_dir}/session-complete.sh")
     hooks+=("Stop||${hooks_dir}/scope-guard.sh clear")
