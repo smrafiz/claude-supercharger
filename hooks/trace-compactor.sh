@@ -17,10 +17,10 @@ fi
 # Skip python startup cost for short outputs
 [ "${#OUTPUT}" -lt 2000 ] && exit 0
 
-printf '%s' "$OUTPUT" | python3 - <<'PYEOF'
-import sys, json, re
+TC_OUTPUT="$OUTPUT" python3 <<'PYEOF'
+import os, json, re
 
-output = sys.stdin.read()
+output = os.environ.get('TC_OUTPUT', '')
 original_len = len(output)
 
 summary = None
