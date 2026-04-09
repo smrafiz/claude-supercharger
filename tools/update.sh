@@ -189,10 +189,19 @@ except Exception:
     exit 1
   fi
 
+  # Detect current notify/commits settings
+  DETECTED_NOTIFY="on"
+  [ -f "$HOME/.claude/supercharger/.notify-off" ] && DETECTED_NOTIFY="off"
+  [ -f "$HOME/.claude/supercharger/.notify-sound" ] && DETECTED_NOTIFY="sound"
+  DETECTED_COMMITS="off"
+  [ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
+
   bash "$TMP/cs/install.sh" \
     --mode "$DETECTED_MODE" \
     --roles "$ROLES_CSV" \
     --economy "$DETECTED_ECONOMY" \
+    --notify "$DETECTED_NOTIFY" \
+    --commits "$DETECTED_COMMITS" \
     --config merge \
     --settings merge
   rm -rf "$TMP"
@@ -263,10 +272,19 @@ echo ""
 echo -e "  Reinstalling with preserved settings..."
 echo ""
 
+# Detect current notify/commits settings
+DETECTED_NOTIFY="on"
+[ -f "$HOME/.claude/supercharger/.notify-off" ] && DETECTED_NOTIFY="off"
+[ -f "$HOME/.claude/supercharger/.notify-sound" ] && DETECTED_NOTIFY="sound"
+DETECTED_COMMITS="off"
+[ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
+
 bash "$REPO_DIR/install.sh" \
   --mode "$DETECTED_MODE" \
   --roles "$ROLES_CSV" \
   --economy "$DETECTED_ECONOMY" \
+  --notify "$DETECTED_NOTIFY" \
+  --commits "$DETECTED_COMMITS" \
   --config merge \
   --settings merge
 
