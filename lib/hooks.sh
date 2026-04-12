@@ -35,7 +35,6 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
-    hooks+=("Stop|*|prompt:Check if the task is complete. Were tests run if code was modified? Is the build clean? Are there TODO stubs or placeholder code? Respond with JSON: {\"decision\":\"approve\"} if complete, or {\"decision\":\"block\",\"reason\":\"what is missing\"} if not.")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
