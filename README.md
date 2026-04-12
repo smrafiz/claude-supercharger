@@ -4,7 +4,7 @@ Claude Code has root access to your filesystem and git history. One hallucinated
 
 Supercharger stops that at the shell level. Hooks run before commands execute, outside Claude's conversation. Claude can't argue with them, override them, or charm its way past them. Exit code 2. Command blocked. Done.
 
-![Version](https://img.shields.io/badge/version-3.0.4-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.0.5-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
