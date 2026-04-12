@@ -115,12 +115,14 @@ try:
  except Exception:
      pass
 
+ session_id = data.get('session_id', 'default')
+
  # Active agent — prefer .agent-dispatched (actual dispatch) over .agent-classified (router guess)
  agent = ''
  try:
      scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
      agent_name = ''
-     for fname in ('.agent-dispatched', '.agent-classified'):
+     for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
          fpath = os.path.join(scope, fname)
          if os.path.isfile(fpath):
              with open(fpath) as f:
@@ -135,7 +137,7 @@ try:
  # Active MCP server
  mcp = ''
  try:
-     mcp_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.active-mcp')
+     mcp_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.active-mcp-{session_id}')
      if os.path.isfile(mcp_path):
          mtime = os.path.getmtime(mcp_path)
          import time

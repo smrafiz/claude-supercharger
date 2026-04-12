@@ -143,7 +143,7 @@ fi
 
 # ── clear ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "clear" ]]; then
-  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" "$SCOPE_DIR/.agent-classified" "$SCOPE_DIR/.agent-dispatched" "$SCOPE_DIR/.session-tokens" "$SCOPE_DIR/.prompt-tokens"
+  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" "$SCOPE_DIR/.session-tokens"
   exit 0
 fi
 

@@ -7,10 +7,14 @@
 set -euo pipefail
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
-CLASSIFIED_FILE="$SCOPE_DIR/.agent-classified"
-DISPATCHED_FILE="$SCOPE_DIR/.agent-dispatched"
 
 _INPUT=$(cat)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
+
+CLASSIFIED_FILE="$SCOPE_DIR/.agent-classified-${SESSION_ID}"
+DISPATCHED_FILE="$SCOPE_DIR/.agent-dispatched-${SESSION_ID}"
+
 DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
 if [ -z "$DISPATCHED" ]; then
   DISPATCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('subagent_type',''))" 2>/dev/null || echo "")

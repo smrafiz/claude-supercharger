@@ -10,9 +10,12 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
-ROUTE_FILE="$SCOPE_DIR/.agent-classified"
-
 _INPUT=$(cat)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
+
+ROUTE_FILE="$SCOPE_DIR/.agent-classified-${SESSION_ID}"
+
 PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
 if [ -z "$PROMPT" ]; then
   PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
@@ -25,7 +28,7 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd //
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
-rm -f "$SCOPE_DIR/.prompt-cost" "$SCOPE_DIR/.prompt-tokens" "$SCOPE_DIR/.last-prompt-tokens"
+rm -f "$SCOPE_DIR/.prompt-cost-${SESSION_ID}" "$SCOPE_DIR/.prompt-tokens-${SESSION_ID}" "$SCOPE_DIR/.last-prompt-tokens-${SESSION_ID}"
 
 AGENT=""
 

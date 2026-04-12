@@ -35,19 +35,15 @@ if echo "$CONTRACT" | grep -q "auth.py"; then pass
 else fail "file path not extracted: $CONTRACT"; fi
 teardown_test_home
 
-# Test 4: clear removes state files including agent scope files
-begin_test "scope-guard: clear removes snapshot, contract, and agent scope files"
+# Test 4: clear removes snapshot and contract files
+begin_test "scope-guard: clear removes snapshot and contract files"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo "scope:general" > "$HOME/.claude/supercharger/scope/.contract"
 echo "commit:abc" > "$HOME/.claude/supercharger/scope/.snapshot"
-echo "Sherlock Holmes (Detective)" > "$HOME/.claude/supercharger/scope/.agent-classified"
-echo "Sherlock Holmes (Detective)" > "$HOME/.claude/supercharger/scope/.agent-dispatched"
 bash "$SCOPE_GUARD" clear
 if [ ! -f "$HOME/.claude/supercharger/scope/.snapshot" ] && \
-   [ ! -f "$HOME/.claude/supercharger/scope/.contract" ] && \
-   [ ! -f "$HOME/.claude/supercharger/scope/.agent-classified" ] && \
-   [ ! -f "$HOME/.claude/supercharger/scope/.agent-dispatched" ]; then pass
+   [ ! -f "$HOME/.claude/supercharger/scope/.contract" ]; then pass
 else fail "files not cleared"; fi
 teardown_test_home
 
