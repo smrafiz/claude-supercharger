@@ -61,6 +61,8 @@ Safe mode auto-approves: `Read`, `Glob`, `Grep`, read-only git commands (`status
 
 Writes, installs, and destructive operations still require approval.
 
+**Power users:** Complement smart-approve with Claude Code's built-in `/permissions` for wildcard patterns: `Bash(npm run *)`, `Bash(cargo test *)`, `Edit(/docs/**)`.
+
 ---
 
 ## Two install modes
