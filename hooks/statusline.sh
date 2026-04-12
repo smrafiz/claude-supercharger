@@ -33,11 +33,14 @@ try:
 
  input_tok = usage.get('input_tokens', 0) or 0
  output_tok = usage.get('output_tokens', 0) or 0
- total_tok = input_tok + output_tok
 
- # Derive context window size from percentage + input tokens
- # input_tokens represents the actual consumed context
- ctx_used = input_tok + output_tok  # what's actually in the window
+ # Total context = all input tokens (cached + uncached) + output tokens
+ # input_tokens only counts non-cached; cache_read + cache_create are the rest
+ all_input = input_tok + cache_read + cache_create
+ total_tok = all_input + output_tok
+
+ # Derive max context window from percentage
+ ctx_used = total_tok
  ctx_max = int(ctx_used / (pct / 100)) if pct > 0 else 0
 
  # Cache savings: cache_read tokens cost ~10x less than regular input
@@ -151,9 +154,9 @@ try:
  else:
      ctx_str = ''
 
- # Token breakdown: input + output
+ # Token breakdown: input (all) + output
  if total_tok > 0:
-     tok_seg = f' {DIM}|{RESET} {fmt_tokens(input_tok)} in {DIM}/{RESET} {fmt_tokens(output_tok)} out'
+     tok_seg = f' {DIM}|{RESET} {fmt_tokens(all_input)} in {DIM}/{RESET} {fmt_tokens(output_tok)} out'
  else:
      tok_seg = ''
 
