@@ -16,7 +16,7 @@ fi
 
 allow() {
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","decisionReason":"Auto-approved: read-only operation — %s"}}}\n' "$TOOL_NAME"
+  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}\n'
   exit 0
 }
 
