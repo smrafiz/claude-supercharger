@@ -132,8 +132,24 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, git branch, stack, agent
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}'
+ # Active MCP server
+ mcp = ''
+ try:
+     mcp_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.active-mcp')
+     if os.path.isfile(mcp_path):
+         mtime = os.path.getmtime(mcp_path)
+         import time
+         # Only show if MCP was used in the last 60 seconds
+         if time.time() - mtime < 60:
+             with open(mcp_path) as f:
+                 mcp_name = f.read().strip()
+             if mcp_name:
+                 mcp = f' {DIM}|{RESET} {GREEN}MCP: {mcp_name}{RESET}'
+ except Exception:
+     pass
+
+ # Line 1: Model, project, git branch, stack, agent, mcp
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}{mcp}'
 
  # Line 2: Context bar, tokens, cost, duration, cache
  cost_fmt = f'${cost:.2f}'

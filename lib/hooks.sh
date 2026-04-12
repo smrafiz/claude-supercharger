@@ -31,6 +31,8 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/project-config.sh")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
+    hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh")
+    hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
