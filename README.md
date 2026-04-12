@@ -184,6 +184,8 @@ bash ~/.claude/supercharger/tools/mcp-setup.sh        # add MCP servers
 bash ~/.claude/supercharger/tools/claude-check.sh     # full diagnostic
 ```
 
+**Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar with natural language. Use `/permissions` to add wildcard rules beyond what smart-approve covers.
+
 ---
 
 ## FAQ
