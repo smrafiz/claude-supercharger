@@ -4,7 +4,7 @@ Claude Code has root access to your filesystem and git history. One hallucinated
 
 Supercharger stops that at the shell level. Hooks run before commands execute, outside Claude's conversation. Claude can't argue with them, override them, or charm its way past them. Exit code 2. Command blocked. Done.
 
-![Version](https://img.shields.io/badge/version-3.1.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -184,7 +184,7 @@ bash ~/.claude/supercharger/tools/mcp-setup.sh        # add MCP servers
 bash ~/.claude/supercharger/tools/claude-check.sh     # full diagnostic
 ```
 
-**Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar with natural language. Use `/permissions` to add wildcard rules beyond what smart-approve covers.
+**Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar with natural language. Use `/permissions` to add wildcard rules beyond what smart-approve covers. Use `/effort medium` for additional token savings alongside economy tiers. Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` to run sub-agents on cheaper models.
 
 ---
 

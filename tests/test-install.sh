@@ -73,10 +73,10 @@ print(count)
 #   update-check + agent-router + context-advisor + compaction-backup +
 #   session-end + quality-gate) = 16
 #   (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 21 ]; then
+if [ "$HOOK_COUNT" -eq 23 ]; then
   pass
 else
-  fail "expected 21 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 23 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -130,7 +130,7 @@ pass
 teardown_test_home
 
 # --- Test: safe mode installs base hooks only ---
-begin_test "install: safe mode installs 5 base hooks"
+begin_test "install: safe mode installs 7 base hooks"
 setup_test_home
 
 bash "$REPO_DIR/install.sh" --mode safe --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
@@ -146,10 +146,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner = 5
-if [ "$HOOK_COUNT" -eq 5 ]; then
+if [ "$HOOK_COUNT" -eq 7 ]; then
   pass
 else
-  fail "expected 5 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 7 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -179,10 +179,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 16 hooks (with developer)
-if [ "$HOOK_COUNT" -eq 21 ]; then
+if [ "$HOOK_COUNT" -eq 23 ]; then
   pass
 else
-  fail "expected 21 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 23 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

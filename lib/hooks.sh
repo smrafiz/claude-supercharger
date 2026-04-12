@@ -18,6 +18,8 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
+  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh")
+  hooks+=("SessionStart||${hooks_dir}/config-scan.sh")
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then

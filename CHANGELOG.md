@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.2.0] - 2026-04-12 — 3-layer injection defense: SessionStart config scan + PostToolUse output secrets scanner, smart-approve persistent session rules, /effort and subagent model tips
 - [3.1.0] - 2026-04-12 — Self-teaching: learn from blocked commands + user corrections, MCP server name in statusline, structured deny reasons, verify-on-stop, statusline token/cache fix
 - [3.0.7] - 2026-04-12 — /permissions wildcard tip in README, verify-on-stop hook, statusline cached token fix
 - [3.0.6] - 2026-04-12 — Warn-only Stop hook (alerts when files modified but no test/build ran), statusline token count fix (cached tokens included), structured deny reasons
