@@ -7,11 +7,11 @@ set -euo pipefail
 
 INPUT=$(cat)
 
-python3 -c "
+SL_INPUT="$INPUT" python3 <<'PYEOF'
 import json, sys, subprocess, os
 
 try:
- data = json.loads(sys.stdin.read())
+ data = json.loads(os.environ.get('SL_INPUT', '{}'))
 
  model = data.get('model', {}).get('display_name', '?')
  cwd = data.get('workspace', {}).get('current_dir', data.get('cwd', ''))
@@ -34,6 +34,14 @@ try:
  input_tok = usage.get('input_tokens', 0) or 0
  output_tok = usage.get('output_tokens', 0) or 0
  total_tok = input_tok + output_tok
+
+ # Derive context window size from percentage + input tokens
+ # input_tokens represents the actual consumed context
+ ctx_used = input_tok + output_tok  # what's actually in the window
+ ctx_max = int(ctx_used / (pct / 100)) if pct > 0 else 0
+
+ # Cache savings: cache_read tokens cost ~10x less than regular input
+ cache_saved = int(cache_read * 0.9) if cache_read > 0 else 0
 
 
  # Colors
@@ -125,7 +133,7 @@ try:
  line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}'
 
  # Line 2: Context bar, tokens, cost, duration, cache
- cost_fmt = f'\${cost:.2f}'
+ cost_fmt = f'${cost:.2f}'
 
  # Token display
  def fmt_tokens(n):
@@ -135,28 +143,37 @@ try:
          return f'{n/1_000:.1f}K'
      return str(n)
 
- # Context size: show used tokens alongside percentage
- used_tok_str = f' ({fmt_tokens(input_tok)})' if input_tok > 0 else ''
+ # Context: used/total tokens
+ if ctx_max > 0:
+     ctx_str = f'{fmt_tokens(ctx_used)}/{fmt_tokens(ctx_max)}'
+ elif ctx_used > 0:
+     ctx_str = fmt_tokens(ctx_used)
+ else:
+     ctx_str = ''
 
- # Token breakdown segment (only when data present)
+ # Token breakdown: input + output
  if total_tok > 0:
-     tok_seg = f' {DIM}|{RESET} {fmt_tokens(total_tok)} tok ({fmt_tokens(input_tok)} in / {fmt_tokens(output_tok)} out)'
+     tok_seg = f' {DIM}|{RESET} {fmt_tokens(input_tok)} in {DIM}/{RESET} {fmt_tokens(output_tok)} out'
  else:
      tok_seg = ''
 
- # Cache label
+ # Cache: hit rate + tokens saved
  if cache_total == 0:
-     cache_label = 'cache: n/a'
+     cache_str = f'{DIM}cache: n/a{RESET}'
  elif cache_read == 0:
-     cache_label = 'cache: warming'
+     cache_str = f'{DIM}cache: warming{RESET}'
+ elif cache_saved > 0:
+     cache_str = f'cache {cache_pct}% {DIM}(saved ~{fmt_tokens(cache_saved)}){RESET}'
  else:
-     cache_label = f'cache {cache_pct}%'
+     cache_str = f'cache {cache_pct}%'
 
- line2 = f'{bar_color}{bar}{RESET} {pct}%{used_tok_str}{tok_seg} {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} {cache_label}'
+ # Line 2: bar pct (used/max) | in / out | $cost | Xm Ys | cache
+ pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
+ line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} {cache_str}'
 
  print(line1)
  print(line2)
 except Exception as e:
  print(f'[statusline error: {e}]')
  print('')
-" <<< "$INPUT"
+PYEOF
