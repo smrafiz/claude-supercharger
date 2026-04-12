@@ -53,3 +53,7 @@ RELATED ISSUES: [anything else noticed, not fixed]
 ```
 
 Do not implement fixes. Produce the report.
+
+## Gotchas
+- Claude jumps to fixes before confirming the root cause. Diagnose first, fix second.
+- Error messages from one layer get attributed to the wrong layer (e.g., blaming the API when the issue is the database).

@@ -48,3 +48,7 @@ ALTERNATIVES CONSIDERED: [only if tradeoff is significant]
 ```
 
 No prose. Numbered steps only.
+
+## Gotchas
+- Time estimates are consistently optimistic. Add 50% buffer or avoid estimates entirely.
+- Plans tend to front-load easy tasks, hiding complexity in later phases.

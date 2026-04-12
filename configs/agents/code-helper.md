@@ -50,3 +50,7 @@ Stop and report if:
 - [ ] Conventions match surrounding code
 
 Output: code only. Explain only if asked.
+
+## Gotchas
+- Claude adds unrequested refactoring alongside the requested change. Stay in scope.
+- Test assertions sometimes test the implementation rather than the behavior.

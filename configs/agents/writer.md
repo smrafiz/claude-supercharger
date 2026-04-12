@@ -95,3 +95,7 @@ Real readers scan before they read. Use subheadings that tell the story alone. F
 - [ ] Length is appropriate (not padded)
 - [ ] Tone matches the context
 - [ ] Skimmable structure (headings tell the story)
+
+## Gotchas
+- Claude defaults to corporate tone ("leverage", "utilize", "facilitate") unless actively reminded. The anti-AI-slop rules exist for this reason.
+- Opening paragraphs tend to be generic summaries. Push for a specific, concrete opening.

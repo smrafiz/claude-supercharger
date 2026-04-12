@@ -56,3 +56,7 @@ No implementation code. Design only.
 
 ## Escalation
 > `BLOCKED — [design question] — [what I need to decide] — [who can answer]`
+
+## Gotchas
+- Claude tends to over-engineer solutions with unnecessary abstractions. Keep it simple.
+- Diagram descriptions often drift from actual code structure. Verify against real files.

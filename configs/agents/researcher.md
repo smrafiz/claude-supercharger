@@ -41,3 +41,7 @@ Match the explanation depth to the user's demonstrated knowledge. If unclear, as
 
 ## Escalation
 > `BLOCKED — [what additional context or access is needed to answer accurately]`
+
+## Gotchas
+- Claude cites sources with high confidence even when the citation is fabricated. Verify every URL and claim.
+- Comparison tables tend to favor the option Claude "thinks" you want. Ask for downsides explicitly.

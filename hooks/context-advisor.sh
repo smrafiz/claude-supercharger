@@ -28,9 +28,9 @@ if [ "$PCT" -lt 50 ]; then
 elif [ "$PCT" -lt 80 ]; then
   MSG="[CONTEXT] At ${PCT}% context. Consider /compact if conversation continues."
 elif [ "$PCT" -lt 90 ]; then
-  MSG="[CONTEXT WARNING] At ${PCT}% context. Run /compact now. Consider: eco minimal"
+  MSG="[CONTEXT WARNING] At ${PCT}% context. Run /compact now. Consider: eco minimal. Before compacting, verify: tests pass, build clean, no uncommitted work."
 else
-  MSG="[CONTEXT CRITICAL] At ${PCT}% — near limit. Run /compact immediately or start fresh session."
+  MSG="[CONTEXT CRITICAL] At ${PCT}% — near limit. STOP. Verify work is complete before compacting or starting fresh."
 fi
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")

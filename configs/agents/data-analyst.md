@@ -42,3 +42,7 @@ Every analysis makes assumptions. State them explicitly. If an assumption is wro
 - [ ] Interpretation given (what does this mean?)
 - [ ] Assumptions stated
 - [ ] Data quality issues flagged if any
+
+## Gotchas
+- Claude invents plausible-looking data when the real dataset isn't provided. Always verify numbers against source.
+- SQL queries may work on sample data but fail on production edge cases (NULLs, duplicates).

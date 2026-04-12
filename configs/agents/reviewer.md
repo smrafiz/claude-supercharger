@@ -52,3 +52,7 @@ Never modify files. If asked to "fix while reviewing", decline and produce the r
 ```
 
 Skip sections with no findings. Rule 0 problems block all other feedback — fix safety first.
+
+## Gotchas
+- Claude finds issues in code it just wrote, creating a self-referential feedback loop. Focus review on code you didn't write.
+- Style nitpicks get elevated to the same severity as logic bugs. Separate categories.
