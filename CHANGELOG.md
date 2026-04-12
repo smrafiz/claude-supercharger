@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.0.6] - 2026-04-12 — Warn-only Stop hook (alerts when files modified but no test/build ran), statusline token count fix (cached tokens included), structured deny reasons
 - [3.0.5] - 2026-04-12 — Fix statusline token count (include cached tokens), remove broken Stop prompt hook, structured deny reasons in safety/git-safety, notification matcher filter
 - [3.0.4] - 2026-04-12 — LLM-evaluated Stop hook for verification, structured deny reasons in safety/git-safety, notification matcher filter, smart-approve decision reasons
 - [3.0.3] - 2026-04-09 — Fix update.sh hang, quality-gate lint loop early-break, shellcheck SC2259 fix, all CI green
