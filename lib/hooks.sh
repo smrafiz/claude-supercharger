@@ -35,6 +35,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
+    hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
