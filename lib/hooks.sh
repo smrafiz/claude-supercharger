@@ -35,6 +35,7 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
+    hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
     hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh")
