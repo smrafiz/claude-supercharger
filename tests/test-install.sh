@@ -64,7 +64,7 @@ with open(os.environ['SETTINGS']) as f:
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
             for h in entry.get('hooks', [])
-            if '#supercharger' in h.get('command',''))
+            if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
 # Full mode + developer = safe base (safety + smart-approve + audit-trail +
@@ -73,10 +73,10 @@ print(count)
 #   update-check + agent-router + context-advisor + compaction-backup +
 #   session-end + quality-gate) = 16
 #   (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 17 ]; then
+if [ "$HOOK_COUNT" -eq 18 ]; then
   pass
 else
-  fail "expected 17 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 18 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -142,7 +142,7 @@ with open(os.environ['SETTINGS']) as f:
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
             for h in entry.get('hooks', [])
-            if '#supercharger' in h.get('command',''))
+            if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
 # Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner = 5
@@ -175,14 +175,14 @@ with open(os.environ['SETTINGS']) as f:
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
             for h in entry.get('hooks', [])
-            if '#supercharger' in h.get('command',''))
+            if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
 # standard maps to full = 16 hooks (with developer)
-if [ "$HOOK_COUNT" -eq 17 ]; then
+if [ "$HOOK_COUNT" -eq 18 ]; then
   pass
 else
-  fail "expected 17 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 18 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

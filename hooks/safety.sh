@@ -21,6 +21,7 @@ block() {
   echo "  Command: $COMMAND" >&2
   echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
   echo "" >&2
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
   exit 2
 }
 

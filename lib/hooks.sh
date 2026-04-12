@@ -21,7 +21,7 @@ get_hooks_for_mode() {
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
-    hooks+=("Notification||${hooks_dir}/notify.sh")
+    hooks+=("Notification|permission_prompt|${hooks_dir}/notify.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")
@@ -35,6 +35,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
+    hooks+=("Stop|*|prompt:Verify task completion: did tests run? Build clean? No TODO stubs or placeholder code? Return approve to stop or block with reason to continue.")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
@@ -100,7 +101,7 @@ if 'hooks' not in settings:
 for event in list(settings['hooks'].keys()):
     settings['hooks'][event] = [
         entry for entry in settings['hooks'][event]
-        if not any(tag in h.get('command', '') for h in entry.get('hooks', []))
+        if not any(tag in h.get('command', '') or tag in h.get('prompt', '') for h in entry.get('hooks', []))
     ]
     if not settings['hooks'][event]:
         del settings['hooks'][event]
@@ -117,14 +118,12 @@ for line in hooks_input.strip().split('\n'):
     if event not in settings['hooks']:
         settings['hooks'][event] = []
 
-    hook_entry = {
-        'hooks': [
-            {
-                'type': 'command',
-                'command': command + ' ' + tag
-            }
-        ]
-    }
+    if command.startswith('prompt:'):
+        inner = {'type': 'prompt', 'prompt': command[7:] + ' ' + tag}
+    else:
+        inner = {'type': 'command', 'command': command + ' ' + tag}
+
+    hook_entry = {'hooks': [inner]}
     if matcher:
         hook_entry['matcher'] = matcher
 
@@ -168,7 +167,7 @@ if 'hooks' in settings:
     for event in list(settings['hooks'].keys()):
         settings['hooks'][event] = [
             entry for entry in settings['hooks'][event]
-            if not any(tag in h.get('command', '') for h in entry.get('hooks', []))
+            if not any(tag in h.get('command', '') or tag in h.get('prompt', '') for h in entry.get('hooks', []))
         ]
         if not settings['hooks'][event]:
             del settings['hooks'][event]
