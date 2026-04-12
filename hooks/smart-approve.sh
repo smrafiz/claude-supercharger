@@ -14,16 +14,27 @@ fi
 
 [ -z "$TOOL_NAME" ] && exit 0
 
-allow() {
-  echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}\n'
+allow_tool() {
+  # Allow + add permanent session rule so this tool never prompts again
+  echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (permanent for session)" >&2
+  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedPermissions":[{"type":"addRules","rules":[{"toolName":"%s"}],"behavior":"allow","destination":"session"}]}}}\n' "$TOOL_NAME"
   exit 0
 }
 
-# Always-safe tools
+allow_cmd() {
+  # Allow + add permanent session rule for this specific command pattern
+  local rule="$1"
+  echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${rule})" >&2
+  local rule_json
+  rule_json=$(printf '%s' "$rule" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$rule")
+  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedPermissions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":%s}],"behavior":"allow","destination":"session"}]}}}\n' "$rule_json"
+  exit 0
+}
+
+# Always-safe tools — permanently allow for session
 case "$TOOL_NAME" in
   Read|Glob|Grep|LS|ls)
-    allow
+    allow_tool
     ;;
 esac
 
@@ -36,35 +47,39 @@ if [ "$TOOL_NAME" = "Bash" ]; then
 
   [ -z "$COMMAND" ] && exit 0
 
+  # Extract base command for rule creation
+  BASE_CMD=$(printf '%s\n' "$COMMAND" | awk '{print $1}')
+
   # --help / --version flag anywhere in the command
   if printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]])--(help|version)([[:space:]]|$)'; then
-    allow
+    allow_cmd "${BASE_CMD} --help"
   fi
 
   # Read-only shell, git, and search commands (consolidated)
   if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|printf|which|type|grep|find|rg)([[:space:]]|$)'; then
-    allow
+    allow_cmd "${BASE_CMD} *"
   fi
 
   # Read-only git subcommands
   if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|show|remote|tag)([[:space:]]|$)'; then
-    allow
+    GIT_SUB=$(printf '%s\n' "$COMMAND" | awk '{print $2}')
+    allow_cmd "git ${GIT_SUB} *"
   fi
 
   # command -v (tool existence check)
   if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*command[[:space:]]+-v[[:space:]]'; then
-    allow
+    allow_cmd "command -v *"
   fi
 
   # Test runners (consolidated)
   if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(npm|yarn|pnpm)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*(cargo|go)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*pytest([[:space:]]|$)'; then
-    allow
+    allow_cmd "${COMMAND%% *} test *"
   fi
 
-  # curl — only if no explicit non-GET method (-X POST/PUT/DELETE/PATCH or --data / -d)
+  # curl — only if no explicit non-GET method
   if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*curl[[:space:]]'; then
     if ! printf '%s\n' "$COMMAND" | grep -qiE '(-X[[:space:]]*(POST|PUT|DELETE|PATCH)|--request[[:space:]]*(POST|PUT|DELETE|PATCH)|-d[[:space:]]|--data[[:space:]]|--data-raw[[:space:]]|--data-binary[[:space:]])'; then
-      allow
+      allow_cmd "curl *"
     fi
   fi
 fi
