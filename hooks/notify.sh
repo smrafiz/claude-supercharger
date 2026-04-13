@@ -1,53 +1,39 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Notification Hook
-# Event: Notification | Matcher: (none)
-# Alerts user only when Claude genuinely needs input.
-# Filters out informational events (auth, computer-use, elicitation).
+# Event: Notification
+# Sends desktop notifications for idle prompts.
 
 set -euo pipefail
 
-# Read notification payload
-# Matcher in settings.json already filters to permission_prompt only
 PAYLOAD=$(cat)
-
-# Extract message from payload, fallback to default
-MESSAGE=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null || \
-  printf '%s\n' "$PAYLOAD" | python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('message', 'Claude Code needs your attention'))
-except:
-    print('Claude Code needs your attention')
-" 2>/dev/null || echo "")
-MESSAGE="${MESSAGE:-Claude Code needs your attention}"
-
-# Sanitize message to prevent osascript command injection
-SAFE_MESSAGE=$(printf '%s' "$MESSAGE" | sed 's/\\/\\\\/g; s/"/\\"/g')
+MSG=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null)
+[ -z "$MSG" ] && MSG="Claude Code needs your input"
 
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
-FLAG_OFF="$SUPERCHARGER_DIR/.no-desktop-notify"
-FLAG_SOUND="$SUPERCHARGER_DIR/.sound-only-notify"
 
-# Desktop notification
-if [[ "${SUPERCHARGER_NO_DESKTOP_NOTIFY:-0}" == "1" || -f "$FLAG_OFF" ]]; then
-  : # fully disabled
-elif [[ -f "$FLAG_SOUND" ]]; then
-  printf '\a'  # sound only
+# Check disable flags
+[ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
+
+TITLE="Claude — Input Needed"
+
+# Sanitize for osascript
+SAFE_MSG=$(printf '%s' "$MSG" | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 200)
+
+if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
+  printf '\a'
 elif [[ "$OSTYPE" == "darwin"* ]]; then
-  osascript -e "display notification \"$SAFE_MESSAGE\" with title \"Claude Supercharger\"" 2>/dev/null || true
+  osascript -e "display notification \"$SAFE_MSG\" with title \"$TITLE\"" 2>/dev/null || true
 elif command -v notify-send &>/dev/null; then
-  notify-send "Claude Supercharger" "$MESSAGE" 2>/dev/null || true
+  notify-send "$TITLE" "$MSG" 2>/dev/null || true
 else
   printf '\a'
 fi
 
-# Webhook notification (if configured) — uses shared webhook lib
+# Webhook
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$HOOKS_DIR/webhook-lib.sh" ]; then
   source "$HOOKS_DIR/webhook-lib.sh"
-  if webhook_enabled; then
-    send_webhook "$MESSAGE" || true
-  fi
+  webhook_enabled && send_webhook "$MSG" || true
 fi
 
 exit 0

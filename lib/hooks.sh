@@ -23,7 +23,9 @@ get_hooks_for_mode() {
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
-    hooks+=("Notification||${hooks_dir}/notify.sh")
+    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh")
+    hooks+=("Stop|*|${hooks_dir}/notify-stop.sh")
+    hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")

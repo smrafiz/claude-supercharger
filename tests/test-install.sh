@@ -73,10 +73,10 @@ print(count)
 #   update-check + agent-router + context-advisor + compaction-backup +
 #   session-end + quality-gate) = 16
 #   (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 24 ]; then
+if [ "$HOOK_COUNT" -eq 26 ]; then
   pass
 else
-  fail "expected 24 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 26 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -179,10 +179,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 16 hooks (with developer)
-if [ "$HOOK_COUNT" -eq 24 ]; then
+if [ "$HOOK_COUNT" -eq 26 ]; then
   pass
 else
-  fail "expected 24 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 26 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
