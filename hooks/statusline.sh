@@ -28,7 +28,7 @@ try:
  ctx = data.get('context_window') or {}
  pct = int(ctx.get('used_percentage', 0) or 0)
 
- usage = ctx.get('current_usage', {})
+ usage = ctx.get('current_usage') or {}
  cache_read = usage.get('cache_read_input_tokens', 0) or 0
  cache_create = usage.get('cache_creation_input_tokens', 0) or 0
  cache_total = cache_read + cache_create
@@ -118,7 +118,7 @@ try:
  except Exception:
      pass
 
- session_id = data.get('session_id', 'default')
+ session_id = data.get('session_id') or 'default'
 
  # Active agent — prefer .agent-dispatched (actual dispatch) over .agent-classified (router guess)
  agent = ''
