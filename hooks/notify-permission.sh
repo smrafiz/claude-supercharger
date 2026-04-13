@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Permission Request Notification
 # Event: PermissionRequest
-# Notifies when Claude needs permission to run a tool.
-# Runs AFTER smart-approve — only fires for tools that weren't auto-approved.
+# Only fires for tools not auto-approved by smart-approve.
 
 set -euo pipefail
 
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
+
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
 
 INPUT=$(cat)
 
+# Suppress during subagents
+_is_subagent "$INPUT" && exit 0
+
+# Cooldown (7s — permission requests can cluster)
+_cooldown_ok "permission" 7 || exit 0
+
 TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null)
 
-# Build a preview of what Claude wants to do
 PREVIEW=$(printf '%s\n' "$INPUT" | jq -r '
   .tool_input |
   if .command then .command
@@ -28,17 +33,6 @@ MSG="Wants to run ${TOOL_NAME}"
   MSG="${MSG}: ${PREVIEW}"
 }
 
-TITLE="Claude — Permission Needed"
-SAFE_MSG=$(printf '%s' "$MSG" | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 200)
-
-if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
-  printf '\a'
-elif [[ "$OSTYPE" == "darwin"* ]]; then
-  osascript -e "display notification \"$SAFE_MSG\" with title \"$TITLE\"" 2>/dev/null || true
-elif command -v notify-send &>/dev/null; then
-  notify-send "$TITLE" "$MSG" 2>/dev/null || true
-else
-  printf '\a'
-fi
+_send_notification "Claude — Permission Needed" "$MSG"
 
 exit 0
