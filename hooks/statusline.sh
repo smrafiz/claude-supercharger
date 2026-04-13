@@ -16,16 +16,16 @@ try:
  if not isinstance(data, dict):
      data = {}
 
- model = data.get('model', {}).get('display_name', '?')
- cwd = data.get('workspace', {}).get('current_dir', data.get('cwd', ''))
+ model = (data.get('model') or {}).get('display_name', '?')
+ cwd = (data.get('workspace') or {}).get('current_dir', data.get('cwd', '') or '')
  dirname = os.path.basename(cwd) if cwd else '?'
 
- cost = data.get('cost', {}).get('total_cost_usd', 0) or 0
- duration_ms = data.get('cost', {}).get('total_duration_ms', 0) or 0
+ cost = (data.get('cost') or {}).get('total_cost_usd', 0) or 0
+ duration_ms = (data.get('cost') or {}).get('total_duration_ms', 0) or 0
  mins = duration_ms // 60000
  secs = (duration_ms % 60000) // 1000
 
- ctx = data.get('context_window', {})
+ ctx = data.get('context_window') or {}
  pct = int(ctx.get('used_percentage', 0) or 0)
 
  usage = ctx.get('current_usage', {})
