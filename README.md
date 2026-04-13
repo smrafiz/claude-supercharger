@@ -4,7 +4,7 @@ Claude Code has root access to your filesystem and git history. One hallucinated
 
 Supercharger stops that at the shell level. Hooks run before commands execute, outside Claude's conversation. Claude can't argue with them, override them, or charm its way past them. Exit code 2. Command blocked. Done.
 
-![Version](https://img.shields.io/badge/version-3.3.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.3.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -144,7 +144,19 @@ Eight behavioral profiles, switchable mid-conversation:
 
 **Quality gate** — lint and format check after file edits. Developer role only.
 
-**Status bar** — model, project, branch, stack, agent, context % (color-coded), cost, tokens, cache hit rate.
+**Status bar** — model, project, branch, stack, agent, active MCP, context % with used/max tokens (color-coded), in/out token breakdown, cost, cache hit rate with savings estimate.
+
+**Desktop notifications** — three types, no terminal-specific dependencies:
+
+| Notification | When | Shows |
+|---|---|---|
+| Task complete | Claude finishes responding | Your prompt + Claude's response summary |
+| Input needed | Claude is idle, waiting for you | What Claude needs (30s cooldown) |
+| Permission needed | Claude wants to run a tool | Tool name + command/file preview |
+
+Disable: `bash tools/notify-toggle.sh off`. Sound only: `bash tools/notify-toggle.sh sound`.
+
+**Self-teaching** — Claude learns from 4 signals across sessions: blocked commands, user corrections ("don't do X"), positive reinforcement ("perfect, keep doing that"), and repeated command failures. All injected at session start.
 
 ---
 
@@ -228,7 +240,7 @@ No. Supercharger tags its entries with <code>#supercharger</code>. Your servers 
 
 ## Credits
 
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), and [claude-code-tips](https://github.com/ykdojo/claude-code-tips).
+Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), and [claude-code-warp](https://github.com/warpdotdev/claude-code-warp) (notification patterns).
 
 ## License
 

@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.3.1] - 2026-04-13 — 3 notification types (task complete, input needed, permission request), idle cooldown fix, README update, credit claude-code-warp
 - [3.3.0] - 2026-04-12 — Enhanced self-teaching: positive reinforcement detection, repeated failure tracker with live nudge, 4-signal learning system
 - [3.2.1] - 2026-04-12 — Session-scoped agent/MCP scope files — multiple Claude sessions no longer share agent names in statusline
 - [3.2.0] - 2026-04-12 — 3-layer injection defense: SessionStart config scan + PostToolUse output secrets scanner, smart-approve persistent session rules, /effort and subagent model tips
