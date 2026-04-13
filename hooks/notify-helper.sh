@@ -64,10 +64,7 @@ _send_notification() {
       Apple_Terminal) term_app="Terminal" ;;
       vscode) term_app="Visual Studio Code" ;;
     esac
-    osascript -e "
-      display notification \"$safe_msg\" with title \"$safe_title\"
-      tell application \"$term_app\" to activate
-    " 2>/dev/null || true
+    osascript -e "display notification \"$safe_msg\" with title \"$safe_title\"" 2>/dev/null || true
   elif command -v notify-send &>/dev/null; then
     notify-send "$title" "$msg" 2>/dev/null || true
   else
