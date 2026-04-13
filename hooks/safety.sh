@@ -125,6 +125,24 @@ if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then
   block "SSH key operation — agent should not manage SSH keys"
 fi
 
+# --- Clipboard exfiltration ---
+if [[ "$CMD" =~ (pbpaste|pbcopy|xclip|xsel|wl-paste|wl-copy) ]]; then
+  block "clipboard access — agent should not read or write clipboard"
+fi
+
+# --- Sensitive app data paths ---
+if [[ "$CMD" =~ (Application[[:space:]]+Support/(Google/Chrome|Arc|Firefox|BraveSoftware|Microsoft[[:space:]]+Edge)/|/Cookies|/Login[[:space:]]+Data|/History) ]]; then
+  block "browser data access — agent should not read browser cookies, passwords, or history"
+fi
+
+if [[ "$CMD" =~ (Library/Keychains|Library/Messages|Signal/sql|1Password|gnome-keyring|\.password-store) ]]; then
+  block "sensitive app data — agent should not access keychains, messages, or password managers"
+fi
+
+if [[ "$CMD" =~ (\.(bash_history|zsh_history|python_history|psql_history|mysql_history|node_repl_history)) ]]; then
+  block "shell history access — may contain credentials or sensitive commands"
+fi
+
 # --- Self-modification prevention ---
 if [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAUDE\.md) ]]; then
   if [[ "$CMD" =~ (>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>) ]]; then
