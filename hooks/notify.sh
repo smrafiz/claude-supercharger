@@ -6,22 +6,9 @@
 
 set -euo pipefail
 
-# Read notification payload and filter by type
+# Read notification payload
+# Matcher in settings.json already filters to permission_prompt only
 PAYLOAD=$(cat)
-NOTIF_TYPE=$(printf '%s\n' "$PAYLOAD" | jq -r '.notification_type // empty' 2>/dev/null || \
-  printf '%s\n' "$PAYLOAD" | python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('notification_type', ''))
-except:
-    print('')
-" 2>/dev/null || echo "")
-
-# Only notify for types that need user attention
-case "$NOTIF_TYPE" in
-  permission_prompt|idle_prompt|worker_permission_prompt) ;;
-  *) exit 0 ;;
-esac
 
 # Extract message from payload, fallback to default
 MESSAGE=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null || \
