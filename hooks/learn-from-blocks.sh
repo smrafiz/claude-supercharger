@@ -1,35 +1,54 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Session Learnings Injector
 # Event: SessionStart
-# Injects accumulated learnings from blocked commands and user corrections
-# so Claude avoids repeating the same mistakes.
+# Injects accumulated learnings: blocked commands, user corrections,
+# positive reinforcements, and repeated failure patterns.
 
 set -euo pipefail
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 BLOCKS_LOG="$SCOPE_DIR/.blocked-commands"
 CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections"
+REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements"
+FAILURES_LOG="$SCOPE_DIR/.failed-commands"
 
 CONTEXT=""
 
-# Blocked commands
-if [ -f "$BLOCKS_LOG" ] && [ -s "$BLOCKS_LOG" ]; then
-  RECENT_BLOCKS=$(tail -10 "$BLOCKS_LOG")
-  CONTEXT="[BLOCKED COMMANDS] These were blocked in recent sessions — do not attempt them:
-${RECENT_BLOCKS}"
-fi
-
-# User corrections
-if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
-  RECENT_CORRECTIONS=$(tail -10 "$CORRECTIONS_LOG")
+append() {
   if [ -n "$CONTEXT" ]; then
     CONTEXT="${CONTEXT}
 
-[USER CORRECTIONS] The user previously corrected these behaviors — respect them:
-${RECENT_CORRECTIONS}"
+$1"
   else
-    CONTEXT="[USER CORRECTIONS] The user previously corrected these behaviors — respect them:
-${RECENT_CORRECTIONS}"
+    CONTEXT="$1"
+  fi
+}
+
+# Blocked commands
+if [ -f "$BLOCKS_LOG" ] && [ -s "$BLOCKS_LOG" ]; then
+  append "[BLOCKED COMMANDS] These were blocked — do not attempt them:
+$(tail -10 "$BLOCKS_LOG")"
+fi
+
+# User corrections (negative)
+if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
+  append "[USER CORRECTIONS] The user corrected these — respect them:
+$(tail -10 "$CORRECTIONS_LOG")"
+fi
+
+# User reinforcements (positive)
+if [ -f "$REINFORCEMENTS_LOG" ] && [ -s "$REINFORCEMENTS_LOG" ]; then
+  append "[WHAT WORKS] The user praised these approaches — keep doing them:
+$(tail -10 "$REINFORCEMENTS_LOG")"
+fi
+
+# Repeated failures
+if [ -f "$FAILURES_LOG" ] && [ -s "$FAILURES_LOG" ]; then
+  # Only inject patterns that failed 3+ times
+  REPEATED=$(sort "$FAILURES_LOG" 2>/dev/null | sed 's/^\[.*\] exit=[0-9]* — //' | sort | uniq -c | sort -rn | awk '$1 >= 3 {$1=""; print}' | head -5)
+  if [ -n "$REPEATED" ]; then
+    append "[REPEATED FAILURES] These commands fail consistently — try different approaches:
+${REPEATED}"
   fi
 fi
 

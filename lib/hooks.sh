@@ -35,6 +35,7 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
     hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh")
+    hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh")
