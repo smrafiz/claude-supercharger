@@ -19,7 +19,7 @@ except:
 
 # Only notify for types that need user attention
 case "$NOTIF_TYPE" in
-  idle_prompt|worker_permission_prompt) ;;
+  permission_prompt|idle_prompt|worker_permission_prompt) ;;
   *) exit 0 ;;
 esac
 
