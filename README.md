@@ -48,6 +48,9 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 | `curl \| bash`, `eval`, credential patterns (AWS keys, GitHub tokens, Stripe, JWTs) | Remote code execution, secret exposure |
 | Wrong package manager (`npm` in a pnpm project) | Corrupts lockfile |
 | Writing to `.bashrc`, `.zshrc`, SSH key operations | Unauthorized persistence |
+| `pbpaste`, `pbcopy`, `xclip`, clipboard commands | Clipboard exfiltration |
+| Browser cookies/passwords, keychains, 1Password, `.password-store` | Credential theft |
+| `.bash_history`, `.zsh_history`, shell history files | May contain secrets |
 
 All blocking happens at the shell level. Not a prompt Claude can reconsider — a wall it can't pass through.
 
@@ -240,7 +243,7 @@ No. Supercharger tags its entries with <code>#supercharger</code>. Your servers 
 
 ## Credits
 
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), and [claude-code-warp](https://github.com/warpdotdev/claude-code-warp) (notification patterns).
+Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp) (notification patterns), and [claude-guard](https://github.com/derek-larson14/claude-guard) (sensitive path blocking).
 
 ## License
 
