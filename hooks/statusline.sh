@@ -11,7 +11,10 @@ SL_INPUT="$INPUT" python3 <<'PYEOF'
 import json, sys, subprocess, os
 
 try:
- data = json.loads(os.environ.get('SL_INPUT', '{}'))
+ raw = os.environ.get('SL_INPUT', '') or '{}'
+ data = json.loads(raw) if raw.strip() else {}
+ if not isinstance(data, dict):
+     data = {}
 
  model = data.get('model', {}).get('display_name', '?')
  cwd = data.get('workspace', {}).get('current_dir', data.get('cwd', ''))
