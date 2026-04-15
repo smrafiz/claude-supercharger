@@ -95,10 +95,12 @@ try:
  except Exception:
      pass
 
- # Stack detection
+ # Stack detection — scoped by project directory hash
  stack = ''
  try:
-     cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.stack-cache')
+     import hashlib
+     proj_hash = hashlib.md5(cwd.encode()).hexdigest()[:8] if cwd else 'default'
+     cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.stack-cache-{proj_hash}')
      if os.path.isfile(cache_path):
          with open(cache_path) as f:
              cached = f.read().strip()

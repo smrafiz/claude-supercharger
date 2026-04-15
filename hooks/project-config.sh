@@ -121,7 +121,9 @@ if stack_parts:
     try:
         cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
         os.makedirs(cache_dir, exist_ok=True)
-        with open(os.path.join(cache_dir, '.stack-cache'), 'w') as f:
+        import hashlib
+        proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
+        with open(os.path.join(cache_dir, f'.stack-cache-{proj_hash}'), 'w') as f:
             f.write(', '.join(stack_parts))
     except Exception:
         pass
