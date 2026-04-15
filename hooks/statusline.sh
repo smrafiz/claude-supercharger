@@ -225,9 +225,9 @@ try:
              remaining = max(0, int(float(rl_5h_reset) - time.time()))
              rh, rm = remaining // 3600, (remaining % 3600) // 60
              reset_str = f' {DIM}({rh}h{rm}m){RESET}' if rh > 0 else f' {DIM}({rm}m){RESET}'
-         rl_str = f' {DIM}|{RESET} {rl_color}5h:{float(rl_5h_pct):.0f}%{RESET}{reset_str}'
+         rl_str = f' {DIM}|{RESET} {DIM}limits{RESET} {rl_color}5hr {float(rl_5h_pct):.0f}% used{RESET}{reset_str}'
          if rl_7d_pct and float(rl_7d_pct) > 0:
-             rl_str += f' {DIM}7d:{float(rl_7d_pct):.0f}%{RESET}'
+             rl_str += f' {DIM}· 7day {float(rl_7d_pct):.0f}% used{RESET}'
  except Exception:
      rl_str = ''
 
