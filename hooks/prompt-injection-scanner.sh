@@ -32,6 +32,10 @@ INJECTION_PATTERNS=(
   '<\|system\|>'
   '\[INST\]'
   '<<SYS>>'
+  'AAAA[A-Za-z0-9+/=]{20,}'
+  'base64 -d'
+  'aWdub3JlI'
+  'c3lzdGVtI'
 )
 
 # Build single alternation and run one grep pass

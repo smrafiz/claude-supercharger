@@ -112,6 +112,24 @@ if [[ "$FILE_PATH" =~ \.(yml|yaml)$ ]]; then
   fi
 fi
 
+# --- File path shell metacharacters (CVE-2026-35021) ---
+if [ -n "$FILE_PATH" ]; then
+  if printf '%s\n' "$FILE_PATH" | LC_ALL=C grep -qE '(\$\(|`|;|\||&&|\{)'; then
+    WARNINGS+=("file path contains shell metacharacters (\$(), backticks, ;, |) — command injection risk (CVE-2026-35021)")
+  fi
+fi
+
+# --- Obfuscated injection patterns ---
+# Base64-encoded "ignore" / "system" / "instructions" (common injection payloads)
+if printf '%s\n' "$CONTENT" | LC_ALL=C grep -qE 'atob\(|btoa\(|base64[._-]?decode|b64decode'; then
+  WARNINGS+=("base64 decode in code — check for obfuscated prompt injection or payload")
+fi
+
+# Unicode zero-width / invisible characters (used for hidden injection)
+if printf '%s\n' "$CONTENT" | LC_ALL=C grep -qP '[\x{200B}\x{200C}\x{200D}\x{FEFF}\x{00AD}]' 2>/dev/null; then
+  WARNINGS+=("invisible Unicode characters detected — possible hidden prompt injection")
+fi
+
 # Nothing found — exit clean
 [ "${#WARNINGS[@]}" -eq 0 ] && exit 0
 
