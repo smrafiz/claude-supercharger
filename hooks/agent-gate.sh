@@ -40,6 +40,9 @@ if [ ${#DISPATCHED} -gt 60 ]; then
   DISPATCHED="${DISPATCHED:0:57}..."
 fi
 
+# Normalize: replace dashes/underscores with spaces, title-case
+DISPATCHED=$(printf '%s' "$DISPATCHED" | sed 's/[-_]/ /g' | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) tolower(substr($i,2)); print}')
+
 # Read classifier's route for mismatch detection
 STORED_AGENT=$(cat "$CLASSIFIED_FILE" 2>/dev/null || echo "")
 
