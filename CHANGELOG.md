@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.5.0] - 2026-04-15 — Token optimization: loop detector (catches repeated tool calls, saves 10-50K tokens) and re-read detector (nudges Claude to use cached file knowledge)
 - [3.4.0] - 2026-04-15 — Code security scanner: warns on eval(), innerHTML, SQL injection, pickle, hardcoded secrets, weak crypto in Write/Edit content
 - [3.3.2] - 2026-04-13 — Fix statusline null-safe .get() chains, remove app-switching from notifications, tighten learning false positives
 - [3.3.1] - 2026-04-13 — 3 notification types (task complete, input needed, permission request), idle cooldown fix, README update, credit claude-code-warp
