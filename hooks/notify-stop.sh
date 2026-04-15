@@ -51,6 +51,19 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   [ ${#RESPONSE} -gt 150 ] && RESPONSE="${RESPONSE:0:147}..."
 fi
 
+# Extract elapsed time
+DURATION_MS=$(printf '%s\n' "$INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null)
+DURATION_MS="${DURATION_MS:-0}"
+MINS=$((DURATION_MS / 60000))
+SECS=$(( (DURATION_MS % 60000) / 1000 ))
+if [ "$MINS" -gt 0 ]; then
+  ELAPSED=" (${MINS}m ${SECS}s)"
+elif [ "$SECS" -gt 0 ]; then
+  ELAPSED=" (${SECS}s)"
+else
+  ELAPSED=""
+fi
+
 if [ -n "$QUERY" ] && [ -n "$RESPONSE" ]; then
   MSG="\"${QUERY}\" → ${RESPONSE}"
 elif [ -n "$RESPONSE" ]; then
@@ -59,6 +72,6 @@ else
   MSG="Task completed"
 fi
 
-_send_notification "Claude — Task Complete" "$MSG"
+_send_notification "Claude — Done${ELAPSED}" "$MSG"
 
 exit 0
