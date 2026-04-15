@@ -220,25 +220,25 @@ try:
  try:
      if rl_5h_pct and float(rl_5h_pct) > 0:
          rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
-         reset_str = ''
+         reset_label = ''
          if rl_5h_reset and float(rl_5h_reset) > 0:
              remaining = max(0, int(float(rl_5h_reset) - time.time()))
              rh, rm = remaining // 3600, (remaining % 3600) // 60
-             reset_str = f' {DIM}({rh}h{rm}m){RESET}' if rh > 0 else f' {DIM}({rm}m){RESET}'
-         rl_str = f' {DIM}|{RESET} {DIM}limits{RESET} {rl_color}5hr {float(rl_5h_pct):.0f}% used{RESET}{reset_str}'
+             reset_label = f' (resets in {rh}h {rm}m)' if rh > 0 else f' (resets in {rm}m)'
+         rl_str = f' {DIM}|{RESET} {DIM}Usage:{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}% used{reset_label}{RESET}'
          if rl_7d_pct and float(rl_7d_pct) > 0:
-             rl_str += f' {DIM}· 7day {float(rl_7d_pct):.0f}% used{RESET}'
+             rl_str += f' {DIM}· Weekly: {float(rl_7d_pct):.0f}%{RESET}'
  except Exception:
      rl_str = ''
 
  # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {DIM}ctx{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
+ line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
 
  # Line 3: cost + duration + rate limits
  dur_str = f'{mins}h {secs}m' if mins >= 60 else f'{mins}m {secs}s'
- line3 = f'{DIM}cost{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}time{RESET} {dur_str}{rl_str}'
+ line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
 
  print(line1)
  print(line2)
