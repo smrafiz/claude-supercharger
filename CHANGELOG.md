@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.5.5] - 2026-04-15 — Fix statusline line 2 vanishing (rate limits type error), idle notification 60s cooldown
 - [3.5.4] - 2026-04-15 — Fix false idle notifications: 60s cooldown, filter transient states
 - [3.5.3] - 2026-04-15 — Fix statusline token math (input-only context, session cumulative output), project-scoped stack cache, agent-gate re-registration
 - [3.5.2] - 2026-04-15 — Fix agent-gate re-registration for correct dispatched agent in statusline; credit token-optimizer and CCNotify
