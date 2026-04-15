@@ -103,11 +103,12 @@ Warns Claude to reconsider — doesn't block, since patterns like `eval()` are l
 ### Status bar
 
 ```
-[Opus] myproject | main | TypeScript | Tony Stark | MCP: context7 | +156/-23
-████████████░░░░░░░░ 60% (120.5K/200K) | 115.2K in / 5.3K out | $2.45 | 8m 12s | cache 92% (~103.7K saved) | 5h:24% (3h42m) 7d:15%
+[Opus 4.6 (1M context)] myproject | main | TypeScript | Agent: Tony Stark | MCP: context7 | +156/-23
+Context: ████████████░░░░░░░░ 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
+Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
 
-Line 1: model, project, branch, stack, agent, active MCP, lines added/removed. Line 2: context bar with exact used/max tokens, in/out breakdown, cost, duration, cache with savings, 5h/7d rate limit usage with reset countdown. Session-scoped — multiple Claude instances don't interfere.
+Line 1: model, project, branch, stack, agent, active MCP, lines changed. Line 2: context bar with used/max tokens, in/out breakdown, cache savings. Line 3: cost, duration, session and weekly rate limits with reset countdown. Session-scoped — multiple instances don't interfere.
 
 ---
 
