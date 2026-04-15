@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.6.1] - 2026-04-15 — Smart-approve: Write/Edit in project dir, npm run/build/dev, build tools, script runners; statusline resilient 3-line output
 - [3.6.0] - 2026-04-15 — Optimize all 9 agents: add color, example blocks, fix tools (researcher+web, general+bash), planner haiku→sonnet
 - [3.5.9] - 2026-04-15 — Fix CI: statusline tests for 3-line output, actions/checkout v5, time display hours fix
 - [3.5.8] - 2026-04-15 — Agent name normalization in statusline (safety net), simplified rate limit format
