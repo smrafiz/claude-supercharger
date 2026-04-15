@@ -215,18 +215,21 @@ try:
  else:
      cache_str = f'cache {cache_pct}%'
 
- # Rate limits
+ # Rate limits (isolated — must not crash line 2)
  rl_str = ''
- if rl_5h_pct > 0:
-     rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
-     reset_str = ''
-     if rl_5h_reset > 0:
-         remaining = max(0, int(rl_5h_reset - time.time()))
-         rh, rm = remaining // 3600, (remaining % 3600) // 60
-         reset_str = f' {DIM}({rh}h{rm}m){RESET}' if rh > 0 else f' {DIM}({rm}m){RESET}'
-     rl_str = f' {DIM}|{RESET} {rl_color}5h:{rl_5h_pct:.0f}%{RESET}{reset_str}'
-     if rl_7d_pct > 0:
-         rl_str += f' {DIM}7d:{rl_7d_pct:.0f}%{RESET}'
+ try:
+     if rl_5h_pct and float(rl_5h_pct) > 0:
+         rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
+         reset_str = ''
+         if rl_5h_reset and float(rl_5h_reset) > 0:
+             remaining = max(0, int(float(rl_5h_reset) - time.time()))
+             rh, rm = remaining // 3600, (remaining % 3600) // 60
+             reset_str = f' {DIM}({rh}h{rm}m){RESET}' if rh > 0 else f' {DIM}({rm}m){RESET}'
+         rl_str = f' {DIM}|{RESET} {rl_color}5h:{float(rl_5h_pct):.0f}%{RESET}{reset_str}'
+         if rl_7d_pct and float(rl_7d_pct) > 0:
+             rl_str += f' {DIM}7d:{float(rl_7d_pct):.0f}%{RESET}'
+ except Exception:
+     rl_str = ''
 
  # Line 2: bar pct (used/max) | in / out | $cost | Xm Ys | cache | rate limits
  cost_fmt = f'${cost:.2f}'
