@@ -248,10 +248,17 @@ try:
  line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
 
  print(line1)
- print(line2)
- print(line3)
+ try:
+     print(line2)
+ except Exception:
+     print('')
+ try:
+     print(line3)
+ except Exception:
+     print('')
 except Exception as e:
  print(f'[statusline error: {e}]')
+ print('')
  print('')
  print('')
 PYEOF
