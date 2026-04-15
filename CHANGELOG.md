@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.4.0] - 2026-04-15 — Code security scanner: warns on eval(), innerHTML, SQL injection, pickle, hardcoded secrets, weak crypto in Write/Edit content
 - [3.3.2] - 2026-04-13 — Fix statusline null-safe .get() chains, remove app-switching from notifications, tighten learning false positives
 - [3.3.1] - 2026-04-13 — 3 notification types (task complete, input needed, permission request), idle cooldown fix, README update, credit claude-code-warp
 - [3.3.0] - 2026-04-12 — Enhanced self-teaching: positive reinforcement detection, repeated failure tracker with live nudge, 4-signal learning system

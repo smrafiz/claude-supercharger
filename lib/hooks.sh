@@ -14,6 +14,7 @@ get_hooks_for_mode() {
 
   # ── Safe mode: core safety + smart UX (always on) ──
   hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh")
+  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
   hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
