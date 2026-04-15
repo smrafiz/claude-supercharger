@@ -4,7 +4,7 @@ Shell-level guardrails for Claude Code. Install once, forget forever.
 
 Claude Code has root access to your filesystem and git history. Supercharger adds enforced safety hooks, smart auto-approve, desktop notifications, and self-teaching — so you stop worrying and start shipping.
 
-![Version](https://img.shields.io/badge/version-3.5.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.5.4-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh

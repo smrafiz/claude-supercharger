@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.5.4] - 2026-04-15 — Fix false idle notifications: 60s cooldown, filter transient states
 - [3.5.3] - 2026-04-15 — Fix statusline token math (input-only context, session cumulative output), project-scoped stack cache, agent-gate re-registration
 - [3.5.2] - 2026-04-15 — Fix agent-gate re-registration for correct dispatched agent in statusline; credit token-optimizer and CCNotify
 - [3.5.1] - 2026-04-15 — Statusline: exact context size, rate limits with countdown, lines changed; reread-detector mtime check; token economy CLAUDE.md improvements; README update
