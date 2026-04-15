@@ -8,7 +8,7 @@ set -euo pipefail
 INPUT=$(cat)
 
 SL_INPUT="$INPUT" python3 <<'PYEOF'
-import json, sys, subprocess, os
+import json, subprocess, os, time
 
 try:
  raw = os.environ.get('SL_INPUT', '') or '{}'
@@ -20,13 +20,23 @@ try:
  cwd = (data.get('workspace') or {}).get('current_dir', data.get('cwd', '') or '')
  dirname = os.path.basename(cwd) if cwd else '?'
 
- cost = (data.get('cost') or {}).get('total_cost_usd', 0) or 0
- duration_ms = (data.get('cost') or {}).get('total_duration_ms', 0) or 0
+ cost_data = data.get('cost') or {}
+ cost = cost_data.get('total_cost_usd', 0) or 0
+ duration_ms = cost_data.get('total_duration_ms', 0) or 0
+ lines_added = cost_data.get('total_lines_added', 0) or 0
+ lines_removed = cost_data.get('total_lines_removed', 0) or 0
  mins = duration_ms // 60000
  secs = (duration_ms % 60000) // 1000
 
  ctx = data.get('context_window') or {}
  pct = int(ctx.get('used_percentage', 0) or 0)
+
+ # Use official context_window_size if available (exact), else derive
+ ctx_max = ctx.get('context_window_size', 0) or 0
+
+ # Total tokens from official fields
+ total_input = ctx.get('total_input_tokens', 0) or 0
+ total_output = ctx.get('total_output_tokens', 0) or 0
 
  usage = ctx.get('current_usage') or {}
  cache_read = usage.get('cache_read_input_tokens', 0) or 0
@@ -37,18 +47,23 @@ try:
  input_tok = usage.get('input_tokens', 0) or 0
  output_tok = usage.get('output_tokens', 0) or 0
 
- # Total context = all input tokens (cached + uncached) + output tokens
- # input_tokens only counts non-cached; cache_read + cache_create are the rest
+ # All input = uncached + cached
  all_input = input_tok + cache_read + cache_create
- total_tok = all_input + output_tok
+ ctx_used = all_input + output_tok
 
- # Derive max context window from percentage
- ctx_used = total_tok
- ctx_max = int(ctx_used / (pct / 100)) if pct > 0 else 0
+ # Fallback: derive max from percentage if not provided
+ if ctx_max == 0 and pct > 0 and ctx_used > 0:
+     ctx_max = int(ctx_used / (pct / 100))
 
- # Cache savings: cache_read tokens cost ~10x less than regular input
  cache_saved = int(cache_read * 0.9) if cache_read > 0 else 0
 
+ # Rate limits (Pro/Max subscribers only)
+ rate_limits = data.get('rate_limits') or {}
+ five_hour = rate_limits.get('five_hour') or {}
+ seven_day = rate_limits.get('seven_day') or {}
+ rl_5h_pct = five_hour.get('used_percentage', 0) or 0
+ rl_5h_reset = five_hour.get('resets_at', 0) or 0
+ rl_7d_pct = seven_day.get('used_percentage', 0) or 0
 
  # Colors
  CYAN = '\033[36m'
@@ -56,6 +71,7 @@ try:
  YELLOW = '\033[33m'
  RED = '\033[31m'
  DIM = '\033[2m'
+ BOLD = '\033[1m'
  RESET = '\033[0m'
 
  if pct >= 90:
@@ -79,7 +95,7 @@ try:
  except Exception:
      pass
 
- # Stack detection — read from cache written by project-config.sh (SessionStart)
+ # Stack detection
  stack = ''
  try:
      cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.stack-cache')
@@ -89,13 +105,11 @@ try:
          if cached:
              stack = f' {DIM}|{RESET} ' + cached
      elif cwd:
-         # Fallback: inline detection when cache is absent
-         import json as _json
          stack_parts = []
          pkg = os.path.join(cwd, 'package.json')
          if os.path.isfile(pkg):
              with open(pkg) as f:
-                 pdata = _json.load(f)
+                 pdata = json.load(f)
              deps = {}
              deps.update(pdata.get('dependencies', {}))
              deps.update(pdata.get('devDependencies', {}))
@@ -120,20 +134,23 @@ try:
 
  session_id = data.get('session_id') or 'default'
 
- # Active agent — prefer .agent-dispatched (actual dispatch) over .agent-classified (router guess)
+ # Active agent
  agent = ''
  try:
      scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
-     agent_name = ''
-     for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
-         fpath = os.path.join(scope, fname)
-         if os.path.isfile(fpath):
-             with open(fpath) as f:
-                 agent_name = f.read().strip()
-             if agent_name:
-                 break
-     if agent_name:
-         agent = f' {DIM}|{RESET} {CYAN}Agent: {agent_name}{RESET}'
+     # Prefer native agent field, fallback to scope files
+     native_agent = (data.get('agent') or {}).get('name', '')
+     if native_agent:
+         agent = f' {DIM}|{RESET} {CYAN}{native_agent}{RESET}'
+     else:
+         for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
+             fpath = os.path.join(scope, fname)
+             if os.path.isfile(fpath):
+                 with open(fpath) as f:
+                     agent_name = f.read().strip()
+                 if agent_name:
+                     agent = f' {DIM}|{RESET} {CYAN}{agent_name}{RESET}'
+                     break
  except Exception:
      pass
 
@@ -143,8 +160,6 @@ try:
      mcp_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.active-mcp-{session_id}')
      if os.path.isfile(mcp_path):
          mtime = os.path.getmtime(mcp_path)
-         import time
-         # Only show if MCP was used in the last 60 seconds
          if time.time() - mtime < 60:
              with open(mcp_path) as f:
                  mcp_name = f.read().strip()
@@ -153,11 +168,13 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, git branch, stack, agent, mcp
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}{mcp}'
+ # Lines changed
+ lines = ''
+ if lines_added > 0 or lines_removed > 0:
+     lines = f' {DIM}|{RESET} {GREEN}+{lines_added}{RESET}{DIM}/{RESET}{RED}-{lines_removed}{RESET}'
 
- # Line 2: Context bar, tokens, cost, duration, cache
- cost_fmt = f'${cost:.2f}'
+ # Line 1: Model, project, branch, stack, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):
@@ -167,7 +184,7 @@ try:
          return f'{n/1_000:.1f}K'
      return str(n)
 
- # Context: used/total tokens
+ # Context: used/max
  if ctx_max > 0:
      ctx_str = f'{fmt_tokens(ctx_used)}/{fmt_tokens(ctx_max)}'
  elif ctx_used > 0:
@@ -175,25 +192,39 @@ try:
  else:
      ctx_str = ''
 
- # Token breakdown: input (all) + output
- if total_tok > 0:
+ # Token breakdown
+ if ctx_used > 0:
      tok_seg = f' {DIM}|{RESET} {fmt_tokens(all_input)} in {DIM}/{RESET} {fmt_tokens(output_tok)} out'
  else:
      tok_seg = ''
 
- # Cache: hit rate + tokens saved
+ # Cache
  if cache_total == 0:
      cache_str = f'{DIM}cache: n/a{RESET}'
  elif cache_read == 0:
      cache_str = f'{DIM}cache: warming{RESET}'
  elif cache_saved > 0:
-     cache_str = f'cache {cache_pct}% {DIM}(saved ~{fmt_tokens(cache_saved)}){RESET}'
+     cache_str = f'cache {cache_pct}% {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
  else:
      cache_str = f'cache {cache_pct}%'
 
- # Line 2: bar pct (used/max) | in / out | $cost | Xm Ys | cache
+ # Rate limits
+ rl_str = ''
+ if rl_5h_pct > 0:
+     rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
+     reset_str = ''
+     if rl_5h_reset > 0:
+         remaining = max(0, int(rl_5h_reset - time.time()))
+         rh, rm = remaining // 3600, (remaining % 3600) // 60
+         reset_str = f' {DIM}({rh}h{rm}m){RESET}' if rh > 0 else f' {DIM}({rm}m){RESET}'
+     rl_str = f' {DIM}|{RESET} {rl_color}5h:{rl_5h_pct:.0f}%{RESET}{reset_str}'
+     if rl_7d_pct > 0:
+         rl_str += f' {DIM}7d:{rl_7d_pct:.0f}%{RESET}'
+
+ # Line 2: bar pct (used/max) | in / out | $cost | Xm Ys | cache | rate limits
+ cost_fmt = f'${cost:.2f}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} {cache_str}'
+ line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} {cache_str}{rl_str}'
 
  print(line1)
  print(line2)
