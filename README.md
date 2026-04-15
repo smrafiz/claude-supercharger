@@ -4,7 +4,7 @@ Shell-level guardrails for Claude Code. Install once, forget forever.
 
 Claude Code has root access to your filesystem and git history. Supercharger adds enforced safety hooks, smart auto-approve, desktop notifications, and self-teaching — so you stop worrying and start shipping.
 
-![Version](https://img.shields.io/badge/version-3.5.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.5.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -116,7 +116,7 @@ Line 1: model, project, branch, stack, agent, active MCP, lines added/removed. L
 | Mode | Hooks | What you get |
 |---|---|---|
 | **Safe** | 8 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan |
-| **Full** | 29 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
+| **Full** | 30 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
 
 Safe mode is enough for most people. Full mode adds workflow features for daily Claude Code users.
 
@@ -270,7 +270,7 @@ No. Supercharger tags its entries with <code>#supercharger</code>. Your servers 
 
 ## Credits
 
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp) (notification patterns), and [claude-guard](https://github.com/derek-larson14/claude-guard) (sensitive path blocking).
+Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp) (notification patterns), [claude-guard](https://github.com/derek-larson14/claude-guard) (sensitive path blocking), [token-optimizer](https://github.com/alexgreensh/token-optimizer) (loop/reread detection patterns), and [CCNotify](https://github.com/dazuiba/CCNotify) (elapsed time in notifications).
 
 ## License
 
