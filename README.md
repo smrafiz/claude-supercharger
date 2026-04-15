@@ -4,7 +4,7 @@ Shell-level guardrails for Claude Code. Install once, forget forever.
 
 Claude Code has root access to your filesystem and git history. Supercharger adds enforced safety hooks, smart auto-approve, desktop notifications, and self-teaching — so you stop worrying and start shipping.
 
-![Version](https://img.shields.io/badge/version-3.5.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.5.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -103,11 +103,11 @@ Warns Claude to reconsider — doesn't block, since patterns like `eval()` are l
 ### Status bar
 
 ```
-[Opus 4.6] myproject | main | TypeScript | Agent: Tony Stark | MCP: context7
-████████████░░░░░░░░ 60% (120.5K/200.8K) | 115.2K in / 5.3K out | $2.45 | 8m 12s | cache 92% (saved ~103.7K)
+[Opus] myproject | main | TypeScript | Tony Stark | MCP: context7 | +156/-23
+████████████░░░░░░░░ 60% (120.5K/200K) | 115.2K in / 5.3K out | $2.45 | 8m 12s | cache 92% (~103.7K saved) | 5h:24% (3h42m) 7d:15%
 ```
 
-Model, project, branch, stack, active agent, active MCP server, context % with used/max tokens, in/out breakdown, cost, duration, cache hit rate with savings estimate. Session-scoped — multiple Claude instances don't interfere.
+Line 1: model, project, branch, stack, agent, active MCP, lines added/removed. Line 2: context bar with exact used/max tokens, in/out breakdown, cost, duration, cache with savings, 5h/7d rate limit usage with reset countdown. Session-scoped — multiple Claude instances don't interfere.
 
 ---
 
@@ -116,7 +116,7 @@ Model, project, branch, stack, active agent, active MCP server, context % with u
 | Mode | Hooks | What you get |
 |---|---|---|
 | **Safe** | 8 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan |
-| **Full** | 27 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, MCP tracking |
+| **Full** | 29 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
 
 Safe mode is enough for most people. Full mode adds workflow features for daily Claude Code users.
 
@@ -183,6 +183,8 @@ Eight behavioral profiles, switchable mid-conversation:
 **Quality gate** — lint and format check after file edits. Developer role only.
 
 **Traceback compressor** — 50KB Python stacktrace → 1-line summary. Same for Node.js.
+
+**Token optimization** — loop detector catches repeated tool calls (saves 10-50K tokens per loop). Re-read detector warns when Claude re-reads unchanged files — nudges it to use cached knowledge instead.
 
 **Audit trail** — every file write and command logged to JSONL. Credentials auto-redacted. 30-day rotation.
 
