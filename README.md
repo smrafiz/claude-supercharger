@@ -83,11 +83,20 @@ Claude's built-in permissions run **inside** the conversation — Claude sees th
 
 Use both. `/permissions` for convenience (wildcard approvals). Supercharger for safety (hard blocks).
 
-### 3-layer injection defense
+### Code security scanner
+
+Scans the code Claude **writes** (not just the commands it runs) for common vulnerabilities:
+
+`eval()` · `.innerHTML` · `pickle.load()` · SQL injection via string concat · hardcoded secrets · `os.system()` · weak crypto (MD5) · GitHub Actions injection
+
+Warns Claude to reconsider — doesn't block, since patterns like `eval()` are legitimate in test files.
+
+### 4-layer defense
 
 | Layer | When | What it catches |
 |---|---|---|
 | Config scan | Session start | Injection patterns planted in repo CLAUDE.md files |
+| Code scan | Before Write/Edit | Insecure code patterns (eval, innerHTML, SQL injection, hardcoded secrets) |
 | Runtime scan | MCP/web tool output | "Ignore previous instructions" and similar attacks |
 | Secret scan | Bash/Read tool output | Leaked credentials — warns Claude not to repeat them |
 
@@ -106,8 +115,8 @@ Model, project, branch, stack, active agent, active MCP server, context % with u
 
 | Mode | Hooks | What you get |
 |---|---|---|
-| **Safe** | 7 | Command blocking, auto-approve, audit trail, traceback compression, injection scanning (config + output secrets), config scan |
-| **Full** | 26 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, MCP tracking |
+| **Safe** | 8 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan |
+| **Full** | 27 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, MCP tracking |
 
 Safe mode is enough for most people. Full mode adds workflow features for daily Claude Code users.
 
