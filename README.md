@@ -224,7 +224,7 @@ bash ~/.claude/supercharger/tools/mcp-setup.sh        # add MCP servers
 bash ~/.claude/supercharger/tools/claude-check.sh     # full diagnostic
 ```
 
-**Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar. Use `/permissions` for wildcard rules: `Bash(npm run *)`, `Edit(/docs/**)`. Use `/effort medium` for token savings alongside economy tiers. Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` for cheaper sub-agents.
+**Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar. Use `/permissions` for wildcard rules: `Bash(npm run *)`, `Edit(/docs/**)`. Use `/effort medium` for token savings alongside economy tiers. Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` for cheaper sub-agents. Set `MAX_THINKING_TOKENS=10000` to cap thinking token budget on Opus. Use `/cost` to monitor token usage mid-session.
 
 ---
 

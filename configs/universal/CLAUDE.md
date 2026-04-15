@@ -29,9 +29,13 @@ Destructive commands are blocked at the shell level — you will receive an erro
 - No hallucinated libraries, functions, or flags
 
 ## Context Management
-- When context exceeds 60%, proactively suggest /compact
+- When context exceeds 60%, proactively suggest /compact and /cost
 - Preserve key decisions and constraints through compaction
+- When compacting, always preserve: modified files list, test commands, architecture decisions
+- Skip files over 100KB unless explicitly required
+- Do not re-read files you already read unless they may have changed
 - For multi-turn tasks, track what was decided and what failed
+- When switching to unrelated work, suggest /clear instead of continuing
 
 ## Quick Mode Switches
 All 8 roles are always available. Say any of these to shift behavior mid-conversation:

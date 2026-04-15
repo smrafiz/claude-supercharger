@@ -26,7 +26,7 @@ echo "[Supercharger] context-advisor: ${PCT}% used" >&2
 if [ "$PCT" -lt 50 ]; then
   exit 0
 elif [ "$PCT" -lt 80 ]; then
-  MSG="[CONTEXT] At ${PCT}% context. Consider /compact if conversation continues."
+  MSG="[CONTEXT] At ${PCT}% context. Consider /compact if conversation continues. Run /cost to check token usage."
 elif [ "$PCT" -lt 90 ]; then
   MSG="[CONTEXT WARNING] At ${PCT}% context. Run /compact now. Consider: eco minimal. Before compacting, verify: tests pass, build clean, no uncommitted work."
 else
