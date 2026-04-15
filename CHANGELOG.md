@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.5.8] - 2026-04-15 — Agent name normalization in statusline (safety net), simplified rate limit format
 - [3.5.7] - 2026-04-15 — Normalize dispatched agent name (dash→space, title case), Agent: label in statusline
 - [3.5.6] - 2026-04-15 — 3-line statusline with labels, Agent: prefix, Usage: Session/Weekly format, agent-gate multi-field detection
 - [3.5.5] - 2026-04-15 — Fix statusline line 2 vanishing (rate limits type error), idle notification 60s cooldown

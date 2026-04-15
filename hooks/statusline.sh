@@ -148,6 +148,7 @@ try:
      # Prefer native agent field, fallback to scope files
      native_agent = (data.get('agent') or {}).get('name', '')
      if native_agent:
+         native_agent = ' '.join(w.capitalize() for w in native_agent.replace('-', ' ').replace('_', ' ').split())
          agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{native_agent}{RESET}'
      else:
          for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
@@ -156,6 +157,7 @@ try:
                  with open(fpath) as f:
                      agent_name = f.read().strip()
                  if agent_name:
+                     agent_name = ' '.join(w.capitalize() for w in agent_name.replace('-', ' ').replace('_', ' ').split())
                      agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{agent_name}{RESET}'
                      break
  except Exception:
@@ -224,8 +226,8 @@ try:
          if rl_5h_reset and float(rl_5h_reset) > 0:
              remaining = max(0, int(float(rl_5h_reset) - time.time()))
              rh, rm = remaining // 3600, (remaining % 3600) // 60
-             reset_label = f' (resets in {rh}h {rm}m)' if rh > 0 else f' (resets in {rm}m)'
-         rl_str = f' {DIM}|{RESET} {DIM}Usage:{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}% used{reset_label}{RESET}'
+             reset_label = f' (resets: {rh}h {rm}m)' if rh > 0 else f' (resets: {rm}m)'
+         rl_str = f' {DIM}|{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}%{reset_label}{RESET}'
          if rl_7d_pct and float(rl_7d_pct) > 0:
              rl_str += f' {DIM}· Weekly: {float(rl_7d_pct):.0f}%{RESET}'
  except Exception:
