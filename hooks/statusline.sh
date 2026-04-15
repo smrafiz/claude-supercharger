@@ -239,7 +239,12 @@ try:
  line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
 
  # Line 3: cost + duration + rate limits
- dur_str = f'{mins}h {secs}m' if mins >= 60 else f'{mins}m {secs}s'
+ if mins >= 60:
+     hrs = mins // 60
+     rem_mins = mins % 60
+     dur_str = f'{hrs}h {rem_mins}m'
+ else:
+     dur_str = f'{mins}m {secs}s'
  line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
 
  print(line1)
