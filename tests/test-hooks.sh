@@ -382,10 +382,10 @@ echo "=== Statusline Tests ==="
 
 STATUSLINE_HOOK="$REPO_DIR/hooks/statusline.sh"
 
-begin_test "statusline: outputs 2 lines with valid JSON"
+begin_test "statusline: outputs 3 lines"
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/test"},"cost":{"total_cost_usd":0.5,"total_duration_ms":60000},"context_window":{"used_percentage":25,"current_usage":{"cache_read_input_tokens":1000,"cache_creation_input_tokens":500}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
 LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
-[ "$LINE_COUNT" -eq 2 ] && pass || fail "expected 2 lines, got $LINE_COUNT"
+[ "$LINE_COUNT" -eq 3 ] && pass || fail "expected 3 lines, got $LINE_COUNT"
 
 begin_test "statusline: line 1 contains model name"
 OUTPUT=$(echo '{"model":{"display_name":"Sonnet"},"workspace":{"current_dir":"/tmp/myproj"},"cost":{},"context_window":{}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
@@ -396,19 +396,19 @@ echo "$OUTPUT" | head -1 | grep -q "myproj" && pass || fail "dirname not in line
 
 begin_test "statusline: line 2 contains percentage"
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/x"},"cost":{"total_cost_usd":1.23},"context_window":{"used_percentage":75,"current_usage":{}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
-echo "$OUTPUT" | tail -1 | grep -q "75%" && pass || fail "percentage not in line 2"
+echo "$OUTPUT" | sed -n '2p' | grep -q "75%" && pass || fail "percentage not in line 2"
 
-begin_test "statusline: line 2 contains cost"
-echo "$OUTPUT" | tail -1 | grep -q '1.23' && pass || fail "cost not in line 2"
+begin_test "statusline: line 3 contains cost"
+echo "$OUTPUT" | sed -n '3p' | grep -q '1.23' && pass || fail "cost not in line 3"
 
 begin_test "statusline: cache hit rate calculated correctly"
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"/tmp/x"},"cost":{},"context_window":{"used_percentage":10,"current_usage":{"cache_read_input_tokens":800,"cache_creation_input_tokens":200}}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
-echo "$OUTPUT" | tail -1 | grep -q "cache 80%" && pass || fail "cache rate not 80%"
+echo "$OUTPUT" | sed -n '2p' | grep -q "cache 80%" && pass || fail "cache rate not 80%"
 
 begin_test "statusline: handles missing fields gracefully"
 OUTPUT=$(echo '{"model":{},"workspace":{},"cost":{},"context_window":{}}' | bash "$STATUSLINE_HOOK" 2>/dev/null)
 LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
-[ "$LINE_COUNT" -eq 2 ] && pass || fail "should still output 2 lines with missing fields"
+[ "$LINE_COUNT" -eq 3 ] && pass || fail "should still output 3 lines with missing fields"
 
 # --- Stack Detection Tests ---
 
