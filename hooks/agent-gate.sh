@@ -15,12 +15,30 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 CLASSIFIED_FILE="$SCOPE_DIR/.agent-classified-${SESSION_ID}"
 DISPATCHED_FILE="$SCOPE_DIR/.agent-dispatched-${SESSION_ID}"
 
-DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/dev/null)
+# Try multiple fields where the agent name might be
+DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '
+  .tool_input.subagent_type //
+  .tool_input.agent //
+  .tool_input.name //
+  .tool_input.description //
+  empty
+' 2>/dev/null)
+
+# Fallback: extract agent name from the description field (first line, first few words)
 if [ -z "$DISPATCHED" ]; then
-  DISPATCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('subagent_type',''))" 2>/dev/null || echo "")
+  DISPATCHED=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json
+ti = json.load(sys.stdin).get('tool_input', {})
+print(ti.get('subagent_type', '') or ti.get('agent', '') or ti.get('name', '') or ti.get('description', '').split('\n')[0][:60])
+" 2>/dev/null || echo "")
 fi
 
 [ -z "$DISPATCHED" ] && exit 0
+
+# Clean up: if description is long, take first meaningful chunk
+if [ ${#DISPATCHED} -gt 60 ]; then
+  DISPATCHED="${DISPATCHED:0:57}..."
+fi
 
 # Read classifier's route for mismatch detection
 STORED_AGENT=$(cat "$CLASSIFIED_FILE" 2>/dev/null || echo "")
