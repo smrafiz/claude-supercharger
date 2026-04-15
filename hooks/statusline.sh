@@ -234,10 +234,11 @@ try:
  # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
+ line2 = f'{bar_color}{bar}{RESET} {DIM}ctx{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
 
  # Line 3: cost + duration + rate limits
- line3 = f'{YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s{rl_str}'
+ dur_str = f'{mins}h {secs}m' if mins >= 60 else f'{mins}m {secs}s'
+ line3 = f'{DIM}cost{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}time{RESET} {dur_str}{rl_str}'
 
  print(line1)
  print(line2)
