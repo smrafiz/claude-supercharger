@@ -148,7 +148,7 @@ try:
      # Prefer native agent field, fallback to scope files
      native_agent = (data.get('agent') or {}).get('name', '')
      if native_agent:
-         agent = f' {DIM}|{RESET} {CYAN}{native_agent}{RESET}'
+         agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{native_agent}{RESET}'
      else:
          for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
              fpath = os.path.join(scope, fname)
@@ -156,7 +156,7 @@ try:
                  with open(fpath) as f:
                      agent_name = f.read().strip()
                  if agent_name:
-                     agent = f' {DIM}|{RESET} {CYAN}{agent_name}{RESET}'
+                     agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{agent_name}{RESET}'
                      break
  except Exception:
      pass
