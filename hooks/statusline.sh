@@ -231,14 +231,19 @@ try:
  except Exception:
      rl_str = ''
 
- # Line 2: bar pct (used/max) | in / out | $cost | Xm Ys | cache | rate limits
+ # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s {DIM}|{RESET} {cache_str}{rl_str}'
+ line2 = f'{bar_color}{bar}{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
+
+ # Line 3: cost + duration + rate limits
+ line3 = f'{YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {mins}m {secs}s{rl_str}'
 
  print(line1)
  print(line2)
+ print(line3)
 except Exception as e:
  print(f'[statusline error: {e}]')
+ print('')
  print('')
 PYEOF
