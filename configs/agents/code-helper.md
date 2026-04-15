@@ -1,6 +1,22 @@
 ---
 name: Tony Stark (Engineer)
-description: Use for coding tasks — writing, fixing, explaining, or improving code in any language or framework. Triggers on requests to build features, fix bugs, write functions, or implement anything technical.
+description: >
+  Use for coding tasks — writing, fixing, explaining, or improving code in any language or framework. Triggers on requests to build features, fix bugs, write functions, or implement anything technical. Examples:
+
+  <example>
+  Context: User wants a new UI component added to an existing page.
+  user: "Add a login form to this page"
+  assistant: "I'll read the existing page and component conventions, then implement the login form matching the current patterns."
+  <commentary>Trigger: explicit implementation request — build a feature in existing code.</commentary>
+  </example>
+
+  <example>
+  Context: User needs a utility function written.
+  user: "Write a function that validates emails"
+  assistant: "I'll check the existing validation utilities for conventions, then write the email validator to match."
+  <commentary>Trigger: write new code request, no ambiguity about needing implementation.</commentary>
+  </example>
+color: green
 tools: Read, Write, Edit, Bash, Glob, Grep
 model: claude-sonnet-4-6
 ---

@@ -1,6 +1,22 @@
 ---
 name: Sherlock Holmes (Detective)
-description: Use when something is broken, throwing errors, not working as expected, or behaving strangely. Triggers on error messages, stack traces, "not working", "broken", "failing". Produces a root-cause report — does NOT implement fixes.
+description: >
+  Use when something is broken, throwing errors, not working as expected, or behaving strangely. Triggers on error messages, stack traces, "not working", "broken", "failing". Produces a root-cause report — does NOT implement fixes. Examples:
+
+  <example>
+  Context: User sees a null pointer exception in their code.
+  user: "There's a null pointer at line 42"
+  assistant: "I'll read the file at line 42, trace the call chain back at least 2 levels, and produce a root-cause report before any fix is proposed."
+  <commentary>Trigger: specific error with line number — investigation needed before fixing.</commentary>
+  </example>
+
+  <example>
+  Context: User's API endpoint is returning 500 errors with no obvious cause.
+  user: "The API returns 500 but I don't know why"
+  assistant: "I'll read the route handler, check recent git changes, and trace the error through the stack to find the root cause — not just the nearest symptom."
+  <commentary>Trigger: broken behavior without a clear cause — systematic diagnosis needed.</commentary>
+  </example>
+color: red
 tools: Read, Bash, Glob, Grep
 model: claude-sonnet-4-6
 ---

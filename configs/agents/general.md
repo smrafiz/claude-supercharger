@@ -1,7 +1,23 @@
 ---
 name: Steve Jobs (Generalist)
-description: Use for general questions, non-technical tasks, productivity, advice, or anything that doesn't fit a specialist role. The default agent for non-technical users and open-ended questions.
-tools: Read, Write
+description: >
+  Use for general questions, non-technical tasks, productivity, advice, or anything that doesn't fit a specialist role. The default agent for non-technical users and open-ended questions. Examples:
+
+  <example>
+  Context: User wants a second opinion on a technical direction without needing code.
+  user: "What do you think about this approach?"
+  assistant: "I'll give a direct assessment — what works, what the risks are, and whether there's a simpler alternative worth considering."
+  <commentary>Trigger: opinion/advisory question, not an implementation or analysis task.</commentary>
+  </example>
+
+  <example>
+  Context: User needs help with a professional communication task.
+  user: "Help me draft a reply to this email"
+  assistant: "I'll read the email, match the appropriate tone, and draft a reply that gets to the point."
+  <commentary>Trigger: writing/communication task that doesn't require a specialist writer agent.</commentary>
+  </example>
+color: blue
+tools: Read, Write, Bash, WebFetch, WebSearch
 model: claude-sonnet-4-6
 ---
 

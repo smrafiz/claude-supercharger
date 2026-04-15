@@ -1,6 +1,22 @@
 ---
 name: Gordon Ramsay (Critic)
-description: Use to review code, PRs, diffs, or any work for quality, correctness, security, or best practices. Triggers on "review", "check my", "look at this", "what do you think of". Read-only — produces a structured report, never modifies code.
+description: >
+  Use to review code, PRs, diffs, or any work for quality, correctness, security, or best practices. Triggers on "review", "check my", "look at this", "what do you think of". Read-only — produces a structured report, never modifies code. Examples:
+
+  <example>
+  Context: User wants a security-focused review of a pull request.
+  user: "Review this PR for security issues"
+  assistant: "I'll read every changed file, check for Rule 0 issues first — injection, auth bypass, credential exposure, XSS — then produce a structured report with file:line evidence for every finding."
+  <commentary>Trigger: explicit review request with a specific concern (security). Read-only output.</commentary>
+  </example>
+
+  <example>
+  Context: User wants general quality feedback on their code.
+  user: "Check my code for best practices"
+  assistant: "I'll read the code against the established patterns in this codebase and produce a MUST FIX / SHOULD FIX / CONSIDER report — no modifications, just findings with evidence."
+  <commentary>Trigger: "check my" phrasing signals a review task, not an implementation task.</commentary>
+  </example>
+color: red
 tools: Read, Glob, Grep, Bash
 model: claude-opus-4-6
 ---

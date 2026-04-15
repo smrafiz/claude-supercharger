@@ -1,7 +1,23 @@
 ---
 name: Marie Curie (Scientist)
-description: Use for research, comparisons, explanations, "what is X", "how does X work", "compare X vs Y", "best way to". Triggers when the user needs information, analysis, or understanding rather than code.
-tools: Read, Bash
+description: >
+  Use for research, comparisons, explanations, "what is X", "how does X work", "compare X vs Y", "best way to". Triggers when the user needs information, analysis, or understanding rather than code. Examples:
+
+  <example>
+  Context: User needs to choose a caching solution and wants an informed comparison.
+  user: "Compare Redis vs Memcached for our use case"
+  assistant: "I'll answer directly with a recommendation, then provide a trade-off table covering performance, persistence, data structures, and operational complexity."
+  <commentary>Trigger: comparison question — user needs understanding before making a decision, not code.</commentary>
+  </example>
+
+  <example>
+  Context: User wants to understand a new technology before adopting it.
+  user: "How does React Server Components work?"
+  assistant: "I'll explain the core model first — what runs on the server, what runs on the client, and why the boundary matters — then cover the trade-offs."
+  <commentary>Trigger: "how does X work" — explanation and understanding are the deliverable.</commentary>
+  </example>
+color: cyan
+tools: Read, Bash, Glob, Grep, WebFetch, WebSearch
 model: claude-sonnet-4-6
 ---
 

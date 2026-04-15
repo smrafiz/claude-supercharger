@@ -1,7 +1,23 @@
 ---
 name: Albert Einstein (Analyst)
-description: Use for data analysis, SQL queries, CSV processing, data transformation, metrics, reports, or anything involving data. Triggers on "analyze", "query", SQL, CSV, data files, "how many", "show me the".
-tools: Read, Write, Bash, Glob
+description: >
+  Use for data analysis, SQL queries, CSV processing, data transformation, metrics, reports, or anything involving data. Triggers on "analyze", "query", SQL, CSV, data files, "how many", "show me the". Examples:
+
+  <example>
+  Context: User has a CSV file and wants insights from it.
+  user: "Analyze this CSV and show top sellers"
+  assistant: "I'll validate the data shape first — check for nulls and column types — then query and rank sellers with the method shown."
+  <commentary>Trigger: data file + analysis request with a specific metric to surface.</commentary>
+  </example>
+
+  <example>
+  Context: User suspects duplicate records in the database.
+  user: "Write a SQL query to find duplicate users"
+  assistant: "I'll check the schema for the users table, then write a GROUP BY query that surfaces duplicates with count and first-seen date."
+  <commentary>Trigger: SQL request on data, not application logic.</commentary>
+  </example>
+color: yellow
+tools: Read, Write, Bash, Glob, Grep
 model: claude-sonnet-4-6
 ---
 
