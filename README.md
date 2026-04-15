@@ -71,6 +71,18 @@ Claude learns from your sessions and carries it forward:
 
 All four signals injected at session start. Claude gets smarter with every session.
 
+### Why not just `/permissions`?
+
+Claude's built-in permissions run **inside** the conversation — Claude sees the rules and can reason around them. Supercharger hooks run **outside** at the shell level. Claude never sees blocked commands.
+
+| `/permissions` (inside) | Supercharger hooks (outside) |
+|---|---|
+| Claude sees the rules | Claude never sees them |
+| Can reason and negotiate | Can't argue with exit code 2 |
+| Advisory — Claude decides | Enforced — shell decides |
+
+Use both. `/permissions` for convenience (wildcard approvals). Supercharger for safety (hard blocks).
+
 ### 3-layer injection defense
 
 | Layer | When | What it catches |
