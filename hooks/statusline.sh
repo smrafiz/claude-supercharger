@@ -34,10 +34,11 @@ try:
  # Use official context_window_size if available (exact), else derive
  ctx_max = ctx.get('context_window_size', 0) or 0
 
- # Total tokens from official fields
- total_input = ctx.get('total_input_tokens', 0) or 0
- total_output = ctx.get('total_output_tokens', 0) or 0
+ # Cumulative session totals
+ session_input = ctx.get('total_input_tokens', 0) or 0
+ session_output = ctx.get('total_output_tokens', 0) or 0
 
+ # Current context usage (last API call)
  usage = ctx.get('current_usage') or {}
  cache_read = usage.get('cache_read_input_tokens', 0) or 0
  cache_create = usage.get('cache_creation_input_tokens', 0) or 0
@@ -47,9 +48,13 @@ try:
  input_tok = usage.get('input_tokens', 0) or 0
  output_tok = usage.get('output_tokens', 0) or 0
 
- # All input = uncached + cached
- all_input = input_tok + cache_read + cache_create
- ctx_used = all_input + output_tok
+ # Context used = input only (matches used_percentage calculation per docs)
+ # used_percentage = input_tokens + cache_creation + cache_read
+ ctx_used = input_tok + cache_read + cache_create
+
+ # For display: show session cumulative in/out
+ display_input = session_input if session_input > 0 else ctx_used
+ display_output = session_output if session_output > 0 else output_tok
 
  # Fallback: derive max from percentage if not provided
  if ctx_max == 0 and pct > 0 and ctx_used > 0:
@@ -194,9 +199,9 @@ try:
  else:
      ctx_str = ''
 
- # Token breakdown
- if ctx_used > 0:
-     tok_seg = f' {DIM}|{RESET} {fmt_tokens(all_input)} in {DIM}/{RESET} {fmt_tokens(output_tok)} out'
+ # Token breakdown (session cumulative)
+ if display_input > 0 or display_output > 0:
+     tok_seg = f' {DIM}|{RESET} {fmt_tokens(display_input)} in {DIM}/{RESET} {fmt_tokens(display_output)} out'
  else:
      tok_seg = ''
 
