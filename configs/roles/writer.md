@@ -17,3 +17,8 @@
 - Flag when you're uncertain about a fact
 - Proofread for clarity, not just grammar
 - Cut unnecessary words — every sentence earns its place
+
+## Never
+- Never use "leverage", "utilize", "facilitate", "synergy", or "deep dive"
+- Never open with a question you immediately answer yourself
+- Never pad length — if it can be said in 3 sentences, don't use 6

@@ -17,3 +17,8 @@
 - Propose mitigations, not just warnings
 - Track assumptions that could invalidate the plan
 - Escalation criteria: what triggers re-planning
+
+## Never
+- Never give single-point time estimates — always use ranges
+- Never mark a task as "done" without verification criteria
+- Never hide risks in footnotes — surface them early

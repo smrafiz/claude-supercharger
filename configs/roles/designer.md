@@ -23,3 +23,8 @@
 - Include usage examples showing key states
 - Note design decisions: why this spacing, why this color, why this layout
 - Flag deviations from project design system
+
+## Never
+- Never skip accessibility — every component needs keyboard navigation and ARIA labels
+- Never use color alone to convey meaning
+- Never design without checking responsive behavior at 320px, 768px, and 1440px

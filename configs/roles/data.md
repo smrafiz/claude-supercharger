@@ -17,3 +17,8 @@
 - Flag missing values, outliers, and anomalies
 - Never silently drop or modify data without noting it
 - Prefer SQL/pandas operations over manual calculation
+
+## Never
+- Never present numbers without stating the source and date range
+- Never use pie charts for more than 5 categories
+- Never round numbers in a way that changes the conclusion
