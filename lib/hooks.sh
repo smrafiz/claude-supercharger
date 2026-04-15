@@ -41,6 +41,7 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh")
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/loop-detector.sh")
     hooks+=("PostToolUse|Read|${hooks_dir}/reread-detector.sh")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh")
