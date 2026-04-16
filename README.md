@@ -2,7 +2,7 @@
 
 Shell-level guardrails for Claude Code. Install once, forget forever.
 
-Claude Code has root access to your filesystem and git history. Supercharger adds enforced safety hooks, smart auto-approve, desktop notifications, and self-teaching — so you stop worrying and start shipping.
+Claude Code has root access to your filesystem and git history. One bad command and you're spending hours recovering. Supercharger puts a wall between Claude and the damage — shell hooks that block before execution, not prompts Claude can talk its way around.
 
 ![Version](https://img.shields.io/badge/version-3.6.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
 
@@ -69,7 +69,7 @@ Claude learns from your sessions and carries it forward:
 | Positive reinforcement | "perfect, keep doing that" | "Keep this approach" |
 | Repeated failures | Same command fails 3x | Live nudge: "try a different approach" |
 
-All four signals injected at session start. Claude gets smarter with every session.
+All four get logged and injected at the start of every new session. The more you use it, the fewer mistakes Claude repeats.
 
 ### Why not just `/permissions`?
 
@@ -108,7 +108,7 @@ Context: ████████████░░░░░░░░ 60% (120.5
 Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
 
-Line 1: model, project, branch, stack, agent, active MCP, lines changed. Line 2: context bar with used/max tokens, in/out breakdown, cache savings. Line 3: cost, duration, session and weekly rate limits with reset countdown. Session-scoped — multiple instances don't interfere.
+Everything you'd check manually — context pressure, burn rate, cache efficiency, how close you are to the rate limit — in three lines. Each Claude session gets its own state, so running five instances doesn't cross wires.
 
 ---
 
@@ -119,13 +119,13 @@ Line 1: model, project, branch, stack, agent, active MCP, lines changed. Line 2:
 | **Safe** | 8 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan |
 | **Full** | 30 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
 
-Safe mode is enough for most people. Full mode adds workflow features for daily Claude Code users.
+Most people should start with Safe. If you're in Claude Code all day and want the statusline, notifications, and token optimization — switch to Full.
 
 ---
 
 ## The instructional layer
 
-**Two layers.** Layer 1 is enforced — shell hooks that block regardless of what Claude wants. Layer 2 is instructional — prompt configurations that shape behavior effectively but not physically.
+Everything above runs at the shell level — Claude can't bypass it. What follows is the opposite: prompt-level instructions that shape how Claude behaves. They work well in practice, but Claude could ignore them if it decided to. Think of it as the difference between a locked door and a sign that says "please knock."
 
 ### Token economy
 
