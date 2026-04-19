@@ -23,7 +23,8 @@ block() {
   echo "" >&2
   local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
-  printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$COMMAND" >> "$blocks_log" 2>/dev/null || true
+  local safe_cmd="${COMMAND:0:120}"
+  printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
   exit 2
 }

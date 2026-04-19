@@ -24,7 +24,19 @@ block() {
   # Log for learning — future sessions will know to avoid this pattern
   local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
-  printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$COMMAND" >> "$blocks_log" 2>/dev/null || true
+  # Redact credentials before logging
+  local safe_cmd
+  safe_cmd=$(printf '%s' "$COMMAND" | sed \
+    -e 's/\(PGPASSWORD=\)[^ ]*/\1[REDACTED]/g' \
+    -e 's/\(PASSWORD=\)[^ ]*/\1[REDACTED]/g' \
+    -e 's/\(SECRET=\)[^ ]*/\1[REDACTED]/g' \
+    -e 's/\(TOKEN=\)[^ ]*/\1[REDACTED]/g' \
+    -e 's/\(API_KEY=\)[^ ]*/\1[REDACTED]/g' \
+    -e 's/ghp_[A-Za-z0-9]\{36\}/[REDACTED]/g' \
+    -e 's/sk-[A-Za-z0-9]\{32,\}/[REDACTED]/g')
+  # Truncate to 120 chars to avoid bloating session context
+  safe_cmd="${safe_cmd:0:120}"
+  printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
   exit 2
 }

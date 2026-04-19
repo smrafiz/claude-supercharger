@@ -55,22 +55,22 @@ $1"
   fi
 }
 
-# Blocked commands (last 15)
+# Blocked commands (last 10)
 if [ -f "$BLOCKS_LOG" ] && [ -s "$BLOCKS_LOG" ]; then
   append "[BLOCKED COMMANDS] These were blocked — do not attempt them:
-$(tail -15 "$BLOCKS_LOG")"
+$(tail -10 "$BLOCKS_LOG")"
 fi
 
-# User corrections (last 15)
+# User corrections (last 10)
 if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
   append "[USER CORRECTIONS] The user corrected these — respect them:
-$(tail -15 "$CORRECTIONS_LOG")"
+$(tail -10 "$CORRECTIONS_LOG")"
 fi
 
-# User reinforcements (last 15)
+# User reinforcements (last 10)
 if [ -f "$REINFORCEMENTS_LOG" ] && [ -s "$REINFORCEMENTS_LOG" ]; then
   append "[WHAT WORKS] The user praised these approaches — keep doing them:
-$(tail -15 "$REINFORCEMENTS_LOG")"
+$(tail -10 "$REINFORCEMENTS_LOG")"
 fi
 
 # Repeated failures (patterns that failed 3+ times, top 5)
