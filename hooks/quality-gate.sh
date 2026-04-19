@@ -18,7 +18,7 @@ fi
 
 PROJECT_ROOT=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || dirname "$FILE_PATH")
 EXT="${FILE_PATH##*.}"
-MAX_ITERATIONS=3
+MAX_ITERATIONS=2
 ITERATION=0
 HAD_ISSUES=false
 

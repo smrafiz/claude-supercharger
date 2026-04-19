@@ -23,7 +23,7 @@ OPEN_FILES=$(git diff --name-only 2>/dev/null; git diff --cached --name-only 2>/
 OPEN_FILES=$(printf '%s\n' "$OPEN_FILES" | sort -u | grep -v '^$' | head -15 | sed 's/^/- /' || echo "")
 
 # --- Recent commits (completed decisions) ---
-RECENT_COMMITS=$(git log --oneline -5 2>/dev/null || echo "")
+RECENT_COMMITS=$(git log --oneline -3 2>/dev/null || echo "")
 
 # --- Branch ---
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
@@ -61,7 +61,7 @@ if [ -f "$MEMORY_FILE" ]; then
 fi
 
 # Truncate to 2000 chars
-printf '%.2000s\n' "$CONTENT" > "$MEMORY_FILE"
+printf '%.1200s\n' "$CONTENT" > "$MEMORY_FILE"
 
 echo "[Supercharger] session-memory: wrote $MEMORY_FILE" >&2
 exit 0
