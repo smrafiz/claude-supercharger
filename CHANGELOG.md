@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.6.10] - 2026-04-19 — Add session memory (writes .claude/supercharger-memory.md on Stop, injects at SessionStart)
 - [3.6.9] - 2026-04-19 — Add project-verify hook (.claude/verify.sh runs on Stop, feeds failures back); compress subagent safety injection 26→4 lines
 - [3.6.8] - 2026-04-19 — Fix credential leakage in blocked-commands log; redact PASSWORD/TOKEN/SECRET before logging; truncate to 120 chars; reduce injection cap 15→10
 - [3.6.7] - 2026-04-19 — Compaction instructions, skill trigger table, cache-ordered economy.md, MCP output truncator, supercharger.md lazy-load
