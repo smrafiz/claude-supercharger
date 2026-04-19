@@ -116,7 +116,7 @@ Everything you'd check manually — context pressure, burn rate, cache efficienc
 
 | Mode | Hooks | What you get |
 |---|---|---|
-| **Safe** | 8 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan |
+| **Safe** | 9 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan, MCP output truncation |
 | **Full** | 30 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
 
 Most people should start with Safe. If you're in Claude Code all day and want the statusline, notifications, and token optimization — switch to Full.
@@ -126,6 +126,25 @@ Most people should start with Safe. If you're in Claude Code all day and want th
 ## The instructional layer
 
 Everything above runs at the shell level — Claude can't bypass it. What follows is the opposite: prompt-level instructions that shape how Claude behaves. They work well in practice, but Claude could ignore them if it decided to. Think of it as the difference between a locked door and a sign that says "please knock."
+
+### Compaction instructions
+
+When you run `/compact`, Claude is told what to preserve: modified files, active economy tier, test commands, architecture decisions, what failed. Stale file contents and completed task details are discarded. Add your own compaction instructions to your project `CLAUDE.md`.
+
+### Skill routing
+
+A trigger table in `CLAUDE.md` routes common tasks to the right skill without loading the full skill index:
+
+| Task | Skill |
+|---|---|
+| Debugging / errors | `superpowers:systematic-debugging` |
+| TDD / new feature | `superpowers:test-driven-development` |
+| Multi-step plan | `superpowers:writing-plans` |
+| Execute a plan | `superpowers:executing-plans` |
+| Code review | `superpowers:requesting-code-review` |
+| Branch complete | `superpowers:finishing-a-development-branch` |
+
+---
 
 ### Token economy
 
@@ -185,6 +204,8 @@ Eight behavioral profiles, switchable mid-conversation:
 
 **Traceback compressor** — 50KB Python stacktrace → 1-line summary. Same for Node.js.
 
+**MCP output truncator** — caps MCP tool responses at 3.5K chars. Prevents context7 docs, Playwright snapshots, or memory dumps from flooding the context window (ref: issue #29971, ~25K tokens per heavy call).
+
 **Token optimization** — loop detector catches repeated tool calls (saves 10-50K tokens per loop). Re-read detector warns when Claude re-reads unchanged files — nudges it to use cached knowledge instead.
 
 **Audit trail** — every file write and command logged to JSONL. Credentials auto-redacted. 30-day rotation.
@@ -240,6 +261,7 @@ bash ~/.claude/supercharger/tools/economy-switch.sh   # change tier permanently
 bash ~/.claude/supercharger/tools/hook-toggle.sh      # enable/disable specific hooks
 bash ~/.claude/supercharger/tools/config-health.sh    # installation health score
 bash ~/.claude/supercharger/tools/mcp-setup.sh        # add MCP servers
+bash ~/.claude/supercharger/tools/mcp-profile.sh      # switch MCP profile (light/dev/research/full)
 bash ~/.claude/supercharger/tools/claude-check.sh     # full diagnostic
 ```
 
