@@ -23,7 +23,7 @@ PCT=${PCT%%.*}
 
 echo "[Supercharger] context-advisor: ${PCT}% used" >&2
 
-if [ "$PCT" -lt 50 ]; then
+if [ "$PCT" -lt 70 ]; then
   exit 0
 elif [ "$PCT" -lt 80 ]; then
   MSG="[CONTEXT] At ${PCT}% context. Consider /compact if conversation continues. Run /cost to check token usage."

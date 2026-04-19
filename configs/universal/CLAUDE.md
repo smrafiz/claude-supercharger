@@ -29,7 +29,7 @@ Destructive commands are blocked at the shell level — you will receive an erro
 - No hallucinated libraries, functions, or flags
 
 ## Context Management
-- When context exceeds 60%, proactively suggest /compact and /cost
+- When context exceeds 70%, proactively suggest /compact and /cost
 - Preserve key decisions and constraints through compaction
 - When compacting, always preserve: modified files list, test commands, architecture decisions
 - Skip files over 100KB unless explicitly required
