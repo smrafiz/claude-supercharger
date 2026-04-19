@@ -279,6 +279,37 @@ if roles_raw:
             flags=re.DOTALL
         )
 
+# Minify: strip file title, redundant helper text, collapse blank lines
+lines = result.split('\n')
+out = []
+prev_blank = False
+for line in lines:
+    # Strip file title
+    if line.startswith('# Token Economy'):
+        continue
+    # Strip session-switching prose (not needed at runtime)
+    if line.startswith('Switching is session-only'):
+        continue
+    if line.startswith('  bash tools/economy-switch'):
+        continue
+    if line.startswith('Can combine with role switch'):
+        continue
+    # Strip classification rules filler lines
+    if line.startswith('- If a response mixes types') or line == '- When in doubt, treat it as the shorter type':
+        continue
+    if line == 'Classification rules:':
+        continue
+    # Collapse consecutive blank lines
+    if line.strip() == '':
+        if prev_blank:
+            continue
+        prev_blank = True
+    else:
+        prev_blank = False
+    out.append(line)
+
+result = '\n'.join(out).strip() + '\n'
+
 with open(os.environ['ECONOMY_OUTPUT'], 'w') as f:
     f.write(result)
 "
