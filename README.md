@@ -251,6 +251,27 @@ Drop `.supercharger.json` in your repo root:
 ```
 Commit it. Everyone on the team gets the same behavior.
 
+### Session memory
+
+Full mode writes `.claude/supercharger-memory.md` when Claude stops — modified files, recent commits, active tier, recent corrections. Injected automatically at the next session start to restore context.
+
+Add to your `.gitignore` if you don't want to commit it:
+```
+.claude/supercharger-memory.md
+```
+
+Or commit it for shared team memory across sessions.
+
+### Project verify hook
+
+Drop `.claude/verify.sh` in your repo to run tests/lint automatically when Claude stops. If it fails, Claude sees the output and continues fixing.
+
+```bash
+cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
+# uncomment the lines matching your stack
+chmod +x .claude/verify.sh
+```
+
 ---
 
 ## Tools
