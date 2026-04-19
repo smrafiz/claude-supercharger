@@ -1,5 +1,7 @@
 # Token Economy — Claude Supercharger
 
+{{ACTIVE_TIER}}
+
 ## Universal Output Rules
 These apply at every tier and cannot be overridden:
 
@@ -23,10 +25,6 @@ All responses fall into one of these types. Tier modifiers set expectations per 
 Classification rules:
 - If a response mixes types, each section follows its own type's rules
 - When in doubt, treat it as the shorter type
-
-## Economy Tiers
-
-{{ACTIVE_TIER}}
 
 ## Role Constraints
 Each role declares a default tier and allowed range (floor–ceiling).
