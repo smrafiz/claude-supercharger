@@ -156,6 +156,11 @@ if os.path.isfile(statusline_path):
 if 'attribution' not in settings:
     settings['attribution'] = {'commit': '', 'pr': ''}
 
+# Set autocompact threshold to 70% (quality degrades at ~70%, not 50%)
+if 'env' not in settings:
+    settings['env'] = {}
+settings['env']['CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'] = '70'
+
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
@@ -200,6 +205,12 @@ if 'attribution' in settings:
     attr = settings['attribution']
     if attr.get('commit') == '' and attr.get('pr') == '':
         del settings['attribution']
+
+# Remove autocompact override
+if settings.get('env', {}).get('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE') == '70':
+    del settings['env']['CLAUDE_AUTOCOMPACT_PCT_OVERRIDE']
+    if not settings['env']:
+        del settings['env']
 
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
