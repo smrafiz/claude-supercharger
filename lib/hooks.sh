@@ -9,51 +9,52 @@ get_hooks_for_mode() {
   local hooks_dir="$3"
   local hooks=()
 
-  # Format: event|matcher|command
+  # Format: event|matcher|command|flags
   # matcher is empty for events that don't support it
+  # flags: "async" = non-blocking background execution (for fire-and-forget hooks)
 
   # ── Safe mode: core safety + smart UX (always on) ──
-  hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh")
-  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh")
-  hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
-  hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
-  hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
-  hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh")
-  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
-  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh")
-  hooks+=("SessionStart||${hooks_dir}/config-scan.sh")
+  hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh|")
+  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|")
+  hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
+  hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh|async")
+  hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
+  hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|")
+  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|")
+  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|")
+  hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
-    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh")
-    hooks+=("Stop|*|${hooks_dir}/notify-stop.sh")
-    hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh")
-    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
+    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
+    hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
+    hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
+    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh|")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
-      hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh")
+      hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
-    hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh")
-    hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check")
-    hooks+=("SessionStart||${hooks_dir}/project-config.sh")
-    hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
-    hooks+=("SessionStart||${hooks_dir}/update-check.sh")
-    hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh")
-    hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh")
-    hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh")
-    hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh")
-    hooks+=("PostToolUse|Bash,Read|${hooks_dir}/loop-detector.sh")
-    hooks+=("PostToolUse|Read|${hooks_dir}/reread-detector.sh")
-    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh")
-    hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh")
-    hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh")
-    hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh")
-    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh")
-    hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
-    hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh")
-    hooks+=("Stop|*|${hooks_dir}/project-verify.sh")
-    hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh")
+    hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh|")
+    hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check|")
+    hooks+=("SessionStart||${hooks_dir}/project-config.sh|")
+    hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot|")
+    hooks+=("SessionStart||${hooks_dir}/update-check.sh|")
+    hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh|")
+    hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
+    hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
+    hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh|async")
+    hooks+=("PostToolUse|Bash,Read|${hooks_dir}/loop-detector.sh|")
+    hooks+=("PostToolUse|Read|${hooks_dir}/reread-detector.sh|")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|")
+    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
+    hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
+    hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh|")
+    hooks+=("Stop|*|${hooks_dir}/project-verify.sh|")
+    hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh|async")
     if [[ "$has_developer" == "true" ]]; then
-      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
+      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
     fi
   fi
 
@@ -126,10 +127,11 @@ for event in list(settings['hooks'].keys()):
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
-    parts = line.split('|', 2)
+    parts = line.split('|', 3)
     event = parts[0]
     matcher = parts[1] if len(parts) > 1 else ''
     command = parts[2] if len(parts) > 2 else ''
+    flags = parts[3] if len(parts) > 3 else ''
 
     if event not in settings['hooks']:
         settings['hooks'][event] = []
@@ -138,6 +140,9 @@ for line in hooks_input.strip().split('\n'):
         inner = {'type': 'prompt', 'prompt': command[7:] + ' ' + tag}
     else:
         inner = {'type': 'command', 'command': command + ' ' + tag}
+
+    if 'async' in flags.split(','):
+        inner['async'] = True
 
     hook_entry = {'hooks': [inner]}
     if matcher:
