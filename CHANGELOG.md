@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.6.8] - 2026-04-19 — Fix credential leakage in blocked-commands log; redact PASSWORD/TOKEN/SECRET before logging; truncate to 120 chars; reduce injection cap 15→10
 - [3.6.7] - 2026-04-19 — Compaction instructions, skill trigger table, cache-ordered economy.md, MCP output truncator, supercharger.md lazy-load
 - [3.6.6] - 2026-04-19 — MCP profile tiers (light/dev/research/full), paths: lazy-loading for role rules, ~5k token/session reduction
 - [3.6.5] - 2026-04-19 — Add rubber-duck, diff-preview, teach-me opt-in rules
