@@ -38,16 +38,26 @@ fi
 
 MSG=""
 if [ "$PCT" -ge 80 ] && [ "$TIER" != "minimal" ]; then
-  MSG="[ECONOMY] Context at ${PCT}%. Suggest switching to minimal tier to conserve tokens. Tell user: 'Context is high — recommend running: eco minimal'"
+  MSG="[ECO] ${PCT}%→eco minimal"
 elif [ "$PCT" -ge 60 ] && [ "$TIER" = "standard" ]; then
-  MSG="[ECONOMY] Context at ${PCT}%. Suggest switching to lean tier. Tell user: 'Consider running: eco lean'"
+  MSG="[ECO] ${PCT}%→eco lean"
 elif [ "$PCT" -lt 30 ] && [ "$TIER" = "minimal" ]; then
-  MSG="[ECONOMY] Context low at ${PCT}%. User could switch to a more detailed tier if needed: eco lean or eco standard"
+  MSG="[ECO] ${PCT}% low→eco lean/standard ok"
 fi
 
-echo "[Supercharger] adaptive-economy: ${PCT}% context, current=${TIER}, suggestion=${MSG:-none}" >&2
-
 [ -z "$MSG" ] && exit 0
+
+# Dedup: bucket PCT to nearest 10 to avoid re-injection on every prompt
+PCT_BUCKET=$(( PCT / 10 * 10 ))
+DEDUP_KEY="${PCT_BUCKET}:${TIER}"
+DEDUP_FILE="$SCOPE_DIR/.eco-last"
+LAST_KEY=$(cat "$DEDUP_FILE" 2>/dev/null || echo "")
+if [ "$DEDUP_KEY" = "$LAST_KEY" ]; then
+  exit 0
+fi
+echo "$DEDUP_KEY" > "$DEDUP_FILE"
+
+echo "[Supercharger] adaptive-economy: ${PCT}% tier=${TIER}" >&2
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"

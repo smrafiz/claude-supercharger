@@ -102,29 +102,25 @@ print('\n'.join(lines))
 PYEOF
 )
   if [ -n "$COMPRESSED" ]; then
-    append "[BLOCKED PATTERNS] Do not attempt these — they are permanently blocked:
-${COMPRESSED}"
+    append "[BLOCKS] ${COMPRESSED}"
   fi
 fi
 
 # User corrections (last 5)
 if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
-  append "[USER CORRECTIONS] The user corrected these — respect them:
-$(tail -5 "$CORRECTIONS_LOG")"
+  append "[CORR] $(tail -5 "$CORRECTIONS_LOG" | sed 's/\[.*\] CORRECTION: //' | tr '\n' '|' | sed 's/|$//')"
 fi
 
 # User reinforcements (last 5)
 if [ -f "$REINFORCEMENTS_LOG" ] && [ -s "$REINFORCEMENTS_LOG" ]; then
-  append "[WHAT WORKS] The user praised these approaches — keep doing them:
-$(tail -5 "$REINFORCEMENTS_LOG")"
+  append "[WORKS] $(tail -5 "$REINFORCEMENTS_LOG" | sed 's/\[.*\] REINFORCED: //' | tr '\n' '|' | sed 's/|$//')"
 fi
 
 # Repeated failures (patterns that failed 3+ times, top 5)
 if [ -f "$FAILURES_LOG" ] && [ -s "$FAILURES_LOG" ]; then
   REPEATED=$(sort "$FAILURES_LOG" 2>/dev/null | sed 's/^\[.*\] exit=[0-9]* — //' | sort | uniq -c | sort -rn | awk '$1 >= 3 {$1=""; print}' | head -5)
   if [ -n "$REPEATED" ]; then
-    append "[REPEATED FAILURES] These commands fail consistently — try different approaches:
-${REPEATED}"
+    append "[FAILS] ${REPEATED}"
   fi
 fi
 

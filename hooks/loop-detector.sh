@@ -57,7 +57,7 @@ fi
 # 3+ repeats = loop
 if [ "$COUNT" -ge 2 ]; then
   SHORT=$(printf '%.60s' "$FINGERPRINT" | sed 's/["\]//g')
-  CONTEXT="[LOOP DETECTED] You have repeated '${SHORT}' ${COUNT} times. This is wasting context tokens. Try a different approach or ask the user for clarification."
+  CONTEXT="[LOOP] '${SHORT}' repeated ${COUNT}x — try different approach"
   CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
   printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
   echo "[Supercharger] loop-detector: '${SHORT}' repeated ${COUNT}x — nudging Claude" >&2
