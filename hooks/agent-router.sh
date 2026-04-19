@@ -70,6 +70,19 @@ case "$AGENT" in
   *)                               CATEGORY="general" ;;
 esac
 
+# Compact agent key for key=value output
+case "$AGENT" in
+  "Sherlock Holmes (Detective)")   AGENT_KEY="detective" ;;
+  "Gordon Ramsay (Critic)")        AGENT_KEY="critic" ;;
+  "Albert Einstein (Analyst)")     AGENT_KEY="analyst" ;;
+  "Tony Stark (Engineer)")         AGENT_KEY="engineer" ;;
+  "Ernest Hemingway (Writer)")     AGENT_KEY="writer" ;;
+  "Leonardo da Vinci (Architect)") AGENT_KEY="architect" ;;
+  "Sun Tzu (Strategist)")          AGENT_KEY="strategist" ;;
+  "Marie Curie (Scientist)")       AGENT_KEY="scientist" ;;
+  *)                               AGENT_KEY="generalist" ;;
+esac
+
 echo "$AGENT" > "$ROUTE_FILE"
 
 echo "[Supercharger] Agent: $AGENT" >&2
@@ -117,16 +130,38 @@ if [ -z "$TIER" ]; then
 fi
 [ -z "$TIER" ] && TIER="lean"
 
-TIER_SUFFIX=" Active economy tier: ${TIER}. Maintain this verbosity level throughout your response."
+# Track last-seen category and tier for suppression logic
+LAST_CATEGORY_FILE="$SCOPE_DIR/.last-category-${SESSION_ID}"
+LAST_TIER_FILE="$SCOPE_DIR/.last-tier-${SESSION_ID}"
+LAST_CATEGORY=$(cat "$LAST_CATEGORY_FILE" 2>/dev/null || echo "")
+LAST_TIER=$(cat "$LAST_TIER_FILE" 2>/dev/null || echo "")
+echo "$CATEGORY" > "$LAST_CATEGORY_FILE"
+echo "$TIER" > "$LAST_TIER_FILE"
 
+# Build compact key=value context (#3: replace verbose natural language)
 if [ -n "$PROJECT_AGENTS_LIST" ]; then
   echo "[Supercharger] Project agents detected — will prefer over global" >&2
-  CONTEXT="[SUPERCHARGER CONTEXT] This looks like a ${CATEGORY} task. Project agents available: ${PROJECT_AGENTS_LIST}. When a project agent fits the task, always prefer it over global agents. Global agent: ${AGENT}.${TIER_SUFFIX}"
+  CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} project=${PROJECT_AGENTS_LIST} tier=${TIER}"
 else
-  CONTEXT="[SUPERCHARGER CONTEXT] This looks like a ${CATEGORY} task. Available agent: ${AGENT}.${TIER_SUFFIX}"
+  CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} tier=${TIER}"
 fi
 
-CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
+# #1: Dedup — if identical to last injection, skip entirely
+HASH=$(printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "")
+HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
+LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
+echo "$HASH" > "$HASH_FILE"
+
+if [ -n "$HASH" ] && [ "$HASH" = "$LAST_HASH" ]; then
+  exit 0  # Context unchanged — skip injection
+fi
+
+# #7: Category unchanged — only re-emit if tier changed (abbreviated form)
+if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" != "$LAST_TIER" ]; then
+  CONTEXT="[CTX] tier=${TIER}"
+fi
+
+CONTEXT_JSON=$(printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
 printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 exit 0

@@ -26,11 +26,11 @@ echo "[Supercharger] context-advisor: ${PCT}% used" >&2
 if [ "$PCT" -lt 70 ]; then
   exit 0
 elif [ "$PCT" -lt 80 ]; then
-  MSG="[CONTEXT] At ${PCT}% context. Consider /compact if conversation continues. Run /cost to check token usage."
+  MSG="[CTX] ${PCT}% used. /compact if continuing."
 elif [ "$PCT" -lt 90 ]; then
-  MSG="[CONTEXT WARNING] At ${PCT}% context. Run /compact now. Consider: eco minimal. Before compacting, verify: tests pass, build clean, no uncommitted work."
+  MSG="[CTX WARN] ${PCT}% — run /compact now. eco minimal. Verify: tests pass, build clean, no uncommitted work."
 else
-  MSG="[CONTEXT CRITICAL] At ${PCT}% — near limit. STOP. Verify work is complete before compacting or starting fresh."
+  MSG="[CTX CRITICAL] ${PCT}% — near limit. Stop and verify work before compacting."
 fi
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
