@@ -9,9 +9,20 @@ set -euo pipefail
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 BLOCKS_LOG="$SCOPE_DIR/.blocked-commands"
-CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections"
-REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements"
 FAILURES_LOG="$SCOPE_DIR/.failed-commands"
+
+# Project-scoped corrections/reinforcements
+_INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || echo "")
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "global")
+PROJ_HASH="${PROJ_HASH:0:8}"
+CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"
+REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements-${PROJ_HASH}"
+# Fall back to global if project-scoped files don't exist
+[ ! -f "$CORRECTIONS_LOG" ] && [ -f "$SCOPE_DIR/.user-corrections" ] && CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections"
+[ ! -f "$REINFORCEMENTS_LOG" ] && [ -f "$SCOPE_DIR/.user-reinforcements" ] && REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements"
 
 # --- Log rotation: remove entries older than 30 days ---
 rotate_log() {
