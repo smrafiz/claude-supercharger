@@ -38,6 +38,7 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh")
     hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh")
+    hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh")
     hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh")
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/loop-detector.sh")
@@ -50,6 +51,7 @@ get_hooks_for_mode() {
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh")
     hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh")
     hooks+=("Stop|*|${hooks_dir}/project-verify.sh")
+    hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh")
     fi
