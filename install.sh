@@ -22,6 +22,7 @@ ARG_SETTINGS=""
 ARG_ECONOMY=""
 ARG_NOTIFY=""
 ARG_COMMITS=""
+ARG_MCP_PROFILE=""
 
 show_usage() {
   echo "Usage: install.sh [OPTIONS]"
@@ -34,6 +35,7 @@ show_usage() {
   echo "  --economy TIER     Economy tier: standard, lean, minimal (default: lean)"
   echo "  --notify MODE      Desktop notifications: on, off, sound (default: on)"
   echo "  --commits MODE     Conventional commits: on, off (default: off)"
+  echo "  --mcp-profile PROFILE  MCP profile: light, dev, research, full (default: light)"
   echo "  --help             Show this help message"
   echo ""
   echo "Examples:"
@@ -51,7 +53,8 @@ while [[ $# -gt 0 ]]; do
     --settings) ARG_SETTINGS="$2"; shift 2 ;;
     --economy)  ARG_ECONOMY="$2"; shift 2 ;;
     --notify)   ARG_NOTIFY="$2"; shift 2 ;;
-    --commits)  ARG_COMMITS="$2"; shift 2 ;;
+    --commits)      ARG_COMMITS="$2"; shift 2 ;;
+    --mcp-profile)  ARG_MCP_PROFILE="$2"; shift 2 ;;
     --help)     show_usage ;;
     *)          echo "Unknown option: $1"; show_usage ;;
   esac
@@ -118,7 +121,7 @@ fi
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"
 else
-  echo -e "${BOLD}Step 1 of 6: Install Mode${NC}"
+  echo -e "${BOLD}Step 1 of 7: Install Mode${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} Safe       — safety hooks + auto-approve + audit trail (5 hooks)"
   echo -e "  ${BOLD}2)${NC} Full       — everything: git-safety, agent routing, context advisor, quality gate [recommended]"
@@ -148,7 +151,7 @@ if [ -n "$ARG_ROLES" ]; then
     SELECTED_ROLES=("writer")
   fi
 else
-  echo -e "${BOLD}Step 2 of 6: Your Roles${NC}"
+  echo -e "${BOLD}Step 2 of 7: Your Roles${NC}"
   select_roles
   echo ""
 fi
@@ -165,11 +168,36 @@ if [ -n "$ARG_ECONOMY" ]; then
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   SELECTED_TIER=$(validate_tier_for_roles "$SELECTED_TIER" "$ROLES_CSV")
 else
-  echo -e "${BOLD}Step 3 of 6: Token Economy${NC}"
+  echo -e "${BOLD}Step 3 of 7: Token Economy${NC}"
   echo ""
   echo -e "${BOLD}Select Token Economy:${NC}"
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   select_economy_tier "$ROLES_CSV"
+fi
+
+# MCP Profile selection
+MCP_PROFILE="light"
+if [ -n "$ARG_MCP_PROFILE" ]; then
+  MCP_PROFILE=$(echo "$ARG_MCP_PROFILE" | tr '[:upper:]' '[:lower:]')
+elif [[ "$NON_INTERACTIVE" == "false" ]]; then
+  echo -e "${BOLD}Step 4 of 7: MCP Servers${NC}"
+  echo ""
+  echo -e "  MCP servers extend Claude with real-time tools."
+  echo -e "  More = more capable, but higher token cost per session."
+  echo ""
+  echo -e "  ${BOLD}1)${NC} Light    — context7 docs lookup only (~300 token overhead) [recommended]"
+  echo -e "  ${BOLD}2)${NC} Dev      — + Playwright browser + GitHub + Magic UI"
+  echo -e "  ${BOLD}3)${NC} Research — + memory + sequential thinking"
+  echo -e "  ${BOLD}4)${NC} Full     — everything"
+  echo ""
+  read -rp "> " mcp_choice
+  case "$mcp_choice" in
+    2) MCP_PROFILE="dev" ;;
+    3) MCP_PROFILE="research" ;;
+    4) MCP_PROFILE="full" ;;
+    *) MCP_PROFILE="light" ;;
+  esac
+  echo ""
 fi
 
 # Desktop notifications
@@ -177,7 +205,7 @@ NOTIFY_MODE="on"
 if [ -n "$ARG_NOTIFY" ]; then
   NOTIFY_MODE=$(echo "$ARG_NOTIFY" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]]; then
-  echo -e "${BOLD}Step 4 of 6: Desktop Notifications${NC}"
+  echo -e "${BOLD}Step 5 of 7: Desktop Notifications${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} On     — popup when Claude needs your attention [default]"
   echo -e "  ${BOLD}2)${NC} Sound  — beep only, no popup"
@@ -197,7 +225,7 @@ COMMITS_MODE="off"
 if [ -n "$ARG_COMMITS" ]; then
   COMMITS_MODE=$(echo "$ARG_COMMITS" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$HAS_DEVELOPER" == "true" ]]; then
-  echo -e "${BOLD}Step 5 of 6: Conventional Commits${NC}"
+  echo -e "${BOLD}Step 6 of 7: Conventional Commits${NC}"
   echo ""
   echo -e "  Enforce conventional commit format? (feat:, fix:, chore:, etc.)"
   echo ""
@@ -217,7 +245,7 @@ CLAUDE_MD_ACTION="deploy"
 if [ -n "$ARG_CONFIG" ]; then
   CLAUDE_MD_ACTION="$ARG_CONFIG"
 elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo -e "${BOLD}Step 5 of 6: Existing Config${NC}"
+  echo -e "${BOLD}Step 6 of 7: Existing Config${NC}"
   echo ""
   info "Found existing CLAUDE.md"
   echo ""
@@ -254,7 +282,7 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
 fi
 
 # Step 4: Install
-echo -e "${BOLD}Step 6 of 6: Installing...${NC}"
+echo -e "${BOLD}Step 7 of 7: Installing...${NC}"
 echo ""
 
 # Ensure directories exist
@@ -371,11 +399,11 @@ fi
 # Deploy MCP servers (zero-config)
 if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
-  if merge_mcp_into_settings "$ROLES_CSV"; then
-    MCP_TOTAL=$(count_mcp_servers "$ROLES_CSV")
+  if merge_mcp_into_settings "$ROLES_CSV" "$MCP_PROFILE"; then
+    MCP_TOTAL=$(count_mcp_servers "$ROLES_CSV" "$MCP_PROFILE")
     MCP_ROLE=$(count_role_servers "$ROLES_CSV")
     MCP_CORE=$((MCP_TOTAL - MCP_ROLE))
-    success "${MCP_TOTAL} MCP server(s) configured (${MCP_CORE} core + ${MCP_ROLE} for your roles)"
+    success "${MCP_TOTAL} MCP server(s) configured [${MCP_PROFILE} profile]"
   else
     error "Failed to configure MCP servers."
   fi
@@ -389,6 +417,8 @@ echo ""
 # Write installed version stamp
 echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
+mkdir -p "$HOME/.claude/supercharger/scope"
+echo "$MCP_PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
 
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
 echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
