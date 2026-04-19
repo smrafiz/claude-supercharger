@@ -55,7 +55,9 @@ get_hooks_for_mode() {
     hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh|")
     hooks+=("Stop|*|${hooks_dir}/project-verify.sh|")
     hooks+=("Stop|*|${hooks_dir}/scope-guard.sh clear|async")
+    hooks+=("Stop|*|${hooks_dir}/session-complete.sh|async")
     hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh|async")
+    hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
     fi
