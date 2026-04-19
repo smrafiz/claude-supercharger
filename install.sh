@@ -388,6 +388,7 @@ deploy_extras "$SCRIPT_DIR" "$MODE" "$NON_INTERACTIVE"
 echo ""
 # Write installed version stamp
 echo "$VERSION" > "$HOME/.claude/supercharger/.version"
+echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
 
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
 echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
