@@ -18,6 +18,7 @@ get_hooks_for_mode() {
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh")
   hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh")
+  hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh")
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh")
