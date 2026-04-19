@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [3.6.5] - 2026-04-19 — Add rubber-duck, diff-preview, teach-me opt-in rules
 - [3.6.4] - 2026-04-16 — Opt-in checkpoint mode, humanized README, OpenCode port plan
 - [3.6.3] - 2026-04-15 — CVE-2026-35021 file path check, obfuscation detection, role anti-patterns, smart-approve expansion, statusline resilience
 - [3.6.2] - 2026-04-15 — Self-teaching: 30-day log rotation, dedup, capped 15-entry injection; smart-approve Write/Edit in project dir
