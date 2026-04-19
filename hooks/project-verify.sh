@@ -17,6 +17,13 @@ fi
 
 [ -z "$VERIFY_SCRIPT" ] && exit 0
 
+# Skip if no files were changed this session (no uncommitted work)
+CHANGED=$(git diff --name-only 2>/dev/null; git diff --cached --name-only 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null)
+if [ -z "$CHANGED" ]; then
+  echo "[Supercharger] project-verify: skipped (no file changes this session)" >&2
+  exit 0
+fi
+
 # Run it, capture output and exit code
 VERIFY_OUTPUT=""
 VERIFY_EXIT=0
