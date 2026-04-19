@@ -7,6 +7,12 @@ SUPERCHARGER_MCP_TAG="#supercharger"
 get_core_servers() {
   cat <<'SERVERS'
 context7|npx|-y @upstash/context7-mcp
+SERVERS
+}
+
+# Research/heavy-thinking servers — loaded in 'research' and 'full' profiles
+get_research_servers() {
+  cat <<'SERVERS'
 sequential-thinking|npx|-y @modelcontextprotocol/server-sequential-thinking
 memory|npx|-y @modelcontextprotocol/server-memory
 SERVERS
@@ -40,11 +46,18 @@ duckduckgo-search|npx|-y duckduckgo-mcp-server"
   echo "$servers" | sort -u | grep -v '^$'
 }
 
-# Build full deduplicated server list
+# Build server list for a given profile and role set
+# Profiles: light | dev | research | full
 build_server_list() {
   local roles="$1"
+  local profile="${2:-light}"
   {
     get_core_servers
+    case "$profile" in
+      research|full)
+        get_research_servers
+        ;;
+    esac
     get_role_servers "$roles"
   } | sort -t'|' -k1,1 -u | grep -v '^$'
 }
@@ -52,7 +65,8 @@ build_server_list() {
 # Count servers for summary
 count_mcp_servers() {
   local roles="$1"
-  build_server_list "$roles" | wc -l | tr -d ' '
+  local profile="${2:-light}"
+  build_server_list "$roles" "$profile" | wc -l | tr -d ' '
 }
 
 # Count role-specific servers (non-core)
@@ -120,9 +134,10 @@ with open(settings_file, 'w') as f:
 # Merge MCP servers into both config files (covers all Claude Code versions)
 merge_mcp_into_settings() {
   local roles="$1"
+  local profile="${2:-light}"
   local tag="$SUPERCHARGER_MCP_TAG"
   local server_list
-  server_list=$(build_server_list "$roles")
+  server_list=$(build_server_list "$roles" "$profile")
 
   # ~/.claude.json — Claude Code current (User MCPs shown in /mcp)
   _write_mcp_to_file "$HOME/.claude.json" "$tag" "$server_list" || return 1
