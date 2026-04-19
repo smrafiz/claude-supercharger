@@ -331,7 +331,7 @@ success "Guardrails installed"
 deploy_roles "$SCRIPT_DIR"
 
 # Deploy economy
-deploy_economy "$SCRIPT_DIR" "$SELECTED_TIER"
+deploy_economy "$SCRIPT_DIR" "$SELECTED_TIER" "$ROLES_CSV"
 
 # Deploy shared assets
 cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"

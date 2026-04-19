@@ -191,6 +191,7 @@ select_economy_tier() {
 deploy_economy() {
   local source_dir="$1"
   local tier="$2"
+  local active_roles="${3:-}"
   local rules_dir="$HOME/.claude/rules"
   local economy_dir="$HOME/.claude/supercharger/economy"
   mkdir -p "$rules_dir"
@@ -214,17 +215,69 @@ deploy_economy() {
     tier_content=$(cat "$source_dir/configs/economy/lean.md")
   fi
 
-  # Build economy.md with active tier injected
+  # Build economy.md with active tier injected and role constraints filtered
   local economy_template="$source_dir/configs/universal/economy.md"
   if [ -f "$economy_template" ]; then
-    # Replace {{ACTIVE_TIER}} placeholder with tier content
-    TIER_CONTENT="$tier_content" ECONOMY_TEMPLATE="$economy_template" ECONOMY_OUTPUT="$rules_dir/economy.md" python3 -c "
-import os
+    TIER_CONTENT="$tier_content" ECONOMY_TEMPLATE="$economy_template" ECONOMY_OUTPUT="$rules_dir/economy.md" ACTIVE_ROLES="$active_roles" python3 -c "
+import os, re
 
 with open(os.environ['ECONOMY_TEMPLATE'], 'r') as f:
     template = f.read()
 
 result = template.replace('{{ACTIVE_TIER}}', os.environ['TIER_CONTENT'])
+
+# Filter Role Constraints table to active roles only
+roles_raw = os.environ.get('ACTIVE_ROLES', '')
+if roles_raw:
+    active = [r.strip().lower() for r in roles_raw.split(',') if r.strip()]
+    # Roles with no effective constraint (unrestricted floor AND ceiling)
+    unconstrained = {'developer', 'data', 'pm', 'designer', 'devops'}
+    # If all active roles are unconstrained, drop the whole section
+    if active and all(r in unconstrained for r in active):
+        result = re.sub(
+            r'\n## Role Constraints\n.*?(?=\n## |\Z)',
+            '',
+            result,
+            flags=re.DOTALL
+        )
+    else:
+        # Keep only header rows + active role rows + footer note
+        def filter_table(match):
+            block = match.group(0)
+            lines = block.split('\n')
+            kept = []
+            role_map = {
+                'developer': 'Developer',
+                'student': 'Student',
+                'writer': 'Writer',
+                'data': 'Data Analyst',
+                'pm': 'Project Manager',
+                'designer': 'Designer',
+                'devops': 'DevOps Engineer',
+                'researcher': 'Researcher',
+            }
+            active_labels = {role_map[r] for r in active if r in role_map}
+            in_table = False
+            for line in lines:
+                if line.startswith('|'):
+                    in_table = True
+                    # Always keep header and separator rows
+                    if '---' in line or 'Role' in line:
+                        kept.append(line)
+                    else:
+                        # Keep only active role rows
+                        if any(label in line for label in active_labels):
+                            kept.append(line)
+                else:
+                    kept.append(line)
+            return '\n'.join(kept)
+
+        result = re.sub(
+            r'\n## Role Constraints\n.*?(?=\n## |\Z)',
+            filter_table,
+            result,
+            flags=re.DOTALL
+        )
 
 with open(os.environ['ECONOMY_OUTPUT'], 'w') as f:
     f.write(result)
