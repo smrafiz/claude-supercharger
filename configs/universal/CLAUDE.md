@@ -37,16 +37,11 @@ Destructive commands are blocked at the shell level — you will receive an erro
 - For multi-turn tasks, track what was decided and what failed
 - When switching to unrelated work, suggest /clear instead of continuing
 
+## Compaction
+When compacting, preserve: modified files list, active economy tier, test commands, architecture decisions, what failed. Discard: full file contents, verbose tool output, completed task details.
+
 ## Quick Mode Switches
-All 8 roles are always available. Say any of these to shift behavior mid-conversation:
-- "as developer" → code-only output, stack conventions, git best practices
-- "as writer" → structured prose, draft workflow, no jargon
-- "as student" → explain concepts, teach step-by-step, check understanding
-- "as data" → analysis rigor, cite sources, show queries, tables over prose
-- "as pm" → range estimates, decision logs, risk tracking
-- "as designer" → component-first, accessibility, design systems, visual hierarchy
-- "as devops" → infrastructure as code, CI/CD, containers, security scanning
-- "as researcher" → citations, methodology, evidence-based, literature review
+Say `as developer/writer/student/data/pm/designer/devops/researcher` to shift behavior.
 
 ## Getting Best Results
 For complex requests, include:
@@ -58,4 +53,18 @@ For complex requests, include:
 #   supercharger.md, guardrails.md, anti-patterns.yml, [selected roles]
 
 ## Agent Routing
-When [SUPERCHARGER CONTEXT] appears, use the classification to calibrate your response approach. Use sub-agents when the task complexity warrants it, not on every prompt.
+When [SUPERCHARGER CONTEXT] appears, calibrate response approach. Use sub-agents when task complexity warrants it.
+
+## Skills
+Invoke via Skill tool when task matches:
+
+| Task | Skill |
+|---|---|
+| Debugging / errors | superpowers:systematic-debugging |
+| TDD / new feature | superpowers:test-driven-development |
+| Multi-step plan | superpowers:writing-plans |
+| Execute a plan | superpowers:executing-plans |
+| Code review | superpowers:requesting-code-review |
+| Complex workflows | superpowers:subagent-driven-development |
+| Branch complete | superpowers:finishing-a-development-branch |
+| Git worktree | superpowers:using-git-worktrees |
