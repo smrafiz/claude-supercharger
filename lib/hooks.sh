@@ -47,11 +47,14 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
     hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh|")
     hooks+=("Stop|*|${hooks_dir}/project-verify.sh|")
+    hooks+=("Stop|*|${hooks_dir}/scope-guard.sh clear|async")
     hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh|async")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
@@ -225,25 +228,9 @@ with open(settings_file, 'w') as f:
 count_installed_hooks() {
   local mode="$1"
   local has_developer="$2"
-  local count=1  # safety always
-
-  if [[ "$mode" == "standard" || "$mode" == "full" ]]; then
-    # notify, git-safety, enforce-pkg-manager, audit-trail,
-    # scope-guard(check+snapshot+contract), project-config, update-check,
-    # agent-router, agent-gate
-    count=$((count + 11))
-    if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
-      count=$((count + 1))  # commit-check
-    fi
-    if [[ "$has_developer" == "true" ]]; then
-      count=$((count + 1))  # quality-gate
-    fi
-  fi
-
-  if [[ "$mode" == "full" ]]; then
-    # prompt-validator, compaction-backup, session-complete, scope-guard clear
-    count=$((count + 4))
-  fi
-
+  # Count by generating the list — single source of truth
+  local hooks_dir="$HOME/.claude/supercharger/hooks"
+  local count
+  count=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir" | grep -c '.' 2>/dev/null || echo "0")
   echo "$count"
 }
