@@ -29,11 +29,10 @@ get_role_servers() {
 github|gh|extension exec github-mcp-server stdio"
     fi
     servers="${servers}
-playwright|npx|-y @playwright/mcp --headless
-magic-ui|npx|-y @magicuidesign/mcp@latest"
+playwright|npx|-y @playwright/mcp --headless"
   fi
 
-  if echo "$roles" | grep -q "designer"; then
+  if echo "$roles" | grep -qE "(developer|designer)"; then
     servers="${servers}
 magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
