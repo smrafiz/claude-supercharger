@@ -1,0 +1,17 @@
+{
+  "name": "claude-supercharger",
+  "description": "Shell-level guardrails for Claude Code. Command blocking, code security scanner, self-teaching, token economy, agent routing, MCP profiles, and session memory.",
+  "version": "3.6.10",
+  "author": {
+    "name": "smrafiz"
+  },
+  "license": "MIT",
+  "keywords": ["guardrails", "safety", "hooks", "token-economy", "agent-routing", "security"],
+  "rules": [
+    "./configs/universal/CLAUDE.md",
+    "./configs/universal/guardrails.md",
+    "./configs/universal/supercharger.md",
+    "./configs/universal/economy.md",
+    "./configs/universal/anti-patterns.yml"
+  ]
+}

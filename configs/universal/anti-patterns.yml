@@ -110,3 +110,7 @@ agentic:
   no_human_review_trigger:
     bad: "Agent decides autonomously"
     fix: "Stop and ask before: deleting file, adding dependency, changing DB schema"
+
+  dead_code_carveout:
+    bad: "removing pre-existing unused code while fixing something unrelated"
+    fix: "Only remove dead code YOUR changes introduced. Leave pre-existing dead code alone — that's a separate task."
