@@ -116,17 +116,22 @@ except Exception:
     pass
 
 if stack_parts:
-    parts.append('Detected stack: ' + ', '.join(stack_parts) + '. Use matching conventions. If any assumption seems wrong, ask before proceeding.')
-    # Cache detected stack for statusline
-    try:
-        cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
-        os.makedirs(cache_dir, exist_ok=True)
-        import hashlib
-        proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
-        with open(os.path.join(cache_dir, f'.stack-cache-{proj_hash}'), 'w') as f:
-            f.write(', '.join(stack_parts))
-    except Exception:
-        pass
+    import hashlib
+    cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+    proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
+    cache_path = os.path.join(cache_dir, f'.stack-cache-{proj_hash}')
+    already_known = os.path.isfile(cache_path)
+    if already_known:
+        # Compact form — stack already injected in a prior session
+        parts.append('[stack=' + ','.join(stack_parts) + ']')
+    else:
+        parts.append('Detected stack: ' + ', '.join(stack_parts) + '. Use matching conventions. If any assumption seems wrong, ask before proceeding.')
+        try:
+            os.makedirs(cache_dir, exist_ok=True)
+            with open(cache_path, 'w') as f:
+                f.write(', '.join(stack_parts))
+        except Exception:
+            pass
 
 # --- Project config (.supercharger.json) ---
 if config_file and os.path.isfile(config_file):
