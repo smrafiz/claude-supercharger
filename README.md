@@ -195,12 +195,28 @@ Eight behavioral profiles, switchable mid-conversation:
 
 Auto-configured based on roles. No API keys needed for core set.
 
-| Who | Servers |
-|---|---|
-| Everyone | Context7 (live docs), Sequential Thinking, Memory |
-| Developer | + Playwright, Magic UI |
-| Designer | + Magic UI |
-| Other roles | + DuckDuckGo Search |
+**Default profile: `light`** — context7 only (~300 token overhead per session).
+
+| Profile | Servers | Token cost |
+|---|---|---|
+| `light` (default) | Context7 | ~300 |
+| `dev` | + Playwright, GitHub, Magic UI | ~1,200 |
+| `research` | + Memory, Sequential Thinking | ~1,500 |
+| `full` | Everything | ~3,500 |
+
+Role-based additions always apply on top of the profile:
+- Developer → Playwright, Magic UI
+- Designer → Magic UI
+- Writer / PM / DevOps / Researcher → DuckDuckGo
+
+Switch profile at any time (no reinstall needed):
+```bash
+bash tools/mcp-profile.sh light     # minimal — context7 only
+bash tools/mcp-profile.sh dev       # + browser + GitHub + UI components
+bash tools/mcp-profile.sh research  # + memory + sequential thinking
+bash tools/mcp-profile.sh full      # everything
+```
+Takes effect on next Claude Code session.
 
 More servers: `bash tools/mcp-setup.sh`
 
@@ -255,7 +271,7 @@ No. Supercharger tags its entries with <code>#supercharger</code>. Your servers 
 
 <details>
 <summary>Context overhead?</summary>
-~3,700 tokens per session (under 2% of any Claude model's context window). MCP tools load on first use, not at startup.
+~300–3,500 tokens per session depending on MCP profile (light to full). Switch profiles with `bash tools/mcp-profile.sh`.
 </details>
 
 ---
