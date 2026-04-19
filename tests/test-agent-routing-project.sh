@@ -30,7 +30,7 @@ write_agent "$PROJECT_DIR/.claude/agents" "Deploy Expert" "Handles deployment ta
 OUTPUT=$(printf '{"prompt":"deploy the app","workspace":{"current_dir":"%s"}}' "$PROJECT_DIR" | bash "$ROUTER" 2>/dev/null)
 rm -rf "$PROJECT_DIR"
 if printf '%s\n' "$OUTPUT" | grep -q "Deploy Expert" && \
-   printf '%s\n' "$OUTPUT" | grep -qi "project agents\|take precedence"; then pass
+   printf '%s\n' "$OUTPUT" | grep -q "project="; then pass
 else fail "project agent not injected — output: $OUTPUT"; fi
 teardown_test_home
 
@@ -41,7 +41,7 @@ mkdir -p "$HOME/.claude/supercharger/scope"
 PROJECT_DIR=$(mktemp -d)
 OUTPUT=$(printf '{"prompt":"deploy the app","workspace":{"current_dir":"%s"}}' "$PROJECT_DIR" | bash "$ROUTER" 2>/dev/null)
 rm -rf "$PROJECT_DIR"
-if printf '%s\n' "$OUTPUT" | grep -q "SUPERCHARGER CONTEXT" && \
+if printf '%s\n' "$OUTPUT" | grep -q "[CTX]" && \
    ! printf '%s\n' "$OUTPUT" | grep -qi "project agents"; then pass
 else fail "unexpected project agent injection with no agents dir — output: $OUTPUT"; fi
 teardown_test_home
