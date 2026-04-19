@@ -1,3 +1,8 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,py,go,rs,rb,java,sh}"
+---
+
 schema_version: "1.0"
 
 # Anti-Pattern Library — Soft Guidance
