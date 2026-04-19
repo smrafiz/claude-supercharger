@@ -1,3 +1,12 @@
+---
+paths:
+  - "**/*.{csv,tsv,parquet,json,jsonl}"
+  - "**/*.{sql,ipynb}"
+  - "**/data/**"
+  - "**/notebooks/**"
+  - "**/queries/**"
+---
+
 # Role: Data Analyst
 
 ## Analysis Standards

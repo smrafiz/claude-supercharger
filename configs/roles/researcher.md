@@ -1,3 +1,11 @@
+---
+paths:
+  - "**/*.{md,mdx,txt,rst}"
+  - "**/docs/**"
+  - "**/research/**"
+  - "**/reports/**"
+---
+
 # Role: Researcher
 
 ## Research Standards

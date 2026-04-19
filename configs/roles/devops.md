@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/*.{yml,yaml}"
+  - "**/Dockerfile"
+  - "**/*.dockerfile"
+  - "**/*.tf"
+  - "**/*.hcl"
+  - ".github/**"
+  - "**/docker-compose*.{yml,yaml}"
+---
+
 # Role: DevOps
 
 ## Infrastructure

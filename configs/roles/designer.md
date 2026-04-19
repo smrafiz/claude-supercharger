@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/*.{css,scss,sass,less}"
+  - "**/*.{svg,figma}"
+  - "**/tailwind.config.*"
+  - "**/*.{tsx,jsx}"
+  - "**/styles/**"
+  - "**/components/**"
+  - "**/design-system/**"
+---
+
 # Role: Designer
 
 ## Design Output

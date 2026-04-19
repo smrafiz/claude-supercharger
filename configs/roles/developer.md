@@ -1,3 +1,14 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+  - "**/*.{py,go,rs,rb,php,java,kt,swift,c,cpp,h}"
+  - "**/*.{sh,bash}"
+  - "package.json"
+  - "Cargo.toml"
+  - "go.mod"
+  - "pyproject.toml"
+---
+
 # Role: Developer
 
 ## Code Output
