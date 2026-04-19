@@ -21,18 +21,24 @@ if [[ "$MODE" == "snapshot" ]]; then
   PROJECT_DIR="${2:-$(pwd)}"
   cd "$PROJECT_DIR" 2>/dev/null || exit 0
   git rev-parse --git-dir &>/dev/null 2>&1 || exit 0
+  FILE_COUNT=$(git ls-files 2>/dev/null | wc -l | tr -d ' ')
   {
     echo "commit:$(git rev-parse HEAD 2>/dev/null || echo 'none')"
     echo "dir:$PROJECT_DIR"
     echo "time:$(date +%s)"
-    git ls-files 2>/dev/null | while read -r f; do
-      if [ -f "$PROJECT_DIR/$f" ]; then
-        mtime=$(stat -f "%m" "$PROJECT_DIR/$f" 2>/dev/null \
-             || stat -c "%Y" "$PROJECT_DIR/$f" 2>/dev/null \
-             || echo "0")
-        echo "file:$f:$mtime"
-      fi
-    done
+    if [ "$FILE_COUNT" -gt 1000 ]; then
+      # Large repo: skip mtime scan, use git-diff at check time
+      echo "large-repo:true"
+    else
+      git ls-files 2>/dev/null | while read -r f; do
+        if [ -f "$PROJECT_DIR/$f" ]; then
+          mtime=$(stat -f "%m" "$PROJECT_DIR/$f" 2>/dev/null \
+               || stat -c "%Y" "$PROJECT_DIR/$f" 2>/dev/null \
+               || echo "0")
+          echo "file:$f:$mtime"
+        fi
+      done
+    fi
   } > "$SNAPSHOT_FILE"
   exit 0
 fi
@@ -92,24 +98,45 @@ import os, subprocess
 snapshot_file = os.environ['SNAPSHOT_FILE']
 project_dir = os.environ['PROJECT_DIR']
 
-mtimes = {}
+# Check if this is a large repo (no mtime data — use git diff instead)
+large_repo = False
 with open(snapshot_file) as f:
     for line in f:
-        line = line.strip()
-        if line.startswith('file:'):
-            parts = line[5:].rsplit(':', 1)
-            if len(parts) == 2:
-                mtimes[parts[0]] = int(parts[1])
+        if line.strip() == 'large-repo:true':
+            large_repo = True
+            break
 
 changed = []
-for fpath, old in mtimes.items():
-    full = os.path.join(project_dir, fpath)
-    if os.path.isfile(full):
-        try:
-            if int(os.stat(full).st_mtime) > old:
-                changed.append(fpath)
-        except:
-            pass
+if large_repo:
+    try:
+        r = subprocess.run(['git','diff','--name-only'],
+            capture_output=True, text=True, cwd=project_dir)
+        changed = [f for f in r.stdout.strip().split('\n') if f]
+        r2 = subprocess.run(['git','diff','--cached','--name-only'],
+            capture_output=True, text=True, cwd=project_dir)
+        for f in r2.stdout.strip().split('\n'):
+            if f and f not in changed:
+                changed.append(f)
+    except:
+        pass
+else:
+    mtimes = {}
+    with open(snapshot_file) as f:
+        for line in f:
+            line = line.strip()
+            if line.startswith('file:'):
+                parts = line[5:].rsplit(':', 1)
+                if len(parts) == 2:
+                    mtimes[parts[0]] = int(parts[1])
+
+    for fpath, old in mtimes.items():
+        full = os.path.join(project_dir, fpath)
+        if os.path.isfile(full):
+            try:
+                if int(os.stat(full).st_mtime) > old:
+                    changed.append(fpath)
+            except:
+                pass
 
 try:
     r = subprocess.run(['git','ls-files','--others','--exclude-standard'],
