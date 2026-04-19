@@ -32,8 +32,6 @@ if [ -f "$READS_FILE" ]; then
       printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
       echo "[Supercharger] reread-detector: ${SHORT} unchanged since last read" >&2
     fi
-    # Remove old entry — will be replaced below
-    grep -vF "$FILE_PATH	" "$READS_FILE" > "$READS_FILE.tmp" 2>/dev/null && mv "$READS_FILE.tmp" "$READS_FILE" 2>/dev/null || true
   fi
 fi
 

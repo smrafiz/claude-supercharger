@@ -37,12 +37,13 @@ fi
 [ -z "$TIER" ] && TIER="lean"
 
 MSG=""
-if [ "$PCT" -ge 80 ] && [ "$TIER" != "minimal" ]; then
-  MSG="[ECO] ${PCT}%→eco minimal"
+# PCT>=70: context-advisor already fires — only add tier suggestion if not minimal
+if [ "$PCT" -ge 70 ] && [ "$TIER" != "minimal" ]; then
+  MSG="[ECO] →eco minimal"
 elif [ "$PCT" -ge 60 ] && [ "$TIER" = "standard" ]; then
   MSG="[ECO] ${PCT}%→eco lean"
 elif [ "$PCT" -lt 30 ] && [ "$TIER" = "minimal" ]; then
-  MSG="[ECO] ${PCT}% low→eco lean/standard ok"
+  MSG="[ECO] ${PCT}% low→eco lean ok"
 fi
 
 [ -z "$MSG" ] && exit 0
