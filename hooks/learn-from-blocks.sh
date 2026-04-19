@@ -42,7 +42,7 @@ dedup_log "$BLOCKS_LOG"
 dedup_log "$CORRECTIONS_LOG"
 dedup_log "$REINFORCEMENTS_LOG"
 
-# --- Build context (capped at 15 entries per signal) ---
+# --- Build context ---
 CONTEXT=""
 
 append() {
@@ -55,22 +55,57 @@ $1"
   fi
 }
 
-# Blocked commands (last 10)
+# Blocked commands — compressed to category counts (top 8 by frequency)
 if [ -f "$BLOCKS_LOG" ] && [ -s "$BLOCKS_LOG" ]; then
-  append "[BLOCKED COMMANDS] These were blocked — do not attempt them:
-$(tail -10 "$BLOCKS_LOG")"
+  COMPRESSED=$(python3 - "$BLOCKS_LOG" <<'PYEOF'
+import sys, re
+from collections import Counter
+
+path = sys.argv[1]
+counts = Counter()
+last_seen = {}
+
+with open(path) as f:
+    for line in f:
+        line = line.strip()
+        if not line:
+            continue
+        # Strip timestamp: [YYYY-MM-DD HH:MM] REASON — COMMAND
+        m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] (.+)$', line)
+        if not m:
+            continue
+        date, rest = m.group(1), m.group(2)
+        # Extract reason: text before " — COMMAND" (last " — " separator)
+        # Reason may itself contain " — " so take up to first 80 chars as key
+        reason = rest.split(' — ')[0].strip()[:80]
+        counts[reason] += 1
+        last_seen[reason] = date[:10]
+
+if not counts:
+    sys.exit(0)
+
+lines = []
+for reason, count in counts.most_common(8):
+    lines.append(f"- {reason} (blocked {count}x, last: {last_seen[reason]})")
+print('\n'.join(lines))
+PYEOF
+)
+  if [ -n "$COMPRESSED" ]; then
+    append "[BLOCKED PATTERNS] Do not attempt these — they are permanently blocked:
+${COMPRESSED}"
+  fi
 fi
 
-# User corrections (last 10)
+# User corrections (last 5)
 if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
   append "[USER CORRECTIONS] The user corrected these — respect them:
-$(tail -10 "$CORRECTIONS_LOG")"
+$(tail -5 "$CORRECTIONS_LOG")"
 fi
 
-# User reinforcements (last 10)
+# User reinforcements (last 5)
 if [ -f "$REINFORCEMENTS_LOG" ] && [ -s "$REINFORCEMENTS_LOG" ]; then
   append "[WHAT WORKS] The user praised these approaches — keep doing them:
-$(tail -10 "$REINFORCEMENTS_LOG")"
+$(tail -5 "$REINFORCEMENTS_LOG")"
 fi
 
 # Repeated failures (patterns that failed 3+ times, top 5)
