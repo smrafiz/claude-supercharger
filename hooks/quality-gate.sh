@@ -112,4 +112,35 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   ITERATION=$((ITERATION + 1))
 done
 
+# Final re-check: inject any remaining unfixed issues as additionalContext
+REMAINING=""
+case "$EXT" in
+  py)
+    if command -v ruff &>/dev/null; then
+      REMAINING=$($TIMEOUT_CMD ruff check "$FILE_PATH" 2>&1) || true
+    fi
+    ;;
+  js|jsx|ts|tsx|mjs|cjs)
+    if command -v eslint &>/dev/null && { ls "$PROJECT_ROOT"/.eslintrc* &>/dev/null 2>&1 || ls "$PROJECT_ROOT"/eslint.config* &>/dev/null 2>&1; }; then
+      REMAINING=$($TIMEOUT_CMD eslint "$FILE_PATH" 2>&1) || true
+    fi
+    ;;
+  go)
+    if command -v golangci-lint &>/dev/null; then
+      REMAINING=$($TIMEOUT_CMD golangci-lint run "$FILE_PATH" 2>&1) || true
+    fi
+    ;;
+esac
+
+if [ -n "$REMAINING" ]; then
+  TRUNCATED=$(printf '%.1500s' "$REMAINING")
+  MSG="[QUALITY GATE] Unfixed lint issues in ${FILE_PATH} (auto-fix could not resolve):
+
+${TRUNCATED}
+
+Fix these issues before marking the task complete."
+  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':sys.stdin.read()}}))" 2>/dev/null)
+  [ -n "$CONTEXT_JSON" ] && printf '%s\n' "$CONTEXT_JSON"
+fi
+
 exit 0
