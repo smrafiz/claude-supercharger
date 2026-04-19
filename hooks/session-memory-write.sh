@@ -28,25 +28,30 @@ RECENT_COMMITS=$(git log --oneline -5 2>/dev/null || echo "")
 # --- Branch ---
 BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 
-# --- Recent corrections (last 3, highest signal) ---
+# --- Recent corrections (last 5, highest signal) ---
 CORRECTIONS=""
 if [ -f "$SCOPE_DIR/.user-corrections" ]; then
-  CORRECTIONS=$(tail -3 "$SCOPE_DIR/.user-corrections" 2>/dev/null || echo "")
+  CORRECTIONS=$(tail -5 "$SCOPE_DIR/.user-corrections" 2>/dev/null || echo "")
 fi
 
-# --- Build memory doc (capped at 500 tokens ~= 2000 chars) ---
-TIMESTAMP=$(date -u '+%Y-%m-%d %H:%M UTC')
+# --- Build dense key=value format (~40% fewer tokens than Markdown) ---
+TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%MZ')
+OPEN_CSV=$(printf '%s\n' "$OPEN_FILES" | sed 's/^- //' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
+COMMITS_CSV=$(printf '%s\n' "$RECENT_COMMITS" | grep -v '^$' | sed 's/ /:/' | tr '\n' '|' | sed 's/|$//')
+CORR_LINE=$(printf '%s\n' "$CORRECTIONS" | grep -v '^$' | tr '\n' '|' | sed 's/|$//')
 
-CONTENT="# Session Memory — ${TIMESTAMP}
+CONTENT="mem:${TIMESTAMP} branch:${BRANCH} open:${OPEN_CSV:-none} commits:${COMMITS_CSV:-none} corrections:${CORR_LINE:-none}"
 
-## Open Work (uncommitted changes)
-${OPEN_FILES:-*(none)*}
-
-## Recent Commits
-$(printf '%s\n' "$RECENT_COMMITS" | sed 's/^/- /')
-
-## Corrections
-${CORRECTIONS:-*(none)*}"
+# --- #11 Differential write: skip if open-work and commits unchanged ---
+if [ -f "$MEMORY_FILE" ]; then
+  PREV=$(cat "$MEMORY_FILE" 2>/dev/null)
+  PREV_OPEN=$(printf '%s' "$PREV" | grep -o 'open:[^ ]*' | cut -d: -f2-)
+  PREV_COMMITS=$(printf '%s' "$PREV" | grep -o 'commits:[^ ]*' | cut -d: -f2-)
+  if [ "$PREV_OPEN" = "${OPEN_CSV:-none}" ] && [ "$PREV_COMMITS" = "${COMMITS_CSV:-none}" ]; then
+    echo "[Supercharger] session-memory: no changes, skipping write" >&2
+    exit 0
+  fi
+fi
 
 # Truncate to 2000 chars
 printf '%.2000s\n' "$CONTENT" > "$MEMORY_FILE"

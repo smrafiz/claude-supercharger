@@ -16,9 +16,7 @@ MEMORY_FILE=".claude/supercharger-memory.md"
 CONTENT=$(head -c 3000 "$MEMORY_FILE" 2>/dev/null || echo "")
 [ -z "$CONTENT" ] && exit 0
 
-MSG="[SESSION MEMORY] Continuing from a previous session:
-
-${CONTENT}"
+MSG="[MEM] ${CONTENT}"
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$CONTEXT_JSON"
