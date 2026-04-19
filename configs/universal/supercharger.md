@@ -1,3 +1,15 @@
+---
+paths:
+  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
+  - "**/*.{py,go,rs,rb,php,java,kt,swift,c,cpp,h}"
+  - "**/*.{sh,bash}"
+  - "**/*.{yml,yaml}"
+  - "**/*.{css,scss,sass}"
+  - "package.json"
+  - "Cargo.toml"
+  - "go.mod"
+---
+
 # Supercharger Rules
 # Inspired by SuperClaude Framework (MIT) — distilled for brevity
 
