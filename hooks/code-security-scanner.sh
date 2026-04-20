@@ -22,6 +22,18 @@ fi
 [ -z "$CONTENT" ] && exit 0
 [ "${#CONTENT}" -lt 20 ] && exit 0
 
+# Skip tiny Edit patches (< 5 lines) — security patterns need context
+TOOL_NAME=$(printf '%s
+' "$INPUT" | python3 -c "
+import sys, json
+print(json.load(sys.stdin).get('tool_name', ''))
+" 2>/dev/null || echo "")
+if [ "$TOOL_NAME" = "Edit" ]; then
+  LINE_COUNT=$(printf '%s
+' "$CONTENT" | wc -l | tr -d ' ')
+  [ "$LINE_COUNT" -lt 5 ] && exit 0
+fi
+
 # Extract file path for context
 FILE_PATH=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 if [ -z "$FILE_PATH" ]; then
