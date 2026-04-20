@@ -33,4 +33,10 @@ if (( NOW - LAST_ROTATION > 86400 )); then
   echo "$NOW" > "$ROTATION_CHECK"
 fi
 
+# Update session memory before context is wiped
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [ -f "$HOOKS_DIR/session-memory-write.sh" ]; then
+  echo "" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null || true
+fi
+
 exit 0
