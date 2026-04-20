@@ -44,6 +44,7 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
     hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh|async")
+    hooks+=("PostToolUse|Bash|${hooks_dir}/dep-vuln-scanner.sh|async")
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")

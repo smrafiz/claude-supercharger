@@ -16,15 +16,40 @@ fi
 [ "${#OUTPUT}" -lt 10 ] && exit 0
 
 SECRET_PATTERNS=(
+  # AWS
   'AKIA[0-9A-Z]{16}'
-  'gh[ps]_[A-Za-z0-9_]{36,}'
+  'ASIA[0-9A-Z]{16}'
+  # GitHub
+  'gh[opsu]_[A-Za-z0-9_]{36,}'
+  # Generic
   '(?i)api[_-]?key|api[_-]?secret|access[_-]?token'
   'Bearer [A-Za-z0-9._-]+'
+  # Private keys
   'BEGIN.{0,10}PRIVATE KEY'
+  # URLs with embedded credentials
   '://[^:@/\s]+:[^@/\s]+@'
-  'sk_live_|pk_live_'
+  # Stripe
+  'sk_live_[0-9a-zA-Z]{24}'
+  'rk_live_[0-9a-zA-Z]{24}'
+  'pk_live_[0-9a-zA-Z]{24}'
+  # npm
   'npm_[A-Za-z0-9]{36}'
+  # JWTs
   'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
+  # OpenAI
+  'sk-[A-Za-z0-9]{20,}'
+  # Slack
+  'xox[baprs]-[0-9A-Za-z-]{10,}'
+  # HuggingFace
+  'hf_[A-Za-z0-9]{30,}'
+  # GCP service account
+  '"private_key":\s*"-----BEGIN'
+  # Azure storage
+  'AccountKey=[A-Za-z0-9+/]{60,}='
+  # Twilio
+  'SK[0-9a-f]{32}'
+  # SendGrid
+  'SG\.[A-Za-z0-9_-]{22,}\.[A-Za-z0-9_-]{43,}'
 )
 
 COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
