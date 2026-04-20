@@ -31,7 +31,7 @@ BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
 # --- Recent corrections (last 5, project-scoped) ---
 CORRECTIONS=""
 PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "global")
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
 PROJ_HASH="${PROJ_HASH:0:8}"
 CORRECTIONS_FILE="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"
 # Fall back to global file if project-scoped one doesn't exist yet

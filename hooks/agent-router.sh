@@ -147,7 +147,7 @@ else
 fi
 
 # #1: Dedup — if identical to last injection, skip entirely
-HASH=$(printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || echo "")
+HASH=$(printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || echo "")
 HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
 LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
 echo "$HASH" > "$HASH_FILE"
