@@ -66,10 +66,9 @@ If level 4 cannot be verified, state what the user should test.
 ## Clarification Mode
 Default: scan every prompt for vague verbs, missing scope, no success criteria, multiple tasks. Max 3 questions, then proceed. See anti-patterns.yml for the full pattern library.
 
-**Deep Interview** (say "deep interview"): Score prompt across 4 critical dimensions (Scope, Success, Constraints, Context) on 0-3 scale. Score 9-12→proceed. Score 5-8→ask about lowest. Score 0-4→full interview, one question per low dimension. For complex tasks, also assess: Input, Output, Audience, Memory, Examples.
+**Deep Interview** (say "deep interview"): Score scope/success/constraints/context 0-3, ask about the lowest dimension first.
 
 ## Session Summary
 On "session summary", after compaction, or on rate limit — generate:
 - Working on, Decisions made, Files changed, What failed, Next steps, Resume with (paste-ready prompt for next session)
 After compaction, first response MUST be this summary. Format as fenced code block.
-When a conversation is getting long or complex, proactively generate a Session Summary before context pressure hits.

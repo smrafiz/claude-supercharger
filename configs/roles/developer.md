@@ -20,14 +20,6 @@ paths:
 ## Workflow
 - Read existing code before suggesting changes
 - Match the project's conventions (formatting, naming, patterns)
-- Run tests after changes — don't assume they pass
-- Prefer editing existing files over creating new ones
-
-## Git
-- Small, focused commits with descriptive messages
-- Check branch and status before committing
-- Never force-push to shared branches
-- Stage specific files, not git add .
 
 ## Stack Detection
 - Read package.json, tsconfig, Cargo.toml, etc. to detect stack
