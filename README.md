@@ -4,7 +4,7 @@ Shell-level guardrails for Claude Code. Install once, forget forever.
 
 Claude Code has root access to your filesystem and git history. One bad command and you're spending hours recovering. Supercharger puts a wall between Claude and the damage — shell hooks that block before execution, not prompts Claude can talk its way around.
 
-![Version](https://img.shields.io/badge/version-3.6.18-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-255%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.6.23-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-259%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
@@ -117,7 +117,7 @@ Everything you'd check manually — context pressure, burn rate, cache efficienc
 | Mode | Hooks | What you get |
 |---|---|---|
 | **Safe** | 9 | Command blocking, code security scanner, auto-approve, audit trail, traceback compression, injection scanning, secret scanning, config scan, MCP output truncation |
-| **Full** | 30 | Everything above + git safety, agent routing, context advisor, quality gate, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
+| **Full** | 40 | Everything above + git safety, agent routing, context advisor, quality gate, TypeScript type-check, notifications, scope alerts, self-teaching, verify-on-stop, failure tracking, loop/re-read detection, MCP tracking |
 
 Most people should start with Safe. If you're in Claude Code all day and want the statusline, notifications, and token optimization — switch to Full.
 
@@ -202,6 +202,8 @@ Eight behavioral profiles, switchable mid-conversation:
 
 **Quality gate** — lint and format check after file edits. Developer role only.
 
+**TypeScript type-check** — runs `tsc --noEmit` after every `.ts/.tsx` edit. Type errors injected into context immediately. Opt out per project: `touch .supercharger-no-typecheck`.
+
 **Traceback compressor** — 50KB Python stacktrace → 1-line summary. Same for Node.js.
 
 **MCP output truncator** — caps MCP tool responses at 3.5K chars. Prevents context7 docs, Playwright snapshots, or memory dumps from flooding the context window (ref: issue #29971, ~25K tokens per heavy call).
@@ -228,7 +230,8 @@ Auto-configured based on roles. No API keys needed for core set.
 Role-based additions always apply on top of the profile:
 - Developer → Playwright, Magic UI
 - Designer → Magic UI
-- Writer / PM / DevOps / Researcher → DuckDuckGo
+
+Web search is built into Claude Code natively — no search MCP needed.
 
 Switch profile at any time (no reinstall needed):
 ```bash
@@ -253,7 +256,7 @@ Commit it. Everyone on the team gets the same behavior.
 
 ### Session memory
 
-Full mode writes `.claude/supercharger-memory.md` when Claude stops — modified files, recent commits, active tier, recent corrections. Injected automatically at the next session start to restore context.
+Full mode writes `.claude/supercharger-memory.md` when Claude stops or when `/compact` runs — modified files, recent commits, active tier, recent corrections. Injected automatically at the next session start to restore context.
 
 Add to your `.gitignore` if you don't want to commit it:
 ```
@@ -284,6 +287,7 @@ bash ~/.claude/supercharger/tools/config-health.sh    # installation health scor
 bash ~/.claude/supercharger/tools/mcp-setup.sh        # add MCP servers
 bash ~/.claude/supercharger/tools/mcp-profile.sh      # switch MCP profile (light/dev/research/full)
 bash ~/.claude/supercharger/tools/claude-check.sh     # full diagnostic
+bash ~/.claude/supercharger/tools/token-report.sh     # per-session token cost breakdown
 ```
 
 **Tips:** Use `/hooks` to inspect active hooks. Use `/statusline` to customize your status bar. Use `/permissions` for wildcard rules: `Bash(npm run *)`, `Edit(/docs/**)`. Use `/effort medium` for token savings alongside economy tiers. Set `CLAUDE_CODE_SUBAGENT_MODEL=haiku` for cheaper sub-agents. Set `MAX_THINKING_TOKENS=10000` to cap thinking token budget on Opus. Use `/cost` to monitor token usage mid-session.
