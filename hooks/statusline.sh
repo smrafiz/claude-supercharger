@@ -191,15 +191,15 @@ try:
          with open(tier_file) as f:
              tier = f.read().strip().lower()
          if tier:
-             eco = f' {DIM}|{RESET} {DIM}eco:{tier}{RESET}'
+             eco = f' {DIM}|{RESET} {DIM}Eco: {tier.capitalize()}{RESET}'
      if not eco:
          economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
          if os.path.isfile(economy_md):
              with open(economy_md) as f:
                  for ln in f:
                      if ln.startswith('### Active Tier:'):
-                         tier = ln.split(':', 1)[1].strip().split()[0].lower()
-                         eco = f' {DIM}|{RESET} {DIM}eco:{tier}{RESET}'
+                         tier = ln.split(':', 1)[1].strip().split()[0]
+                         eco = f' {DIM}|{RESET} {DIM}Eco: {tier}{RESET}'
                          break
  except Exception:
      pass
