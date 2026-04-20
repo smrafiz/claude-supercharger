@@ -29,7 +29,7 @@ get_hooks_for_mode() {
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
-    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh|")
+    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
@@ -57,6 +57,10 @@ get_hooks_for_mode() {
     hooks+=("Stop|*|${hooks_dir}/session-complete.sh|async")
     hooks+=("Stop|*|${hooks_dir}/session-memory-write.sh|async")
     hooks+=("StopFailure||${hooks_dir}/stop-failure.sh|async")
+    hooks+=("PermissionDenied||${hooks_dir}/event-logger.sh permission_denied|async")
+    hooks+=("PostToolUseFailure||${hooks_dir}/event-logger.sh tool_failure|async")
+    hooks+=("SubagentStop||${hooks_dir}/event-logger.sh subagent_stop|async")
+    hooks+=("ConfigChange||${hooks_dir}/event-logger.sh config_change|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
@@ -133,11 +137,12 @@ for event in list(settings['hooks'].keys()):
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
-    parts = line.split('|', 3)
+    parts = line.split('|', 4)
     event = parts[0]
     matcher = parts[1] if len(parts) > 1 else ''
     command = parts[2] if len(parts) > 2 else ''
     flags = parts[3] if len(parts) > 3 else ''
+    if_pattern = parts[4] if len(parts) > 4 else ''
 
     if event not in settings['hooks']:
         settings['hooks'][event] = []
@@ -149,6 +154,8 @@ for line in hooks_input.strip().split('\n'):
 
     if 'async' in flags.split(','):
         inner['async'] = True
+    if if_pattern:
+        inner['if'] = if_pattern
 
     hook_entry = {'hooks': [inner]}
     if matcher:
