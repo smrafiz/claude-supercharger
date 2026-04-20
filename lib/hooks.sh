@@ -51,6 +51,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
+    hooks+=("PostCompact||${hooks_dir}/post-compact-inject.sh|")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
     hooks+=("Stop|*|${hooks_dir}/verify-on-stop.sh|")
     hooks+=("Stop|*|${hooks_dir}/project-verify.sh|")
