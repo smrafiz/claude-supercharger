@@ -14,10 +14,10 @@ get_hooks_for_mode() {
   # flags: "async" = non-blocking background execution (for fire-and-forget hooks)
 
   # ── Safe mode: core safety + smart UX (always on) ──
-  hooks+=("PreToolUse|Bash|${hooks_dir}/safety.sh|")
+  hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
-  hooks+=("PostToolUse|Bash,Write,Edit|${hooks_dir}/audit-trail.sh|async")
+  hooks+=("PostToolUse|Bash,PowerShell,Write,Edit|${hooks_dir}/audit-trail.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|")
@@ -173,6 +173,11 @@ if os.path.isfile(statusline_path):
         'command': statusline_path + ' ' + tag
     }
 
+# Enable 1-hour prompt cache TTL (regressed to 5min in March 2026; restores 20-32% cost savings)
+if 'env' not in settings:
+    settings['env'] = {}
+settings['env']['ENABLE_PROMPT_CACHING_1H'] = '1'
+
 # Disable Co-Authored-By trailers in commits and PRs
 if 'attribution' not in settings:
     settings['attribution'] = {'commit': '', 'pr': ''}
@@ -222,9 +227,9 @@ if 'attribution' in settings:
     if attr.get('commit') == '' and attr.get('pr') == '':
         del settings['attribution']
 
-# Remove autocompact override
-if settings.get('env', {}).get('CLAUDE_AUTOCOMPACT_PCT_OVERRIDE') == '70':
-    del settings['env']['CLAUDE_AUTOCOMPACT_PCT_OVERRIDE']
+# Remove prompt cache TTL override
+if settings.get('env', {}).get('ENABLE_PROMPT_CACHING_1H') == '1':
+    del settings['env']['ENABLE_PROMPT_CACHING_1H']
     if not settings['env']:
         del settings['env']
 
