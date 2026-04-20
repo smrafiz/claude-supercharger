@@ -33,13 +33,15 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
-## What this actually is
+## What it is
 
-There are two completely different things going on here, and conflating them will give you a wrong mental model.
+Supercharger has two distinct layers. They work differently and make different guarantees.
 
-The first is shell hooks — 9 in Safe mode, 52 in Full. These run outside the Claude process. Before a command executes. Claude cannot see them, cannot reason about them, and genuinely cannot argue its way around them. If a hook exits non-zero, the command doesn't run. That's it. This is fundamentally different from Claude's built-in `/permissions`, which run inside the conversation. Claude sees those rules. It can reason around them. Shell hooks, it can't.
+**Protection layer — shell hooks.** These run outside the Claude process, before commands execute. Claude cannot see them, cannot reason about them, and cannot argue its way around them. If a hook exits with a non-zero code, the command doesn't run. Full stop.
 
-The second is the intelligence layer: `CLAUDE.md` rules that shape behavior — token economy, agent routing, roles, compaction strategy. These work well, but they're advisory. Claude follows them because they're instructions, not because anything enforces them. If you need a hard block, use a hook. If you need better default behavior, use the CLAUDE.md layer. They solve different problems.
+**Intelligence layer — prompt-level rules.** These live in `CLAUDE.md` and shape how Claude behaves: token economy, agent routing, roles, compaction strategy. They work well in practice, but Claude could technically ignore them. Think of it as the difference between a locked door and a sign that says "please knock."
+
+Both layers are useful. Neither replaces the other.
 
 ---
 
