@@ -27,6 +27,8 @@ get_hooks_for_mode() {
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
+    hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
+    hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
