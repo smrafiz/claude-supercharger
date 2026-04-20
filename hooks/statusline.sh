@@ -182,8 +182,30 @@ try:
  if lines_added > 0 or lines_removed > 0:
      lines = f' {DIM}|{RESET} {GREEN}+{lines_added}{RESET}{DIM}/{RESET}{RED}-{lines_removed}{RESET}'
 
- # Line 1: Model, project, branch, stack, agent, mcp, lines
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{agent}{mcp}{lines}'
+ # Economy tier
+ eco = ''
+ try:
+     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     tier_file = os.path.join(scope, '.economy-tier')
+     if os.path.isfile(tier_file):
+         with open(tier_file) as f:
+             tier = f.read().strip().lower()
+         if tier:
+             eco = f' {DIM}|{RESET} {DIM}eco:{tier}{RESET}'
+     if not eco:
+         economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
+         if os.path.isfile(economy_md):
+             with open(economy_md) as f:
+                 for ln in f:
+                     if ln.startswith('### Active Tier:'):
+                         tier = ln.split(':', 1)[1].strip().split()[0].lower()
+                         eco = f' {DIM}|{RESET} {DIM}eco:{tier}{RESET}'
+                         break
+ except Exception:
+     pass
+
+ # Line 1: Model, project, branch, stack, eco, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):
