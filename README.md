@@ -33,29 +33,25 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
-## What it is
+## What this actually is
 
-Supercharger has two distinct layers. They work differently and make different guarantees.
+There are two completely different things going on here, and conflating them will give you a wrong mental model.
 
-**Protection layer — shell hooks.** These run outside the Claude process, before commands execute. Claude cannot see them, cannot reason about them, and cannot argue its way around them. If a hook exits with a non-zero code, the command doesn't run. Full stop.
+The first is shell hooks — 9 in Safe mode, 52 in Full. These run outside the Claude process. Before a command executes. Claude cannot see them, cannot reason about them, and genuinely cannot argue its way around them. If a hook exits non-zero, the command doesn't run. That's it. This is fundamentally different from Claude's built-in `/permissions`, which run inside the conversation. Claude sees those rules. It can reason around them. Shell hooks, it can't.
 
-**Intelligence layer — prompt-level rules.** These live in `CLAUDE.md` and shape how Claude behaves: token economy, agent routing, roles, compaction strategy. They work well in practice, but Claude could technically ignore them. Think of it as the difference between a locked door and a sign that says "please knock."
-
-Both layers are useful. Neither replaces the other.
+The second is the intelligence layer: `CLAUDE.md` rules that shape behavior — token economy, agent routing, roles, compaction strategy. These work well, but they're advisory. Claude follows them because they're instructions, not because anything enforces them. If you need a hard block, use a hook. If you need better default behavior, use the CLAUDE.md layer. They solve different problems.
 
 ---
 
 ## Protection layer
 
-### Why shell hooks, not `/permissions`
+### Shell hooks vs. `/permissions`
 
-Claude's built-in `/permissions` run inside the conversation — Claude sees the rules and can reason around them. Shell hooks run at the OS level. Claude never sees them.
-
-| `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
-|---|---|
-| Claude sees the rules | Claude never sees them |
-| Can reason and negotiate | Can't argue with exit code 2 |
-| Advisory — Claude decides | Enforced — shell decides |
+| | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
+|---|---|---|
+| Claude sees the rules | Yes | No |
+| Can reason and negotiate | Yes | Can't argue with exit code 2 |
+| Advisory or enforced | Advisory | Enforced |
 
 Use both. `/permissions` for convenience (wildcard approvals). Supercharger for hard blocks.
 
@@ -75,8 +71,6 @@ Use both. `/permissions` for convenience (wildcard approvals). Supercharger for 
 
 ### Full mode adds 43 more hooks
 
-Organized into categories:
-
 | Category | Hooks | What's added |
 |---|---|---|
 | **Notifications** | 5 | Desktop alerts when Claude is idle, needs input, or needs permission. Shows task summary and what's needed |
@@ -92,11 +86,11 @@ Organized into categories:
 
 ## Intelligence layer
 
-Everything here runs as prompt-level instructions. Claude follows them reliably, but they are advisory — not enforced.
+Everything here is prompt-level. Claude follows these reliably — just not unconditionally.
 
 ### Statusline
 
-Three lines shown in the terminal at the start of each Claude session:
+Three lines at the start of each session:
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -104,13 +98,9 @@ Three lines shown in the terminal at the start of each Claude session:
 Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
 
-**Line 1:** model, project name, git branch, detected stack, economy tier, active agent, active MCP server, lines added/removed
+Line 1 gives you everything about the current session state at a glance: model, project, git branch, detected stack, economy tier, active agent, active MCP server, lines added/removed. Line 2 is context — bar, percentage, token counts in/out, cache efficiency. Line 3 is cost, duration, and rate limit burn (useful if you're on Pro or Max).
 
-**Line 2:** context bar, context %, token counts in/out, cache efficiency
-
-**Line 3:** session cost, duration, rate limit usage (Pro/Max subscribers)
-
-Transient indicators that appear on line 1:
+Transient indicators appear on line 1 when something fires:
 
 | Indicator | Appears when | Duration |
 |---|---|---|
@@ -121,7 +111,7 @@ Transient indicators that appear on line 1:
 
 ### Token economy
 
-Switch mid-conversation with `eco standard`, `eco lean`, or `eco minimal`:
+Switch mid-conversation with `eco standard`, `eco lean`, or `eco minimal`.
 
 | Tier | Reduction | Style |
 |---|---|---|
@@ -129,17 +119,19 @@ Switch mid-conversation with `eco standard`, `eco lean`, or `eco minimal`:
 | **Lean** | ~45% | Fragments OK, no narration |
 | **Minimal** | ~60% | Telegraphic, bare deliverables only |
 
+I use Lean by default. Minimal is good for long agentic sessions where you're mostly watching Claude work.
+
 ### Agent routing
 
 9 agent types: `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`.
 
-Each prompt is classified by task type. Claude gets a hint about which agent profile fits — not a forced dispatch. It decides whether spawning a sub-agent is worth it.
+Each prompt is classified by task type. Claude gets a hint about which profile fits — not a forced dispatch. It decides whether spawning a sub-agent is worth it.
 
-Project agents take priority. Drop `.claude/agents/my-agent.md` in your repo and Supercharger tells Claude to prefer it over global agent definitions.
+Project agents take priority over global ones. Drop `.claude/agents/my-agent.md` in your repo and Supercharger tells Claude to prefer it.
 
 ### Roles
 
-8 behavioral profiles. Switch mid-conversation:
+8 behavioral profiles. Switch mid-conversation with natural language:
 
 `"as developer"` · `"as designer"` · `"as devops"` · `"as pm"` · `"as researcher"` · `"as student"` · `"as data"` · `"as writer"`
 
@@ -156,7 +148,7 @@ Project agents take priority. Drop `.claude/agents/my-agent.md` in your repo and
 
 ### Skill routing
 
-A trigger table in `CLAUDE.md` routes common tasks to the right Claude skill without loading the full skill index:
+A trigger table in `CLAUDE.md` maps common tasks to the right Claude skill without loading the full skill index:
 
 | Task | Skill |
 |---|---|
@@ -171,12 +163,12 @@ A trigger table in `CLAUDE.md` routes common tasks to the right Claude skill wit
 
 ## Install modes
 
+Safe mode gives you the 9 hard-block hooks — the things that should never happen regardless of context. Full mode adds 43 more: the statusline, session memory, learning loop, notifications, quality gates, context advisor. If you're just getting started or want minimal overhead, Safe is fine. If you're using Claude Code heavily and want it to get smarter over time, Full is worth it.
+
 | Mode | Hooks | Best for |
 |---|---|---|
-| **Safe** | 9 | Anyone who wants hard safety blocks with minimal overhead |
-| **Full** | 52 | Anyone using Claude Code heavily who also wants the statusline, notifications, session memory, and quality gates |
-
-Start with Safe. Add Full when you want more.
+| **Safe** | 9 | Hard safety blocks with minimal overhead |
+| **Full** | 52 | Heavy Claude Code use — statusline, memory, notifications, quality gates |
 
 ---
 
@@ -184,7 +176,7 @@ Start with Safe. Add Full when you want more.
 
 ### Project config
 
-Drop `.supercharger.json` in your repo root and commit it. Everyone on the team gets the same behavior:
+`.supercharger.json` in your repo root, committed. Everyone on the team gets the same behavior:
 
 ```json
 {"roles": ["developer", "designer"], "economy": "lean", "hints": "React + Tailwind, use pnpm"}
@@ -192,19 +184,19 @@ Drop `.supercharger.json` in your repo root and commit it. Everyone on the team 
 
 ### Session memory
 
-Full mode writes `.claude/supercharger-memory.md` when Claude stops and when `/compact` runs. It captures modified files, recent commits, active economy tier, and recent corrections. On the next session start, it gets injected automatically.
+Full mode writes `.claude/supercharger-memory.md` when Claude stops and when `/compact` runs. It captures modified files, recent commits, active economy tier, and recent corrections. Gets injected automatically at the next session start.
 
-Add to `.gitignore` if the memory is local to you:
+Whether you commit it or not depends on your team. Add it to `.gitignore` for local-only memory:
 
 ```
 .claude/supercharger-memory.md
 ```
 
-Or commit it for shared team memory that persists across sessions.
+Or commit it for shared memory that persists across the whole team.
 
 ### Project verify hook
 
-Drop `.claude/verify.sh` in your repo. It runs when Claude stops. If it fails, Claude sees the output and continues fixing.
+Drop `.claude/verify.sh` in your repo and it runs when Claude stops. If it fails, Claude sees the output and keeps fixing.
 
 ```bash
 cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
@@ -250,21 +242,23 @@ Switch profiles with `bash tools/mcp-profile.sh [profile]`. Takes effect on the 
 
 Role-based additions apply on top of the profile: Developer adds Playwright, GitHub, and Magic UI. Designer adds Magic UI.
 
+Supercharger tags its own MCP entries with `#supercharger` and does not touch your existing servers.
+
 ---
 
-## Full mode — feature details
+## Full mode — what the extra 43 hooks actually do
 
-**Context advisor** — warns at 50% context, recommends `/compact` at 70%, recommends `eco minimal` at 80%, critical warning at 90%.
+**Context advisor** — warns at 50%, recommends `/compact` at 70%, recommends `eco minimal` at 80%, critical warning at 90%. This alone has saved me from a lot of wasted context.
 
-**Verify on stop** — if files were modified in a session but no test or build command ran, shows a warning.
+**Verify on stop** — if files were modified in a session but no test or build command ran, you get a warning. Good for catching sessions where Claude edited something and you forgot to check.
 
-**Quality gate** — lint check after file edits (Developer role). TypeScript type-check after every `.ts`/`.tsx` edit. Opt out per project: `touch .supercharger-no-typecheck`.
+**Quality gate** — lint after file edits (Developer role). TypeScript type-check after every `.ts`/`.tsx` edit. To opt out per project: `touch .supercharger-no-typecheck`.
 
-**Learning loop** — blocked commands and user corrections are logged and injected at the start of every session. The more you use it, the fewer mistakes Claude repeats.
+**Learning loop** — blocked commands and user corrections are logged and injected at the start of every session. The more you correct it, the less you have to.
 
-**Traceback compressor** — 50KB Python or Node stacktrace compressed to a 1-line summary before it hits the context window.
+**Traceback compressor** — 50KB Python or Node stacktrace gets compressed to a 1-line summary before it hits the context window.
 
-**Loop and re-read detection** — catches repeated identical tool calls and warns when Claude re-reads unchanged files, nudging it to use cached knowledge instead.
+**Loop and re-read detection** — catches repeated identical tool calls and warns when Claude re-reads unchanged files. Nudges it to use cached knowledge instead.
 
 **Audit trail** — every file write and shell command logged to JSONL. Credentials auto-redacted. 30-day rotation.
 
