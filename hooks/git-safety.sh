@@ -80,4 +80,21 @@ if [[ "$CMD" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
   block "git stash drop/clear permanently removes stashed changes"
 fi
 
+
+# Checkpoint before commit — warn if unstaged/untracked work exists
+if [[ "$CMD" =~ ^git\ commit([[:space:]]|$) ]]; then
+  UNSTAGED=$(git diff --name-only 2>/dev/null | grep -v '^$' || true)
+  UNTRACKED=$(git ls-files --others --exclude-standard 2>/dev/null | grep -v '^$' | head -10 || true)
+  WARNINGS=()
+  [ -n "$UNSTAGED" ] && WARNINGS+=("Unstaged changes: $(printf '%s' "$UNSTAGED" | tr '\n' ' ' | sed 's/ *$//')")
+  [ -n "$UNTRACKED" ] && WARNINGS+=("Untracked files: $(printf '%s' "$UNTRACKED" | tr '\n' ' ' | sed 's/ *$//')")
+  if [ ${#WARNINGS[@]} -gt 0 ]; then
+    MSG="[CHECKPOINT] Committing with uncommitted work present. ${WARNINGS[*]} — confirm these are intentionally excluded."
+    CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
+      || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
+    echo "[Supercharger] git-safety: checkpoint — unstaged/untracked work at commit time" >&2
+  fi
+fi
+
 exit 0
