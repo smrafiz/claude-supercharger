@@ -60,6 +60,7 @@ get_hooks_for_mode() {
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
+      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|")
     fi
   fi
 
