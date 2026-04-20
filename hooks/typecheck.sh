@@ -38,6 +38,9 @@ done
 
 [ -z "$TSCONFIG" ] && exit 0
 
+# Per-project opt-out
+[ -f "$PROJECT_ROOT/.supercharger-no-typecheck" ] && exit 0
+
 # Resolve tsc binary
 TSC=""
 for candidate in \
