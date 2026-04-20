@@ -18,6 +18,17 @@ RED='\033[0;31m'
 BOLD='\033[1m'
 NC='\033[0m'
 
+
+# Parse flags early — before any network calls or config detection
+for _arg in "$@"; do
+  case "$_arg" in
+    --dry-run)
+      echo -e "  ${YELLOW}--dry-run: no changes made.${NC}"
+      exit 0
+      ;;
+  esac
+done
+
 # Fetch latest version from GitHub contents API (no auth, no CDN cache)
 fetch_remote_version() {
   python3 -c "
@@ -133,7 +144,7 @@ fi
 LOCAL=$(local_version)
 
 # --- No git repo: one-liner install path ---
-if [ ! -d "$REPO_DIR/.git" ]; then
+if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   echo ""
   echo -n "  Checking for updates... "
   REMOTE=$(fetch_remote_version)
@@ -214,8 +225,6 @@ source "$REPO_DIR/lib/backup.sh"
 
 detect_platform
 
-DRY_RUN=false
-[[ "${1:-}" == "--dry-run" ]] && DRY_RUN=true
 
 OLD_VERSION="$VERSION"
 
@@ -229,10 +238,7 @@ echo -e "    Economy: ${BOLD}${DETECTED_ECONOMY}${NC}"
 echo -e "    Current: ${BOLD}v${OLD_VERSION}${NC}"
 echo ""
 
-if [ "$DRY_RUN" = true ]; then
-  echo -e "  ${YELLOW}--dry-run: no changes made.${NC}"
-  exit 0
-fi
+
 
 read -r -p "  Proceed with update? [y/N] " CONFIRM
 if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
