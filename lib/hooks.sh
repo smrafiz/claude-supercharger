@@ -167,11 +167,6 @@ if os.path.isfile(statusline_path):
 if 'attribution' not in settings:
     settings['attribution'] = {'commit': '', 'pr': ''}
 
-# Set autocompact threshold to 70% (quality degrades at ~70%, not 50%)
-if 'env' not in settings:
-    settings['env'] = {}
-settings['env']['CLAUDE_AUTOCOMPACT_PCT_OVERRIDE'] = '70'
-
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
