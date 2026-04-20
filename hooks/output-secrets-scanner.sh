@@ -61,6 +61,10 @@ import json
 msg = '[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., \"the API key\") without showing the actual value.'
 print(json.dumps({'additionalContext': msg}))
 "
+  # Signal statusline: scan alert
+  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  mkdir -p "$SCOPE_DIR"
+  echo "secrets" > "$SCOPE_DIR/.scan-alert" 2>/dev/null || true
   exit 2
 fi
 

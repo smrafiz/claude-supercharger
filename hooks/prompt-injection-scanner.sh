@@ -69,6 +69,10 @@ PYEOF
 if [ -n "$RESULT" ]; then
   echo "[Supercharger] INJECTION DETECTED in output from ${TOOL_NAME}" >&2
   printf '%s\n' "$RESULT"
+  # Signal statusline: scan alert
+  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  mkdir -p "$SCOPE_DIR"
+  echo "injection" > "$SCOPE_DIR/.scan-alert" 2>/dev/null || true
   exit 2
 fi
 

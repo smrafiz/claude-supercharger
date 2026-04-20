@@ -164,4 +164,9 @@ print(json.dumps({
 }))
 " "$MESSAGE"
 
+# Signal statusline: scan alert
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+echo "code" > "$SCOPE_DIR/.scan-alert" 2>/dev/null || true
+
 exit 2

@@ -204,8 +204,30 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, branch, stack, eco, agent, mcp, lines
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{agent}{mcp}{lines}'
+ # Memory restore indicator (shown 5 min after compaction)
+ mem = ''
+ try:
+     mem_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.memory-restored')
+     if os.path.isfile(mem_file):
+         if time.time() - os.path.getmtime(mem_file) < 300:
+             mem = f' {DIM}|{RESET} {CYAN}Mem: Restored{RESET}'
+ except Exception:
+     pass
+
+ # Scan alert indicator (shown 2 min after scanner fires)
+ scan = ''
+ try:
+     scan_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.scan-alert')
+     if os.path.isfile(scan_file):
+         if time.time() - os.path.getmtime(scan_file) < 120:
+             with open(scan_file) as f:
+                 scan_type = f.read().strip().capitalize()
+             scan = f' {DIM}|{RESET} \033[33m\u26a0 Scan: {scan_type}{RESET}'
+ except Exception:
+     pass
+
+ # Line 1: Model, project, branch, stack, eco, mem, scan, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):

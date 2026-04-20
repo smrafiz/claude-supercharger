@@ -66,5 +66,10 @@ CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dump
 
 printf '{"hookSpecificOutput":{"hookEventName":"PostCompact","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
+# Signal statusline: memory was restored
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+date +%s > "$SCOPE_DIR/.memory-restored" 2>/dev/null || true
+
 echo "[Supercharger] post-compact-inject: context restored" >&2
 exit 0
