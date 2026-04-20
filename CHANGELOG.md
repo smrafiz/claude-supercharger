@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.0.0] - 2026-04-20 — Initial stable release: 52 hooks, statusline (eco tier, mem restore, scan alerts), 9 agent types, adaptive token economy, code/secrets/injection scanners, session memory, MCP profiles, CVE-2025-59536 guard
 - [3.6.11] - 2026-04-19 — Add Claude Code marketplace plugin metadata; dead-code carveout anti-pattern; fix hook counts in tests
 - [3.6.10] - 2026-04-19 — Add session memory (writes .claude/supercharger-memory.md on Stop, injects at SessionStart)
 - [3.6.9] - 2026-04-19 — Add project-verify hook (.claude/verify.sh runs on Stop, feeds failures back); compress subagent safety injection 26→4 lines
