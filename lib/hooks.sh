@@ -64,6 +64,11 @@ get_hooks_for_mode() {
     hooks+=("PostToolUseFailure||${hooks_dir}/event-logger.sh tool_failure|async")
     hooks+=("SubagentStop||${hooks_dir}/event-logger.sh subagent_stop|async")
     hooks+=("ConfigChange||${hooks_dir}/event-logger.sh config_change|async")
+    hooks+=("InstructionsLoaded||${hooks_dir}/event-logger.sh instructions_loaded|async")
+    hooks+=("TaskCreated||${hooks_dir}/event-logger.sh task_created|async")
+    hooks+=("TaskCompleted||${hooks_dir}/event-logger.sh task_completed|async")
+    hooks+=("TeammateIdle||${hooks_dir}/event-logger.sh teammate_idle|async")
+    hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Misc Event Logger
-# Events: PermissionDenied, PostToolUseFailure, SubagentStop, ConfigChange
+# Events: PermissionDenied, PostToolUseFailure, SubagentStop, ConfigChange,
+#         InstructionsLoaded, TaskCreated, TaskCompleted, TeammateIdle
 # Logs to ~/.claude/supercharger/events.log (async, no output to Claude)
 
 set -euo pipefail
@@ -33,6 +34,21 @@ try:
     elif ev == 'config_change':
         key = d.get('key') or d.get('path') or d.get('setting') or '?'
         print(f'key={key}')
+    elif ev == 'instructions_loaded':
+        fp = d.get('file_path') or '?'
+        reason = d.get('load_reason') or '?'
+        mtype = d.get('memory_type') or '?'
+        print(f'file={fp} reason={reason} type={mtype}')
+    elif ev == 'task_created':
+        name = d.get('task_name') or d.get('name') or d.get('task_id') or '?'
+        print(f'task={name}')
+    elif ev == 'task_completed':
+        name = d.get('task_name') or d.get('name') or d.get('task_id') or '?'
+        status = d.get('status') or d.get('result') or 'done'
+        print(f'task={name} status={status}')
+    elif ev == 'teammate_idle':
+        agent = d.get('agent_id') or d.get('agent_name') or '?'
+        print(f'agent={agent}')
     else:
         print('detail=unknown')
 except Exception:
