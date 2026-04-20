@@ -23,6 +23,27 @@ except:
 
 printf '%s stop_failure reason=%s\n' "$TIMESTAMP" "$REASON" >> "$LOG_FILE"
 
+# Type-specific advisory context
+case "$REASON" in
+  rate_limit*)
+    ADVICE="[STOP FAILURE] Rate limit reached. Pause for 60 seconds before retrying. Do not loop or retry immediately."
+    ;;
+  authentication_failed*)
+    ADVICE="[STOP FAILURE] Authentication failed. The user may need to run 'claude login' to re-authenticate."
+    ;;
+  billing_error*)
+    ADVICE="[STOP FAILURE] Billing issue detected. The user should check their subscription at claude.ai/settings."
+    ;;
+  *)
+    ADVICE=""
+    ;;
+esac
+
+if [ -n "$ADVICE" ]; then
+  ADVICE_JSON=$(printf '%s' "$ADVICE" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo "\"$ADVICE\"")
+  printf '{"hookSpecificOutput":{"hookEventName":"StopFailure","additionalContext":%s}}\n' "$ADVICE_JSON"
+fi
+
 # Rotate: keep last 500 lines
 if [ -f "$LOG_FILE" ]; then
   LINES=$(wc -l < "$LOG_FILE" | tr -d ' ')

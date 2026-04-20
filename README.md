@@ -4,7 +4,7 @@ Shell-level guardrails for Claude Code. Install once, forget forever.
 
 Claude Code has root access to your filesystem and git history. One bad command and you're spending hours recovering. Supercharger puts a wall between Claude and the damage — shell hooks that block before execution, not prompts Claude can talk its way around.
 
-![Version](https://img.shields.io/badge/version-3.6.31-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-259%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-3.6.32-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-259%20passing-brightgreen)
 
 ```bash
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh

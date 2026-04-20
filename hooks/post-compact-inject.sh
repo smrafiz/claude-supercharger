@@ -9,10 +9,23 @@ set -euo pipefail
 
 [ "${SUPERCHARGER_NO_MEMORY:-0}" = "1" ] && exit 0
 
+_INPUT=$(cat)
+
 MEMORY_FILE=".claude/supercharger-memory.md"
 PROJECT_CONFIG=".supercharger.json"
 
 lines=()
+
+# ── Compact summary (what Claude Code actually preserved) ──
+COMPACT_SUMMARY=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    s = d.get('compact_summary', '')
+    if s: print(s[:1500])
+except: pass
+" 2>/dev/null || echo "")
+[ -n "$COMPACT_SUMMARY" ] && lines+=("Compaction summary: ${COMPACT_SUMMARY}")
 
 # ── Session memory ──
 if [ -f "$MEMORY_FILE" ]; then
