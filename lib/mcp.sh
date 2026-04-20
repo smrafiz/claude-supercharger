@@ -37,11 +37,6 @@ playwright|npx|-y @playwright/mcp --headless"
 magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
 
-  if echo "$roles" | grep -qE "(writer|student|data|pm|devops|researcher)"; then
-    servers="${servers}
-duckduckgo-search|npx|-y duckduckgo-mcp-server"
-  fi
-
   echo "$servers" | sort -u | grep -v '^$'
 }
 

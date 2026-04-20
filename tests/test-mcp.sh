@@ -74,39 +74,33 @@ else
 fi
 teardown_test_home
 
-# --- Test 3: Writer role adds DuckDuckGo ---
-begin_test "mcp: writer role adds duckduckgo-search (light profile)"
+# --- Test 3: Writer role — no extra servers (duckduckgo removed, WebSearch is native) ---
+begin_test "mcp: writer role has only context7 (duckduckgo removed, WebSearch is native)"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "writer" "light"
 DDG=$(has_mcp_server "duckduckgo-search")
 TOTAL=$(count_tagged_mcp)
-if [ "$DDG" = "yes" ] && [ "$TOTAL" -eq 2 ]; then
+if [ "$DDG" = "no" ] && [ "$TOTAL" -eq 1 ]; then
   pass
 else
-  fail "expected duckduckgo=yes total=2, got duckduckgo=$DDG total=$TOTAL"
+  fail "expected duckduckgo=no total=1, got duckduckgo=$DDG total=$TOTAL"
 fi
 teardown_test_home
 
-# --- Test 4: Multi-role deduplication ---
-begin_test "mcp: developer+pm deduplicates duckduckgo-search (light profile)"
+# --- Test 4: Multi-role — developer+pm same as developer alone (no extra servers) ---
+begin_test "mcp: developer+pm same server count as developer alone"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer,pm" "light"
 TOTAL=$(count_tagged_mcp)
-DDG_COUNT=$(SETTINGS_PATH="$HOME/.claude.json" python3 -c "
-import json, os
-with open(os.environ['SETTINGS_PATH']) as f:
-    s = json.load(f)
-print(sum(1 for k in s.get('mcpServers', {}) if 'duckduckgo' in k))
-" 2>/dev/null || echo "0")
 HAS_GH="no"
 command -v gh &>/dev/null && HAS_GH="yes"
-if [ "$HAS_GH" = "yes" ]; then EXPECTED=5; else EXPECTED=4; fi
-if [ "$TOTAL" -eq "$EXPECTED" ] && [ "$DDG_COUNT" -eq 1 ]; then
+if [ "$HAS_GH" = "yes" ]; then EXPECTED=4; else EXPECTED=3; fi
+if [ "$TOTAL" -eq "$EXPECTED" ]; then
   pass
 else
-  fail "expected total=$EXPECTED ddg_count=1, got total=$TOTAL ddg=$DDG_COUNT"
+  fail "expected total=$EXPECTED, got total=$TOTAL (gh=$HAS_GH)"
 fi
 teardown_test_home
 
