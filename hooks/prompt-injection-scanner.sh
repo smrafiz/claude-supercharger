@@ -69,6 +69,7 @@ PYEOF
 if [ -n "$RESULT" ]; then
   echo "[Supercharger] INJECTION DETECTED in output from ${TOOL_NAME}" >&2
   printf '%s\n' "$RESULT"
+  exit 2
 fi
 
 exit 0

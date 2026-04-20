@@ -15,13 +15,13 @@ get_hooks_for_mode() {
 
   # ── Safe mode: core safety + smart UX (always on) ──
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
-  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|")
+  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit|${hooks_dir}/audit-trail.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
-  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|")
-  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|")
+  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
+  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
 
   # ── Full mode: everything ──
@@ -155,8 +155,11 @@ for line in hooks_input.strip().split('\n'):
     else:
         inner = {'type': 'command', 'command': command + ' ' + tag}
 
-    if 'async' in flags.split(','):
+    flag_list = [f.strip() for f in flags.split(',') if f.strip()]
+    if 'async' in flag_list:
         inner['async'] = True
+    if 'asyncRewake' in flag_list:
+        inner['asyncRewake'] = True
     if if_pattern:
         inner['if'] = if_pattern
 

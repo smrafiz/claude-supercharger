@@ -61,6 +61,7 @@ import json
 msg = '[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., \"the API key\") without showing the actual value.'
 print(json.dumps({'additionalContext': msg}))
 "
+  exit 2
 fi
 
 exit 0
