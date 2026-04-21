@@ -51,6 +51,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
     hooks+=("PostCompact||${hooks_dir}/post-compact-inject.sh|")
