@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.0.6] - 2026-04-21 — Session analytics: daily cost/cache rollup + per-project breakdown (session-analytics.sh); 7d summary in claude-check.sh; remove confusing guardrails-template.yml line from health check
 - [1.0.5] - 2026-04-21 — Fix project-scope .supercharger-debug not working: $PWD unreliable in hook context; refactor lib-suppress.sh with init_hook_suppress(dir) function; all 12 hooks now re-call with actual project dir after reading stdin; session-memory-inject now reads stdin for cwd
 - [1.0.4] - 2026-04-21 — Fix UserPromptSubmit/SubagentStart hooks showing [CTX] banner in UI; switch to hookSpecificOutput.additionalContext for silent injection; systemMessage reserved for infrequent events (SessionStart, PostCompact, FileChanged)
 - [1.0.3] - 2026-04-21 — Hook output suppressed by default (suppressOutput:true); debug flag to re-enable: ~/.claude/supercharger/scope/.debug-hooks (global) or .supercharger-debug (project); lib-suppress.sh shared helper; README debug FAQ entry

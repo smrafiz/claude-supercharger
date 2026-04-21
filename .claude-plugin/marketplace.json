@@ -6,7 +6,7 @@
   },
   "metadata": {
     "description": "Shell-level guardrails for Claude Code — command blocking, self-teaching, token economy, agent routing, MCP profiles, session memory, and code security scanning.",
-    "version": "1.0.5",
+    "version": "1.0.6",
     "homepage": "https://github.com/smrafiz/claude-supercharger"
   },
   "plugins": [
@@ -14,7 +14,7 @@
       "name": "claude-supercharger",
       "source": "./",
       "description": "Installs the instructional layer: guardrails, token economy tiers, agent routing, anti-patterns, and compaction rules. For full protection (shell hooks, command blocking, notifications), run the install script.",
-      "version": "1.0.5",
+      "version": "1.0.6",
       "author": {
         "name": "smrafiz"
       },
