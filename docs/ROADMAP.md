@@ -38,9 +38,9 @@ Full mode adds 43 hooks across: notifications, git safety, scope/memory, learnin
 **Tooling**
 - `install.sh` / `uninstall.sh` — interactive + non-interactive modes, backup/restore
 - `update.sh`, `economy-switch.sh`, `hook-toggle.sh`, `config-health.sh`
-- `mcp-setup.sh`, `mcp-profile.sh`, `claude-check.sh`, `token-report.sh`
+- `mcp-setup.sh`, `mcp-profile.sh`, `claude-check.sh`, `token-report.sh`, `session-analytics.sh`
 - `notify-toggle.sh`, `webhook-setup.sh`, `bump-version.sh`
-- 287 tests passing
+- 293 tests passing
 
 ---
 
@@ -48,12 +48,6 @@ Full mode adds 43 hooks across: notifications, git safety, scope/memory, learnin
 
 ### Adaptive economy
 Auto-suggest tier changes based on context pressure. At 70% context with standard tier, suggest lean. Session-end analysis: if avg context exceeded 80% across recent sessions, suggest starting lean by default.
-
-### Config health score
-Single 0–100 score in `claude-check`: Core, Hooks, Economy, Team, Hygiene categories. Color bar with per-category breakdown and actionable suggestions.
-
-### Session analytics
-Parse Claude Code's native JSONL session files to surface daily/weekly cost, cache hit rates, economy tier ROI. Pure Python, no external service.
 
 ---
 
