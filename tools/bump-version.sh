@@ -50,11 +50,20 @@ sed -i.bak "s/version-${OLD}-blue/version-${NEW}-blue/" "$REPO_DIR/README.md"
 rm -f "$REPO_DIR/README.md.bak"
 echo -e "  ${GREEN}✓${NC} README.md (version badge)"
 
+# Plugin files
+for pfile in "$REPO_DIR/.claude-plugin/plugin.json" "$REPO_DIR/.claude-plugin/marketplace.json"; do
+  if [ -f "$pfile" ]; then
+    sed -i.bak "s/\"version\": \"$OLD\"/\"version\": \"$NEW\"/g" "$pfile"
+    rm -f "${pfile}.bak"
+    echo -e "  ${GREEN}✓${NC} $(basename "$pfile")"
+  fi
+done
+
 echo ""
 echo -e "${BOLD}CHANGELOG.md — add entry manually:${NC}"
 echo "  - [${NEW}] - $(date +%Y-%m-%d) — <description>"
 echo ""
 echo -e "${BOLD}Next steps:${NC}"
-echo "  git add lib/utils.sh tools/supercharger.sh README.md CHANGELOG.md"
+echo "  git add lib/utils.sh tools/supercharger.sh README.md .claude-plugin/ CHANGELOG.md"
 echo "  git commit -m \"chore: bump version to $NEW\""
 echo "  git tag v$NEW && git push && git push --tags"

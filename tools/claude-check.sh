@@ -16,13 +16,26 @@ echo "║    Claude Supercharger Health Check       ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+VERSION=$(grep -m1 '^VERSION=' "$REPO_DIR/lib/utils.sh" 2>/dev/null | tr -d '"' | cut -d= -f2 || echo "?")
+
 ERRORS=0
+
+# Health score accumulators
+SCORE_CORE=0      # max 40
+SCORE_HOOKS=0     # max 25
+SCORE_ECONOMY=0   # max 15
+SCORE_TEAM=0      # max 10
+SCORE_HYGIENE=0   # max 10
 
 check_file() {
   local path="$1"
   local label="$2"
+  local points="${3:-0}"
   if [ -f "$path" ]; then
     echo -e "  ${GREEN}✓${NC} $label"
+    SCORE_CORE=$((SCORE_CORE + points))
   else
     echo -e "  ${RED}✗${NC} $label — ${RED}missing${NC}"
     ERRORS=$((ERRORS + 1))
@@ -31,9 +44,9 @@ check_file() {
 
 # Config Files
 echo -e "${BLUE}Config Files:${NC}"
-check_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md"
-check_file "$HOME/.claude/rules/supercharger.md" "rules/supercharger.md — universal rules"
-check_file "$HOME/.claude/rules/guardrails.md" "rules/guardrails.md — Four Laws + safety"
+check_file "$HOME/.claude/CLAUDE.md" "CLAUDE.md" 15
+check_file "$HOME/.claude/rules/supercharger.md" "rules/supercharger.md — universal rules" 10
+check_file "$HOME/.claude/rules/guardrails.md" "rules/guardrails.md — Four Laws + safety" 10
 
 # Primary roles (active in rules/)
 echo ""
@@ -48,6 +61,8 @@ for role in developer writer student data pm designer devops researcher; do
 done
 if [ -z "$ROLES_FOUND" ]; then
   echo -e "  ${YELLOW}○${NC} No primary roles found"
+else
+  SCORE_CORE=$((SCORE_CORE + 5))
 fi
 
 echo ""
@@ -84,10 +99,23 @@ import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
-count = sum(1 for event in hooks.values() for h in event if '#supercharger' in h.get('command',''))
+count = 0
+for event in hooks.values():
+    for entry in event:
+        for h in entry.get('hooks', []):
+            if 'supercharger' in h.get('command', ''):
+                count += 1
+        if 'supercharger' in entry.get('command', ''):
+            count += 1
 print(count)
 " 2>/dev/null || echo "0")
   echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
+  # Score: 5 for any hooks, +5 for 10+, +5 for 20+, +5 for 35+, +5 for 50+
+  if [ "$HOOK_COUNT" -gt 0 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
+  if [ "$HOOK_COUNT" -ge 10 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
+  if [ "$HOOK_COUNT" -ge 20 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
+  if [ "$HOOK_COUNT" -ge 35 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
+  if [ "$HOOK_COUNT" -ge 50 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
 
   if [ -d "$HOME/.claude/supercharger/hooks" ]; then
     for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config prompt-validator compaction-backup; do
@@ -117,6 +145,7 @@ print(cmd)
 " 2>/dev/null)
   if echo "$SL_CMD" | grep -q "#supercharger"; then
     echo -e "  ${GREEN}✓${NC} Enhanced statusline — active"
+    SCORE_CORE=$((SCORE_CORE > 40 ? 40 : SCORE_CORE))  # cap before adding; statusline is bonus via economy
   elif [ -n "$SL_CMD" ]; then
     echo -e "  ${YELLOW}○${NC} Custom statusline configured (not Supercharger)"
   else
@@ -183,9 +212,9 @@ fi
 echo ""
 echo -e "${BLUE}Session Summaries:${NC}"
 SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
-if [ -d "$SUMMARIES_DIR" ] && [ -n "$(ls -A "$SUMMARIES_DIR" 2>/dev/null)" ]; then
-  SUMMARY_COUNT=$(ls "$SUMMARIES_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
-  LATEST=$(ls -t "$SUMMARIES_DIR"/*.md 2>/dev/null | head -1 | xargs basename 2>/dev/null)
+SUMMARY_COUNT=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+if [ "$SUMMARY_COUNT" -gt 0 ]; then
+  LATEST=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
   echo -e "  ${GREEN}✓${NC} ${SUMMARY_COUNT} summary file(s) — latest: ${LATEST}"
 else
   echo -e "  ${YELLOW}○${NC} No session summaries yet — say 'session summary' in Claude Code"
@@ -246,6 +275,11 @@ fi
 
 if [ "$LINT_ISSUES" -eq 0 ]; then
   echo -e "  ${GREEN}✓${NC} All config files valid"
+  SCORE_HYGIENE=10
+else
+  # Deduct proportionally, min 0
+  SCORE_HYGIENE=$((10 - LINT_ISSUES * 3))
+  [ "$SCORE_HYGIENE" -lt 0 ] && SCORE_HYGIENE=0
 fi
 
 # Features you're not using
@@ -258,6 +292,8 @@ if [ ! -f "$HOME/.claude/supercharger/webhook.json" ]; then
   echo -e "  ${YELLOW}→${NC} Webhook notifications — get Slack/Discord/Telegram alerts"
   echo -e "    Run: ${BOLD}bash tools/webhook-setup.sh${NC}"
   UNUSED=$((UNUSED + 1))
+else
+  SCORE_TEAM=$((SCORE_TEAM + 4))
 fi
 
 # Check profiles
@@ -265,6 +301,8 @@ if [ ! -f "$HOME/.claude/supercharger/.active-profile" ]; then
   echo -e "  ${YELLOW}→${NC} Profiles — switch role+economy+MCP in one command"
   echo -e "    Run: ${BOLD}bash tools/profile-switch.sh --list${NC}"
   UNUSED=$((UNUSED + 1))
+else
+  SCORE_TEAM=$((SCORE_TEAM + 3))
 fi
 
 # Check project config
@@ -272,6 +310,8 @@ if [ ! -f ".supercharger.json" ]; then
   echo -e "  ${YELLOW}→${NC} Project config — auto-apply roles/economy when opening this project"
   echo -e "    Create: ${BOLD}.supercharger.json${NC} in project root"
   UNUSED=$((UNUSED + 1))
+else
+  SCORE_TEAM=$((SCORE_TEAM + 3))
 fi
 
 # Check economy tier (default lean may not be optimal)
@@ -280,6 +320,8 @@ if [ -f "$HOME/.claude/rules/economy.md" ]; then
   if [ -z "$ACTIVE_TIER" ]; then
     echo -e "  ${YELLOW}→${NC} Economy tier — not detected. Run: ${BOLD}bash tools/economy-switch.sh lean${NC}"
     UNUSED=$((UNUSED + 1))
+  else
+    SCORE_ECONOMY=$((SCORE_ECONOMY + 15))
   fi
 fi
 
@@ -308,9 +350,44 @@ if [ "$UNUSED" -eq 0 ]; then
   echo -e "  ${GREEN}✓${NC} You're using everything!"
 fi
 
-# Summary
+# Cap categories
+[ "$SCORE_CORE" -gt 40 ] && SCORE_CORE=40
+[ "$SCORE_HOOKS" -gt 25 ] && SCORE_HOOKS=25
+[ "$SCORE_ECONOMY" -gt 15 ] && SCORE_ECONOMY=15
+[ "$SCORE_TEAM" -gt 10 ] && SCORE_TEAM=10
+[ "$SCORE_HYGIENE" -gt 10 ] && SCORE_HYGIENE=10
+
+TOTAL_SCORE=$((SCORE_CORE + SCORE_HOOKS + SCORE_ECONOMY + SCORE_TEAM + SCORE_HYGIENE))
+
+# Color based on score
+if [ "$TOTAL_SCORE" -ge 80 ]; then
+  SCORE_COLOR="$GREEN"
+elif [ "$TOTAL_SCORE" -ge 50 ]; then
+  SCORE_COLOR="$YELLOW"
+else
+  SCORE_COLOR="$RED"
+fi
+
+# Build progress bar (20 chars wide)
+FILLED=$((TOTAL_SCORE / 5))
+EMPTY=$((20 - FILLED))
+BAR="${SCORE_COLOR}"
+for ((i=0; i<FILLED; i++)); do BAR+="█"; done
+BAR+="${NC}"
+for ((i=0; i<EMPTY; i++)); do BAR+="░"; done
+
+# Health Score
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
+echo -e "${BOLD}Health Score: ${SCORE_COLOR}${TOTAL_SCORE}/100${NC}  ${BAR}"
+echo ""
+echo -e "  Core     ${SCORE_CORE}/40   (CLAUDE.md, rules, roles)"
+echo -e "  Hooks    ${SCORE_HOOKS}/25   (registered hooks)"
+echo -e "  Economy  ${SCORE_ECONOMY}/15   (tier configured)"
+echo -e "  Team     ${SCORE_TEAM}/10   (webhooks, profiles, project config)"
+echo -e "  Hygiene  ${SCORE_HYGIENE}/10   (no errors, valid configs)"
+echo ""
+
 if [ -n "$ROLES_FOUND" ]; then
   echo -e "Roles: ${BOLD}$ROLES_FOUND${NC}"
 fi
@@ -321,7 +398,7 @@ fi
 if [ -f ".supercharger.json" ]; then
   echo -e "Project config: ${GREEN}.supercharger.json detected${NC}"
 fi
-echo -e "Version: ${BOLD}1.9.0${NC}"
+echo -e "Version: ${BOLD}${VERSION}${NC}"
 echo ""
 
 if [ "$ERRORS" -eq 0 ]; then
