@@ -11,7 +11,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 [ "${SUPERCHARGER_NO_MEMORY:-0}" = "1" ] && exit 0
 
-MEMORY_FILE=".claude/supercharger-memory.md"
+_INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
+
+MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 
 [ ! -f "$MEMORY_FILE" ] && exit 0
 
@@ -20,7 +24,7 @@ CONTENT=$(head -c 3000 "$MEMORY_FILE" 2>/dev/null || echo "")
 [ -z "$CONTENT" ] && exit 0
 
 # Lazy injection: if branch changed or no open work, emit stub only
-CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
+CURRENT_BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
 MEM_BRANCH=$(printf '%s' "$CONTENT" | grep -o 'branch:[^ ]*' | cut -d: -f2- || echo "")
 MEM_OPEN=$(printf '%s' "$CONTENT" | grep -o 'open:[^ ]*' | cut -d: -f2- || echo "")
 

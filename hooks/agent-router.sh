@@ -29,6 +29,7 @@ fi
 # Resolve project directory from hook JSON payload — $PWD is not reliable in hook context
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
 rm -f "$SCOPE_DIR/.prompt-cost-${SESSION_ID}" "$SCOPE_DIR/.prompt-tokens-${SESSION_ID}" "$SCOPE_DIR/.last-prompt-tokens-${SESSION_ID}"

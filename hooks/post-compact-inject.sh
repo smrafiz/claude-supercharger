@@ -13,6 +13,8 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_NO_MEMORY:-0}" = "1" ] && exit 0
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 MEMORY_FILE=".claude/supercharger-memory.md"
 PROJECT_CONFIG=".supercharger.json"

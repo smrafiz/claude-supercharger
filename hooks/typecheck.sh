@@ -17,6 +17,8 @@ except: print('')
 
 [ -z "$FILE_PATH" ] && exit 0
 [ ! -f "$FILE_PATH" ] && exit 0
+PROJECT_DIR=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || dirname "$FILE_PATH")
+init_hook_suppress "$PROJECT_DIR"
 
 # Only .ts / .tsx files
 case "$FILE_PATH" in
