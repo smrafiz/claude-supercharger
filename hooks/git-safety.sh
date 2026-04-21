@@ -25,14 +25,14 @@ block() {
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
   local safe_cmd="${COMMAND:0:120}"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
+  printf '{"hookSpecificOutput":{"permissionDecision":"deny","permissionDecisionReason":"%s"}}\n' "$1"
   exit 2
 }
 
 rewrite() {
   local safe_cmd="$1" reason="$2"
   echo "[Supercharger] git-safety: rewrote unsafe command — ${reason}" >&2
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":%s}}}\n' \
+  printf '{"hookSpecificOutput":{"updatedInput":{"command":%s}}}\n' \
     "$(printf '%s' "$safe_cmd" | jq -Rs '.')"
   exit 0
 }
@@ -92,7 +92,7 @@ if [[ "$CMD" =~ ^git\ commit([[:space:]]|$) ]]; then
     MSG="[CHECKPOINT] Committing with uncommitted work present. ${WARNINGS[*]} — confirm these are intentionally excluded."
     CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
       || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
+    printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
     echo "[Supercharger] git-safety: checkpoint — unstaged/untracked work at commit time" >&2
   fi
 fi

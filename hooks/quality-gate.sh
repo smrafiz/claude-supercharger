@@ -112,7 +112,7 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   ITERATION=$((ITERATION + 1))
 done
 
-# Final re-check: inject any remaining unfixed issues as additionalContext
+# Final re-check: inject any remaining unfixed issues as systemMessage
 REMAINING=""
 case "$EXT" in
   py)
@@ -139,7 +139,7 @@ if [ -n "$REMAINING" ]; then
 ${TRUNCATED}
 
 Fix these issues before marking the task complete."
-  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':sys.stdin.read()}}))" 2>/dev/null)
+  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'systemMessage':sys.stdin.read()}))" 2>/dev/null)
   [ -n "$CONTEXT_JSON" ] && printf '%s\n' "$CONTEXT_JSON"
 fi
 

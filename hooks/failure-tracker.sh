@@ -36,7 +36,7 @@ printf '[%s] exit=%s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$EXIT_CODE" "$CMD_KE
 if [ "$FAIL_COUNT" -ge 2 ]; then
   CONTEXT="[LEARNING] The command pattern '$(printf '%.60s' "$CMD_KEY")' has failed ${FAIL_COUNT} times. Try a different approach instead of retrying the same command."
   CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-  printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
+  printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
   echo "[Supercharger] failure-tracker: command failed ${FAIL_COUNT}x — nudging Claude to try different approach" >&2
 fi
 

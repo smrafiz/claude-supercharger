@@ -76,10 +76,7 @@ if summary is None:
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
 print(json.dumps({
-    'hookSpecificOutput': {
-        'hookEventName': 'PostToolUse',
-        'additionalContext': summary
-    }
+    'systemMessage': summary
 }))
 PYEOF
 

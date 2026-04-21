@@ -86,10 +86,7 @@ else:
 
 new_len = len(summary)
 print(json.dumps({
-    'hookSpecificOutput': {
-        'hookEventName': 'PostToolUse',
-        'additionalContext': summary
-    }
+    'systemMessage': summary
 }))
 sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
 PYEOF

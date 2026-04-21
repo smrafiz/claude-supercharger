@@ -97,7 +97,7 @@ if [ ${#WARNINGS[@]} -gt 0 ]; then
   COMBINED=$(IFS=' '; echo "${WARNINGS[*]}")
   python3 -c "
 import json, sys
-print(json.dumps({'additionalContext': sys.argv[1]}))
+print(json.dumps({'systemMessage': sys.argv[1]}))
 " "$COMBINED"
 fi
 

@@ -75,7 +75,7 @@ if [ -n "$FINDINGS" ]; then
   python3 -c "
 import json, sys
 msg = '[SECURITY] Dependency audit after install: {}. Run the appropriate audit command for full details and consider upgrading or replacing affected packages.'.format(sys.argv[1])
-print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PostToolUse', 'additionalContext': msg}}))
+print(json.dumps({'systemMessage': msg}))
 " "$FINDINGS"
 fi
 

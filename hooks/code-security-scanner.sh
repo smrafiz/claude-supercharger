@@ -152,15 +152,15 @@ ${WARNING_LIST}
 
 Review each pattern before proceeding. These may be intentional (test files, security tools, docs) — if so, no action needed."
 
-# Emit additionalContext warning and exit 2 (asyncRewake: wakes Claude to deliver warning)
+# Emit systemMessage warning and exit 2 (asyncRewake: wakes Claude to deliver warning)
 python3 -c "
 import json, sys
 msg = sys.argv[1]
 print(json.dumps({
   'hookSpecificOutput': {
-    'hookEventName': 'PreToolUse',
-    'additionalContext': msg
-  }
+    'permissionDecision': 'ask'
+  },
+  'systemMessage': msg
 }))
 " "$MESSAGE"
 
