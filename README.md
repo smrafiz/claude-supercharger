@@ -2,7 +2,7 @@
 
 Shell-level guardrails and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-1.0.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-1.0.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-287%20passing-brightgreen)
 
 ---
 
@@ -278,6 +278,17 @@ No. The installer backs up your config first. `./uninstall.sh` restores exactly 
 <summary>A hook blocked something I need.</summary>
 
 `bash tools/hook-toggle.sh safety off` — or run the command directly in your terminal, outside Claude.
+</details>
+
+<details>
+<summary>How do I see what hooks are outputting?</summary>
+
+Hook output is hidden from the UI by default. To re-enable visibility:
+
+- **Global:** `touch ~/.claude/supercharger/scope/.debug-hooks`
+- **Project-only:** `touch .supercharger-debug` in the project root
+
+Remove the file to suppress again.
 </details>
 
 <details>
