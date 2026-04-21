@@ -222,6 +222,7 @@ All scripts live in `~/.claude/supercharger/tools/` after install:
 | `mcp-profile.sh` | Switch MCP profile |
 | `claude-check.sh` | Full diagnostic |
 | `token-report.sh` | Per-session token cost breakdown |
+| `session-analytics.sh` | Daily cost rollup + per-project breakdown across all sessions (`--days N`) |
 | `notify-toggle.sh` | Toggle desktop notifications |
 | `webhook-setup.sh` | Configure webhooks |
 | `supercharger.sh` | Capability overview |
