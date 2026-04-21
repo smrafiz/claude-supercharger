@@ -44,4 +44,39 @@ else
 fi
 rm -rf "$TMPDIR_FIXTURE"
 
+begin_test "session-analytics: cache hit rate calculation"
+TMPDIR_FIXTURE=$(mktemp -d)
+mkdir -p "$TMPDIR_FIXTURE/proj-bar"
+# input=1,000,000  cache_read=1,000,000  → cache% = 50%
+cat > "$TMPDIR_FIXTURE/proj-bar/session1.jsonl" << 'JSONL'
+{"type":"user","timestamp":"2026-04-21T10:00:00Z","message":{"content":"hello"}}
+{"type":"assistant","timestamp":"2026-04-21T10:00:01Z","message":{"usage":{"input_tokens":1000000,"cache_creation_input_tokens":0,"cache_read_input_tokens":1000000,"output_tokens":0}}}
+JSONL
+
+OUTPUT=$(bash "$TOOL" --projects "$TMPDIR_FIXTURE" --days 7 2>&1)
+if echo "$OUTPUT" | grep -qE '50%'; then
+  pass
+else
+  fail "expected 50% cache hit rate in output, got: $OUTPUT"
+fi
+rm -rf "$TMPDIR_FIXTURE"
+
+begin_test "session-analytics: zero-turn sessions excluded"
+TMPDIR_FIXTURE=$(mktemp -d)
+mkdir -p "$TMPDIR_FIXTURE/proj-empty"
+# File has only user turns, no assistant usage
+cat > "$TMPDIR_FIXTURE/proj-empty/session1.jsonl" << 'JSONL'
+{"type":"user","timestamp":"2026-04-21T10:00:00Z","message":{"content":"hello"}}
+{"type":"user","timestamp":"2026-04-21T10:00:01Z","message":{"content":"world"}}
+JSONL
+
+OUTPUT=$(bash "$TOOL" --projects "$TMPDIR_FIXTURE" --days 7 2>&1)
+# Should show "No session data found" (Python block exits when grand sessions == 0)
+if echo "$OUTPUT" | grep -qi "no session data"; then
+  pass
+else
+  fail "expected zero sessions excluded message, got: $OUTPUT"
+fi
+rm -rf "$TMPDIR_FIXTURE"
+
 report
