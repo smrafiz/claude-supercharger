@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.0.2] - 2026-04-21 — Fix all hook JSON output schemas (systemMessage replaces invalid hookSpecificOutput/additionalContext); config health score in claude-check (0-100); fix hardcoded version in claude-check; bump-version now covers plugin files
 - [1.0.1] - 2026-04-20 — Tests for file-watcher/event-logger/dep-vuln-scanner (287 total); HOOK_AUTHORING.md; CONTRIBUTING.md; Git Bash md5sum order fix
 - [1.0.0] - 2026-04-20 — Initial stable release: 52 hooks, statusline (eco tier, mem restore, scan alerts), 9 agent types, adaptive token economy, code/secrets/injection scanners, session memory, MCP profiles, CVE-2025-59536 guard
 - [3.6.11] - 2026-04-19 — Add Claude Code marketplace plugin metadata; dead-code carveout anti-pattern; fix hook counts in tests
