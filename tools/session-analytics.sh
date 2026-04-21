@@ -72,14 +72,19 @@ def parse_session(path):
                     if d.get('type') == 'assistant':
                         u = d.get('message', {}).get('usage', {})
                         if u:
-                            t['input']       += u.get('input_tokens', 0)
-                            t['cache_write'] += u.get('cache_creation_input_tokens', 0)
-                            t['cache_read']  += u.get('cache_read_input_tokens', 0)
-                            t['output']      += u.get('output_tokens', 0)
-                            t['turns']       += 1
-                except Exception:
+                            inp  = u.get('input_tokens', 0)
+                            cw   = u.get('cache_creation_input_tokens', 0)
+                            cr   = u.get('cache_read_input_tokens', 0)
+                            out  = u.get('output_tokens', 0)
+                            if inp + cw + cr + out > 0:
+                                t['input']       += inp
+                                t['cache_write'] += cw
+                                t['cache_read']  += cr
+                                t['output']      += out
+                                t['turns']       += 1
+                except:
                     pass
-    except Exception:
+    except:
         pass
     return t, ts_start
 
@@ -101,7 +106,7 @@ def ts_to_date(ts):
         return 'unknown'
     try:
         return datetime.fromisoformat(ts.replace('Z', '+00:00')).strftime('%Y-%m-%d')
-    except Exception:
+    except:
         return ts[:10]
 
 def new_row():
