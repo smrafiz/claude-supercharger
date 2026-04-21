@@ -39,8 +39,8 @@ begin_test "file-watcher: output is valid JSON"
 output=$(run_file_watcher "/project/package.json")
 if echo "$output" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null; then pass; else fail "output not valid JSON"; fi
 
-begin_test "file-watcher: output contains hookEventName FileChanged"
+begin_test "file-watcher: output contains systemMessage"
 output=$(run_file_watcher "/project/package.json")
-if echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='FileChanged'" 2>/dev/null; then pass; else fail "missing hookEventName"; fi
+if echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'systemMessage' in d" 2>/dev/null; then pass; else fail "missing systemMessage"; fi
 
 report

@@ -38,7 +38,7 @@ esac
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 
-printf '{"hookSpecificOutput":{"hookEventName":"FileChanged","additionalContext":%s}}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
 
 echo "[Supercharger] file-watcher: ${BASENAME} changed" >&2
 exit 0

@@ -41,7 +41,7 @@ esac
 
 if [ -n "$ADVICE" ]; then
   ADVICE_JSON=$(printf '%s' "$ADVICE" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo "\"$ADVICE\"")
-  printf '{"hookSpecificOutput":{"hookEventName":"StopFailure","additionalContext":%s}}\n' "$ADVICE_JSON"
+  printf '{"stopReason":%s}\n' "$ADVICE_JSON"
 fi
 
 # Rotate: keep last 500 lines

@@ -21,25 +21,21 @@ CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 
 allow_tool() {
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedPermissions":[{"type":"addRules","rules":[{"toolName":"%s"}],"behavior":"allow","destination":"session"}]}}}\n' "$TOOL_NAME"
+  printf '{"permissionDecision":"allow","reason":"auto-approved read-only tool %s"}\n' "$TOOL_NAME"
   exit 0
 }
 
 allow_cmd() {
   local rule="$1"
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${rule})" >&2
-  local rule_json
-  rule_json=$(printf '%s' "$rule" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$rule")
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedPermissions":[{"type":"addRules","rules":[{"toolName":"Bash","ruleContent":%s}],"behavior":"allow","destination":"session"}]}}}\n' "$rule_json"
+  printf '{"permissionDecision":"allow","reason":"auto-approved safe command: %s"}\n' "$rule"
   exit 0
 }
 
 allow_path() {
   local pattern="$1"
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${pattern})" >&2
-  local pattern_json
-  pattern_json=$(printf '%s' "$pattern" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$pattern")
-  printf '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow","updatedPermissions":[{"type":"addRules","rules":[{"toolName":"%s","ruleContent":%s}],"behavior":"allow","destination":"session"}]}}}\n' "$TOOL_NAME" "$pattern_json"
+  printf '{"permissionDecision":"allow","reason":"auto-approved safe path pattern: %s"}\n' "$pattern"
   exit 0
 }
 

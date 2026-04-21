@@ -57,9 +57,9 @@ MSG="[PROJECT VERIFY FAILED] Verification script (.claude/verify.sh) returned ex
 
 ${TRUNCATED}"
 
-CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
+REASON_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"hookSpecificOutput":{"hookEventName":"Stop","additionalContext":%s}}\n' "$CONTEXT_JSON"
+printf '{"stopReason":%s}\n' "$REASON_JSON"
 
 echo "[Supercharger] stop-verify: FAILED (exit $VERIFY_EXIT)" >&2
 exit 0
