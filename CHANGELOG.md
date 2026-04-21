@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [1.0.4] - 2026-04-21 — Fix UserPromptSubmit/SubagentStart hooks showing [CTX] banner in UI; switch to hookSpecificOutput.additionalContext for silent injection; systemMessage reserved for infrequent events (SessionStart, PostCompact, FileChanged)
 - [1.0.3] - 2026-04-21 — Hook output suppressed by default (suppressOutput:true); debug flag to re-enable: ~/.claude/supercharger/scope/.debug-hooks (global) or .supercharger-debug (project); lib-suppress.sh shared helper; README debug FAQ entry
 - [1.0.2] - 2026-04-21 — Fix all hook JSON output schemas (systemMessage replaces invalid hookSpecificOutput/additionalContext); config health score in claude-check (0-100); fix hardcoded version in claude-check; bump-version now covers plugin files
 - [1.0.1] - 2026-04-20 — Tests for file-watcher/event-logger/dep-vuln-scanner (287 total); HOOK_AUTHORING.md; CONTRIBUTING.md; Git Bash md5sum order fix

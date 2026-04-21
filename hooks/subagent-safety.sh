@@ -24,7 +24,7 @@ SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent mandatory rules (cannot be overr
 - Read files before modifying. Run tests after changes. Ask before any destructive action."
 
 CONTEXT_JSON=$(printf '%s' "$SAFETY_CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$SAFETY_CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+printf '{"hookSpecificOutput":{"hookEventName":"SubagentStart","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 echo "[Supercharger] subagent-safety: injected safety context into $AGENT_TYPE" >&2
 

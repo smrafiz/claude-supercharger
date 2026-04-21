@@ -84,13 +84,14 @@ else
 fi
 teardown_test_home
 
-# Test 7: stdout is valid JSON with systemMessage
-begin_test "agent-router: stdout contains valid JSON with systemMessage"
+# Test 7: stdout is valid JSON with hookSpecificOutput.additionalContext
+begin_test "agent-router: stdout contains valid JSON with hookSpecificOutput additionalContext"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 OUTPUT=$(echo '{"prompt":"debug this error"}' | bash "$ROUTER" 2>/dev/null)
-if echo "$OUTPUT" | grep -q '"systemMessage"' && \
-   echo "$OUTPUT" | grep -q '[CTX]'; then
+if echo "$OUTPUT" | grep -q '"hookSpecificOutput"' && \
+   echo "$OUTPUT" | grep -q '"additionalContext"' && \
+   echo "$OUTPUT" | grep -q '\[CTX\]'; then
   pass
 else
   fail "stdout missing expected JSON structure or [CTX] text: $OUTPUT"
