@@ -84,11 +84,6 @@ fi
 echo ""
 echo -e "${BLUE}Shared Assets:${NC}"
 check_file "$HOME/.claude/rules/anti-patterns.yml" "rules/anti-patterns.yml"
-if [ -f "$HOME/.claude/shared/guardrails-template.yml" ]; then
-  echo -e "  ${GREEN}✓${NC} guardrails-template.yml (Full mode)"
-else
-  echo -e "  ${YELLOW}○${NC} guardrails-template.yml — not installed (Full mode)"
-fi
 
 # Hooks
 echo ""
