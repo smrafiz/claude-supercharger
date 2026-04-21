@@ -4,6 +4,9 @@
 # Auto-suggests economy tier changes based on context window usage.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
@@ -61,6 +64,6 @@ echo "$DEDUP_KEY" > "$DEDUP_FILE"
 echo "[Supercharger] adaptive-economy: ${PCT}% tier=${TIER}" >&2
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 exit 0

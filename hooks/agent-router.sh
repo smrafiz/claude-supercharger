@@ -5,6 +5,9 @@
 # Claude's context. Writes classification to .agent-classified for agent-gate.sh.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
@@ -162,6 +165,6 @@ if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" !=
 fi
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 exit 0

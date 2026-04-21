@@ -75,7 +75,8 @@ if [ -n "$FINDINGS" ]; then
   python3 -c "
 import json, sys
 msg = '[SECURITY] Dependency audit after install: {}. Run the appropriate audit command for full details and consider upgrading or replacing affected packages.'.format(sys.argv[1])
-print(json.dumps({'systemMessage': msg, 'suppressOutput': True}))
+import os
+print(json.dumps({'systemMessage': msg, 'suppressOutput': not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))}))
 " "$FINDINGS"
 fi
 

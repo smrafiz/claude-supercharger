@@ -85,8 +85,10 @@ else:
     summary = first + f'\n[... {omitted} chars omitted ...]\n' + last
 
 new_len = len(summary)
+import os
+_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
 print(json.dumps({
-    'systemMessage': summary, 'suppressOutput': True
+    'systemMessage': summary, 'suppressOutput': _suppress
 }))
 sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
 PYEOF

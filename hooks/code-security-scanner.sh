@@ -154,13 +154,14 @@ Review each pattern before proceeding. These may be intentional (test files, sec
 
 # Emit systemMessage warning and exit 2 (asyncRewake: wakes Claude to deliver warning)
 python3 -c "
-import json, sys
+import json, sys, os
 msg = sys.argv[1]
+_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
 print(json.dumps({
   'hookSpecificOutput': {
     'permissionDecision': 'ask'
   },
-  'systemMessage': msg, 'suppressOutput': True
+  'systemMessage': msg, 'suppressOutput': _suppress
 }))
 " "$MESSAGE"
 

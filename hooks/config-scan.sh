@@ -97,7 +97,8 @@ if [ ${#WARNINGS[@]} -gt 0 ]; then
   COMBINED=$(IFS=' '; echo "${WARNINGS[*]}")
   python3 -c "
 import json, sys
-print(json.dumps({'systemMessage': sys.argv[1], 'suppressOutput': True}))
+import os
+print(json.dumps({'systemMessage': sys.argv[1], 'suppressOutput': not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))}))
 " "$COMBINED"
 fi
 

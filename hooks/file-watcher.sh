@@ -4,6 +4,9 @@
 # Notifies Claude when watched files change so it doesn't act on stale assumptions.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 INPUT=$(cat)
 
@@ -38,7 +41,7 @@ esac
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 echo "[Supercharger] file-watcher: ${BASENAME} changed" >&2
 exit 0

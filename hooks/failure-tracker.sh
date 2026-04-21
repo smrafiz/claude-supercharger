@@ -4,6 +4,9 @@
 # Detects when the same command fails repeatedly and logs the pattern.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
 
@@ -36,7 +39,7 @@ printf '[%s] exit=%s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$EXIT_CODE" "$CMD_KE
 if [ "$FAIL_COUNT" -ge 2 ]; then
   CONTEXT="[LEARNING] The command pattern '$(printf '%.60s' "$CMD_KEY")' has failed ${FAIL_COUNT} times. Try a different approach instead of retrying the same command."
   CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-  printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+  printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
   echo "[Supercharger] failure-tracker: command failed ${FAIL_COUNT}x — nudging Claude to try different approach" >&2
 fi
 

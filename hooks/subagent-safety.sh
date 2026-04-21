@@ -5,6 +5,9 @@
 # since those agents bypass parent-session hooks (safety.sh, git-safety.sh).
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
 AGENT_TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
@@ -21,7 +24,7 @@ SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent mandatory rules (cannot be overr
 - Read files before modifying. Run tests after changes. Ask before any destructive action."
 
 CONTEXT_JSON=$(printf '%s' "$SAFETY_CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$SAFETY_CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 echo "[Supercharger] subagent-safety: injected safety context into $AGENT_TYPE" >&2
 

@@ -6,6 +6,9 @@
 # Saves 10-50K tokens per caught loop; prevents redundant context reads.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
 
@@ -92,6 +95,6 @@ fi
 COMBINED=$(printf '%s\n' "${MESSAGES[@]}")
 CONTEXT_JSON=$(printf '%s' "$COMBINED" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$COMBINED" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 exit 0

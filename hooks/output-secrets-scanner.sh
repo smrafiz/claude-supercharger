@@ -59,7 +59,8 @@ if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   python3 -c "
 import json
 msg = '[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., \"the API key\") without showing the actual value.'
-print(json.dumps({'systemMessage': msg, 'suppressOutput': True}))
+import os
+print(json.dumps({'systemMessage': msg, 'suppressOutput': not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))}))
 "
   # Signal statusline: scan alert
   SCOPE_DIR="$HOME/.claude/supercharger/scope"

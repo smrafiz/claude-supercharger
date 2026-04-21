@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
@@ -92,7 +95,7 @@ if [[ "$CMD" =~ ^git\ commit([[:space:]]|$) ]]; then
     MSG="[CHECKPOINT] Committing with uncommitted work present. ${WARNINGS[*]} — confirm these are intentionally excluded."
     CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
       || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-    printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+    printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
     echo "[Supercharger] git-safety: checkpoint — unstaged/untracked work at commit time" >&2
   fi
 fi

@@ -75,8 +75,10 @@ if summary is None:
 
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
+import os
+_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
 print(json.dumps({
-    'systemMessage': summary, 'suppressOutput': True
+    'systemMessage': summary, 'suppressOutput': _suppress
 }))
 PYEOF
 

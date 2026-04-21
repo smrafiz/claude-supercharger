@@ -6,6 +6,9 @@
 # Includes log rotation (30 days) and dedup.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 BLOCKS_LOG="$SCOPE_DIR/.blocked-commands"
@@ -127,6 +130,6 @@ fi
 [ -z "$CONTEXT" ] && exit 0
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 
 exit 0
