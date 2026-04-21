@@ -83,6 +83,6 @@ echo "$MSG" >&2
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 
-printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
 
 exit 0

@@ -86,7 +86,7 @@ else:
 
 new_len = len(summary)
 print(json.dumps({
-    'systemMessage': summary
+    'systemMessage': summary, 'suppressOutput': True
 }))
 sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
 PYEOF

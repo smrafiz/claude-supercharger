@@ -127,6 +127,6 @@ fi
 [ -z "$CONTEXT" ] && exit 0
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
 
 exit 0

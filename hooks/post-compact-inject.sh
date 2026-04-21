@@ -64,7 +64,7 @@ MSG="${MSG}Resume from this state — do not re-read files already in memory."
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 
-printf '{"systemMessage":%s}\n' "$CONTEXT_JSON"
+printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
 
 # Signal statusline: memory was restored
 SCOPE_DIR="$HOME/.claude/supercharger/scope"

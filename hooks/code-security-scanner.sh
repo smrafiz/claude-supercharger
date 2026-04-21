@@ -160,7 +160,7 @@ print(json.dumps({
   'hookSpecificOutput': {
     'permissionDecision': 'ask'
   },
-  'systemMessage': msg
+  'systemMessage': msg, 'suppressOutput': True
 }))
 " "$MESSAGE"
 

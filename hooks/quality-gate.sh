@@ -139,7 +139,7 @@ if [ -n "$REMAINING" ]; then
 ${TRUNCATED}
 
 Fix these issues before marking the task complete."
-  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'systemMessage':sys.stdin.read()}))" 2>/dev/null)
+  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'systemMessage':sys.stdin.read(),'suppressOutput':True}))" 2>/dev/null)
   [ -n "$CONTEXT_JSON" ] && printf '%s\n' "$CONTEXT_JSON"
 fi
 
