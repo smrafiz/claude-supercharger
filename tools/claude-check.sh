@@ -407,4 +407,86 @@ else
   echo -e "${RED}${ERRORS} issue(s) found. Run install.sh to fix.${NC}"
 fi
 echo ""
+# Analytics Summary
+echo -e "${BLUE}Analytics (7d):${NC}"
+PROJECTS_BASE="$HOME/.claude/projects"
+if [ -d "$PROJECTS_BASE" ]; then
+  ANALYTICS_SUMMARY=$(SUPERCHARGER_PROJECTS_DIR="$PROJECTS_BASE" python3 << 'PYEOF'
+import os, json, time
+
+PRICE = {'input': 3.00, 'cache_write': 3.75, 'cache_read': 0.30, 'output': 15.00}
+projects_dir = os.environ.get('SUPERCHARGER_PROJECTS_DIR', '')
+cutoff = time.time() - 7 * 86400
+
+total = dict(input=0, cache_write=0, cache_read=0, output=0, sessions=0)
+total_cost = total_saved = 0.0
+
+for proj in os.listdir(projects_dir):
+    proj_path = os.path.join(projects_dir, proj)
+    if not os.path.isdir(proj_path):
+        continue
+    try:
+        for fname in os.listdir(proj_path):
+            if not fname.endswith('.jsonl'):
+                continue
+            fpath = os.path.join(proj_path, fname)
+            try:
+                if os.path.getmtime(fpath) < cutoff:
+                    continue
+            except OSError:
+                continue
+            turns = 0
+            t = dict(input=0, cache_write=0, cache_read=0, output=0)
+            try:
+                with open(fpath) as f:
+                    for line in f:
+                        try:
+                            d = json.loads(line)
+                            if d.get('type') == 'assistant':
+                                u = d.get('message', {}).get('usage', {})
+                                if u:
+                                    inp = u.get('input_tokens', 0)
+                                    cw  = u.get('cache_creation_input_tokens', 0)
+                                    cr  = u.get('cache_read_input_tokens', 0)
+                                    out = u.get('output_tokens', 0)
+                                    if inp + cw + cr + out > 0:
+                                        t['input']       += inp
+                                        t['cache_write'] += cw
+                                        t['cache_read']  += cr
+                                        t['output']      += out
+                                        turns += 1
+                        except:
+                            pass
+            except:
+                continue
+            if turns == 0:
+                continue
+            total['sessions'] += 1
+            for k in ('input', 'cache_write', 'cache_read', 'output'):
+                total[k] += t[k]
+            cost = (t['input'] / 1e6 * PRICE['input'] +
+                    t['cache_write'] / 1e6 * PRICE['cache_write'] +
+                    t['cache_read']  / 1e6 * PRICE['cache_read'] +
+                    t['output']      / 1e6 * PRICE['output'])
+            saved = t['cache_read'] / 1e6 * (PRICE['input'] - PRICE['cache_read'])
+            total_cost  += cost
+            total_saved += saved
+    except OSError:
+        continue
+
+denom = total['cache_read'] + total['input']
+cache_pct = int(total['cache_read'] / denom * 100) if denom > 0 else 0
+
+if total['sessions'] == 0:
+    print("  no sessions in last 7 days")
+else:
+    s = total['sessions']
+    print(f"  ${total_cost:.2f} across {s} session{'s' if s != 1 else ''} | cache {cache_pct}% | saved ${total_saved:.2f}")
+PYEOF
+  )
+  echo -e "$ANALYTICS_SUMMARY"
+else
+  echo -e "  ${YELLOW}○${NC} No session data (${PROJECTS_BASE} not found)"
+fi
+echo ""
 echo -e "For full capability overview: ${BOLD}bash tools/supercharger.sh${NC}"
