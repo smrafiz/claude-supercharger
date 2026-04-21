@@ -37,6 +37,10 @@ else
 fi
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
+if [ "$HOOK_SUPPRESS" = "false" ]; then
+  printf '{"systemMessage":%s,"suppressOutput":false}\n' "$CONTEXT_JSON"
+else
+  printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
+fi
 
 exit 0

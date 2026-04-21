@@ -165,6 +165,10 @@ if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" !=
 fi
 
 CONTEXT_JSON=$(printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
+if [ "$HOOK_SUPPRESS" = "false" ]; then
+  printf '{"systemMessage":%s,"suppressOutput":false}\n' "$CONTEXT_JSON"
+else
+  printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
+fi
 
 exit 0
