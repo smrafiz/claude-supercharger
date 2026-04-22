@@ -22,55 +22,24 @@ COST_TMP="$SCOPE_DIR/.session-cost.tmp"
 if [[ "$MODE" == "accumulate" ]]; then
   _INPUT=$(cat)
 
-  # Extract usage from PostToolUse payload
-  USAGE_INPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
+  # Extract all usage fields in one Python call
+  USAGE_FIELDS=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     data = json.load(sys.stdin)
-    # PostToolUse: usage is in tool_response or usage field
     usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
     if not isinstance(usage, dict):
         usage = {}
-    print(int(usage.get('input_tokens', 0) or 0))
+    inp = int(usage.get('input_tokens', 0) or 0)
+    cw = int(usage.get('cache_creation_input_tokens', 0) or 0)
+    cr = int(usage.get('cache_read_input_tokens', 0) or 0)
+    out = int(usage.get('output_tokens', 0) or 0)
+    print(f'{inp} {cw} {cr} {out}')
 except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
+    print('0 0 0 0')
+" 2>/dev/null || echo "0 0 0 0")
 
-  USAGE_CACHE_WRITE=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    print(int(usage.get('cache_creation_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-  USAGE_CACHE_READ=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    print(int(usage.get('cache_read_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-  USAGE_OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    print(int(usage.get('output_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
+  read USAGE_INPUT USAGE_CACHE_WRITE USAGE_CACHE_READ USAGE_OUTPUT <<< "$USAGE_FIELDS"
 
   # If all zero, nothing to accumulate — exit cleanly
   TOTAL_TOKENS=$((USAGE_INPUT + USAGE_CACHE_WRITE + USAGE_CACHE_READ + USAGE_OUTPUT))
@@ -79,26 +48,25 @@ except Exception:
     exit 0
   fi
 
-  # Calculate turn cost using pricing table
-  # input: $3.00/MTok, cache_write: $3.75/MTok, cache_read: $0.30/MTok, output: $15.00/MTok
-  TURN_COST=$(python3 -c "
-input_tok = $USAGE_INPUT
-cache_write = $USAGE_CACHE_WRITE
-cache_read = $USAGE_CACHE_READ
-output_tok = $USAGE_OUTPUT
-cost = (input_tok * 3.00 + cache_write * 3.75 + cache_read * 0.30 + output_tok * 15.00) / 1_000_000
-print(f'{cost:.8f}')
-" 2>/dev/null || echo "0")
-
   # Read existing state or start fresh
-  NOW=$(python3 -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
+  NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-  COST_INPUT="$COST_FILE" TURN_COST="$TURN_COST" NOW="$NOW" python3 << 'PYEOF' > "$COST_TMP"
+  COST_INPUT="$COST_FILE" \
+  USAGE_INPUT="$USAGE_INPUT" USAGE_CACHE_WRITE="$USAGE_CACHE_WRITE" \
+  USAGE_CACHE_READ="$USAGE_CACHE_READ" USAGE_OUTPUT="$USAGE_OUTPUT" \
+  NOW="$NOW" python3 << 'PYEOF' > "$COST_TMP"
 import json, os
 
 cost_file = os.environ['COST_INPUT']
-turn_cost = float(os.environ['TURN_COST'])
 now = os.environ['NOW']
+
+# Calculate turn cost using pricing table
+# input: $3.00/MTok, cache_write: $3.75/MTok, cache_read: $0.30/MTok, output: $15.00/MTok
+inp = int(os.environ.get('USAGE_INPUT', 0) or 0)
+cw  = int(os.environ.get('USAGE_CACHE_WRITE', 0) or 0)
+cr  = int(os.environ.get('USAGE_CACHE_READ', 0) or 0)
+out = int(os.environ.get('USAGE_OUTPUT', 0) or 0)
+turn_cost = (inp * 3.00 + cw * 3.75 + cr * 0.30 + out * 15.00) / 1_000_000
 
 # Load existing state
 state = {}
@@ -135,7 +103,7 @@ PYEOF
   # Atomic move
   mv "$COST_TMP" "$COST_FILE"
 
-  echo "[Supercharger] budget-cap: accumulated turn_cost=${TURN_COST} file=$COST_FILE" >&2
+  echo "[Supercharger] budget-cap: accumulated file=$COST_FILE" >&2
   exit 0
 fi
 
