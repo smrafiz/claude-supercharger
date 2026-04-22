@@ -23,11 +23,10 @@ init_hook_suppress() {
   # Fallback: check PWD (unreliable in hook context — prefer passing dir explicitly)
   [ -f "${PWD}/.supercharger-debug" ] && HOOK_SUPPRESS=false || true
 
-  # Timing instrumentation for hook-perf.sh profiler
-  if command -v python3 >/dev/null 2>&1; then
+  # Timing instrumentation — only active when profiler is running
+  HOOK_START_MS=0
+  if [ -f "$HOME/.claude/supercharger/scope/.profiling" ]; then
     HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
-  else
-    HOOK_START_MS=0
   fi
 }
 

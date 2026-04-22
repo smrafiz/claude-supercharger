@@ -26,6 +26,14 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Enable profiling sentinel for future hook invocations
+PROFILING_FILE="$HOME/.claude/supercharger/scope/.profiling"
+mkdir -p "$(dirname "$PROFILING_FILE")"
+touch "$PROFILING_FILE"
+
+# Clean up on exit
+trap 'rm -f "$PROFILING_FILE"' EXIT
+
 SUPERCHARGER_AUDIT_DIR="$AUDIT_DIR" \
 SUPERCHARGER_DAYS="$DAYS" \
 SUPERCHARGER_SLOW="$SLOW" \
