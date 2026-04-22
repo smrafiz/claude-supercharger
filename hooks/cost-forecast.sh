@@ -19,52 +19,18 @@ fi
 
 _INPUT=$(cat)
 
-# Read avg_per_turn from .session-cost
-AVG_PER_TURN=$(python3 -c "
-import json
-try:
-    with open('$COST_FILE') as f:
-        d = json.load(f)
-    print(str(d.get('avg_per_turn', 0) or 0))
-except Exception:
-    print('0')
-" 2>/dev/null || echo "0")
-
-# Skip if avg_per_turn is 0
-if python3 -c "import sys; sys.exit(0 if float('$AVG_PER_TURN') > 0 else 1)" 2>/dev/null; then
-  : # continue
-else
-  exit 0
-fi
-
-# Read project dir from stdin cwd field
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    print(data.get('cwd', '') or '')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
+# Read project dir from stdin cwd field via jq
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 init_hook_suppress "$PROJECT_DIR"
 
-# Read forecastTurnsPerAgent from .supercharger.json (default: 10)
-FORECAST_TURNS=10
+# Find .supercharger.json by walking up from PROJECT_DIR
+SUPERCHARGER_JSON=""
 SEARCH_DIR="$PROJECT_DIR"
 for _ in 1 2 3 4 5; do
   if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-    FORECAST_TURNS=$(python3 -c "
-import json
-try:
-    with open('$SEARCH_DIR/.supercharger.json') as f:
-        d = json.load(f)
-    v = d.get('forecastTurnsPerAgent', 10)
-    print(int(v) if v else 10)
-except Exception:
-    print(10)
-" 2>/dev/null || echo "10")
+    SUPERCHARGER_JSON="$SEARCH_DIR/.supercharger.json"
     break
   fi
   PARENT=$(dirname "$SEARCH_DIR")
@@ -72,23 +38,46 @@ except Exception:
   SEARCH_DIR="$PARENT"
 done
 
-# Calculate estimated cost
-ESTIMATE=$(python3 -c "
-avg = float('$AVG_PER_TURN')
-turns = int('$FORECAST_TURNS')
+# Single Python block: read .session-cost, read .supercharger.json, compute forecast
+RESULT=$(python3 -c "
+import json, sys
+
+cost_file = '$COST_FILE'
+supercharger_json = '$SUPERCHARGER_JSON'
+
+try:
+    with open(cost_file) as f:
+        d = json.load(f)
+    avg = float(d.get('avg_per_turn', 0) or 0)
+except Exception:
+    avg = 0.0
+
+if avg <= 0:
+    sys.exit(1)
+
+turns = 10
+if supercharger_json:
+    try:
+        with open(supercharger_json) as f:
+            cfg = json.load(f)
+        v = cfg.get('forecastTurnsPerAgent', 10)
+        turns = int(v) if v else 10
+    except Exception:
+        pass
+
 est = avg * turns
+if est < 0.10:
+    sys.exit(1)
+
+print(f'{avg:.2f}')
+print(str(turns))
 print(f'{est:.2f}')
-" 2>/dev/null || echo "0.00")
+" 2>/dev/null) || exit 0
 
-# Skip if estimated cost < $0.10
-if python3 -c "import sys; sys.exit(0 if float('$ESTIMATE') >= 0.10 else 1)" 2>/dev/null; then
-  : # continue
-else
-  exit 0
-fi
+AVG_FMT=$(printf '%s\n' "$RESULT" | sed -n '1p')
+FORECAST_TURNS=$(printf '%s\n' "$RESULT" | sed -n '2p')
+ESTIMATE=$(printf '%s\n' "$RESULT" | sed -n '3p')
 
-# Build advisory message
-AVG_FMT=$(python3 -c "print(f'{float(\"$AVG_PER_TURN\"):.2f}')" 2>/dev/null || echo "$AVG_PER_TURN")
 MSG="[COST] Est. ~\$$ESTIMATE for this agent (avg \$$AVG_FMT/turn × ~$FORECAST_TURNS turns)"
 
 $HOOK_SUPPRESS || echo "[Supercharger] cost-forecast: $MSG" >&2

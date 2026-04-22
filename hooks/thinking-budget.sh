@@ -14,17 +14,12 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 [ -f "$SCOPE_DIR/.no-thinking-control" ] && exit 0
 
 _INPUT=$(cat)
-SESSION_ID=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('session_id', 'default'))
-" 2>/dev/null || echo "default")
 
-PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-print(data.get('prompt', ''))
-" 2>/dev/null || echo "")
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
+
+PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+[ -z "$PROMPT" ] && PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
 
 [ -z "$PROMPT" ] && exit 0
 
