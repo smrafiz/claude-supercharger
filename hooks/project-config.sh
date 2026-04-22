@@ -201,6 +201,24 @@ if config_file and os.path.isfile(config_file):
     except Exception:
         pass
 
+# --- Cache economy tier to scope file (avoids repeated grep in UserPromptSubmit hooks) ---
+try:
+    scope_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+    tier_file = os.path.join(scope_dir, '.economy-tier')
+    if not os.path.isfile(tier_file):
+        economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
+        if os.path.isfile(economy_md):
+            with open(economy_md) as f:
+                for ln in f:
+                    if ln.startswith('### Active Tier:'):
+                        tier = ln.split(':', 1)[1].strip().split()[0].lower()
+                        os.makedirs(scope_dir, exist_ok=True)
+                        with open(tier_file, 'w') as tf:
+                            tf.write(tier)
+                        break
+except Exception:
+    pass
+
 # --- Last session cost feedback ---
 cost_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', '.last-session-cost')
 if os.path.isfile(cost_file):
