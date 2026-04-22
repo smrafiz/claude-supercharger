@@ -1,8 +1,24 @@
 # Claude Supercharger
 
-Shell-level guardrails and behavioral intelligence for Claude Code.
+Shell-level safety and behavioral intelligence for Claude Code.
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-345%20passing-brightgreen)
+
+---
+
+Claude Code is powerful and mostly well-behaved — until it isn't. It deletes files it shouldn't, spawns agents that burn through your rate limit, or quietly re-bills you for context it already cached. One runaway session cost a reported $47K. Silent credential exposure in tool output is common enough to have a CVE. And when Claude crashes mid-session, your context is gone.
+
+Supercharger adds 62 shell hooks that run outside Claude's process. Claude can't see them, can't reason around them, can't be prompted to skip them. If a hook exits non-zero, the command doesn't run. That's it.
+
+Here's what it shows at the start of every session:
+
+```
+[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
+████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
+Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
+```
+
+Model, project, branch, stack, economy tier, agent, MCP profile, context pressure, cache efficiency, cost, and rate-limit burn — at a glance, before you type a single prompt.
 
 ---
 
@@ -12,7 +28,7 @@ Shell-level guardrails and behavioral intelligence for Claude Code.
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-Interactive. Two modes, a few questions, done. `./uninstall.sh` reverses everything.
+Takes 30 seconds. Backs up your config first. `./uninstall.sh` reverses everything.
 
 <details>
 <summary>Other install options</summary>
@@ -33,19 +49,54 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
-## What it is
+## What you get
 
-Supercharger has two distinct layers. They work differently and make different guarantees.
+### Protection — can't be bypassed
 
-**Protection layer — shell hooks.** These run outside the Claude process, before commands execute. Claude cannot see them, cannot reason about them, and cannot argue its way around them. If a hook exits with a non-zero code, the command doesn't run. Full stop.
+- **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main. Blocked at the shell level, not via Claude's judgment.
+- **Code security scanning** — catches `eval()`, `.innerHTML =`, `pickle.load()`, SQL injection via string concat, `os.system()`, weak crypto, GitHub Actions injection, and hardcoded secrets in code Claude writes.
+- **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, HuggingFace, GCP, Azure, SendGrid, and Twilio credentials before Claude can repeat them.
+- **Prompt injection defense** — scans MCP and web tool output for "ignore previous instructions" patterns and similar attacks.
+- **Smart auto-approve** — automatically approves safe read operations (`Read`, `Glob`, `Grep`, `git status`, `ls`, test runners, `curl` GET) so you're not clicking through obvious prompts all day.
 
-**Intelligence layer — prompt-level rules.** These live in `CLAUDE.md` and shape how Claude behaves: token economy, agent routing, roles, compaction strategy. They work well in practice, but Claude could technically ignore them. Think of it as the difference between a locked door and a sign that says "please knock."
+### Cost control — new in v2
 
-Both layers are useful. Neither replaces the other.
+- **Session cost tracking** — every tool call contributes to a running total. No guessing at the end.
+- **Budget cap** — set a session limit in `.supercharger.json` or `SESSION_BUDGET_CAP`. At 80% you get a warning. At 100%, non-read tools are blocked.
+- **Cost forecast** — before Claude spawns a subagent, it estimates the cost based on your session average. You see `[COST] Est. ~$1.90` before it runs.
+- **Per-subagent visibility** — each subagent reports on completion: `[AGENT] code-helper: ~$0.42 (28K tokens, 34s)`. Costs roll up to the session total.
+- **Rate-limit burn projection** — predicts when your session will hit the rate limit and shows `~52m left at this pace`. Warns when under 30 minutes.
+- **Cache health monitoring** — warns when your prompt cache hit rate drops below 50%, which means you're being silently re-billed for context you already paid for.
+
+### Session intelligence
+
+- **Statusline** (shown above) — three lines covering everything relevant about your current session.
+- **Session memory** — writes `.claude/supercharger-memory.md` on stop and on `/compact`. Modified files, recent commits, economy tier, corrections. Injected automatically at the next session start.
+- **Crash-resilient checkpoints** — state is saved after every file-modifying tool call. If Claude crashes, the next session picks up where you left off.
+- **Context pressure advisor** — warns at 50%, recommends `/compact` at 70%, recommends `eco minimal` at 80%, critical at 90%. This alone has saved me from a lot of wasted context.
+- **Adaptive economy** — auto-switches economy tier as context pressure rises. Learns from recent sessions — if you've been running hot, it starts conservative next time.
+- **Learning loop** — blocked commands and user corrections are logged and injected at the start of every session. The more you correct it, the less you have to.
+
+### Developer experience
+
+- **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch mid-conversation with natural language: `"as developer"`.
+- **9 agent types** — `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`. Each prompt is classified and Claude gets a hint about which profile fits.
+- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch mid-conversation with `eco lean`. I use Lean by default. Minimal is useful for long agentic sessions where you're mostly watching Claude work.
+- **Slash commands** — `/think`, `/challenge`, `/refactor`, `/audit`, `/test`, `/doc`.
+- **Skill routing** — a trigger table maps common tasks to the right Claude skill without loading the full skill index.
+- **MCP server profiles** — `light`, `dev`, `research`, `full`. Switch with `bash tools/mcp-profile.sh [profile]`. Role-based additions apply on top.
 
 ---
 
-## Protection layer
+## How it works
+
+Two layers. They make different guarantees.
+
+**Shell hooks** run outside the Claude process, before commands execute. Claude cannot see them, reason about them, or negotiate around them. Exit code 2 means the command doesn't run — full stop.
+
+**Prompt-level rules** live in `CLAUDE.md` and shape behavior: economy, routing, roles, compaction. Claude follows them reliably, but not unconditionally. Think of it as a locked door versus a sign that says "please knock."
+
+Both are useful. Neither replaces the other.
 
 ### Shell hooks vs. `/permissions`
 
@@ -55,9 +106,57 @@ Both layers are useful. Neither replaces the other.
 | Can reason and negotiate | Yes | Can't argue with exit code 2 |
 | Advisory or enforced | Advisory | Enforced |
 
-Use both. `/permissions` for convenience (wildcard approvals). Supercharger for hard blocks.
+Use both. `/permissions` for wildcard approvals. Supercharger for hard blocks.
 
-### Safe mode — 10 hooks
+---
+
+## Two modes
+
+| Mode | Hooks | What you get |
+|---|---|---|
+| **Safe** | 10 | The non-negotiable blocks. Destructive command blocking, credential scanning, prompt injection defense, smart auto-approve, cache health. Install and forget. |
+| **Full** | 62 | Everything. Cost tracking, session memory, notifications, quality gates, context advisor, learning loop, crash recovery, statusline. For heavy Claude Code use. |
+
+---
+
+## Configuration
+
+### Project config
+
+`.supercharger.json` in your repo root, committed. Everyone on the team gets the same behavior:
+
+```json
+{"roles": ["developer", "designer"], "economy": "lean", "hints": "React + Tailwind, use pnpm"}
+```
+
+Set a budget cap here too: `"budget": 5.00`.
+
+### Session memory
+
+Full mode writes `.claude/supercharger-memory.md` when Claude stops and when `/compact` runs. It captures modified files, recent commits, active economy tier, and recent corrections, then injects it at the next session start automatically.
+
+Add to `.gitignore` for local-only memory, or commit it for shared memory across the team:
+
+```
+.claude/supercharger-memory.md
+```
+
+### Project verify hook
+
+Drop `.claude/verify.sh` in your repo and it runs when Claude stops. If it fails, Claude sees the output and keeps fixing.
+
+```bash
+cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
+# uncomment the lines matching your stack
+chmod +x .claude/verify.sh
+```
+
+---
+
+## Going deeper
+
+<details>
+<summary>Safe mode — full hook details</summary>
 
 | Hook | What it does |
 |---|---|
@@ -72,7 +171,10 @@ Use both. `/permissions` for convenience (wildcard approvals). Supercharger for 
 | **config-scan.sh** | At session start, scans project CLAUDE.md files for injection patterns. Also checks `.claude/settings.json` for non-Supercharger hooks (CVE-2025-59536 guard) |
 | **cache-health.sh** | Monitors prompt cache hit rate. Warns when it drops below 50% — a sign you're being silently re-billed for full context |
 
-### Full mode adds 52 more hooks
+</details>
+
+<details>
+<summary>Full mode — what the extra 52 hooks do</summary>
 
 | Category | Hooks | What's added |
 |---|---|---|
@@ -88,15 +190,68 @@ Use both. `/permissions` for convenience (wildcard approvals). Supercharger for 
 | **Smart adaptation** | 3 | Auto-switches economy tier at context thresholds, calibrates reasoning depth by task complexity, warns when rate limit projected to exhaust |
 | **Session intelligence** | 1 | Crash-resilient checkpoint written on every file change, recovered automatically on next session start |
 
----
+**Context advisor** — warns at 50%, recommends `/compact` at 70%, recommends `eco minimal` at 80%, critical warning at 90%.
 
-## Intelligence layer
+**Verify on stop** — if files were modified in a session but no test or build command ran, you get a warning. Good for catching sessions where Claude edited something and you forgot to check.
 
-Everything here is prompt-level. Claude follows these reliably — just not unconditionally.
+**Quality gate** — lint after file edits (Developer role). TypeScript type-check after every `.ts`/`.tsx` edit. To opt out per project: `touch .supercharger-no-typecheck`.
 
-### Statusline
+**Traceback compressor** — a 50KB Python or Node stacktrace gets compressed to a 1-line summary before it hits the context window.
 
-Three lines at the start of each session:
+**Loop and re-read detection** — catches repeated identical tool calls and warns when Claude re-reads unchanged files.
+
+**Audit trail** — every file write and shell command logged to JSONL. Credentials auto-redacted. 30-day rotation.
+
+**Thinking budget** — nudges Claude to calibrate reasoning depth. Simple prompts get minimal thinking. Complex prompts get thorough reasoning. Advisory, not enforced — saves 20-30% thinking tokens on simple tasks.
+
+</details>
+
+<details>
+<summary>Tools reference</summary>
+
+All scripts live in `~/.claude/supercharger/tools/` after install:
+
+| Script | Purpose |
+|---|---|
+| `update.sh` | Self-update |
+| `economy-switch.sh` | Change economy tier permanently |
+| `hook-toggle.sh` | Enable or disable individual hooks |
+| `config-health.sh` | Installation health check |
+| `mcp-setup.sh` | Add MCP servers interactively |
+| `mcp-profile.sh` | Switch MCP profile |
+| `claude-check.sh` | Full diagnostic |
+| `token-report.sh` | Per-session token cost breakdown |
+| `session-analytics.sh` | Daily cost rollup + per-project breakdown across all sessions (`--days N`) |
+| `notify-toggle.sh` | Toggle desktop notifications |
+| `webhook-setup.sh` | Configure webhooks |
+| `supercharger.sh` | Capability overview |
+| `hook-perf.sh` | Hook performance profiler — timing analysis from audit data |
+| `bump-version.sh` | Version management (dev use) |
+
+</details>
+
+<details>
+<summary>MCP server profiles</summary>
+
+Auto-configured based on your selected role. No API keys needed for the core set.
+
+Switch profiles with `bash tools/mcp-profile.sh [profile]`. Takes effect on the next session.
+
+| Profile | Servers | Token overhead |
+|---|---|---|
+| `light` (default) | context7 | ~300 |
+| `dev` | + Playwright, GitHub, Magic UI | ~1,200 |
+| `research` | + Sequential Thinking, Memory | ~1,500 |
+| `full` | everything | ~3,500 |
+
+Role-based additions apply on top of the profile: Developer adds Playwright, GitHub, and Magic UI. Designer adds Magic UI.
+
+Supercharger tags its own MCP entries with `#supercharger` and does not touch your existing servers.
+
+</details>
+
+<details>
+<summary>Statusline — indicators and transient alerts</summary>
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -104,7 +259,9 @@ Three lines at the start of each session:
 Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
 
-Line 1 gives you everything about the current session state at a glance: model, project, git branch, detected stack, economy tier, active agent, active MCP server, lines added/removed. Line 2 is context — bar, percentage, token counts in/out, cache efficiency. Line 3 is cost, duration, and rate limit burn (useful if you're on Pro or Max).
+Line 1: model, project, git branch, detected stack, economy tier, active agent, active MCP server, lines added/removed.
+Line 2: context bar, percentage, token counts in/out, cache efficiency.
+Line 3: cost, duration, rate limit burn.
 
 Transient indicators appear on line 1 when something fires:
 
@@ -115,31 +272,10 @@ Transient indicators appear on line 1 when something fires:
 | `⚠ Scan: Code` | code-security-scanner fires | 2 min |
 | `⚠ Scan: Injection` | prompt-injection-scanner fires | 2 min |
 
-### Token economy
+</details>
 
-Switch mid-conversation with `eco standard`, `eco lean`, or `eco minimal`.
-
-| Tier | Reduction | Style |
-|---|---|---|
-| **Standard** | ~30% | Complete sentences, explanations included |
-| **Lean** | ~45% | Fragments OK, no narration |
-| **Minimal** | ~60% | Telegraphic, bare deliverables only |
-
-I use Lean by default. Minimal is good for long agentic sessions where you're mostly watching Claude work.
-
-### Agent routing
-
-9 agent types: `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`.
-
-Each prompt is classified by task type. Claude gets a hint about which profile fits — not a forced dispatch. It decides whether spawning a sub-agent is worth it.
-
-Project agents take priority over global ones. Drop `.claude/agents/my-agent.md` in your repo and Supercharger tells Claude to prefer it.
-
-### Roles
-
-8 behavioral profiles. Switch mid-conversation with natural language:
-
-`"as developer"` · `"as designer"` · `"as devops"` · `"as pm"` · `"as researcher"` · `"as student"` · `"as data"` · `"as writer"`
+<details>
+<summary>Slash commands and skill routing</summary>
 
 ### Slash commands
 
@@ -165,124 +301,7 @@ A trigger table in `CLAUDE.md` maps common tasks to the right Claude skill witho
 | Code review | `superpowers:requesting-code-review` |
 | Branch complete | `superpowers:finishing-a-development-branch` |
 
----
-
-## Install modes
-
-Safe mode gives you the 9 hard-block hooks — the things that should never happen regardless of context. Full mode adds 43 more: the statusline, session memory, learning loop, notifications, quality gates, context advisor. If you're just getting started or want minimal overhead, Safe is fine. If you're using Claude Code heavily and want it to get smarter over time, Full is worth it.
-
-| Mode | Hooks | Best for |
-|---|---|---|
-| **Safe** | 10 | Hard safety blocks + cache health monitoring |
-| **Full** | 62 | Everything — cost shield, smart adaptation, session intelligence, statusline, memory, notifications, quality gates |
-
----
-
-## Configuration
-
-### Project config
-
-`.supercharger.json` in your repo root, committed. Everyone on the team gets the same behavior:
-
-```json
-{"roles": ["developer", "designer"], "economy": "lean", "hints": "React + Tailwind, use pnpm"}
-```
-
-### Session memory
-
-Full mode writes `.claude/supercharger-memory.md` when Claude stops and when `/compact` runs. It captures modified files, recent commits, active economy tier, and recent corrections. Gets injected automatically at the next session start.
-
-Whether you commit it or not depends on your team. Add it to `.gitignore` for local-only memory:
-
-```
-.claude/supercharger-memory.md
-```
-
-Or commit it for shared memory that persists across the whole team.
-
-### Project verify hook
-
-Drop `.claude/verify.sh` in your repo and it runs when Claude stops. If it fails, Claude sees the output and keeps fixing.
-
-```bash
-cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
-# uncomment the lines matching your stack
-chmod +x .claude/verify.sh
-```
-
----
-
-## Tools
-
-All scripts live in `~/.claude/supercharger/tools/` after install:
-
-| Script | Purpose |
-|---|---|
-| `update.sh` | Self-update |
-| `economy-switch.sh` | Change economy tier permanently |
-| `hook-toggle.sh` | Enable or disable individual hooks |
-| `config-health.sh` | Installation health check |
-| `mcp-setup.sh` | Add MCP servers interactively |
-| `mcp-profile.sh` | Switch MCP profile |
-| `claude-check.sh` | Full diagnostic |
-| `token-report.sh` | Per-session token cost breakdown |
-| `session-analytics.sh` | Daily cost rollup + per-project breakdown across all sessions (`--days N`) |
-| `notify-toggle.sh` | Toggle desktop notifications |
-| `webhook-setup.sh` | Configure webhooks |
-| `supercharger.sh` | Capability overview |
-| `hook-perf.sh` | Hook performance profiler — timing analysis from audit data |
-| `bump-version.sh` | Version management (dev use) |
-
----
-
-## MCP servers
-
-Auto-configured based on your selected role. No API keys needed for the core set.
-
-Switch profiles with `bash tools/mcp-profile.sh [profile]`. Takes effect on the next session.
-
-| Profile | Servers | Token overhead |
-|---|---|---|
-| `light` (default) | context7 | ~300 |
-| `dev` | + Playwright, GitHub, Magic UI | ~1,200 |
-| `research` | + Sequential Thinking, Memory | ~1,500 |
-| `full` | everything | ~3,500 |
-
-Role-based additions apply on top of the profile: Developer adds Playwright, GitHub, and Magic UI. Designer adds Magic UI.
-
-Supercharger tags its own MCP entries with `#supercharger` and does not touch your existing servers.
-
----
-
-## Full mode — what the extra 43 hooks actually do
-
-**Context advisor** — warns at 50%, recommends `/compact` at 70%, recommends `eco minimal` at 80%, critical warning at 90%. This alone has saved me from a lot of wasted context.
-
-**Verify on stop** — if files were modified in a session but no test or build command ran, you get a warning. Good for catching sessions where Claude edited something and you forgot to check.
-
-**Quality gate** — lint after file edits (Developer role). TypeScript type-check after every `.ts`/`.tsx` edit. To opt out per project: `touch .supercharger-no-typecheck`.
-
-**Learning loop** — blocked commands and user corrections are logged and injected at the start of every session. The more you correct it, the less you have to.
-
-**Traceback compressor** — 50KB Python or Node stacktrace gets compressed to a 1-line summary before it hits the context window.
-
-**Loop and re-read detection** — catches repeated identical tool calls and warns when Claude re-reads unchanged files. Nudges it to use cached knowledge instead.
-
-**Audit trail** — every file write and shell command logged to JSONL. Credentials auto-redacted. 30-day rotation.
-
-**Budget cap** — optional session cost limit. Tracks cost per tool call automatically. At 80% of your cap, you get a warning. At 100%, non-read tools are blocked. Set via `.supercharger.json` `"budget": 5.00` or `SESSION_BUDGET_CAP=5.00`. No cap = no blocking, but cost tracking still runs.
-
-**Cost forecast** — before Claude spawns a subagent, estimates the cost based on your session average. Shows `[COST] Est. ~$1.90` so you can decide before it runs.
-
-**Subagent cost tracker** — each subagent gets a per-agent cost summary when it completes: `[AGENT] code-helper: ~$0.42 (28K tokens, 34s)`. Costs roll up to the session total.
-
-**Adaptive economy** — auto-switches economy tier when context pressure rises. At 70% with standard tier, switches to lean. At 80% with lean, switches to minimal. Learns from your session history — if recent sessions consistently ran hot, starts at lean next time.
-
-**Thinking budget** — nudges Claude to calibrate reasoning depth. Simple prompts ("show me the file") get minimal thinking. Complex prompts ("design the auth system") get thorough reasoning. Advisory, not enforced — saves 20-30% thinking tokens on simple tasks.
-
-**Rate-limit forecasting** — predicts when your session will exhaust rate limits. Shows `~52m left at this pace` in the statusline. Warns at <30 minutes projected.
-
-**Session checkpoint** — writes a lightweight state file after every file-modifying tool call. If Claude crashes mid-session, the next session automatically recovers from the checkpoint.
+</details>
 
 ---
 
@@ -333,6 +352,12 @@ No. Supercharger tags its entries with `#supercharger`. Your existing servers ar
 <summary>The statusline shows wrong values.</summary>
 
 Run `bash ~/.claude/supercharger/tools/config-health.sh` to check the installation, then `bash ~/.claude/supercharger/tools/claude-check.sh` for a full diagnostic.
+</details>
+
+<details>
+<summary>How much does it cost?</summary>
+
+Nothing. No API keys, no external calls, no telemetry. Everything runs locally.
 </details>
 
 ---
