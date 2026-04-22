@@ -28,7 +28,7 @@ import sys, json
 try:
     data = json.load(sys.stdin)
     # PostToolUse: usage is in tool_response or usage field
-    usage = data.get('usage') or data.get('tool_response', {}) or {}
+    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
     if not isinstance(usage, dict):
         usage = {}
     print(int(usage.get('input_tokens', 0) or 0))
@@ -40,7 +40,7 @@ except Exception:
 import sys, json
 try:
     data = json.load(sys.stdin)
-    usage = data.get('usage') or data.get('tool_response', {}) or {}
+    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
     if not isinstance(usage, dict):
         usage = {}
     print(int(usage.get('cache_creation_input_tokens', 0) or 0))
@@ -52,7 +52,7 @@ except Exception:
 import sys, json
 try:
     data = json.load(sys.stdin)
-    usage = data.get('usage') or data.get('tool_response', {}) or {}
+    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
     if not isinstance(usage, dict):
         usage = {}
     print(int(usage.get('cache_read_input_tokens', 0) or 0))
@@ -64,7 +64,7 @@ except Exception:
 import sys, json
 try:
     data = json.load(sys.stdin)
-    usage = data.get('usage') or data.get('tool_response', {}) or {}
+    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
     if not isinstance(usage, dict):
         usage = {}
     print(int(usage.get('output_tokens', 0) or 0))

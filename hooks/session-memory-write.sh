@@ -43,9 +43,9 @@ fi
 
 # --- Build dense key=value format (~40% fewer tokens than Markdown) ---
 TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%MZ')
-OPEN_CSV=$(printf '%s\n' "$OPEN_FILES" | sed 's/^- //' | grep -v '^$' | tr '\n' ',' | sed 's/,$//')
-COMMITS_CSV=$(printf '%s\n' "$RECENT_COMMITS" | grep -v '^$' | sed 's/ /:/' | tr '\n' '|' | sed 's/|$//')
-CORR_LINE=$(printf '%s\n' "$CORRECTIONS" | grep -v '^$' | tr '\n' '|' | sed 's/|$//')
+OPEN_CSV=$(printf '%s\n' "$OPEN_FILES" | sed 's/^- //' | grep -v '^$' | tr '\n' ',' | sed 's/,$//' || true)
+COMMITS_CSV=$(printf '%s\n' "$RECENT_COMMITS" | grep -v '^$' | sed 's/ /:/' | tr '\n' '|' | sed 's/|$//' || true)
+CORR_LINE=$(printf '%s\n' "$CORRECTIONS" | grep -v '^$' | tr '\n' '|' | sed 's/|$//' || true)
 
 CONTENT="mem:${TIMESTAMP} branch:${BRANCH} open:${OPEN_CSV:-none} commits:${COMMITS_CSV:-none} corrections:${CORR_LINE:-none}"
 
