@@ -123,7 +123,7 @@ bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --sett
 
 assert_dir_exists "$HOME/.claude/commands" &&
 assert_file_exists "$HOME/.claude/commands/think.md" &&
-assert_file_exists "$HOME/.claude/commands/refactor.md" &&
+assert_file_exists "$HOME/.claude/commands/security.md" &&
 assert_file_exists "$HOME/.claude/commands/challenge.md" &&
 assert_file_exists "$HOME/.claude/commands/audit.md" &&
 pass

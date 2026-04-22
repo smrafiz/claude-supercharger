@@ -82,7 +82,7 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch mid-conversation with natural language: `"as developer"`.
 - **9 agent types** — `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`. Each prompt is classified and Claude gets a hint about which profile fits.
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch mid-conversation with `eco lean`. I use Lean by default. Minimal is useful for long agentic sessions where you're mostly watching Claude work.
-- **Slash commands** — `/think`, `/challenge`, `/refactor`, `/audit`, `/test`, `/doc`.
+- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`.
 - **Skill routing** — a trigger table maps common tasks to the right Claude skill without loading the full skill index.
 - **MCP server profiles** — `light`, `dev`, `research`, `full`. Switch with `bash tools/mcp-profile.sh [profile]`. Role-based additions apply on top.
 
@@ -281,12 +281,14 @@ Transient indicators appear on line 1 when something fires:
 
 | Command | Purpose |
 |---|---|
-| `/think [problem]` | Structured reasoning |
-| `/challenge [decision]` | Adversarial stress-test of a decision |
-| `/refactor [file]` | Code quality sweep |
-| `/audit [scope]` | Consistency sweep |
-| `/test [target]` | Generate unit tests |
-| `/doc [target]` | Generate documentation |
+| `/think [problem]` | Structured reasoning for ambiguous problems |
+| `/challenge [decision]` | Adversarial stress-test — finds flaws, not confirmation |
+| `/audit [scope]` | Consistency sweep across a codebase scope |
+| `/handoff [context]` | Structured session resume brief — written to `.claude/handoff.md` |
+| `/security [scope]` | OWASP-anchored security review with severity-ranked findings |
+| `/stuck [symptom]` | Breaks debug loops — catalogs attempts, generates fresh hypotheses |
+| `/scope [task]` | Pre-flight check — files to touch, risks, approval gate |
+| `/pr [description]` | Prepare and create a pull request in one step |
 
 ### Skill routing
 

@@ -130,7 +130,7 @@ touch "$HOME/.claude/CLAUDE.md"
 printf 'y\nn\n' | bash "$REPO_DIR/uninstall.sh" >/dev/null 2>&1 || true
 
 assert_file_not_exists "$HOME/.claude/commands/think.md" &&
-assert_file_not_exists "$HOME/.claude/commands/refactor.md" &&
+assert_file_not_exists "$HOME/.claude/commands/security.md" &&
 assert_file_not_exists "$HOME/.claude/commands/challenge.md" &&
 assert_file_not_exists "$HOME/.claude/commands/audit.md" &&
 pass
