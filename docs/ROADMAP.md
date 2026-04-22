@@ -4,6 +4,31 @@
 
 ## Shipped
 
+### v2.0 — "Never Be Surprised"
+
+**Wave 1: Cost Shield**
+- `budget-cap.sh` — session cost accumulator + optional hard stop at user-defined limit
+- `cost-forecast.sh` — estimates cost before agent spawns
+- `cache-health.sh` — warns when prompt cache hit rate degrades (safe mode)
+- `subagent-cost.sh` — per-agent cost visibility with JSONL logging
+- Statusline: budget display on line 3, cache health coloring on line 2
+
+**Wave 2: Smart Adaptation**
+- `adaptive-economy.sh` upgrade — auto-switches tier at context thresholds + session-history learning
+- `thinking-budget.sh` — calibrates reasoning depth by task complexity
+- `rate-limit-advisor.sh` — warns when session projected to exhaust in <30m
+- Statusline: burn rate projection on line 3
+
+**Wave 3: Session Intelligence**
+- `session-checkpoint.sh` — crash-resilient state written on every file change
+- `session-memory-inject.sh` upgrade — checkpoint recovery + enriched resume (diff/cost/failures)
+- `tools/hook-perf.sh` — hook performance profiler with timing analysis
+- `project-config.sh` upgrade — parses budget, autoEconomy, thinkingControl, forecastTurnsPerAgent
+
+**Hook counts:** Safe: 10 (+1), Full+dev: 64 (+10). Tests: 342 passing.
+
+---
+
 ### v1.0.1 — Current release
 
 **Protection layer (9 safe mode hooks + 43 full mode hooks = 52 total)**
@@ -46,8 +71,7 @@ Full mode adds 43 hooks across: notifications, git safety, scope/memory, learnin
 
 ## Near term
 
-### Adaptive economy
-Auto-suggest tier changes based on context pressure. At 70% context with standard tier, suggest lean. Session-end analysis: if avg context exceeded 80% across recent sessions, suggest starting lean by default.
+### ~~Adaptive economy~~ → shipped in v2.0
 
 ---
 
@@ -56,8 +80,7 @@ Auto-suggest tier changes based on context pressure. At 70% context with standar
 ### Hook pipeline composer
 Chain hooks into sequential pipelines. If any hook exits 2, pipeline stops. Useful for project-specific pre-flight sequences.
 
-### Enhanced resume
-Combine session memory + recent git log + modified file diffs + open GitHub issues into a single richer context block at session start.
+### ~~Enhanced resume~~ → shipped in v2.0 (memory + git diff + cost + failures)
 
 ### Learn from sessions
 Analyze past conversations for repeated corrections and violated instructions. Surface patterns as suggested additions to CLAUDE.md.
