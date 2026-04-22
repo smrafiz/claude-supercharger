@@ -39,4 +39,27 @@ if [ -f "$HOOKS_DIR/session-memory-write.sh" ]; then
   echo "" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null || true
 fi
 
+# Inject session-specific compaction guidance
+GUIDANCE=""
+
+# Modified files
+MODIFIED=$(git diff --name-only HEAD 2>/dev/null | head -10 | tr '\n' ',' | sed 's/,$//' || echo "")
+[ -n "$MODIFIED" ] && GUIDANCE="${GUIDANCE}PRESERVE modified files: ${MODIFIED}. "
+
+# Economy tier
+TIER=$(cat "$HOME/.claude/supercharger/scope/.economy-tier" 2>/dev/null || echo "")
+[ -n "$TIER" ] && GUIDANCE="${GUIDANCE}PRESERVE economy: ${TIER}. "
+
+# Session cost
+if [ -f "$HOME/.claude/supercharger/scope/.session-cost" ]; then
+  COST=$(python3 -c "import json; print(json.load(open('$HOME/.claude/supercharger/scope/.session-cost')).get('total_usd',''))" 2>/dev/null || echo "")
+  [ -n "$COST" ] && GUIDANCE="${GUIDANCE}Session cost so far: \$${COST}. "
+fi
+
+if [ -n "$GUIDANCE" ]; then
+  GUIDANCE="[COMPACT] ${GUIDANCE}DISCARD: full file contents, verbose tool output, completed task details."
+  CONTEXT_JSON=$(printf '%s' "$GUIDANCE" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$GUIDANCE" | tr -d '"\\' | tr '\n' ' ')")
+  printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
+fi
+
 exit 0

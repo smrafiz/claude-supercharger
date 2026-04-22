@@ -72,6 +72,13 @@ else
   MSG="Task completed"
 fi
 
-_send_notification "Claude — Done${ELAPSED}" "$MSG"
+# Add cost to notification if available
+COST_INFO=""
+if [ -f "$HOME/.claude/supercharger/scope/.session-cost" ]; then
+  COST_DISPLAY=$(python3 -c "import json; c=json.load(open('$HOME/.claude/supercharger/scope/.session-cost')); print(f'\${c.get(\"total_usd\",0):.2f}')" 2>/dev/null || echo "")
+  [ -n "$COST_DISPLAY" ] && COST_INFO=" — ${COST_DISPLAY} this session"
+fi
+
+_send_notification "Claude — Done${ELAPSED}" "${MSG}${COST_INFO}"
 
 exit 0
