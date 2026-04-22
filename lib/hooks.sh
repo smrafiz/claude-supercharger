@@ -23,6 +23,7 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
+  hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
@@ -54,6 +55,8 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
+    hooks+=("UserPromptSubmit||${hooks_dir}/thinking-budget.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/rate-limit-advisor.sh|async")
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
     hooks+=("PostCompact||${hooks_dir}/post-compact-inject.sh|")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
@@ -72,6 +75,12 @@ get_hooks_for_mode() {
     hooks+=("TeammateIdle||${hooks_dir}/event-logger.sh teammate_idle|async")
     hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
+    hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
+    hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
+    hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
+    hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")
+    hooks+=("SubagentStop||${hooks_dir}/subagent-cost.sh stop|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|")

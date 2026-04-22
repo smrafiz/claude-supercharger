@@ -158,6 +158,44 @@ if config_file and os.path.isfile(config_file):
             cfg_parts.append('Economy: ' + economy)
         if hints:
             cfg_parts.append('Hints: ' + hints)
+
+        # v2 fields
+        budget = config.get('budget', '')
+        if budget:
+            try:
+                budget = float(budget)
+                if budget > 0:
+                    budget_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.budget-cap')
+                    with open(budget_file, 'w') as f:
+                        f.write(str(budget))
+                    cfg_parts.append(f'Budget: ${budget:.2f}')
+            except (ValueError, TypeError):
+                pass
+
+        auto_economy = config.get('autoEconomy', True)
+        if auto_economy is False:
+            cfg_parts.append('Auto-economy: off')
+
+        thinking_control = config.get('thinkingControl', True)
+        if thinking_control is False:
+            tc_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.no-thinking-control')
+            with open(tc_file, 'w') as f:
+                f.write('1')
+            cfg_parts.append('Thinking control: off')
+        else:
+            tc_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.no-thinking-control')
+            if os.path.isfile(tc_file):
+                os.remove(tc_file)
+
+        forecast_turns = config.get('forecastTurnsPerAgent', '')
+        if forecast_turns:
+            try:
+                forecast_turns = int(forecast_turns)
+                if forecast_turns != 10:
+                    cfg_parts.append(f'Forecast: {forecast_turns} turns/agent')
+            except (ValueError, TypeError):
+                pass
+
         if cfg_parts:
             parts.append('Project config: ' + '. '.join(cfg_parts) + '.')
     except Exception:

@@ -64,4 +64,8 @@ fi
 printf '%.1200s\n' "$CONTENT" > "$MEMORY_FILE"
 
 echo "[Supercharger] session-memory: wrote $MEMORY_FILE" >&2
+
+# Clean up checkpoint files (successful memory write = no longer needed)
+rm -f "$HOME/.claude/supercharger/scope"/.checkpoint-* 2>/dev/null || true
+
 exit 0

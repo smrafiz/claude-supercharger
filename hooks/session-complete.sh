@@ -63,6 +63,9 @@ MARKER_FILE="$SUMMARIES_DIR/.last-session"
   fi
 } > "$MARKER_FILE" 2>/dev/null || true
 
+# Clean up checkpoint files on normal session end
+rm -f "$HOME/.claude/supercharger/scope"/.checkpoint-* 2>/dev/null || true
+
 # Send webhook notification if configured — uses shared webhook lib
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$HOOKS_DIR/webhook-lib.sh" ]; then

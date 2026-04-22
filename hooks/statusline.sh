@@ -251,11 +251,15 @@ try:
  else:
      tok_seg = ''
 
- # Cache
+ # Cache health coloring
  if cache_total == 0:
      cache_str = f'{DIM}cache: n/a{RESET}'
  elif cache_read == 0:
      cache_str = f'{DIM}cache: warming{RESET}'
+ elif cache_pct < 50:
+     cache_str = f'{RED}cache {cache_pct}%{RESET} {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
+ elif cache_pct < 70:
+     cache_str = f'{YELLOW}cache {cache_pct}%{RESET} {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
  elif cache_saved > 0:
      cache_str = f'cache {cache_pct}% {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
  else:
@@ -271,7 +275,28 @@ try:
              remaining = max(0, int(float(rl_5h_reset) - time.time()))
              rh, rm = remaining // 3600, (remaining % 3600) // 60
              reset_label = f' (resets: {rh}h {rm}m)' if rh > 0 else f' (resets: {rm}m)'
-         rl_str = f' {DIM}|{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}%{reset_label}{RESET}'
+         # Burn rate projection
+         burn_proj = ''
+         try:
+             scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+             cost_file = os.path.join(scope, '.session-cost')
+             if os.path.isfile(cost_file) and float(rl_5h_pct) > 0:
+                 with open(cost_file) as f:
+                     sc = json.load(f)
+                 start_str = sc.get('first_updated', '') or sc.get('last_updated', '')
+                 if start_str:
+                     import calendar
+                     st = calendar.timegm(time.strptime(start_str, '%Y-%m-%dT%H:%M:%SZ'))
+                     elapsed = (time.time() - st) / 60
+                     if elapsed >= 5:
+                         burn = float(rl_5h_pct) / elapsed
+                         if burn > 0:
+                             ttx = int((100 - float(rl_5h_pct)) / burn)
+                             if ttx < 120:
+                                 burn_proj = f' · ~{ttx}m left at this pace'
+         except Exception:
+             burn_proj = ''
+         rl_str = f' {DIM}|{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}%{reset_label}{burn_proj}{RESET}'
          if rl_7d_pct and float(rl_7d_pct) > 0:
              rl_str += f' {DIM}· Weekly: {float(rl_7d_pct):.0f}%{RESET}'
  except Exception:
@@ -289,7 +314,24 @@ try:
      dur_str = f'{hrs}h {rem_mins}m'
  else:
      dur_str = f'{mins}m {secs}s'
- line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
+
+ # Budget cap display
+ budget_str = ''
+ try:
+     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     cost_file = os.path.join(scope, '.session-cost')
+     if os.path.isfile(cost_file):
+         with open(cost_file) as f:
+             sc = json.load(f)
+         sc_cost = sc.get('total_usd', 0)
+         # Check for budget cap
+         cap = float(os.environ.get('SESSION_BUDGET_CAP', '0') or '0')
+         if cap > 0:
+             budget_str = f' {DIM}|{RESET} {DIM}Budget:{RESET} {YELLOW}${sc_cost:.2f}/${cap:.2f}{RESET}'
+ except Exception:
+     budget_str = ''
+
+ line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
 
  print(line1)
  try:
