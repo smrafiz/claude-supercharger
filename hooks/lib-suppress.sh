@@ -22,6 +22,13 @@ init_hook_suppress() {
   fi
   # Fallback: check PWD (unreliable in hook context — prefer passing dir explicitly)
   [ -f "${PWD}/.supercharger-debug" ] && HOOK_SUPPRESS=false || true
+
+  # Timing instrumentation for hook-perf.sh profiler
+  if command -v python3 >/dev/null 2>&1; then
+    HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
+  else
+    HOOK_START_MS=0
+  fi
 }
 
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
