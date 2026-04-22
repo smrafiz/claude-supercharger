@@ -12,6 +12,40 @@ TODAY=$(date -u +"%Y-%m-%d")
 AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"
 
 # ── Part 1: verify-on-stop (advisory, stderr only) ──
+
+# Detect test command from project
+detect_test_cmd() {
+  local dir="${1:-.}"
+  if [ -f "$dir/package.json" ]; then
+    # Check for test script in package.json
+    if python3 -c "import json; d=json.load(open('$dir/package.json')); exit(0 if 'test' in d.get('scripts',{}) else 1)" 2>/dev/null; then
+      # Detect package manager
+      if [ -f "$dir/pnpm-lock.yaml" ]; then echo "pnpm test"
+      elif [ -f "$dir/bun.lockb" ]; then echo "bun test"
+      elif [ -f "$dir/yarn.lock" ]; then echo "yarn test"
+      else echo "npm test"
+      fi
+      return
+    fi
+  fi
+  if [ -f "$dir/pytest.ini" ] || [ -f "$dir/pyproject.toml" ] || [ -f "$dir/setup.cfg" ]; then
+    echo "pytest"
+    return
+  fi
+  if [ -f "$dir/Cargo.toml" ]; then
+    echo "cargo test"
+    return
+  fi
+  if [ -f "$dir/go.mod" ]; then
+    echo "go test ./..."
+    return
+  fi
+  echo ""
+}
+
+PROJECT_DIR="${PWD}"
+TEST_CMD=$(detect_test_cmd "$PROJECT_DIR")
+
 if [ -f "$AUDIT_FILE" ]; then
   HAS_WRITES=false
   grep -q '"Write"\|"Edit"' "$AUDIT_FILE" 2>/dev/null && HAS_WRITES=true
@@ -23,7 +57,11 @@ if [ -f "$AUDIT_FILE" ]; then
     if ! $HAS_TEST; then
       echo "" >&2
       echo "[Supercharger] ⚠ Files modified but no test/build command detected this session." >&2
-      echo "  Consider running tests before finishing." >&2
+      if [ -n "$TEST_CMD" ]; then
+        echo "  Try: ${TEST_CMD}" >&2
+      else
+        echo "  Consider running tests before finishing." >&2
+      fi
       echo "" >&2
     fi
   fi
