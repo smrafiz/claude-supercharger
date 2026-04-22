@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.2.1] - 2026-04-22 — Add /interview command (structured requirements gathering with AskUserQuestion, recommended options) and /devlog command (living architecture journal). 392 tests passing.
 - [2.2.0] - 2026-04-22 — Slash command overhaul: removed /test, /doc, /refactor (redundant); added /handoff (session resume brief), /security (OWASP review), /stuck (debug loop breaker), /scope (pre-flight gate), /pr (one-step PR). 8 commands total. 388 tests passing.
 - [2.1.0] - 2026-04-22 — User-facing improvements: session-analytics --subagents per-agent cost breakdown; per-project hook overrides via disableHooks in .supercharger.json; smarter compaction guidance (session-specific preservation); cost in desktop stop notifications; stop-verify suggests specific test command (npm/pnpm/pytest/cargo) based on stack detection. Performance: lib-suppress.sh timing gated behind profiling sentinel (saves 28ms/hook); budget-cap.sh Python calls 6→2; jq for field extraction in thinking-budget + cost-forecast; .economy-tier cached at SessionStart. 380 tests passing.
 - [2.0.1] - 2026-04-22 — Fix budget-cap usage parsing (tool_response.usage nesting); fix session-memory-write crash on clean repos (grep exit 1 with pipefail); compress anti-patterns.yml 856→531 tokens; add 24-scenario end-to-end integration test suite; 369 tests passing.

@@ -2,7 +2,7 @@
 
 Shell-level safety and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-2.2.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-388%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.2.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-392%20passing-brightgreen)
 
 ---
 
@@ -82,7 +82,7 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch mid-conversation with natural language: `"as developer"`.
 - **9 agent types** — `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`. Each prompt is classified and Claude gets a hint about which profile fits.
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch mid-conversation with `eco lean`. I use Lean by default. Minimal is useful for long agentic sessions where you're mostly watching Claude work.
-- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`.
+- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`, `/interview`, `/devlog`.
 - **Skill routing** — a trigger table maps common tasks to the right Claude skill without loading the full skill index.
 - **MCP server profiles** — `light`, `dev`, `research`, `full`. Switch with `bash tools/mcp-profile.sh [profile]`. Role-based additions apply on top.
 
@@ -289,6 +289,8 @@ Transient indicators appear on line 1 when something fires:
 | `/stuck [symptom]` | Breaks debug loops — catalogs attempts, generates fresh hypotheses |
 | `/scope [task]` | Pre-flight check — files to touch, risks, approval gate |
 | `/pr [description]` | Prepare and create a pull request in one step |
+| `/interview [topic]` | Structured requirements gathering — one question at a time, each with a recommended option |
+| `/devlog [entry]` | Append a decision/rationale entry to `DEV-LOG.md` (creates if absent) |
 
 ### Skill routing
 

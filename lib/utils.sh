@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Utility Functions
 
-VERSION="2.2.0"
+VERSION="2.2.1"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
