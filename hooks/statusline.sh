@@ -251,11 +251,15 @@ try:
  else:
      tok_seg = ''
 
- # Cache
+ # Cache health coloring
  if cache_total == 0:
      cache_str = f'{DIM}cache: n/a{RESET}'
  elif cache_read == 0:
      cache_str = f'{DIM}cache: warming{RESET}'
+ elif cache_pct < 50:
+     cache_str = f'{RED}cache {cache_pct}%{RESET} {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
+ elif cache_pct < 70:
+     cache_str = f'{YELLOW}cache {cache_pct}%{RESET} {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
  elif cache_saved > 0:
      cache_str = f'cache {cache_pct}% {DIM}(~{fmt_tokens(cache_saved)} saved){RESET}'
  else:
@@ -289,7 +293,24 @@ try:
      dur_str = f'{hrs}h {rem_mins}m'
  else:
      dur_str = f'{mins}m {secs}s'
- line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
+
+ # Budget cap display
+ budget_str = ''
+ try:
+     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     cost_file = os.path.join(scope, '.session-cost')
+     if os.path.isfile(cost_file):
+         with open(cost_file) as f:
+             sc = json.load(f)
+         sc_cost = sc.get('total_usd', 0)
+         # Check for budget cap
+         cap = float(os.environ.get('SESSION_BUDGET_CAP', '0') or '0')
+         if cap > 0:
+             budget_str = f' {DIM}|{RESET} {DIM}Budget:{RESET} {YELLOW}${sc_cost:.2f}/${cap:.2f}{RESET}'
+ except Exception:
+     budget_str = ''
+
+ line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
 
  print(line1)
  try:
