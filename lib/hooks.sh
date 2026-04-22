@@ -50,6 +50,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
+    hooks+=("UserPromptSubmit||${hooks_dir}/economy-reinforce.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
