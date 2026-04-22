@@ -30,5 +30,13 @@ init_hook_suppress() {
   fi
 }
 
+check_hook_disabled() {
+  local hook_name="${1:-}"
+  [ -z "$hook_name" ] && return 1
+  local disabled_file="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  [ ! -f "$disabled_file" ] && return 1
+  grep -qx "$hook_name" "$disabled_file" 2>/dev/null
+}
+
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
 init_hook_suppress

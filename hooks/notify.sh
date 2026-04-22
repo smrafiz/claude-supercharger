@@ -5,8 +5,11 @@
 set -euo pipefail
 
 source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
+# shellcheck source=hooks/lib-suppress.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib-suppress.sh"
 
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
+check_hook_disabled "notify" && exit 0
 
 PAYLOAD=$(cat)
 

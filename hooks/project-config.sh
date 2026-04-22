@@ -196,6 +196,20 @@ if config_file and os.path.isfile(config_file):
             except (ValueError, TypeError):
                 pass
 
+        # Per-project hook overrides
+        disable_hooks = config.get('disableHooks', [])
+        disabled_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.disabled-hooks')
+        if isinstance(disable_hooks, list) and disable_hooks:
+            valid = [h.strip() for h in disable_hooks if isinstance(h, str) and h.strip()]
+            if valid:
+                os.makedirs(os.path.dirname(disabled_file), exist_ok=True)
+                with open(disabled_file, 'w') as f:
+                    f.write('\n'.join(valid) + '\n')
+                cfg_parts.append('Disabled hooks: ' + ', '.join(valid))
+        else:
+            if os.path.isfile(disabled_file):
+                os.remove(disabled_file)
+
         if cfg_parts:
             parts.append('Project config: ' + '. '.join(cfg_parts) + '.')
     except Exception:

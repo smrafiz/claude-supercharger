@@ -15,6 +15,10 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
+# shellcheck source=hooks/lib-suppress.sh
+. "$(dirname "${BASH_SOURCE[0]}")/lib-suppress.sh"
+check_hook_disabled "commit-check" && exit 0
+
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
