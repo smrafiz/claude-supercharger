@@ -23,6 +23,7 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
+  hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
@@ -72,6 +73,11 @@ get_hooks_for_mode() {
     hooks+=("TeammateIdle||${hooks_dir}/event-logger.sh teammate_idle|async")
     hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
+    hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
+    hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
+    hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")
+    hooks+=("SubagentStop||${hooks_dir}/subagent-cost.sh stop|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|")
