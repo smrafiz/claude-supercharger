@@ -3,114 +3,30 @@ paths:
   - "**/*.{ts,tsx,js,jsx,py,go,rs,rb,java,sh}"
 ---
 
-schema_version: "1.0"
+# Anti-patterns: scan prompts for these. bad → fix.
 
-# Anti-Pattern Library — Soft Guidance
-# Loaded into Claude's context via rules/
-# For deterministic enforcement, see hooks/prompt-validator.sh
-
-task:
-  vague_input:
-    bad: "help me with X / make it better"
-    fix: "Refactor X to use Y. Done when: passes tests + handles null"
-
-  two_tasks_one_prompt:
-    bad: "explain AND rewrite"
-    fix: "Split sequential"
-
-  emotional_description:
-    bad: "totally broken, fix everything"
-    fix: "Throws TypeError line 43 when user is null"
-
-  build_whole_thing:
-    bad: "build entire app"
-    fix: "Break into Prompt 1/2/3"
-
-  implicit_reference:
-    bad: "add the other thing we discussed"
-    fix: "Always restate full task"
-
-context:
-  context_memory:
-    bad: "continue where we left off / you already know / contradicts earlier choice"
-    fix: "Re-provide Memory Block every new session. Include established stack."
-
-  no_project_context:
-    bad: "write a cover letter"
-    fix: "Add role/industry/experience/transition"
-
-  hallucination_invite:
-    bad: "what do experts say"
-    fix: "Cite only certain sources. If uncertain, say so."
-
-  undefined_audience:
-    bad: "write for users"
-    fix: "Non-technical B2B buyers, decision-maker level"
-
-  no_prior_failures:
-    bad: "(blank)"
-    fix: "Already tried X, didn't work because Y. Do not suggest X."
-
-format:
-  unspecified_output:
-    bad: "explain this / write summary"
-    fix: "3 bullets, each <20 words. Exactly 3 sentences."
-
-  no_role_assignment:
-    bad: "(blank)"
-    fix: "You are senior backend engineer specializing in Node.js + PostgreSQL"
-
-  vague_aesthetic:
-    bad: "make it professional"
-    fix: "Monochrome palette, 16px base, 24px line-height, no decorative elements"
-
-scope:
-  missing_scope:
-    bad: "fix my app / update login function"
-    fix: "Fix only login form validation in src/auth.js:handleLogin(). Touch nothing else."
-
-  no_stack_constraints:
-    bad: "build React component"
-    fix: "React 18, TS strict, no external libs, Tailwind only"
-
-  no_stop_condition:
-    bad: "build whole feature"
-    fix: "Explicit stop conditions + checkpoint output"
-
-  pasting_entire_codebase:
-    bad: "Full repo context"
-    fix: "Scope to relevant function + file only"
-
-reasoning:
-  no_cot_for_logic:
-    bad: "which approach is better?"
-    fix: "Think through both step-by-step before recommending"
-
-  cot_on_reasoning_models:
-    bad: "think step by step to o1/o3/R1"
-    fix: "REMOVE (degrades output)"
-
-  no_grounding_rule:
-    bad: "summarize what experts say"
-    fix: "Use only info highly confident. Say [uncertain] if not."
-
-agentic:
-  missing_state:
-    bad: "build REST API / add authentication"
-    fix: "Starting: empty Node.js, Express installed. Target: src/middleware/auth.js with JWT verify"
-
-  silent_agent:
-    bad: "No progress output"
-    fix: "After each step output: what was completed"
-
-  unlocked_filesystem:
-    bad: "No file restrictions"
-    fix: "Only edit src/. Do not touch package.json, .env, config."
-
-  no_human_review_trigger:
-    bad: "Agent decides autonomously"
-    fix: "Stop and ask before: deleting file, adding dependency, changing DB schema"
-
-  dead_code_carveout:
-    bad: "removing pre-existing unused code while fixing something unrelated"
-    fix: "Only remove dead code YOUR changes introduced. Leave pre-existing dead code alone — that's a separate task."
+vague_input: "help me with X" → "Refactor X to Y. Done when: tests pass + handles null"
+two_tasks: "explain AND rewrite" → split sequential
+emotional: "totally broken, fix everything" → "TypeError line 43 when user is null"
+build_whole: "build entire app" → break into prompt 1/2/3
+implicit_ref: "the other thing we discussed" → restate full task
+no_memory: "continue where we left off" → re-provide context each session
+no_context: "write a cover letter" → add role/industry/experience
+hallucination: "what do experts say" → cite only certain sources, say uncertain if not
+no_audience: "write for users" → specify: non-technical B2B, decision-maker level
+no_failures: (blank) → "tried X, didn't work because Y. Don't suggest X."
+no_format: "explain this" → "3 bullets, <20 words each"
+no_role: (blank) → "senior backend engineer, Node.js + PostgreSQL"
+vague_look: "make it professional" → "monochrome, 16px base, no decorative elements"
+no_scope: "fix my app" → "fix login validation in src/auth.js:handleLogin(). Touch nothing else."
+no_stack: "build React component" → "React 18, TS strict, no external libs, Tailwind only"
+no_stop: "build whole feature" → explicit stop conditions + checkpoint output
+full_paste: "full repo context" → scope to relevant function + file only
+no_reasoning: "which is better?" → think through both step-by-step before recommending
+cot_on_reasoning: "think step by step" to o1/o3/R1 → remove, degrades output
+no_grounding: "what experts say" → use only high-confidence info, mark uncertain
+no_state: "build REST API" → "starting: empty Node.js. Target: auth.js with JWT verify"
+silent_agent: no progress → after each step output what was completed
+no_file_restrict: no limits → "only edit src/. Don't touch package.json, .env, config"
+no_review_gate: agent decides alone → stop before: deleting files, adding deps, changing schema
+dead_code: removing pre-existing unused code → only remove dead code YOUR changes introduced
