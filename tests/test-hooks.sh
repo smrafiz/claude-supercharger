@@ -335,8 +335,7 @@ TOGGLE_TOOL="$REPO_DIR/tools/hook-toggle.sh"
 
 begin_test "hook-toggle: shows usage with no args (exit 0)"
 bash "$TOGGLE_TOOL" >/dev/null 2>&1
-# exits 0 when showing status (even if no settings.json)
-[ $? -le 1 ] && pass || fail "unexpected exit code"
+[ $? -eq 0 ] && pass || fail "expected exit 0, got non-zero"
 
 # --- Audit Trail Tests ---
 

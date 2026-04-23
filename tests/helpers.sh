@@ -106,7 +106,7 @@ run_hook() {
   local hook_script="$1"
   local command="$2"
   local escaped_command
-  escaped_command=$(echo "$command" | sed 's/\\/\\\\/g')
+  escaped_command=$(printf '%s' "$command" | python3 -c "import sys,json; s=sys.stdin.read(); print(json.dumps(s)[1:-1])" 2>/dev/null || printf '%s' "$command" | sed 's/\\/\\\\/g; s/"/\\"/g')
   local json_input="{\"tool_input\":{\"command\":\"$escaped_command\"}}"
   echo "$json_input" | bash "$hook_script" >/dev/null 2>&1
   return $?
