@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.7] - 2026-04-23 — /sc-update slash command (check + apply updates); renamed from /update to avoid Claude Code builtin conflict; /supercharger in post-update banner; builtin conflict audit (no other renames needed). 107 tests passing.
 - [2.3.6] - 2026-04-23 — tools/hook-new.sh scaffold (generates boilerplated hook stub); HOOK_AUTHORING.md quick-start section; hook-new.sh in README tools table + supercharger.sh status screen; tests badge corrected to 107. 107 tests passing.
 - [2.3.5] - 2026-04-23 — /supercharger command (lists all 18 slash commands by category); README slash commands table updated with /perf, /cache-stats, /cache-clear, /profile, /supercharger. 107 tests passing.
 - [2.3.4] - 2026-04-23 — /profile slash command (show/switch performance profile mid-conversation); perf profile shown in tools/supercharger.sh status screen. 107 tests passing.
