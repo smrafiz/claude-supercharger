@@ -60,18 +60,13 @@ COST=""
 COST_FILE="$SCOPE_DIR/.session-cost"
 if [ -f "$COST_FILE" ]; then
   COST=$(python3 -c "
-import sys
+import sys, json
 try:
-    for line in open(sys.argv[1]):
-        line = line.strip()
-        if line.startswith('total_usd'):
-            parts = line.split(None, 1)
-            if len(parts) == 2:
-                val = parts[1].strip()
-                if not val.startswith('\$'):
-                    val = '\$' + val
-                print(val)
-                break
+    with open(sys.argv[1]) as f:
+        d = json.load(f)
+    val = d.get('total_usd', '')
+    if val != '':
+        print('\${:.4f}'.format(float(val)))
 except Exception:
     pass
 " "$COST_FILE" 2>/dev/null || true)

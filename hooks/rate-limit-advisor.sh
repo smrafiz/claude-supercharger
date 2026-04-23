@@ -10,12 +10,11 @@ SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 
 _INPUT=$(cat)
 
-python3 - <<PYEOF
+HOOK_INPUT="$_INPUT" python3 - <<PYEOF
 import json, sys, os, time
 
-raw = '''$_INPUT'''
 try:
-    data = json.loads(raw)
+    data = json.loads(os.environ.get('HOOK_INPUT', '{}'))
 except Exception:
     data = {}
 

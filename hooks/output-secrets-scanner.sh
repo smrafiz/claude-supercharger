@@ -22,7 +22,7 @@ SECRET_PATTERNS=(
   # GitHub
   'gh[opsu]_[A-Za-z0-9_]{36,}'
   # Generic
-  '(?i)api[_-]?key|api[_-]?secret|access[_-]?token'
+  '[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]'
   'Bearer [A-Za-z0-9._-]+'
   # Private keys
   'BEGIN.{0,10}PRIVATE KEY'

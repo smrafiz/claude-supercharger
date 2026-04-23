@@ -140,10 +140,10 @@ except Exception:
   ACTIVE_FILE="$SCOPE_DIR/.subagent-active-${AGENT_ID}"
   STARTED_AT=""
   if [ -f "$ACTIVE_FILE" ]; then
-    STARTED_AT=$(python3 -c "
-import json
+    STARTED_AT=$(ACTIVE_FILE="$ACTIVE_FILE" python3 -c "
+import json, os
 try:
-    with open('$ACTIVE_FILE') as f:
+    with open(os.environ['ACTIVE_FILE']) as f:
         d = json.load(f)
     print(d.get('started_at', '') or '')
 except Exception:
@@ -151,10 +151,10 @@ except Exception:
 " 2>/dev/null || echo "")
     # Also get name from start record if not in stop payload
     if [ "$AGENT_NAME" = "agent" ]; then
-      AGENT_NAME=$(python3 -c "
-import json
+      AGENT_NAME=$(ACTIVE_FILE="$ACTIVE_FILE" python3 -c "
+import json, os
 try:
-    with open('$ACTIVE_FILE') as f:
+    with open(os.environ['ACTIVE_FILE']) as f:
         d = json.load(f)
     print(d.get('name', 'agent') or 'agent')
 except Exception:
@@ -167,11 +167,12 @@ except Exception:
 
   DURATION_S=0
   if [ -n "$STARTED_AT" ]; then
-    DURATION_S=$(python3 -c "
+    DURATION_S=$(STARTED_AT="$STARTED_AT" NOW="$NOW" python3 -c "
+import os
 from datetime import datetime, timezone
 try:
-    started = datetime.fromisoformat('$STARTED_AT'.replace('Z','+00:00'))
-    now = datetime.fromisoformat('$NOW'.replace('Z','+00:00'))
+    started = datetime.fromisoformat(os.environ['STARTED_AT'].replace('Z','+00:00'))
+    now = datetime.fromisoformat(os.environ['NOW'].replace('Z','+00:00'))
     diff = (now - started).total_seconds()
     print(int(max(0, diff)))
 except Exception:

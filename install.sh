@@ -225,7 +225,7 @@ COMMITS_MODE="off"
 if [ -n "$ARG_COMMITS" ]; then
   COMMITS_MODE=$(echo "$ARG_COMMITS" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$HAS_DEVELOPER" == "true" ]]; then
-  echo -e "${BOLD}Step 6 of 7: Conventional Commits${NC}"
+  echo -e "${BOLD}Step 6 of 8: Conventional Commits${NC}"
   echo ""
   echo -e "  Enforce conventional commit format? (feat:, fix:, chore:, etc.)"
   echo ""
@@ -245,7 +245,7 @@ CLAUDE_MD_ACTION="deploy"
 if [ -n "$ARG_CONFIG" ]; then
   CLAUDE_MD_ACTION="$ARG_CONFIG"
 elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo -e "${BOLD}Step 6 of 7: Existing Config${NC}"
+  echo -e "${BOLD}Step 7 of 8: Existing Config${NC}"
   echo ""
   info "Found existing CLAUDE.md"
   echo ""
@@ -282,7 +282,7 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
 fi
 
 # Step 4: Install
-echo -e "${BOLD}Step 7 of 7: Installing...${NC}"
+echo -e "${BOLD}Step 8 of 8: Installing...${NC}"
 echo ""
 
 # Ensure directories exist
