@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.2.2] - 2026-04-23 — Security/correctness audit: fix shell injection in rate-limit-advisor (heredoc interpolation) and subagent-cost (file path interpolation); fix prompt-injection-scanner indentation bug; fix session-checkpoint cost parsing (JSON not line-based); fix PCRE (?i) in grep -E; fix duplicate install step label; proper JSON escaping in test helper; tighten hook-toggle test assertion. 392 tests passing.
 - [2.2.1] - 2026-04-22 — Add /interview command (structured requirements gathering with AskUserQuestion, recommended options) and /devlog command (living architecture journal). 392 tests passing.
 - [2.2.0] - 2026-04-22 — Slash command overhaul: removed /test, /doc, /refactor (redundant); added /handoff (session resume brief), /security (OWASP review), /stuck (debug loop breaker), /scope (pre-flight gate), /pr (one-step PR). 8 commands total. 388 tests passing.
 - [2.1.0] - 2026-04-22 — User-facing improvements: session-analytics --subagents per-agent cost breakdown; per-project hook overrides via disableHooks in .supercharger.json; smarter compaction guidance (session-specific preservation); cost in desktop stop notifications; stop-verify suggests specific test command (npm/pnpm/pytest/cargo) based on stack detection. Performance: lib-suppress.sh timing gated behind profiling sentinel (saves 28ms/hook); budget-cap.sh Python calls 6→2; jq for field extraction in thinking-budget + cost-forecast; .economy-tier cached at SessionStart. 380 tests passing.
