@@ -154,7 +154,8 @@ echo ""
 echo -e "${BLUE}${BOLD}Available Tools${NC}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-TOOL_DESCS="claude-check.sh:Health check — verify installation & config
+TOOL_DESCS="cache-clear.sh:Clear typecheck and quality-gate hash caches (forces full re-check)
+claude-check.sh:Health check — verify installation & config
 compress-memory.sh:Compress markdown files to reduce input tokens (preserves code/URLs/structure)
 economy-switch.sh:Permanently change economy tier (standard/lean/minimal)
 export-preset.sh:Export current config as a .supercharger file for sharing
@@ -166,7 +167,7 @@ resume.sh:Restore session from a saved summary
 supercharger.sh:This screen — capability overview
 webhook-setup.sh:Configure Slack/Discord/Telegram notifications"
 
-for tool in claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh resume.sh supercharger.sh webhook-setup.sh; do
+for tool in cache-clear.sh claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh resume.sh supercharger.sh webhook-setup.sh; do
   if [ -f "$SCRIPT_DIR/${tool}" ]; then
     DESC=$(echo "$TOOL_DESCS" | grep "^${tool}:" | cut -d: -f2-)
     echo -e "  ${GREEN}✓${NC} ${BOLD}tools/${tool}${NC} — ${DESC}"
