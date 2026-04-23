@@ -186,12 +186,14 @@ try:
  try:
      scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
      tier_file = os.path.join(scope, '.economy-tier')
+     tier_file_fresh = os.path.isfile(tier_file) and (time.time() - os.path.getmtime(tier_file) < 604800)  # 7 days
      if os.path.isfile(tier_file):
          with open(tier_file) as f:
              tier = f.read().strip().lower()
          if tier:
              eco = f' {DIM}|{RESET} {DIM}Eco: {tier.capitalize()}{RESET}'
-     if not eco:
+     if not eco and not tier_file_fresh:
+         # Fallback: scan economy.md — only if .economy-tier is missing or very stale
          economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
          if os.path.isfile(economy_md):
              with open(economy_md) as f:
