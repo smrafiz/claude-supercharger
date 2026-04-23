@@ -33,6 +33,14 @@ begin_test "lib-suppress: check_hook_disabled uses in-memory array not grep"
 assert_file_not_contains "$REPO_DIR/hooks/lib-suppress.sh" 'grep -qx' &&
 pass
 
+begin_test "lib-suppress: SUPERCHARGER_PROFILE=minimal skips quality-gate"
+TMPDIR_PROF=$(mktemp -d)
+echo 'x = 1' > "$TMPDIR_PROF/test.py"
+INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_PROF/test.py")
+OUT=$(printf '%s' "$INPUT" | SUPERCHARGER_PROFILE=minimal bash "$REPO_DIR/hooks/quality-gate.sh" 2>&1)
+rm -rf "$TMPDIR_PROF"
+[ -z "$OUT" ] && pass || fail "expected skip under minimal profile, got: $OUT"
+
 echo ""
 echo "=== Safety Hook Tests ==="
 

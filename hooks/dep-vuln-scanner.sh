@@ -16,6 +16,7 @@ except Exception:
 " 2>/dev/null || echo "")
 
 [ -z "$COMMAND" ] && exit 0
+[ "${SUPERCHARGER_PROFILE:-standard}" = "minimal" ] && exit 0
 
 # Only fire after install commands
 if ! printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm add|pip install|pip3 install|poetry add|uv add)'; then

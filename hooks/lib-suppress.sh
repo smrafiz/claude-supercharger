@@ -58,5 +58,23 @@ check_hook_disabled() {
   esac
 }
 
+# Returns 0 (true) if the given hook should be skipped in the current profile
+# Usage: hook_profile_skip "quality-gate" && exit 0
+hook_profile_skip() {
+  local hook_name="${1:-}"
+  local profile="${SUPERCHARGER_PROFILE:-standard}"
+  [ "$profile" = "standard" ] && return 1  # nothing skipped
+
+  if [ "$profile" = "minimal" ]; then
+    case "$hook_name" in
+      quality-gate|typecheck|repetition-detector|dep-vuln-scanner|\
+      mcp-tracker|failure-tracker|session-checkpoint|context-advisor|\
+      rate-limit-advisor|thinking-budget|adaptive-economy)
+        return 0 ;;
+    esac
+  fi
+  return 1
+}
+
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
 init_hook_suppress

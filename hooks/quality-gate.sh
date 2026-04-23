@@ -22,6 +22,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 init_hook_suppress "$PROJECT_ROOT"
 check_hook_disabled "quality-gate" && exit 0
+hook_profile_skip "quality-gate" && exit 0
 
 # Hash-cache: skip lint if file unchanged since last clean run
 _qg_hash() {
