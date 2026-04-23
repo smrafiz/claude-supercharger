@@ -75,7 +75,7 @@ echo ""
 echo "=== Command File Tests ==="
 
 COMMANDS_DIR="$REPO_DIR/configs/commands"
-EXPECTED_COMMANDS=("think" "challenge" "audit" "handoff" "security" "stuck" "scope" "pr" "interview" "devlog" "design")
+EXPECTED_COMMANDS=("think" "challenge" "audit" "handoff" "security" "stuck" "scope" "pr" "interview" "devlog" "design" "multi-review" "reflect")
 
 for cmd in "${EXPECTED_COMMANDS[@]}"; do
   begin_test "commands: $cmd.md exists in configs/commands/"

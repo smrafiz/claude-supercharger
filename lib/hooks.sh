@@ -75,6 +75,7 @@ get_hooks_for_mode() {
     hooks+=("TeammateIdle||${hooks_dir}/event-logger.sh teammate_idle|async")
     hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
+    hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")

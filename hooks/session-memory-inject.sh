@@ -85,6 +85,28 @@ if time.time() - os.path.getmtime(f) < 86400:
   MSG="[MEM] ${CONTENT}${ENRICHMENT}"
 fi
 
+# Append recent session observations (last 3 entries) if present
+OBS_FILE="${PROJECT_DIR}/.claude/session-observations.md"
+if [ -f "$OBS_FILE" ]; then
+  OBS=$(python3 -c "
+import sys
+lines = open(sys.argv[1]).read()
+# Extract up to 3 most recent entries (each starts with '## ')
+import re
+entries = re.split(r'(?=^## )', lines, flags=re.MULTILINE)
+entries = [e.strip() for e in entries if e.strip() and e.startswith('## ')]
+recent = entries[:3]
+if recent:
+    # Compress: keep first 2 lines per entry
+    compressed = []
+    for e in recent:
+        head = '\n'.join(e.splitlines()[:4])
+        compressed.append(head)
+    print(' | '.join(compressed))
+" "$OBS_FILE" 2>/dev/null || echo "")
+  [ -n "$OBS" ] && MSG="${MSG} obs:${OBS}"
+fi
+
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
 

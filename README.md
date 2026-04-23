@@ -82,7 +82,7 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch mid-conversation with natural language: `"as developer"`.
 - **9 agent types** — `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`. Each prompt is classified and Claude gets a hint about which profile fits.
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch mid-conversation with `eco lean`. I use Lean by default. Minimal is useful for long agentic sessions where you're mostly watching Claude work.
-- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`, `/interview`, `/devlog`, `/design`.
+- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`, `/interview`, `/devlog`, `/design`, `/multi-review`, `/reflect`.
 - **Design system** — `/design [brand]` generates a `DESIGN.md` with color tokens, typography, and component conventions. A hook auto-injects it whenever Claude edits CSS, SCSS, Tailwind config, or theme files — consistent design context without re-describing it every session.
 - **Skill routing** — a trigger table maps common tasks to the right Claude skill without loading the full skill index.
 - **MCP server profiles** — `light`, `dev`, `research`, `full`. Switch with `bash tools/mcp-profile.sh [profile]`. Role-based additions apply on top.
@@ -293,6 +293,8 @@ Transient indicators appear on line 1 when something fires:
 | `/interview [topic]` | Structured requirements gathering — one question at a time, each with a recommended option |
 | `/devlog [entry]` | Append a decision/rationale entry to `DEV-LOG.md` (creates if absent) |
 | `/design [brand]` | Generate `DESIGN.md` — color tokens, typography, spacing, component conventions |
+| `/multi-review [target]` | Fan out to three parallel agents (security, performance, DX) and synthesize findings |
+| `/reflect` | Score session quality across 4 dimensions, write observations to `.claude/session-observations.md` |
 
 ### Skill routing
 
