@@ -22,6 +22,33 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 init_hook_suppress "$PROJECT_ROOT"
 check_hook_disabled "quality-gate" && exit 0
+
+# Hash-cache: skip lint if file unchanged since last clean run
+_qg_hash() {
+  sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1 || echo ""
+}
+
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+QG_PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
+QG_CACHE="$SCOPE_DIR/.quality-gate-cache-${QG_PROJ_HASH}"
+QG_FILE_HASH=$(_qg_hash "$FILE_PATH")
+
+if [ -n "$QG_FILE_HASH" ] && [ -f "$QG_CACHE" ]; then
+  QG_CACHED=$(QG_CACHE="$QG_CACHE" FILE_PATH="$FILE_PATH" python3 -c "
+import json, os
+try:
+  with open(os.environ['QG_CACHE']) as f:
+    d = json.load(f)
+  print(d.get(os.environ['FILE_PATH'], ''))
+except Exception:
+  print('')
+" 2>/dev/null || echo "")
+  if [ "$QG_CACHED" = "$QG_FILE_HASH" ]; then
+    exit 0  # cache hit — file unchanged, skip lint
+  fi
+fi
+
 EXT="${FILE_PATH##*.}"
 MAX_ITERATIONS=2
 ITERATION=0
@@ -146,6 +173,24 @@ ${TRUNCATED}
 Fix these issues before marking the task complete."
   CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json,os; _s=not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug')); print(json.dumps({'systemMessage':sys.stdin.read(),'suppressOutput':_s}))" 2>/dev/null)
   [ -n "$CONTEXT_JSON" ] && printf '%s\n' "$CONTEXT_JSON"
+fi
+
+# Write cache on clean exit (no remaining issues after pipeline)
+if [ -z "$REMAINING" ] && [ -n "${QG_FILE_HASH:-}" ]; then
+  QG_CACHE="$QG_CACHE" FILE_PATH="$FILE_PATH" QG_FILE_HASH="$QG_FILE_HASH" python3 -c "
+import json, os
+cache_file = os.environ['QG_CACHE']
+file_path = os.environ['FILE_PATH']
+file_hash = os.environ['QG_FILE_HASH']
+try:
+  with open(cache_file) as f:
+    d = json.load(f)
+except Exception:
+  d = {}
+d[file_path] = file_hash
+with open(cache_file, 'w') as f:
+  json.dump(d, f)
+" 2>/dev/null || true
 fi
 
 exit 0

@@ -661,4 +661,19 @@ rm -f "$CACHE_FILE"
 rm -rf "$TMPDIR_TC"
 [ -z "$OUT" ] && pass || fail "expected empty output on cache hit, got: $OUT"
 
+begin_test "quality-gate: skips lint when file hash unchanged and no prior issues"
+TMPDIR_QG=$(mktemp -d)
+echo 'x = 1' > "$TMPDIR_QG/clean.py"
+HASH=$(sha256sum "$TMPDIR_QG/clean.py" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$TMPDIR_QG/clean.py" 2>/dev/null | cut -d' ' -f1 || echo "")
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+PROJ_HASH=$(echo -n "$TMPDIR_QG" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])")
+CACHE_FILE="$SCOPE_DIR/.quality-gate-cache-${PROJ_HASH}"
+echo "{\"$TMPDIR_QG/clean.py\": \"$HASH\"}" > "$CACHE_FILE"
+INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_QG/clean.py")
+OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/quality-gate.sh" 2>&1)
+rm -f "$CACHE_FILE"
+rm -rf "$TMPDIR_QG"
+[ -z "$OUT" ] && pass || fail "expected silent cache hit, got: $OUT"
+
 report
