@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.2] - 2026-04-23 — /cache-stats slash command (typecheck/quality-gate cache state); fix CI version mismatch (lib/utils.sh + tools/supercharger.sh were missed in v2.3.0/v2.3.1 bumps). 406 tests passing.
 - [2.3.1] - 2026-04-23 — Post-v2.3.0 fixes: atomic cache writes in typecheck + quality-gate (tempfile + os.replace); prune stale cache entries for deleted files on write; per-project profile via .supercharger.json ("profile": "minimal"); /perf slash command (hook timing report with suggestions); SUPERCHARGER_PROFILE docs in README. 406 tests passing.
 - [2.3.0] - 2026-04-23 — Hook performance: 7 optimizations across lib-suppress.sh, typecheck.sh, quality-gate.sh, statusline.sh. SUPERCHARGER_PROFILE=minimal env var skips 11 high-latency non-security hooks. sha256 hash-cache in typecheck + quality-gate (skip tsc/lint on unchanged files). $EPOCHREALTIME timing (zero fork). in-memory disabled-hooks cache (eliminates grep fork). economy.md scan skipped when .economy-tier is fresh. jq_or_python() wrapper prevents double fork on jq-less systems. Boris Cherny workflow rules adapted: Demand Elegance, Autonomous Bug Fixing guardrails, staff-engineer verification check. 406 tests passing.
 - [2.2.3] - 2026-04-23 — Audit fixes: add missing # Event: headers to 4 hooks (event-logger, git-safety, safety, scope-guard); fix /design + /multi-review + /reflect + agent-handoff-gate from R&D pass; CHANGELOG pre-stable separator to resolve duplicate version tags; 3 new credits (awesome-claude-design, awesome-llm-apps, claude-code-best). 401 tests passing.
