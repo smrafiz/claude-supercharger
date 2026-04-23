@@ -2,7 +2,7 @@
 
 Shell-level safety and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-2.3.4-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-406%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.3.5-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-406%20passing-brightgreen)
 
 ---
 
@@ -82,7 +82,7 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch mid-conversation with natural language: `"as developer"`.
 - **9 agent types** — `architect`, `code-helper`, `data-analyst`, `debugger`, `general`, `planner`, `researcher`, `reviewer`, `writer`. Each prompt is classified and Claude gets a hint about which profile fits.
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch mid-conversation with `eco lean`. I use Lean by default. Minimal is useful for long agentic sessions where you're mostly watching Claude work.
-- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`, `/interview`, `/devlog`, `/design`, `/multi-review`, `/reflect`.
+- **Slash commands** — `/think`, `/challenge`, `/audit`, `/handoff`, `/security`, `/stuck`, `/scope`, `/pr`, `/interview`, `/devlog`, `/design`, `/multi-review`, `/reflect`, `/perf`, `/cache-stats`, `/cache-clear`, `/profile`, `/supercharger`.
 - **Design system** — `/design [brand]` generates a `DESIGN.md` with color tokens, typography, and component conventions. A hook auto-injects it whenever Claude edits CSS, SCSS, Tailwind config, or theme files — consistent design context without re-describing it every session.
 - **Skill routing** — a trigger table maps common tasks to the right Claude skill without loading the full skill index.
 - **MCP server profiles** — `light`, `dev`, `research`, `full`. Switch with `bash tools/mcp-profile.sh [profile]`. Role-based additions apply on top.
@@ -324,6 +324,11 @@ Transient indicators appear on line 1 when something fires:
 | `/design [brand]` | Generate `DESIGN.md` — color tokens, typography, spacing, component conventions |
 | `/multi-review [target]` | Fan out to three parallel agents (security, performance, DX) and synthesize findings |
 | `/reflect` | Score session quality across 4 dimensions, write observations to `.claude/session-observations.md` |
+| `/perf [--slow]` | Hook timing report — shows avg/max ms per hook, flags slow ones |
+| `/cache-stats` | Typecheck + quality-gate cache state (entries, stale count, age) |
+| `/cache-clear [--dry-run]` | Clear hash caches — forces full re-check on next run |
+| `/profile [name]` | Show or switch performance profile (`standard` / `fast` / `minimal`) |
+| `/supercharger` | List all slash commands |
 
 ### Skill routing
 

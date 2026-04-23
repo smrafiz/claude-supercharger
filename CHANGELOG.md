@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.5] - 2026-04-23 — /supercharger command (lists all 18 slash commands by category); README slash commands table updated with /perf, /cache-stats, /cache-clear, /profile, /supercharger. 107 tests passing.
 - [2.3.4] - 2026-04-23 — /profile slash command (show/switch performance profile mid-conversation); perf profile shown in tools/supercharger.sh status screen. 107 tests passing.
 - [2.3.3] - 2026-04-23 — SUPERCHARGER_PROFILE=fast tier (skips 8 analytics hooks, keeps quality-gate + typecheck + dep-vuln-scanner); /cache-clear slash command + tools/cache-clear.sh with --dry-run. 107 tests passing.
 - [2.3.2] - 2026-04-23 — /cache-stats slash command (typecheck/quality-gate cache state); fix CI version mismatch (lib/utils.sh + tools/supercharger.sh were missed in v2.3.0/v2.3.1 bumps). 406 tests passing.
