@@ -11,16 +11,14 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
-# Associative array of disabled hooks — populated once at init time
-declare -A _DISABLED_HOOKS=()
+# Disabled hooks content — loaded once at init time, bash 3.2 compatible
+_DISABLED_HOOKS_CONTENT=""
 
 _load_disabled_hooks() {
-  _DISABLED_HOOKS=()
+  _DISABLED_HOOKS_CONTENT=""
   local disabled_file="$HOME/.claude/supercharger/scope/.disabled-hooks"
   [ ! -f "$disabled_file" ] && return
-  while IFS= read -r line; do
-    [[ -n "$line" ]] && _DISABLED_HOOKS["$line"]=1
-  done < "$disabled_file"
+  _DISABLED_HOOKS_CONTENT=$(<"$disabled_file")
 }
 
 init_hook_suppress() {
@@ -52,7 +50,12 @@ init_hook_suppress() {
 check_hook_disabled() {
   local hook_name="${1:-}"
   [ -z "$hook_name" ] && return 1
-  [[ -v _DISABLED_HOOKS["$hook_name"] ]]
+  [ -z "$_DISABLED_HOOKS_CONTENT" ] && return 1
+  # Exact line match — bash 3.2 compatible case pattern
+  case $'\n'"$_DISABLED_HOOKS_CONTENT"$'\n' in
+    *$'\n'"$hook_name"$'\n'*) return 0 ;;
+    *) return 1 ;;
+  esac
 }
 
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
