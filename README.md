@@ -2,7 +2,7 @@
 
 Shell-level safety and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-2.3.5-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.3.6-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-107%20passing-brightgreen)
 
 ---
 
@@ -246,6 +246,7 @@ All scripts live in `~/.claude/supercharger/tools/` after install:
 | `update.sh` | Self-update |
 | `economy-switch.sh` | Change economy tier permanently |
 | `hook-toggle.sh` | Enable or disable individual hooks |
+| `hook-new.sh` | Scaffold a new hook with standard boilerplate |
 | `config-health.sh` | Installation health check |
 | `mcp-setup.sh` | Add MCP servers interactively |
 | `mcp-profile.sh` | Switch MCP profile |

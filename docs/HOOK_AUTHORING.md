@@ -6,6 +6,30 @@ This guide covers everything you need to write and register a working hook.
 
 ---
 
+## Quick start
+
+Use the scaffold tool to generate a hook with all boilerplate pre-filled:
+
+```bash
+bash tools/hook-new.sh my-hook PostToolUse Bash
+```
+
+This creates `hooks/my-hook.sh` with:
+- `lib-suppress.sh` sourced
+- `init_hook_suppress` called
+- `hook_profile_skip` guard
+- Commented examples for reading input, injecting messages, and blocking commands
+
+Then fill in your logic, register it:
+
+```bash
+bash tools/hook-toggle.sh my-hook on
+```
+
+The rest of this guide covers event types, stdin shapes, and response formats in detail.
+
+---
+
 ## Event types
 
 | Event | Fires when | Can block? |
