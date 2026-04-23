@@ -8,7 +8,7 @@ Shell-level safety and behavioral intelligence for Claude Code.
 
 Claude Code is powerful and mostly well-behaved — until it isn't. It deletes files it shouldn't, spawns agents that burn through your rate limit, or quietly re-bills you for context it already cached. One runaway session cost a reported $47K. Silent credential exposure in tool output is common enough to have a CVE. And when Claude crashes mid-session, your context is gone.
 
-Supercharger adds 62 shell hooks that run outside Claude's process. Claude can't see them, can't reason around them, can't be prompted to skip them. If a hook exits non-zero, the command doesn't run. That's it.
+Supercharger adds 62–65 shell hooks that run outside Claude's process. Claude can't see them, can't reason around them, can't be prompted to skip them. If a hook exits non-zero, the command doesn't run. That's it.
 
 Here's what it shows at the start of every session:
 
@@ -307,7 +307,9 @@ A trigger table in `CLAUDE.md` maps common tasks to the right Claude skill witho
 | Multi-step plan | `superpowers:writing-plans` |
 | Execute a plan | `superpowers:executing-plans` |
 | Code review | `superpowers:requesting-code-review` |
+| Complex workflows | `superpowers:subagent-driven-development` |
 | Branch complete | `superpowers:finishing-a-development-branch` |
+| Git worktree | `superpowers:using-git-worktrees` |
 
 </details>
 
