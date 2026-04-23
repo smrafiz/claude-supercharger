@@ -11,6 +11,18 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
+# Associative array of disabled hooks — populated once at init time
+declare -A _DISABLED_HOOKS=()
+
+_load_disabled_hooks() {
+  _DISABLED_HOOKS=()
+  local disabled_file="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  [ ! -f "$disabled_file" ] && return
+  while IFS= read -r line; do
+    [[ -n "$line" ]] && _DISABLED_HOOKS["$line"]=1
+  done < "$disabled_file"
+}
+
 init_hook_suppress() {
   local dir="${1:-}"
   HOOK_SUPPRESS=true
@@ -33,14 +45,14 @@ init_hook_suppress() {
       HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
     fi
   fi
+
+  _load_disabled_hooks
 }
 
 check_hook_disabled() {
   local hook_name="${1:-}"
   [ -z "$hook_name" ] && return 1
-  local disabled_file="$HOME/.claude/supercharger/scope/.disabled-hooks"
-  [ ! -f "$disabled_file" ] && return 1
-  grep -qx "$hook_name" "$disabled_file" 2>/dev/null
+  [[ -v _DISABLED_HOOKS["$hook_name"] ]]
 }
 
 # Default initialisation (no project dir yet — hooks should re-call after reading input)

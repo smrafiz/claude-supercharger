@@ -29,6 +29,10 @@ rm -f "$SCOPE_DIR/.profiling"
 # HOOK_START_MS should be a non-zero positive integer
 [[ "$HOOK_START_MS" =~ ^[0-9]+$ ]] && [ "$HOOK_START_MS" -gt 0 ] && pass || fail "HOOK_START_MS not a positive integer: '$HOOK_START_MS'"
 
+begin_test "lib-suppress: check_hook_disabled uses in-memory array not grep"
+assert_file_not_contains "$REPO_DIR/hooks/lib-suppress.sh" 'grep -qx' &&
+pass
+
 echo ""
 echo "=== Safety Hook Tests ==="
 
