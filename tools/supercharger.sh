@@ -169,6 +169,7 @@ claude-check.sh:Health check — verify installation & config
 compress-memory.sh:Compress markdown files to reduce input tokens (preserves code/URLs/structure)
 economy-switch.sh:Permanently change economy tier (standard/lean/minimal)
 export-preset.sh:Export current config as a .supercharger file for sharing
+hook-new.sh:Scaffold a new hook with standard boilerplate
 hook-toggle.sh:Enable or disable individual hooks without reinstalling
 import-preset.sh:Apply a teammate's .supercharger preset file
 mcp-setup.sh:Install and configure MCP servers (context7, sequential, etc.)
@@ -177,7 +178,7 @@ resume.sh:Restore session from a saved summary
 supercharger.sh:This screen — capability overview
 webhook-setup.sh:Configure Slack/Discord/Telegram notifications"
 
-for tool in cache-clear.sh claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh resume.sh supercharger.sh webhook-setup.sh; do
+for tool in cache-clear.sh claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-new.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh resume.sh supercharger.sh webhook-setup.sh; do
   if [ -f "$SCRIPT_DIR/${tool}" ]; then
     DESC=$(echo "$TOOL_DESCS" | grep "^${tool}:" | cut -d: -f2-)
     echo -e "  ${GREEN}✓${NC} ${BOLD}tools/${tool}${NC} — ${DESC}"
