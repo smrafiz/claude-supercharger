@@ -45,6 +45,12 @@ init_hook_suppress() {
   fi
 
   _load_disabled_hooks
+
+  # Load project profile from scope file — set SUPERCHARGER_PROFILE if not already set by env
+  if [ -z "${SUPERCHARGER_PROFILE:-}" ]; then
+    local profile_file="$HOME/.claude/supercharger/scope/.profile"
+    [ -f "$profile_file" ] && SUPERCHARGER_PROFILE=$(<"$profile_file") || true
+  fi
 }
 
 check_hook_disabled() {

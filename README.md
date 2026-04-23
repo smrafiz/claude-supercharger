@@ -150,6 +150,12 @@ Set `SUPERCHARGER_PROFILE=minimal` to skip 11 high-latency non-security hooks wh
 SUPERCHARGER_PROFILE=minimal claude
 ```
 
+Or set it per-project in `.supercharger.json` — no env var needed:
+
+```json
+{"profile": "minimal"}
+```
+
 Skipped in minimal: `quality-gate`, `typecheck`, `repetition-detector`, `dep-vuln-scanner`, `mcp-tracker`, `failure-tracker`, `session-checkpoint`, `context-advisor`, `rate-limit-advisor`, `thinking-budget`, `adaptive-economy`.
 
 Security hooks (code scanner, secrets scanner, scope guard, safety, etc.) always run regardless of profile.

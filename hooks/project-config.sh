@@ -210,6 +210,19 @@ if config_file and os.path.isfile(config_file):
             if os.path.isfile(disabled_file):
                 os.remove(disabled_file)
 
+        # Per-project performance profile
+        profile = config.get('profile', '').strip().lower()
+        profile_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.profile')
+        if profile in ('minimal', 'standard'):
+            os.makedirs(os.path.dirname(profile_file), exist_ok=True)
+            with open(profile_file, 'w') as f:
+                f.write(profile)
+            if profile != 'standard':
+                cfg_parts.append(f'Profile: {profile}')
+        else:
+            if os.path.isfile(profile_file):
+                os.remove(profile_file)
+
         if cfg_parts:
             parts.append('Project config: ' + '. '.join(cfg_parts) + '.')
     except Exception:
