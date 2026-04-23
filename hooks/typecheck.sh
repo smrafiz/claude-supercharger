@@ -46,7 +46,13 @@ done
 
 # Hash-cache: skip tsc if file content unchanged since last clean run
 _typecheck_hash() {
-  sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1 || echo ""
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+  elif command -v shasum &>/dev/null; then
+    shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+  else
+    echo ""
+  fi
 }
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"

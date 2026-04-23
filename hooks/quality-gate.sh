@@ -25,7 +25,13 @@ check_hook_disabled "quality-gate" && exit 0
 
 # Hash-cache: skip lint if file unchanged since last clean run
 _qg_hash() {
-  sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1 || echo ""
+  if command -v sha256sum &>/dev/null; then
+    sha256sum "$1" 2>/dev/null | cut -d' ' -f1
+  elif command -v shasum &>/dev/null; then
+    shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
+  else
+    echo ""
+  fi
 }
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
@@ -143,6 +149,9 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
 
   ITERATION=$((ITERATION + 1))
 done
+
+# Re-hash after potential auto-fix modifications
+QG_FILE_HASH=$(_qg_hash "$FILE_PATH")
 
 # Final re-check: inject any remaining unfixed issues as systemMessage
 REMAINING=""
