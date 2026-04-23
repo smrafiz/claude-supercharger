@@ -121,6 +121,7 @@ try:
 except Exception:
   d = {}
 d[file_path] = file_hash
+d = {k: v for k, v in d.items() if os.path.exists(k)}
 import tempfile
 with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(cache_file), delete=False, suffix='.tmp') as tf:
   json.dump(d, tf)
