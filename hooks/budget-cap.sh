@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Budget Cap Hook
+# Event: PostToolUse (accumulator) | PreToolUse check (blocker) | Matcher: (none)
 # Modes:
 #   (no arg)  — PostToolUse accumulator: reads token usage, calculates cost, writes .session-cost
 #   check     — PreToolUse blocker: reads .session-cost, warns at 80%, blocks at 100%
