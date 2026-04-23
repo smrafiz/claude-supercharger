@@ -11,6 +11,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
+hook_profile_skip "failure-tracker" && exit 0
 
 # Check if command failed (non-zero exit or error in output)
 EXIT_CODE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.exit_code // empty' 2>/dev/null)

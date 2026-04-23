@@ -7,6 +7,7 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+hook_profile_skip "thinking-budget" && exit 0
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
