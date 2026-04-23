@@ -51,12 +51,22 @@ if [ -f "$RULES_DIR/economy.md" ]; then
 fi
 echo -e "  Economy:  ${GREEN}${ECONOMY_TIER}${NC}"
 
-# Active profile
+# Active persona profile
 ACTIVE_PROFILE="$SUPERCHARGER_DIR/.active-profile"
 if [ -f "$ACTIVE_PROFILE" ]; then
   echo -e "  Profile:  ${GREEN}$(cat "$ACTIVE_PROFILE")${NC}"
 else
   echo -e "  Profile:  ${YELLOW}none${NC}"
+fi
+
+# Performance profile
+PERF_PROFILE_FILE="$SUPERCHARGER_DIR/scope/.profile"
+if [ -n "${SUPERCHARGER_PROFILE:-}" ]; then
+  echo -e "  Perf:     ${GREEN}${SUPERCHARGER_PROFILE}${NC} ${DIM}(env var)${NC}"
+elif [ -f "$PERF_PROFILE_FILE" ]; then
+  echo -e "  Perf:     ${GREEN}$(cat "$PERF_PROFILE_FILE")${NC}"
+else
+  echo -e "  Perf:     ${DIM}standard (default)${NC}"
 fi
 
 # Project config
