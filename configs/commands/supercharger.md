@@ -32,7 +32,7 @@ Claude Supercharger — Slash Commands
 
   Meta
     /supercharger   This screen
-    /update         Check for and apply Supercharger updates
+    /sc-update      Check for and apply Supercharger updates
 ```
 
 No further output. If the user passes `$ARGUMENTS`, check if it matches a command name and give a one-line description of that command only.
