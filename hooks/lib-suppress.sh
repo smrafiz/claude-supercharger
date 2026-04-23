@@ -26,7 +26,12 @@ init_hook_suppress() {
   # Timing instrumentation — only active when profiler is running
   HOOK_START_MS=0
   if [ -f "$HOME/.claude/supercharger/scope/.profiling" ]; then
-    HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
+    # $EPOCHREALTIME (bash 5+): "seconds.microseconds" — convert to ms, zero fork
+    if [[ -n "${EPOCHREALTIME:-}" ]]; then
+      HOOK_START_MS=$(( ${EPOCHREALTIME/./} / 1000 ))
+    else
+      HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
+    fi
   fi
 }
 

@@ -13,6 +13,16 @@ run_prompt_hook() {
   echo "$json_input" | bash "$PROMPT_HOOK" 2>&1
 }
 
+# --- Library Tests ---
+
+echo "=== lib-suppress Tests ==="
+
+begin_test "lib-suppress: timing uses EPOCHREALTIME not raw python3 call"
+# The profiling path should prefer $EPOCHREALTIME over forking python3
+TIMING_LINE=$(grep -n 'EPOCHREALTIME' "$REPO_DIR/hooks/lib-suppress.sh" | head -1)
+[ -n "$TIMING_LINE" ] && pass || fail "EPOCHREALTIME not found in lib-suppress.sh timing code"
+
+echo ""
 echo "=== Safety Hook Tests ==="
 
 begin_test "safety: rm -rf / is blocked"
