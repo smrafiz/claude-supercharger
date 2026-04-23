@@ -142,6 +142,20 @@ Add to `.gitignore` for local-only memory, or commit it for shared memory across
 .claude/supercharger-memory.md
 ```
 
+### Performance profile
+
+Set `SUPERCHARGER_PROFILE=minimal` to skip 11 high-latency non-security hooks when you need Claude to move fast:
+
+```bash
+SUPERCHARGER_PROFILE=minimal claude
+```
+
+Skipped in minimal: `quality-gate`, `typecheck`, `repetition-detector`, `dep-vuln-scanner`, `mcp-tracker`, `failure-tracker`, `session-checkpoint`, `context-advisor`, `rate-limit-advisor`, `thinking-budget`, `adaptive-economy`.
+
+Security hooks (code scanner, secrets scanner, scope guard, safety, etc.) always run regardless of profile.
+
+Default is `standard` — all hooks active.
+
 ### Project verify hook
 
 Drop `.claude/verify.sh` in your repo and it runs when Claude stops. If it fails, Claude sees the output and keeps fixing.
