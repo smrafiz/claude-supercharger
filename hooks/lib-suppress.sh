@@ -76,5 +76,23 @@ hook_profile_skip() {
   return 1
 }
 
+# Cache jq availability for this session — avoids repeated failed fork on jq-less systems
+if [ -z "${_JQ_AVAILABLE+set}" ]; then
+  command -v jq &>/dev/null && _JQ_AVAILABLE=1 || _JQ_AVAILABLE=0
+  export _JQ_AVAILABLE
+fi
+
+# Wrapper: use jq if available, else python3 directly (avoids double fork on jq-less systems)
+jq_or_python() {
+  local jq_filter="$1"
+  local py_expr="$2"
+  local input="$3"
+  if [ "${_JQ_AVAILABLE:-0}" = "1" ]; then
+    printf '%s\n' "$input" | jq -r "$jq_filter" 2>/dev/null
+  else
+    printf '%s\n' "$input" | python3 -c "import sys,json; $py_expr" 2>/dev/null || echo ""
+  fi
+}
+
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
 init_hook_suppress
