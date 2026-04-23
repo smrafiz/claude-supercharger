@@ -296,4 +296,5 @@ bash "$REPO_DIR/install.sh" \
 
 echo ""
 echo -e "${GREEN}  ✓ Updated v${OLD_VERSION} → v${NEW_VERSION}${NC}"
+echo -e "  Type ${BOLD}/supercharger${NC} in any chat to see what's available."
 echo ""
