@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.4] - 2026-04-23 — /profile slash command (show/switch performance profile mid-conversation); perf profile shown in tools/supercharger.sh status screen. 107 tests passing.
 - [2.3.3] - 2026-04-23 — SUPERCHARGER_PROFILE=fast tier (skips 8 analytics hooks, keeps quality-gate + typecheck + dep-vuln-scanner); /cache-clear slash command + tools/cache-clear.sh with --dry-run. 107 tests passing.
 - [2.3.2] - 2026-04-23 — /cache-stats slash command (typecheck/quality-gate cache state); fix CI version mismatch (lib/utils.sh + tools/supercharger.sh were missed in v2.3.0/v2.3.1 bumps). 406 tests passing.
 - [2.3.1] - 2026-04-23 — Post-v2.3.0 fixes: atomic cache writes in typecheck + quality-gate (tempfile + os.replace); prune stale cache entries for deleted files on write; per-project profile via .supercharger.json ("profile": "minimal"); /perf slash command (hook timing report with suggestions); SUPERCHARGER_PROFILE docs in README. 406 tests passing.
