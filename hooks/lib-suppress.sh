@@ -71,6 +71,15 @@ hook_profile_skip() {
   local profile="${SUPERCHARGER_PROFILE:-standard}"
   [ "$profile" = "standard" ] && return 1  # nothing skipped
 
+  if [ "$profile" = "fast" ]; then
+    case "$hook_name" in
+      adaptive-economy|thinking-budget|rate-limit-advisor|\
+      mcp-tracker|failure-tracker|session-checkpoint|\
+      repetition-detector|context-advisor)
+        return 0 ;;
+    esac
+  fi
+
   if [ "$profile" = "minimal" ]; then
     case "$hook_name" in
       quality-gate|typecheck|repetition-detector|dep-vuln-scanner|\

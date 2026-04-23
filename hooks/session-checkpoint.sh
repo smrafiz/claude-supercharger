@@ -28,7 +28,7 @@ except Exception:
 " 2>/dev/null || echo "")
 
 [ -z "$SESSION_ID" ] && exit 0
-[ "${SUPERCHARGER_PROFILE:-standard}" = "minimal" ] && exit 0
+case "${SUPERCHARGER_PROFILE:-standard}" in minimal|fast) exit 0 ;; esac
 [ -z "$CWD" ] && CWD="$PWD"
 
 # Get git branch (graceful fallback)

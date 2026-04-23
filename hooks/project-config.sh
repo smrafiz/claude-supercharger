@@ -213,7 +213,7 @@ if config_file and os.path.isfile(config_file):
         # Per-project performance profile
         profile = config.get('profile', '').strip().lower()
         profile_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.profile')
-        if profile in ('minimal', 'standard'):
+        if profile in ('minimal', 'fast', 'standard'):
             os.makedirs(os.path.dirname(profile_file), exist_ok=True)
             with open(profile_file, 'w') as f:
                 f.write(profile)

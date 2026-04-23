@@ -15,7 +15,7 @@ if [ -z "$TOOL_NAME" ]; then
 fi
 
 [ -z "$TOOL_NAME" ] && exit 0
-[ "${SUPERCHARGER_PROFILE:-standard}" = "minimal" ] && exit 0
+case "${SUPERCHARGER_PROFILE:-standard}" in minimal|fast) exit 0 ;; esac
 
 # Extract MCP server name from tool_name (format: mcp__servername__toolname)
 if [[ "$TOOL_NAME" =~ ^mcp__([^_]+) ]]; then

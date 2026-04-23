@@ -144,19 +144,28 @@ Add to `.gitignore` for local-only memory, or commit it for shared memory across
 
 ### Performance profile
 
-Set `SUPERCHARGER_PROFILE=minimal` to skip 11 high-latency non-security hooks when you need Claude to move fast:
+Three tiers control which hooks run:
+
+| Profile | Skipped hooks | Use when |
+|---|---|---|
+| `standard` | none | default — full protection |
+| `fast` | 8 analytics hooks | need speed, keep code-quality checks |
+| `minimal` | 11 hooks (all non-security) | pure speed, code checks optional |
 
 ```bash
+SUPERCHARGER_PROFILE=fast claude
 SUPERCHARGER_PROFILE=minimal claude
 ```
 
 Or set it per-project in `.supercharger.json` — no env var needed:
 
 ```json
-{"profile": "minimal"}
+{"profile": "fast"}
 ```
 
-Skipped in minimal: `quality-gate`, `typecheck`, `repetition-detector`, `dep-vuln-scanner`, `mcp-tracker`, `failure-tracker`, `session-checkpoint`, `context-advisor`, `rate-limit-advisor`, `thinking-budget`, `adaptive-economy`.
+**Skipped in `fast`:** `adaptive-economy`, `thinking-budget`, `rate-limit-advisor`, `mcp-tracker`, `failure-tracker`, `session-checkpoint`, `repetition-detector`, `context-advisor`.
+
+**Skipped in `minimal`:** all of the above plus `quality-gate`, `typecheck`, `dep-vuln-scanner`.
 
 Security hooks (code scanner, secrets scanner, scope guard, safety, etc.) always run regardless of profile.
 

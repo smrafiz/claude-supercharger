@@ -41,6 +41,23 @@ OUT=$(printf '%s' "$INPUT" | SUPERCHARGER_PROFILE=minimal bash "$REPO_DIR/hooks/
 rm -rf "$TMPDIR_PROF"
 [ -z "$OUT" ] && pass || fail "expected skip under minimal profile, got: $OUT"
 
+begin_test "lib-suppress: SUPERCHARGER_PROFILE=fast skips adaptive-economy"
+INPUT_AE='{"session_id":"test","transcript_path":"/dev/null"}'
+OUT=$(printf '%s' "$INPUT_AE" | SUPERCHARGER_PROFILE=fast bash "$REPO_DIR/hooks/adaptive-economy.sh" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected skip under fast profile, got: $OUT"
+
+begin_test "lib-suppress: SUPERCHARGER_PROFILE=fast keeps quality-gate active"
+TMPDIR_FAST=$(mktemp -d)
+echo 'x = 1' > "$TMPDIR_FAST/test.py"
+INPUT_FAST=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_FAST/test.py")
+OUT_FAST=$(printf '%s' "$INPUT_FAST" | SUPERCHARGER_PROFILE=fast bash "$REPO_DIR/hooks/quality-gate.sh" 2>&1)
+rm -rf "$TMPDIR_FAST"
+# quality-gate should run (not skip) — any output or exit is acceptable; just must not be empty due to profile skip
+# The hook either runs checks or exits early for other reasons (no linter, etc.)
+# We verify it didn't skip silently with zero output due to profile skip by checking the profile skip path
+OUT_SKIP=$(printf '{"tool_input":{"file_path":"/dev/null"}}' | SUPERCHARGER_PROFILE=fast bash -c '. '"$REPO_DIR"'/hooks/lib-suppress.sh; hook_profile_skip "quality-gate" && echo SKIPPED || echo ACTIVE' 2>&1)
+[ "$OUT_SKIP" = "ACTIVE" ] && pass || fail "quality-gate should be active in fast profile, got: $OUT_SKIP"
+
 echo ""
 echo "=== Safety Hook Tests ==="
 
