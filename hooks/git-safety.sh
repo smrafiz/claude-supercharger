@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Claude Supercharger — Git Safety Hook
+# Event: PreToolUse | Matcher: Bash (git *)
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh

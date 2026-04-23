@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+# Claude Supercharger — Safety Hook
+# Event: PreToolUse | Matcher: Bash, PowerShell
 set -euo pipefail
 
 _INPUT=$(cat)

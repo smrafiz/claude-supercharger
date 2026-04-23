@@ -67,12 +67,7 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = safe base (safety + smart-approve + audit-trail +
-#   trace-compactor + injection-scanner) + full (notify + git-safety +
-#   enforce-pkg-manager + scope-guard(check+snapshot) + project-config +
-#   update-check + agent-router + context-advisor + compaction-backup +
-#   session-end + quality-gate) = 16
-#   (commit-check is opt-in, not counted here)
+# Full mode + developer = 65 hooks total (commit-check is opt-in, not counted here)
 if [ "$HOOK_COUNT" -eq 65 ]; then
   pass
 else
@@ -178,7 +173,7 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# standard maps to full = 16 hooks (with developer)
+# standard maps to full = 65 hooks (with developer)
 if [ "$HOOK_COUNT" -eq 65 ]; then
   pass
 else

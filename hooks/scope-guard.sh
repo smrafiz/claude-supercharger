@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Scope Guard
+# Event: PostToolUse (check) | SessionStart (snapshot) | UserPromptSubmit (contract) | Stop (clear) | Matcher: Write,Edit (check)
 # Modes:
 #   snapshot  — capture git file state at SessionStart
 #   contract  — extract scope from first user prompt (UserPromptSubmit)

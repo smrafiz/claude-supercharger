@@ -1,7 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Misc Event Logger
-# Events: PermissionDenied, PostToolUseFailure, SubagentStop, ConfigChange,
-#         InstructionsLoaded, TaskCreated, TaskCompleted, TeammateIdle
+# Event: PermissionDenied | PostToolUseFailure | SubagentStop | ConfigChange | InstructionsLoaded | TaskCreated | TaskCompleted | TeammateIdle | Matcher: (none)
 # Logs to ~/.claude/supercharger/events.log (async, no output to Claude)
 
 set -euo pipefail
