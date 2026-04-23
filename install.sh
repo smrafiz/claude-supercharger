@@ -428,6 +428,7 @@ echo -e "  Roles:    ${BOLD}${ROLES_LIST}${NC}"
 echo -e "  Economy:  ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
 echo -e "  Notify:   ${BOLD}$(capitalize "$NOTIFY_MODE")${NC}"
 echo ""
+echo -e "  Slash commands installed — type ${BOLD}/supercharger${NC} in any chat to list them."
 echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
   echo -e "  Run ${BOLD}claude-check${NC} to verify installation."
