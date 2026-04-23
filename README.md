@@ -2,7 +2,7 @@
 
 Shell-level safety and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-2.2.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-392%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.2.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-401%20passing-brightgreen)
 
 ---
 
@@ -383,7 +383,7 @@ Nothing. No API keys, no external calls, no telemetry. Everything runs locally.
 
 ## Credits
 
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp), [claude-guard](https://github.com/derek-larson14/claude-guard), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [CCNotify](https://github.com/dazuiba/CCNotify).
+Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp), [claude-guard](https://github.com/derek-larson14/claude-guard), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [CCNotify](https://github.com/dazuiba/CCNotify), [awesome-claude-design](https://github.com/VoltAgent/awesome-claude-design), [awesome-llm-apps](https://github.com/Shubhamsaboo/awesome-llm-apps), [claude-code-best](https://github.com/claude-code-best/claude-code).
 
 ## License
 
