@@ -17,10 +17,17 @@ run_prompt_hook() {
 
 echo "=== lib-suppress Tests ==="
 
-begin_test "lib-suppress: timing uses EPOCHREALTIME not raw python3 call"
-# The profiling path should prefer $EPOCHREALTIME over forking python3
-TIMING_LINE=$(grep -n 'EPOCHREALTIME' "$REPO_DIR/hooks/lib-suppress.sh" | head -1)
-[ -n "$TIMING_LINE" ] && pass || fail "EPOCHREALTIME not found in lib-suppress.sh timing code"
+begin_test "lib-suppress: timing produces numeric millisecond value when profiling active"
+# Enable profiling sentinel, source the lib, check HOOK_START_MS is numeric
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+touch "$SCOPE_DIR/.profiling"
+HOOK_START_MS=0
+# shellcheck source=/dev/null
+. "$REPO_DIR/hooks/lib-suppress.sh"
+rm -f "$SCOPE_DIR/.profiling"
+# HOOK_START_MS should be a non-zero positive integer
+[[ "$HOOK_START_MS" =~ ^[0-9]+$ ]] && [ "$HOOK_START_MS" -gt 0 ] && pass || fail "HOOK_START_MS not a positive integer: '$HOOK_START_MS'"
 
 echo ""
 echo "=== Safety Hook Tests ==="
