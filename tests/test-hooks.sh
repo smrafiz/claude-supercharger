@@ -584,4 +584,38 @@ echo "$OUTPUT" | grep -qi "WordPress" && pass || fail "WordPress stack not detec
 rm -rf "$PROJ_DIR"
 teardown_test_home
 
+# --- Design Context Hook Tests ---
+
+echo ""
+echo "=== Design Context Hook Tests ==="
+
+DESIGN_HOOK="$REPO_DIR/hooks/design-context.sh"
+
+begin_test "design-context: injects DESIGN.md when editing .css file"
+setup_test_home
+PROJ_DIR=$(mktemp -d)
+echo "# DESIGN.md — TestBrand" > "$PROJ_DIR/DESIGN.md"
+echo "primary: #ff0000" >> "$PROJ_DIR/DESIGN.md"
+OUTPUT=$(echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ_DIR/styles/main.css\"},\"cwd\":\"$PROJ_DIR\"}" | bash "$DESIGN_HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -q "DESIGN\|TestBrand\|additionalContext\|systemMessage" && pass || fail "expected DESIGN.md injection"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "design-context: skips non-style files"
+setup_test_home
+PROJ_DIR=$(mktemp -d)
+echo "# DESIGN.md" > "$PROJ_DIR/DESIGN.md"
+OUTPUT=$(echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ_DIR/index.ts\"},\"cwd\":\"$PROJ_DIR\"}" | bash "$DESIGN_HOOK" 2>/dev/null)
+[ -z "$OUTPUT" ] && pass || fail "expected no output for non-style file"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
+begin_test "design-context: skips when no DESIGN.md present"
+setup_test_home
+PROJ_DIR=$(mktemp -d)
+OUTPUT=$(echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ_DIR/app.css\"},\"cwd\":\"$PROJ_DIR\"}" | bash "$DESIGN_HOOK" 2>/dev/null)
+[ -z "$OUTPUT" ] && pass || fail "expected no output when DESIGN.md absent"
+rm -rf "$PROJ_DIR"
+teardown_test_home
+
 report

@@ -84,6 +84,7 @@ get_hooks_for_mode() {
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|")
+      hooks+=("PreToolUse|Write,Edit|${hooks_dir}/design-context.sh|async")
     fi
   fi
 
