@@ -330,6 +330,7 @@ Transient indicators appear on line 1 when something fires:
 | `/cache-clear [--dry-run]` | Clear hash caches — forces full re-check on next run |
 | `/profile [name]` | Show or switch performance profile (`standard` / `fast` / `minimal`) |
 | `/supercharger` | List all slash commands |
+| `/sc-update` | Check for and apply Supercharger updates |
 
 ### Skill routing
 
@@ -351,6 +352,25 @@ A trigger table in `CLAUDE.md` maps common tasks to the right Claude skill witho
 ---
 
 ## FAQ
+
+<details>
+<summary>Can I write my own hooks?</summary>
+
+Yes. Use the scaffold tool to generate a hook with all boilerplate pre-filled:
+
+```bash
+bash ~/.claude/supercharger/tools/hook-new.sh my-hook PostToolUse Bash
+```
+
+This creates `hooks/my-hook.sh` with `lib-suppress.sh` sourced, profile skip guard, and commented examples for reading input, injecting messages, and blocking commands. Then register it:
+
+```bash
+bash ~/.claude/supercharger/tools/hook-toggle.sh my-hook on
+```
+
+Full authoring guide: `docs/HOOK_AUTHORING.md`.
+
+</details>
 
 <details>
 <summary>Will this break my existing Claude setup?</summary>
