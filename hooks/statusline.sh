@@ -141,25 +141,24 @@ try:
 
  session_id = data.get('session_id') or 'default'
 
- # Active agent
+ # Active agent — prefer supercharger classification over native CC agent type
  agent = ''
  try:
      scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
-     # Prefer native agent field, fallback to scope files
-     native_agent = (data.get('agent') or {}).get('name', '')
-     if native_agent:
-         native_agent = ' '.join(w.capitalize() for w in native_agent.replace('-', ' ').replace('_', ' ').split())
-         agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{native_agent}{RESET}'
-     else:
-         for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
-             fpath = os.path.join(scope, fname)
-             if os.path.isfile(fpath):
-                 with open(fpath) as f:
-                     agent_name = f.read().strip()
-                 if agent_name:
-                     agent_name = ' '.join(w.capitalize() for w in agent_name.replace('-', ' ').replace('_', ' ').split())
-                     agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{agent_name}{RESET}'
-                     break
+     agent_name = ''
+     for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
+         fpath = os.path.join(scope, fname)
+         if os.path.isfile(fpath):
+             with open(fpath) as f:
+                 agent_name = f.read().strip()
+             if agent_name:
+                 break
+     if not agent_name:
+         # Fallback: native CC agent field (e.g. subagent context)
+         agent_name = (data.get('agent') or {}).get('name', '')
+     if agent_name:
+         agent_name = ' '.join(w.capitalize() for w in agent_name.replace('-', ' ').replace('_', ' ').split())
+         agent = f' {DIM}|{RESET} {DIM}Agent:{RESET} {CYAN}{agent_name}{RESET}'
  except Exception:
      pass
 
