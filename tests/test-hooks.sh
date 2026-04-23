@@ -639,4 +639,26 @@ OUTPUT=$(echo "{\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ_DI
 rm -rf "$PROJ_DIR"
 teardown_test_home
 
+# --- TypeCheck Hook Tests ---
+
+echo ""
+echo "=== TypeCheck Hook Tests ==="
+
+begin_test "typecheck: skips tsc when file hash unchanged"
+TMPDIR_TC=$(mktemp -d)
+mkdir -p "$TMPDIR_TC/src"
+echo '{"compilerOptions":{"strict":true}}' > "$TMPDIR_TC/tsconfig.json"
+echo 'const x: number = 1;' > "$TMPDIR_TC/src/foo.ts"
+HASH=$(sha256sum "$TMPDIR_TC/src/foo.ts" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$TMPDIR_TC/src/foo.ts" 2>/dev/null | cut -d' ' -f1 || echo "")
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+PROJ_HASH=$(echo -n "$TMPDIR_TC" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:8])")
+CACHE_FILE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"
+echo "{\"$TMPDIR_TC/src/foo.ts\": \"$HASH\"}" > "$CACHE_FILE"
+INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_TC/src/foo.ts")
+OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/typecheck.sh" 2>&1)
+rm -f "$CACHE_FILE"
+rm -rf "$TMPDIR_TC"
+[ -z "$OUT" ] && pass || fail "expected empty output on cache hit, got: $OUT"
+
 report
