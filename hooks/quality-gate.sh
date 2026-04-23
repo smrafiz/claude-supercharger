@@ -198,8 +198,12 @@ try:
 except Exception:
   d = {}
 d[file_path] = file_hash
-with open(cache_file, 'w') as f:
-  json.dump(d, f)
+import tempfile
+with tempfile.NamedTemporaryFile('w', dir=os.path.dirname(cache_file), delete=False, suffix='.tmp') as tf:
+  json.dump(d, tf)
+  tf.flush()
+  os.fsync(tf.fileno())
+os.replace(tf.name, cache_file)
 " 2>/dev/null || true
 fi
 
