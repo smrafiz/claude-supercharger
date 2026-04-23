@@ -260,8 +260,8 @@ PKG_TEST_DIR=$(mktemp -d)
 run_pkg_hook() {
   local command="$1"
   local project_dir="$2"
-  local json_input="{\"tool_input\":{\"command\":\"$command\"}}"
-  echo "$json_input" | CLAUDE_PROJECT_DIR="$project_dir" bash "$PKG_HOOK" >/dev/null 2>&1
+  local json_input="{\"tool_input\":{\"command\":\"$command\"},\"cwd\":\"$project_dir\"}"
+  echo "$json_input" | bash "$PKG_HOOK" >/dev/null 2>&1
   return $?
 }
 

@@ -18,7 +18,9 @@ fi
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
-PROJECT_DIR="${CLAUDE_PROJECT_DIR:-$(pwd)}"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$(pwd)"
 
 block() {
   echo "" >&2
