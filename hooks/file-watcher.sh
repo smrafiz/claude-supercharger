@@ -8,9 +8,9 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-FILE_PATH=$(printf '%s\n' "$INPUT" | python3 -c "
+FILE_PATH=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)

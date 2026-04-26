@@ -9,17 +9,17 @@ source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
 
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
 # Suppress during subagents
-_is_subagent "$INPUT" && exit 0
+_is_subagent "$_INPUT" && exit 0
 
 # Cooldown (7s — permission requests can cluster)
 _cooldown_ok "permission" 7 || exit 0
 
-TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null)
 
-PREVIEW=$(printf '%s\n' "$INPUT" | jq -r '
+PREVIEW=$(printf '%s\n' "$_INPUT" | jq -r '
   .tool_input |
   if .command then .command
   elif .file_path then .file_path

@@ -6,12 +6,12 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
 # Extract tool response output
-OUTPUT=$(printf '%s\n' "$INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
+OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
+  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
 fi
 
 [ -z "$OUTPUT" ] && exit 0
@@ -19,7 +19,7 @@ fi
 # Skip short responses — no truncation needed
 [ "${#OUTPUT}" -lt 3000 ] && exit 0
 
-TOOL_NAME=$(printf '%s\n' "$INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 
 MCP_OUTPUT="$OUTPUT" MCP_TOOL="$TOOL_NAME" python3 <<'PYEOF'
 import os, json, sys

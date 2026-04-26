@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-COMMAND=$(printf '%s\n' "$INPUT" | python3 -c "
+COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))
@@ -24,7 +24,7 @@ if ! printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm 
 fi
 
 # Determine package manager and run audit
-CWD=$(printf '%s\n' "$INPUT" | python3 -c "
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     print(json.load(sys.stdin).get('cwd', ''))
@@ -32,14 +32,14 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-[ -z "$CWD" ] && CWD="$(pwd)"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$(pwd)"
 
 FINDINGS=""
 
 if printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm add)'; then
   # npm/yarn/pnpm audit
   if command -v npm >/dev/null 2>&1; then
-    AUDIT=$(cd "$CWD" && npm audit --json 2>/dev/null || echo "{}")
+    AUDIT=$(cd "$PROJECT_DIR" && npm audit --json 2>/dev/null || echo "{}")
     FINDINGS=$(python3 -c "
 import json, sys
 try:
@@ -57,7 +57,7 @@ except Exception:
 elif printf '%s\n' "$COMMAND" | grep -qE '^\s*(pip install|pip3 install|poetry add|uv add)'; then
   # pip audit (requires pip-audit)
   if command -v pip-audit >/dev/null 2>&1; then
-    AUDIT=$(cd "$CWD" && pip-audit --format json 2>/dev/null || echo "[]")
+    AUDIT=$(cd "$PROJECT_DIR" && pip-audit --format json 2>/dev/null || echo "[]")
     FINDINGS=$(python3 -c "
 import json, sys
 try:

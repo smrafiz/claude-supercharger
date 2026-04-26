@@ -4,6 +4,10 @@
 # Writes the active MCP server name to a scope file for statusline display.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
+check_hook_disabled "mcp-tracker" && exit 0
 
 _INPUT=$(cat)
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
@@ -15,7 +19,7 @@ if [ -z "$TOOL_NAME" ]; then
 fi
 
 [ -z "$TOOL_NAME" ] && exit 0
-case "${SUPERCHARGER_PROFILE:-standard}" in minimal|fast) exit 0 ;; esac
+hook_profile_skip "mcp-tracker" && exit 0
 
 # Extract MCP server name from tool_name (format: mcp__servername__toolname)
 if [[ "$TOOL_NAME" =~ ^mcp__([^_]+) ]]; then

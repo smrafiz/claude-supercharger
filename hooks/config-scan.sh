@@ -7,12 +7,12 @@
 set -euo pipefail
 
 _INPUT=$(cat)
-CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-if [ -z "$CWD" ]; then
-  CWD=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+if [ -z "$PROJECT_DIR" ]; then
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
 fi
 
-[ -z "$CWD" ] && exit 0
+[ -z "$PROJECT_DIR" ] && exit 0
 
 INJECTION_PATTERNS=(
   'ignore (all |your )?(previous|above|prior) instructions'
@@ -34,11 +34,11 @@ FLAGGED_FILES=()
 
 # Collect candidate files
 CANDIDATES=()
-[ -f "$CWD/CLAUDE.md" ] && CANDIDATES+=("$CWD/CLAUDE.md")
-if [ -d "$CWD/.claude" ]; then
+[ -f "$PROJECT_DIR/CLAUDE.md" ] && CANDIDATES+=("$PROJECT_DIR/CLAUDE.md")
+if [ -d "$PROJECT_DIR/.claude" ]; then
   while IFS= read -r -d '' f; do
     CANDIDATES+=("$f")
-  done < <(find "$CWD/.claude" -maxdepth 2 -name '*.md' -print0 2>/dev/null)
+  done < <(find "$PROJECT_DIR/.claude" -maxdepth 2 -name '*.md' -print0 2>/dev/null)
 fi
 
 for f in "${CANDIDATES[@]+"${CANDIDATES[@]}"}"; do
@@ -57,7 +57,7 @@ fi
 
 # CVE-2025-59536: project .claude/settings.json may contain hooks that execute on session open.
 # Warn if project-level settings define hooks not tagged by supercharger.
-PROJECT_SETTINGS="$CWD/.claude/settings.json"
+PROJECT_SETTINGS="$PROJECT_DIR/.claude/settings.json"
 if [ -f "$PROJECT_SETTINGS" ]; then
   HOOK_WARNING=$(python3 -c "
 import json, sys

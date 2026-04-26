@@ -6,7 +6,7 @@
 set -euo pipefail
 
 EVENT_TYPE="${1:-unknown}"
-INPUT=$(cat)
+_INPUT=$(cat)
 
 LOG_DIR="$HOME/.claude/supercharger"
 LOG_FILE="$LOG_DIR/events.log"
@@ -14,7 +14,7 @@ mkdir -p "$LOG_DIR"
 
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
-DETAIL=$(printf '%s\n' "$INPUT" | python3 -c "
+DETAIL=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)

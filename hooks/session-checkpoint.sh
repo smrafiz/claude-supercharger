@@ -3,13 +3,17 @@
 # Event: PostToolUse | Matcher: Write,Edit,Bash | Flags: async
 # Writes a lightweight checkpoint for crash recovery after every file change.
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
+check_hook_disabled "session-checkpoint" && exit 0
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-SESSION_ID=$(printf '%s\n' "$INPUT" | python3 -c "
+SESSION_ID=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
@@ -18,7 +22,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-CWD=$(printf '%s\n' "$INPUT" | python3 -c "
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
@@ -28,11 +32,11 @@ except Exception:
 " 2>/dev/null || echo "")
 
 [ -z "$SESSION_ID" ] && exit 0
-case "${SUPERCHARGER_PROFILE:-standard}" in minimal|fast) exit 0 ;; esac
-[ -z "$CWD" ] && CWD="$PWD"
+hook_profile_skip "session-checkpoint" && exit 0
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 # Get git branch (graceful fallback)
-BRANCH=$(git -C "$CWD" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
+BRANCH=$(git -C "$PROJECT_DIR" rev-parse --abbrev-ref HEAD 2>/dev/null || true)
 
 # Collect modified files (staged + unstaged + untracked), comma-separated
 MODIFIED_FILES=$(python3 -c "
@@ -54,7 +58,7 @@ for cmd in [
     except Exception:
         pass
 print(','.join(sorted(files)))
-" "$CWD" 2>/dev/null || true)
+" "$PROJECT_DIR" 2>/dev/null || true)
 
 # Read cost from .session-cost file (total_usd field)
 COST=""

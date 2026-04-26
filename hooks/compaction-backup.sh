@@ -16,8 +16,8 @@ chmod 700 "$SUMMARIES_DIR"
 TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.md"
 
-INPUT=$(cat)
-echo "$INPUT" > "$BACKUP_FILE"
+_INPUT=$(cat)
+echo "$_INPUT" > "$BACKUP_FILE"
 chmod 600 "$BACKUP_FILE"
 
 echo "Transcript backed up to $BACKUP_FILE" >&2

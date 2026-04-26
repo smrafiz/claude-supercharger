@@ -11,14 +11,14 @@ LOGS_DIR="$SUPERCHARGER_DIR/logs"
 mkdir -p "$LOGS_DIR" 2>/dev/null || true
 
 # Parse reason and session_id from stdin
-INPUT=$(cat)
-REASON=$(printf '%s\n' "$INPUT" | jq -r '.reason // empty' 2>/dev/null)
+_INPUT=$(cat)
+REASON=$(printf '%s\n' "$_INPUT" | jq -r '.reason // empty' 2>/dev/null)
 if [ -z "$REASON" ]; then
-  REASON=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('reason','unknown'))" 2>/dev/null || echo "unknown")
+  REASON=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('reason','unknown'))" 2>/dev/null || echo "unknown")
 fi
 [ -z "$REASON" ] && REASON="unknown"
 
-SESSION_ID=$(printf '%s\n' "$INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 
 # Read transient scope stats

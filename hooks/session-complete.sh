@@ -11,8 +11,8 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 mkdir -p "$SUMMARIES_DIR" 2>/dev/null || true
 
 # Parse cost from Stop event stdin (graceful fallback if not present)
-INPUT=$(cat)
-COST=$(echo "$INPUT" | python3 -c "
+_INPUT=$(cat)
+COST=$(echo "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.loads(sys.stdin.read())

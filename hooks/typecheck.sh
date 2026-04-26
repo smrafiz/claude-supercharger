@@ -8,8 +8,8 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 
-INPUT=$(cat)
-FILE_PATH=$(printf '%s\n' "$INPUT" | python3 -c "
+_INPUT=$(cat)
+FILE_PATH=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try: print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))
 except: print('')

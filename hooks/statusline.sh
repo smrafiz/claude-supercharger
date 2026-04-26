@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-SL_INPUT="$INPUT" python3 <<'PYEOF'
+SL_INPUT="$_INPUT" python3 <<'PYEOF'
 import json, subprocess, os, time
 
 try:

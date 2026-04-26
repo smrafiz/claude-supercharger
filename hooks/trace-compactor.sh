@@ -5,11 +5,11 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-OUTPUT=$(printf '%s\n' "$INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
+OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
+  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
 fi
 
 [ -z "$OUTPUT" ] && exit 0

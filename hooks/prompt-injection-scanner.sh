@@ -5,9 +5,9 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
-TOOL_NAME=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
 
 # Only scan MCP tools and external content fetchers
 case "$TOOL_NAME" in
@@ -15,7 +15,7 @@ case "$TOOL_NAME" in
   *) exit 0 ;;
 esac
 
-OUTPUT=$(printf '%s\n' "$INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
+OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
 
 [ -z "$OUTPUT" ] && exit 0
 

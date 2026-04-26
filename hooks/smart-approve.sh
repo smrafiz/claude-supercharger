@@ -15,9 +15,9 @@ fi
 
 [ -z "$TOOL_NAME" ] && exit 0
 
-# Get CWD for project-scoped approvals
-CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-[ -z "$CWD" ] && CWD="$PWD"
+# Get PROJECT_DIR for project-scoped approvals
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 allow_tool() {
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
@@ -49,16 +49,16 @@ esac
 # --- Write/Edit: auto-approve if file is inside project directory ---
 if [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "MultiEdit" ]; then
   FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
-  if [ -n "$FILE_PATH" ] && [ -n "$CWD" ]; then
+  if [ -n "$FILE_PATH" ] && [ -n "$PROJECT_DIR" ]; then
     # Resolve to absolute path
     case "$FILE_PATH" in
       /*) ABS_PATH="$FILE_PATH" ;;
-      *)  ABS_PATH="${CWD}/${FILE_PATH}" ;;
+      *)  ABS_PATH="${PROJECT_DIR}/${FILE_PATH}" ;;
     esac
     # Allow if inside project directory
     case "$ABS_PATH" in
-      "${CWD}"/*)
-        allow_path "${CWD}/**"
+      "${PROJECT_DIR}"/*)
+        allow_path "${PROJECT_DIR}/**"
         ;;
     esac
   fi

@@ -7,12 +7,12 @@
 
 set -euo pipefail
 
-INPUT=$(cat)
+_INPUT=$(cat)
 
 # Extract content (Write uses .content, Edit uses .new_string)
-CONTENT=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.content // .tool_input.new_string // empty' 2>/dev/null)
+CONTENT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.content // .tool_input.new_string // empty' 2>/dev/null)
 if [ -z "$CONTENT" ]; then
-  CONTENT=$(printf '%s\n' "$INPUT" | python3 -c "
+  CONTENT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 d = json.load(sys.stdin).get('tool_input', {})
 print(d.get('content') or d.get('new_string') or '')
@@ -24,7 +24,7 @@ fi
 
 # Skip tiny Edit patches (< 5 lines) — security patterns need context
 TOOL_NAME=$(printf '%s
-' "$INPUT" | python3 -c "
+' "$_INPUT" | python3 -c "
 import sys, json
 print(json.load(sys.stdin).get('tool_name', ''))
 " 2>/dev/null || echo "")
@@ -35,9 +35,9 @@ if [ "$TOOL_NAME" = "Edit" ]; then
 fi
 
 # Extract file path for context
-FILE_PATH=$(printf '%s\n' "$INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
 if [ -z "$FILE_PATH" ]; then
-  FILE_PATH=$(printf '%s\n' "$INPUT" | python3 -c "
+  FILE_PATH=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 print(json.load(sys.stdin).get('tool_input', {}).get('file_path', ''))
 " 2>/dev/null || echo "")
