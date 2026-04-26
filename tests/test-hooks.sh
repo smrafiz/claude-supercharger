@@ -1790,4 +1790,72 @@ OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_COST" stop 2>/dev/null)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no active file, got exit=$EXIT"
 
+echo ""
+echo "=== Learn From Blocks Tests ==="
+
+LEARN_BLOCKS="$REPO_DIR/hooks/learn-from-blocks.sh"
+SCOPE_DIR_LB="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_LB"
+
+begin_test "learn-from-blocks: exits cleanly with no log files"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$LEARN_BLOCKS" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no logs, got exit=$EXIT out=$OUT"
+
+begin_test "learn-from-blocks: injects context when blocked-commands log exists"
+echo "[2026-04-26] rm -rf /tmp/foo" > "$SCOPE_DIR_LB/.blocked-commands"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$LEARN_BLOCKS" 2>/dev/null)
+EXIT=$?
+rm -f "$SCOPE_DIR_LB/.blocked-commands"
+[ "$EXIT" -eq 0 ] && [ -n "$OUT" ] && pass || fail "expected output from blocked-commands, got exit=$EXIT out=$OUT"
+
+begin_test "learn-from-blocks: injects context when corrections log exists"
+TMPDIR_LB=$(mktemp -d)
+PROJ_HASH_LB=$(D="$TMPDIR_LB" python3 -c "import os,hashlib; print(hashlib.md5(os.environ['D'].encode()).hexdigest()[:8])")
+echo "don't use trailing semicolons" > "$SCOPE_DIR_LB/.user-corrections-${PROJ_HASH_LB}"
+INPUT=$(D="$TMPDIR_LB" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | bash "$LEARN_BLOCKS" 2>/dev/null)
+EXIT=$?
+rm -rf "$TMPDIR_LB" "$SCOPE_DIR_LB/.user-corrections-${PROJ_HASH_LB}"
+[ "$EXIT" -eq 0 ] && [ -n "$OUT" ] && pass || fail "expected output from corrections, got exit=$EXIT out=$OUT"
+
+echo ""
+echo "=== Session Memory Write Tests ==="
+
+SESSION_MEM_WRITE="$(cd "$REPO_DIR" && pwd)/hooks/session-memory-write.sh"
+
+begin_test "session-memory-write: skips when SUPERCHARGER_NO_MEMORY=1"
+TMPDIR_SMW=$(mktemp -d)
+mkdir -p "$TMPDIR_SMW/.claude"
+ORIG_HOME_SMW="$HOME"
+export HOME="$TMPDIR_SMW"
+OUT=$(printf '{}' | SUPERCHARGER_NO_MEMORY=1 bash "$SESSION_MEM_WRITE" 2>/dev/null)
+EXIT=$?
+export HOME="$ORIG_HOME_SMW"
+rm -rf "$TMPDIR_SMW"
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected silent skip, got exit=$EXIT out=$OUT"
+
+begin_test "session-memory-write: skips when no .claude dir"
+TMPDIR_SMW2=$(mktemp -d)
+ORIG_PWD_SMW2="$PWD"
+cd "$TMPDIR_SMW2"
+OUT=$(printf '{}' | bash "$SESSION_MEM_WRITE" 2>/dev/null)
+EXIT=$?
+cd "$ORIG_PWD_SMW2"
+rm -rf "$TMPDIR_SMW2"
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected skip with no .claude dir, got exit=$EXIT out=$OUT"
+
+begin_test "session-memory-write: writes memory file in project with .claude dir"
+TMPDIR_SMW3=$(mktemp -d)
+mkdir -p "$TMPDIR_SMW3/.claude"
+ORIG_PWD_SMW3="$PWD"
+cd "$TMPDIR_SMW3"
+git init --quiet 2>/dev/null; git commit --allow-empty -m "init" --quiet 2>/dev/null || true
+printf '{}' | bash "$SESSION_MEM_WRITE" 2>/dev/null || true
+cd "$ORIG_PWD_SMW3"
+[ -f "$TMPDIR_SMW3/.claude/supercharger-memory.md" ] && pass || fail "expected supercharger-memory.md to be written"
+rm -rf "$TMPDIR_SMW3"
+
 report
