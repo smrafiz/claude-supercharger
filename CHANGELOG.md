@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.10] - 2026-04-26 — tools/profile-switch.sh (fixes missing tool referenced in status screen); 23 new tests covering skill-poisoning-scanner, output-secrets-scanner, prompt-injection-scanner, code-security-scanner, scope-guard, smart-approve. 135 tests passing.
 - [2.3.9] - 2026-04-26 — Security hardening: re-entry loop detector (catches hook-echo infinite loops); skill poisoning scanner (blocks base64/eval/curl|bash/reverse-shells in loaded skills); per-category security toggles (10 categories: filesystem, database, destructive, network, credentials, persistence, clipboard, browser, history, selfmod) with .supercharger.json disableSecurityCategories support. 112 tests passing.
 - [2.3.8] - 2026-04-23 — README: /sc-update in slash commands table; custom hook FAQ with hook-new.sh quickstart. 107 tests passing.
 - [2.3.7] - 2026-04-23 — /sc-update slash command (check + apply updates); renamed from /update to avoid Claude Code builtin conflict; /supercharger in post-update banner; builtin conflict audit (no other renames needed). 107 tests passing.
