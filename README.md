@@ -2,7 +2,7 @@
 
 Shell-level safety and behavioral intelligence for Claude Code.
 
-![Version](https://img.shields.io/badge/version-2.3.14-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-227%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.3.15-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-233%20passing-brightgreen)
 
 ---
 

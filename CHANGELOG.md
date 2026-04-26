@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.15] - 2026-04-26 — Expand test coverage to 233 tests: learn-from-blocks, session-memory-write; fix relative REPO_DIR path bug (cd-invariant hook paths).
 - [2.3.14] - 2026-04-26 — Expand test coverage to 227 tests: stop-failure, session-checkpoint, session-complete, session-end, mcp-tracker, cost-forecast, failure-tracker, subagent-cost.
 - [2.3.13] - 2026-04-26 — tool-call-limiter hook: per-session tool call cap with warn at 80%/block at 100%; configurable via SESSION_MAX_TOOL_CALLS env or .supercharger.json maxToolCalls; read-only tools bypass cap; CLAUDE_SESSION_ID scoping. 210 tests passing.
 - [2.3.12] - 2026-04-26 — Complete hook test coverage: 28 new tests for session-memory-inject, learn-from-prompts, cache-health, config-scan; fix env var passing bug in tests (D="$VAR" python3 prefix form). 205 tests passing.
