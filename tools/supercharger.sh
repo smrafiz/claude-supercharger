@@ -128,11 +128,13 @@ compaction-backup:Saves context snapshot before /compact runs
 scope-guard:Prevents writes outside declared scope during a session
 update-check:Checks for Supercharger updates at session start
 session-complete:Saves session summary on Stop event
-detect-stack:Detects project language, framework, and package manager"
+detect-stack:Detects project language, framework, and package manager
+reentry-detector:Catches system-echo loops (hook output pasted as input)
+skill-poisoning-scanner:Scans skills for hidden shell commands and prompt injection"
 
 if [ -d "$HOOKS_DIR" ]; then
   FOUND_HOOKS=0
-  for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config scope-guard update-check prompt-validator compaction-backup session-complete; do
+  for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config scope-guard update-check prompt-validator compaction-backup session-complete reentry-detector skill-poisoning-scanner; do
     if [ -f "$HOOKS_DIR/${hook}.sh" ]; then
       DESC=$(echo "$HOOK_DESCS" | grep "^${hook}:" | cut -d: -f2-)
       if [ -f "$SETTINGS" ] && grep -q "${hook}.sh" "$SETTINGS" 2>/dev/null; then

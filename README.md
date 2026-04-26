@@ -171,6 +171,18 @@ Security hooks (code scanner, secrets scanner, scope guard, safety, etc.) always
 
 Default is `standard` — all hooks active.
 
+### Security categories
+
+Safety hook checks are grouped into 10 toggleable categories. Disable specific categories per-project when they conflict with legitimate workflows:
+
+```json
+{"disableSecurityCategories": ["clipboard", "history"]}
+```
+
+Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`.
+
+All categories are enabled by default. Disabling a category only affects that specific check — all other safety checks remain active.
+
 ### Project verify hook
 
 Drop `.claude/verify.sh` in your repo and it runs when Claude stops. If it fails, Claude sees the output and keeps fixing.
@@ -197,6 +209,8 @@ chmod +x .claude/verify.sh
 | **trace-compactor.sh** | Compresses large Python/Node tracebacks to a 1-line summary before injecting into context |
 | **mcp-output-truncator.sh** | Caps MCP tool responses at 3.5K chars to prevent context flooding |
 | **prompt-injection-scanner.sh** | Scans MCP/web tool outputs for "ignore previous instructions" and similar patterns |
+| **skill-poisoning-scanner.sh** | Scans loaded skills for hidden shell commands, base64 payloads, reverse shells, credential exfiltration. Blocks critical, warns on suspicious |
+| **reentry-detector.sh** | Catches system-echo loops — detects when hook output (`[MEM]`, `[CTX]`) is pasted back as user input |
 | **output-secrets-scanner.sh** | Scans Bash/Read output for leaked credentials (AWS, OpenAI, Slack, Stripe, HuggingFace, GCP, Azure, SendGrid, Twilio). Warns Claude not to repeat them |
 | **config-scan.sh** | At session start, scans project CLAUDE.md files for injection patterns. Also checks `.claude/settings.json` for non-Supercharger hooks (CVE-2025-59536 guard) |
 | **cache-health.sh** | Monitors prompt cache hit rate. Warns when it drops below 50% — a sign you're being silently re-billed for full context |
