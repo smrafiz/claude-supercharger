@@ -29,6 +29,8 @@ block() {
   echo "  Command: $COMMAND" >&2
   echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
   echo "" >&2
+  RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
 }
 

@@ -218,7 +218,7 @@ chmod +x .claude/verify.sh
 </details>
 
 <details>
-<summary>Full mode — what the extra 52 hooks do</summary>
+<summary>Full mode — what the extra 56 hooks do</summary>
 
 | Category | Hooks | What's added |
 |---|---|---|
