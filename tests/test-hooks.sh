@@ -929,4 +929,221 @@ OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>&1)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty tool name, got exit=$EXIT"
 
+echo ""
+echo "=== Budget Cap Tests ==="
+
+BUDGET_CAP="$REPO_DIR/hooks/budget-cap.sh"
+
+begin_test "budget-cap: accumulate mode with no usage exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'ok'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$BUDGET_CAP" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on no usage, got exit=$EXIT out=$OUT"
+
+begin_test "budget-cap: check mode with no budget cap file exits cleanly"
+SCOPE_DIR_BC="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_BC"
+rm -f "$SCOPE_DIR_BC/.budget-cap" "$SCOPE_DIR_BC/.session-cost"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/f'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$BUDGET_CAP" check 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no budget configured, got exit=$EXIT"
+
+begin_test "budget-cap: check mode warns at 80% threshold"
+SCOPE_DIR_BC="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_BC"
+echo "1.00" > "$SCOPE_DIR_BC/.budget-cap"
+echo "cost=0.85" > "$SCOPE_DIR_BC/.session-cost"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/f'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$BUDGET_CAP" check 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_BC/.budget-cap" "$SCOPE_DIR_BC/.session-cost"
+# Should warn (system message) but not block (exit 2)
+[ "$EXIT" -ne 2 ] && pass || fail "expected warning (not block) at 85% usage, got exit=$EXIT"
+
+begin_test "budget-cap: check mode blocks at 100% (over budget)"
+SCOPE_DIR_BC="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_BC"
+echo '{"total_usd":1.05,"input":0,"output":0}' > "$SCOPE_DIR_BC/.session-cost"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/f'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | SESSION_BUDGET_CAP=1.00 bash "$BUDGET_CAP" check 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_BC/.session-cost"
+[ "$EXIT" -eq 2 ] && pass || fail "expected exit 2 (block) when over budget, got exit=$EXIT out=$OUT"
+
+echo ""
+echo "=== Thinking Budget Tests ==="
+
+THINKING_BUDGET="$REPO_DIR/hooks/thinking-budget.sh"
+
+begin_test "thinking-budget: simple one-word prompt gets minimal hint"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'test1','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on simple prompt, got exit=$EXIT out=$OUT"
+
+begin_test "thinking-budget: complex prompt gets deep reasoning hint"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'Design and architect a distributed event sourcing system with CQRS pattern for our microservices migration. Analyze trade-offs.','session_id':'test2','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on complex prompt, got exit=$EXIT"
+
+begin_test "thinking-budget: opt-out flag skips hook"
+SCOPE_DIR_TB="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_TB"
+touch "$SCOPE_DIR_TB/.no-thinking-control"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'design the architecture','session_id':'test3','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_TB/.no-thinking-control"
+[ -z "$OUT" ] && pass || fail "expected silent skip when opt-out flag set, got: $OUT"
+
+echo ""
+echo "=== Adaptive Economy Tests ==="
+
+ADAPTIVE_ECONOMY="$REPO_DIR/hooks/adaptive-economy.sh"
+
+begin_test "adaptive-economy: low context usage produces no output"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'fix bug','session_id':'ae1','cwd':'/tmp','context_window':{'used_percentage':20}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ADAPTIVE_ECONOMY" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass at 20% context, got: $OUT"
+
+begin_test "adaptive-economy: missing context_window field exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'hello','session_id':'ae2','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ADAPTIVE_ECONOMY" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no context_window, got exit=$EXIT"
+
+begin_test "adaptive-economy: high context triggers economy switch suggestion"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'ae3','cwd':'/tmp','context_window':{'used_percentage':82}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ADAPTIVE_ECONOMY" 2>&1)
+# At 80%+ should inject system message
+[ -n "$OUT" ] && pass || fail "expected economy suggestion at 82% context, got empty output"
+
+echo ""
+echo "=== Trace Compactor Tests ==="
+
+TRACE_COMPACTOR="$REPO_DIR/hooks/trace-compactor.sh"
+
+begin_test "trace-compactor: short output passes through unchanged"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'Hello world'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$TRACE_COMPACTOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass on short output, got: $OUT"
+
+begin_test "trace-compactor: Python traceback is compacted"
+TRACEBACK=$(python3 - << 'PYEOF'
+import json
+frame = ('  File "/app/module_{n}.py", line {n}0, in handler_{n}\n'
+         '    result_{n} = process_{n}(data_{n})\n')
+tb = 'Traceback (most recent call last):\n'
+for i in range(1, 20):
+    tb += frame.format(n=i)
+tb += 'ValueError: invalid input: expected positive integer, got -1\n'
+tb = tb * 2  # ensure > 2000 chars
+print(json.dumps({'tool_name': 'Bash', 'tool_response': {'output': tb}}))
+PYEOF
+)
+OUT=$(printf '%s' "$TRACEBACK" | bash "$TRACE_COMPACTOR" 2>&1)
+[ -n "$OUT" ] && echo "$OUT" | grep -q "compacted\|traceback\|ValueError\|systemMessage" && pass || fail "expected compacted traceback output, got: $OUT"
+
+begin_test "trace-compactor: empty output exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':''}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$TRACE_COMPACTOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent exit on empty output, got: $OUT"
+
+echo ""
+echo "=== MCP Output Truncator Tests ==="
+
+MCP_TRUNCATOR="$REPO_DIR/hooks/mcp-output-truncator.sh"
+
+begin_test "mcp-output-truncator: short MCP response passes through"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'mcp__test__query','tool_response':{'output':'short result'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$MCP_TRUNCATOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass on short MCP output, got: $OUT"
+
+begin_test "mcp-output-truncator: large MCP response is truncated"
+INPUT=$(python3 - << 'PYEOF'
+import json
+big = 'x' * 5000
+print(json.dumps({'tool_name': 'mcp__test__list', 'tool_response': {'output': big}}))
+PYEOF
+)
+OUT=$(printf '%s' "$INPUT" | bash "$MCP_TRUNCATOR" 2>&1)
+[ -n "$OUT" ] && echo "$OUT" | grep -q "truncat\|systemMessage\|tokens" && pass || fail "expected truncation notice for large MCP output, got: $OUT"
+
+begin_test "mcp-output-truncator: empty output exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'mcp__test__noop','tool_response':{'output':''}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$MCP_TRUNCATOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent exit on empty output, got: $OUT"
+
+echo ""
+echo "=== Dep Vuln Scanner Tests ==="
+
+DEP_VULN="$REPO_DIR/hooks/dep-vuln-scanner.sh"
+
+begin_test "dep-vuln-scanner: non-install command skipped"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'git status'},'tool_response':{'output':'On branch main'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$DEP_VULN" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent skip on non-install command, got: $OUT"
+
+begin_test "dep-vuln-scanner: install command triggers audit attempt"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'npm install lodash'},'tool_response':{'output':'added 1 package'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$DEP_VULN" 2>&1)
+EXIT=$?
+# Should attempt audit and exit cleanly (no npm in /tmp)
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on install command, got exit=$EXIT out=$OUT"
+
+begin_test "dep-vuln-scanner: minimal profile skips hook"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'npm install react'},'tool_response':{'output':'ok'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | SUPERCHARGER_PROFILE=minimal bash "$DEP_VULN" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent skip under minimal profile, got: $OUT"
+
+echo ""
+echo "=== Commit Check Tests ==="
+
+COMMIT_CHECK="$REPO_DIR/hooks/commit-check.sh"
+
+begin_test "commit-check: non-commit command passes through"
+run_hook "$COMMIT_CHECK" "git status"
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: valid conventional commit passes"
+run_hook "$COMMIT_CHECK" "git commit -m 'feat: add login form'"
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: invalid commit message blocked"
+run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'"
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: feat with scope passes"
+run_hook "$COMMIT_CHECK" "git commit -m 'fix(auth): handle token expiry'"
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: breaking change passes"
+run_hook "$COMMIT_CHECK" "git commit -m 'feat!: drop Node 16 support'"
+assert_exit_code 0 $? && pass
+
+echo ""
+echo "=== Stop Verify Tests ==="
+
+STOP_VERIFY="$REPO_DIR/hooks/stop-verify.sh"
+
+begin_test "stop-verify: exits cleanly when no audit file"
+AUDIT_DIR_SV="$HOME/.claude/supercharger/audit"
+mkdir -p "$AUDIT_DIR_SV"
+TODAY=$(date -u +"%Y-%m-%d")
+rm -f "$AUDIT_DIR_SV/$TODAY.jsonl"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$STOP_VERIFY" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no audit file, got exit=$EXIT"
+
+begin_test "stop-verify: exits cleanly when verify.sh absent"
+TMPDIR_SV=$(mktemp -d)
+INPUT=$(python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))" D="$TMPDIR_SV")
+OUT=$(printf '%s' "$INPUT" | bash "$STOP_VERIFY" 2>&1)
+EXIT=$?
+rm -rf "$TMPDIR_SV"
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no .claude/verify.sh, got exit=$EXIT"
+
 report

@@ -76,13 +76,13 @@ fi
 
 # Validate conventional commit format: type(scope): description  or  type: description
 VALID_TYPES="feat|fix|chore|docs|style|refactor|test|perf|ci|build|revert"
-if ! printf '%s\n' "$MSG" | grep -qE "^(${VALID_TYPES})(\([^)]+\))?: .+"; then
+if ! printf '%s\n' "$MSG" | grep -qE "^(${VALID_TYPES})(\([^)]+\))?!?: .+"; then
   block "commit message does not follow conventional commit format.
-  Expected : type(scope): description  or  type: description
+  Expected : type(scope): description  or  type: description  or  type!: description (breaking)
   Valid types: feat, fix, chore, docs, style, refactor, test, perf, ci, build, revert
   Examples  : feat(auth): add OAuth support
               fix: resolve null pointer in parser
-              chore(deps): update lodash to 4.17.21"
+              feat!: drop Node 16 support (breaking change)"
 fi
 
 exit 0
