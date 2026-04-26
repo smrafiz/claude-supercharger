@@ -1858,4 +1858,89 @@ cd "$ORIG_PWD_SMW3"
 [ -f "$TMPDIR_SMW3/.claude/supercharger-memory.md" ] && pass || fail "expected supercharger-memory.md to be written"
 rm -rf "$TMPDIR_SMW3"
 
+# ─── human-approval-gate Tests ───────────────────────────────────────────────
+echo ""
+echo "=== human-approval-gate Tests ==="
+HAG_HOOK="$REPO_DIR/hooks/human-approval-gate.sh"
+HAG_SCOPE=$(mktemp -d)
+
+begin_test "human-approval-gate: exits 0 when gate not enabled"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"DROP TABLE users"}}' \
+  | bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected pass when gate disabled, got exit=$EXIT"
+
+begin_test "human-approval-gate: blocks SQL DROP TABLE when enabled"
+SQL_CMD='DROP TABLE users'
+SQL_JSON=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'$SQL_CMD'}}))" 2>/dev/null)
+OUT=$(printf '%s' "$SQL_JSON" \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 2 ] && printf '%s\n' "$OUT" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+h=d['hookSpecificOutput']
+assert h['permissionDecision']=='deny'
+print('ok')
+" 2>/dev/null | grep -q ok && pass || fail "expected deny for DROP TABLE, got exit=$EXIT out=$OUT"
+
+begin_test "human-approval-gate: blocks git reset --hard"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git reset --hard HEAD~3"}}' \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 2 ] && pass || fail "expected deny for git reset --hard, got exit=$EXIT"
+
+begin_test "human-approval-gate: blocks terraform destroy"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"terraform destroy -auto-approve"}}' \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 2 ] && pass || fail "expected deny for terraform destroy, got exit=$EXIT"
+
+begin_test "human-approval-gate: blocks npm publish"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm publish --access public"}}' \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 2 ] && pass || fail "expected deny for npm publish, got exit=$EXIT"
+
+begin_test "human-approval-gate: allows safe commands through"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm run test"}}' \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected pass for safe command, got exit=$EXIT"
+
+begin_test "human-approval-gate: allows retry after first block (pending file)"
+CMD='kubectl delete namespace production'
+HASH=$(printf '%s' "$CMD" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
+mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
+PENDING="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-${HASH}"
+# Simulate first block having written the pending file
+printf 'infra\n0\n' > "$PENDING"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD" \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && [ ! -f "$PENDING" ] && pass || fail "expected allow on retry, got exit=$EXIT pending_exists=$([ -f "$PENDING" ] && echo yes || echo no)"
+
+begin_test "human-approval-gate: creates pending file on first block"
+CMD2='DROP TABLE orders'
+HASH2=$(printf '%s' "$CMD2" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
+mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
+PENDING2="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-${HASH2}"
+rm -f "$PENDING2"
+printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD2" \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" >/dev/null 2>&1 || true
+[ -f "$PENDING2" ] && pass || fail "expected pending file to be created at $PENDING2"
+
+begin_test "human-approval-gate: blocks docker system prune"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"docker system prune -af"}}' \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 2 ] && pass || fail "expected deny for docker system prune, got exit=$EXIT"
+
+begin_test "human-approval-gate: in full mode hook list"
+source "$REPO_DIR/lib/hooks.sh"
+HOOKS=$(get_hooks_for_mode "full" "false" "/tmp")
+printf '%s\n' "$HOOKS" | grep -q "human-approval-gate.sh" && pass || fail "human-approval-gate not in full mode hooks"
+
+rm -rf "$HAG_SCOPE"
+
 report
