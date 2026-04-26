@@ -81,6 +81,7 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
+    hooks+=("PreToolUse||${hooks_dir}/tool-call-limiter.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")
     hooks+=("SubagentStop||${hooks_dir}/subagent-cost.sh stop|")

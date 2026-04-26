@@ -1564,4 +1564,65 @@ EXIT=$?
 rm -rf "$TMPDIR_CS"
 [ -n "$OUT" ] && pass || fail "expected injection warning for poisoned CLAUDE.md, got empty (exit=$EXIT)"
 
+echo ""
+echo "=== Tool Call Limiter Tests ==="
+
+TOOL_LIMITER="$REPO_DIR/hooks/tool-call-limiter.sh"
+
+begin_test "tool-call-limiter: no cap configured — passthrough"
+TMPDIR_TL=$(mktemp -d)
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'echo hi'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$TOOL_LIMITER" 2>/dev/null)
+EXIT=$?
+rm -rf "$TMPDIR_TL"
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected passthrough (no cap), got exit=$EXIT out=$OUT"
+
+begin_test "tool-call-limiter: under cap — passthrough"
+SCOPE_DIR_TL="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_TL"
+SESSION_KEY="test-limiter-$$"
+COUNTER_FILE="$SCOPE_DIR_TL/.tool-calls-${SESSION_KEY}"
+echo "5" > "$COUNTER_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | CLAUDE_SESSION_ID="$SESSION_KEY" SESSION_MAX_TOOL_CALLS=100 bash "$TOOL_LIMITER" 2>/dev/null)
+EXIT=$?
+rm -f "$COUNTER_FILE"
+[ "$EXIT" -eq 0 ] && pass || fail "expected passthrough under cap, got exit=$EXIT out=$OUT"
+
+begin_test "tool-call-limiter: at 80% — warn injected"
+SCOPE_DIR_TL="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_TL"
+SESSION_KEY="test-limiter-warn-$$"
+COUNTER_FILE="$SCOPE_DIR_TL/.tool-calls-${SESSION_KEY}"
+echo "79" > "$COUNTER_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | CLAUDE_SESSION_ID="$SESSION_KEY" SESSION_MAX_TOOL_CALLS=100 bash "$TOOL_LIMITER" 2>/dev/null)
+EXIT=$?
+rm -f "$COUNTER_FILE"
+[ "$EXIT" -eq 0 ] && printf '%s' "$OUT" | grep -q "additionalContext" && pass || fail "expected warn at 80%, got exit=$EXIT out=$OUT"
+
+begin_test "tool-call-limiter: over cap — blocked"
+SCOPE_DIR_TL="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_TL"
+SESSION_KEY="test-limiter-block-$$"
+COUNTER_FILE="$SCOPE_DIR_TL/.tool-calls-${SESSION_KEY}"
+echo "100" > "$COUNTER_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | CLAUDE_SESSION_ID="$SESSION_KEY" SESSION_MAX_TOOL_CALLS=100 bash "$TOOL_LIMITER" 2>/dev/null)
+EXIT=$?
+rm -f "$COUNTER_FILE"
+[ "$EXIT" -eq 2 ] && printf '%s' "$OUT" | grep -q "deny" && pass || fail "expected block over cap, got exit=$EXIT out=$OUT"
+
+begin_test "tool-call-limiter: Read tool bypasses cap"
+SCOPE_DIR_TL="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_TL"
+SESSION_KEY="test-limiter-readonly-$$"
+COUNTER_FILE="$SCOPE_DIR_TL/.tool-calls-${SESSION_KEY}"
+echo "999" > "$COUNTER_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Read','tool_input':{'file_path':'/tmp/x'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | CLAUDE_SESSION_ID="$SESSION_KEY" SESSION_MAX_TOOL_CALLS=100 bash "$TOOL_LIMITER" 2>/dev/null)
+EXIT=$?
+rm -f "$COUNTER_FILE"
+[ "$EXIT" -eq 0 ] && pass || fail "expected Read bypass over cap, got exit=$EXIT out=$OUT"
+
 report
