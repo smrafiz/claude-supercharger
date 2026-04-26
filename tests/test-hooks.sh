@@ -1309,4 +1309,129 @@ INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':
 OUT=$(printf '%s' "$INPUT" | bash "$CTX_ADVISOR" 2>&1)
 [ -n "$OUT" ] && pass || fail "expected context advice at 78%, got empty"
 
+echo ""
+echo "=== Subagent Safety Tests ==="
+
+SUBAGENT_SAFETY="$REPO_DIR/hooks/subagent-safety.sh"
+
+begin_test "subagent-safety: injects safety context for known agent type"
+INPUT=$(python3 -c "import json; print(json.dumps({'agent_type':'general-purpose','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>&1)
+echo "$OUT" | grep -qi "safety\|destructive\|confirm\|supercharger" && pass || fail "expected safety context injection, got: $OUT"
+
+begin_test "subagent-safety: injects safety context when agent_type missing"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>&1)
+echo "$OUT" | grep -qi "safety\|destructive\|supercharger" && pass || fail "expected safety context even without agent_type, got: $OUT"
+
+begin_test "subagent-safety: output is valid JSON"
+INPUT=$(python3 -c "import json; print(json.dumps({'agent_type':'Tony Stark (Engineer)','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
+python3 -c "import json,sys; json.loads(sys.argv[1])" "$OUT" 2>/dev/null && pass || fail "expected valid JSON output, got: $OUT"
+
+echo ""
+echo "=== Agent Handoff Gate Tests ==="
+
+HANDOFF_GATE="$REPO_DIR/hooks/agent-handoff-gate.sh"
+
+begin_test "agent-handoff-gate: clean agent output passes silently"
+INPUT=$(python3 -c "import json; print(json.dumps({'result':'All 5 tests pass. Implementation complete. Committed as abc123.','agent_id':'ag1','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass on clean agent output, got: $OUT"
+
+begin_test "agent-handoff-gate: incomplete work triggers warning"
+INPUT=$(python3 -c "import json; print(json.dumps({'result':'I was unable to complete the task. There were errors I could not resolve. The implementation is incomplete and I gave up.','agent_id':'ag2','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
+[ -n "$OUT" ] && pass || fail "expected quality warning on incomplete work, got empty"
+
+begin_test "agent-handoff-gate: empty agent output exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'result':'','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty output, got exit=$EXIT"
+
+echo ""
+echo "=== Compaction Backup Tests ==="
+
+COMPACT_BACKUP="$REPO_DIR/hooks/compaction-backup.sh"
+
+begin_test "compaction-backup: creates backup file"
+BACKUP_DIR="$HOME/.claude/backups/transcripts"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'cb1','cwd':'/tmp'}))")
+COUNT_BEFORE=$(ls "$BACKUP_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
+printf '%s' "$INPUT" | bash "$COMPACT_BACKUP" 2>/dev/null
+COUNT_AFTER=$(ls "$BACKUP_DIR"/*.md 2>/dev/null | wc -l | tr -d ' ')
+[ "$COUNT_AFTER" -gt "$COUNT_BEFORE" ] && pass || fail "expected new backup file to be created"
+
+begin_test "compaction-backup: creates summaries directory"
+SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
+rm -rf "$SUMMARIES_DIR"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+printf '%s' "$INPUT" | bash "$COMPACT_BACKUP" 2>/dev/null
+[ -d "$SUMMARIES_DIR" ] && pass || fail "expected summaries dir to be created"
+
+echo ""
+echo "=== Post-Compact Inject Tests ==="
+
+POST_COMPACT="$REPO_DIR/hooks/post-compact-inject.sh"
+
+begin_test "post-compact-inject: exits cleanly when no memory file"
+TMPDIR_PC=$(mktemp -d)
+INPUT=$(python3 -c "import json,os; print(json.dumps({'compact_summary':'Tests pass. Main branch.','cwd':os.environ['D']}))" D="$TMPDIR_PC")
+OUT=$(printf '%s' "$INPUT" | bash "$POST_COMPACT" 2>&1)
+EXIT=$?
+rm -rf "$TMPDIR_PC"
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no memory file, got exit=$EXIT"
+
+begin_test "post-compact-inject: injects compact summary when present"
+INPUT=$(python3 -c "import json; print(json.dumps({'compact_summary':'Tests pass. Auth feature complete. Modified: src/auth.ts','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$POST_COMPACT" 2>&1)
+[ -n "$OUT" ] && pass || fail "expected injected context after compact, got empty"
+
+echo ""
+echo "=== Event Logger Tests ==="
+
+EVENT_LOGGER="$REPO_DIR/hooks/event-logger.sh"
+
+begin_test "event-logger: permission_denied writes to events.log"
+LOG_FILE="$HOME/.claude/supercharger/events.log"
+rm -f "$LOG_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','reason':'destructive command blocked'}))")
+printf '%s' "$INPUT" | bash "$EVENT_LOGGER" permission_denied 2>/dev/null
+[ -f "$LOG_FILE" ] && grep -q "permission_denied" "$LOG_FILE" && pass || fail "expected permission_denied in events.log"
+
+begin_test "event-logger: tool_failure writes to events.log"
+LOG_FILE="$HOME/.claude/supercharger/events.log"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','error':'permission denied'}))")
+printf '%s' "$INPUT" | bash "$EVENT_LOGGER" tool_failure 2>/dev/null
+[ -f "$LOG_FILE" ] && grep -q "tool_failure" "$LOG_FILE" && pass || fail "expected tool_failure in events.log"
+
+begin_test "event-logger: exits cleanly on unknown event type"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$EVENT_LOGGER" unknown_event 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on unknown event, got exit=$EXIT"
+
+echo ""
+echo "=== Scope Guard Contract Tests ==="
+
+begin_test "scope-guard: contract mode skips if contract already exists"
+SCOPE_DIR_SGC="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_SGC"
+echo "scope: tests only" > "$SCOPE_DIR_SGC/.contract"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'add a new payment module','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SCOPE_GUARD" contract 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_SGC/.contract"
+[ "$EXIT" -eq 0 ] && pass || fail "expected silent exit when contract already exists, got exit=$EXIT out=$OUT"
+
+begin_test "scope-guard: contract mode creates contract file on first prompt"
+SCOPE_DIR_SGC="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_SGC"
+rm -f "$SCOPE_DIR_SGC/.contract"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'fix the login bug in src/auth.ts only, do not touch other files','cwd':'/tmp'}))")
+printf '%s' "$INPUT" | bash "$SCOPE_GUARD" contract 2>/dev/null
+[ -f "$SCOPE_DIR_SGC/.contract" ] && pass || fail "expected contract file to be created"
+rm -f "$SCOPE_DIR_SGC/.contract"
+
 report
