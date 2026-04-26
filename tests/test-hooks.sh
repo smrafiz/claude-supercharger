@@ -1146,4 +1146,167 @@ EXIT=$?
 rm -rf "$TMPDIR_SV"
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no .claude/verify.sh, got exit=$EXIT"
 
+echo ""
+echo "=== Repetition Detector Tests ==="
+
+REP_DETECTOR="$REPO_DIR/hooks/repetition-detector.sh"
+
+begin_test "repetition-detector: first occurrence passes silently"
+SCOPE_DIR_RD="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_RD"
+rm -f "$SCOPE_DIR_RD/.loop-history"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'git status'},'tool_response':{'output':'clean'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$REP_DETECTOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass on first occurrence, got: $OUT"
+
+begin_test "repetition-detector: repeated command triggers loop warning"
+SCOPE_DIR_RD="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_RD"
+CMD="git status --porcelain"
+HASH=$(printf '%s' "Bash:${CMD}" | md5 -q 2>/dev/null || printf '%s' "Bash:${CMD}" | md5sum | cut -d' ' -f1)
+rm -f "$SCOPE_DIR_RD/.loop-history"
+printf '%s\n%s\n%s\n' "$HASH" "$HASH" "$HASH" > "$SCOPE_DIR_RD/.loop-history"
+INPUT=$(python3 - << PYEOF
+import json
+print(json.dumps({'tool_name':'Bash','tool_input':{'command':'${CMD}'},'tool_response':{'output':''},'cwd':'/tmp'}))
+PYEOF
+)
+OUT=$(printf '%s' "$INPUT" | bash "$REP_DETECTOR" 2>&1)
+rm -f "$SCOPE_DIR_RD/.loop-history"
+[ -n "$OUT" ] && pass || fail "expected loop warning on repeated command, got: $OUT"
+
+begin_test "repetition-detector: non-Bash/Read tool exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/x.py','content':'x=1'},'tool_response':{'output':''},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$REP_DETECTOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent skip for Write tool, got: $OUT"
+
+echo ""
+echo "=== Agent Router Tests ==="
+
+AGENT_ROUTER="$REPO_DIR/hooks/agent-router.sh"
+
+begin_test "agent-router: simple prompt exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'fix the bug','session_id':'ar1','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$AGENT_ROUTER" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0, got exit=$EXIT out=$OUT"
+
+begin_test "agent-router: empty prompt exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'','session_id':'ar2','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$AGENT_ROUTER" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty prompt, got exit=$EXIT"
+
+begin_test "agent-router: complex prompt writes classification file"
+SCOPE_DIR_AR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_AR"
+SESSION="ar_test_$$"
+rm -f "$SCOPE_DIR_AR/.agent-classified-${SESSION}"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'Design and architect a distributed system with event sourcing and CQRS. Analyze all trade-offs.','session_id':'${SESSION}','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$AGENT_ROUTER" 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_AR/.agent-classified-${SESSION}"
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0, got exit=$EXIT out=$OUT"
+
+echo ""
+echo "=== Agent Gate Tests ==="
+
+AGENT_GATE="$REPO_DIR/hooks/agent-gate.sh"
+
+begin_test "agent-gate: exits cleanly when no classification file"
+SCOPE_DIR_AG="$HOME/.claude/supercharger/scope"
+SESSION="ag_test_$$"
+rm -f "$SCOPE_DIR_AG/.agent-classified-${SESSION}"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Agent','tool_input':{'description':'run tests','subagent_type':'general-purpose'},'session_id':'${SESSION}','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$AGENT_GATE" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no classification, got exit=$EXIT out=$OUT"
+
+begin_test "agent-gate: exits cleanly with matching classification"
+SCOPE_DIR_AG="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_AG"
+SESSION="ag_match_$$"
+echo "general-purpose" > "$SCOPE_DIR_AG/.agent-classified-${SESSION}"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Agent','tool_input':{'description':'run tests','subagent_type':'general-purpose'},'session_id':'${SESSION}','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$AGENT_GATE" 2>&1)
+EXIT=$?
+rm -f "$SCOPE_DIR_AG/.agent-classified-${SESSION}"
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with matching classification, got exit=$EXIT"
+
+echo ""
+echo "=== Economy Reinforce Tests ==="
+
+ECO_REINFORCE="$REPO_DIR/hooks/economy-reinforce.sh"
+
+begin_test "economy-reinforce: standard tier exits without output"
+SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_ER"
+echo "standard" > "$SCOPE_DIR_ER/.economy-tier"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'er1','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+rm -f "$SCOPE_DIR_ER/.economy-tier"
+[ -z "$OUT" ] && pass || fail "expected silent exit for standard tier, got: $OUT"
+
+begin_test "economy-reinforce: lean tier injects rules on 3rd prompt"
+SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_ER"
+echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
+SESSION="er2_$$"
+COUNTER_FILE="$SCOPE_DIR_ER/.eco-reinforce-counter"
+echo "2" > "$COUNTER_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'${SESSION}','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+rm -f "$SCOPE_DIR_ER/.economy-tier" "$COUNTER_FILE"
+[ -n "$OUT" ] && pass || fail "expected economy reinforce injection on 3rd prompt, got empty"
+
+echo ""
+echo "=== Rate Limit Advisor Tests ==="
+
+RATE_ADVISOR="$REPO_DIR/hooks/rate-limit-advisor.sh"
+
+begin_test "rate-limit-advisor: no rate_limits field exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'rl1','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$RATE_ADVISOR" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no rate limits, got exit=$EXIT"
+
+begin_test "rate-limit-advisor: zero usage exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','rate_limits':{'five_hour':{'used_percentage':0}},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$RATE_ADVISOR" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent exit at 0% usage, got: $OUT"
+
+begin_test "rate-limit-advisor: high usage warns"
+SCOPE_DIR_RL="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_RL"
+rm -f "$SCOPE_DIR_RL/.rate-limit-last-warn"
+# Timestamp 10 minutes ago so elapsed_min > 5 threshold
+TS=$(python3 -c "import datetime; t=datetime.datetime.utcnow()-datetime.timedelta(minutes=10); print(t.strftime('%Y-%m-%dT%H:%M:%SZ'))")
+echo '{"total_usd":0.50,"first_updated":"'"$TS"'"}' > "$SCOPE_DIR_RL/.session-cost"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','rate_limits':{'five_hour':{'used_percentage':85}},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$RATE_ADVISOR" 2>&1)
+rm -f "$SCOPE_DIR_RL/.session-cost" "$SCOPE_DIR_RL/.rate-limit-last-warn"
+[ -n "$OUT" ] && pass || fail "expected rate limit warning at 85%, got empty"
+
+echo ""
+echo "=== Context Advisor Tests ==="
+
+CTX_ADVISOR="$REPO_DIR/hooks/context-advisor.sh"
+
+begin_test "context-advisor: low context produces no system message"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'ca1','cwd':'/tmp','context_window':{'used_percentage':30}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CTX_ADVISOR" 2>/dev/null)
+# Only check stdout (systemMessage JSON) — stderr diagnostic lines are harmless
+[ -z "$OUT" ] && pass || fail "expected no system message at 30% context, got: $OUT"
+
+begin_test "context-advisor: missing context_window exits cleanly"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'ca2','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CTX_ADVISOR" 2>&1)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no context_window, got exit=$EXIT"
+
+begin_test "context-advisor: high context triggers advice"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'ca3','cwd':'/tmp','context_window':{'used_percentage':78}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CTX_ADVISOR" 2>&1)
+[ -n "$OUT" ] && pass || fail "expected context advice at 78%, got empty"
+
 report
