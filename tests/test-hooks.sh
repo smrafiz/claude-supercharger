@@ -59,6 +59,43 @@ OUT_SKIP=$(printf '{"tool_input":{"file_path":"/dev/null"}}' | SUPERCHARGER_PROF
 [ "$OUT_SKIP" = "ACTIVE" ] && pass || fail "quality-gate should be active in fast profile, got: $OUT_SKIP"
 
 echo ""
+echo "=== Re-entry Detector Tests ==="
+
+begin_test "reentry-detector: detects system markers in user prompt"
+REENTRY_INPUT='{"message":"[MEM] mem:2026-04-26 branch:main\n[CTX] task=test","cwd":"/tmp"}'
+OUT=$(printf '%s' "$REENTRY_INPUT" | bash "$REPO_DIR/hooks/reentry-detector.sh" 2>&1)
+echo "$OUT" | grep -q "Re-entry loop" && pass || fail "expected re-entry warning, got: $OUT"
+
+begin_test "reentry-detector: ignores normal user prompt"
+NORMAL_INPUT='{"message":"please fix the bug in auth.ts","cwd":"/tmp"}'
+OUT=$(printf '%s' "$NORMAL_INPUT" | bash "$REPO_DIR/hooks/reentry-detector.sh" 2>&1)
+echo "$OUT" | grep -q "Re-entry" && fail "false positive on normal prompt" || pass
+
+begin_test "reentry-detector: single marker not flagged (could be quoting)"
+SINGLE_INPUT='{"message":"what does [MEM] mean in the output?","cwd":"/tmp"}'
+OUT=$(printf '%s' "$SINGLE_INPUT" | bash "$REPO_DIR/hooks/reentry-detector.sh" 2>&1)
+echo "$OUT" | grep -q "Re-entry" && fail "false positive on single marker" || pass
+
+echo ""
+echo "=== Security Category Toggle Tests ==="
+
+begin_test "safety: category toggle disables clipboard checks"
+CATS_FILE="$HOME/.claude/supercharger/scope/.disabled-security-categories"
+mkdir -p "$(dirname "$CATS_FILE")"
+echo "clipboard" > "$CATS_FILE"
+run_hook "$SAFETY_HOOK" "pbcopy < /tmp/test"
+RESULT=$?
+rm -f "$CATS_FILE"
+[ "$RESULT" = "0" ] && pass || fail "clipboard should be allowed when category disabled (exit=$RESULT)"
+
+begin_test "safety: category toggle still blocks other categories"
+echo "clipboard" > "$CATS_FILE"
+run_hook "$SAFETY_HOOK" "rm -rf /"
+RESULT=$?
+rm -f "$CATS_FILE"
+assert_exit_code 2 $RESULT && pass
+
+echo ""
 echo "=== Safety Hook Tests ==="
 
 begin_test "safety: rm -rf / is blocked"

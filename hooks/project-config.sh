@@ -223,6 +223,20 @@ if config_file and os.path.isfile(config_file):
             if os.path.isfile(profile_file):
                 os.remove(profile_file)
 
+        # Per-project security category toggles
+        disabled_cats = config.get('disableSecurityCategories', [])
+        cats_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.disabled-security-categories')
+        valid_cats = {'filesystem', 'database', 'destructive', 'network', 'credentials', 'persistence', 'clipboard', 'browser', 'history', 'selfmod'}
+        filtered = [c.strip().lower() for c in disabled_cats if c.strip().lower() in valid_cats]
+        if filtered:
+            os.makedirs(os.path.dirname(cats_file), exist_ok=True)
+            with open(cats_file, 'w') as f:
+                f.write('\n'.join(filtered))
+            cfg_parts.append(f'Security disabled: {", ".join(filtered)}')
+        else:
+            if os.path.isfile(cats_file):
+                os.remove(cats_file)
+
         if cfg_parts:
             parts.append('Project config: ' + '. '.join(cfg_parts) + '.')
     except Exception:
