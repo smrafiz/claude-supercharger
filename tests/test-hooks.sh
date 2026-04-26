@@ -1625,4 +1625,169 @@ EXIT=$?
 rm -f "$COUNTER_FILE"
 [ "$EXIT" -eq 0 ] && pass || fail "expected Read bypass over cap, got exit=$EXIT out=$OUT"
 
+echo ""
+echo "=== Stop Failure Tests ==="
+
+STOP_FAIL="$REPO_DIR/hooks/stop-failure.sh"
+LOG_DIR="$HOME/.claude/supercharger"
+mkdir -p "$LOG_DIR"
+
+begin_test "stop-failure: logs rate_limit to errors.log"
+INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'rate_limit_exceeded'}))")
+printf '%s' "$INPUT" | bash "$STOP_FAIL" > /dev/null 2>&1 || true
+grep -q "rate_limit_exceeded" "$LOG_DIR/errors.log" 2>/dev/null && pass || fail "expected rate_limit_exceeded in errors.log"
+
+begin_test "stop-failure: rate_limit emits advisory context"
+INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'rate_limit_exceeded'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$STOP_FAIL" 2>/dev/null)
+printf '%s' "$OUT" | grep -q "stopReason" && pass || fail "expected stopReason in output, got: $OUT"
+
+begin_test "stop-failure: unknown reason exits cleanly (no output)"
+INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'unknown_error'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$STOP_FAIL" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "expected no output for unknown reason, got: $OUT"
+
+echo ""
+echo "=== Session Checkpoint Tests ==="
+
+CKPT_HOOK="$REPO_DIR/hooks/session-checkpoint.sh"
+
+begin_test "session-checkpoint: exits cleanly with no session_id"
+INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp','tool_name':'Bash'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CKPT_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no session_id, got exit=$EXIT"
+
+begin_test "session-checkpoint: writes checkpoint file for valid session"
+SESSION_CKPT_ID="test-ckpt-$$"
+TMPDIR_CKPT=$(mktemp -d)
+git init "$TMPDIR_CKPT" --quiet
+INPUT=$(python3 -c "
+import json, sys
+d = {'session_id': sys.argv[1], 'cwd': sys.argv[2], 'tool_name': 'Bash'}
+print(json.dumps(d))
+" "$SESSION_CKPT_ID" "$TMPDIR_CKPT")
+printf '%s' "$INPUT" | bash "$CKPT_HOOK" 2>/dev/null || true
+CKPT_FILE="$HOME/.claude/supercharger/scope/.checkpoint-${SESSION_CKPT_ID}"
+rm -rf "$TMPDIR_CKPT"
+[ -f "$CKPT_FILE" ] && pass || fail "expected checkpoint file at $CKPT_FILE"
+rm -f "$CKPT_FILE"
+
+echo ""
+echo "=== Session Complete Tests ==="
+
+SESSION_COMPLETE="$REPO_DIR/hooks/session-complete.sh"
+
+begin_test "session-complete: exits cleanly on empty input"
+INPUT=$(python3 -c "import json; print(json.dumps({}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SESSION_COMPLETE" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty input, got exit=$EXIT"
+
+begin_test "session-complete: writes .last-session marker"
+INPUT=$(python3 -c "import json; print(json.dumps({'cost_usd':0.05}))")
+printf '%s' "$INPUT" | bash "$SESSION_COMPLETE" 2>/dev/null || true
+[ -f "$HOME/.claude/supercharger/summaries/.last-session" ] && pass || fail "expected .last-session file"
+
+echo ""
+echo "=== Session End Tests ==="
+
+SESSION_END="$REPO_DIR/hooks/session-end.sh"
+
+begin_test "session-end: exits cleanly on empty input"
+INPUT=$(python3 -c "import json; print(json.dumps({}))")
+EXIT=$(printf '%s' "$INPUT" | bash "$SESSION_END" 2>/dev/null; echo $?)
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0, got exit=$EXIT"
+
+echo ""
+echo "=== MCP Tracker Tests ==="
+
+MCP_TRACK="$REPO_DIR/hooks/mcp-tracker.sh"
+SCOPE_DIR_MT="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_MT"
+
+begin_test "mcp-tracker: writes active MCP server to scope file"
+SESSION_MT="test-mcp-$$"
+INPUT=$(python3 -c "import json,sys; print(json.dumps({'session_id':sys.argv[1],'tool_name':'mcp__context7__resolve-library-id','tool_response':{}}))" "$SESSION_MT")
+printf '%s' "$INPUT" | bash "$MCP_TRACK" 2>/dev/null || true
+[ "$(cat "$SCOPE_DIR_MT/.active-mcp-${SESSION_MT}" 2>/dev/null)" = "context7" ] && pass || fail "expected context7 in active-mcp file"
+rm -f "$SCOPE_DIR_MT/.active-mcp-${SESSION_MT}"
+
+begin_test "mcp-tracker: exits cleanly for non-mcp tool"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$MCP_TRACK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 for non-mcp tool, got exit=$EXIT"
+
+echo ""
+echo "=== Cost Forecast Tests ==="
+
+COST_FC="$REPO_DIR/hooks/cost-forecast.sh"
+SCOPE_DIR_CF="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_CF"
+
+begin_test "cost-forecast: skips silently when no .session-cost file"
+CF_COST_FILE="$SCOPE_DIR_CF/.session-cost"
+mv "$CF_COST_FILE" "$CF_COST_FILE.bak" 2>/dev/null || true
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Agent','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$COST_FC" 2>/dev/null)
+EXIT=$?
+[ -f "$CF_COST_FILE.bak" ] && mv "$CF_COST_FILE.bak" "$CF_COST_FILE"
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected silent skip, got exit=$EXIT out=$OUT"
+
+begin_test "cost-forecast: injects forecast when session-cost exists"
+CF_COST_FILE="$SCOPE_DIR_CF/.session-cost"
+python3 -c "
+import json
+d = {'total_usd': 0.50, 'turn_count': 5, 'avg_per_turn': 0.10, 'first_updated': '2026-01-01T00:00:00Z'}
+print(json.dumps(d))
+" > "$CF_COST_FILE"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Agent','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$COST_FC" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && printf '%s' "$OUT" | grep -q "additionalContext" && pass || fail "expected forecast context, got exit=$EXIT out=$OUT"
+rm -f "$CF_COST_FILE"
+
+echo ""
+echo "=== Failure Tracker Tests ==="
+
+FAIL_TRACK="$REPO_DIR/hooks/failure-tracker.sh"
+
+begin_test "failure-tracker: exits cleanly on successful command (exit_code=0)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'tool_response':{'exit_code':0},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 for successful cmd, got exit=$EXIT"
+
+begin_test "failure-tracker: exits cleanly when no exit_code field"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'tool_response':{},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no exit_code, got exit=$EXIT"
+
+begin_test "failure-tracker: logs failed command to .failed-commands"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'make build'},'tool_response':{'exit_code':1},'cwd':'/tmp'}))")
+printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null || true
+FAIL_LOG="$HOME/.claude/supercharger/scope/.failed-commands"
+[ -f "$FAIL_LOG" ] && grep -q "make build" "$FAIL_LOG" && pass || fail "expected make build in .failed-commands"
+
+echo ""
+echo "=== Subagent Cost Tests ==="
+
+SUBAGENT_COST="$REPO_DIR/hooks/subagent-cost.sh"
+
+begin_test "subagent-cost: start creates active file"
+AGENT_ID_SC="test-agent-$$"
+INPUT=$(python3 -c "import json,sys; print(json.dumps({'agent_id':sys.argv[1],'agent_name':'test-agent','cwd':'/tmp'}))" "$AGENT_ID_SC")
+printf '%s' "$INPUT" | bash "$SUBAGENT_COST" start 2>/dev/null || true
+[ -f "$HOME/.claude/supercharger/scope/.subagent-active-${AGENT_ID_SC}" ] && pass || fail "expected .subagent-active-* file"
+rm -f "$HOME/.claude/supercharger/scope/.subagent-active-${AGENT_ID_SC}"
+
+begin_test "subagent-cost: stop exits cleanly when no active file"
+AGENT_ID_SC2="test-agent-nostop-$$"
+INPUT=$(python3 -c "import json,sys; print(json.dumps({'agent_id':sys.argv[1],'cwd':'/tmp'}))" "$AGENT_ID_SC2")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_COST" stop 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no active file, got exit=$EXIT"
+
 report
