@@ -34,8 +34,13 @@ for _ in 1 2 3 4 5; do
   SEARCH_DIR="$PARENT"
 done
 
-RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" python3 << 'PYEOF'
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
+
+RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" python3 << 'PYEOF'
 import json, os, sys, re
+sys.path.insert(0, os.environ['LIB_DIR'])
+from detect_stack import detect_stack
 
 project_dir = os.environ['PROJECT_DIR']
 config_file = os.environ.get('CONFIG_FILE', '')
@@ -61,57 +66,13 @@ if is_first_run:
 # --- Stack detection ---
 stack_parts = []
 try:
-    pkg = os.path.join(project_dir, 'package.json')
-    if os.path.isfile(pkg):
-        with open(pkg) as f:
-            pdata = json.load(f)
-        deps = {}
-        deps.update(pdata.get('dependencies', {}))
-        deps.update(pdata.get('devDependencies', {}))
-
-        if 'typescript' in deps or os.path.isfile(os.path.join(project_dir, 'tsconfig.json')):
-            stack_parts.append('TypeScript')
-        else:
-            stack_parts.append('JavaScript')
-
-        for fw, label in [
-            ('next', 'Next.js'), ('react', 'React'), ('vue', 'Vue'),
-            ('@angular/core', 'Angular'), ('svelte', 'Svelte'),
-            ('express', 'Express'), ('@nestjs/core', 'NestJS'),
-        ]:
-            if fw in deps:
-                stack_parts.append(label)
-                break
-
-        for pm, lock in [('pnpm','pnpm-lock.yaml'),('bun','bun.lockb'),('yarn','yarn.lock')]:
-            if os.path.isfile(os.path.join(project_dir, lock)):
-                stack_parts.append(f'pkg:{pm}')
-                break
-
-    elif os.path.isfile(os.path.join(project_dir, 'wp-config.php')) or \
-         os.path.isfile(os.path.join(project_dir, 'functions.php')):
-        stack_parts.append('WordPress')
-
-    elif any(os.path.isfile(os.path.join(project_dir, f))
-             for f in ['requirements.txt', 'pyproject.toml', 'setup.py']):
-        stack_parts.append('Python')
-        for fw, kw in [('Django','django'),('FastAPI','fastapi'),('Flask','flask')]:
-            for fname in ['requirements.txt', 'pyproject.toml']:
-                fpath = os.path.join(project_dir, fname)
-                if os.path.isfile(fpath):
-                    with open(fpath) as f:
-                        if kw in f.read().lower():
-                            stack_parts.append(fw)
-                            break
-
-    elif os.path.isfile(os.path.join(project_dir, 'Cargo.toml')):
-        stack_parts.append('Rust')
-
-    elif os.path.isfile(os.path.join(project_dir, 'go.mod')):
-        stack_parts.append('Go')
-
-    elif os.path.isfile(os.path.join(project_dir, 'composer.json')):
-        stack_parts.append('PHP')
+    s = detect_stack(project_dir)
+    if s['detected']:
+        stack_parts.extend(s['language'])
+        if s['framework']:
+            stack_parts.append(s['framework'][0])
+        if s['package_manager'] and s['package_manager'] not in ('pip', 'cargo', 'go modules', 'composer'):
+            stack_parts.append(f"pkg:{s['package_manager']}")
 except Exception:
     pass
 

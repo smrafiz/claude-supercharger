@@ -6,9 +6,12 @@
 set -euo pipefail
 
 _INPUT=$(cat)
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 
-SL_INPUT="$_INPUT" python3 <<'PYEOF'
-import json, subprocess, os, time
+SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" python3 <<'PYEOF'
+import json, subprocess, os, sys, time
+sys.path.insert(0, os.environ.get('SL_LIB_DIR', ''))
 
 try:
  raw = os.environ.get('SL_INPUT', '') or '{}'
@@ -104,6 +107,7 @@ try:
  stack = ''
  try:
      import hashlib
+     from detect_stack import detect_stack
      proj_hash = hashlib.md5(cwd.encode()).hexdigest()[:8] if cwd else 'default'
      cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.stack-cache-{proj_hash}')
      if os.path.isfile(cache_path):
@@ -112,30 +116,12 @@ try:
          if cached:
              stack = f' {DIM}|{RESET} ' + cached
      elif cwd:
-         stack_parts = []
-         pkg = os.path.join(cwd, 'package.json')
-         if os.path.isfile(pkg):
-             with open(pkg) as f:
-                 pdata = json.load(f)
-             deps = {}
-             deps.update(pdata.get('dependencies', {}))
-             deps.update(pdata.get('devDependencies', {}))
-             if 'typescript' in deps or os.path.isfile(os.path.join(cwd, 'tsconfig.json')):
-                 stack_parts.append('TypeScript')
-             for fw, label in [('next','Next.js'),('react','React'),('vue','Vue'),('@angular/core','Angular'),('svelte','Svelte')]:
-                 if fw in deps:
-                     stack_parts.append(label)
-                     break
-         elif os.path.isfile(os.path.join(cwd, 'requirements.txt')) or os.path.isfile(os.path.join(cwd, 'pyproject.toml')):
-             stack_parts.append('Python')
-         elif os.path.isfile(os.path.join(cwd, 'Cargo.toml')):
-             stack_parts.append('Rust')
-         elif os.path.isfile(os.path.join(cwd, 'go.mod')):
-             stack_parts.append('Go')
-         elif os.path.isfile(os.path.join(cwd, 'wp-config.php')) or os.path.isfile(os.path.join(cwd, 'functions.php')):
-             stack_parts.append('WordPress')
-         if stack_parts:
-             stack = f' {DIM}|{RESET} ' + ', '.join(stack_parts)
+         s = detect_stack(cwd)
+         if s['detected']:
+             parts = list(s['language'])
+             if s['framework']:
+                 parts.append(s['framework'][0])
+             stack = f' {DIM}|{RESET} ' + ', '.join(parts)
  except Exception:
      pass
 
