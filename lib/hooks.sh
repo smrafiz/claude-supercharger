@@ -43,6 +43,7 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/update-check.sh|async")
     hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh|async")
     hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
+    hooks+=("PostToolUse||${hooks_dir}/auto-compact.sh|async")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
     hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh|async")
     hooks+=("PostToolUse|Bash|${hooks_dir}/dep-vuln-scanner.sh|async")
