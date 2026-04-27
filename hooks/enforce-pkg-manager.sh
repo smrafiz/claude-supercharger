@@ -20,7 +20,7 @@ CMD=$(normalize_cmd "$COMMAND")
 
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$(pwd)"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 block() {
   echo "" >&2
@@ -60,7 +60,7 @@ fi
 # bun project — block npm
 if { [ -f "$PROJECT_DIR/bun.lockb" ] && [ ! -L "$PROJECT_DIR/bun.lockb" ]; } || { [ -f "$PROJECT_DIR/bun.lock" ] && [ ! -L "$PROJECT_DIR/bun.lock" ]; }; then
   if [[ "$CMD" =~ ^npm[[:space:]]+(install|run|exec|ci|start|test|build|add|remove|update) ]]; then
-    block "This project uses bun (bun.lockb found). Use bun instead of npm."
+    block "This project uses bun (bun lockfile found). Use bun instead of npm."
   fi
 fi
 

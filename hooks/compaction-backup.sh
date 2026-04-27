@@ -20,8 +20,8 @@ _INPUT=$(cat)
 echo "$_INPUT" > "$BACKUP_FILE"
 chmod 600 "$BACKUP_FILE"
 
-echo "Transcript backed up to $BACKUP_FILE" >&2
-echo "Session summary directory ready at $SUMMARIES_DIR" >&2
+echo "[Supercharger] compaction-backup: transcript backed up to $BACKUP_FILE" >&2
+echo "[Supercharger] compaction-backup: session summary directory ready at $SUMMARIES_DIR" >&2
 
 # Rotate: remove backups older than 30 days (at most once per day)
 ROTATION_CHECK="$BACKUP_DIR/.last-rotation"

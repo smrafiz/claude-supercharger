@@ -32,7 +32,7 @@ except Exception:
     print('')
 " 2>/dev/null || echo "")
 
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$(pwd)"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 FINDINGS=""
 
