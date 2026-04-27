@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.18] - 2026-04-27 — add 17 tests for hook-doctor and release tools; fix release.sh dry-run to skip test run; fix hook-doctor ISSUES subshell propagation and ls pipefail on empty dirs. 561 tests passing.
 - [2.3.17] - 2026-04-27 — add tools/hook-doctor.sh (diagnose broken installs), tools/release.sh (automated release workflow), approval-gate 1-hour TTL for stale pending files. 544 tests passing.
 - [2.3.16] - 2026-04-26 — human-approval-gate hook (soft gate for high-risk commands: SQL drops, git reset --hard, terraform destroy, npm publish, docker prune, disk ops — opt-in, pauses for user confirmation before retry); fix block() JSON output in commit-check + enforce-pkg-manager; standardize INPUT→_INPUT + CWD→PROJECT_DIR across 25 hooks; mcp-tracker + session-checkpoint use hook_profile_skip. 544 tests passing.
 - [2.3.15] - 2026-04-26 — Expand test coverage to 233 tests: learn-from-blocks, session-memory-write; fix relative REPO_DIR path bug (cd-invariant hook paths).
