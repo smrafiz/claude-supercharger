@@ -1913,8 +1913,8 @@ CMD='kubectl delete namespace production'
 HASH=$(printf '%s' "$CMD" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
 mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
 PENDING="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-${HASH}"
-# Simulate first block having written the pending file
-printf 'infra\n0\n' > "$PENDING"
+# Simulate first block having written the pending file (current timestamp so TTL check passes)
+printf 'infra\n%s\n' "$(date -u +%s)" > "$PENDING"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD" \
   | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
 EXIT=$?

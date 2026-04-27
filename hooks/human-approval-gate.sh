@@ -157,9 +157,18 @@ CMD_HASH=$(printf '%s' "$COMMAND" | python3 -c "import sys,hashlib; print(hashli
 PENDING_FILE="$SCOPE_DIR/.gate-pending-${CMD_HASH}"
 
 if [ -f "$PENDING_FILE" ]; then
-  # User was asked and Claude is retrying — allow through
-  rm -f "$PENDING_FILE"
-  exit 0
+  # Check TTL — pending files older than 1 hour are stale (session ended without retry)
+  FILE_TS=$(tail -1 "$PENDING_FILE" 2>/dev/null || echo "0")
+  NOW=$(date -u +%s 2>/dev/null || echo "0")
+  AGE=$(( NOW - FILE_TS ))
+  if [ "$AGE" -gt 3600 ]; then
+    # Stale — delete and block again
+    rm -f "$PENDING_FILE"
+  else
+    # Fresh — user was asked and Claude is retrying, allow through
+    rm -f "$PENDING_FILE"
+    exit 0
+  fi
 fi
 
 # First encounter — create pending file and block
