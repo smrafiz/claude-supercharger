@@ -68,6 +68,8 @@ if [ "$HOOK_COUNT" -eq 0 ]; then
 fi
 
 # ── Extract and check each hook command ──────────────────────────────────────
+_HOOK_ISSUE_FILE=$(mktemp)
+
 python3 -c "
 import json, sys
 
@@ -81,9 +83,7 @@ for event, entries in hooks.items():
             cmd = h.get('command', '')
             if '#supercharger' not in cmd:
                 continue
-            # Strip the tag suffix
             script_and_args = cmd.replace(' #supercharger', '').strip()
-            # First token is the script path
             script = script_and_args.split()[0]
             print(f'{event}|{script}')
 " 2>/dev/null | sort -u | while IFS='|' read -r event script; do
@@ -92,29 +92,34 @@ for event, entries in hooks.items():
 
   if [ ! -e "$script" ]; then
     fail "MISSING: $NAME ($event) — expected at $script"
+    echo "issue" >> "$_HOOK_ISSUE_FILE"
     continue
   fi
 
   if [ ! -f "$script" ]; then
     fail "NOT A FILE: $NAME ($event) — $script"
+    echo "issue" >> "$_HOOK_ISSUE_FILE"
     continue
   fi
 
   if [ ! -x "$script" ]; then
     warn "NOT EXECUTABLE: $NAME ($event) — run: chmod +x $script"
+    echo "issue" >> "$_HOOK_ISSUE_FILE"
     continue
   fi
 
   SHEBANG=$(head -1 "$script" 2>/dev/null || echo "")
   if ! printf '%s\n' "$SHEBANG" | grep -qE '^#!.*(bash|sh|python|python3)'; then
     warn "BAD SHEBANG: $NAME — got: $SHEBANG"
+    echo "issue" >> "$_HOOK_ISSUE_FILE"
     continue
   fi
 
   ok "$NAME ($event)"
 done
 
-CHECKED=$?  # exit code from while loop
+ISSUES=$((ISSUES + $(wc -l < "$_HOOK_ISSUE_FILE" 2>/dev/null || echo 0)))
+rm -f "$_HOOK_ISSUE_FILE"
 
 # ── Supercharger directory check ──────────────────────────────────────────────
 $QUIET || echo ""
@@ -128,7 +133,7 @@ LIB_DIR="$SC_DIR/lib"
 
 for dir in "$SC_DIR" "$HOOKS_DIR" "$TOOLS_DIR" "$LIB_DIR"; do
   if [ -d "$dir" ]; then
-    COUNT=$(ls "$dir"/*.sh 2>/dev/null | wc -l | tr -d ' ')
+    COUNT=$(find "$dir" -maxdepth 1 -name "*.sh" 2>/dev/null | wc -l | tr -d ' ')
     ok "$(basename "$dir")/ ($COUNT scripts)"
   else
     fail "MISSING directory: $dir"

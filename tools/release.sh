@@ -77,7 +77,13 @@ if [ -z "$MESSAGE" ]; then
     || echo "maintenance release")
 fi
 
-# Get current test count
+if $DRY_RUN; then
+  echo -e "${YELLOW}[dry-run] Would update: lib/utils.sh, tools/supercharger.sh, README.md, CHANGELOG.md${NC}"
+  echo -e "${YELLOW}[dry-run] Would commit, tag v${NEW}, push${NC}"
+  exit 0
+fi
+
+# Get current test count (skipped in dry-run)
 TEST_COUNT=$(bash "$REPO_DIR/tests/run.sh" 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")
 CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. ${TEST_COUNT} tests passing."
 
@@ -85,12 +91,6 @@ echo ""
 echo -e "${BOLD}CHANGELOG entry:${NC}"
 echo "  $CHANGELOG_LINE"
 echo ""
-
-if $DRY_RUN; then
-  echo -e "${YELLOW}[dry-run] Would update: lib/utils.sh, tools/supercharger.sh, README.md, CHANGELOG.md${NC}"
-  echo -e "${YELLOW}[dry-run] Would commit, tag v${NEW}, push${NC}"
-  exit 0
-fi
 
 echo -n "Proceed? [y/N] "
 read -r CONFIRM
