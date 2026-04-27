@@ -4,8 +4,13 @@
 # Compresses large Python/Node tracebacks before Claude processes them.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
@@ -17,7 +22,7 @@ fi
 # Skip python startup cost for short outputs
 [ "${#OUTPUT}" -lt 2000 ] && exit 0
 
-TC_OUTPUT="$OUTPUT" python3 <<'PYEOF'
+TC_OUTPUT="$OUTPUT" TC_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF'
 import os, json, re
 
 output = os.environ.get('TC_OUTPUT', '')
@@ -85,8 +90,7 @@ else:
     summary = first + f'\n[... {omitted} chars omitted ...]\n' + last
 
 new_len = len(summary)
-import os
-_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
+_suppress = os.environ.get('TC_SUPPRESS', 'true').lower() not in ('false', '0', 'no')
 print(json.dumps({
     'systemMessage': summary, 'suppressOutput': _suppress
 }))

@@ -4,8 +4,13 @@
 # Scans tool output for leaked secrets and warns Claude not to repeat them.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
 if [ -z "$OUTPUT" ]; then
@@ -55,13 +60,10 @@ SECRET_PATTERNS=(
 COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
 
 if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
-  echo "[Supercharger] SECRET DETECTED in tool output — warning Claude" >&2
-  python3 -c "
-import json
-msg = '[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., \"the API key\") without showing the actual value.'
-import os
-print(json.dumps({'systemMessage': msg, 'suppressOutput': not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))}))
-"
+  echo "[Supercharger] output-secrets-scanner: SECRET DETECTED in tool output — warning Claude" >&2
+  MSG='[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., "the API key") without showing the actual value.'
+  MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
   # Signal statusline: scan alert
   SCOPE_DIR="$HOME/.claude/supercharger/scope"
   mkdir -p "$SCOPE_DIR"

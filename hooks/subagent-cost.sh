@@ -66,75 +66,26 @@ except Exception:
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
-  AGENT_ID=$(printf '%s\n' "$_INPUT" | python3 -c "
+  # Extract all agent fields in a single python3 call
+  read -r AGENT_ID AGENT_NAME SESSION_ID USAGE_INPUT USAGE_CACHE_WRITE USAGE_CACHE_READ USAGE_OUTPUT \
+    < <(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    print(d.get('agent_id', '') or '')
+    u = d.get('usage') or {}
+    print(
+        d.get('agent_id', '') or 'unknown',
+        d.get('agent_name', '') or d.get('name', '') or 'agent',
+        d.get('session_id', '') or 'default',
+        int(u.get('input_tokens', 0) or 0),
+        int(u.get('cache_creation_input_tokens', 0) or 0),
+        int(u.get('cache_read_input_tokens', 0) or 0),
+        int(u.get('output_tokens', 0) or 0),
+    )
 except Exception:
-    print('')
-" 2>/dev/null || echo "")
-  [ -z "$AGENT_ID" ] && AGENT_ID="unknown"
-
-  AGENT_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('agent_name', '') or d.get('name', '') or 'agent')
-except Exception:
-    print('agent')
-" 2>/dev/null || echo "agent")
-
-  SESSION_ID=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('session_id', '') or '')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    print('unknown', 'agent', 'default', 0, 0, 0, 0)
+" 2>/dev/null || echo "unknown agent default 0 0 0 0")
   [ -z "$SESSION_ID" ] && SESSION_ID="default"
-
-  # Extract usage tokens
-  USAGE_INPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    u = d.get('usage') or {}
-    print(int(u.get('input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-  USAGE_CACHE_WRITE=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    u = d.get('usage') or {}
-    print(int(u.get('cache_creation_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-  USAGE_CACHE_READ=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    u = d.get('usage') or {}
-    print(int(u.get('cache_read_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-  USAGE_OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    u = d.get('usage') or {}
-    print(int(u.get('output_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
 
   # Read start record, calculate duration
   ACTIVE_FILE="$SCOPE_DIR/.subagent-active-${AGENT_ID}"

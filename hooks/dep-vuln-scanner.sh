@@ -4,8 +4,13 @@
 # Runs audit after package installs and reports critical/high vulnerabilities.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
@@ -22,17 +27,6 @@ except Exception:
 if ! printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm add|pip install|pip3 install|poetry add|uv add)'; then
   exit 0
 fi
-
-# Determine package manager and run audit
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    print(json.load(sys.stdin).get('cwd', ''))
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
-
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 FINDINGS=""
 
@@ -73,12 +67,9 @@ fi
 
 if [ -n "$FINDINGS" ]; then
   echo "[Supercharger] dep-vuln-scanner: $FINDINGS" >&2
-  python3 -c "
-import json, sys
-msg = '[SECURITY] Dependency audit after install: {}. Run the appropriate audit command for full details and consider upgrading or replacing affected packages.'.format(sys.argv[1])
-import os
-print(json.dumps({'systemMessage': msg, 'suppressOutput': not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))}))
-" "$FINDINGS"
+  MSG="[SECURITY] Dependency audit after install: ${FINDINGS}. Run the appropriate audit command for full details and consider upgrading or replacing affected packages."
+  MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 fi
 
 exit 0

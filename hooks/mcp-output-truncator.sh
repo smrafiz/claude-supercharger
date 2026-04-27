@@ -5,8 +5,13 @@
 # GitHub issue #29971: MCP responses can waste 25K+ tokens per heavy tool call.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 # Extract tool response output
 OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null)
@@ -21,7 +26,7 @@ fi
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
 
-MCP_OUTPUT="$OUTPUT" MCP_TOOL="$TOOL_NAME" python3 <<'PYEOF'
+MCP_OUTPUT="$OUTPUT" MCP_TOOL="$TOOL_NAME" MCP_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF'
 import os, json, sys
 
 output = os.environ.get('MCP_OUTPUT', '')
@@ -75,8 +80,7 @@ if summary is None:
 
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
-import os
-_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
+_suppress = os.environ.get('MCP_SUPPRESS', 'true').lower() not in ('false', '0', 'no')
 print(json.dumps({
     'systemMessage': summary, 'suppressOutput': _suppress
 }))

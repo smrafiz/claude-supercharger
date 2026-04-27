@@ -6,8 +6,13 @@
 # in test files, security tools, or documentation.
 
 set -euo pipefail
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 # Extract content (Write uses .content, Edit uses .new_string)
 CONTENT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.content // .tool_input.new_string // empty' 2>/dev/null)
@@ -153,17 +158,8 @@ ${WARNING_LIST}
 Review each pattern before proceeding. These may be intentional (test files, security tools, docs) — if so, no action needed."
 
 # Emit systemMessage warning and exit 2 (asyncRewake: wakes Claude to deliver warning)
-python3 -c "
-import json, sys, os
-msg = sys.argv[1]
-_suppress = not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug'))
-print(json.dumps({
-  'hookSpecificOutput': {
-    'permissionDecision': 'ask'
-  },
-  'systemMessage': msg, 'suppressOutput': _suppress
-}))
-" "$MESSAGE"
+MSG_JSON=$(printf '%s' "$MESSAGE" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+printf '{"hookSpecificOutput":{"permissionDecision":"ask"},"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 
 # Signal statusline: scan alert
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
