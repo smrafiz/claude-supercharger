@@ -21,17 +21,22 @@ SKILL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; d=json.load(
 FINDINGS=""
 SCAN_PATHS=""
 
-# Build list of skill file paths to scan
+# Build list of skill file paths to scan — only the skill's own definition file,
+# not every README in a directory that happens to contain the skill name.
+# Matches: <skill-name>.md  OR  */<skill-name>/SKILL.md  OR  */<skill-name>/skill.md
 for base in \
   "$HOME/.claude/commands" \
   "$HOME/.claude/plugins" \
   ".claude/commands" \
   ".claude/plugins"; do
   if [ -d "$base" ]; then
-    # Find .md files matching the skill name
     while IFS= read -r f; do
       [ -f "$f" ] && SCAN_PATHS="$SCAN_PATHS $f"
-    done < <(find "$base" -maxdepth 5 -name "*.md" -path "*${SKILL_NAME}*" 2>/dev/null || true)
+    done < <(find "$base" -maxdepth 6 \( \
+        -name "${SKILL_NAME}.md" \
+        -o \( -path "*/${SKILL_NAME}/SKILL.md" \) \
+        -o \( -path "*/${SKILL_NAME}/skill.md" \) \
+      \) 2>/dev/null || true)
   fi
 done
 
@@ -58,7 +63,23 @@ check_pattern "reverse shell pattern" 'mkfifo|/dev/tcp/|nc\s+-[el]' "CRITICAL"
 
 # High — suspicious
 check_pattern "hidden instruction override" 'ignore\s+(previous|above|all)\s+(instructions|rules)|disregard.*instructions|you\s+are\s+now' "HIGH"
-check_pattern "steganographic whitespace" '[\x{200B}\x{200C}\x{200D}\x{FEFF}]' "HIGH"
+# BSD grep doesn't support PCRE \x{NNNN} in -E mode; use python3 for Unicode char detection
+check_stego_whitespace() {
+  local severity="$1"
+  for f in $SCAN_PATHS; do
+    local matches
+    matches=$(python3 -c "
+import sys
+text = open(sys.argv[1], encoding='utf-8', errors='replace').read()
+count = sum(text.count(c) for c in '\u200b\u200c\u200d\ufeff')
+print(count)
+" "$f" 2>/dev/null || echo "0")
+    if [ "$matches" -gt 0 ]; then
+      FINDINGS="${FINDINGS}${severity}: steganographic whitespace (${matches}x in $(basename "$f"))\n"
+    fi
+  done
+}
+check_stego_whitespace "HIGH"
 check_pattern "obfuscated variable expansion" '\$\{[A-Z_]*:.*:.*\}.*\$\{' "HIGH"
 check_pattern "credential file access" '/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain' "HIGH"
 
