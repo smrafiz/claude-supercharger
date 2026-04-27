@@ -178,9 +178,11 @@ mcp-setup.sh:Install and configure MCP servers (context7, sequential, etc.)
 profile-switch.sh:Switch active persona profile
 resume.sh:Restore session from a saved summary
 supercharger.sh:This screen — capability overview
-webhook-setup.sh:Configure Slack/Discord/Telegram notifications"
+webhook-setup.sh:Configure Slack/Discord/Telegram notifications
+hook-doctor.sh:Diagnose broken hook installs
+release.sh:Automated release workflow (version bump, tag, push)"
 
-for tool in cache-clear.sh claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-new.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh resume.sh supercharger.sh webhook-setup.sh; do
+for tool in cache-clear.sh claude-check.sh compress-memory.sh economy-switch.sh export-preset.sh hook-doctor.sh hook-new.sh hook-toggle.sh import-preset.sh mcp-setup.sh profile-switch.sh release.sh resume.sh supercharger.sh webhook-setup.sh; do
   if [ -f "$SCRIPT_DIR/${tool}" ]; then
     DESC=$(echo "$TOOL_DESCS" | grep "^${tool}:" | cut -d: -f2-)
     echo -e "  ${GREEN}✓${NC} ${BOLD}tools/${tool}${NC} — ${DESC}"

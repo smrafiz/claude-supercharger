@@ -271,6 +271,8 @@ All scripts live in `~/.claude/supercharger/tools/` after install:
 | `webhook-setup.sh` | Configure webhooks |
 | `supercharger.sh` | Capability overview |
 | `hook-perf.sh` | Hook performance profiler — timing analysis from audit data |
+| `hook-doctor.sh` | Diagnose broken hook installs — validates scripts, shebangs, stale pending files |
+| `release.sh` | Automated release workflow — bump version, changelog, tests, tag, push |
 | `bump-version.sh` | Version management (dev use) |
 
 </details>
