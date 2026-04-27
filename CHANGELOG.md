@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.21] - 2026-04-27 — fix skill-poisoning-scanner false positives (narrow path matching, python3 Unicode check); fix block() JSON escaping + add hookEventName in safety/git-safety; remove dead jq_or_python() from lib-suppress; fix commit-check suppress init order; fix $(pwd)→$PWD in 2 hooks; fix compaction-backup stderr prefix. 588 tests passing.
 - [2.3.20] - 2026-04-27 — add auto-compact.sh hook (PostToolUse context advisor with per-band debounce for agentic runs; warns at 70/80/90%); add 15 tests for hook-new scaffold and --register flag. 576 tests passing.
 - [2.3.19] - 2026-04-27 — hook-new.sh: add interactive mode, --register flag (auto-adds to settings.json), fix template to use check_hook_disabled and correct PreToolUse block JSON. 561 tests passing.
 - [2.3.18] - 2026-04-27 — add 17 tests for hook-doctor and release tools; fix release.sh dry-run to skip test run; fix hook-doctor ISSUES subshell propagation and ls pipefail on empty dirs. 561 tests passing.

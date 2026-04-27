@@ -84,7 +84,7 @@ if $DRY_RUN; then
 fi
 
 # Get current test count (skipped in dry-run)
-TEST_COUNT=$(bash "$REPO_DIR/tests/run.sh" 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")
+TEST_COUNT=$(bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")
 CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. ${TEST_COUNT} tests passing."
 
 echo ""
@@ -99,7 +99,7 @@ read -r CONFIRM
 # ── Run tests ─────────────────────────────────────────────────────────────────
 echo ""
 echo -e "${BOLD}Running tests...${NC}"
-if ! bash "$REPO_DIR/tests/run.sh" 2>&1 | tail -3; then
+if ! bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1 | tail -3; then
   echo -e "${RED}Tests failed. Aborting release.${NC}"
   exit 1
 fi
