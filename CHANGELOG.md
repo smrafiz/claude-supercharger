@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.23] - 2026-04-27 — consolidate stack detection into lib/detect_stack.py; removes ~250 lines of duplicated inline logic across detect-stack.sh, project-config.sh, statusline.sh; adds Go/Rust/PHP/WordPress detection to statusline and project-config. 588 tests passing.
 - [2.3.22] - 2026-04-27 — standardize suppress check via lib-suppress.sh in dep-vuln-scanner, output-secrets-scanner, code-security-scanner, trace-compactor, mcp-output-truncator; batch 7-field python3 extraction in subagent-cost (was 5 separate forks). 588 tests passing.
 - [2.3.21] - 2026-04-27 — fix skill-poisoning-scanner false positives (narrow path matching, python3 Unicode check); fix block() JSON escaping + add hookEventName in safety/git-safety; remove dead jq_or_python() from lib-suppress; fix commit-check suppress init order; fix $(pwd)→$PWD in 2 hooks; fix compaction-backup stderr prefix. 588 tests passing.
 - [2.3.20] - 2026-04-27 — add auto-compact.sh hook (PostToolUse context advisor with per-band debounce for agentic runs; warns at 70/80/90%); add 15 tests for hook-new scaffold and --register flag. 576 tests passing.
