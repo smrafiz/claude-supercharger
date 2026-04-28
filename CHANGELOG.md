@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.34] - 2026-04-28 — security: add exfiltration-guard hook (PreToolUse Bash) — blocks DNS tunneling tools (dnscat/iodine/dns2tcp) and cloud uploads of sensitive files (.env, ~/.ssh, .pem, id_rsa, /etc/shadow) via aws s3, gsutil, az storage, azcopy, rclone, s3cmd, plus curl/wget upload of sensitive sources. 15 new tests. 692 tests passing. (Inspired by vaporif/parry exfil patterns.)
 - [2.3.33] - 2026-04-28 — add precompact-priorities (PreCompact: augments compact prompt with fidelity rules for root causes, exact numbers, file:line refs, subagent findings) + env-file-guard (PreToolUse Bash,Read: blocks reading/editing .env; allows .env.example/template/sample/dist). 22 new tests. 677 tests passing. (Inspired by fcakyon/claude-codex-settings + pchalasani/claude-code-tools.)
 - [2.3.32] - 2026-04-27 — fix: install script now copies `lib/*.py` to `~/.claude/supercharger/lib/`. Previously only `utils.sh` and `economy.sh` were synced — `detect_stack.py` was missing, breaking `cwd-changed`, `project-config`, and `statusline` hooks for fresh installs after v2.3.23.
 - [2.3.31] - 2026-04-27 — security: add shell-wrapper-guard hook — blocks destructive commands hidden in `python -c "..."`, `node -e "..."`, `perl -e "..."`, `ruby -e "..."`, `dash/ksh/fish -c "..."` wrappers (bash/sh/zsh -c already covered by safety.sh). Path-aware: /tmp, ./dist, node_modules pass through; /, ~, /*, $HOME, .. blocked. 12 tests. 655 tests passing. (Inspired by davila7/claude-code-templates shell-wrapper-guard.)
