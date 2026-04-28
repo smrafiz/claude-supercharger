@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.32] - 2026-04-27 — fix: install script now copies `lib/*.py` to `~/.claude/supercharger/lib/`. Previously only `utils.sh` and `economy.sh` were synced — `detect_stack.py` was missing, breaking `cwd-changed`, `project-config`, and `statusline` hooks for fresh installs after v2.3.23.
 - [2.3.31] - 2026-04-27 — security: add shell-wrapper-guard hook — blocks destructive commands hidden in `python -c "..."`, `node -e "..."`, `perl -e "..."`, `ruby -e "..."`, `dash/ksh/fish -c "..."` wrappers (bash/sh/zsh -c already covered by safety.sh). Path-aware: /tmp, ./dist, node_modules pass through; /, ~, /*, $HOME, .. blocked. 12 tests. 655 tests passing. (Inspired by davila7/claude-code-templates shell-wrapper-guard.)
 - [2.3.30] - 2026-04-27 — perf: enforce-pkg-manager.sh collapsed 2 jq + 2 python3 fallback forks into single python3 extraction (~20ms saved per Bash call). 643 tests passing.
 - [2.3.29] - 2026-04-27 — security: close compound-command bypass in git-safety.sh (7 ^anchored checks), commit-check.sh, and enforce-pkg-manager.sh (4 ^anchored checks). All PreToolUse Bash hooks now validate per-segment using split_segments. 5 new bypass tests. 643 tests passing.
