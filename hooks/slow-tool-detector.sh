@@ -57,11 +57,11 @@ if tool == 'bash':
     hint = f'Command: {cmd}' if cmd else ''
     suggestion = 'Consider breaking into smaller commands or running async.'
 elif tool in ('webfetch', 'websearch'):
-    url = (inp.get('url') or inp.get('query') or '')[:60]
+    url = (inp.get('url') or inp.get('query') or '')[:80]
     hint = f'Target: {url}' if url else ''
     suggestion = 'Network may be slow — consider retrying or using a cached source.'
 elif tool in ('read', 'write', 'edit'):
-    path = (inp.get('file_path') or '')[:60]
+    path = (inp.get('file_path') or '')[:80]
     hint = f'Path: {path}' if path else ''
     suggestion = 'File may be large — consider reading specific line ranges.'
 elif tool in ('glob', 'grep'):

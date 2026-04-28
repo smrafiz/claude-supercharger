@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Stop Keep-Going Nudge
 # Event: Stop | Matcher: (none)
+# Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going
+#             or set SUPERCHARGER_KEEP_GOING=1
 # Detects when Claude stops asking the user to confirm next steps mid-task,
 # and nudges it to continue instead of waiting. Conservative: only blocks
 # stops that clearly defer work back to the user without delivering.
+# Capped at 3 nudges per session.
 
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

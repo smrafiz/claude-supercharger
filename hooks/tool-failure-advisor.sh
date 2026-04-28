@@ -79,7 +79,7 @@ elif tool_lower == 'webfetch':
         parts.append('Hint: URL not found — check the URL is correct and accessible.')
 
 elif tool_lower == 'websearch':
-    query = (inp.get('query') or '')[:60]
+    query = (inp.get('query') or '')[:80]
     if query:
         parts.append(f'Query: {query}')
 

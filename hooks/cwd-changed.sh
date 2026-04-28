@@ -10,18 +10,17 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 
 _INPUT=$(cat)
-NEW_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$NEW_DIR" ] && NEW_DIR="$PWD"
-init_hook_suppress "$NEW_DIR"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "cwd-changed" && exit 0
 hook_profile_skip "cwd-changed" && exit 0
 
-MSG=$(NEW_DIR="$NEW_DIR" LIB_DIR="$LIB_DIR" python3 -c "
+MSG=$(PROJECT_DIR="$PROJECT_DIR" LIB_DIR="$LIB_DIR" python3 -c "
 import os, sys, hashlib
 sys.path.insert(0, os.environ['LIB_DIR'])
 from detect_stack import detect_stack
 
-new_dir = os.environ['NEW_DIR']
-lib_dir = os.environ['LIB_DIR']
+new_dir = os.environ['PROJECT_DIR']
 
 # Skip if not a real project dir (no recognisable files)
 s = detect_stack(new_dir)

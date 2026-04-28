@@ -15,6 +15,9 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "permission-denied-advisor" && exit 0
 hook_profile_skip "permission-denied-advisor" && exit 0
 
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
+
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 
@@ -51,11 +54,9 @@ print(' | '.join(parts))
 [ -z "$MSG" ] && exit 0
 
 # Track denied tools for this session (so Claude can reference them)
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
-if [ -n "$SESSION_ID" ]; then
+if [ -n "$SESSION_ID" ] && [ -n "$TOOL_NAME" ]; then
   DENIED_FILE="$HOME/.claude/supercharger/scope/.denied-${SESSION_ID}"
-  TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
-  [ -n "$TOOL_NAME" ] && printf '%s\n' "$TOOL_NAME" >> "$DENIED_FILE" 2>/dev/null || true
+  printf '%s\n' "$TOOL_NAME" >> "$DENIED_FILE" 2>/dev/null || true
 fi
 
 MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
