@@ -113,12 +113,15 @@ deploy_hook_scripts() {
   cp "$source_dir/tools/"*.sh "$tools_dir/"
   chmod 700 "$tools_dir/"*.sh
 
-  # Deploy lib dependencies that tools/ scripts source at runtime
+  # Deploy lib dependencies that hooks/tools source at runtime
   local lib_dir="$HOME/.claude/supercharger/lib"
   mkdir -p "$lib_dir"
   cp "$source_dir/lib/utils.sh" "$lib_dir/"
   cp "$source_dir/lib/economy.sh" "$lib_dir/"
+  # Python modules imported by hooks (e.g., cwd-changed, project-config, statusline)
+  cp "$source_dir/lib/"*.py "$lib_dir/" 2>/dev/null || true
   chmod 700 "$lib_dir/"*.sh
+  chmod 600 "$lib_dir/"*.py 2>/dev/null || true
 }
 
 merge_hooks_into_settings() {
