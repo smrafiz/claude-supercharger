@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.30] - 2026-04-27 — perf: enforce-pkg-manager.sh collapsed 2 jq + 2 python3 fallback forks into single python3 extraction (~20ms saved per Bash call). 643 tests passing.
 - [2.3.29] - 2026-04-27 — security: close compound-command bypass in git-safety.sh (7 ^anchored checks), commit-check.sh, and enforce-pkg-manager.sh (4 ^anchored checks). All PreToolUse Bash hooks now validate per-segment using split_segments. 5 new bypass tests. 643 tests passing.
 - [2.3.28] - 2026-04-27 — security: close compound-command bypass in safety.sh — `safe && rm -rf /`, `true; rm -rf /`, `ls || rm -rf /` were previously allowed because rm/mv anchors only matched at command start. Added quote-aware split_segments helper to cmd-normalize.sh; rm/mv now validated per-segment. 5 new bypass tests. 638 tests passing. (Inspired by Anthropic claude-quickstarts/autonomous-coding allowlist approach.)
 - [2.3.27] - 2026-04-27 — audit fixes across 6 new hooks: rename NEW_DIR→PROJECT_DIR (cwd-changed), hoist SESSION_ID extraction (permission-denied-advisor), document opt-in mechanism in header (stop-keep-going), standardize URL/path truncation to 80 chars. 633 tests passing.
