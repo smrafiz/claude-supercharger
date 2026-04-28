@@ -21,6 +21,11 @@ fi
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
+# Per-segment view for ^-anchored git checks — protects against compound bypass
+# like `safe && git push --force origin main`. Falls back to CMD if split fails.
+SEGMENTS=$(split_segments "$CMD")
+[ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
+
 block() {
   echo "" >&2
   echo "Supercharger blocked this git operation." >&2
@@ -45,48 +50,55 @@ rewrite() {
   exit 0
 }
 
-if [[ "$CMD" =~ ^git\ push[[:space:]] ]]; then
-  has_force=false
-  has_protected=false
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
 
-  if [[ "$CMD" =~ (^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$) ]]; then
-    has_force=true
+  if [[ "$seg" =~ ^git\ push[[:space:]] ]]; then
+    has_force=false
+    has_protected=false
+
+    if [[ "$seg" =~ (^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$) ]]; then
+      has_force=true
+    fi
+
+    if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
+      has_protected=true
+    fi
+
+    if $has_force && $has_protected; then
+      block "force push to protected branch"
+    elif $has_force; then
+      # Non-protected branch — strip force flag, push safely.
+      # Only rewrite when the whole command is the single git push (no compound).
+      if [ "$CMD" = "$seg" ]; then
+        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
+        rewrite "$safe" "stripped --force from non-protected branch push"
+      fi
+    fi
   fi
 
-  if [[ "$CMD" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
-    has_protected=true
+  if [[ "$seg" =~ ^git\ reset[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])--hard([[:space:]]|$) ]]; then
+    block "git reset --hard can destroy uncommitted work"
   fi
 
-  if $has_force && $has_protected; then
-    block "force push to protected branch"
-  elif $has_force; then
-    # Non-protected branch — strip force flag, push safely
-    safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
-    rewrite "$safe" "stripped --force from non-protected branch push"
+  if [[ "$seg" =~ ^git\ (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
+    block "discards all unstaged changes"
   fi
-fi
 
-if [[ "$CMD" =~ ^git\ reset[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])--hard([[:space:]]|$) ]]; then
-  block "git reset --hard can destroy uncommitted work"
-fi
-
-if [[ "$CMD" =~ ^git\ (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
-  block "discards all unstaged changes"
-fi
-
-if [[ "$CMD" =~ ^git\ clean[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
-  block "git clean with force permanently removes untracked files"
-fi
-
-if [[ "$CMD" =~ ^git\ branch[[:space:]] ]] && [[ "$CMD" =~ (^|[[:space:]])-D([[:space:]]|$) ]]; then
-  if [[ "$CMD" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
-    block "force-deleting a protected branch (main/master)"
+  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
+    block "git clean with force permanently removes untracked files"
   fi
-fi
 
-if [[ "$CMD" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
-  block "git stash drop/clear permanently removes stashed changes"
-fi
+  if [[ "$seg" =~ ^git\ branch[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])-D([[:space:]]|$) ]]; then
+    if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
+      block "force-deleting a protected branch (main/master)"
+    fi
+  fi
+
+  if [[ "$seg" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
+    block "git stash drop/clear permanently removes stashed changes"
+  fi
+done <<< "$SEGMENTS"
 
 
 # Checkpoint before commit — warn if unstaged/untracked work exists

@@ -617,6 +617,18 @@ begin_test "git-safety: blocked message tells user how to proceed"
 MSG=$(echo '{"tool_input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
 echo "$MSG" | grep -qi "permanently blocked" && pass || fail "no block instruction in git block message"
 
+begin_test "git-safety: compound bypass blocked (echo && force push)"
+OUT=$(echo '{"tool_input":{"command":"echo hi && git push --force origin main"}}' | bash "$GIT_HOOK" 2>/dev/null; echo "EXIT:$?")
+echo "$OUT" | grep -q "EXIT:2" && pass || fail "compound bypass not blocked"
+
+begin_test "git-safety: compound bypass blocked (true; reset --hard)"
+OUT=$(echo '{"tool_input":{"command":"true; git reset --hard"}}' | bash "$GIT_HOOK" 2>/dev/null; echo "EXIT:$?")
+echo "$OUT" | grep -q "EXIT:2" && pass || fail "semicolon bypass not blocked"
+
+begin_test "git-safety: compound bypass blocked (status && force push)"
+OUT=$(echo '{"tool_input":{"command":"git status && git push --force origin main"}}' | bash "$GIT_HOOK" 2>/dev/null; echo "EXIT:$?")
+echo "$OUT" | grep -q "EXIT:2" && pass || fail "&& bypass not blocked"
+
 # --- First-Run Welcome Tests ---
 
 echo ""
@@ -1141,6 +1153,14 @@ assert_exit_code 0 $? && pass
 
 begin_test "commit-check: breaking change passes"
 run_hook "$COMMIT_CHECK" "git commit -m 'feat!: drop Node 16 support'"
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: compound bypass blocked (echo && bad commit)"
+run_hook "$COMMIT_CHECK" "echo hi && git commit -m 'fixed stuff'"
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: compound valid commit passes"
+run_hook "$COMMIT_CHECK" "echo hi && git commit -m 'feat: add login'"
 assert_exit_code 0 $? && pass
 
 echo ""

@@ -18,6 +18,10 @@ fi
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
+# Per-segment view — protects against `safe && npm install` bypass.
+SEGMENTS=$(split_segments "$CMD")
+[ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
+
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
@@ -34,34 +38,38 @@ block() {
   exit 2
 }
 
-# pnpm project — block npm
-if [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && [ ! -L "$PROJECT_DIR/pnpm-lock.yaml" ]; then
-  if [[ "$CMD" =~ ^npm[[:space:]]+(install|run|exec|ci|start|test|build|add|remove|update|publish) ]]; then
-    block "This project uses pnpm (pnpm-lock.yaml found). Use pnpm instead of npm."
-  fi
-fi
+while IFS= read -r seg; do
+  [ -z "$seg" ] && continue
 
-# yarn project — block npm install/add
-if [ -f "$PROJECT_DIR/yarn.lock" ] && [ ! -L "$PROJECT_DIR/yarn.lock" ]; then
-  if [[ "$CMD" =~ ^npm[[:space:]]+(install|ci|add|remove|update) ]]; then
-    block "This project uses yarn (yarn.lock found). Use yarn instead of npm."
+  # pnpm project — block npm
+  if [ -f "$PROJECT_DIR/pnpm-lock.yaml" ] && [ ! -L "$PROJECT_DIR/pnpm-lock.yaml" ]; then
+    if [[ "$seg" =~ ^npm[[:space:]]+(install|run|exec|ci|start|test|build|add|remove|update|publish) ]]; then
+      block "This project uses pnpm (pnpm-lock.yaml found). Use pnpm instead of npm."
+    fi
   fi
-fi
 
-# uv/poetry project — block raw pip install
-if { [ -f "$PROJECT_DIR/uv.lock" ] && [ ! -L "$PROJECT_DIR/uv.lock" ]; } || { [ -f "$PROJECT_DIR/poetry.lock" ] && [ ! -L "$PROJECT_DIR/poetry.lock" ]; }; then
-  if [[ "$CMD" =~ ^pip[[:space:]]+install ]]; then
-    manager="uv"
-    [ -f "$PROJECT_DIR/poetry.lock" ] && manager="poetry"
-    block "This project uses $manager. Use '$manager add' instead of pip install."
+  # yarn project — block npm install/add
+  if [ -f "$PROJECT_DIR/yarn.lock" ] && [ ! -L "$PROJECT_DIR/yarn.lock" ]; then
+    if [[ "$seg" =~ ^npm[[:space:]]+(install|ci|add|remove|update) ]]; then
+      block "This project uses yarn (yarn.lock found). Use yarn instead of npm."
+    fi
   fi
-fi
 
-# bun project — block npm
-if { [ -f "$PROJECT_DIR/bun.lockb" ] && [ ! -L "$PROJECT_DIR/bun.lockb" ]; } || { [ -f "$PROJECT_DIR/bun.lock" ] && [ ! -L "$PROJECT_DIR/bun.lock" ]; }; then
-  if [[ "$CMD" =~ ^npm[[:space:]]+(install|run|exec|ci|start|test|build|add|remove|update) ]]; then
-    block "This project uses bun (bun lockfile found). Use bun instead of npm."
+  # uv/poetry project — block raw pip install
+  if { [ -f "$PROJECT_DIR/uv.lock" ] && [ ! -L "$PROJECT_DIR/uv.lock" ]; } || { [ -f "$PROJECT_DIR/poetry.lock" ] && [ ! -L "$PROJECT_DIR/poetry.lock" ]; }; then
+    if [[ "$seg" =~ ^pip[[:space:]]+install ]]; then
+      manager="uv"
+      [ -f "$PROJECT_DIR/poetry.lock" ] && manager="poetry"
+      block "This project uses $manager. Use '$manager add' instead of pip install."
+    fi
   fi
-fi
+
+  # bun project — block npm
+  if { [ -f "$PROJECT_DIR/bun.lockb" ] && [ ! -L "$PROJECT_DIR/bun.lockb" ]; } || { [ -f "$PROJECT_DIR/bun.lock" ] && [ ! -L "$PROJECT_DIR/bun.lock" ]; }; then
+    if [[ "$seg" =~ ^npm[[:space:]]+(install|run|exec|ci|start|test|build|add|remove|update) ]]; then
+      block "This project uses bun (bun lockfile found). Use bun instead of npm."
+    fi
+  fi
+done <<< "$SEGMENTS"
 
 exit 0

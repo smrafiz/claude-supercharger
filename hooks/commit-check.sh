@@ -37,15 +37,28 @@ block() {
   exit 2
 }
 
-# Only act on git commit commands
-if ! printf '%s\n' "$CMD" | grep -qE '^git commit([[:space:]]|$)'; then
+# Find the first `git commit` segment (handles compound bypass like `safe && git commit ...`).
+SEGMENTS=$(split_segments "$CMD")
+[ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
+COMMIT_SEG=""
+while IFS= read -r seg; do
+  if printf '%s\n' "$seg" | grep -qE '^git commit([[:space:]]|$)'; then
+    COMMIT_SEG="$seg"
+    break
+  fi
+done <<< "$SEGMENTS"
+
+if [ -z "$COMMIT_SEG" ]; then
   exit 0
 fi
 
 # Allow --amend commits (they may retain existing messages)
-if printf '%s\n' "$CMD" | grep -qE '(^|[[:space:]])--amend([[:space:]]|$)'; then
+if printf '%s\n' "$COMMIT_SEG" | grep -qE '(^|[[:space:]])--amend([[:space:]]|$)'; then
   exit 0
 fi
+
+# Re-target message extraction at the commit segment, not the full compound command.
+CMD="$COMMIT_SEG"
 
 # Extract commit message — handles -m "...", -m '...', and HEREDOC $(cat <<'EOF'...) patterns
 MSG=$(COMMIT_CMD="$CMD" python3 -c "
