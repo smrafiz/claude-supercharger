@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.26] - 2026-04-27 — add stop-keep-going hook (opt-in Stop nudge that detects deferred work patterns like "Should I continue?", "Want me to..."; capped at 3 pokes/session). 633 tests passing.
 - [2.3.25] - 2026-04-27 — add subagent-stop-check hook (SubagentStop quality gate; flags failure/incomplete/deferred patterns in last_assistant_message). 625 tests passing.
 - [2.3.24] - 2026-04-27 — add tool-failure-advisor (PostToolUseFailure), slow-tool-detector (duration_ms thresholds), permission-denied-advisor (PermissionDenied), cwd-changed (stack re-detection on dir change). 617 tests passing.
 - [2.3.23] - 2026-04-27 — consolidate stack detection into lib/detect_stack.py; removes ~250 lines of duplicated inline logic across detect-stack.sh, project-config.sh, statusline.sh; adds Go/Rust/PHP/WordPress detection to statusline and project-config. 588 tests passing.
