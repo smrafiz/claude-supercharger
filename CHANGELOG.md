@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.28] - 2026-04-27 — security: close compound-command bypass in safety.sh — `safe && rm -rf /`, `true; rm -rf /`, `ls || rm -rf /` were previously allowed because rm/mv anchors only matched at command start. Added quote-aware split_segments helper to cmd-normalize.sh; rm/mv now validated per-segment. 5 new bypass tests. 638 tests passing. (Inspired by Anthropic claude-quickstarts/autonomous-coding allowlist approach.)
 - [2.3.27] - 2026-04-27 — audit fixes across 6 new hooks: rename NEW_DIR→PROJECT_DIR (cwd-changed), hoist SESSION_ID extraction (permission-denied-advisor), document opt-in mechanism in header (stop-keep-going), standardize URL/path truncation to 80 chars. 633 tests passing.
 - [2.3.26] - 2026-04-27 — add stop-keep-going hook (opt-in Stop nudge that detects deferred work patterns like "Should I continue?", "Want me to..."; capped at 3 pokes/session). 633 tests passing.
 - [2.3.25] - 2026-04-27 — add subagent-stop-check hook (SubagentStop quality gate; flags failure/incomplete/deferred patterns in last_assistant_message). 625 tests passing.
