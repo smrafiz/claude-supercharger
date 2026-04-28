@@ -6,14 +6,25 @@
 set -euo pipefail
 
 _INPUT=$(cat)
-COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
-if [ -z "$COMMAND" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
-fi
 
-if [ -z "$COMMAND" ]; then
-  exit 0
-fi
+# Single python3 fork extracting both fields — replaces 2 jq + 2 python3 fallbacks.
+# Output format: <command>\x1F<cwd>  (US separator, never appears in shell input)
+EXTRACTED=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    cmd = ((d.get('tool_input') or {}).get('command') or '')
+    cwd = d.get('cwd') or ''
+    print(cmd + '\x1f' + cwd)
+except Exception:
+    print('\x1f')
+" 2>/dev/null)
+
+COMMAND="${EXTRACTED%%$'\x1f'*}"
+PROJECT_DIR="${EXTRACTED#*$'\x1f'}"
+
+[ -z "$COMMAND" ] && exit 0
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
@@ -21,10 +32,6 @@ CMD=$(normalize_cmd "$COMMAND")
 # Per-segment view — protects against `safe && npm install` bypass.
 SEGMENTS=$(split_segments "$CMD")
 [ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
-
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 block() {
   echo "" >&2
