@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.27] - 2026-04-27 — audit fixes across 6 new hooks: rename NEW_DIR→PROJECT_DIR (cwd-changed), hoist SESSION_ID extraction (permission-denied-advisor), document opt-in mechanism in header (stop-keep-going), standardize URL/path truncation to 80 chars. 633 tests passing.
 - [2.3.26] - 2026-04-27 — add stop-keep-going hook (opt-in Stop nudge that detects deferred work patterns like "Should I continue?", "Want me to..."; capped at 3 pokes/session). 633 tests passing.
 - [2.3.25] - 2026-04-27 — add subagent-stop-check hook (SubagentStop quality gate; flags failure/incomplete/deferred patterns in last_assistant_message). 625 tests passing.
 - [2.3.24] - 2026-04-27 — add tool-failure-advisor (PostToolUseFailure), slow-tool-detector (duration_ms thresholds), permission-denied-advisor (PermissionDenied), cwd-changed (stack re-detection on dir change). 617 tests passing.
