@@ -24,6 +24,11 @@ fi
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
+# Per-segment view for ^-anchored checks (rm, mv) — protects against
+# compound bypass like `safe && rm -rf /`. Falls back to CMD if split fails.
+SEGMENTS=$(split_segments "$CMD")
+[ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
+
 # Load disabled security categories
 _DISABLED_CATS=""
 _DISABLED_CATS_FILE="$HOME/.claude/supercharger/scope/.disabled-security-categories"
@@ -65,27 +70,33 @@ block() {
 }
 
 # --- Filesystem (category: filesystem) ---
-if _cat_enabled "filesystem" && [[ "$CMD" =~ ^rm[[:space:]] ]]; then
-  has_recursive=false
-  has_force=false
+# Validate rm per-segment to defeat compound bypass (`safe && rm -rf /`).
+if _cat_enabled "filesystem"; then
+  while IFS= read -r seg; do
+    [ -z "$seg" ] && continue
+    if [[ "$seg" =~ ^rm[[:space:]] ]]; then
+      has_recursive=false
+      has_force=false
 
-  args="${CMD#rm }"
+      args="${seg#rm }"
 
-  if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
-     [[ "$args" =~ (^|[[:space:]])--recursive([[:space:]]|$) ]]; then
-    has_recursive=true
-  fi
+      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
+         [[ "$args" =~ (^|[[:space:]])--recursive([[:space:]]|$) ]]; then
+        has_recursive=true
+      fi
 
-  if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*f[a-zA-Z]*([[:space:]]|$) ]] || \
-     [[ "$args" =~ (^|[[:space:]])--force([[:space:]]|$) ]]; then
-    has_force=true
-  fi
+      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*f[a-zA-Z]*([[:space:]]|$) ]] || \
+         [[ "$args" =~ (^|[[:space:]])--force([[:space:]]|$) ]]; then
+        has_force=true
+      fi
 
-  if $has_recursive && $has_force; then
-    if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$) ]]; then
-      block "recursive force rm on dangerous target"
+      if $has_recursive && $has_force; then
+        if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$) ]]; then
+          block "recursive force rm on dangerous target"
+        fi
+      fi
     fi
-  fi
+  done <<< "$SEGMENTS"
 fi
 
 # --- Dangerous patterns (category: database, destructive, network) ---
@@ -120,8 +131,13 @@ if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   fi
 fi
 
-if _cat_enabled "filesystem" && [[ "$CMD" =~ ^mv[[:space:]]+(\/|~|\$HOME)[[:space:]] ]]; then
-  block "mv from root or home directory"
+if _cat_enabled "filesystem"; then
+  while IFS= read -r seg; do
+    [ -z "$seg" ] && continue
+    if [[ "$seg" =~ ^mv[[:space:]]+(\/|~|\$HOME)[[:space:]] ]]; then
+      block "mv from root or home directory"
+    fi
+  done <<< "$SEGMENTS"
 fi
 
 # --- Credential leakage (category: credentials) ---

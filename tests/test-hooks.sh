@@ -138,6 +138,26 @@ begin_test "safety: rm -rf .. is blocked"
 run_hook "$SAFETY_HOOK" "rm -rf .."
 assert_exit_code 2 $? && pass
 
+begin_test "safety: echo hello && rm -rf / is blocked (compound bypass)"
+run_hook "$SAFETY_HOOK" "echo hello && rm -rf /"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: true; rm -rf / is blocked (semicolon bypass)"
+run_hook "$SAFETY_HOOK" "true; rm -rf /"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: ls || rm -rf / is blocked (or bypass)"
+run_hook "$SAFETY_HOOK" "ls || rm -rf /"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: echo 'rm -rf /' is allowed (rm in quotes is data)"
+run_hook "$SAFETY_HOOK" "echo 'rm -rf /'"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: echo hi && mv / /tmp/x is blocked (compound mv)"
+run_hook "$SAFETY_HOOK" "echo hi && mv / /tmp/x"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: rm -rf ./dist is allowed (legitimate)"
 run_hook "$SAFETY_HOOK" "rm -rf ./dist"
 assert_exit_code 0 $? && pass
