@@ -16,7 +16,9 @@ check_hook_disabled "subagent-stop-check" && exit 0
 hook_profile_skip "subagent-stop-check" && exit 0
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json, re
+import os, sys, json, re
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -68,9 +70,15 @@ if not findings:
 if not findings:
     sys.exit(0)
 
-summary = last_msg[:200].replace(chr(10), ' ')
 labels = ', '.join(findings)
-print(f'[Subagent review] {agent_name} {labels}. Last message: \"{summary}\". Review output and determine if follow-up is needed.')
+if TIER == 'minimal':
+    print(f'[review] {agent_name}: {labels}')
+elif TIER == 'lean':
+    summary = last_msg[:80].replace(chr(10), ' ')
+    print(f'[Subagent] {agent_name} — {labels}. \"{summary}\"')
+else:
+    summary = last_msg[:200].replace(chr(10), ' ')
+    print(f'[Subagent review] {agent_name} {labels}. Last message: \"{summary}\". Review output and determine if follow-up is needed.')
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0

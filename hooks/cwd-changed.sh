@@ -20,6 +20,7 @@ import os, sys, hashlib
 sys.path.insert(0, os.environ['LIB_DIR'])
 from detect_stack import detect_stack
 
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 new_dir = os.environ['PROJECT_DIR']
 
 # Skip if not a real project dir (no recognisable files)
@@ -58,7 +59,12 @@ try:
 except Exception:
     pass
 
-print(f'Working directory changed to {new_dir}. Stack: {stack_str}. Use matching conventions.')
+if TIER == 'minimal':
+    print(f'[cwd] {stack_str}')
+elif TIER == 'lean':
+    print(f'[Cwd] {stack_str} — use matching conventions')
+else:
+    print(f'Working directory changed to {new_dir}. Stack: {stack_str}. Use matching conventions.')
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0

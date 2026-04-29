@@ -18,7 +18,9 @@ check_hook_disabled "comment-replacement-check" && exit 0
 hook_profile_skip "comment-replacement-check" && exit 0
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json, re
+import os, sys, json, re
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -86,7 +88,12 @@ for old, new in edits:
         violations += 1
 
 if violations:
-    print(f'Code-with-comments replacement detected ({violations} block(s)). If you mean to remove code, delete it cleanly. Comments left behind become noise — git history records why code was removed.')
+    if TIER == 'minimal':
+        print(f'[comment-repl] {violations} block(s) — delete, do not comment out')
+    elif TIER == 'lean':
+        print(f'[Comment replace] {violations} block(s) — delete cleanly, do not comment out')
+    else:
+        print(f'Code-with-comments replacement detected ({violations} block(s)). If you mean to remove code, delete it cleanly. Comments left behind become noise — git history records why code was removed.')
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0

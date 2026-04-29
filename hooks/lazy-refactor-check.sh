@@ -17,7 +17,9 @@ check_hook_disabled "lazy-refactor-check" && exit 0
 hook_profile_skip "lazy-refactor-check" && exit 0
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json, re
+import os, sys, json, re
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -78,7 +80,12 @@ for old, new in edits:
 
 if violations:
     o, n = violations[0]
-    print(f'Lazy refactor: parameter \\'{o}\\' renamed to \\'{n}\\' instead of removed. If unused, delete it. If kept for API/interface, document why with a comment.')
+    if TIER == 'minimal':
+        print(f'[lazy] {o} -> {n} — remove or document')
+    elif TIER == 'lean':
+        print(f'[Lazy refactor] {o} -> {n}: remove unused param or document why kept')
+    else:
+        print(f'Lazy refactor: parameter \\'{o}\\' renamed to \\'{n}\\' instead of removed. If unused, delete it. If kept for API/interface, document why with a comment.')
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0
