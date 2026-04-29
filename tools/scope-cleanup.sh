@@ -53,6 +53,20 @@ patterns_max_age=(
   ".eco-stop-*:$SECS_DAY"
   ".tier-snapshot-*:$SECS_WEEK"
   ".rate-limit-*:$SECS_DAY"
+  ".quality-gate-cache-*:$SECS_WEEK"
+  ".typecheck-cache-*:$SECS_WEEK"
+  ".notify-ts-*:$SECS_DAY"
+  ".cache-health-counter:$SECS_DAY"
+  ".eco-reinforce-counter:$SECS_DAY"
+  ".memory-restored:$SECS_DAY"
+  ".last-idle-notify:$SECS_DAY"
+  ".prompt-cost-*:$SECS_WEEK"
+  ".prompt-tokens-*:$SECS_WEEK"
+  ".last-prompt-tokens-*:$SECS_WEEK"
+  ".active-mcp-*:$SECS_DAY"
+  ".gate-pending:$SECS_HOUR"
+  ".loop-detector:$SECS_DAY"
+  ".loop-detector-*:$SECS_DAY"
 )
 
 cleanup_pattern() {
@@ -88,10 +102,29 @@ for entry in "${patterns_max_age[@]}"; do
   cleanup_pattern "$pattern" "$max_age"
 done
 
+# Orphan check: list files NOT covered by any pattern (suggests new patterns to add)
+if [ "${ORPHANS:-0}" = "1" ]; then
+  echo ""
+  echo "Orphan files (not covered by any TTL pattern):"
+  shopt -s nullglob 2>/dev/null || true
+  for f in "$SCOPE_DIR"/.*; do
+    base=$(basename "$f")
+    [ "$base" = "." ] && continue
+    [ "$base" = ".." ] && continue
+    [ ! -f "$f" ] && continue
+    matched=0
+    for entry in "${patterns_max_age[@]}"; do
+      pattern="${entry%%:*}"
+      case "$base" in $pattern) matched=1; break ;; esac
+    done
+    [ "$matched" = "0" ] && echo "  $base"
+  done
+fi
+
 echo ""
 if [ "$APPLY" = 1 ]; then
   echo "Removed: $removed files, freed $bytes_freed bytes."
 else
   echo "Would remove: $removed files, freeing $bytes_freed bytes. Kept: $kept."
-  echo "Run with --apply to execute."
+  echo "Run with --apply to execute. Run with ORPHANS=1 to list unmatched files."
 fi

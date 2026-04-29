@@ -49,6 +49,10 @@ bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-superch
 
 ---
 
+## Hook catalog
+
+Every installed hook is documented in [`docs/HOOKS.md`](./docs/HOOKS.md) with its event, matcher, and purpose. Regenerate with `bash tools/list-hooks.sh > docs/HOOKS.md`.
+
 ## What you get
 
 ### Protection — can't be bypassed
