@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.46] - 2026-04-29 — fix: stale version strings across tools/supercharger.sh, plugin.json, marketplace.json, README badges (CI version-consistency check had been failing since v2.3.25 due to wrong sed patterns); portable backdate helpers and stat compatibility in scope-cleanup.sh tests so Linux CI passes; `bash tools/bump-version.sh <ver>` is now the canonical way to bump versions. CI green on all jobs.
 - [2.3.45] - 2026-04-28 — stabilize: scope-cleanup expanded with 14 more TTL patterns (.quality-gate-cache, .typecheck-cache, .notify-ts, .prompt-cost, .prompt-tokens, .active-mcp, .loop-detector, etc.). Now covers ~250 stale files. ORPHANS=1 env var lists unmatched files for future pattern additions. README links to docs/HOOKS.md.
 - [2.3.44] - 2026-04-28 — stabilize: add `tools/list-hooks.sh` + `docs/HOOKS.md` — auto-generated catalog of all hooks (Event/Matcher/Purpose) parsed from each hook's header. Includes disable instructions and tool inventory. 9 new tests, 732 passing.
 - [2.3.43] - 2026-04-28 — stabilize: add `tools/scope-cleanup.sh` to prune stale state files. Covers 14 patterns (.dedup-, .agent-classified-, .agent-dispatched-, .denied-, .keep-going-, .stack-cache-, .pending-, .gate-pending-, .router-hash-, .last-tier-, .last-category-, .subagent-active-, .subagent-costs-*.jsonl, .user-corrections-, .user-reinforcements-, .eco-stop-, .tier-snapshot-, .rate-limit-) with appropriate TTLs (1h to 30d). SessionEnd hook auto-runs cleanup at most once/day. First run on dev system pruned 83 stale files. 5 new tests, 723 passing.
