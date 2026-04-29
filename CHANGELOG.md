@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.35] - 2026-04-28 — perf: fast-path early-exit in env-file-guard, exfiltration-guard, shell-wrapper-guard — skip python3 fork when command lacks trigger keywords (.env, aws/gsutil/rclone/curl/wget/dnscat, python -c / node -e / perl -e / ruby -e). 692 tests passing.
 - [2.3.34] - 2026-04-28 — security: add exfiltration-guard hook (PreToolUse Bash) — blocks DNS tunneling tools (dnscat/iodine/dns2tcp) and cloud uploads of sensitive files (.env, ~/.ssh, .pem, id_rsa, /etc/shadow) via aws s3, gsutil, az storage, azcopy, rclone, s3cmd, plus curl/wget upload of sensitive sources. 15 new tests. 692 tests passing. (Inspired by vaporif/parry exfil patterns.)
 - [2.3.33] - 2026-04-28 — add precompact-priorities (PreCompact: augments compact prompt with fidelity rules for root causes, exact numbers, file:line refs, subagent findings) + env-file-guard (PreToolUse Bash,Read: blocks reading/editing .env; allows .env.example/template/sample/dist). 22 new tests. 677 tests passing. (Inspired by fcakyon/claude-codex-settings + pchalasani/claude-code-tools.)
 - [2.3.32] - 2026-04-27 — fix: install script now copies `lib/*.py` to `~/.claude/supercharger/lib/`. Previously only `utils.sh` and `economy.sh` were synced — `detect_stack.py` was missing, breaking `cwd-changed`, `project-config`, and `statusline` hooks for fresh installs after v2.3.23.
