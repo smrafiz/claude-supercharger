@@ -15,7 +15,9 @@ check_hook_disabled "slow-tool-detector" && exit 0
 hook_profile_skip "slow-tool-detector" && exit 0
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
+import os, sys, json
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -69,11 +71,17 @@ elif tool in ('glob', 'grep'):
 else:
     suggestion = 'Consider a faster alternative.'
 
-parts = [f'[Slow tool] {d.get(\"tool_name\", tool)} took {secs:.1f}s (threshold: {threshold/1000:.0f}s).']
-if hint:
-    parts.append(hint)
-parts.append(suggestion)
-print(' | '.join(parts))
+tool_name = d.get('tool_name', tool)
+if TIER == 'minimal':
+    print(f'[slow] {tool_name} {secs:.1f}s')
+elif TIER == 'lean':
+    print(f'[Slow] {tool_name} {secs:.1f}s — {suggestion}')
+else:
+    parts = [f'[Slow tool] {tool_name} took {secs:.1f}s (threshold: {threshold/1000:.0f}s).']
+    if hint:
+        parts.append(hint)
+    parts.append(suggestion)
+    print(' | '.join(parts))
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0

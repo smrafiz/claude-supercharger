@@ -7,6 +7,7 @@ HOOK="$REPO_DIR/hooks/slow-tool-detector.sh"
 echo "=== Slow Tool Detector Tests ==="
 
 export SUPERCHARGER_NO_DEDUP=1
+export SUPERCHARGER_TIER=standard
 
 begin_test "slow-tool-detector: warns for slow Bash command"
 INPUT='{"tool_name":"Bash","duration_ms":15000,"tool_input":{"command":"find / -name foo"},"cwd":"/tmp"}'
@@ -47,5 +48,11 @@ INPUT='{"tool_name":"WebFetch","duration_ms":2000,"tool_input":{"url":"https://f
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should not warn for fast WebFetch"
 
-unset SUPERCHARGER_NO_DEDUP
+begin_test "slow-tool-detector: minimal tier emits compact output (~80% smaller)"
+INPUT='{"tool_name":"Bash","duration_ms":15000,"tool_input":{"command":"sleep 15"},"cwd":"/tmp"}'
+STD_LEN=$(printf '%s' "$INPUT" | SUPERCHARGER_TIER=standard bash "$HOOK" 2>/dev/null | wc -c | tr -d ' ')
+MIN_LEN=$(printf '%s' "$INPUT" | SUPERCHARGER_TIER=minimal SUPERCHARGER_NO_DEDUP=1 bash "$HOOK" 2>/dev/null | wc -c | tr -d ' ')
+[ "$STD_LEN" -gt "$MIN_LEN" ] && [ "$MIN_LEN" -gt "0" ] && pass || fail "minimal ($MIN_LEN) should be < standard ($STD_LEN)"
+
+unset SUPERCHARGER_NO_DEDUP SUPERCHARGER_TIER
 report

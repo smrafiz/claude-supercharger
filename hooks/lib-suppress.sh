@@ -51,6 +51,18 @@ init_hook_suppress() {
     local profile_file="$HOME/.claude/supercharger/scope/.profile"
     [ -f "$profile_file" ] && SUPERCHARGER_PROFILE=$(<"$profile_file") || true
   fi
+
+  # Load economy tier (standard/lean/minimal) for tier-aware hook output.
+  # Cached at SessionStart by project-config.sh into scope/.economy-tier.
+  if [ -z "${SUPERCHARGER_TIER:-}" ]; then
+    local tier_file="$HOME/.claude/supercharger/scope/.economy-tier"
+    if [ -f "$tier_file" ]; then
+      SUPERCHARGER_TIER=$(<"$tier_file")
+    else
+      SUPERCHARGER_TIER="standard"
+    fi
+    export SUPERCHARGER_TIER
+  fi
 }
 
 check_hook_disabled() {

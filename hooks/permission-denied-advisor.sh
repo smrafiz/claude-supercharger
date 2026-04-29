@@ -19,7 +19,9 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || echo "")
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
+import os, sys, json
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -32,7 +34,6 @@ if not tool:
 
 inp = d.get('tool_input') or {}
 
-# Build input summary
 summary = ''
 if inp.get('command'):
     summary = inp['command'][:80]
@@ -43,12 +44,20 @@ elif inp.get('url'):
 elif isinstance(inp, dict) and inp:
     summary = str(inp)[:60]
 
-parts = [f'[Permission denied] User denied {tool}.']
-if summary:
-    parts.append(f'Input: {summary}')
-parts.append('Do not retry this action. If you need to proceed, ask the user directly instead of re-attempting.')
-
-print(' | '.join(parts))
+if TIER == 'minimal':
+    print(f'[denied] {tool}{(\": \" + summary[:50]) if summary else \"\"}')
+elif TIER == 'lean':
+    parts = [f'[Denied] {tool}']
+    if summary:
+        parts.append(summary)
+    parts.append('do not retry')
+    print(' — '.join(parts))
+else:
+    parts = [f'[Permission denied] User denied {tool}.']
+    if summary:
+        parts.append(f'Input: {summary}')
+    parts.append('Do not retry this action. If you need to proceed, ask the user directly instead of re-attempting.')
+    print(' | '.join(parts))
 " 2>/dev/null)
 
 [ -z "$MSG" ] && exit 0

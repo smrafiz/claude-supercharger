@@ -15,7 +15,9 @@ check_hook_disabled "tool-failure-advisor" && exit 0
 hook_profile_skip "tool-failure-advisor" && exit 0
 
 MSG=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
+import os, sys, json
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 
 try:
     d = json.load(sys.stdin)
@@ -30,7 +32,11 @@ inp = d.get('tool_input') or {}
 if not tool or not error:
     sys.exit(0)
 
-# Build summary line
+# Minimal: telegraphic — tool + truncated error only
+if TIER == 'minimal':
+    print(f'[fail] {tool}: {error[:60].replace(chr(10), chr(32))}')
+    raise SystemExit(0)
+
 error_short = error[:120].replace('\n', ' ')
 parts = [f'[Tool failure] {tool} failed: {error_short}']
 

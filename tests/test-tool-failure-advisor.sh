@@ -7,6 +7,7 @@ HOOK="$REPO_DIR/hooks/tool-failure-advisor.sh"
 echo "=== Tool Failure Advisor Tests ==="
 
 export SUPERCHARGER_NO_DEDUP=1
+export SUPERCHARGER_TIER=standard
 
 begin_test "tool-failure-advisor: emits systemMessage for Bash failure"
 INPUT='{"tool_name":"Bash","error":"No such file or directory","tool_input":{"command":"cat /nonexistent"},"cwd":"/tmp"}'
@@ -47,5 +48,5 @@ begin_test "tool-failure-advisor: no output for malformed input"
 OUT=$(printf '{}' | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should produce no output for empty input"
 
-unset SUPERCHARGER_NO_DEDUP
+unset SUPERCHARGER_NO_DEDUP SUPERCHARGER_TIER
 report
