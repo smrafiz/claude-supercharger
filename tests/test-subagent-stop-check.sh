@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/subagent-stop-check.sh"
 
 echo "=== Subagent Stop Check Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 begin_test "subagent-stop-check: flags 'couldn't' in last message"
 INPUT='{"agent_name":"researcher","last_assistant_message":"I couldn'\''t find the file you requested.","cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
@@ -45,4 +47,5 @@ begin_test "subagent-stop-check: no output for malformed input"
 OUT=$(printf '{}' | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should produce no output for empty input"
 
+unset SUPERCHARGER_NO_DEDUP
 report

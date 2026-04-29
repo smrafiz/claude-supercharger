@@ -63,6 +63,9 @@ print(f'Working directory changed to {new_dir}. Stack: {stack_str}. Use matching
 
 [ -z "$MSG" ] && exit 0
 
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+hook_already_emitted "cwd-changed" "$SESSION_ID" "$MSG" && exit 0
+
 MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
 printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 

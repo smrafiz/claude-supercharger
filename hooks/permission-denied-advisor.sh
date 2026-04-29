@@ -59,6 +59,8 @@ if [ -n "$SESSION_ID" ] && [ -n "$TOOL_NAME" ]; then
   printf '%s\n' "$TOOL_NAME" >> "$DENIED_FILE" 2>/dev/null || true
 fi
 
+hook_already_emitted "permission-denied-advisor" "${SESSION_ID:-default}" "$MSG" && exit 0
+
 MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
 printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 

@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/permission-denied-advisor.sh"
 
 echo "=== Permission Denied Advisor Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 begin_test "permission-denied-advisor: emits systemMessage on denial"
 INPUT='{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/test"},"cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
@@ -40,4 +42,5 @@ begin_test "permission-denied-advisor: no output for malformed input"
 OUT=$(printf '{}' | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should produce no output for empty input"
 
+unset SUPERCHARGER_NO_DEDUP
 report

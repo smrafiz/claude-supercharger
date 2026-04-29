@@ -91,6 +91,45 @@ hook_profile_skip() {
   return 1
 }
 
+# Per-session, per-hook dedup — saves tokens on repeated systemMessage emissions.
+# Usage:
+#   hook_already_emitted "<hook_name>" "<session_id>" "<message>" && exit 0
+# TTL: 600s (10 min). Hashes stored in ~/.claude/supercharger/scope/.dedup-<sid>-<hook>
+# Returns 0 (already emitted, skip) or 1 (new, proceed and record).
+hook_already_emitted() {
+  local hook_name="${1:-}" sid="${2:-}" msg="${3:-}"
+  [ -z "$hook_name" ] && return 1
+  [ -z "$sid" ] && return 1
+  [ -z "$msg" ] && return 1
+  # Test/CI escape hatch
+  [ "${SUPERCHARGER_NO_DEDUP:-0}" = "1" ] && return 1
+
+  local scope_dir="$HOME/.claude/supercharger/scope"
+  local dedup_file="${scope_dir}/.dedup-${sid}-${hook_name}"
+  local now hash
+  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf 'NOHASH')
+
+  if [ -f "$dedup_file" ]; then
+    now=$(date +%s)
+    # Strip stale entries (>600s old) and check for our hash
+    local kept="" stale_cutoff=$((now - 600))
+    while IFS='|' read -r ts seen_hash; do
+      [ -z "$ts" ] && continue
+      [ "$ts" -lt "$stale_cutoff" ] && continue
+      kept="${kept}${ts}|${seen_hash}"$'\n'
+      if [ "$seen_hash" = "$hash" ]; then
+        printf '%s' "$kept" > "$dedup_file"
+        return 0
+      fi
+    done < "$dedup_file"
+    printf '%s%s|%s\n' "$kept" "$now" "$hash" > "$dedup_file"
+  else
+    mkdir -p "$scope_dir" 2>/dev/null || true
+    printf '%s|%s\n' "$(date +%s)" "$hash" > "$dedup_file" 2>/dev/null || true
+  fi
+  return 1
+}
+
 # Cache jq availability for this session — avoids repeated failed fork on jq-less systems
 if [ -z "${_JQ_AVAILABLE+set}" ]; then
   command -v jq &>/dev/null && _JQ_AVAILABLE=1 || _JQ_AVAILABLE=0

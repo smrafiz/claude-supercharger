@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/slow-tool-detector.sh"
 
 echo "=== Slow Tool Detector Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 begin_test "slow-tool-detector: warns for slow Bash command"
 INPUT='{"tool_name":"Bash","duration_ms":15000,"tool_input":{"command":"find / -name foo"},"cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
@@ -45,4 +47,5 @@ INPUT='{"tool_name":"WebFetch","duration_ms":2000,"tool_input":{"url":"https://f
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should not warn for fast WebFetch"
 
+unset SUPERCHARGER_NO_DEDUP
 report

@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/comment-replacement-check.sh"
 
 echo "=== Comment Replacement Check Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 run_input() {
   local input="$1"
   printf '%s' "$input" | bash "$HOOK" 2>/dev/null
@@ -51,4 +53,5 @@ begin_test "comment-replacement: flags HTML comments"
 OUT=$(run_input '{"tool_name":"Edit","tool_input":{"file_path":"/tmp/x.html","old_string":"<div>foo</div>\n<span>bar</span>","new_string":"<!-- <div>foo</div> -->\n<!-- <span>bar</span> -->"}}')
 echo "$OUT" | grep -q "systemMessage" && pass || fail "should flag HTML comments"
 
+unset SUPERCHARGER_NO_DEDUP
 report

@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/lazy-refactor-check.sh"
 
 echo "=== Lazy Refactor Check Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 run_input() {
   printf '%s' "$1" | bash "$HOOK" 2>/dev/null
 }
@@ -46,4 +48,5 @@ begin_test "lazy-refactor: silent on Read tool"
 OUT=$(run_input '{"tool_name":"Read","tool_input":{"file_path":"/x.ts"}}')
 [ -z "$OUT" ] && pass || fail "should ignore Read"
 
+unset SUPERCHARGER_NO_DEDUP
 report

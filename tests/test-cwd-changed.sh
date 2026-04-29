@@ -6,6 +6,8 @@ HOOK="$REPO_DIR/hooks/cwd-changed.sh"
 
 echo "=== CwdChanged Hook Tests ==="
 
+export SUPERCHARGER_NO_DEDUP=1
+
 begin_test "cwd-changed: emits systemMessage when stack detected in new dir"
 setup_test_home
 PROJ=$(mktemp -d)
@@ -59,4 +61,5 @@ begin_test "cwd-changed: no output for malformed input"
 OUT=$(printf '{}' | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should produce no output for empty input"
 
+unset SUPERCHARGER_NO_DEDUP
 report
