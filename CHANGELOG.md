@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.39] - 2026-04-28 — add lazy-refactor-check hook (PostToolUse Edit,MultiEdit) — flags renaming `foo` to `_foo` (lazy refactor: should remove the param or document why it stays). Covers TS/JS/Python/Rust/Go/Java/Kotlin/Swift/Ruby/PHP. 9 new tests. 717 passing. (Inspired by carlrannaberg/claudekit.)
 - [2.3.38] - 2026-04-28 — add comment-replacement-check hook (PostToolUse Edit,MultiEdit) — flags when Claude replaces working code with `// ... ` or `# ...` comments instead of deleting cleanly. Detects // /* */ # -- * <!-- patterns across JS/TS/Python/SQL/HTML/etc. Skips .md/.mdx/.txt/.rst. 10 new tests. 708 passing.
 - [2.3.37] - 2026-04-28 — security: extend safety.sh with pipeline-bypass + sensitive-file-read detection. New blocks: `echo .env | xargs cat`, `find . -name .env -exec cat {} \;`, `find -name "*.pem" | xargs cat`, `cat .npmrc`, `cat ~/.ssh/id_rsa`. Extended sensitive patterns: .npmrc, .pypirc, .pgpass, .netrc, .git-credentials, SSH keys (id_rsa/id_ed25519/etc.), .pem/.key/.crt/.p12/.pfx/.ppk, wallets, secrets.*, credentials.*. 6 new tests. 698 tests passing. (Inspired by carlrannaberg/claudekit file-guard.)
 - [2.3.36] - 2026-04-28 — perf: consolidate shell-wrapper, env-file (Bash), and exfiltration detection into safety.sh — single python3 fork via new safety-detect.py replaces 3 separate hook processes. PreToolUse Bash overhead reduced ~40% (500ms → 297ms per call). env-file-guard remains for Read tool. 15 verification cases passing. 692 tests passing.
