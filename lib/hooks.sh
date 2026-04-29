@@ -14,7 +14,13 @@ get_hooks_for_mode() {
   # flags: "async" = non-blocking background execution (for fire-and-forget hooks)
 
   # ── Safe mode: core safety + smart UX (always on) ──
+  # safety.sh is the consolidated security hook for Bash — it runs:
+  #   destructive patterns, credentials, persistence, clipboard, browser, history,
+  #   shell-wrapper detection (python/node/perl/ruby -c/-e), .env access, exfiltration.
+  # The standalone shell-wrapper-guard / exfiltration-guard / env-file-guard (Bash)
+  # hooks are deprecated as PreToolUse Bash entries (their logic lives in safety.sh).
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
+  hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit|${hooks_dir}/audit-trail.sh|async")
