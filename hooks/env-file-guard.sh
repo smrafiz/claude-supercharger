@@ -35,6 +35,12 @@ if [ "$TOOL" = "Bash" ]; then
   COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
   [ -z "$COMMAND" ] && exit 0
 
+  # Fast-path: if the command can't possibly reference a real .env file, skip.
+  case "$COMMAND" in
+    *.env*) ;;
+    *) exit 0 ;;
+  esac
+
   # Allow safe metadata commits/PRs that may mention .env in text
   if printf '%s\n' "$COMMAND" | grep -qE '^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b'; then
     exit 0

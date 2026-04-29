@@ -20,6 +20,15 @@ check_hook_disabled "exfiltration-guard" && exit 0
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [ -z "$COMMAND" ] && exit 0
 
+# Fast-path: if command has no exfil-related keywords, skip python3 fork.
+# Triggers for: cloud upload tools, network tools that can POST, DNS exfil tools.
+case "$COMMAND" in
+  *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) ;;
+  *curl*|*wget*|*nc*|*netcat*) ;;
+  *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) ;;
+  *) exit 0 ;;
+esac
+
 block() {
   local reason="$1"
   echo "" >&2

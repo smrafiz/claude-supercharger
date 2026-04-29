@@ -19,6 +19,16 @@ check_hook_disabled "shell-wrapper-guard" && exit 0
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
 [ -z "$COMMAND" ] && exit 0
 
+# Fast-path: skip python3 fork if no interpreter -c/-e wrapper present.
+case "$COMMAND" in
+  *python*\ -c*|*python*\ -c\"*|*python*\ -c\'*) ;;
+  *node\ -e*|*node\ -e\"*|*node\ -e\'*) ;;
+  *perl\ -e*|*perl\ -e\"*|*perl\ -e\'*) ;;
+  *ruby\ -e*|*ruby\ -e\"*|*ruby\ -e\'*) ;;
+  *dash\ -c*|*ksh\ -c*|*fish\ -c*) ;;
+  *) exit 0 ;;
+esac
+
 REASON=$(CMD="$COMMAND" python3 - <<'PYEOF' 2>/dev/null
 import os, re
 
