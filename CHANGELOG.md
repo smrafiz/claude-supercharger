@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.42] - 2026-04-28 — perf: extend tier-aware output to 4 more hooks (subagent-stop-check, comment-replacement-check, lazy-refactor-check, cwd-changed). All 7 noisy hooks now emit telegraphic form on economy=minimal. Estimated 70-85% per-emission token reduction in minimal tier.
 - [2.3.41] - 2026-04-28 — perf: tier-aware hook output. slow-tool-detector / tool-failure-advisor / permission-denied-advisor now emit telegraphic form on economy=minimal (~80% smaller messages: "[slow] Bash 15.0s" vs "[Slow tool] Bash took 15.0s (threshold: 10s) | Command: ls | Consider..."). lean tier emits middle ground. SUPERCHARGER_TIER read from scope/.economy-tier at session start. 718 passing.
 - [2.3.40] - 2026-04-28 — perf: per-session dedup of repeated systemMessage emissions across 7 noisy hooks. Each hook records (hook_name, message_hash, timestamp) per session; 10-min TTL. Same hook+message within window emits once instead of N times. Saves ~70-80% of redundant context-injection tokens. `SUPERCHARGER_NO_DEDUP=1` disables for tests. 717 passing.
 - [2.3.39] - 2026-04-28 — add lazy-refactor-check hook (PostToolUse Edit,MultiEdit) — flags renaming `foo` to `_foo` (lazy refactor: should remove the param or document why it stays). Covers TS/JS/Python/Rust/Go/Java/Kotlin/Swift/Ruby/PHP. 9 new tests. 717 passing. (Inspired by carlrannaberg/claudekit.)
