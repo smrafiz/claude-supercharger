@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.37] - 2026-04-28 — security: extend safety.sh with pipeline-bypass + sensitive-file-read detection. New blocks: `echo .env | xargs cat`, `find . -name .env -exec cat {} \;`, `find -name "*.pem" | xargs cat`, `cat .npmrc`, `cat ~/.ssh/id_rsa`. Extended sensitive patterns: .npmrc, .pypirc, .pgpass, .netrc, .git-credentials, SSH keys (id_rsa/id_ed25519/etc.), .pem/.key/.crt/.p12/.pfx/.ppk, wallets, secrets.*, credentials.*. 6 new tests. 698 tests passing. (Inspired by carlrannaberg/claudekit file-guard.)
 - [2.3.36] - 2026-04-28 — perf: consolidate shell-wrapper, env-file (Bash), and exfiltration detection into safety.sh — single python3 fork via new safety-detect.py replaces 3 separate hook processes. PreToolUse Bash overhead reduced ~40% (500ms → 297ms per call). env-file-guard remains for Read tool. 15 verification cases passing. 692 tests passing.
 - [2.3.35] - 2026-04-28 — perf: fast-path early-exit in env-file-guard, exfiltration-guard, shell-wrapper-guard — skip python3 fork when command lacks trigger keywords (.env, aws/gsutil/rclone/curl/wget/dnscat, python -c / node -e / perl -e / ruby -e). 692 tests passing.
 - [2.3.34] - 2026-04-28 — security: add exfiltration-guard hook (PreToolUse Bash) — blocks DNS tunneling tools (dnscat/iodine/dns2tcp) and cloud uploads of sensitive files (.env, ~/.ssh, .pem, id_rsa, /etc/shadow) via aws s3, gsutil, az storage, azcopy, rclone, s3cmd, plus curl/wget upload of sensitive sources. 15 new tests. 692 tests passing. (Inspired by vaporif/parry exfil patterns.)
