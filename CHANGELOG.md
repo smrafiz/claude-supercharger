@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.40] - 2026-04-28 — perf: per-session dedup of repeated systemMessage emissions across 7 noisy hooks. Each hook records (hook_name, message_hash, timestamp) per session; 10-min TTL. Same hook+message within window emits once instead of N times. Saves ~70-80% of redundant context-injection tokens. `SUPERCHARGER_NO_DEDUP=1` disables for tests. 717 passing.
 - [2.3.39] - 2026-04-28 — add lazy-refactor-check hook (PostToolUse Edit,MultiEdit) — flags renaming `foo` to `_foo` (lazy refactor: should remove the param or document why it stays). Covers TS/JS/Python/Rust/Go/Java/Kotlin/Swift/Ruby/PHP. 9 new tests. 717 passing. (Inspired by carlrannaberg/claudekit.)
 - [2.3.38] - 2026-04-28 — add comment-replacement-check hook (PostToolUse Edit,MultiEdit) — flags when Claude replaces working code with `// ... ` or `# ...` comments instead of deleting cleanly. Detects // /* */ # -- * <!-- patterns across JS/TS/Python/SQL/HTML/etc. Skips .md/.mdx/.txt/.rst. 10 new tests. 708 passing.
 - [2.3.37] - 2026-04-28 — security: extend safety.sh with pipeline-bypass + sensitive-file-read detection. New blocks: `echo .env | xargs cat`, `find . -name .env -exec cat {} \;`, `find -name "*.pem" | xargs cat`, `cat .npmrc`, `cat ~/.ssh/id_rsa`. Extended sensitive patterns: .npmrc, .pypirc, .pgpass, .netrc, .git-credentials, SSH keys (id_rsa/id_ed25519/etc.), .pem/.key/.crt/.p12/.pfx/.ppk, wallets, secrets.*, credentials.*. 6 new tests. 698 tests passing. (Inspired by carlrannaberg/claudekit file-guard.)
