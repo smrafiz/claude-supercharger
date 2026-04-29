@@ -158,6 +158,30 @@ begin_test "safety: echo hi && mv / /tmp/x is blocked (compound mv)"
 run_hook "$SAFETY_HOOK" "echo hi && mv / /tmp/x"
 assert_exit_code 2 $? && pass
 
+begin_test "safety: echo .env | xargs cat is blocked (pipeline bypass)"
+run_hook "$SAFETY_HOOK" "echo .env | xargs cat"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: find -name .env -exec cat is blocked (find bypass)"
+run_hook "$SAFETY_HOOK" "find . -name .env -exec cat {} ;"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: find -name *.pem | xargs cat is blocked (find pipeline)"
+run_hook "$SAFETY_HOOK" 'find . -name "*.pem" | xargs cat'
+assert_exit_code 2 $? && pass
+
+begin_test "safety: find -name *.ts | xargs wc is allowed (legit pipeline)"
+run_hook "$SAFETY_HOOK" 'find . -name "*.ts" | xargs wc -l'
+assert_exit_code 0 $? && pass
+
+begin_test "safety: cat .npmrc is blocked (extended sensitive)"
+run_hook "$SAFETY_HOOK" "cat .npmrc"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: cat id_rsa is blocked (ssh key)"
+run_hook "$SAFETY_HOOK" "cat ~/.ssh/id_rsa"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: rm -rf ./dist is allowed (legitimate)"
 run_hook "$SAFETY_HOOK" "rm -rf ./dist"
 assert_exit_code 0 $? && pass

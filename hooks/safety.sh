@@ -216,10 +216,12 @@ fi
 _NEED_PY=false
 case "$CMD" in
   *python*\ -c*|*node\ -e*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
-  *.env*) _NEED_PY=true ;;
+  *.env*|*.npmrc*|*.pypirc*|*.pgpass*|*.netrc*|*.git-credentials*|*id_rsa*|*id_ed25519*|*id_ecdsa*|*id_dsa*|*.pem*|*.key*|*.p12*|*.pfx*|*.ppk*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
+  *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
+  *secret*|*credential*|*wallet*) _NEED_PY=true ;;
 esac
 
 if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then

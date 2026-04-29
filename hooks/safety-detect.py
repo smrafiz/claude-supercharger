@@ -70,6 +70,73 @@ def check_shell_wrapper(c: str) -> str | None:
 
 _ENV_FILE_RE = r"(^|[\s/=\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 _SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
+
+# Extended sensitive file/dir patterns (claudekit-inspired)
+_SENSITIVE_NAME_RE = re.compile(
+    r"(?i)(?:"
+    r"\.env(?:\.[a-zA-Z0-9_-]+)?"
+    r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
+    r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
+    r"|[\w.*-]+\.(?:ppk|pem|key|crt|cer|p12|pfx)"
+    r"|wallet\.dat|wallet\.json|[\w.*-]+\.wallet"
+    r"|secrets?\.[a-zA-Z0-9_-]+|credentials\.[a-zA-Z0-9_-]+"
+    r")"
+)
+
+
+def check_sensitive_read(c: str) -> str | None:
+    """Block direct reader/editor commands targeting sensitive files."""
+    # Skip safe metadata commits/PRs that may mention sensitive names in text
+    if re.match(r"^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b", c):
+        return None
+
+    # Reader/editor commands followed by a sensitive filename token
+    READER = r"\b(?:cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|awk|sed|tee|xxd|hexdump|od)\b"
+    # Capture the args of a reader command and search for sensitive names within
+    for m in re.finditer(READER + r"\s+([\S\s]*?)(?:$|\||;|&&|\|\|)", c):
+        args = m.group(1)
+        sm = _SENSITIVE_NAME_RE.search(args)
+        if sm:
+            return f"sensitive file access: {sm.group(0)} — credentials likely present"
+    return None
+
+
+def check_pipeline_bypass(c: str) -> str | None:
+    """Detect pipeline-based bypasses of direct file-read protections.
+
+    Patterns:
+      echo|printf <SENSITIVE> | xargs cat
+      find ... -name <SENSITIVE> | xargs cat
+      find ... -name <SENSITIVE> -exec cat {} \\;
+      ls <SENSITIVE> | xargs cat
+    """
+    # echo/printf <SENSITIVE> | ... | xargs cat
+    for m in re.finditer(r"\b(?:echo|printf|ls)\b\s+([\"\']?[\w./*-]+[\"\']?)", c):
+        arg = m.group(1).strip("'\"")
+        if not _SENSITIVE_NAME_RE.search(arg):
+            continue
+        tail = c[m.end():]
+        if re.search(r"\|[\s\S]*?\bxargs\b[\s\S]*?\bcat\b", tail):
+            return f"pipeline bypass: {m.group(0).strip()} | xargs cat — sensitive file exfiltration"
+        if re.search(r"\|[\s\S]*?\b(cat|less|more|head|tail|nc|netcat|curl|wget)\b", tail):
+            return f"pipeline bypass: piping sensitive name into reader/network tool"
+
+    # find ... -name/-iname/-regex SENSITIVE ... | xargs cat OR -exec cat
+    find_re = re.compile(
+        r"\bfind\b[\s\S]*?-(?:name|iname|regex|iregex)\s+(?:\"([^\"]+)\"|'([^']+)'|(\S+))",
+        re.IGNORECASE,
+    )
+    for m in find_re.finditer(c):
+        pat = m.group(1) or m.group(2) or m.group(3) or ""
+        if not _SENSITIVE_NAME_RE.search(pat):
+            continue
+        # Check if find result is piped to a reader or used in -exec cat
+        find_tail = c[m.start():]
+        if re.search(r"-exec\s+(cat|less|more|head|tail|nc|netcat|curl|wget)\b", find_tail):
+            return f"find bypass: -exec reader on sensitive pattern '{pat}'"
+        if re.search(r"\|[\s\S]*?\b(xargs|cat|less|more|head|tail|nc|netcat|curl|wget)\b", find_tail):
+            return f"find bypass: piping sensitive results to reader/network tool ('{pat}')"
+    return None
 _ENV_READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
     r"\b(nano|vim?|emacs|code|subl|atom|gedit)\s+",
@@ -192,6 +259,18 @@ if "shell_wrapper" not in disabled:
 
 if "env_files" not in disabled:
     r = check_env_file(cmd)
+    if r:
+        print(r)
+        sys.exit(0)
+
+if "sensitive_read" not in disabled:
+    r = check_sensitive_read(cmd)
+    if r:
+        print(r)
+        sys.exit(0)
+
+if "pipeline_bypass" not in disabled:
+    r = check_pipeline_bypass(cmd)
     if r:
         print(r)
         sys.exit(0)
