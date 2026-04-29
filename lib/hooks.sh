@@ -44,6 +44,7 @@ get_hooks_for_mode() {
     fi
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh|")
     hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check|")
+    hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/comment-replacement-check.sh|async")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh|")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot|")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh|async")

@@ -68,10 +68,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # Full mode + developer = 70 hooks total (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 71 ]; then
+if [ "$HOOK_COUNT" -eq 72 ]; then
   pass
 else
-  fail "expected 71 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 72 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -174,10 +174,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 70 hooks (with developer, commit-check is opt-in)
-if [ "$HOOK_COUNT" -eq 71 ]; then
+if [ "$HOOK_COUNT" -eq 72 ]; then
   pass
 else
-  fail "expected 71 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 72 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
