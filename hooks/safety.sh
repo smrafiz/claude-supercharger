@@ -210,6 +210,25 @@ if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAU
   fi
 fi
 
+# --- Unified detector (shell-wrapper, env-file, exfiltration) ---
+# Single python3 fork covers 3 categories that previously required 3 separate hooks.
+# Fast-path: skip the fork unless the command contains a trigger keyword.
+_NEED_PY=false
+case "$CMD" in
+  *python*\ -c*|*node\ -e*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
+  *.env*) _NEED_PY=true ;;
+  *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
+  *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
+  *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
+esac
+
+if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then
+  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" python3 "$(dirname "${BASH_SOURCE[0]}")/safety-detect.py" 2>/dev/null)
+  if [ -n "$PY_REASON" ]; then
+    block "$PY_REASON"
+  fi
+fi
+
 # --- Production reads (warn only — exit 1, not exit 2) ---
 if [[ "$CMD" =~ (kubectl[[:space:]]+exec|docker[[:space:]]+exec).*prod ]]; then
   echo "" >&2
