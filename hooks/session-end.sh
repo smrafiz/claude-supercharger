@@ -41,7 +41,24 @@ rm -f \
   "$SCOPE_DIR/.agent-classified-${SESSION_ID}" \
   "$SCOPE_DIR/.agent-dispatched-${SESSION_ID}" \
   "$SCOPE_DIR/.active-mcp-${SESSION_ID}" \
+  "$SCOPE_DIR/.denied-${SESSION_ID}" \
+  "$SCOPE_DIR/.keep-going-${SESSION_ID}" \
+  "$SCOPE_DIR"/.dedup-${SESSION_ID}-* \
   2>/dev/null || true
+
+# Periodic global cleanup (TTL-based) — at most once per day
+TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../tools" 2>/dev/null && pwd)"
+if [ -z "$TOOLS_DIR" ] || [ ! -x "$TOOLS_DIR/scope-cleanup.sh" ]; then
+  TOOLS_DIR="$HOME/.claude/supercharger/tools"
+fi
+LAST_CLEAN_FILE="$SCOPE_DIR/.last-cleanup"
+NOW=$(date +%s)
+LAST_CLEAN=0
+[ -f "$LAST_CLEAN_FILE" ] && LAST_CLEAN=$(cat "$LAST_CLEAN_FILE" 2>/dev/null || echo 0)
+if [ $((NOW - LAST_CLEAN)) -gt 86400 ] && [ -x "$TOOLS_DIR/scope-cleanup.sh" ]; then
+  bash "$TOOLS_DIR/scope-cleanup.sh" --apply >/dev/null 2>&1 &
+  echo "$NOW" > "$LAST_CLEAN_FILE" 2>/dev/null || true
+fi
 
 echo "[Supercharger] session-end: cleaned up (reason=$REASON)" >&2
 
