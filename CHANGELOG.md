@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.49] - 2026-04-29 — fix: install.sh MCP profile prompt was misleading after v2.3.47 — "Dev" claimed to include playwright/github/Magic UI but actually only Magic UI is auto-included now. Updated text and token estimates; added post-install hint for `SUPERCHARGER_MCP_EXTRAS`.
 - [2.3.48] - 2026-04-29 — feat: `SUPERCHARGER_MCP_EXTRAS` now also accepts `sequential-thinking` and `memory` (role-agnostic). Previously these were only available by switching to the `research` or `full` profile (which loaded both at once). Opt-in flag is more granular: `SUPERCHARGER_MCP_EXTRAS="sequential-thinking"` to enable just one.
 - [2.3.47] - 2026-04-29 — perf: developer role MCP defaults trimmed to context7 + magic-ui (~750 tokens). Playwright (~3300 tokens) and GitHub (~1500 tokens) are now opt-in via `SUPERCHARGER_MCP_EXTRAS=playwright,github`. Most users get an 86% MCP token reduction. Existing users keep their current config; only fresh installs and `mcp-profile.sh` invocations are affected.
 - [2.3.46] - 2026-04-29 — fix: stale version strings across tools/supercharger.sh, plugin.json, marketplace.json, README badges (CI version-consistency check had been failing since v2.3.25 due to wrong sed patterns); portable backdate helpers and stat compatibility in scope-cleanup.sh tests so Linux CI passes; `bash tools/bump-version.sh <ver>` is now the canonical way to bump versions. CI green on all jobs.
