@@ -185,10 +185,14 @@ elif [[ "$NON_INTERACTIVE" == "false" ]]; then
   echo -e "  MCP servers extend Claude with real-time tools."
   echo -e "  More = more capable, but higher token cost per session."
   echo ""
-  echo -e "  ${BOLD}1)${NC} Light    — context7 docs lookup only (~300 token overhead) [recommended]"
-  echo -e "  ${BOLD}2)${NC} Dev      — + Playwright browser + GitHub + Magic UI"
-  echo -e "  ${BOLD}3)${NC} Research — + memory + sequential thinking"
-  echo -e "  ${BOLD}4)${NC} Full     — everything"
+  echo -e "  ${BOLD}1)${NC} Light    — context7 docs lookup only (~300 tokens) [recommended]"
+  echo -e "  ${BOLD}2)${NC} Dev      — + Magic UI (~750 tokens, for React/Tailwind work)"
+  echo -e "  ${BOLD}3)${NC} Research — + memory + sequential thinking (~1300 tokens)"
+  echo -e "  ${BOLD}4)${NC} Full     — Light + Dev + Research (~1750 tokens)"
+  echo ""
+  echo "  Heavy/specialty MCPs are opt-in post-install via env var:"
+  echo "    export SUPERCHARGER_MCP_EXTRAS=\"playwright,github,sequential-thinking,memory\""
+  echo "    bash tools/mcp-profile.sh dev   # re-applies with extras"
   echo ""
   read -rp "> " mcp_choice
   case "$mcp_choice" in
