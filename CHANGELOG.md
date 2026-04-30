@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.47] - 2026-04-29 — perf: developer role MCP defaults trimmed to context7 + magic-ui (~750 tokens). Playwright (~3300 tokens) and GitHub (~1500 tokens) are now opt-in via `SUPERCHARGER_MCP_EXTRAS=playwright,github`. Most users get an 86% MCP token reduction. Existing users keep their current config; only fresh installs and `mcp-profile.sh` invocations are affected.
 - [2.3.46] - 2026-04-29 — fix: stale version strings across tools/supercharger.sh, plugin.json, marketplace.json, README badges (CI version-consistency check had been failing since v2.3.25 due to wrong sed patterns); portable backdate helpers and stat compatibility in scope-cleanup.sh tests so Linux CI passes; `bash tools/bump-version.sh <ver>` is now the canonical way to bump versions. CI green on all jobs.
 - [2.3.45] - 2026-04-28 — stabilize: scope-cleanup expanded with 14 more TTL patterns (.quality-gate-cache, .typecheck-cache, .notify-ts, .prompt-cost, .prompt-tokens, .active-mcp, .loop-detector, etc.). Now covers ~250 stale files. ORPHANS=1 env var lists unmatched files for future pattern additions. README links to docs/HOOKS.md.
 - [2.3.44] - 2026-04-28 — stabilize: add `tools/list-hooks.sh` + `docs/HOOKS.md` — auto-generated catalog of all hooks (Event/Matcher/Purpose) parsed from each hook's header. Includes disable instructions and tool inventory. 9 new tests, 732 passing.
