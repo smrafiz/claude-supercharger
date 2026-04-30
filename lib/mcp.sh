@@ -23,11 +23,17 @@ get_role_servers() {
   local roles="$1"
   local servers=""
 
-  if echo "$roles" | grep -q "developer"; then
-    if command -v gh &>/dev/null; then
-      servers="${servers}
+  # Heavy/specialty MCPs are opt-in via SUPERCHARGER_MCP_EXTRAS env var.
+  # Examples: SUPERCHARGER_MCP_EXTRAS="playwright,github"
+  # Default developer role is lean — most users don't need playwright/github.
+  local extras="${SUPERCHARGER_MCP_EXTRAS:-}"
+
+  if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "github" && command -v gh &>/dev/null; then
+    servers="${servers}
 github|gh|extension exec github-mcp-server stdio"
-    fi
+  fi
+
+  if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "playwright"; then
     servers="${servers}
 playwright|npx|-y @playwright/mcp --headless"
   fi

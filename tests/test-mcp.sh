@@ -56,21 +56,36 @@ else
 fi
 teardown_test_home
 
-# --- Test 2: Developer role adds Playwright + Magic UI (+ GitHub if gh CLI present) ---
-begin_test "mcp: developer role adds playwright and magic-ui (light profile)"
+# --- Test 2: Developer role adds Magic UI by default; playwright/github are opt-in ---
+begin_test "mcp: developer role adds magic-ui only (playwright/github opt-in via SUPERCHARGER_MCP_EXTRAS)"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
+unset SUPERCHARGER_MCP_EXTRAS
 merge_mcp_into_settings "developer" "light"
+MU=$(has_mcp_server "magic-ui")
+PW=$(has_mcp_server "playwright")
+GH=$(has_mcp_server "github")
+TOTAL=$(count_tagged_mcp)
+if [ "$MU" = "yes" ] && [ "$PW" = "no" ] && [ "$GH" = "no" ] && [ "$TOTAL" -eq 2 ]; then
+  pass
+else
+  fail "expected mu=yes pw=no gh=no total=2, got mu=$MU pw=$PW gh=$GH total=$TOTAL"
+fi
+teardown_test_home
+
+begin_test "mcp: developer with SUPERCHARGER_MCP_EXTRAS=playwright,github adds them (when gh present)"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"
+SUPERCHARGER_MCP_EXTRAS="playwright,github" merge_mcp_into_settings "developer" "light"
 PW=$(has_mcp_server "playwright")
 MU=$(has_mcp_server "magic-ui")
 TOTAL=$(count_tagged_mcp)
-HAS_GH="no"
-command -v gh &>/dev/null && HAS_GH="yes"
+HAS_GH="no"; command -v gh &>/dev/null && HAS_GH="yes"
 if [ "$HAS_GH" = "yes" ]; then EXPECTED=4; else EXPECTED=3; fi
 if [ "$PW" = "yes" ] && [ "$MU" = "yes" ] && [ "$TOTAL" -eq "$EXPECTED" ]; then
   pass
 else
-  fail "expected pw=yes mu=yes total=$EXPECTED (gh=$HAS_GH), got total=$TOTAL"
+  fail "expected pw=yes mu=yes total=$EXPECTED (gh=$HAS_GH), got pw=$PW mu=$MU total=$TOTAL"
 fi
 teardown_test_home
 
@@ -92,15 +107,14 @@ teardown_test_home
 begin_test "mcp: developer+pm same server count as developer alone"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
+unset SUPERCHARGER_MCP_EXTRAS
 merge_mcp_into_settings "developer,pm" "light"
 TOTAL=$(count_tagged_mcp)
-HAS_GH="no"
-command -v gh &>/dev/null && HAS_GH="yes"
-if [ "$HAS_GH" = "yes" ]; then EXPECTED=4; else EXPECTED=3; fi
-if [ "$TOTAL" -eq "$EXPECTED" ]; then
+# default developer (no extras) = context7 + magic-ui = 2
+if [ "$TOTAL" -eq 2 ]; then
   pass
 else
-  fail "expected total=$EXPECTED, got total=$TOTAL (gh=$HAS_GH)"
+  fail "expected total=2, got total=$TOTAL"
 fi
 teardown_test_home
 
