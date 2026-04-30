@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.3.50] - 2026-04-30 — feat: stack-derived standards auto-injection. New `hooks/standards-inject.sh` (SessionStart) detects project stack via `lib/detect_stack.py` and injects matching rules from `rules/stacks/{react,nextjs,python,go}.md` (Forbidden patterns, Toolchain, Pitfalls). Tier-scaled output: minimal=stack tag (~15 tokens), lean=Forbidden+Toolchain (~150), standard=full (~400). User override via `~/.claude/rules/stacks/<name>.md`. Disable with `SUPERCHARGER_STANDARDS=0`. 10 new tests, 735 passing.
 - [2.3.49] - 2026-04-29 — fix: install.sh MCP profile prompt was misleading after v2.3.47 — "Dev" claimed to include playwright/github/Magic UI but actually only Magic UI is auto-included now. Updated text and token estimates; added post-install hint for `SUPERCHARGER_MCP_EXTRAS`.
 - [2.3.48] - 2026-04-29 — feat: `SUPERCHARGER_MCP_EXTRAS` now also accepts `sequential-thinking` and `memory` (role-agnostic). Previously these were only available by switching to the `research` or `full` profile (which loaded both at once). Opt-in flag is more granular: `SUPERCHARGER_MCP_EXTRAS="sequential-thinking"` to enable just one.
 - [2.3.47] - 2026-04-29 — perf: developer role MCP defaults trimmed to context7 + magic-ui (~750 tokens). Playwright (~3300 tokens) and GitHub (~1500 tokens) are now opt-in via `SUPERCHARGER_MCP_EXTRAS=playwright,github`. Most users get an 86% MCP token reduction. Existing users keep their current config; only fresh installs and `mcp-profile.sh` invocations are affected.
