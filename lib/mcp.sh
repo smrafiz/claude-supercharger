@@ -24,8 +24,8 @@ get_role_servers() {
   local servers=""
 
   # Heavy/specialty MCPs are opt-in via SUPERCHARGER_MCP_EXTRAS env var.
-  # Examples: SUPERCHARGER_MCP_EXTRAS="playwright,github"
-  # Default developer role is lean — most users don't need playwright/github.
+  # Examples: SUPERCHARGER_MCP_EXTRAS="playwright,github,sequential-thinking,memory"
+  # Default install is lean — these are loaded only when explicitly requested.
   local extras="${SUPERCHARGER_MCP_EXTRAS:-}"
 
   if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "github" && command -v gh &>/dev/null; then
@@ -36,6 +36,17 @@ github|gh|extension exec github-mcp-server stdio"
   if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "playwright"; then
     servers="${servers}
 playwright|npx|-y @playwright/mcp --headless"
+  fi
+
+  # Reasoning extras — role-agnostic
+  if echo "$extras" | grep -qE "\bsequential-thinking\b|\bsequential\b"; then
+    servers="${servers}
+sequential-thinking|npx|-y @modelcontextprotocol/server-sequential-thinking"
+  fi
+
+  if echo "$extras" | grep -q "\bmemory\b"; then
+    servers="${servers}
+memory|npx|-y @modelcontextprotocol/server-memory"
   fi
 
   if echo "$roles" | grep -qE "(developer|designer)"; then

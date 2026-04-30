@@ -73,6 +73,22 @@ else
 fi
 teardown_test_home
 
+begin_test "mcp: SUPERCHARGER_MCP_EXTRAS=sequential-thinking adds it role-agnostic"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"
+SUPERCHARGER_MCP_EXTRAS="sequential-thinking" merge_mcp_into_settings "developer" "light"
+SEQ=$(has_mcp_server "sequential-thinking")
+[ "$SEQ" = "yes" ] && pass || fail "sequential-thinking not added with extras flag"
+teardown_test_home
+
+begin_test "mcp: SUPERCHARGER_MCP_EXTRAS=memory adds it role-agnostic"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"
+SUPERCHARGER_MCP_EXTRAS="memory" merge_mcp_into_settings "writer" "light"
+MEM=$(has_mcp_server "memory")
+[ "$MEM" = "yes" ] && pass || fail "memory not added with extras flag for writer role"
+teardown_test_home
+
 begin_test "mcp: developer with SUPERCHARGER_MCP_EXTRAS=playwright,github adds them (when gh present)"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
