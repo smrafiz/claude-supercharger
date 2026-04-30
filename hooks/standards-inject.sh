@@ -21,4 +21,103 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "standards-inject" && exit 0
 hook_profile_skip "standards-inject" && exit 0
 
+MSG=$(PROJECT_DIR="$PROJECT_DIR" LIB_DIR="$LIB_DIR" RULES_DIR="$RULES_DIR" python3 -c "
+import os, sys
+sys.path.insert(0, os.environ['LIB_DIR'])
+from detect_stack import detect_stack
+
+TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
+proj = os.environ['PROJECT_DIR']
+rules_dir = os.environ['RULES_DIR']
+home = os.path.expanduser('~')
+
+s = detect_stack(proj)
+if not s['detected']:
+    sys.exit(0)
+
+matched = []
+fw = [f.lower() for f in s.get('framework', [])]
+langs = [l.lower() for l in s.get('language', [])]
+
+for name in fw:
+    n = name.lower()
+    if 'next' in n and 'nextjs' not in matched:
+        matched.append('nextjs')
+    if 'react' in n and 'react' not in matched:
+        matched.append('react')
+for lang in langs:
+    if lang in ('python', 'go') and lang not in matched:
+        matched.append(lang)
+
+if not matched:
+    sys.exit(0)
+
+if TIER == 'minimal':
+    print('[stack: ' + '+'.join(matched) + ']')
+    sys.exit(0)
+
+def resolve_stack_file(name):
+    user = os.path.join(home, '.claude', 'rules', 'stacks', name + '.md')
+    if os.path.isfile(user):
+        return user
+    bundled = os.path.join(rules_dir, 'stacks', name + '.md')
+    if os.path.isfile(bundled):
+        return bundled
+    return None
+
+def parse_sections(text):
+    body = text
+    if body.startswith('---'):
+        end = body.find('---', 3)
+        if end != -1:
+            body = body[end+3:].lstrip()
+    sections = {}
+    current = None
+    buf = []
+    for line in body.splitlines():
+        if line.startswith('## '):
+            if current:
+                sections[current] = '\n'.join(buf).rstrip()
+            current = line[3:].strip()
+            buf = [line]
+        else:
+            buf.append(line)
+    if current:
+        sections[current] = '\n'.join(buf).rstrip()
+    return sections
+
+allowed = {'lean': ('Forbidden', 'Toolchain')}
+keep = allowed.get(TIER)
+
+out_blocks = []
+for name in matched:
+    p = resolve_stack_file(name)
+    if not p:
+        continue
+    with open(p) as f:
+        text = f.read()
+    if keep is None:
+        body = text
+        if body.startswith('---'):
+            end = body.find('---', 3)
+            if end != -1:
+                body = body[end+3:].lstrip()
+        out_blocks.append('# ' + name + '\n' + body.rstrip())
+    else:
+        secs = parse_sections(text)
+        kept = [secs[k] for k in keep if k in secs]
+        if kept:
+            out_blocks.append('# ' + name + '\n' + '\n\n'.join(kept))
+
+if out_blocks:
+    print('\n\n'.join(out_blocks))
+" 2>/dev/null)
+
+[ -z "$MSG" ] && exit 0
+
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+hook_already_emitted "standards-inject" "$SESSION_ID" "$MSG" && exit 0
+
+MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 exit 0
