@@ -73,6 +73,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `skill-poisoning-scanner` | PreToolUse | Skill | Scans skill content for hidden shell commands, encoded payloads, |
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
 | `smart-approve` | PermissionRequest | # Event: PermissionRequest | Auto-approves known-safe tool calls to reduce user prompts. |
+| `standards-inject` | SessionStart | (none) | Detects project stack via lib/detect_stack.py and injects matching standards |
 | `statusline` | — | — | Registered via: settings.json → statusLine → { type: "command", command: "..." } |
 | `stop-failure` | StopFailure | (none) | Logs API errors (rate limits, auth failures) to errors.log for diagnosis. |
 | `stop-keep-going` | Stop | (none) | Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going |
