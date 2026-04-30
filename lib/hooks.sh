@@ -29,6 +29,7 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
+  hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
   hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──
