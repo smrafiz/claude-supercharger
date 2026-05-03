@@ -48,7 +48,7 @@ fi
 if [ -f "$LOG_FILE" ]; then
   LINES=$(wc -l < "$LOG_FILE" | tr -d ' ')
   if [ "$LINES" -gt 500 ]; then
-    tail -400 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+    tail -400 "$LOG_FILE" > "$LOG_FILE.$$.tmp" && mv "$LOG_FILE.$$.tmp" "$LOG_FILE"
   fi
 fi
 

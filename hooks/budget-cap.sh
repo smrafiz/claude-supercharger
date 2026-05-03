@@ -17,7 +17,7 @@ SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
 COST_FILE="$SCOPE_DIR/.session-cost"
-COST_TMP="$SCOPE_DIR/.session-cost.tmp"
+COST_TMP="$SCOPE_DIR/.session-cost.$$.tmp"
 
 # ── accumulate (PostToolUse) ───────────────────────────────────────────────────
 if [[ "$MODE" == "accumulate" ]]; then

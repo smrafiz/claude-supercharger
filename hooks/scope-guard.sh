@@ -40,7 +40,7 @@ if [[ "$MODE" == "snapshot" ]]; then
         fi
       done
     fi
-  } > "$SNAPSHOT_FILE"
+  } > "$SNAPSHOT_FILE.$$.tmp" && mv "$SNAPSHOT_FILE.$$.tmp" "$SNAPSHOT_FILE"
   exit 0
 fi
 

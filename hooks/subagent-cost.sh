@@ -162,21 +162,21 @@ else:
 
   # Append to JSONL log
   JSONL_FILE="$SCOPE_DIR/.subagent-costs-${SESSION_ID}.jsonl"
-  JSONL_ENTRY=$(python3 -c "
-import json
+  JSONL_ENTRY=$(AGENT_ID="$AGENT_ID" AGENT_NAME="$AGENT_NAME" SESSION_ID="$SESSION_ID" STARTED_AT="$STARTED_AT" NOW="$NOW" DURATION_S="$DURATION_S" USAGE_INPUT="$USAGE_INPUT" USAGE_CACHE_WRITE="$USAGE_CACHE_WRITE" USAGE_CACHE_READ="$USAGE_CACHE_READ" USAGE_OUTPUT="$USAGE_OUTPUT" TOTAL_TOKENS="$TOTAL_TOKENS" TURN_COST="$TURN_COST" python3 -c "
+import json, os
 entry = {
-    'agent_id': '$AGENT_ID',
-    'agent_name': '$AGENT_NAME',
-    'session_id': '$SESSION_ID',
-    'started_at': '$STARTED_AT',
-    'stopped_at': '$NOW',
-    'duration_s': $DURATION_S,
-    'input_tokens': $USAGE_INPUT,
-    'cache_write_tokens': $USAGE_CACHE_WRITE,
-    'cache_read_tokens': $USAGE_CACHE_READ,
-    'output_tokens': $USAGE_OUTPUT,
-    'total_tokens': $TOTAL_TOKENS,
-    'cost_usd': float('$TURN_COST')
+    'agent_id': os.environ.get('AGENT_ID', ''),
+    'agent_name': os.environ.get('AGENT_NAME', ''),
+    'session_id': os.environ.get('SESSION_ID', ''),
+    'started_at': os.environ.get('STARTED_AT', ''),
+    'stopped_at': os.environ.get('NOW', ''),
+    'duration_s': float(os.environ.get('DURATION_S') or 0),
+    'input_tokens': int(os.environ.get('USAGE_INPUT') or 0),
+    'cache_write_tokens': int(os.environ.get('USAGE_CACHE_WRITE') or 0),
+    'cache_read_tokens': int(os.environ.get('USAGE_CACHE_READ') or 0),
+    'output_tokens': int(os.environ.get('USAGE_OUTPUT') or 0),
+    'total_tokens': int(os.environ.get('TOTAL_TOKENS') or 0),
+    'cost_usd': float(os.environ.get('TURN_COST') or 0),
 }
 print(json.dumps(entry))
 " 2>/dev/null || echo "{}")
@@ -184,7 +184,7 @@ print(json.dumps(entry))
 
   # Update .session-cost atomically
   COST_FILE="$SCOPE_DIR/.session-cost"
-  COST_TMP="$SCOPE_DIR/.session-cost.tmp"
+  COST_TMP="$SCOPE_DIR/.session-cost.$$.tmp"
   COST_INPUT="$COST_FILE" TURN_COST="$TURN_COST" NOW="$NOW" python3 << 'PYEOF' > "$COST_TMP"
 import json, os
 

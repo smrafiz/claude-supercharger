@@ -37,7 +37,7 @@ rotate_log() {
   [ -z "$cutoff" ] && return
   # Keep only entries dated after cutoff (format: [YYYY-MM-DD ...])
   if grep -q "^\[" "$file" 2>/dev/null; then
-    awk -v cutoff="$cutoff" '/^\[/{d=substr($0,2,10); if(d>=cutoff) print; next} {print}' "$file" > "$file.tmp" 2>/dev/null && mv "$file.tmp" "$file" 2>/dev/null || true
+    awk -v cutoff="$cutoff" '/^\[/{d=substr($0,2,10); if(d>=cutoff) print; next} {print}' "$file" > "$file.$$.tmp" 2>/dev/null && mv "$file.$$.tmp" "$file" 2>/dev/null || true
   fi
 }
 
@@ -50,7 +50,7 @@ rotate_log "$FAILURES_LOG"
 dedup_log() {
   local file="$1"
   [ ! -f "$file" ] || [ ! -s "$file" ] && return
-  awk '!seen[$0]++' "$file" > "$file.tmp" 2>/dev/null && mv "$file.tmp" "$file" 2>/dev/null || true
+  awk '!seen[$0]++' "$file" > "$file.$$.tmp" 2>/dev/null && mv "$file.$$.tmp" "$file" 2>/dev/null || true
 }
 
 dedup_log "$BLOCKS_LOG"

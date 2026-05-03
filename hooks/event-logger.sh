@@ -59,7 +59,7 @@ printf '%s %s %s\n' "$TIMESTAMP" "$EVENT_TYPE" "$DETAIL" >> "$LOG_FILE"
 # Rotate: keep last 500 lines
 LINES=$(wc -l < "$LOG_FILE" 2>/dev/null | tr -d ' ' || echo 0)
 if [ "$LINES" -gt 500 ]; then
-  tail -400 "$LOG_FILE" > "$LOG_FILE.tmp" && mv "$LOG_FILE.tmp" "$LOG_FILE"
+  tail -400 "$LOG_FILE" > "$LOG_FILE.$$.tmp" && mv "$LOG_FILE.$$.tmp" "$LOG_FILE"
 fi
 
 exit 0

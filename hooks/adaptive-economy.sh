@@ -101,7 +101,7 @@ if [ -n "$NEW_TIER" ]; then
   echo "$ENTRY" >> "$HISTORY_FILE"
   # Trim to last 20 lines
   if [ "$(wc -l < "$HISTORY_FILE")" -gt 20 ]; then
-    tail -20 "$HISTORY_FILE" > "${HISTORY_FILE}.tmp" && mv "${HISTORY_FILE}.tmp" "$HISTORY_FILE"
+    tail -20 "$HISTORY_FILE" > "${HISTORY_FILE}.$$.tmp" && mv "${HISTORY_FILE}.$$.tmp" "$HISTORY_FILE"
   fi
 fi
 
