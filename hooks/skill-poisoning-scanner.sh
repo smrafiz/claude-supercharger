@@ -94,7 +94,7 @@ if [ -n "$FINDINGS" ]; then
     # Block critical findings
     REASON="Skill '$SKILL_NAME' contains suspicious patterns:\n$(printf '%b' "$FINDINGS")\nReview the skill source before allowing execution."
     REASON_JSON=$(printf '%b' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-    printf '{"decision":"block","reason":%s}\n' "$REASON_JSON"
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$REASON_JSON"
     echo "[Supercharger] skill-poisoning-scanner: BLOCKED skill '$SKILL_NAME' — ${CRITICAL_COUNT} critical finding(s)" >&2
     exit 2
   else
