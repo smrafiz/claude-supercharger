@@ -12,6 +12,46 @@ export SUPERCHARGER_TIER=standard
 begin_test "standards-inject: hook file exists and is executable"
 [ -x "$HOOK" ] && pass || fail "hook missing or not executable"
 
+begin_test "standards-inject: detects vue project"
+setup_test_home
+PROJ=$(mktemp -d)
+echo '{"dependencies":{"vue":"3.4.0"}}' > "$PROJ/package.json"
+OUT=$(SUPERCHARGER_TIER=lean printf '{"cwd":"%s"}' "$PROJ" | SUPERCHARGER_TIER=lean bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qi 'vue' && pass || fail "vue not matched: $OUT"
+rm -rf "$PROJ"
+teardown_test_home
+
+begin_test "standards-inject: detects svelte project"
+setup_test_home
+PROJ=$(mktemp -d)
+echo '{"dependencies":{"svelte":"4.0.0"}}' > "$PROJ/package.json"
+OUT=$(SUPERCHARGER_TIER=lean printf '{"cwd":"%s"}' "$PROJ" | SUPERCHARGER_TIER=lean bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qi 'svelte' && pass || fail "svelte not matched: $OUT"
+rm -rf "$PROJ"
+teardown_test_home
+
+begin_test "standards-inject: detects rust project"
+setup_test_home
+PROJ=$(mktemp -d)
+cat > "$PROJ/Cargo.toml" <<'EOF'
+[package]
+name = "x"
+version = "0.1.0"
+EOF
+OUT=$(SUPERCHARGER_TIER=lean printf '{"cwd":"%s"}' "$PROJ" | SUPERCHARGER_TIER=lean bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qi 'rust' && pass || fail "rust not matched: $OUT"
+rm -rf "$PROJ"
+teardown_test_home
+
+begin_test "standards-inject: detects php project"
+setup_test_home
+PROJ=$(mktemp -d)
+echo '{}' > "$PROJ/composer.json"
+OUT=$(SUPERCHARGER_TIER=lean printf '{"cwd":"%s"}' "$PROJ" | SUPERCHARGER_TIER=lean bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qi 'php' && pass || fail "php not matched: $OUT"
+rm -rf "$PROJ"
+teardown_test_home
+
 begin_test "standards-inject: minimal tier emits stack tag"
 setup_test_home
 PROJ=$(mktemp -d)

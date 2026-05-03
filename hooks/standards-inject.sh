@@ -45,8 +45,12 @@ for name in fw:
         matched.append('nextjs')
     if 'react' in n and 'react' not in matched:
         matched.append('react')
+    if 'svelte' in n and 'svelte' not in matched:
+        matched.append('svelte')
+    if n == 'vue' and 'vue' not in matched:
+        matched.append('vue')
 for lang in langs:
-    if lang in ('python', 'go') and lang not in matched:
+    if lang in ('python', 'go', 'rust', 'php') and lang not in matched:
         matched.append(lang)
 
 if not matched:
