@@ -46,6 +46,8 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | # Event: SessionStart | Injects accumulated learnings: blocked commands, user corrections, |
 | `learn-from-prompts` | UserPromptSubmit | # Event: UserPromptSubmit | Detects correction AND reinforcement patterns in user prompts. |
+| `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
+| `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
 | `notify-permission` | PermissionRequest | # Event: PermissionRequest | Only fires for tools not auto-approved by smart-approve. |
