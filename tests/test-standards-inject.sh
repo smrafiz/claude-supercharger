@@ -106,9 +106,4 @@ OUT=$(printf '{"cwd":"%s"}' "$PROJ" | bash "$HOOK" 2>/dev/null)
 rm -rf "$PROJ"
 teardown_test_home
 
-# Final summary
-echo ""
-echo "=== Summary ==="
-echo "Passed: $TESTS_PASSED"
-echo "Failed: $TESTS_FAILED"
-[ $TESTS_FAILED -eq 0 ]
+report
