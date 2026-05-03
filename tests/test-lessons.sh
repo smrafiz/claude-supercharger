@@ -193,9 +193,4 @@ COUNT=$(wc -l < "$LESSONS_FILE" | tr -d ' ')
 rm -rf "$PROJ"
 teardown_test_home
 
-# Final summary
-echo ""
-echo "=== Summary ==="
-echo "Passed: $TESTS_PASSED"
-echo "Failed: $TESTS_FAILED"
-[ $TESTS_FAILED -eq 0 ]
+report
