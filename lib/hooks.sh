@@ -30,6 +30,8 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
+  hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
+  hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──
