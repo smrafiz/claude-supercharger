@@ -57,6 +57,8 @@ if [ -n "$FINGERPRINT" ]; then
       SHORT=$(printf '%.60s' "$FINGERPRINT" | sed 's/["\]//g')
       MESSAGES+=("[LOOP] '${SHORT}' repeated ${COUNT}x — try different approach")
       echo "[Supercharger] repetition-detector: loop '${SHORT}' repeated ${COUNT}x" >&2
+      SESSION_ID_REP=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+      touch "$SCOPE_DIR/.repetition-flag-${SESSION_ID_REP}" 2>/dev/null || true
     fi
   fi
 fi
