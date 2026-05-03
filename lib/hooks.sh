@@ -32,6 +32,8 @@ get_hooks_for_mode() {
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
+  hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")
+  hooks+=("PreToolUse|Edit,Write,Bash|${hooks_dir}/confidence-gate.sh|")
   hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──

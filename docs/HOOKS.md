@@ -27,6 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `comment-replacement-check` | PostToolUse | Edit, MultiEdit | Detects when Claude replaces working code with comments. Advisory — injects |
 | `commit-check` | PreToolUse | Bash | Validates commit messages follow conventional commit format. |
 | `compaction-backup` | PreCompact | (none) | Saves conversation transcript before context compaction. |
+| `confidence-gate` | PreToolUse | Edit,Write,Bash | Computes confidence score from recent tool history + signal flags; |
 | `config-scan` | SessionStart | (none) | Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns. |
 | `context-advisor` | UserPromptSubmit | (none) | Injects context warnings and economy suggestions based on context window usage. |
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
@@ -86,6 +87,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `thinking-budget` | UserPromptSubmit | (none) | Classifies prompt complexity and nudges Claude's reasoning depth. |
 | `tool-call-limiter` | PreToolUse | (none) | Counts tool calls per session. Warns at 80%, blocks at cap. |
 | `tool-failure-advisor` | PostToolUseFailure | (none) | Injects failure context + tool-specific hints back to Claude when any tool errors. |
+| `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history. |
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
