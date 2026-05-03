@@ -17,7 +17,7 @@ TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.md"
 
 _INPUT=$(cat)
-echo "$_INPUT" > "$BACKUP_FILE"
+printf '%s\n' "$_INPUT" > "$BACKUP_FILE"
 chmod 600 "$BACKUP_FILE"
 
 echo "[Supercharger] compaction-backup: transcript backed up to $BACKUP_FILE" >&2
