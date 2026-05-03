@@ -29,7 +29,9 @@ case "$TOOL_NAME" in
 import os, re
 cmd = os.environ.get('BASH_CMD', '')
 patterns = [
-    r'\brm\s+(-[a-zA-Z]*r[a-zA-Z]*\s|--recursive\s)',
+    r'(?:^|[\s;&|\`])(?:/[a-z/]*?)?rm\s+-[a-zA-Z]*r[a-zA-Z]*[\s/]',
+    r'(?:^|[\s;&|\`])rm\s+-[a-zA-Z]*r[a-zA-Z]*\s*--\s',
+    r'\brm\s+--recursive\b',
     r'\bgit\s+push\s+.*--force\b',
     r'\bgit\s+reset\s+--hard\b',
     r'\bgit\s+clean\s+-[a-zA-Z]*f',
@@ -50,7 +52,8 @@ print('0')
   *) exit 0 ;;
 esac
 
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
 TIER="${SUPERCHARGER_TIER:-standard}"
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 HISTORY="$SCOPE_DIR/.tool-history"
@@ -78,7 +81,7 @@ if [ -f "$HISTORY" ]; then
   FAILURES_LAST_5=$(grep -F "\"session_id\": \"$SESSION_ID\"" "$HISTORY" 2>/dev/null | tail -5 | grep -c '"success": false' || echo 0)
 fi
 
-SCORE_RAW=$(FAILURES="$FAILURES_LAST_5" RBW="$READ_BEFORE_WRITE_VIOLATION" REP="$REPETITION_FLAGGED" python3 -c "
+EVAL=$(FAILURES="$FAILURES_LAST_5" RBW="$READ_BEFORE_WRITE_VIOLATION" REP="$REPETITION_FLAGGED" python3 -c "
 import os
 fail = int(os.environ.get('FAILURES', 0))
 rbw = int(os.environ.get('RBW', 0))
@@ -86,8 +89,12 @@ rep = int(os.environ.get('REP', 0))
 score = 1.0 - (0.20 * fail) - (0.30 * rbw) - (0.20 * rep)
 if score < 0.0: score = 0.0
 if score > 1.0: score = 1.0
-print(f'{score:.2f}')
+print(f'{score:.2f}|{1 if score >= 0.7 else 0}|{1 if score >= 0.4 else 0}')
 ")
+SCORE_RAW="${EVAL%%|*}"
+REST="${EVAL#*|}"
+ABOVE_07="${REST%%|*}"
+ABOVE_04="${REST#*|}"
 
 REASON_PARTS=()
 [ "$FAILURES_LAST_5" -gt 0 ] && REASON_PARTS+=("$FAILURES_LAST_5 recent failures")
@@ -98,9 +105,6 @@ REASON_STR=""
 if [ "${#REASON_PARTS[@]}" -gt 0 ]; then
   REASON_STR=$(IFS=', '; echo "${REASON_PARTS[*]}")
 fi
-
-ABOVE_07=$(SCORE="$SCORE_RAW" python3 -c "import os; print(1 if float(os.environ['SCORE']) >= 0.7 else 0)")
-ABOVE_04=$(SCORE="$SCORE_RAW" python3 -c "import os; print(1 if float(os.environ['SCORE']) >= 0.4 else 0)")
 
 if [ "$ABOVE_07" = "1" ]; then
   exit 0

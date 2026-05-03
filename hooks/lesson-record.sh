@@ -96,8 +96,8 @@ mkdir -p "$LESSONS_DIR"
 if [ -f "$LESSONS_FILE" ]; then
   COUNT=$(wc -l < "$LESSONS_FILE" | tr -d ' ')
   if [ "$COUNT" -ge 1000 ]; then
-    tail -n 999 "$LESSONS_FILE" > "$LESSONS_FILE.tmp"
-    mv "$LESSONS_FILE.tmp" "$LESSONS_FILE"
+    tail -n 999 "$LESSONS_FILE" > "$LESSONS_FILE.$$.tmp"
+    mv "$LESSONS_FILE.$$.tmp" "$LESSONS_FILE"
   fi
 fi
 

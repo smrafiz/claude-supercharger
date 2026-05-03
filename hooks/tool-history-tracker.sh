@@ -43,7 +43,7 @@ printf '%s\n' "$ENTRY" >> "$HISTORY"
 if [ -f "$HISTORY" ]; then
   COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
   if [ "$COUNT" -gt 20 ]; then
-    tail -n 20 "$HISTORY" > "$HISTORY.tmp" && mv "$HISTORY.tmp" "$HISTORY"
+    tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
   fi
 fi
 

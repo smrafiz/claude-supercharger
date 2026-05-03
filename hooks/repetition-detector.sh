@@ -49,7 +49,7 @@ if [ -n "$FINGERPRINT" ]; then
     if [ -f "$LOOP_FILE" ]; then
       LINES=$(wc -l < "$LOOP_FILE" | tr -d ' ')
       if [ "$LINES" -gt 50 ]; then
-        tail -30 "$LOOP_FILE" > "$LOOP_FILE.tmp" 2>/dev/null && mv "$LOOP_FILE.tmp" "$LOOP_FILE" 2>/dev/null || true
+        tail -30 "$LOOP_FILE" > "$LOOP_FILE.$$.tmp" 2>/dev/null && mv "$LOOP_FILE.$$.tmp" "$LOOP_FILE" 2>/dev/null || true
       fi
     fi
 
@@ -57,7 +57,8 @@ if [ -n "$FINGERPRINT" ]; then
       SHORT=$(printf '%.60s' "$FINGERPRINT" | sed 's/["\]//g')
       MESSAGES+=("[LOOP] '${SHORT}' repeated ${COUNT}x — try different approach")
       echo "[Supercharger] repetition-detector: loop '${SHORT}' repeated ${COUNT}x" >&2
-      SESSION_ID_REP=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+      SESSION_ID_REP=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+      [ -z "$SESSION_ID_REP" ] && SESSION_ID_REP="default"
       touch "$SCOPE_DIR/.repetition-flag-${SESSION_ID_REP}" 2>/dev/null || true
     fi
   fi
@@ -88,7 +89,7 @@ if [ "$TOOL_NAME" = "Read" ]; then
     if [ -f "$READS_FILE" ]; then
       LINES=$(wc -l < "$READS_FILE" | tr -d ' ')
       if [ "$LINES" -gt 100 ]; then
-        tail -60 "$READS_FILE" > "$READS_FILE.tmp" 2>/dev/null && mv "$READS_FILE.tmp" "$READS_FILE" 2>/dev/null || true
+        tail -60 "$READS_FILE" > "$READS_FILE.$$.tmp" 2>/dev/null && mv "$READS_FILE.$$.tmp" "$READS_FILE" 2>/dev/null || true
       fi
     fi
   fi
