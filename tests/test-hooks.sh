@@ -1311,17 +1311,27 @@ OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
 rm -f "$SCOPE_DIR_ER/.economy-tier"
 [ -z "$OUT" ] && pass || fail "expected silent exit for standard tier, got: $OUT"
 
-begin_test "economy-reinforce: lean tier injects rules on 3rd prompt"
+begin_test "economy-reinforce: lean tier injects rules after compaction flag"
 SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_ER"
 echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
 SESSION="er2_$$"
-COUNTER_FILE="$SCOPE_DIR_ER/.eco-reinforce-counter"
-echo "2" > "$COUNTER_FILE"
+touch "$SCOPE_DIR_ER/.memory-restored"
+rm -f "$SCOPE_DIR_ER/.eco-reinforce-acked"
 INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'${SESSION}','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
-rm -f "$SCOPE_DIR_ER/.economy-tier" "$COUNTER_FILE"
-[ -n "$OUT" ] && pass || fail "expected economy reinforce injection on 3rd prompt, got empty"
+rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored" "$SCOPE_DIR_ER/.eco-reinforce-acked"
+[ -n "$OUT" ] && pass || fail "expected economy reinforce injection after compaction, got empty"
+
+begin_test "economy-reinforce: lean tier silent without compaction flag"
+SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR_ER"
+echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
+rm -f "$SCOPE_DIR_ER/.memory-restored" "$SCOPE_DIR_ER/.eco-reinforce-acked"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'er3','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+rm -f "$SCOPE_DIR_ER/.economy-tier"
+[ -z "$OUT" ] && pass || fail "expected silent without compaction, got: $OUT"
 
 echo ""
 echo "=== Rate Limit Advisor Tests ==="

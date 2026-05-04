@@ -172,6 +172,26 @@ fi
 # ── clear ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "clear" ]]; then
   rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" "$SCOPE_DIR/.session-tokens"
+  _INPUT=$(cat 2>/dev/null || echo "")
+  SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+  if [ -n "$SID" ]; then
+    rm -f "$SCOPE_DIR/.agent-classified-$SID" \
+          "$SCOPE_DIR/.agent-dispatched-$SID" \
+          "$SCOPE_DIR/.last-category-$SID" \
+          "$SCOPE_DIR/.last-tier-$SID" \
+          "$SCOPE_DIR/.router-hash-$SID" \
+          "$SCOPE_DIR/.repetition-flag-$SID" \
+          "$SCOPE_DIR/.subagent-costs-$SID.jsonl" 2>/dev/null || true
+  fi
+  # Also TTL-prune any orphaned session files older than 7 days
+  find "$SCOPE_DIR" -maxdepth 1 -type f \( \
+       -name '.agent-classified-*' \
+    -o -name '.agent-dispatched-*' \
+    -o -name '.last-category-*' \
+    -o -name '.last-tier-*' \
+    -o -name '.router-hash-*' \
+    -o -name '.repetition-flag-*' \
+    -o -name '.subagent-costs-*.jsonl' \) -mtime +7 -delete 2>/dev/null || true
   exit 0
 fi
 

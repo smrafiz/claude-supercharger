@@ -35,17 +35,18 @@ fi
 # Standard tier is verbose by default — no reinforcement needed
 [ "$TIER" = "standard" ] && exit 0
 
-# Emit every 3rd prompt to balance drift prevention vs noise.
-# First prompt gets rules from SessionStart; this catches post-compaction drift.
-COUNTER_FILE="$SCOPE_DIR/.eco-reinforce-counter"
-COUNT=0
-if [ -f "$COUNTER_FILE" ]; then
-  COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo "0")
-  COUNT=${COUNT%%.*}
-fi
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$COUNTER_FILE"
-[ $((COUNT % 3)) -ne 0 ] && exit 0
+# Fire only after compaction (post-compact-inject writes .memory-restored).
+# First prompt gets tier rules from SessionStart; we only re-inject when
+# compaction may have dropped them. Track own ack flag so we fire at most
+# once per compaction event without consuming the shared statusline flag.
+RESTORED_FLAG="$SCOPE_DIR/.memory-restored"
+ECO_ACK_FLAG="$SCOPE_DIR/.eco-reinforce-acked"
+[ ! -f "$RESTORED_FLAG" ] && exit 0
+RESTORED_MTIME=$(stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || stat -c '%Y' "$RESTORED_FLAG" 2>/dev/null || echo 0)
+ACK_MTIME=0
+[ -f "$ECO_ACK_FLAG" ] && ACK_MTIME=$(stat -f '%m' "$ECO_ACK_FLAG" 2>/dev/null || stat -c '%Y' "$ECO_ACK_FLAG" 2>/dev/null || echo 0)
+[ "$RESTORED_MTIME" -le "$ACK_MTIME" ] && exit 0
+date +%s > "$ECO_ACK_FLAG" 2>/dev/null || true
 
 # Build tier-specific reinforcement message
 case "$TIER" in
