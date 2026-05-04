@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
 
-[![Version](https://img.shields.io/badge/version-2.3.60-blue)](https://github.com/smrafiz/claude-supercharger) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](https://github.com/smrafiz/claude-supercharger) [![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)](https://github.com/smrafiz/claude-supercharger)
+![Version](https://img.shields.io/badge/version-2.3.60-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -14,7 +14,7 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-30 seconds. Backs up your existing config. `./uninstall.sh` reverses everything.
+30 seconds. Backs up your config. `./uninstall.sh` reverses everything.
 
 ---
 
@@ -43,7 +43,7 @@ You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or ex
 ```
 
 |  | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
-|--|--|--|
+|---|---|---|
 | Claude sees the rules | Yes | No |
 | Can be argued with | Yes | Can't argue with exit code 2 |
 | Advisory or enforced | Advisory | Enforced |
@@ -105,7 +105,8 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 ---
 
-## Configure
+<details>
+<summary><strong>Configure</strong></summary>
 
 ### Project config
 
@@ -158,9 +159,25 @@ cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
 chmod +x .claude/verify.sh
 ```
 
----
+</details>
+<details>
+<summary><strong>Statusline indicators</strong></summary>
 
-## Slash commands
+
+```
+[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
+████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
+Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
+```
+
+- **Line 1** — model, project, git branch, detected stack, economy tier, active agent, active MCP profile, lines added/removed
+- **Line 2** — context bar, percentage, token counts (in/out), cache efficiency and tokens saved
+- **Line 3** — session cost, duration, rate-limit burn rate and weekly usage
+  Transient alerts on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Scan: Code`, `⚠ Scan: Injection`
+
+</details>
+<details>
+<summary><strong>Slash commands</strong></summary>
 
 | Command | Purpose |
 |--|--|
@@ -179,9 +196,9 @@ chmod +x .claude/verify.sh
 | `/perf [--slow]` | Hook timing report |
 | `/supercharger` | List all slash commands |
 
----
-
-## MCP profiles
+</details>
+<details>
+<summary><strong>MCP profiles</strong></summary>
 
 | Profile | Servers | Context cost |
 |--|--|--|
@@ -192,11 +209,13 @@ chmod +x .claude/verify.sh
 
 Supercharger tags its entries `#supercharger` and never touches your existing servers. Heavy servers are opt-in via `SUPERCHARGER_MCP_EXTRAS="playwright,github"`.
 
-Switch profiles: `bash tools/mcp-profile.sh [profile]`
+```bash
+bash tools/mcp-profile.sh [profile]
+```
 
----
-
-## Tools
+</details>
+<details>
+<summary><strong>Tools</strong></summary>
 
 All in `~/.claude/supercharger/tools/` after install:
 
@@ -213,7 +232,7 @@ All in `~/.claude/supercharger/tools/` after install:
 | `session-analytics.sh` | Daily cost rollup (`--days N`) |
 | `hook-perf.sh` | Hook timing analysis |
 
----
+</details>
 
 ## FAQ
 
@@ -241,7 +260,7 @@ Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 
 **Windows?**
 Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
-
+ 
 ---
 
 ## Going deeper
@@ -250,7 +269,6 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-
 ---
 
 ## Requirements
@@ -258,7 +276,6 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - Bash 3.2+ (macOS or Linux)
 - Python 3
-
 ---
 
 ## Credits
