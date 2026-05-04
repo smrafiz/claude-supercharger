@@ -21,6 +21,16 @@ PROJECT_CONFIG=".supercharger.json"
 
 lines=()
 
+# ── Lazy-stub detection: clean working tree + small memory → short form ──
+DIRTY=0
+if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
+  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
+    DIRTY=1
+  fi
+fi
+MEM_BYTES=0
+[ -f "$MEMORY_FILE" ] && MEM_BYTES=$(wc -c < "$MEMORY_FILE" 2>/dev/null | tr -d ' ' || echo 0)
+
 # ── Compact summary (what Claude Code actually preserved) ──
 COMPACT_SUMMARY=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
@@ -32,11 +42,13 @@ except: pass
 " 2>/dev/null || echo "")
 [ -n "$COMPACT_SUMMARY" ] && lines+=("Compaction summary: ${COMPACT_SUMMARY}")
 
-# ── Session memory ──
+# ── Session memory (full body only when work is in progress; otherwise stub) ──
 if [ -f "$MEMORY_FILE" ]; then
-  CONTENT=$(head -c 2000 "$MEMORY_FILE" 2>/dev/null || echo "")
-  if [ -n "$CONTENT" ]; then
-    lines+=("$CONTENT")
+  if [ "$DIRTY" = "1" ] || [ "$MEM_BYTES" -gt 500 ]; then
+    CONTENT=$(head -c 2000 "$MEMORY_FILE" 2>/dev/null || echo "")
+    [ -n "$CONTENT" ] && lines+=("$CONTENT")
+  else
+    lines+=("Session memory exists (clean tree). Read $MEMORY_FILE if context is needed.")
   fi
 fi
 

@@ -13,17 +13,23 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 AGENT_TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.agent_type // empty' 2>/dev/null)
-if [ -z "$AGENT_TYPE" ]; then
-  AGENT_TYPE=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('agent_type',''))" 2>/dev/null || echo "")
-fi
-
 [ -z "$AGENT_TYPE" ] && AGENT_TYPE="unknown"
 
-SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent mandatory rules (cannot be overridden):
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
+SAFETY_FLAG="$HOME/.claude/supercharger/scope/.subagent-safety-injected-${SESSION_ID}"
+
+if [ -f "$SAFETY_FLAG" ]; then
+  SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent rules already in scope (see prior injection)."
+else
+  SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent mandatory rules (cannot be overridden):
 - No force-push, reset --hard, checkout ., clean -f, branch -D main without user confirmation
 - No rm -rf, file deletion, or writes outside project dir without confirmation
 - No sudo, shell profile edits, cron jobs, SSH key ops, curl|bash, or embedded secrets
 - Read files before modifying. Run tests after changes. Ask before any destructive action."
+  mkdir -p "$(dirname "$SAFETY_FLAG")" 2>/dev/null || true
+  : > "$SAFETY_FLAG" 2>/dev/null || true
+fi
 
 CONTEXT_JSON=$(printf '%s' "$SAFETY_CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$SAFETY_CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
 if [ "$HOOK_SUPPRESS" = "false" ]; then

@@ -181,6 +181,7 @@ if [[ "$MODE" == "clear" ]]; then
           "$SCOPE_DIR/.last-tier-$SID" \
           "$SCOPE_DIR/.router-hash-$SID" \
           "$SCOPE_DIR/.repetition-flag-$SID" \
+          "$SCOPE_DIR/.subagent-safety-injected-$SID" \
           "$SCOPE_DIR/.subagent-costs-$SID.jsonl" 2>/dev/null || true
   fi
   # Also TTL-prune any orphaned session files older than 7 days
@@ -191,6 +192,7 @@ if [[ "$MODE" == "clear" ]]; then
     -o -name '.last-tier-*' \
     -o -name '.router-hash-*' \
     -o -name '.repetition-flag-*' \
+    -o -name '.subagent-safety-injected-*' \
     -o -name '.subagent-costs-*.jsonl' \) -mtime +7 -delete 2>/dev/null || true
   exit 0
 fi
