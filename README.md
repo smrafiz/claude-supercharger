@@ -1,8 +1,8 @@
 # Claude Supercharger
 
-Runtime safety and intelligence for Claude Code. Shell hooks Claude can't see, can't reason around, can't talk its way past.
+Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
 
-![Version](https://img.shields.io/badge/version-2.3.60-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)
+[![Version](https://img.shields.io/badge/version-2.3.60-blue)](https://github.com/smrafiz/claude-supercharger) [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE) [![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey)](https://github.com/smrafiz/claude-supercharger) [![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)](https://github.com/smrafiz/claude-supercharger)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -14,7 +14,17 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
-30 seconds. Backs up your config. `./uninstall.sh` reverses everything.
+30 seconds. Backs up your existing config. `./uninstall.sh` reverses everything.
+
+---
+
+## The problem
+
+Prompts are suggestions. Claude is good at finding reasons to ignore suggestions.
+
+Every Claude Code user has a version of the same story: you ask to fix a typo and Claude rewrites the component. You ask a quick question and get an essay. You come back to find files overwritten, commands run, work undone — with no warning.
+
+The fix isn't better prompts. It's moving enforcement somewhere Claude can't reach.
 
 ---
 
@@ -22,88 +32,84 @@ git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-superc
 
 Two layers with different guarantees.
 
-**Shell hooks run outside Claude's process, before commands execute.** Claude can't see them, can't reason about them, can't be prompted to skip them. Exit code 2 means the command doesn't run.
+**Shell hooks run outside Claude's process, before commands execute.** Claude can't see them, can't reason about them, can't be convinced to skip them. Exit code 2 means the command doesn't run. No negotiation.
 
-**Prompt rules in `CLAUDE.md` shape behavior** — economy tier, role, routing. Claude follows them reliably, but not unconditionally.
+**Prompt rules in `CLAUDE.md` shape behavior** — roles, economy tier, agent routing. Claude follows these reliably, but not unconditionally.
 
 ```
 You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or exit 2
                                     │
-                                    ▼
-                          Runs outside Claude's view
+                                    └── Runs outside Claude's view
 ```
 
 |  | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
-|---|---|---|
+|--|--|--|
 | Claude sees the rules | Yes | No |
-| Can negotiate | Yes | Can't argue with exit code 2 |
+| Can be argued with | Yes | Can't argue with exit code 2 |
 | Advisory or enforced | Advisory | Enforced |
 
-Use both. `/permissions` for wildcard approvals. Supercharger for hard blocks.
-
-**This is the difference** between supercharger and prompt-only frameworks. SuperClaude's confidence-check, agent-os standards, BMad modes — all are markdown files Claude reads and chooses to follow. Supercharger ships real shell hooks that run regardless.
+This is the line between Supercharger and prompt-only frameworks. SuperClaude, agent-os, BMad modes — all are markdown files Claude reads and chooses to follow. Supercharger ships real hooks that run regardless.
 
 ---
 
 ## What you get
 
-### Runtime enforcement (can't be bypassed)
+### Runtime enforcement — can't be bypassed
 
-- **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main
-- **Confidence gate** — gates Edit/Write/destructive-Bash on a real score (recent failures, read-before-write, repetition). At low confidence: warns or denies via PreToolUse permission decision
+- **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main, `git reset --hard`
+- **Confidence gate** — blocks Edit/Write/destructive Bash when confidence is low (recent failures, no prior read, repeated attempts). Warns or denies via PreToolUse hook
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
-- **Credential leak detection** — scans Bash/Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can repeat them
+- **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
-- **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass the prompt automatically
+- **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass confirmation automatically
 
 ### Cost control
 
-- **Session cost tracking** — every tool call rolls up. No surprises at the end
+- **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
 - **Budget cap** — set `"budget": 5.00` in `.supercharger.json`. Warns at 80%, blocks non-read tools at 100%
-- **Cost forecast** — `[COST] Est. ~$1.90` before subagents spawn
+- **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
 - **Rate-limit burn projection** — `~52m left at this pace`
-- **Cache health monitoring** — warns when cache hit rate drops below 50% (you're being silently re-billed)
+- **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing)
 
 ### Memory across sessions
 
-- **Reflexion memory** — at end-of-turn, scans for diagnostic markers (`the issue was`, `root cause`, `fixed by`) and appends a structured lesson record. On the next prompt, surfaces matching past lessons via Jaccard overlap. Per-project, no cross-pollination.
-- **Stack-derived standards** — detects React, Next.js, Vue, Svelte, Python, Go, Rust, PHP at session start and injects forbidden patterns + toolchain conventions + pitfalls. Tier-scaled (15–400 tokens).
-- **Session memory** — modified files, recent commits, economy tier, corrections injected at next session start
+- **Reflexion memory** — at end-of-turn, scans for diagnostic markers (`the issue was`, `root cause`, `fixed by`) and writes a structured lesson. On the next prompt, surfaces matching lessons by topic overlap. Per-project, no cross-pollination
+- **Stack-derived standards** — detects React, Next.js, Vue, Svelte, Python, Go, Rust, PHP at session start and injects forbidden patterns, toolchain conventions, and pitfalls
+- **Session memory** — modified files, recent commits, economy tier, corrections — injected at next session start
 - **Crash-resilient checkpoints** — state saved after every file modification
 
 ### Developer experience
 
 - **Statusline** — model, project, branch, stack, tier, agent, MCP profile, context bar, cache efficiency, cost, rate-limit burn — every line
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
-- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`
-- **9 agent types** — every prompt classified, Claude gets a routing hint
-- **Slash commands** — `/think`, `/challenge`, `/audit`, `/security`, `/stuck`, `/why`, `/scope`, `/estimate`, `/cleanup`, `/pr`, `/handoff`, `/devlog`, `/learn`, `/design`, `/multi-review`, `/reflect`, `/perf`, `/profile`, `/sc-status`, `/supercharger`
-- **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` in any prompt force extended reasoning (PreToolUse hook detects + injects directive)
-- **MCP profiles** — `light` (300 tokens), `dev` (1,200), `research` (1,500), `full` (3,500)
+- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`. Lean cuts response length ~45% with no information loss
+- **9 agent types** — every prompt classified automatically, Claude gets a routing hint without you picking
+- **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` in any prompt forces extended reasoning (hook detects and injects directive)
+- **20+ slash commands** — `/think`, `/challenge`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/devlog`, `/multi-review`, and more
 
 ---
 
 ## Install modes
 
 | Mode | Hooks | Use when |
-|---|---|---|
-| **Safe** | 16 | Non-negotiable security blocks only. Install and forget. |
-| **Full** | 78 | Everything. Cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+|--|--|--|
+| **Safe** | 16 | Security blocks only. Minimal footprint. |
+| **Full** | 78 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
-./install.sh --mode full --roles developer      # non-interactive
+./install.sh --mode full --roles developer      # non-interactive (CI/scripts)
 ```
 
-`uninstall.sh` reverses everything from a backup.
+`./uninstall.sh` restores your original config from backup.
 
 ---
 
 ## Configure
 
-### Project-level
+### Project config
 
-`.supercharger.json` in your repo root:
+Drop `.supercharger.json` in your repo root. Commit it so your whole team gets the same behavior:
 
 ```json
 {
@@ -115,12 +121,12 @@ Use both. `/permissions` for wildcard approvals. Supercharger for hard blocks.
 }
 ```
 
-### Performance profile
+### Performance profiles
 
 | Profile | Behavior |
-|---|---|
-| `standard` | All hooks active (default) |
-| `fast` | Skips 8 analytics hooks; keeps code-quality |
+|--|--|
+| `standard` | All 78 hooks active (default) |
+| `fast` | Skips 8 analytics hooks; keeps code quality and security |
 | `minimal` | Skips 11 hooks; security-only |
 
 Security hooks always run regardless of profile.
@@ -130,22 +136,18 @@ SUPERCHARGER_PROFILE=fast claude
 # or per-project: {"profile": "fast"}
 ```
 
-### Disable categories
-
-```json
-{"disableSecurityCategories": ["clipboard", "history"]}
-```
-
-Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`.
-
-### Disable individual features
+### Opt out of specific features
 
 | Feature | Env var |
-|---|---|
+|--|--|
 | Reflexion memory | `SUPERCHARGER_LESSONS=0` |
 | Stack standards | `SUPERCHARGER_STANDARDS=0` |
 | Confidence gate | `SUPERCHARGER_CONFIDENCE=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
+
+Disable security categories: `{"disableSecurityCategories": ["clipboard", "history"]}`
+
+Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`.
 
 ### Project verify hook
 
@@ -158,136 +160,96 @@ chmod +x .claude/verify.sh
 
 ---
 
-## Going deeper
-
-- **All 78 hooks documented:** [`docs/HOOKS.md`](./docs/HOOKS.md) — event, matcher, purpose
-- **Hook authoring guide:** [`docs/HOOK_AUTHORING.md`](./docs/HOOK_AUTHORING.md) — write your own
-- **Roadmap:** [`docs/ROADMAP.md`](./docs/ROADMAP.md)
-
-<details>
-<summary>Statusline indicators</summary>
-
-```
-[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
-████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
-Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
-```
-
-Line 1: model, project, git branch, detected stack, economy tier, active agent, active MCP, lines added/removed.
-Line 2: context bar, percentage, token counts, cache efficiency.
-Line 3: cost, duration, rate limit burn.
-
-Transient alerts on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Scan: Code`, `⚠ Scan: Injection`.
-</details>
-
-<details>
-<summary>Slash commands</summary>
+## Slash commands
 
 | Command | Purpose |
-|---|---|
+|--|--|
 | `/think [problem]` | Structured reasoning for ambiguous problems |
-| `/challenge [decision]` | Adversarial stress-test |
-| `/audit [scope]` | Consistency sweep across a codebase scope |
-| `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
+| `/challenge [decision]` | Adversarial stress-test — assumptions, failure modes, strongest alternative |
+| `/audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
 | `/security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/stuck [symptom]` | Breaks debug loops with fresh hypotheses |
-| `/scope [task]` | Pre-flight check — files to touch, risks |
+| `/scope [task]` | Pre-flight check — files to touch, risks, blast radius |
 | `/pr [description]` | Prepare and create a pull request |
-| `/interview [topic]` | Structured requirements gathering |
-| `/devlog [entry]` | Append decision to `DEV-LOG.md` |
-| `/design [brand]` | Generate `DESIGN.md` — color tokens, typography, components |
-| `/multi-review [target]` | Three parallel agents (security/perf/DX), synthesized |
+| `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
+| `/multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
 | `/reflect` | Score session quality, write to `.claude/session-observations.md` |
+| `/devlog [entry]` | Append decision to `DEV-LOG.md` |
+| `/design [brand]` | Generate `DESIGN.md` — tokens, typography, components |
 | `/perf [--slow]` | Hook timing report |
-| `/profile [name]` | Show or switch performance profile |
 | `/supercharger` | List all slash commands |
-</details>
 
-<details>
-<summary>Tools</summary>
+---
+
+## MCP profiles
+
+| Profile | Servers | Context cost |
+|--|--|--|
+| `light` (default) | context7 | ~300 tokens |
+| `dev` | + Magic UI | ~1,200 tokens |
+| `research` | + Sequential Thinking, Memory | ~1,500 tokens |
+| `full` | + Playwright, GitHub | ~3,500 tokens |
+
+Supercharger tags its entries `#supercharger` and never touches your existing servers. Heavy servers are opt-in via `SUPERCHARGER_MCP_EXTRAS="playwright,github"`.
+
+Switch profiles: `bash tools/mcp-profile.sh [profile]`
+
+---
+
+## Tools
 
 All in `~/.claude/supercharger/tools/` after install:
 
 | Script | Purpose |
-|---|---|
+|--|--|
 | `update.sh` | Self-update |
-| `economy-switch.sh` | Change economy tier permanently |
-| `hook-toggle.sh` | Enable/disable individual hooks |
-| `hook-new.sh` | Scaffold a new hook |
-| `mcp-profile.sh` | Switch MCP profile |
 | `claude-check.sh` | Full diagnostic |
+| `hook-toggle.sh` | Enable/disable individual hooks |
+| `hook-new.sh` | Scaffold a custom hook |
+| `hook-doctor.sh` | Diagnose broken hook installs |
+| `economy-switch.sh` | Change economy tier permanently |
+| `mcp-profile.sh` | Switch MCP profile |
 | `token-report.sh` | Per-session token cost breakdown |
 | `session-analytics.sh` | Daily cost rollup (`--days N`) |
 | `hook-perf.sh` | Hook timing analysis |
-| `hook-doctor.sh` | Diagnose broken hook installs |
-</details>
-
-<details>
-<summary>MCP profiles</summary>
-
-| Profile | Servers | Tokens |
-|---|---|---|
-| `light` (default) | context7 | ~300 |
-| `dev` | + Magic UI | ~1,200 |
-| `research` | + Sequential Thinking, Memory | ~1,500 |
-| `full` | + everything (Playwright, GitHub) | ~3,500 |
-
-Heavy/specialty servers are opt-in via `SUPERCHARGER_MCP_EXTRAS="playwright,github"`.
-
-Switch profiles: `bash tools/mcp-profile.sh [profile]`. Supercharger tags its entries with `#supercharger` and never touches your existing servers.
-</details>
 
 ---
 
 ## FAQ
 
-<details>
-<summary>Will this break my existing Claude setup?</summary>
-No. The installer backs up everything. `./uninstall.sh` restores exactly what you had.
-</details>
+**Will this break my existing Claude setup?**
+No. The installer backs up everything before touching it. `./uninstall.sh` restores exactly what you had.
 
-<details>
-<summary>A hook blocked something I need.</summary>
-
+**A hook blocked something I actually need.**
 `bash tools/hook-toggle.sh <hook-name> off` — or run the command directly in your terminal, outside Claude.
-</details>
 
-<details>
-<summary>How do I see what hooks are outputting?</summary>
+**How do I debug what hooks are doing?**
+Hook output is hidden by default. Enable per-project: `touch .supercharger-debug` in your repo root. Enable globally: `touch ~/.claude/supercharger/scope/.debug-hooks`.
 
-Hook output is hidden by default. To debug:
-- Global: `touch ~/.claude/supercharger/scope/.debug-hooks`
-- Project-only: `touch .supercharger-debug` in the project root
-</details>
-
-<details>
-<summary>How do I upgrade?</summary>
-
+**How do I upgrade?**
 `bash ~/.claude/supercharger/tools/update.sh`
-</details>
 
-<details>
-<summary>Does this touch my existing MCP servers?</summary>
-
-No. Tagged entries with `#supercharger`. Yours are not modified.
-</details>
-
-<details>
-<summary>How much does it cost?</summary>
-
+**Does this send any data anywhere?**
 Nothing. No API keys, no external calls, no telemetry. Everything runs locally.
-</details>
 
-<details>
-<summary>Can I write my own hooks?</summary>
-
+**Can I write my own hooks?**
 ```bash
-bash ~/.claude/supercharger/tools/hook-new.sh my-hook PostToolUse Bash
-bash ~/.claude/supercharger/tools/hook-toggle.sh my-hook on
+bash tools/hook-new.sh my-hook PostToolUse Bash
+bash tools/hook-toggle.sh my-hook on
 ```
+Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 
-Full guide: `docs/HOOK_AUTHORING.md`.
-</details>
+**Windows?**
+Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
+
+---
+
+## Going deeper
+
+- All 78 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
+- Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
+- Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ---
 
@@ -296,13 +258,12 @@ Full guide: `docs/HOOK_AUTHORING.md`.
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - Bash 3.2+ (macOS or Linux)
 - Python 3
-- Windows: [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash
 
 ---
 
 ## Credits
 
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), [claude-code-warp](https://github.com/warpdotdev/claude-code-warp), [claude-guard](https://github.com/derek-larson14/claude-guard), [token-optimizer](https://github.com/alexgreensh/token-optimizer), [CCNotify](https://github.com/dazuiba/CCNotify), [awesome-claude-design](https://github.com/VoltAgent/awesome-claude-design), [awesome-llm-apps](https://github.com/Shubhamsaboo/awesome-llm-apps).
+Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), and others.
 
 ## License
 
