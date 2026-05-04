@@ -14,6 +14,8 @@ Claude Supercharger — Slash Commands
 
   Workflow
     /scope          Pre-flight gate — confirm scope, risks, and stop conditions before starting
+    /estimate       Time + complexity estimate (report-only, no work started)
+    /cleanup        Dead code + unused-import removal (two-tier safety: auto-fix safe, gate risky)
     /pr             One-step pull request (summary + test plan + gh pr create)
     /handoff        Session resume brief — decisions, files changed, next steps
     /devlog         Update living architecture journal with what changed and why

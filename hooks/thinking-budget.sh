@@ -24,6 +24,14 @@ PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
 
 [ -z "$PROMPT" ] && exit 0
 
+# Explicit flag override (SuperClaude-style): --think / --think-hard / --ultrathink
+LEVEL=""
+case "$PROMPT" in
+  *--ultrathink*|*--think-hard*) LEVEL="ultra" ;;
+  *--think*) LEVEL="high" ;;
+esac
+
+if [ -z "$LEVEL" ]; then
 LEVEL=$(THINKING_PROMPT="$PROMPT" THINKING_SCOPE="$SCOPE_DIR" THINKING_SESSION="$SESSION_ID" python3 -c "
 import sys, os, time, re
 
@@ -69,12 +77,14 @@ elif token_count < 50 and (has_low_verb or (not has_question and len(words) <= 3
 else:
     print('medium')
 " 2>/dev/null || echo "medium")
+fi
 
 MSG=""
 case "$LEVEL" in
-  low)  MSG="[THINK] Trivial task. Respond directly, minimal reasoning." ;;
-  high) MSG="[THINK] Complex task. Reason thoroughly before acting." ;;
-  *)    exit 0 ;;
+  low)   MSG="[THINK] Trivial task. Respond directly, minimal reasoning." ;;
+  high)  MSG="[THINK] Complex task. Reason thoroughly before acting." ;;
+  ultra) MSG="[THINK] User requested deep reasoning (--ultrathink/--think-hard). Plan exhaustively, verify each step, justify decisions, surface trade-offs. Use full reasoning budget." ;;
+  *)     exit 0 ;;
 esac
 
 echo "[Supercharger] thinking-budget: level=$LEVEL" >&2
