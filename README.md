@@ -2,7 +2,7 @@
 
 Runtime safety and intelligence for Claude Code. Shell hooks Claude can't see, can't reason around, can't talk its way past.
 
-![Version](https://img.shields.io/badge/version-2.3.56-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.3.57-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-778%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
