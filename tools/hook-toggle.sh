@@ -110,4 +110,50 @@ with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
 
-exit $?
+TOGGLE_RC=$?
+
+# Override-feedback loop: track repeated disables, suggest project-level exception.
+if [ "$TOGGLE_RC" -eq 0 ] && [ "$ACTION" = "off" ]; then
+  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  HISTORY="$SCOPE_DIR/.toggle-history"
+  mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+  printf '%s|off|%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$HOOK_NAME" >> "$HISTORY"
+  # Trim to last 200 entries
+  if [ -f "$HISTORY" ]; then
+    LINES=$(wc -l < "$HISTORY" | tr -d ' ')
+    if [ "$LINES" -gt 200 ]; then
+      tail -n 200 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
+    fi
+  fi
+  COUNT=$(HISTORY="$HISTORY" HOOK_NAME="$HOOK_NAME" python3 -c "
+import os, datetime
+path = os.environ['HISTORY']
+hook = os.environ['HOOK_NAME']
+cutoff = datetime.datetime.utcnow() - datetime.timedelta(days=7)
+count = 0
+try:
+    with open(path) as f:
+        for line in f:
+            parts = line.strip().split('|')
+            if len(parts) < 3: continue
+            ts, action, name = parts[0], parts[1], parts[2]
+            if action != 'off' or name != hook: continue
+            try:
+                t = datetime.datetime.strptime(ts, '%Y-%m-%dT%H:%M:%SZ')
+            except Exception:
+                continue
+            if t >= cutoff:
+                count += 1
+except FileNotFoundError:
+    pass
+print(count)
+" 2>/dev/null)
+  if [ -n "$COUNT" ] && [ "$COUNT" -ge 3 ]; then
+    printf '\n  ⚠ You have disabled %s %s times in the last 7 days.\n' "$HOOK_NAME" "$COUNT"
+    printf '    Suggestion: add a per-project exception in .supercharger.json:\n'
+    printf '      {"disabledHooks": ["%s"]}\n' "$HOOK_NAME"
+    printf '    Or set the project-specific env var to suppress this hook permanently.\n\n'
+  fi
+fi
+
+exit $TOGGLE_RC
