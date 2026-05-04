@@ -12,6 +12,8 @@ set -euo pipefail
 # Must be in a project with .claude/ dir
 [ ! -d ".claude" ] && exit 0
 
+_INPUT=$(cat 2>/dev/null || echo "")
+
 MEMORY_FILE=".claude/supercharger-memory.md"
 AUDIT_DIR="$HOME/.claude/supercharger/audit"
 TODAY=$(date -u +"%Y-%m-%d")
@@ -41,20 +43,84 @@ elif [ -f "$SCOPE_DIR/.user-corrections" ]; then
   CORRECTIONS=$(tail -5 "$SCOPE_DIR/.user-corrections" 2>/dev/null || echo "")
 fi
 
+# --- Decisions extracted from this turn's assistant messages ---
+DECISIONS_LINE="none"
+TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
+  DECISIONS_LINE=$(TRANSCRIPT="$TRANSCRIPT" python3 <<'PYEOF'
+import os, json, re
+path = os.environ['TRANSCRIPT']
+texts = []
+try:
+    with open(path) as f:
+        for line in f:
+            try:
+                obj = json.loads(line)
+            except Exception:
+                continue
+            if obj.get('type') != 'assistant':
+                continue
+            content = (obj.get('message') or {}).get('content') or []
+            if isinstance(content, list):
+                for part in content:
+                    if isinstance(part, dict) and part.get('type') == 'text':
+                        t = part.get('text', '')
+                        if t:
+                            texts.append(t)
+except Exception:
+    raise SystemExit(0)
+if not texts:
+    raise SystemExit(0)
+
+# Scan the last 5 assistant messages for decision phrases
+recent = ' '.join(texts[-5:])
+patterns = [
+    r"\b(?:I'?ll|I will|I'?m going to|going with)\s+([^.\n]{10,140}?)\s+(?:because|since|so that|to)\s+([^.\n]{5,120})",
+    r"\bdecided to\s+([^.\n]{10,140}?)(?:\s+(?:because|since)\s+([^.\n]{5,120}))?",
+    r"\bskipped?\s+([^.\n]{5,120}?)\s+(?:because|since|to)\s+([^.\n]{5,120})",
+    r"\bchose\s+([^.\n]{5,140}?)\s+(?:over|for|because|since)\s+([^.\n]{5,120})",
+]
+seen = set()
+out = []
+for pat in patterns:
+    for m in re.finditer(pat, recent, re.IGNORECASE):
+        action = m.group(1).strip().rstrip(',;:')
+        reason = (m.group(2) or '').strip().rstrip('.,;:')
+        if reason:
+            line = f"{action[:80]} ({reason[:60]})"
+        else:
+            line = action[:120]
+        key = action.lower()[:40]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(line)
+        if len(out) >= 5:
+            break
+    if len(out) >= 5:
+        break
+if out:
+    print('|'.join(out))
+PYEOF
+)
+  [ -z "$DECISIONS_LINE" ] && DECISIONS_LINE="none"
+fi
+
 # --- Build dense key=value format (~40% fewer tokens than Markdown) ---
 TIMESTAMP=$(date -u '+%Y-%m-%dT%H:%MZ')
 OPEN_CSV=$(printf '%s\n' "$OPEN_FILES" | sed 's/^- //' | grep -v '^$' | tr '\n' ',' | sed 's/,$//' || true)
 COMMITS_CSV=$(printf '%s\n' "$RECENT_COMMITS" | grep -v '^$' | sed 's/ /:/' | tr '\n' '|' | sed 's/|$//' || true)
 CORR_LINE=$(printf '%s\n' "$CORRECTIONS" | grep -v '^$' | tr '\n' '|' | sed 's/|$//' || true)
 
-CONTENT="mem:${TIMESTAMP} branch:${BRANCH} open:${OPEN_CSV:-none} commits:${COMMITS_CSV:-none} corrections:${CORR_LINE:-none}"
+CONTENT="mem:${TIMESTAMP} branch:${BRANCH} open:${OPEN_CSV:-none} commits:${COMMITS_CSV:-none} corrections:${CORR_LINE:-none} decisions:${DECISIONS_LINE}"
 
-# --- #11 Differential write: skip if open-work and commits unchanged ---
+# --- #11 Differential write: skip if open-work, commits, AND decisions unchanged ---
 if [ -f "$MEMORY_FILE" ]; then
   PREV=$(cat "$MEMORY_FILE" 2>/dev/null)
   PREV_OPEN=$(printf '%s' "$PREV" | grep -o 'open:[^ ]*' | cut -d: -f2-)
   PREV_COMMITS=$(printf '%s' "$PREV" | grep -o 'commits:[^ ]*' | cut -d: -f2-)
-  if [ "$PREV_OPEN" = "${OPEN_CSV:-none}" ] && [ "$PREV_COMMITS" = "${COMMITS_CSV:-none}" ]; then
+  PREV_DECISIONS=$(printf '%s' "$PREV" | sed -n 's/.*decisions:\(.*\)/\1/p')
+  if [ "$PREV_OPEN" = "${OPEN_CSV:-none}" ] && [ "$PREV_COMMITS" = "${COMMITS_CSV:-none}" ] && [ "$PREV_DECISIONS" = "$DECISIONS_LINE" ]; then
     echo "[Supercharger] session-memory: no changes, skipping write" >&2
     exit 0
   fi
