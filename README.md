@@ -77,7 +77,7 @@ Use both. `/permissions` for wildcard approvals. Supercharger for hard blocks.
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`
 - **9 agent types** — every prompt classified, Claude gets a routing hint
-- **Slash commands** — `/think`, `/challenge`, `/audit`, `/security`, `/stuck`, `/scope`, `/estimate`, `/cleanup`, `/pr`, `/handoff`, `/devlog`, `/design`, `/multi-review`, `/reflect`, `/perf`, `/profile`, `/supercharger`
+- **Slash commands** — `/think`, `/challenge`, `/audit`, `/security`, `/stuck`, `/why`, `/scope`, `/estimate`, `/cleanup`, `/pr`, `/handoff`, `/devlog`, `/learn`, `/design`, `/multi-review`, `/reflect`, `/perf`, `/profile`, `/sc-status`, `/supercharger`
 - **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` in any prompt force extended reasoning (PreToolUse hook detects + injects directive)
 - **MCP profiles** — `light` (300 tokens), `dev` (1,200), `research` (1,500), `full` (3,500)
 

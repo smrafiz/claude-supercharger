@@ -27,12 +27,17 @@ Claude Supercharger — Slash Commands
 
   Diagnostics
     /stuck          Break a debug loop — fresh eyes, new hypothesis
+    /why            Explain the most recent Supercharger hook action
     /perf           Hook timing report with slowdown suggestions
     /cache-stats    Typecheck + quality-gate cache state
     /cache-clear    Clear hash caches (forces full re-check on next run)
     /profile        Show or switch performance profile (standard / fast / minimal)
 
+  Memory
+    /learn          Record an explicit project rule (surfaces on future prompts)
+
   Meta
+    /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
     /supercharger   This screen
     /sc-update      Check for and apply Supercharger updates
 ```
