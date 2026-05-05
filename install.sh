@@ -2,6 +2,31 @@
 set -euo pipefail
 umask 077
 
+# --- Prerequisite check ---
+# jq is used by ~60 hooks for parsing tool input JSON. Without it, hooks silently
+# degrade (empty values, malformed JSON output). Fail fast at install.
+if ! command -v jq >/dev/null 2>&1; then
+  echo "ERROR: jq is required but not installed." >&2
+  echo "" >&2
+  echo "Install with:" >&2
+  if command -v brew >/dev/null 2>&1; then
+    echo "  brew install jq" >&2
+  elif command -v apt-get >/dev/null 2>&1; then
+    echo "  sudo apt-get install jq" >&2
+  elif command -v dnf >/dev/null 2>&1; then
+    echo "  sudo dnf install jq" >&2
+  elif command -v pacman >/dev/null 2>&1; then
+    echo "  sudo pacman -S jq" >&2
+  else
+    echo "  Check your package manager — jq is widely available." >&2
+  fi
+  exit 1
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ERROR: python3 is required but not installed." >&2
+  exit 1
+fi
+
 # Resolve source directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

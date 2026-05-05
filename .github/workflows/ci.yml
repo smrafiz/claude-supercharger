@@ -29,7 +29,7 @@ jobs:
         run: |
           LIB=$(grep -m1 '^VERSION=' lib/utils.sh | tr -d '"' | cut -d= -f2)
           TOOL=$(grep -m1 '^VERSION=' tools/supercharger.sh | tr -d '"' | cut -d= -f2)
-          README=$(grep -oP 'version-\K[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1)
+          README=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1 | sed 's/^version-//')
           echo "lib/utils.sh:          $LIB"
           echo "tools/supercharger.sh: $TOOL"
           echo "README.md:             $README"

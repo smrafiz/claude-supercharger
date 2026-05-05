@@ -45,8 +45,15 @@ block() {
 rewrite() {
   local safe_cmd="$1" reason="$2"
   echo "[Supercharger] git-safety: rewrote unsafe command — ${reason}" >&2
-  printf '{"hookSpecificOutput":{"updatedInput":{"command":%s}}}\n' \
-    "$(printf '%s' "$safe_cmd" | jq -Rs '.')"
+  local cmd_json
+  cmd_json=$(printf '%s' "$safe_cmd" | jq -Rs '.' 2>/dev/null || \
+             printf '%s' "$safe_cmd" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+  if [ -z "$cmd_json" ]; then
+    # Last-resort fallback: deny instead of emitting malformed JSON
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"git-safety: %s (rewriter unavailable, please run safely)"}}\n' "$reason"
+    exit 2
+  fi
+  printf '{"hookSpecificOutput":{"updatedInput":{"command":%s}}}\n' "$cmd_json"
   exit 0
 }
 

@@ -275,7 +275,10 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
 - Bash 3.2+ (macOS or Linux)
-- Python 3
+- Python 3.6+
+- `jq` (install with `brew install jq` or `apt-get install jq` — install.sh checks at start)
+
+**Not supported:** Alpine Linux (ships `ash`, not `bash`). Run inside a Debian/Ubuntu/Fedora container instead, or install GNU bash on Alpine first.
 ---
 
 ## Credits
