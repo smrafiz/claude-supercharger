@@ -2,8 +2,32 @@
 
 **Started:** 2026-05-05
 **Updated:** 2026-05-05 — cut maintainer-only work, kept user-perceptible wins
+**Status:** ✅ **EXECUTED** — shipped in v2.4.0 (771 tests passing)
 **Goal:** Optimize performance and security without doing work users won't feel
 **Success criteria:** Measured hook latency down, security coverage up, real UX improvements, zero regressions
+
+---
+
+## Execution Summary (post-completion)
+
+All 4 phases shipped on 2026-05-05 in a single session, released as v2.4.0.
+
+| Phase | Status | Items shipped | Items skipped |
+|---|---|---|---|
+| 1 — Quick Wins | ✅ Done | 1.1, 1.2, 1.3, 1.4, 1.5 (5/5) | none |
+| 2 — Performance | ✅ Partial | 2.1 (session-scoped), 2.2 (per-session tool-history), 2.5 (router TTL) | 2.3 detect-stack cache, 2.4 config-scan cache, 2.6 benchmark doc — deferred (low impact) |
+| 3 — Security | ✅ Partial | 3.1, 3.2, 3.3, 3.4, 3.5 (5/6) — all in single `path-guard.sh` | 3.6 content-hash caching — depends on Phase 2 read-cache layer not built |
+| 4 — UX | ✅ Partial | 4.2 tool-preferences.sh + .supercharger.json toolPreferences | 4.1 suppressOutput — already done; existing advisory hooks already use `HOOK_SUPPRESS` pattern |
+
+**Net delta:**
+- 5 dead files removed (3 hooks + 2 orphan tests)
+- 2 new hooks created (`path-guard.sh`, `tool-preferences.sh`)
+- 18 new tests (path-guard 10, tool-preferences 8, tracker isolation 1, eco-reinforce post-compaction 2 — minus 3 obsolete tracker tests rewritten)
+- Hook counts: 78 → 80 full, 16 → 18 safe
+- 771 tests passing
+- ~470 lines added, ~390 removed
+
+---
 
 ---
 
@@ -25,9 +49,10 @@ Net: 4 phases instead of 7. Same user value, ~half the work.
 
 ---
 
-## Phase 1 — Quick Wins (P0)
+## Phase 1 — Quick Wins (P0) ✅ Done
 
 **Goal:** Remove dead weight, fix obvious issues. No risk.
+**Shipped:** v2.4.0
 
 ### 1.1 Remove dead files from disk
 ```
@@ -69,9 +94,11 @@ Affected hooks: `lazy-refactor-check`, `comment-replacement-check`, `reentry-det
 
 ---
 
-## Phase 2 — Performance Foundation (P1)
+## Phase 2 — Performance Foundation (P1) ✅ Partial
 
 **Goal:** Hook-level caching with session isolation. Single biggest perf win.
+**Shipped:** v2.4.0 — items 2.1, 2.2, 2.5
+**Deferred:** 2.3 (detect-stack cache), 2.4 (config-scan cache), 2.6 (benchmark doc) — low marginal value, would add complexity without user-perceptible gain
 
 ### 2.1 Session-scoped state directory
 ```
@@ -120,9 +147,11 @@ scope/sessions/{session_id}/.config-scan — cached CLAUDE.md scan result
 
 ---
 
-## Phase 3 — Security Hardening (P1, tunable)
+## Phase 3 — Security Hardening (P1, tunable) ✅ Partial
 
 **Goal:** Close attack vectors. **Each rule must be opt-out per project to prevent false-positive friction.**
+**Shipped:** v2.4.0 — items 3.1–3.5 consolidated into single `hooks/path-guard.sh` with per-category opt-out
+**Deferred:** 3.6 (content-hash caching) — depends on Phase 2 read-cache layer that was not built
 
 ### 3.1 Path traversal in Write/Edit
 Add to `code-security-scanner.sh` or new `path-guard.sh`:
@@ -215,9 +244,11 @@ Cache key = SHA256(target_file_content), not just file_path
 
 ---
 
-## Phase 4 — Selective UX Wins (cherry-picked from old Phases 5 + 7)
+## Phase 4 — Selective UX Wins (cherry-picked from old Phases 5 + 7) ✅ Done
 
 **Goal:** Token noise reduction + better override UX. No SDK rewrite.
+**Shipped:** v2.4.0 — item 4.2 (`tool-preferences.sh` + `.supercharger.json` `toolPreferences`)
+**Note on 4.1:** advisory hooks already use `HOOK_SUPPRESS` pattern (suppressed by default unless debug flag set). No new work needed.
 
 ### 4.1 Hook output suppression on advisory-only hooks
 Add `suppressOutput: true` to:
