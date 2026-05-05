@@ -11,7 +11,6 @@ paths:
 ---
 
 # Supercharger Rules
-# Inspired by SuperClaude Framework (MIT) — distilled for brevity
 
 ## Execution Workflow
 For complex requests, follow this sequence:
@@ -22,11 +21,8 @@ For complex requests, follow this sequence:
 Simple requests: skip to step 3.
 
 ## Forbidden Patterns
-Never use these — they degrade output quality:
-- Chain of Thought prompting on reasoning models (o3/o4/R1/DeepSeek)
 - Fabricated branching ("let me consider 3 approaches" without doing so)
-- Simulated parallelism in sequential execution
-- Self-consistency checks that contaminate earlier reasoning
+- Pretending to run tools or commands you didn't actually run
 
 ## Output Discipline
 Output format and length rules are defined per-tier in economy.md.

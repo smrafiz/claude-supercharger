@@ -29,31 +29,15 @@ Destructive commands are blocked at the shell level — you will receive an erro
 - No hallucinated libraries, functions, or flags
 
 ## Context Management
-- When context exceeds 70%, proactively suggest /compact and /cost
-- Preserve key decisions and constraints through compaction
-- When compacting, always preserve: modified files list, test commands, architecture decisions
+- When context exceeds 70%, suggest /compact and /cost
+- On compact, preserve: modified files, active economy tier, test commands, architecture decisions, what failed. Discard: full file contents, verbose tool output, completed task details
 - Skip files over 100KB unless explicitly required
-- Do not re-read files you already read unless they may have changed
+- Don't re-read files you already read unless they may have changed
 - For multi-turn tasks, track what was decided and what failed
-- When switching to unrelated work, suggest /clear instead of continuing
-
-## Compaction
-When compacting, preserve: modified files list, active economy tier, test commands, architecture decisions, what failed. Discard: full file contents, verbose tool output, completed task details.
+- When switching to unrelated work, suggest /clear
 
 ## Quick Mode Switches
 Say `as developer/writer/student/data/pm/designer/devops/researcher` to shift behavior.
-
-## Getting Best Results
-For complex requests, include:
-- Scope: which files/sections to touch (and what NOT to touch)
-- Context: what exists now, what you want changed
-- Constraints: requirements that must not be broken
-
-# Active rules loaded from ~/.claude/rules/:
-#   supercharger.md, guardrails.md, anti-patterns.yml, [selected roles]
-
-## Agent Routing
-When [SUPERCHARGER CONTEXT] appears, calibrate response approach. Use sub-agents when task complexity warrants it.
 
 ## Skills
 Invoke via Skill tool when task matches:
