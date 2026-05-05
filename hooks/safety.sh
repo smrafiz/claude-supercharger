@@ -225,7 +225,12 @@ case "$CMD" in
 esac
 
 if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then
-  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" python3 "$(dirname "${BASH_SOURCE[0]}")/safety-detect.py" 2>/dev/null)
+  # Cap Python fork at 500ms — defensive against runaway regex / deep traversal.
+  if command -v gtimeout >/dev/null 2>&1; then _TIMEOUT="gtimeout 0.5"
+  elif command -v timeout >/dev/null 2>&1; then _TIMEOUT="timeout 0.5"
+  else _TIMEOUT=""
+  fi
+  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "$(dirname "${BASH_SOURCE[0]}")/safety-detect.py" 2>/dev/null)
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi

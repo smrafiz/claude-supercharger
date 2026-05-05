@@ -129,10 +129,10 @@ if [[ "$FILE_PATH" =~ \.(yml|yaml)$ ]]; then
   fi
 fi
 
-# --- File path shell metacharacters (CVE-2026-35021) ---
+# --- File path shell metacharacters (command injection via path) ---
 if [ -n "$FILE_PATH" ]; then
   if printf '%s\n' "$FILE_PATH" | LC_ALL=C grep -qE '(\$\(|`|;|\||&&|\{)'; then
-    WARNINGS+=("file path contains shell metacharacters (\$(), backticks, ;, |) — command injection risk (CVE-2026-35021)")
+    WARNINGS+=("file path contains shell metacharacters (\$(), backticks, ;, |) — command injection risk if path is later interpolated into a shell command")
   fi
 fi
 

@@ -39,7 +39,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `enforce-pkg-manager` | PreToolUse | Bash | Detects lockfiles and blocks the wrong package manager. |
 | `env-file-guard` | PreToolUse | Bash, Read | Blocks reading/editing .env files (which typically contain credentials). |
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
-| `exfiltration-guard` | PreToolUse | Bash | Blocks data-exfiltration vectors: |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-watcher` | FileChanged | .env,.envrc,package.json,.claude/settings.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `git-safety` | PreToolUse | Bash (git *) | shellcheck source=hooks/lib-suppress.sh |
@@ -72,7 +71,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `session-end` | SessionEnd | (none) | Logs session stats and cleans up transient scope files. |
 | `session-memory-inject` | SessionStart | * | Injects .claude/supercharger-memory.md into context if present. |
 | `session-memory-write` | Stop | * | Writes a compressed session summary to .claude/supercharger-memory.md |
-| `shell-wrapper-guard` | PreToolUse | Bash | Detects destructive commands hidden inside interpreter wrappers: |
 | `skill-poisoning-scanner` | PreToolUse | Skill | Scans skill content for hidden shell commands, encoded payloads, |
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
 | `smart-approve` | PermissionRequest | # Event: PermissionRequest | Auto-approves known-safe tool calls to reduce user prompts. |

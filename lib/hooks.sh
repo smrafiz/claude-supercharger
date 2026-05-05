@@ -14,11 +14,12 @@ get_hooks_for_mode() {
   # flags: "async" = non-blocking background execution (for fire-and-forget hooks)
 
   # ── Safe mode: core safety + smart UX (always on) ──
-  # safety.sh is the consolidated security hook for Bash — it runs:
+  # safety.sh is the consolidated security hook for Bash. It runs:
   #   destructive patterns, credentials, persistence, clipboard, browser, history,
   #   shell-wrapper detection (python/node/perl/ruby -c/-e), .env access, exfiltration.
-  # The standalone shell-wrapper-guard / exfiltration-guard / env-file-guard (Bash)
-  # hooks are deprecated as PreToolUse Bash entries (their logic lives in safety.sh).
+  # env-file-guard.sh stays separate because safety.sh's matcher is Bash,PowerShell
+  # only — env-file-guard catches direct .env reads (PreToolUse|Read), which safety.sh
+  # cannot match. Do not consolidate without expanding safety.sh's matcher.
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
