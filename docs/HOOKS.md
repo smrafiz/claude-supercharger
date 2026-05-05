@@ -87,6 +87,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-call-limiter` | PreToolUse | (none) | Counts tool calls per session. Warns at 80%, blocks at cap. |
 | `tool-failure-advisor` | PostToolUseFailure | (none) | Injects failure context + tool-specific hints back to Claude when any tool errors. |
 | `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>. |
+| `tool-preferences` | PreToolUse | Bash | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |

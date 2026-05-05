@@ -23,6 +23,7 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/path-guard.sh|")
+  hooks+=("PreToolUse|Bash|${hooks_dir}/tool-preferences.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit|${hooks_dir}/audit-trail.sh|async")
