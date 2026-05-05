@@ -334,6 +334,14 @@ elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
     sed -i.bak '/^# --- Claude Supercharger/,$d' "$HOME/.claude/CLAUDE.md"
     rm -f "$HOME/.claude/CLAUDE.md.bak"
   fi
+  # Detect legacy unmarked Supercharger block (pre-v2.3 installs merged content
+  # without wrapper markers — survives updates and bloats every session).
+  if grep -q "^# Claude Supercharger v" "$HOME/.claude/CLAUDE.md" 2>/dev/null; then
+    warn "Legacy unmarked Supercharger block detected in ~/.claude/CLAUDE.md"
+    warn "  Backup: cp ~/.claude/CLAUDE.md ~/.claude/CLAUDE.md.bak"
+    warn "  Then strip lines from '# Claude Supercharger v...' through the section above '# --- Claude Supercharger'"
+    warn "  Or remove ~/.claude/CLAUDE.md entirely and re-run install.sh for a clean deploy"
+  fi
   # Append full Supercharger config below marker
   {
     echo ""
