@@ -33,10 +33,16 @@ if (( NOW - LAST_ROTATION > 86400 )); then
   echo "$NOW" > "$ROTATION_CHECK"
 fi
 
-# Update session memory before context is wiped
+# Update session memory before context is wiped.
+# Pass the original PreCompact JSON (contains transcript_path) so session-memory-write
+# can extract decisions from the actual transcript — empty stdin would skip extraction.
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$HOOKS_DIR/session-memory-write.sh" ]; then
-  echo "" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null || true
+  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null || true
+fi
+# Also flush any pending lesson capture so decisions/lessons land before transcript is wiped.
+if [ -f "$HOOKS_DIR/lesson-record.sh" ]; then
+  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/lesson-record.sh" 2>/dev/null || true
 fi
 
 # Inject session-specific compaction guidance

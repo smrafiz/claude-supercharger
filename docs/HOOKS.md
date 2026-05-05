@@ -21,6 +21,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
 | `audit-trail` | PostToolUse | Bash,Write,Edit | Logs write operations to a JSONL audit file. |
 | `auto-compact` | PostToolUse | (none) | Injects /compact reminders during agentic runs when context climbs. |
+| `bash-output-compactor` | PostToolUse | Bash | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `cache-health` | PostToolUse | * | Flags: async | Samples cache hit rate every 5th call. Warns when degraded (<50% for 3 consecutive readings). |
 | `code-security-scanner` | PreToolUse | Write,Edit | Scans content Claude is about to write for common security vulnerabilities. |
