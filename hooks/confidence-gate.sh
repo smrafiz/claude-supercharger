@@ -56,7 +56,8 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/n
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 TIER="${SUPERCHARGER_TIER:-standard}"
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
-HISTORY="$SCOPE_DIR/.tool-history"
+HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
+HISTORY_LEGACY="$SCOPE_DIR/.tool-history"
 REPETITION_FLAG="$SCOPE_DIR/.repetition-flag-${SESSION_ID}"
 READ_HISTORY="$SCOPE_DIR/.read-history"
 
@@ -77,8 +78,11 @@ if [ "$TOOL_NAME" = "Edit" ] && [ -n "$TARGET_FILE" ]; then
 fi
 
 FAILURES_LAST_5=0
-if [ -f "$HISTORY" ]; then
-  FAILURES_LAST_5=$(grep -F "\"session_id\": \"$SESSION_ID\"" "$HISTORY" 2>/dev/null | tail -5 | grep -c '"success": false' || echo 0)
+HISTORY_SOURCE=""
+[ -f "$HISTORY" ] && HISTORY_SOURCE="$HISTORY"
+[ -z "$HISTORY_SOURCE" ] && [ -f "$HISTORY_LEGACY" ] && HISTORY_SOURCE="$HISTORY_LEGACY"
+if [ -n "$HISTORY_SOURCE" ]; then
+  FAILURES_LAST_5=$(grep -F "\"session_id\": \"$SESSION_ID\"" "$HISTORY_SOURCE" 2>/dev/null | tail -5 | grep -c '"success": false' || echo 0)
 fi
 
 EVAL=$(FAILURES="$FAILURES_LAST_5" RBW="$READ_BEFORE_WRITE_VIOLATION" REP="$REPETITION_FLAGGED" python3 -c "

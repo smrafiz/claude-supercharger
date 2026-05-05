@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Tool History Tracker
 # Event: PostToolUse | Matcher: (none, runs on every tool)
-# Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history.
-# Consumed by confidence-gate.sh. Auto-trimmed to last 20 entries.
+# Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>.
+# Per-session file prevents cross-session data leakage when multiple Claude
+# windows run concurrently. Consumed by confidence-gate.sh. Auto-trimmed to last 20 entries.
 # Disable: SUPERCHARGER_CONFIDENCE=0
 
 set -euo pipefail
@@ -13,8 +14,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 _INPUT=$(cat)
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
-HISTORY="$SCOPE_DIR/.tool-history"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
+HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
 
 ENTRY=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json, time

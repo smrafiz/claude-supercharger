@@ -150,14 +150,21 @@ else
   CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} tier=${TIER}"
 fi
 
-# #1: Dedup — if identical to last injection, skip entirely
+# #1: Dedup — if identical to last injection AND seen within TTL, skip entirely.
+# Without TTL, sessions that idle for hours never re-inject context. 30s window
+# refreshes the hint after a meaningful pause.
 HASH=$(printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || echo "")
 HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
 LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
+LAST_MTIME=0
+if [ -f "$HASH_FILE" ]; then
+  LAST_MTIME=$(stat -f '%m' "$HASH_FILE" 2>/dev/null || stat -c '%Y' "$HASH_FILE" 2>/dev/null || echo 0)
+fi
+NOW_TS=$(date +%s)
 echo "$HASH" > "$HASH_FILE"
 
-if [ -n "$HASH" ] && [ "$HASH" = "$LAST_HASH" ]; then
-  exit 0  # Context unchanged — skip injection
+if [ -n "$HASH" ] && [ "$HASH" = "$LAST_HASH" ] && [ "$LAST_MTIME" -gt 0 ] && [ $((NOW_TS - LAST_MTIME)) -lt 30 ]; then
+  exit 0  # Context unchanged within 30s TTL — skip injection
 fi
 
 # #7: Category unchanged — only re-emit if tier changed (abbreviated form)

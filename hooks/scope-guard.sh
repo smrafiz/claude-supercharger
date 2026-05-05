@@ -180,9 +180,11 @@ if [[ "$MODE" == "clear" ]]; then
           "$SCOPE_DIR/.last-category-$SID" \
           "$SCOPE_DIR/.last-tier-$SID" \
           "$SCOPE_DIR/.router-hash-$SID" \
+          "$SCOPE_DIR/.router-cache-$SID" \
           "$SCOPE_DIR/.repetition-flag-$SID" \
           "$SCOPE_DIR/.subagent-safety-injected-$SID" \
-          "$SCOPE_DIR/.subagent-costs-$SID.jsonl" 2>/dev/null || true
+          "$SCOPE_DIR/.subagent-costs-$SID.jsonl" \
+          "$SCOPE_DIR/.tool-history-$SID" 2>/dev/null || true
   fi
   # Also TTL-prune any orphaned session files older than 7 days
   find "$SCOPE_DIR" -maxdepth 1 -type f \( \
@@ -193,7 +195,9 @@ if [[ "$MODE" == "clear" ]]; then
     -o -name '.router-hash-*' \
     -o -name '.repetition-flag-*' \
     -o -name '.subagent-safety-injected-*' \
-    -o -name '.subagent-costs-*.jsonl' \) -mtime +7 -delete 2>/dev/null || true
+    -o -name '.subagent-costs-*.jsonl' \
+    -o -name '.tool-history-*' \
+    -o -name '.router-cache-*' \) -mtime +7 -delete 2>/dev/null || true
   exit 0
 fi
 
