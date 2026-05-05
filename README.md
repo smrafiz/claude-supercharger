@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
 
-![Version](https://img.shields.io/badge/version-2.4.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-771%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.4.1-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-780%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -57,25 +57,29 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 ### Runtime enforcement — can't be bypassed
 
 - **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main, `git reset --hard`
+- **Path guard** — blocks 5 attack categories on Edit/Write: path traversal (incl. URL-encoded `%2e%2e`, null bytes), symlink attacks, `.git/hooks/` writes, writes to `~/.ssh/` / `~/.aws/` / `/etc/`, build artifact injection (`node_modules/.bin/`, `.next/`, `.venv/`). Each category opt-out per project
 - **Confidence gate** — blocks Edit/Write/destructive Bash when confidence is low (recent failures, no prior read, repeated attempts). Warns or denies via PreToolUse hook
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
 - **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass confirmation automatically
 
-### Cost control
+### Cost & context control
 
 - **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
 - **Budget cap** — set `"budget": 5.00` in `.supercharger.json`. Warns at 80%, blocks non-read tools at 100%
 - **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
 - **Rate-limit burn projection** — `~52m left at this pace`
+- **Bash output compactor** — verbose `git log`, `pytest`, `npm install` output (>50 lines) compressed to a structured summary before it enters context. Failures keep their excerpt; passes show counts. Cuts the most common source of mid-session context exhaustion
 - **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing)
 
 ### Memory across sessions
 
 - **Reflexion memory** — at end-of-turn, scans for diagnostic markers (`the issue was`, `root cause`, `fixed by`) and writes a structured lesson. On the next prompt, surfaces matching lessons by topic overlap. Per-project, no cross-pollination
+- **Auto-decisions capture** — extracts decision statements from your session (`I'll use X because Y`, `decided to`, `chose X over Y`) and persists them in session memory. Restored at next session start so you don't return to a file list — you return to a mental model
 - **Stack-derived standards** — detects React, Next.js, Vue, Svelte, Python, Go, Rust, PHP at session start and injects forbidden patterns, toolchain conventions, and pitfalls
 - **Session memory** — modified files, recent commits, economy tier, corrections — injected at next session start
+- **PreCompact preservation** — before context compaction, dumps lessons + decisions + transcript backup. Survives `/compact` cleanly
 - **Crash-resilient checkpoints** — state saved after every file modification
 
 ### Developer experience
@@ -84,8 +88,9 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`. Lean cuts response length ~45% with no information loss
 - **9 agent types** — every prompt classified automatically, Claude gets a routing hint without you picking
+- **Tool preferences** — `.supercharger.json` `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests instead of blanket-denying. Catches `npx`/`bunx` wrappers
 - **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` in any prompt forces extended reasoning (hook detects and injects directive)
-- **20+ slash commands** — `/think`, `/challenge`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/devlog`, `/multi-review`, and more
+- **20+ slash commands** — `/think`, `/sc-status`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, and more
 
 ---
 
@@ -93,8 +98,8 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 | Mode | Hooks | Use when |
 |--|--|--|
-| **Safe** | 18 | Security blocks only. Minimal footprint. |
-| **Full** | 80 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Safe** | 19 | Security blocks only. Minimal footprint. |
+| **Full** | 81 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -126,7 +131,7 @@ Drop `.supercharger.json` in your repo root. Commit it so your whole team gets t
 
 | Profile | Behavior |
 |--|--|
-| `standard` | All 80 hooks active (default) |
+| `standard` | All 81 hooks active (default) |
 | `fast` | Skips 8 analytics hooks; keeps code quality and security |
 | `minimal` | Skips 11 hooks; security-only |
 
@@ -144,11 +149,15 @@ SUPERCHARGER_PROFILE=fast claude
 | Reflexion memory | `SUPERCHARGER_LESSONS=0` |
 | Stack standards | `SUPERCHARGER_STANDARDS=0` |
 | Confidence gate | `SUPERCHARGER_CONFIDENCE=0` |
+| Path guard | `SUPERCHARGER_PATH_GUARD=0` |
+| Tool preferences | `SUPERCHARGER_TOOL_PREFS=0` |
+| Bash output compactor | `SUPERCHARGER_BASH_COMPACTOR=0` |
+| All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
 
-Disable security categories: `{"disableSecurityCategories": ["clipboard", "history"]}`
+Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
 
-Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`.
+Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
 
 ### Project verify hook
 
@@ -187,12 +196,17 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 | `/security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/stuck [symptom]` | Breaks debug loops with fresh hypotheses |
 | `/scope [task]` | Pre-flight check — files to touch, risks, blast radius |
+| `/estimate [task]` | Time + complexity report. Halts before code starts |
+| `/cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
 | `/pr [description]` | Prepare and create a pull request |
 | `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
 | `/multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
 | `/reflect` | Score session quality, write to `.claude/session-observations.md` |
 | `/devlog [entry]` | Append decision to `DEV-LOG.md` |
 | `/design [brand]` | Generate `DESIGN.md` — tokens, typography, components |
+| `/sc-status` | Render current Supercharger session state (cost, lessons, disabled hooks) |
+| `/why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
+| `/learn <rule>` | Record an explicit project rule. Surfaces on future prompts |
 | `/perf [--slow]` | Hook timing report |
 | `/supercharger` | List all slash commands |
 
@@ -265,7 +279,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 ## Going deeper
 
-- All 80 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- All 81 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
