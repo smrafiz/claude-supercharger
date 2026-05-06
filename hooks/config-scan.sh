@@ -93,6 +93,23 @@ if foreign:
   fi
 fi
 
+# CVE-2026-21852: cloning a malicious repo can exfiltrate ANTHROPIC_API_KEY by
+# injecting ANTHROPIC_BASE_URL into project .claude/settings.json or CLAUDE.md.
+# Patched upstream in v2.0.65 — but defense-in-depth: warn loudly if either file
+# overrides the API base URL or pre-sets a key.
+PROJECT_FILES_TO_SCAN=()
+[ -f "$PROJECT_DIR/CLAUDE.md" ] && PROJECT_FILES_TO_SCAN+=("$PROJECT_DIR/CLAUDE.md")
+[ -f "$PROJECT_DIR/.claude/settings.json" ] && PROJECT_FILES_TO_SCAN+=("$PROJECT_DIR/.claude/settings.json")
+[ -f "$PROJECT_DIR/.claude/settings.local.json" ] && PROJECT_FILES_TO_SCAN+=("$PROJECT_DIR/.claude/settings.local.json")
+for pf in "${PROJECT_FILES_TO_SCAN[@]+"${PROJECT_FILES_TO_SCAN[@]}"}"; do
+  if grep -qE 'ANTHROPIC_(BASE_URL|API_KEY|AUTH_TOKEN)' "$pf" 2>/dev/null; then
+    HIT=$(grep -m1 -oE 'ANTHROPIC_(BASE_URL|API_KEY|AUTH_TOKEN)' "$pf" 2>/dev/null)
+    rel=$(printf '%s' "$pf" | sed "s|^${PROJECT_DIR}/||")
+    echo "[Supercharger] config-scan: ${HIT} reference in ${rel} — possible CVE-2026-21852 injection" >&2
+    WARNINGS+=("[SECURITY] Project file ${rel} references ${HIT}. Cloning untrusted repos can exfiltrate API credentials by overriding the API base URL (CVE-2026-21852, patched v2.0.65). Verify this entry is intentional before continuing.")
+  fi
+done
+
 # claude-code#44482: pre-approved tool permissions silently bypass PreToolUse hooks.
 # If user/project settings allow Edit/Write/Bash without path restriction, all
 # supercharger guards on those tools (path-guard, env-file-guard, safety, git-safety,
