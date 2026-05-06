@@ -1686,6 +1686,14 @@ OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1
 rm -rf "$TMPDIR_CS"
 echo "$OUT" | grep -qi "bypass\|pre-approve" && fail "false positive on scoped pattern: $OUT" || pass
 
+begin_test "config-scan: warns on sandbox.filesystem.denyRead (claude-code#44274)"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"sandbox":{"filesystem":{"denyRead":["/home/user/.ssh","/etc/secrets"]}}}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "denyRead\|not enforced" && pass || fail "expected denyRead warning, got: $OUT"
+
 echo ""
 echo "=== Tool Call Limiter Tests ==="
 

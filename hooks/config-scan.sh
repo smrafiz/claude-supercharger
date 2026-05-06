@@ -114,27 +114,41 @@ try:
 except Exception:
     sys.exit(0)
 
+warnings = []
+where = os.path.basename(path)
+if path.startswith(os.path.expanduser('~/.claude')):
+    where = '~/.claude/' + where
+
+# claude-code#44482: bare allow-list entries bypass PreToolUse hooks
 protected = re.compile(r'^(Edit|Write|Bash|MultiEdit)$')
 flagged = set()
-sources = []
 for entry in s.get('allowedTools', []) or []:
     if isinstance(entry, str) and protected.match(entry.strip()):
-        flagged.add(entry.strip()); sources.append('allowedTools')
+        flagged.add(entry.strip())
 for entry in (s.get('permissions', {}) or {}).get('allow', []) or []:
     if isinstance(entry, str) and protected.match(entry.strip()):
-        flagged.add(entry.strip()); sources.append('permissions.allow')
-
+        flagged.add(entry.strip())
 if flagged:
-    where = os.path.basename(path)
-    if path.startswith(os.path.expanduser('~/.claude')):
-        where = '~/.claude/' + where
     tools = ', '.join(sorted(flagged))
-    print(f'[SECURITY] {where} pre-approves bare {tools} — supercharger PreToolUse guards (path-guard, env-file-guard, git-safety, safety) are silently bypassed for these tools (claude-code#44482). Restrict to scoped patterns like "Edit(src/**)" or remove from allow-list to restore protection.')
+    warnings.append(f'[SECURITY] {where} pre-approves bare {tools} — supercharger PreToolUse guards (path-guard, env-file-guard, git-safety, safety) are silently bypassed for these tools (claude-code#44482). Restrict to scoped patterns like "Edit(src/**)" or remove from allow-list to restore protection.')
+
+# claude-code#44274: sandbox.filesystem.denyRead is silently unenforced
+deny_read = (((s.get('sandbox', {}) or {}).get('filesystem', {}) or {}).get('denyRead', []) or [])
+if deny_read:
+    sample = ', '.join(deny_read[:3])
+    more = len(deny_read) - 3
+    suffix = f' (+{more} more)' if more > 0 else ''
+    warnings.append(f'[SECURITY] {where} sets sandbox.filesystem.denyRead ({sample}{suffix}) — this field is NOT enforced by Claude Code (claude-code#44274). Files in those paths are still readable. Use supercharger env-file-guard.sh and path-guard.sh for actual read protection.')
+
+for w in warnings:
+    print(w)
 PYEOF
 )
   if [ -n "$BYPASS_WARNING" ]; then
-    echo "[Supercharger] config-scan: pre-approved tool bypass detected in $sfile" >&2
-    WARNINGS+=("$BYPASS_WARNING")
+    echo "[Supercharger] config-scan: settings.json risk detected in $sfile" >&2
+    while IFS= read -r line; do
+      [ -n "$line" ] && WARNINGS+=("$line")
+    done <<< "$BYPASS_WARNING"
   fi
 done
 
