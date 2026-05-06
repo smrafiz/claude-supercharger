@@ -93,6 +93,51 @@ if foreign:
   fi
 fi
 
+# claude-code#44482: pre-approved tool permissions silently bypass PreToolUse hooks.
+# If user/project settings allow Edit/Write/Bash without path restriction, all
+# supercharger guards on those tools (path-guard, env-file-guard, safety, git-safety,
+# tool-preferences, code-security-scanner) are inactive for that tool.
+PROTECTED_TOOLS_PATTERN='^(Edit|Write|Bash|MultiEdit)$'
+SETTINGS_FILES=()
+[ -f "$HOME/.claude/settings.json" ] && SETTINGS_FILES+=("$HOME/.claude/settings.json")
+[ -f "$PROJECT_DIR/.claude/settings.json" ] && SETTINGS_FILES+=("$PROJECT_DIR/.claude/settings.json")
+[ -f "$PROJECT_DIR/.claude/settings.local.json" ] && SETTINGS_FILES+=("$PROJECT_DIR/.claude/settings.local.json")
+
+for sfile in "${SETTINGS_FILES[@]+"${SETTINGS_FILES[@]}"}"; do
+  BYPASS_WARNING=$(SETTINGS_FILE="$sfile" python3 <<'PYEOF' 2>/dev/null || true
+import json, os, re, sys
+
+path = os.environ.get('SETTINGS_FILE', '')
+try:
+    with open(path) as f:
+        s = json.load(f)
+except Exception:
+    sys.exit(0)
+
+protected = re.compile(r'^(Edit|Write|Bash|MultiEdit)$')
+flagged = set()
+sources = []
+for entry in s.get('allowedTools', []) or []:
+    if isinstance(entry, str) and protected.match(entry.strip()):
+        flagged.add(entry.strip()); sources.append('allowedTools')
+for entry in (s.get('permissions', {}) or {}).get('allow', []) or []:
+    if isinstance(entry, str) and protected.match(entry.strip()):
+        flagged.add(entry.strip()); sources.append('permissions.allow')
+
+if flagged:
+    where = os.path.basename(path)
+    if path.startswith(os.path.expanduser('~/.claude')):
+        where = '~/.claude/' + where
+    tools = ', '.join(sorted(flagged))
+    print(f'[SECURITY] {where} pre-approves bare {tools} — supercharger PreToolUse guards (path-guard, env-file-guard, git-safety, safety) are silently bypassed for these tools (claude-code#44482). Restrict to scoped patterns like "Edit(src/**)" or remove from allow-list to restore protection.')
+PYEOF
+)
+  if [ -n "$BYPASS_WARNING" ]; then
+    echo "[Supercharger] config-scan: pre-approved tool bypass detected in $sfile" >&2
+    WARNINGS+=("$BYPASS_WARNING")
+  fi
+done
+
 if [ ${#WARNINGS[@]} -gt 0 ]; then
   COMBINED=$(IFS=' '; echo "${WARNINGS[*]}")
   python3 -c "

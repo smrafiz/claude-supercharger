@@ -305,6 +305,30 @@ begin_test "git: git checkout main is allowed"
 run_hook "$GIT_HOOK" "git checkout main"
 assert_exit_code 0 $? && pass
 
+begin_test "git: git checkout <ref> -- . is blocked (claude-code#55024)"
+run_hook "$GIT_HOOK" "git checkout origin/main -- ."
+assert_exit_code 2 $? && pass
+
+begin_test "git: git checkout HEAD -- . is blocked"
+run_hook "$GIT_HOOK" "git checkout HEAD -- ."
+assert_exit_code 2 $? && pass
+
+begin_test "git: git checkout <ref> . (no --) is blocked"
+run_hook "$GIT_HOOK" "git checkout origin/main ."
+assert_exit_code 2 $? && pass
+
+begin_test "git: git restore --source=HEAD . is blocked"
+run_hook "$GIT_HOOK" "git restore --source=HEAD ."
+assert_exit_code 2 $? && pass
+
+begin_test "git: git checkout <ref> -- src/file.ts is allowed (specific file)"
+run_hook "$GIT_HOOK" "git checkout origin/main -- src/file.ts"
+assert_exit_code 0 $? && pass
+
+begin_test "git: git checkout -b feature is allowed (creates branch)"
+run_hook "$GIT_HOOK" "git checkout -b feature"
+assert_exit_code 0 $? && pass
+
 # --- Prompt Validator Tests ---
 
 begin_test "prompt: vague scope triggers note"
@@ -1637,6 +1661,30 @@ OUT=$(printf '%s' "$INPUT" | bash "$CONFIG_SCAN" 2>&1)
 EXIT=$?
 rm -rf "$TMPDIR_CS"
 [ -n "$OUT" ] && pass || fail "expected injection warning for poisoned CLAUDE.md, got empty (exit=$EXIT)"
+
+begin_test "config-scan: flags pre-approved Edit in project allowedTools (claude-code#44482)"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"allowedTools":["Edit","Read"]}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "bypass\|pre-approve" && pass || fail "expected bypass warning, got: $OUT"
+
+begin_test "config-scan: flags pre-approved Bash in permissions.allow"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"permissions":{"allow":["Bash","Edit"]}}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "bypass\|pre-approve" && pass || fail "expected bypass warning for permissions.allow, got: $OUT"
+
+begin_test "config-scan: scoped Edit(src/**) does not trigger bypass warning"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"allowedTools":["Edit(src/**)","Read"]}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "bypass\|pre-approve" && fail "false positive on scoped pattern: $OUT" || pass
 
 echo ""
 echo "=== Tool Call Limiter Tests ==="

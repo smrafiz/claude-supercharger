@@ -92,6 +92,17 @@ while IFS= read -r seg; do
     block "discards all unstaged changes"
   fi
 
+  # git checkout <ref> -- .   /   git checkout <ref> .  → overwrites working tree from <ref>,
+  # silently destroying unstaged work. Real-world loss reported in claude-code#55024.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
+    block "git checkout <ref> -- . overwrites all working-tree files from <ref>, destroying unstaged work"
+  fi
+
+  # git restore --source=<ref> .   → same destructive behavior via the modern restore syntax
+  if [[ "$seg" =~ ^git\ restore[[:space:]] ]] && [[ "$seg" =~ --source[=[:space:]] ]] && [[ "$seg" =~ [[:space:]]\.([[:space:]]|$) ]]; then
+    block "git restore --source=<ref> . overwrites working tree from <ref>, destroying unstaged work"
+  fi
+
   if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
     block "git clean with force permanently removes untracked files"
   fi
