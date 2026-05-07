@@ -10,8 +10,15 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
-LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
-RULES_DIR="$(cd "$HOOKS_DIR/../rules" && pwd)"
+# These dirs may be missing on installs that pre-date the rules/stacks copy
+# (the install.sh fix landed alongside this hardening). Skip cleanly when
+# nothing is available rather than crashing the SessionStart hook.
+LIB_DIR=""
+[ -d "$HOOKS_DIR/../lib" ] && LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
+RULES_DIR=""
+[ -d "$HOOKS_DIR/../rules" ] && RULES_DIR="$(cd "$HOOKS_DIR/../rules" && pwd)"
+[ -z "$LIB_DIR" ] && exit 0
+[ -z "$RULES_DIR" ] && [ ! -d "$HOME/.claude/rules/stacks" ] && exit 0
 
 [ "${SUPERCHARGER_STANDARDS:-1}" = "0" ] && exit 0
 

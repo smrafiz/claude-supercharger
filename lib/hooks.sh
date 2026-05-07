@@ -139,6 +139,16 @@ deploy_hook_scripts() {
   cp "$source_dir/lib/"*.py "$lib_dir/" 2>/dev/null || true
   chmod 700 "$lib_dir/"*.sh
   chmod 600 "$lib_dir/"*.py 2>/dev/null || true
+
+  # Deploy stack standards (rules/stacks/*.md) that standards-inject.sh reads.
+  # Without this, standards-inject crashes at SessionStart on every install
+  # because it expects rules/ as a sibling of hooks/ in the deploy layout.
+  if [ -d "$source_dir/rules/stacks" ]; then
+    local rules_dir="$HOME/.claude/supercharger/rules/stacks"
+    mkdir -p "$rules_dir"
+    cp "$source_dir/rules/stacks/"*.md "$rules_dir/" 2>/dev/null || true
+    chmod 600 "$rules_dir/"*.md 2>/dev/null || true
+  fi
 }
 
 merge_hooks_into_settings() {
