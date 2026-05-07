@@ -21,6 +21,11 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
+# cwd from hook payload, used by the rm guard to detect rm targets that resolve
+# to the project root or its ancestors. Optional — fallback paths still apply.
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
@@ -93,6 +98,36 @@ if _cat_enabled "filesystem"; then
       if $has_recursive && $has_force; then
         if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$) ]]; then
           block "recursive force rm on dangerous target"
+        fi
+        # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
+        # (claude-code#29023 vector: ghost-CWD cascade after directory deletion).
+        if [[ "$args" =~ (^|[[:space:]])(\.|\.\/|\.\/\*|\*)([[:space:]]|$) ]]; then
+          block "recursive force rm on current directory (deletes CWD contents)"
+        fi
+        # Catch rm targets that resolve to PROJECT_DIR or an ancestor — the
+        # exact pattern when Claude runs from a subdir and types the project
+        # name as a relative path.
+        if [ -n "$PROJECT_DIR" ]; then
+          BAD=$(ARGS="$args" CWD="$PROJECT_DIR" python3 <<'PYEOF' 2>/dev/null || true
+import os, shlex, sys
+args = os.environ.get('ARGS','')
+cwd  = os.path.realpath(os.environ.get('CWD','/'))
+try:
+    tokens = shlex.split(args, posix=True)
+except ValueError:
+    sys.exit(0)
+for tok in tokens:
+    if not tok or tok.startswith('-'): continue
+    expanded = os.path.expanduser(os.path.expandvars(tok))
+    target = os.path.realpath(os.path.join(cwd, expanded))
+    # Block if target is cwd or an ancestor of cwd (project-dir wipe).
+    if target == cwd or cwd.startswith(target + os.sep):
+        print(target); sys.exit(0)
+PYEOF
+)
+          if [ -n "$BAD" ]; then
+            block "recursive force rm targeting project root or ancestor ($BAD)"
+          fi
         fi
       fi
     fi

@@ -130,6 +130,37 @@ begin_test "safety: rm -rf / is blocked"
 run_hook "$SAFETY_HOOK" "rm -rf /"
 assert_exit_code 2 $? && pass
 
+# claude-code#29023 — rm -rf . / ./ / ./* / project-root paths
+# These deleted user profile dirs in real incidents (ghost-CWD cascade).
+begin_test "safety: rm -rf . is blocked (deletes CWD)"
+run_hook "$SAFETY_HOOK" "rm -rf ."
+assert_exit_code 2 $? && pass
+
+begin_test "safety: rm -rf ./ is blocked (deletes CWD)"
+run_hook "$SAFETY_HOOK" "rm -rf ./"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: rm -rf ./* is blocked (deletes CWD contents)"
+run_hook "$SAFETY_HOOK" "rm -rf ./*"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: rm -rf <PROJECT_DIR-absolute> is blocked"
+TMPDIR_RM=$(mktemp -d)
+INPUT=$(printf '{"tool_input":{"command":"rm -rf %s"},"cwd":"%s"}' "$TMPDIR_RM" "$TMPDIR_RM")
+OUT=$(printf '%s' "$INPUT" | bash "$SAFETY_HOOK" 2>&1)
+EC=$?
+rm -rf "$TMPDIR_RM"
+[ "$EC" -eq 2 ] && pass || fail "expected block on absolute project-dir rm, got: $EC"
+
+begin_test "safety: rm -rf legit-subdir is allowed (not project root)"
+TMPDIR_RM=$(mktemp -d)
+mkdir -p "$TMPDIR_RM/build/dist"
+INPUT=$(printf '{"tool_input":{"command":"rm -rf ./build/dist"},"cwd":"%s"}' "$TMPDIR_RM")
+OUT=$(printf '%s' "$INPUT" | bash "$SAFETY_HOOK" 2>&1)
+EC=$?
+rm -rf "$TMPDIR_RM"
+[ "$EC" -eq 0 ] && pass || fail "expected legit subdir rm allowed, got: $EC out=$OUT"
+
 begin_test "safety: rm -r -f / is blocked (split flags)"
 run_hook "$SAFETY_HOOK" "rm -r -f /"
 assert_exit_code 2 $? && pass
