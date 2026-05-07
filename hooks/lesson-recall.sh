@@ -2,9 +2,10 @@
 # Claude Supercharger — Lesson Recaller (Reflexion Memory)
 # Event: UserPromptSubmit | Matcher: (none)
 # Tokenizes user prompt, computes Jaccard overlap against stored
-# lessons.jsonl, injects top 3 matches above threshold 0.5.
+# lessons.jsonl, injects top 3 matches above threshold (default 0.35).
 # Output is tier-scaled.
 # Disable: SUPERCHARGER_LESSONS=0
+# Tune:    SUPERCHARGER_LESSON_THRESHOLD=0.5  (default 0.35; raise to reduce noise)
 
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,12 +39,17 @@ done
 
 TIER="${SUPERCHARGER_TIER:-standard}"
 
-OUT=$(PROMPT="$PROMPT" LESSONS_FILE="$LESSONS_FILE" TIER="$TIER" python3 <<'PYEOF'
+THRESHOLD="${SUPERCHARGER_LESSON_THRESHOLD:-0.35}"
+OUT=$(PROMPT="$PROMPT" LESSONS_FILE="$LESSONS_FILE" TIER="$TIER" THRESHOLD="$THRESHOLD" python3 <<'PYEOF'
 import os, re, json
 
 prompt = os.environ.get('PROMPT', '')
 path = os.environ.get('LESSONS_FILE', '')
 tier = os.environ.get('TIER', 'standard')
+try:
+    threshold = float(os.environ.get('THRESHOLD', '0.35'))
+except ValueError:
+    threshold = 0.35
 
 def tokenize(text):
     return {w for w in re.findall(r'[a-zA-Z0-9_]+', text.lower()) if len(w) >= 3}
@@ -69,7 +75,7 @@ try:
             inter = len(p_tokens & r_tokens)
             union = len(p_tokens | r_tokens)
             score = inter / union if union else 0
-            if score >= 0.5:
+            if score >= threshold:
                 scored.append((score, rec))
 except FileNotFoundError:
     raise SystemExit(0)
