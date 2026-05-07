@@ -34,7 +34,7 @@ done
 #   rm    ~/.claude/supercharger/scope/.profiling   # stop collecting
 PROFILING_FILE="$HOME/.claude/supercharger/scope/.profiling"
 mkdir -p "$(dirname "$PROFILING_FILE")"
-if [ ! -f "$PROFILING_FILE" ]; then
+if [ ! -f "$PROFILING_FILE" ] && [ "$JSON" = "0" ]; then
   echo "Profiling is OFF. To collect timing data:" >&2
   echo "  touch $PROFILING_FILE" >&2
   echo "Then use Claude normally for a session and re-run this report." >&2

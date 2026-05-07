@@ -1,6 +1,6 @@
 Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)
 
-> **Known limitation (v2.4.5):** the timing-emit half of the profiling pipeline is incomplete. `hooks/lib-suppress.sh` captures `HOOK_START_MS` when the `.profiling` sentinel is present, but no hook currently writes `elapsed_ms` to the audit log on exit. This report will always show "No hook timing data found" until that gap is filled. Sentinel toggle is real but not yet useful.
+Run the hook performance profiler and display results.
 
 **Step 1 — Run the report**
 
@@ -8,11 +8,11 @@ Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)
 bash ~/.claude/supercharger/tools/hook-perf.sh $ARGUMENTS
 ```
 
-If the command exits with "No hook timing data found", explain the limitation above:
-- Profiling pipeline is incomplete — sentinel exists, timing emit does not
-- Sentinel commands (will be useful once pipeline lands):
-  - `touch ~/.claude/supercharger/scope/.profiling` (start)
-  - `rm ~/.claude/supercharger/scope/.profiling` (stop)
+If the command exits with "No hook timing data found", explain:
+- Profiling data is only collected while the `.profiling` sentinel is active
+- To start collecting: `touch ~/.claude/supercharger/scope/.profiling`
+- To stop: `rm ~/.claude/supercharger/scope/.profiling`
+- Then use Claude normally for a session; re-run `/perf` to see results
 
 **Step 2 — Interpret results**
 

@@ -33,6 +33,34 @@ begin_test "lib-suppress: check_hook_disabled uses in-memory array not grep"
 assert_file_not_contains "$REPO_DIR/hooks/lib-suppress.sh" 'grep -qx' &&
 pass
 
+begin_test "lib-suppress: profiling pipeline writes audit entry with correct hook name"
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+AUDIT_DIR="$HOME/.claude/supercharger/audit"
+mkdir -p "$SCOPE_DIR"; touch "$SCOPE_DIR/.profiling"
+DATE_STR=$(date +%Y-%m-%d)
+AUDIT_FILE="$AUDIT_DIR/${DATE_STR}.jsonl"
+PRE_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
+PRE_LINES=${PRE_LINES##* }
+echo '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/tmp"}' | bash "$REPO_DIR/hooks/git-safety.sh" >/dev/null 2>&1
+POST_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
+POST_LINES=${POST_LINES##* }
+rm -f "$SCOPE_DIR/.profiling"
+[ "$POST_LINES" -gt "$PRE_LINES" ] && grep -q '"hook":"git-safety"' "$AUDIT_FILE" 2>/dev/null && pass \
+  || fail "expected new git-safety audit entry; pre=$PRE_LINES post=$POST_LINES file=$AUDIT_FILE"
+
+begin_test "lib-suppress: profiling skipped when sentinel absent"
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+AUDIT_DIR="$HOME/.claude/supercharger/audit"
+rm -f "$SCOPE_DIR/.profiling"
+DATE_STR=$(date +%Y-%m-%d)
+AUDIT_FILE="$AUDIT_DIR/${DATE_STR}.jsonl"
+PRE_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
+PRE_LINES=${PRE_LINES##* }
+echo '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/tmp"}' | bash "$REPO_DIR/hooks/git-safety.sh" >/dev/null 2>&1
+POST_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
+POST_LINES=${POST_LINES##* }
+[ "$POST_LINES" = "$PRE_LINES" ] && pass || fail "expected no audit entry without sentinel; pre=$PRE_LINES post=$POST_LINES"
+
 begin_test "lib-suppress: SUPERCHARGER_PROFILE=minimal skips quality-gate"
 TMPDIR_PROF=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_PROF/test.py"

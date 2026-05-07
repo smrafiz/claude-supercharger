@@ -21,6 +21,28 @@ _load_disabled_hooks() {
   _DISABLED_HOOKS_CONTENT=$(<"$disabled_file")
 }
 
+# Append a {hook, elapsed_ms, ts} line to today's audit log. Called via EXIT trap
+# from init_hook_suppress when the .profiling sentinel is present. Single short
+# line per fire — POSIX append is atomic for writes under PIPE_BUF (~4KB), so
+# concurrent hook fires don't interleave bytes within a record.
+_emit_hook_timing() {
+  [ "${HOOK_START_MS:-0}" = "0" ] && return
+  [ -z "${HOOK_NAME:-}" ] && return
+  local end_ms
+  if [[ -n "${EPOCHREALTIME:-}" ]]; then
+    end_ms=$(( ${EPOCHREALTIME/./} / 1000 ))
+  else
+    end_ms=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "$HOOK_START_MS")
+  fi
+  local elapsed=$((end_ms - HOOK_START_MS))
+  local audit_dir="$HOME/.claude/supercharger/audit"
+  mkdir -p "$audit_dir" 2>/dev/null || return
+  local date_str
+  date_str=$(date +%Y-%m-%d 2>/dev/null) || return
+  printf '{"hook":"%s","elapsed_ms":%d,"ts":%d}\n' "$HOOK_NAME" "$elapsed" "$end_ms" \
+    >> "$audit_dir/${date_str}.jsonl" 2>/dev/null || true
+}
+
 init_hook_suppress() {
   local dir="${1:-}"
   HOOK_SUPPRESS=true
@@ -35,12 +57,33 @@ init_hook_suppress() {
 
   # Timing instrumentation — only active when profiler is running
   HOOK_START_MS=0
+  HOOK_NAME=""
   if [ -f "$HOME/.claude/supercharger/scope/.profiling" ]; then
     # $EPOCHREALTIME (bash 5+): "seconds.microseconds" — convert to ms, zero fork
     if [[ -n "${EPOCHREALTIME:-}" ]]; then
       HOOK_START_MS=$(( ${EPOCHREALTIME/./} / 1000 ))
     else
       HOOK_START_MS=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "0")
+    fi
+    # Walk BASH_SOURCE past lib-suppress.sh to find the actual hook script.
+    # init_hook_suppress is called from two places: (a) line 183 of this file
+    # (auto-init for hooks that don't re-call), where BASH_SOURCE[1] is also
+    # lib-suppress.sh; (b) directly from a hook script. The walk handles both.
+    local _i=1
+    HOOK_NAME=""
+    while [ $_i -lt ${#BASH_SOURCE[@]} ]; do
+      local _src="${BASH_SOURCE[$_i]:-}"
+      case "$_src" in
+        */lib-suppress.sh|"") _i=$((_i + 1)); continue ;;
+        *) HOOK_NAME=$(basename "$_src" .sh); break ;;
+      esac
+    done
+    [ -z "$HOOK_NAME" ] && HOOK_NAME="unknown"
+    # Only register the EXIT trap if no trap is already set, so we never clobber
+    # cleanup logic in hooks that have their own trap. Hooks with their own trap
+    # silently skip profiling — partial data is better than broken hooks.
+    if [ -z "$(trap -p EXIT)" ]; then
+      trap _emit_hook_timing EXIT
     fi
   fi
 
