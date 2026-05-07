@@ -31,7 +31,9 @@ block() {
   echo "Supercharger blocked this git operation." >&2
   echo "  Reason : $1" >&2
   echo "  Command: $COMMAND" >&2
-  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
+  echo "  Override: if this is intentional, run it in your terminal directly. Git-safety" >&2
+  echo "            blocks are absolute by design — destructive git ops have no per-project" >&2
+  echo "            opt-out (the whole point is they should never run from an agent)." >&2
   echo "" >&2
   local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true

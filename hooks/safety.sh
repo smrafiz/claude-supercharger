@@ -51,7 +51,10 @@ block() {
   echo "Supercharger blocked this command." >&2
   echo "  Reason : $1" >&2
   echo "  Command: $COMMAND" >&2
-  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
+  echo "  Override: run it in your terminal directly, OR add the relevant category to" >&2
+  echo "            \"disableSecurityCategories\" in .supercharger.json (project) — categories:" >&2
+  echo "            filesystem, database, destructive, network, credentials, persistence," >&2
+  echo "            clipboard, browser, history, selfmod" >&2
   echo "" >&2
   # Log for learning — future sessions will know to avoid this pattern
   local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"

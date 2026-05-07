@@ -66,10 +66,10 @@ if 'path-traversal' not in disabled:
     for _ in range(2):
         raw = re.sub(r'%([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), raw)
     if '\x00' in raw:
-        print('null byte in file path — path-truncation attack risk')
+        print('null byte in file path — path-truncation attack risk; opt out via disableSecurityCategories: ["path-traversal"]')
         sys.exit(0)
     if re.search(r'(^|/)\.\.(/|$)', raw):
-        print('path traversal sequence (..) in file path: ' + p[:100])
+        print('path traversal sequence (..) in file path: ' + p[:100] + '; opt out via disableSecurityCategories: ["path-traversal"]')
         sys.exit(0)
 
 # --- 3.2 Symlink: resolve and check under project root ---
@@ -101,11 +101,11 @@ if 'git-internals' not in disabled:
     ]
     for pat in git_patterns:
         if re.search(pat, p):
-            print('write to git internals (' + pat + ') — repo integrity risk')
+            print('write to git internals (' + pat + ') — repo integrity risk; opt out via disableSecurityCategories: ["git-internals"]')
             sys.exit(0)
     home = os.path.expanduser('~')
     if p.startswith(os.path.join(home, '.claude', 'hooks')) or p.startswith(os.path.join(home, '.claude', 'supercharger', 'hooks')):
-        print('write to supercharger hooks dir — would disable security checks')
+        print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
         sys.exit(0)
 
 # --- 3.4 Absolute-path writes outside project root ---
@@ -123,7 +123,7 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     ]
     for blk in abs_blocked:
         if p.startswith(blk) or p == blk.rstrip('/'):
-            print('write to ' + blk + ' — credential or system config persistence risk')
+            print('write to ' + blk + ' — credential or system config persistence risk; opt out via disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
     # Generic: absolute path resolves outside project
     try:
@@ -131,7 +131,7 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
         target_dir = os.path.dirname(p) or '/'
         target_real = os.path.realpath(target_dir)
         if not (target_real == proj_real or target_real.startswith(proj_real + os.sep)):
-            print('absolute path outside project root: ' + p[:100])
+            print('absolute path outside project root: ' + p[:100] + '; opt out via disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
     except Exception:
         pass

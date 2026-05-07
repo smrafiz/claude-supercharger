@@ -714,7 +714,7 @@ echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in block mess
 
 begin_test "safety: blocked message tells user how to proceed"
 MSG=$(echo '{"tool_input":{"command":"rm -rf /"}}' | bash "$SAFETY_HOOK" 2>&1 || true)
-echo "$MSG" | grep -qi "permanently blocked" && pass || fail "no block instruction in block message"
+echo "$MSG" | grep -qi "override\|disableSecurityCategories" && pass || fail "no override instruction in block message"
 
 begin_test "git-safety: blocked message contains 'Reason' label"
 MSG=$(echo '{"tool_input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
@@ -722,7 +722,7 @@ echo "$MSG" | grep -qi "Reason" && pass || fail "no 'Reason' label in git block 
 
 begin_test "git-safety: blocked message tells user how to proceed"
 MSG=$(echo '{"tool_input":{"command":"git push --force origin main"}}' | bash "$GIT_HOOK" 2>&1 || true)
-echo "$MSG" | grep -qi "permanently blocked" && pass || fail "no block instruction in git block message"
+echo "$MSG" | grep -qi "override\|run it in your terminal" && pass || fail "no override instruction in git block message"
 
 begin_test "git-safety: compound bypass blocked (echo && force push)"
 OUT=$(echo '{"tool_input":{"command":"echo hi && git push --force origin main"}}' | bash "$GIT_HOOK" 2>/dev/null; echo "EXIT:$?")
