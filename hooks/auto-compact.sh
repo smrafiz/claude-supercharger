@@ -58,5 +58,7 @@ case "$BAND" in
   70) MSG="[CTX ${PCT}%] Context approaching limit. Consider /compact soon." ;;
 esac
 
-MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$MSG")
-printf '{"systemMessage":%s}\n' "$MSG_JSON"
+# MSG is built from hardcoded literals + integer PCT — no quotes, backslashes,
+# or control chars to escape. Bash printf is safe here. Avoids a python3 fork
+# (~50-70ms cold-start per call). Verified by case statement above.
+printf '{"systemMessage":"%s"}\n' "$MSG"
