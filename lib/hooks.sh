@@ -120,6 +120,20 @@ deploy_hook_scripts() {
   mkdir -p "$target_dir"
   chmod 700 "$HOME/.claude/supercharger"
 
+  # Remove hook .sh files that no longer exist in source. Without this, hooks
+  # deleted in newer versions linger on disk forever (they're harmless because
+  # settings.json doesn't register them, but they pollute /why explanations,
+  # diagnostics, and confuse audits).
+  for installed in "$target_dir/"*.sh; do
+    [ ! -f "$installed" ] && continue
+    local base=$(basename "$installed")
+    # Keep webhook-lib.sh (renamed copy of lib/webhook.sh, handled below)
+    [ "$base" = "webhook-lib.sh" ] && continue
+    if [ ! -f "$source_dir/hooks/$base" ]; then
+      rm -f "$installed"
+    fi
+  done
+
   cp "$source_dir/hooks/"*.sh "$target_dir/"
   cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
   chmod 700 "$target_dir/"*.sh
