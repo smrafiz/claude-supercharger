@@ -112,10 +112,31 @@ fi
 if [[ "$MODE" == "check" ]]; then
   _INPUT=$(cat)
 
+  # Bash fast-path: skip the python3 fork entirely when no budget cap is
+  # configured (the common case — most users don't set one). Walks up at most
+  # 5 levels for .supercharger.json and greps for a "budget" key. ~5ms vs the
+  # ~70ms python3 cold-start it replaces.
+  if [ -z "${SESSION_BUDGET_CAP:-}" ]; then
+    # || true: pipefail must not abort when cwd field is absent
+    _SEARCH_DIR=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+    [ -z "$_SEARCH_DIR" ] && _SEARCH_DIR="$PWD"
+    _HAS_CAP=0
+    for _ in 1 2 3 4 5; do
+      if [ -f "$_SEARCH_DIR/.supercharger.json" ]; then
+        if grep -q '"budget"' "$_SEARCH_DIR/.supercharger.json" 2>/dev/null; then
+          _HAS_CAP=1
+        fi
+        break
+      fi
+      _PARENT=$(dirname "$_SEARCH_DIR")
+      [ "$_PARENT" = "$_SEARCH_DIR" ] && break
+      _SEARCH_DIR="$_PARENT"
+    done
+    [ "$_HAS_CAP" -eq 0 ] && exit 0
+  fi
+
   # Single python3 fork: parse stdin, walk up for .supercharger.json, read
-  # .session-cost, evaluate threshold. Replaces the previous 3-5 forks (jq +
-  # python3 for tool_name, jq for cwd, python3 for config, python3 for spend,
-  # python3 for decision). Average drops from ~184ms to ~70ms per call.
+  # .session-cost, evaluate threshold.
   DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
 import json, os, sys
 
