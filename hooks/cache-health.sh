@@ -27,86 +27,69 @@ printf '%s\n' "$COUNT" > "$COUNTER_FILE"
 [ $((COUNT % 5)) -ne 0 ] && exit 0
 
 # ── Step 2: Extract cache token fields from tool_response.usage ─────────────
-CACHE_READ=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('tool_response', {})
-    if isinstance(usage, dict):
-        usage = usage.get('usage', usage)
-    if not isinstance(usage, dict):
-        usage = data.get('usage') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    print(int(usage.get('cache_read_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-CACHE_CREATE=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('tool_response', {})
-    if isinstance(usage, dict):
-        usage = usage.get('usage', usage)
-    if not isinstance(usage, dict):
-        usage = data.get('usage') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    print(int(usage.get('cache_creation_input_tokens', 0) or 0))
-except Exception:
-    print(0)
-" 2>/dev/null || echo "0")
-
-# ── Step 3: Skip if no cache token data ─────────────────────────────────────
-TOTAL_CACHE=$((CACHE_READ + CACHE_CREATE))
-[ "$TOTAL_CACHE" -eq 0 ] && exit 0
-
-# ── Step 4: Calculate hit rate ───────────────────────────────────────────────
-HIT_RATE=$(python3 -c "
-read = $CACHE_READ
-create = $CACHE_CREATE
-total = read + create
-if total == 0:
-    print(0)
-else:
-    print(int(read * 100 / total))
-" 2>/dev/null || echo "0")
-
-# ── Step 5: Append to rolling window (keep last 5) ──────────────────────────
+# Single python3 fork: parse stdin once, extract both cache fields, compute
+# hit rate, update rolling window file, and decide degraded state. Replaces
+# the previous 4 sequential python3 forks (~50-70ms × 4 cold-starts each).
 HEALTH_FILE="$SCOPE_DIR/.cache-health"
-WINDOW=$(python3 -c "
-import json, os
-path = '$HEALTH_FILE'
+RESULT=$(HEALTH_FILE="$HEALTH_FILE" HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null || echo "skip 0 0 [] no"
+import json, os, sys
+
+try:
+    data = json.loads(os.environ.get('HOOK_INPUT', '{}'))
+except Exception:
+    print('skip 0 0 [] no'); sys.exit(0)
+
+usage = data.get('tool_response', {})
+if isinstance(usage, dict):
+    usage = usage.get('usage', usage)
+if not isinstance(usage, dict):
+    usage = data.get('usage') or {}
+if not isinstance(usage, dict):
+    usage = {}
+
+cache_read = int(usage.get('cache_read_input_tokens', 0) or 0)
+cache_create = int(usage.get('cache_creation_input_tokens', 0) or 0)
+total = cache_read + cache_create
+
+if total == 0:
+    print('skip 0 0 [] no'); sys.exit(0)
+
+hit_rate = int(cache_read * 100 / total)
+
+path = os.environ.get('HEALTH_FILE', '')
 window = []
-if os.path.exists(path):
+if path and os.path.exists(path):
     try:
         with open(path) as f:
-            window = json.load(f)
-        if not isinstance(window, list):
-            window = []
+            w = json.load(f)
+        if isinstance(w, list):
+            window = w
     except Exception:
         window = []
-window.append($HIT_RATE)
+window.append(hit_rate)
 window = window[-5:]
-print(json.dumps(window))
-" 2>/dev/null || echo "[$HIT_RATE]")
-printf '%s\n' "$WINDOW" > "$HEALTH_FILE"
 
-# ── Step 6: Check if last 3 readings all < 50% ───────────────────────────────
-DEGRADED=$(python3 -c "
-import json
-try:
-    window = json.loads('$WINDOW')
-    last3 = window[-3:]
-    if len(last3) >= 3 and all(r < 50 for r in last3):
-        print('yes')
-    else:
-        print('no')
-except Exception:
-    print('no')
-" 2>/dev/null || echo "no")
+last3 = window[-3:]
+degraded = 'yes' if len(last3) >= 3 and all(r < 50 for r in last3) else 'no'
+
+print(f'ok {cache_read} {cache_create} {hit_rate} {json.dumps(window)} {degraded}')
+PYEOF
+)
+
+case "$RESULT" in
+  skip*) exit 0 ;;
+  ok\ *)
+    # ok <cache_read> <cache_create> <hit_rate> <window_json> <degraded>
+    set -- $RESULT
+    CACHE_READ="$2"; CACHE_CREATE="$3"; HIT_RATE="$4"
+    # rest of fields after $5 are window (may contain spaces inside json) + degraded
+    WINDOW="${RESULT#ok $2 $3 $4 }"
+    DEGRADED="${WINDOW##* }"
+    WINDOW="${WINDOW% *}"
+    printf '%s\n' "$WINDOW" > "$HEALTH_FILE"
+    ;;
+  *) exit 0 ;;
+esac
 
 [ "$DEGRADED" != "yes" ] && exit 0
 
