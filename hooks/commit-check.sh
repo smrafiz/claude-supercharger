@@ -30,7 +30,12 @@ block() {
   echo "Supercharger blocked this commit." >&2
   echo "  Reason : $1" >&2
   echo "  Command: $COMMAND" >&2
-  echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
+  echo "  Fix    : rewrite the commit message above and retry. Conventional Commits format:" >&2
+  echo "           type(scope): description  or  type: description  or  type!: description (breaking)" >&2
+  echo "           Valid types: feat, fix, chore, docs, style, refactor, test, perf, ci, build, revert" >&2
+  echo "           Example   : feat(auth): add OAuth support" >&2
+  echo "  Disable: if your project doesn't use Conventional Commits, run" >&2
+  echo "           rm ~/.claude/supercharger/.conventional-commits  (or remove from install)" >&2
   echo "" >&2
   RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
