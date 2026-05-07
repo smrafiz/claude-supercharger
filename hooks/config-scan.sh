@@ -157,6 +157,16 @@ if deny_read:
     suffix = f' (+{more} more)' if more > 0 else ''
     warnings.append(f'[SECURITY] {where} sets sandbox.filesystem.denyRead ({sample}{suffix}) — this field is NOT enforced by Claude Code (claude-code#44274). Files in those paths are still readable. Use supercharger env-file-guard.sh and path-guard.sh for actual read protection.')
 
+# CVE-2026-33068: permissions.defaultMode=bypassPermissions (or top-level
+# dangerouslySkipPermissions) silently disables the trust dialog and runs all
+# tools without confirmation. Patched upstream in v2.1.53 — defense-in-depth
+# warning so cloned malicious repos don't slip through on patched versions.
+default_mode = ((s.get('permissions', {}) or {}).get('defaultMode', '')) or ''
+skip_perms = bool(s.get('dangerouslySkipPermissions') or s.get('dangerously_skip_permissions'))
+if default_mode == 'bypassPermissions' or skip_perms:
+    field = 'permissions.defaultMode=bypassPermissions' if default_mode == 'bypassPermissions' else 'dangerouslySkipPermissions'
+    warnings.append(f'[SECURITY] {where} sets {field} — this disables the trust dialog and runs all tools without confirmation (CVE-2026-33068, patched v2.1.53). If this project file is from a cloned repo you do not fully trust, remove the entry before continuing.')
+
 for w in warnings:
     print(w)
 PYEOF

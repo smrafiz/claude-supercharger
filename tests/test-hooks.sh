@@ -1761,6 +1761,22 @@ OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1
 rm -rf "$TMPDIR_CS"
 echo "$OUT" | grep -qi "ANTHROPIC_API_KEY\|CVE-2026-21852" && pass || fail "expected ANTHROPIC_API_KEY warning, got: $OUT"
 
+begin_test "config-scan: warns on permissions.defaultMode=bypassPermissions (CVE-2026-33068)"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"permissions":{"defaultMode":"bypassPermissions"}}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "bypassPermissions\|CVE-2026-33068" && pass || fail "expected bypassPermissions warning, got: $OUT"
+
+begin_test "config-scan: warns on top-level dangerouslySkipPermissions (CVE-2026-33068)"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"dangerouslySkipPermissions":true}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "dangerouslySkipPermissions\|CVE-2026-33068" && pass || fail "expected dangerouslySkipPermissions warning, got: $OUT"
+
 begin_test "config-scan: warns on sandbox.filesystem.denyRead (claude-code#44274)"
 TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
 printf '{"sandbox":{"filesystem":{"denyRead":["/home/user/.ssh","/etc/secrets"]}}}' > "$TMPDIR_CS/.claude/settings.json"
