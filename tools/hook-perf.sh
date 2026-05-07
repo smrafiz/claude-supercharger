@@ -26,13 +26,20 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-# Enable profiling sentinel for future hook invocations
+# The profiling sentinel must be enabled manually so data can accumulate across
+# multiple sessions. Previous behavior touched + trap'd it on every /perf run,
+# meaning profiling was only ever active for the few seconds the report ran —
+# no timing data could ever be captured. Sentinel is now user-controlled:
+#   touch ~/.claude/supercharger/scope/.profiling   # start collecting
+#   rm    ~/.claude/supercharger/scope/.profiling   # stop collecting
 PROFILING_FILE="$HOME/.claude/supercharger/scope/.profiling"
 mkdir -p "$(dirname "$PROFILING_FILE")"
-touch "$PROFILING_FILE"
-
-# Clean up on exit
-trap 'rm -f "$PROFILING_FILE"' EXIT
+if [ ! -f "$PROFILING_FILE" ]; then
+  echo "Profiling is OFF. To collect timing data:" >&2
+  echo "  touch $PROFILING_FILE" >&2
+  echo "Then use Claude normally for a session and re-run this report." >&2
+  echo "" >&2
+fi
 
 SUPERCHARGER_AUDIT_DIR="$AUDIT_DIR" \
 SUPERCHARGER_DAYS="$DAYS" \
