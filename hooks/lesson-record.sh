@@ -22,17 +22,23 @@ hook_profile_skip "lesson-record" && exit 0
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
 [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ] && exit 0
 
-LAST_USER=$(jq -rs '
-  [.[] | select(.type == "user")] | last |
-  if .message.content | type == "array"
-  then [.message.content[] | select(.type == "text") | .text] | join(" ")
-  else .message.content // "" end
-' "$TRANSCRIPT" 2>/dev/null || echo "")
-
-LAST_ASSIST=$(jq -rs '
-  [.[] | select(.type == "assistant" and .message.content)] | last |
-  [.message.content[] | select(.type == "text") | .text] | join(" ")
-' "$TRANSCRIPT" 2>/dev/null || echo "")
+# Single jq fork extracts both LAST_USER and LAST_ASSIST in one transcript
+# pass — replaces two separate jq -rs full-file reads. Output is delimited by
+# US (\x1f) which never appears in transcript text. Saves one full-file parse
+# (transcripts grow large in long sessions; the second parse was the big cost).
+PAIR=$(jq -rs '
+  ([.[] | select(.type == "user")] | last) as $u |
+  ([.[] | select(.type == "assistant" and .message.content)] | last) as $a |
+  (
+    if $u.message.content | type == "array"
+    then [$u.message.content[] | select(.type == "text") | .text] | join(" ")
+    else $u.message.content // "" end
+  )
+  + "__SC_SEP__"
+  + ([$a.message.content[] | select(.type == "text") | .text] | join(" "))
+' "$TRANSCRIPT" 2>/dev/null || echo "__SC_SEP__")
+LAST_USER="${PAIR%%__SC_SEP__*}"
+LAST_ASSIST="${PAIR#*__SC_SEP__}"
 
 [ -z "$LAST_ASSIST" ] && exit 0
 
