@@ -10,6 +10,7 @@
 # Or per-project via .supercharger.json:
 #   {"disableSecurityCategories": ["clipboard", "history"]}
 set -euo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
 
 _INPUT=$(cat)
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)

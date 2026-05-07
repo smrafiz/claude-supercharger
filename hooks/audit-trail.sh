@@ -4,6 +4,7 @@
 # Logs write operations to a JSONL audit file.
 
 set -euo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
 
 _INPUT=$(cat)
 

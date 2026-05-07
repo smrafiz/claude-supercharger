@@ -5,6 +5,7 @@
 # Uses updatedPermissions for session persistence — approved once, never asked again.
 
 set -euo pipefail
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
 
 _INPUT=$(cat)
 
