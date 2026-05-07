@@ -112,87 +112,72 @@ fi
 if [[ "$MODE" == "check" ]]; then
   _INPUT=$(cat)
 
-  # Extract tool_name for read-only bypass
-  TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
-  if [ -z "$TOOL_NAME" ]; then
-    TOOL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
-  fi
+  # Single python3 fork: parse stdin, walk up for .supercharger.json, read
+  # .session-cost, evaluate threshold. Replaces the previous 3-5 forks (jq +
+  # python3 for tool_name, jq for cwd, python3 for config, python3 for spend,
+  # python3 for decision). Average drops from ~184ms to ~70ms per call.
+  DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
+import json, os, sys
 
-  # Resolve cap: env var > .supercharger.json > no cap
-  CAP=""
-  if [ -n "${SESSION_BUDGET_CAP:-}" ]; then
-    CAP="$SESSION_BUDGET_CAP"
-  else
-    # Walk up from cwd to find .supercharger.json
-    PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
-    [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-    SEARCH_DIR="$PROJECT_DIR"
-    for _ in 1 2 3 4 5; do
-      if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-        CAP=$(python3 -c "
-import json
 try:
-    with open('$SEARCH_DIR/.supercharger.json') as f:
-        d = json.load(f)
-    b = d.get('budget', '')
-    print(str(b) if b else '')
+    data = json.loads(os.environ.get('HOOK_INPUT', '{}'))
 except Exception:
-    print('')
-" 2>/dev/null || echo "")
-        break
-      fi
-      PARENT=$(dirname "$SEARCH_DIR")
-      [ "$PARENT" = "$SEARCH_DIR" ] && break
-      SEARCH_DIR="$PARENT"
-    done
-  fi
+    print('pass'); sys.exit(0)
 
-  # No cap configured — passthrough
-  if [ -z "$CAP" ]; then
-    exit 0
-  fi
+tool = (data.get('tool_name') or '').strip()
+cwd = data.get('cwd') or os.environ.get('PWD', '/')
 
-  # Read current spend
-  CURRENT_SPEND="0"
-  if [ -f "$COST_FILE" ]; then
-    CURRENT_SPEND=$(python3 -c "
-import json
+cap = ''
+env_cap = os.environ.get('SESSION_BUDGET_CAP', '')
+if env_cap:
+    cap = env_cap
+else:
+    # Walk up to find .supercharger.json
+    d = cwd
+    for _ in range(5):
+        cfg = os.path.join(d, '.supercharger.json')
+        if os.path.isfile(cfg):
+            try:
+                with open(cfg) as f:
+                    cap = str(json.load(f).get('budget', '') or '')
+            except Exception:
+                cap = ''
+            break
+        parent = os.path.dirname(d)
+        if parent == d: break
+        d = parent
+
+if not cap:
+    print('pass'); sys.exit(0)
+
 try:
-    with open('$COST_FILE') as f:
-        d = json.load(f)
-    print(str(d.get('total_usd', 0) or 0))
+    cap_f = float(cap)
 except Exception:
-    print('0')
-" 2>/dev/null || echo "0")
-  fi
+    print('pass'); sys.exit(0)
 
-  # Evaluate thresholds
-  DECISION=$(CAP="$CAP" SPEND="$CURRENT_SPEND" TOOL="$TOOL_NAME" python3 << 'PYEOF'
-import os
+spend = 0.0
+cost_file = os.environ.get('COST_FILE', '')
+if cost_file and os.path.isfile(cost_file):
+    try:
+        with open(cost_file) as f:
+            spend = float(json.load(f).get('total_usd', 0) or 0)
+    except Exception:
+        spend = 0.0
 
-cap = float(os.environ['CAP'])
-spend = float(os.environ['SPEND'])
-tool = os.environ.get('TOOL', '')
-
-READ_ONLY_TOOLS = {'Read', 'Glob', 'Grep'}
-
-pct = (spend / cap * 100) if cap > 0 else 0
+pct = (spend / cap_f * 100) if cap_f > 0 else 0
+READ_ONLY = {'Read', 'Glob', 'Grep'}
 
 if pct >= 100:
-    # Over cap — check if read-only bypass applies
-    if tool in READ_ONLY_TOOLS:
+    if tool in READ_ONLY:
         print('pass')
     else:
-        reason = f"Session budget cap reached: ${spend:.4f} spent of ${cap:.2f} cap ({pct:.0f}%). Use read-only tools or start a new session."
-        print(f'block:{reason}')
+        print(f'block:Session budget cap reached: ${spend:.4f} spent of ${cap_f:.2f} cap ({pct:.0f}%). Use read-only tools or start a new session.')
 elif pct >= 80:
-    msg = f"[BUDGET] {pct:.0f}% of session cap used (${spend:.4f} / ${cap:.2f}). Consider wrapping up."
-    print(f'warn:{msg}')
+    print(f'warn:[BUDGET] {pct:.0f}% of session cap used (${spend:.4f} / ${cap_f:.2f}). Consider wrapping up.')
 else:
     print('pass')
 PYEOF
 )
-
   if [[ "$DECISION" == "pass" ]]; then
     exit 0
   elif [[ "$DECISION" == warn:* ]]; then
