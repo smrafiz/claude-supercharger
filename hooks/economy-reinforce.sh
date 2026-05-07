@@ -61,7 +61,7 @@ case "$TIER" in
     ;;
 esac
 
-echo "[Supercharger] economy-reinforce: tier=${TIER} count=${COUNT}" >&2
+echo "[Supercharger] economy-reinforce: tier=${TIER}" >&2
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 if [ "$HOOK_SUPPRESS" = "false" ]; then
