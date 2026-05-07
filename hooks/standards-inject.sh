@@ -129,6 +129,27 @@ if out_blocks:
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
 hook_already_emitted "standards-inject" "$SESSION_ID" "$MSG" && exit 0
 
+# Cross-session TTL: stack rules don't change between sessions of the same
+# project, so re-injecting on every session start is pure token waste. Skip
+# if we've already emitted for this (project, message-hash) pair within the
+# last 24h. Saves ~425 tokens × N sessions/day per project (react+nextjs).
+TTL_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$TTL_DIR" 2>/dev/null
+PROJECT_HASH=$(printf '%s' "$PROJECT_DIR" | shasum 2>/dev/null | cut -c1-12)
+if [ -n "$PROJECT_HASH" ]; then
+  TTL_FILE="$TTL_DIR/.standards-inject-${PROJECT_HASH}"
+  MSG_HASH=$(printf '%s' "$MSG" | shasum 2>/dev/null | cut -c1-12)
+  if [ -f "$TTL_FILE" ]; then
+    LAST=$(cat "$TTL_FILE" 2>/dev/null | head -1)
+    LAST_TS="${LAST%% *}"; LAST_HASH="${LAST##* }"
+    NOW_TS=$(date +%s)
+    if [ -n "$LAST_TS" ] && [ "$LAST_HASH" = "$MSG_HASH" ] && [ $((NOW_TS - LAST_TS)) -lt 86400 ]; then
+      exit 0
+    fi
+  fi
+  printf '%s %s\n' "$(date +%s)" "$MSG_HASH" > "$TTL_FILE"
+fi
+
 MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
 printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 exit 0
