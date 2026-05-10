@@ -106,7 +106,7 @@ fi
 printf '%s\n' "$BUCKET" > "$DEDUP_FILE"
 
 # ── Emit warning ─────────────────────────────────────────────────────────────
-MSG="[CACHE] Hit rate dropped to ${HIT_RATE}%. You may be getting re-billed for full context. Consider /compact or starting a fresh session."
+MSG="[CACHE] Hit rate dropped to ${HIT_RATE}%. You may be getting re-billed for full context. Default cache TTL is 5min — if you stepped away or the session is bursty, set 1-hour TTL via the API: cache_control: {type: \"ephemeral\", ttl: \"1h\"}. Otherwise consider /compact or starting a fresh session."
 echo "[Supercharger] cache-health: hit_rate=${HIT_RATE}% bucket=${BUCKET}" >&2
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
