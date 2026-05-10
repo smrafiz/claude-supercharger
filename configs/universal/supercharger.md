@@ -55,6 +55,8 @@ If level 4 cannot be verified, state what the user should test.
 
 ## Scope Discipline
 - Only change what was requested — no drive-by refactoring
+- Every changed line should trace directly to the user's request — if you can't justify the line, don't write it
+- If you write 200 lines and it could be 50, rewrite it before shipping
 - Ask before modifying files outside the explicit scope, even if in-project
 - If you notice something worth improving, mention it without fixing
 - One task at a time, completed fully before starting the next
