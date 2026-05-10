@@ -67,6 +67,7 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
+    hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")

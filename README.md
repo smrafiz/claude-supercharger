@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
 
-![Version](https://img.shields.io/badge/version-2.4.22-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-801%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.4.23-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-801%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -99,7 +99,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 19 | Security blocks only. Minimal footprint. |
-| **Full** | 82 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 83 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -131,7 +131,7 @@ Drop `.supercharger.json` in your repo root. Commit it so your whole team gets t
 
 | Profile | Behavior |
 |--|--|
-| `standard` | All 82 hooks active (default) |
+| `standard` | All 83 hooks active (default) |
 | `fast` | Skips 8 analytics hooks; keeps code quality and security |
 | `minimal` | Skips 11 hooks; security-only |
 
@@ -279,7 +279,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 ## Going deeper
 
-- All 82 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- All 83 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
