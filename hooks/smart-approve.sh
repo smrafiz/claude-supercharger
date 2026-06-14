@@ -9,7 +9,7 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 if [ -z "$TOOL_NAME" ]; then
   TOOL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
 fi
@@ -17,7 +17,7 @@ fi
 [ -z "$TOOL_NAME" ] && exit 0
 
 # Get PROJECT_DIR for project-scoped approvals
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 allow_tool() {
@@ -49,7 +49,7 @@ esac
 
 # --- Write/Edit: auto-approve if file is inside project directory ---
 if [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "MultiEdit" ]; then
-  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   if [ -n "$FILE_PATH" ] && [ -n "$PROJECT_DIR" ]; then
     # Resolve to absolute path
     case "$FILE_PATH" in
@@ -68,7 +68,7 @@ fi
 
 # --- Bash commands ---
 if [ "$TOOL_NAME" = "Bash" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+  COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
   if [ -z "$COMMAND" ]; then
     COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
   fi

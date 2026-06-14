@@ -19,7 +19,7 @@ _is_subagent "$PAYLOAD" && exit 0
 # Longer cooldown (60s) — idle_prompt fires too frequently during normal processing
 _cooldown_ok "idle" 60 || exit 0
 
-MSG=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null)
+MSG=$(printf '%s\n' "$PAYLOAD" | jq -r '.message // empty' 2>/dev/null || true)
 [ -z "$MSG" ] && MSG="Claude Code needs your input"
 
 # Skip if message looks like a transient processing state, not genuine input needed

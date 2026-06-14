@@ -12,18 +12,18 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_CONFIDENCE:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "confidence-gate" && exit 0
 hook_profile_skip "confidence-gate" && exit 0
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 [ -z "$TOOL_NAME" ] && exit 0
 
 case "$TOOL_NAME" in
   Edit|Write) ;;
   Bash)
-    BASH_CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+    BASH_CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
     [ -z "$BASH_CMD" ] && exit 0
     DESTRUCTIVE=$(BASH_CMD="$BASH_CMD" python3 -c "
 import os, re
@@ -61,7 +61,7 @@ HISTORY_LEGACY="$SCOPE_DIR/.tool-history"
 REPETITION_FLAG="$SCOPE_DIR/.repetition-flag-${SESSION_ID}"
 READ_HISTORY="$SCOPE_DIR/.read-history"
 
-TARGET_FILE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+TARGET_FILE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
 
 REPETITION_FLAGGED=0
 [ -f "$REPETITION_FLAG" ] && REPETITION_FLAGGED=1

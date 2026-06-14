@@ -45,7 +45,7 @@ fi
 
 # --- Decisions extracted from this turn's assistant messages ---
 DECISIONS_LINE="none"
-TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   DECISIONS_LINE=$(TRANSCRIPT="$TRANSCRIPT" python3 <<'PYEOF'
 import os, json, re

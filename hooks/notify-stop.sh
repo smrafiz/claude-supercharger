@@ -12,7 +12,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
 _INPUT=$(cat)
 
 # Skip if stop hook already active (prevent double notification)
-STOP_ACTIVE=$(printf '%s\n' "$_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null)
+STOP_ACTIVE=$(printf '%s\n' "$_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || true)
 [ "$STOP_ACTIVE" = "true" ] && exit 0
 
 # Suppress during subagents
@@ -22,7 +22,7 @@ _is_subagent "$_INPUT" && exit 0
 _cooldown_ok "stop" 12 || exit 0
 
 # Extract transcript path
-TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null)
+TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 
 QUERY=""
 RESPONSE=""
@@ -52,7 +52,7 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
 fi
 
 # Extract elapsed time
-DURATION_MS=$(printf '%s\n' "$_INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null)
+DURATION_MS=$(printf '%s\n' "$_INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null || true)
 DURATION_MS="${DURATION_MS:-0}"
 MINS=$((DURATION_MS / 60000))
 SECS=$(( (DURATION_MS % 60000) / 1000 ))

@@ -33,7 +33,7 @@ _cooldown_ok() {
 _is_subagent() {
   local input="$1"
   local agent_id
-  agent_id=$(printf '%s\n' "$input" | jq -r '.agent_id // empty' 2>/dev/null)
+  agent_id=$(printf '%s\n' "$input" | jq -r '.agent_id // empty' 2>/dev/null || true)
   [ -n "$agent_id" ] && return 0
   return 1
 }

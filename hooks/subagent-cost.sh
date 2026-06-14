@@ -20,7 +20,7 @@ mkdir -p "$SCOPE_DIR"
 if [[ "$MODE" == "start" ]]; then
   _INPUT=$(cat)
 
-  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
   AGENT_ID=$(printf '%s\n' "$_INPUT" | python3 -c "

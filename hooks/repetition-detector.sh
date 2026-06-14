@@ -11,11 +11,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "repetition-detector" && exit 0
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 [ -z "$TOOL_NAME" ] && exit 0
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
@@ -29,11 +29,11 @@ LOOP_FILE="$SCOPE_DIR/.loop-history"
 FINGERPRINT=""
 case "$TOOL_NAME" in
   Bash)
-    CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+    CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
     [ -z "$CMD" ] && FINGERPRINT="" || FINGERPRINT="Bash:${CMD}"
     ;;
   Read)
-    FPATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+    FPATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
     [ -z "$FPATH" ] && FINGERPRINT="" || FINGERPRINT="Read:${FPATH}"
     ;;
 esac
@@ -66,7 +66,7 @@ fi
 
 # ── Re-read detection (Read only) ──
 if [ "$TOOL_NAME" = "Read" ]; then
-  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
     READS_FILE="$SCOPE_DIR/.read-history"
     CURRENT_MTIME=$(stat -f '%m' "$FILE_PATH" 2>/dev/null || stat -c '%Y' "$FILE_PATH" 2>/dev/null || echo "0")

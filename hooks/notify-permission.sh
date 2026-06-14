@@ -17,7 +17,7 @@ _is_subagent "$_INPUT" && exit 0
 # Cooldown (7s — permission requests can cluster)
 _cooldown_ok "permission" 7 || exit 0
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null)
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null || true)
 
 PREVIEW=$(printf '%s\n' "$_INPUT" | jq -r '
   .tool_input |

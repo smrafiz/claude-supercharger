@@ -49,7 +49,7 @@ fi
 if [[ "$MODE" == "contract" ]]; then
   [ -f "$CONTRACT_FILE" ] && exit 0
   _INPUT=$(cat)
-  PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
+  PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
   if [ -z "$PROMPT" ]; then
     PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
   fi
@@ -82,7 +82,7 @@ fi
 # ── check ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "check" ]]; then
   _INPUT=$(cat)
-  TOUCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null)
+  TOUCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   if [ -z "$TOUCHED" ]; then
     TOUCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
   fi

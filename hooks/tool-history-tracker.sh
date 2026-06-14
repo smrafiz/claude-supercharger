@@ -16,7 +16,7 @@ _INPUT=$(cat)
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
 

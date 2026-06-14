@@ -19,7 +19,7 @@ _INPUT=$(cat)
 # four sequential jq calls (~50ms × 4 = ~200ms saved per invocation when bash
 # output is short). Fields are joined with US separator (\x1f) so they can
 # never appear in command/output.
-FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // "", .tool_name // "", .tool_input.command // "", .tool_response.stdout // .tool_response.output // ""] | @tsv' 2>/dev/null)
+FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // "", .tool_name // "", .tool_input.command // "", .tool_response.stdout // .tool_response.output // ""] | @tsv' 2>/dev/null || true)
 PROJECT_DIR=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $1}'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "bash-output-compactor" && exit 0
@@ -45,7 +45,7 @@ case "$CMD" in
 esac
 
 # Get tool output (stdout). Bash hook payloads include it under tool_response.stdout.
-OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_response.output // empty' 2>/dev/null)
+OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_response.output // empty' 2>/dev/null || true)
 [ -z "$OUTPUT" ] && exit 0
 
 LINE_COUNT=$(printf '%s\n' "$OUTPUT" | wc -l | tr -d ' ')
@@ -119,7 +119,7 @@ PYEOF
 
 [ -z "$COMPACTED" ] && exit 0
 
-OUT_JSON=$(printf '%s' "$COMPACTED" | jq -Rs '.' 2>/dev/null)
+OUT_JSON=$(printf '%s' "$COMPACTED" | jq -Rs '.' 2>/dev/null || true)
 [ -z "$OUT_JSON" ] && exit 0
 
 # Use v2.1.121 updatedToolOutput to replace Claude's view with the compacted summary.

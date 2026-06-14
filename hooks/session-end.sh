@@ -12,13 +12,13 @@ mkdir -p "$LOGS_DIR" 2>/dev/null || true
 
 # Parse reason and session_id from stdin
 _INPUT=$(cat)
-REASON=$(printf '%s\n' "$_INPUT" | jq -r '.reason // empty' 2>/dev/null)
+REASON=$(printf '%s\n' "$_INPUT" | jq -r '.reason // empty' 2>/dev/null || true)
 if [ -z "$REASON" ]; then
   REASON=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('reason','unknown'))" 2>/dev/null || echo "unknown")
 fi
 [ -z "$REASON" ] && REASON="unknown"
 
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 
 # Read transient scope stats

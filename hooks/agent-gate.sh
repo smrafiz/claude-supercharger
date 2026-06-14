@@ -9,7 +9,7 @@ set -euo pipefail
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 _INPUT=$(cat)
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null)
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 
 CLASSIFIED_FILE="$SCOPE_DIR/.agent-classified-${SESSION_ID}"
@@ -22,7 +22,7 @@ DISPATCHED=$(printf '%s\n' "$_INPUT" | jq -r '
   .tool_input.name //
   .tool_input.description //
   empty
-' 2>/dev/null)
+' 2>/dev/null || true)
 
 # Fallback: extract agent name from the description field (first line, first few words)
 if [ -z "$DISPATCHED" ]; then
