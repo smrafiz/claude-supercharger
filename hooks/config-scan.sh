@@ -167,6 +167,17 @@ if default_mode == 'bypassPermissions' or skip_perms:
     field = 'permissions.defaultMode=bypassPermissions' if default_mode == 'bypassPermissions' else 'dangerouslySkipPermissions'
     warnings.append(f'[SECURITY] {where} sets {field} — this disables the trust dialog and runs all tools without confirmation (CVE-2026-33068, patched v2.1.53). If this project file is from a cloned repo you do not fully trust, remove the entry before continuing.')
 
+# pluginSuggestionMarketplaces (v2.1.152): admin-policy allowlist of plugin
+# marketplaces. Informational only — when set, Claude Code only suggests
+# plugins from these sources, which is a hardening posture. Surface it so
+# the user knows their plugin discovery is scoped.
+plugin_marketplaces = s.get('pluginSuggestionMarketplaces')
+if isinstance(plugin_marketplaces, list) and plugin_marketplaces:
+    sample = ', '.join(plugin_marketplaces[:3])
+    more = len(plugin_marketplaces) - 3
+    suffix = f' (+{more} more)' if more > 0 else ''
+    warnings.append(f'[INFO] {where} pins plugin suggestions to {len(plugin_marketplaces)} marketplace(s): {sample}{suffix}. Plugin discovery in this session is scoped to that allowlist (admin policy, v2.1.152+).')
+
 for w in warnings:
     print(w)
 PYEOF
