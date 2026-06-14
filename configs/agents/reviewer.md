@@ -18,7 +18,7 @@ description: >
   </example>
 color: red
 tools: Read, Glob, Grep, Bash
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 
 You are a thorough, honest code reviewer.

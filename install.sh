@@ -27,6 +27,19 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
+# Safe Mode warning (Claude Code v2.1.169+)
+# Installing under safe mode is fine, but the resulting session won't run hooks
+# until the user clears the env var or drops --safe-mode. Warn so they don't
+# install, exit, and wonder why Supercharger appears to be "off".
+if [ "${CLAUDE_CODE_SAFE_MODE:-}" = "1" ]; then
+  echo "" >&2
+  echo "NOTE: CLAUDE_CODE_SAFE_MODE=1 is set in your environment." >&2
+  echo "      Supercharger will install, but Claude Code skips hooks/MCP/skills/CLAUDE.md" >&2
+  echo "      under safe mode. Unset the env var (or drop --safe-mode) before your next" >&2
+  echo "      session to activate guardrails." >&2
+  echo "" >&2
+fi
+
 # Resolve source directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

@@ -11,7 +11,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-VERSION="2.4.25"
+VERSION="2.5.0"
 RULES_DIR="$HOME/.claude/rules"
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SETTINGS="$HOME/.claude/settings.json"
@@ -25,6 +25,13 @@ echo "╔═══════════════════════�
 echo "║    Claude Supercharger v${VERSION} — What's On   ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
+
+# Safe Mode detection (Claude Code v2.1.169+)
+if [ "${CLAUDE_CODE_SAFE_MODE:-}" = "1" ]; then
+  echo -e "${RED}${BOLD}⚠  CLAUDE_CODE_SAFE_MODE=1 — guardrails DISABLED in current session.${NC}"
+  echo -e "${YELLOW}  Hooks, MCP, skills, and rules below are listed as INSTALLED but are not ACTIVE.${NC}"
+  echo ""
+fi
 
 # ── 1. Your Setup ────────────────────────────────────────────────────────
 echo -e "${BLUE}${BOLD}Your Setup${NC}"

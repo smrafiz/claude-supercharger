@@ -16,6 +16,18 @@ echo "║    Claude Supercharger Health Check       ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
+# Safe Mode detection (Claude Code v2.1.169+)
+# CLAUDE_CODE_SAFE_MODE=1 disables ALL customizations including hooks, skills,
+# plugins, MCP, and CLAUDE.md. Supercharger guards are entirely off in this mode.
+if [ "${CLAUDE_CODE_SAFE_MODE:-}" = "1" ]; then
+  echo -e "${RED}${BOLD}⚠  CLAUDE_CODE_SAFE_MODE=1 detected${NC}"
+  echo -e "${YELLOW}Claude Code is running with --safe-mode — ALL Supercharger hooks,"
+  echo -e "MCP servers, and rules are disabled. Health-check output below reflects"
+  echo -e "what is INSTALLED, not what is ACTIVE in the current session.${NC}"
+  echo -e "${YELLOW}Unset the env var or remove --safe-mode to restore guardrails.${NC}"
+  echo ""
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 VERSION=$(grep -m1 '^VERSION=' "$REPO_DIR/lib/utils.sh" 2>/dev/null | tr -d '"' | cut -d= -f2 || echo "?")

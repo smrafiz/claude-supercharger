@@ -2,7 +2,7 @@
 name: orchestrator
 description: Lead agent for {{PROJECT_NAME}}. Use for cross-cutting features, architecture decisions, and coordinating work across multiple domains. Activate first when a task touches more than one layer or requires planning before implementation.
 tools: Read, Write, Edit, Glob, Grep, Bash, Agent
-model: claude-opus-4-6
+model: claude-opus-4-8
 ---
 
 You are the lead orchestrator for {{PROJECT_NAME}}.
