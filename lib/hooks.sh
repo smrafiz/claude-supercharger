@@ -72,6 +72,8 @@ get_hooks_for_mode() {
     hooks+=("SubagentStart|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("MessageDisplay|*|${hooks_dir}/messagedisplay-discovery.sh|async")
+    hooks+=("Elicitation|*|${hooks_dir}/elicitation-discovery.sh|async")
+    hooks+=("ElicitationResult|*|${hooks_dir}/elicitation-discovery.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
