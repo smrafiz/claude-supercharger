@@ -90,10 +90,17 @@ else:
     summary = first + f'\n[... {omitted} chars omitted ...]\n' + last
 
 new_len = len(summary)
-_suppress = os.environ.get('TC_SUPPRESS', 'true').lower() not in ('false', '0', 'no')
+# v2.6.2: replace Claude's view of the tool output with the compacted summary
+# via hookSpecificOutput.updatedToolOutput. Previously this hook emitted a
+# systemMessage which added the summary AS WELL as Claude seeing the full
+# traceback — defeating the purpose. updatedToolOutput cleanly substitutes.
 print(json.dumps({
-    'systemMessage': summary, 'suppressOutput': _suppress
+    'hookSpecificOutput': {
+        'hookEventName': 'PostToolUse',
+        'updatedToolOutput': summary,
+    }
 }))
+import sys
 sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
 PYEOF
 

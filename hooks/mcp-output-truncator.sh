@@ -80,9 +80,16 @@ if summary is None:
 
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
-_suppress = os.environ.get('MCP_SUPPRESS', 'true').lower() not in ('false', '0', 'no')
+# v2.6.2: replace what Claude sees with the summary via hookSpecificOutput.
+# updatedToolOutput became available for all tools (was MCP-only in v2.1.121
+# but is now the general PostToolUse channel) — cleaner than systemMessage
+# which added a separate message ON TOP of Claude still seeing the full heavy
+# response. The original output stays in the transcript log either way.
 print(json.dumps({
-    'systemMessage': summary, 'suppressOutput': _suppress
+    'hookSpecificOutput': {
+        'hookEventName': 'PostToolUse',
+        'updatedToolOutput': summary,
+    }
 }))
 PYEOF
 
