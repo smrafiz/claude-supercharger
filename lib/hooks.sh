@@ -84,7 +84,7 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/thinking-budget.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/rate-limit-advisor.sh|async")
-    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|async")
+    hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|")
     hooks+=("PostCompact||${hooks_dir}/post-compact-inject.sh|")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
     hooks+=("Stop|*|${hooks_dir}/stop-verify.sh|")
