@@ -32,6 +32,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `config-scan` | SessionStart | (none) | Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns. |
 | `context-advisor` | UserPromptSubmit | (none) | Injects context warnings and economy suggestions based on context window usage. |
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
+| `cron-discovery` | PreToolUse | CronCreate, CronDelete, CronList | CronCreate/CronDelete/CronList are scheduled-task tool types Claude Code |
 | `cwd-changed` | CwdChanged | (none) | Re-runs stack detection when working directory changes, injects updated context. |
 | `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
@@ -51,6 +52,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
+| `messagedisplay-discovery` | MessageDisplay | * | MessageDisplay is a Claude Code event (added in late-May 2026 builds) that |
 | `notify-permission` | PermissionRequest | # Event: PermissionRequest | Only fires for tools not auto-approved by smart-approve. |
 | `notify-stop` | Stop | # Event: Stop | Shows prompt + response summary with git branch. |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
@@ -82,6 +84,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `stop-keep-going` | Stop | (none) | Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going |
 | `stop-verify` | Stop | * | Merged from verify-on-stop.sh + project-verify.sh |
 | `subagent-cost` | SubagentStart (start) | # Event: SubagentStart (start) | SubagentStop (stop) | Modes: |
+| `subagent-discovery` | SubagentStart, SubagentStop | * | Subagent nesting now goes up to 5 levels deep (Claude Code v2.1.172). |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
 | `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |
 | `thinking-budget` | UserPromptSubmit | (none) | Classifies prompt complexity and nudges Claude's reasoning depth. |
@@ -92,6 +95,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
+| `worktree-discovery` | PreToolUse | WorktreeCreate, WorktreeRemove | WorktreeCreate/WorktreeRemove are git-worktree tool types Claude Code added |
 
 ## Standalone tools
 

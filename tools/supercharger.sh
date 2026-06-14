@@ -11,7 +11,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-VERSION="2.5.4"
+VERSION="2.6.0"
 RULES_DIR="$HOME/.claude/rules"
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SETTINGS="$HOME/.claude/settings.json"
@@ -120,7 +120,25 @@ echo -e "    ${CYAN}»${NC} \"deep interview\"      — same, with deeper assump
 echo ""
 
 # ── 3. Installed Hooks ───────────────────────────────────────────────────
-echo -e "${BLUE}${BOLD}Installed Hooks${NC}"
+# The curated list below is a featured subset — not the full hook roster.
+# Compute the real registered count from settings.json so the user knows
+# the difference between "headline hooks" and "everything actually wired up".
+REGISTERED_COUNT=0
+if [ -f "$SETTINGS" ]; then
+  REGISTERED_COUNT=$(SETTINGS_PATH="$SETTINGS" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
+    s = json.load(f)
+n = 0
+for entries in s.get('hooks', {}).values():
+    for entry in entries:
+        for h in entry.get('hooks', []):
+            if '#supercharger' in (h.get('command','') + h.get('prompt','')):
+                n += 1
+print(n)
+" 2>/dev/null || echo 0)
+fi
+echo -e "${BLUE}${BOLD}Featured Hooks${NC} ${DIM}(curated subset of ${REGISTERED_COUNT} registered)${NC}"
 HOOKS_DIR="$SUPERCHARGER_DIR/hooks"
 
 HOOK_DESCS="safety:Blocks dangerous commands before execution
