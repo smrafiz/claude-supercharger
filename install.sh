@@ -457,6 +457,7 @@ echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo "$MCP_PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
+echo "$SELECTED_TIER" > "$HOME/.claude/supercharger/scope/.economy-tier"
 
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
 echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
