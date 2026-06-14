@@ -69,6 +69,8 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     hooks+=("PreToolUse|WorktreeCreate,WorktreeRemove|${hooks_dir}/worktree-discovery.sh|async")
+    hooks+=("SubagentStart|*|${hooks_dir}/subagent-discovery.sh|async")
+    hooks+=("SubagentStop|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
