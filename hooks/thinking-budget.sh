@@ -24,11 +24,15 @@ PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null)
 
 [ -z "$PROMPT" ] && exit 0
 
-# Explicit flag override (SuperClaude-style): --think / --think-hard / --ultrathink
+# Explicit flag override (SuperClaude-style): --no-think / --think / --think-hard / --ultrathink
+# --no-think exists because Opus 4.8 has extended thinking ON by default — for
+# routine tasks (small edits, lookups, yes/no) the formal reasoning pass burns
+# output tokens with no quality gain. This flag tells Claude to skip it.
 LEVEL=""
 case "$PROMPT" in
   *--ultrathink*|*--think-hard*) LEVEL="ultra" ;;
-  *--think*) LEVEL="high" ;;
+  *--no-think*|*--nothink*)      LEVEL="off" ;;
+  *--think*)                     LEVEL="high" ;;
 esac
 
 if [ -z "$LEVEL" ]; then
@@ -81,6 +85,7 @@ fi
 
 MSG=""
 case "$LEVEL" in
+  off)   MSG="[THINK] Skip extended thinking. Opus 4.8 defaults to on but this prompt does not need a formal reasoning pass — answer directly. Saves output tokens." ;;
   low)   MSG="[THINK] Trivial task. Respond directly, minimal reasoning." ;;
   high)  MSG="[THINK] Complex task. Reason thoroughly before acting." ;;
   ultra) MSG="[THINK] User requested deep reasoning (--ultrathink/--think-hard). Plan exhaustively, verify each step, justify decisions, surface trade-offs. Use full reasoning budget." ;;
