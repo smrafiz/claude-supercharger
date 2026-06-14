@@ -71,6 +71,7 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|WorktreeCreate,WorktreeRemove|${hooks_dir}/worktree-discovery.sh|async")
     hooks+=("SubagentStart|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-discovery.sh|async")
+    hooks+=("MessageDisplay|*|${hooks_dir}/messagedisplay-discovery.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
