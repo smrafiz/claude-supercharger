@@ -13,6 +13,7 @@ Read these files (silently — do not show their raw content) and produce a dash
 - `.claude/supercharger-memory.md` (size + last modified)
 - `.supercharger.json` (role, economy, profile, budget, hints)
 - `~/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl` (count of today's events)
+- `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (per-subagent cost rollup — aggregate by `agent_name`, show top 3 by `cost_usd`)
 
 Output format (no other text before/after):
 
@@ -26,6 +27,7 @@ MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
 
 Cost           : $X.XX / $Y.YY budget (Z% used)
+Subagents      : <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
 Confidence     : <derived from last 5 tool history entries — same formula as confidence-gate>
 Memory         : <bytes> bytes, last modified <relative time>
@@ -39,6 +41,8 @@ Last compact   : <relative time from .memory-restored mtime, or "this session">
 
 Recent blocks  : <last 3 from learn-from-blocks log if available>
 ```
+
+To compute the Subagents line: read every `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (one per session), aggregate `cost_usd` by `agent_name`, count total entries, sort by aggregate cost descending. If no files exist or every cost is 0, render `—` instead of a zero list. This mirrors Claude Code's `/usage` per-subagent breakdown so users get the same view inside Supercharger.
 
 Compute confidence score using the same formula as `hooks/confidence-gate.sh`:
 - start at 1.0
