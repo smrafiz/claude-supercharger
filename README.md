@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
 
-![Version](https://img.shields.io/badge/version-2.6.8-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-801%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.9-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-822%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -62,6 +62,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
 - **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
+- **Elicitation audit** — captures MCP `Elicitation` requests (form schemas + 200-char message preview) and `ElicitationResult` shapes (response keys only, never values). Schema sample lets the next release block credential-style fields from untrusted MCP servers
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass confirmation automatically
 
 ### Cost & context control
@@ -71,7 +72,8 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
 - **Rate-limit burn projection** — `~52m left at this pace`
 - **Bash output compactor** — verbose `git log`, `pytest`, `npm install` output (>50 lines) compressed to a structured summary before it enters context. Failures keep their excerpt; passes show counts. Cuts the most common source of mid-session context exhaustion
-- **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing)
+- **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing). Diagnoses three causes: 5-minute default TTL, per-workspace cache isolation (Feb 2026+), and 20-block lookback drift in long sessions
+- **`fallbackModel` advisory** — `claude-check.sh` flags when the v2.1.166+ fallback chain isn't configured. Overloaded Opus calls drop instead of routing to Sonnet/Haiku without it
 
 ### Memory across sessions
 
@@ -89,7 +91,8 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`. Lean cuts response length ~45% with no information loss
 - **9 agent types** — every prompt classified automatically, Claude gets a routing hint without you picking
 - **Tool preferences** — `.supercharger.json` `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests instead of blanket-denying. Catches `npx`/`bunx` wrappers
-- **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` in any prompt forces extended reasoning (hook detects and injects directive)
+- **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` force extended reasoning; `--no-think` suppresses it (useful on Opus 4.8 where extended thinking is on by default and burns output tokens on routine prompts)
+- **Per-subagent cost breakdown** — `/sc-status` aggregates cost across subagents (Scientist, Detective, Engineer, etc.) so you can see which one burned the budget. Mirrors Claude Code's `/usage` view
 - **20+ slash commands** — `/think`, `/sc-status`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, and more
 
 ---
