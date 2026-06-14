@@ -106,7 +106,7 @@ fi
 printf '%s\n' "$BUCKET" > "$DEDUP_FILE"
 
 # ── Emit warning ─────────────────────────────────────────────────────────────
-MSG="[CACHE] Hit rate dropped to ${HIT_RATE}%. You may be getting re-billed for full context. Default cache TTL is 5min — if you stepped away or the session is bursty, set 1-hour TTL via the API: cache_control: {type: \"ephemeral\", ttl: \"1h\"}. Otherwise consider /compact or starting a fresh session."
+MSG="[CACHE] Hit rate dropped to ${HIT_RATE}%. You may be getting re-billed for full context. Three causes are common: (1) default cache TTL is 5min — if you stepped away or the session is bursty, set 1-hour TTL via the API: cache_control: {type: \"ephemeral\", ttl: \"1h\"}; (2) caches are per-workspace since Feb 2026 (Anthropic API + Azure) — switching workspace gives zero cache hits even with identical prompts; (3) long sessions can drift the cache breakpoint out of the 20-block lookback window. Otherwise consider /compact or starting a fresh session."
 echo "[Supercharger] cache-health: hit_rate=${HIT_RATE}% bucket=${BUCKET}" >&2
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \

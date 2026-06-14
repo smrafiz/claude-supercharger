@@ -321,6 +321,24 @@ else
   SCORE_TEAM=$((SCORE_TEAM + 3))
 fi
 
+# Check fallbackModel chain (Claude Code v2.1.166+)
+# A configured chain trips fewer "overloaded — try again" interruptions on
+# Opus and routes degraded calls to Sonnet/Haiku instead of failing outright.
+if [ -f "$HOME/.claude/settings.json" ]; then
+  HAS_FALLBACK=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+import json, os
+with open(os.environ['SETTINGS_PATH']) as f:
+    s = json.load(f)
+fb = s.get('fallbackModel') or s.get('fallback_model')
+print('1' if fb else '0')
+" 2>/dev/null || echo 0)
+  if [ "$HAS_FALLBACK" = "0" ]; then
+    echo -e "  ${YELLOW}→${NC} fallbackModel chain not set — Opus overloads drop the call instead of routing to Sonnet/Haiku"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: ${DIM}\"fallbackModel\": [\"claude-sonnet-4-6\", \"claude-haiku-4-5\"]${NC}"
+    UNUSED=$((UNUSED + 1))
+  fi
+fi
+
 # Check economy tier (default lean may not be optimal)
 if [ -f "$HOME/.claude/rules/economy.md" ]; then
   ACTIVE_TIER=$(grep -i "Active Tier:" "$HOME/.claude/rules/economy.md" 2>/dev/null | head -1 | sed 's/.*Active Tier:[[:space:]]*//' | sed 's/[[:space:]].*//' || echo "")
