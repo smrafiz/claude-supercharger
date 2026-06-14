@@ -67,11 +67,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = 82 hooks total (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 82 ]; then
+# Full mode + developer = 83 hooks total (commit-check is opt-in, not counted here)
+if [ "$HOOK_COUNT" -eq 83 ]; then
   pass
 else
-  fail "expected 82 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 83 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -173,11 +173,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# standard maps to full = 82 hooks (with developer, commit-check is opt-in)
-if [ "$HOOK_COUNT" -eq 82 ]; then
+# standard maps to full = 83 hooks (with developer, commit-check is opt-in)
+if [ "$HOOK_COUNT" -eq 83 ]; then
   pass
 else
-  fail "expected 82 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 83 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
