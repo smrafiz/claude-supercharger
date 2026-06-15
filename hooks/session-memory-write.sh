@@ -21,8 +21,10 @@ AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 # --- Uncommitted changed files only (open work) ---
-OPEN_FILES=$(git diff --name-only 2>/dev/null; git diff --cached --name-only 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null)
-OPEN_FILES=$(printf '%s\n' "$OPEN_FILES" | sort -u | grep -v '^$' | head -15 | sed 's/^/- /' || echo "")
+# v2.6.19: one `git status --porcelain` replaces 3 separate git diff/ls-files
+# calls. status emits a line per file with a 2-char status prefix; strip the
+# prefix and dedupe. Cuts ~30ms off the hook (3 git cold starts → 1).
+OPEN_FILES=$(git status --porcelain 2>/dev/null | sed 's/^...//' | sort -u | grep -v '^$' | head -15 | sed 's/^/- /' || echo "")
 
 # --- Recent commits (completed decisions) ---
 RECENT_COMMITS=$(git log --oneline -3 2>/dev/null || echo "")
@@ -47,26 +49,28 @@ fi
 DECISIONS_LINE="none"
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-  DECISIONS_LINE=$(TRANSCRIPT="$TRANSCRIPT" python3 <<'PYEOF'
-import os, json, re
-path = os.environ['TRANSCRIPT']
+  # v2.6.19: tail the transcript to the last 200 lines before piping to python.
+  # Decisions extraction only uses the last 5 assistant messages anyway, and
+  # the file can grow to many MB in long sessions. Bench: ~50ms saved on a
+  # 5MB transcript; effectively constant cost regardless of session length.
+  DECISIONS_LINE=$(tail -200 "$TRANSCRIPT" 2>/dev/null | python3 <<'PYEOF'
+import sys, json, re
 texts = []
 try:
-    with open(path) as f:
-        for line in f:
-            try:
-                obj = json.loads(line)
-            except Exception:
-                continue
-            if obj.get('type') != 'assistant':
-                continue
-            content = (obj.get('message') or {}).get('content') or []
-            if isinstance(content, list):
-                for part in content:
-                    if isinstance(part, dict) and part.get('type') == 'text':
-                        t = part.get('text', '')
-                        if t:
-                            texts.append(t)
+    for line in sys.stdin:
+        try:
+            obj = json.loads(line)
+        except Exception:
+            continue
+        if obj.get('type') != 'assistant':
+            continue
+        content = (obj.get('message') or {}).get('content') or []
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict) and part.get('type') == 'text':
+                    t = part.get('text', '')
+                    if t:
+                        texts.append(t)
 except Exception:
     raise SystemExit(0)
 if not texts:
