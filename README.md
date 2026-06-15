@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-905%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.12-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-905%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -103,7 +103,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 19 | Security blocks only. Minimal footprint. |
-| **Full** | 87 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 94 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -283,7 +283,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 ## Going deeper
 
-- All 87 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- All 94 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
