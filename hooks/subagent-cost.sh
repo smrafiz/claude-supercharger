@@ -23,29 +23,42 @@ if [[ "$MODE" == "start" ]]; then
   PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
-  AGENT_ID=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
+  # v2.6.22: one python3 fork does parse + extract + timestamp + write.
+  # Was: 1 jq + 4 python3 forks (agent_id, agent_name, NOW, then bash printf).
+  # Returns agent_id and agent_name on two stdout lines for the stderr log.
+  RESULT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" PID="$$" python3 <<'PYEOF' 2>/dev/null
+import json, os, sys
+from datetime import datetime, timezone
+
+raw = os.environ.get('HOOK_INPUT', '')
+scope_dir = os.environ.get('SCOPE_DIR', '')
+pid = os.environ.get('PID', '0')
+
 try:
-    d = json.load(sys.stdin)
-    print(d.get('agent_id', '') or '')
+    d = json.loads(raw)
 except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    d = {}
+
+agent_id = (d.get('agent_id') or '') or 'unknown-' + pid
+agent_name = (d.get('agent_name') or '') or (d.get('name') or '') or 'agent'
+now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+if scope_dir:
+    active_file = os.path.join(scope_dir, '.subagent-active-' + agent_id)
+    try:
+        with open(active_file, 'w') as f:
+            json.dump({'agent_id': agent_id, 'name': agent_name, 'started_at': now}, f)
+    except Exception:
+        pass
+
+print(agent_id)
+print(agent_name)
+PYEOF
+)
+  AGENT_ID=$(printf '%s' "$RESULT" | sed -n '1p')
+  AGENT_NAME=$(printf '%s' "$RESULT" | sed -n '2p')
   [ -z "$AGENT_ID" ] && AGENT_ID="unknown-$$"
-
-  AGENT_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    d = json.load(sys.stdin)
-    print(d.get('agent_name', '') or d.get('name', '') or 'agent')
-except Exception:
-    print('agent')
-" 2>/dev/null || echo "agent")
-
-  NOW=$(python3 -c "from datetime import datetime, timezone; print(datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ'))" 2>/dev/null || date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-  ACTIVE_FILE="$SCOPE_DIR/.subagent-active-${AGENT_ID}"
-  printf '{"agent_id":"%s","name":"%s","started_at":"%s"}\n' "$AGENT_ID" "$AGENT_NAME" "$NOW" > "$ACTIVE_FILE"
+  [ -z "$AGENT_NAME" ] && AGENT_NAME="agent"
 
   echo "[Supercharger] subagent-cost: start recorded for agent=$AGENT_ID name=$AGENT_NAME" >&2
   exit 0
