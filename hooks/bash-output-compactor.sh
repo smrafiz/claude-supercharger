@@ -15,6 +15,18 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_BASH_COMPACTOR:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
+
+# v2.6.25: bash fast-path before any fork. Most Bash commands aren't verbose
+# patterns (git log / pytest / vitest / jest / mocha / ava / npm test / npm
+# install / cargo test). Scan the raw stdin once — if no trigger token is
+# present, exit immediately. Median 110ms → ~0ms on the common case.
+case "$_INPUT" in
+  *'git log'*|*'npm test'*|*'pnpm test'*|*'yarn test'*|*vitest*|*jest*|*mocha*|*ava*|\
+  *pytest*|*'go test'*|*'cargo test'*|*'npm install'*|*'pnpm install'*|*'yarn install'*|\
+  *'pnpm add'*|*'npm i'*) ;;
+  *) exit 0 ;;
+esac
+
 # Single jq fork extracts all four fields at once — replaces the previous
 # four sequential jq calls (~50ms × 4 = ~200ms saved per invocation when bash
 # output is short). Fields are joined with US separator (\x1f) so they can
