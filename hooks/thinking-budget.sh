@@ -16,85 +16,97 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 _INPUT=$(cat)
 
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
-[ -z "$SESSION_ID" ] && SESSION_ID="default"
+# v2.6.15: one python3 fork does parse + classify + JSON-wrap (was 2 jq forks,
+# up to 2 python3 forks). UserPromptSubmit is a hot-path event; this drops
+# the hook from ~70ms to ~30ms (median, cold start).
+RESULT=$(THINKING_SCOPE="$SCOPE_DIR" HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
+import json, os, sys, re, time
 
-PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
-[ -z "$PROMPT" ] && PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
+raw = os.environ.get('HOOK_INPUT', '')
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
 
-[ -z "$PROMPT" ] && exit 0
+prompt = data.get('prompt') or ''
+session_id = data.get('session_id') or 'default'
+scope_dir = os.environ.get('THINKING_SCOPE', '')
 
-# Explicit flag override (SuperClaude-style): --no-think / --think / --think-hard / --ultrathink
+if not prompt:
+    sys.exit(0)
+
+# Explicit flag override (SuperClaude-style)
 # --no-think exists because Opus 4.8 has extended thinking ON by default — for
-# routine tasks (small edits, lookups, yes/no) the formal reasoning pass burns
-# output tokens with no quality gain. This flag tells Claude to skip it.
-LEVEL=""
-case "$PROMPT" in
-  *--ultrathink*|*--think-hard*) LEVEL="ultra" ;;
-  *--no-think*|*--nothink*)      LEVEL="off" ;;
-  *--think*)                     LEVEL="high" ;;
-esac
+# routine tasks the formal reasoning pass burns output tokens with no quality
+# gain. This flag tells Claude to skip it.
+level = ''
+if '--ultrathink' in prompt or '--think-hard' in prompt:
+    level = 'ultra'
+elif '--no-think' in prompt or '--nothink' in prompt:
+    level = 'off'
+elif '--think' in prompt:
+    level = 'high'
 
-if [ -z "$LEVEL" ]; then
-LEVEL=$(THINKING_PROMPT="$PROMPT" THINKING_SCOPE="$SCOPE_DIR" THINKING_SESSION="$SESSION_ID" python3 -c "
-import sys, os, time, re
+if not level:
+    low_verbs  = {'read','show','list','run','yes','no','ok','okay','sure','continue','go','next'}
+    high_verbs = {'design','architect','plan','debug','investigate','refactor','analyze','migrate','redesign'}
 
-prompt     = os.environ.get('THINKING_PROMPT', '')
-scope_dir  = os.environ.get('THINKING_SCOPE', '')
-session_id = os.environ.get('THINKING_SESSION', 'default')
-
-low_verbs  = {'read','show','list','run','yes','no','ok','okay','sure','continue','go','next'}
-high_verbs = {'design','architect','plan','debug','investigate','refactor','analyze','migrate','redesign'}
-
-# Agent classification
-agent_file = os.path.join(scope_dir, '.agent-classified-' + session_id)
-if os.path.isfile(agent_file):
-    age = time.time() - os.path.getmtime(agent_file)
-    if age < 2:
+    # Agent classification (fresh within 2s)
+    agent_file = os.path.join(scope_dir, '.agent-classified-' + session_id)
+    if scope_dir and os.path.isfile(agent_file):
         try:
-            content = open(agent_file).read().strip().lower()
+            if time.time() - os.path.getmtime(agent_file) < 2:
+                content = open(agent_file).read().strip().lower()
+                high_agents = {'debugger', 'architect', 'planner'}
+                low_agents  = {'code-helper', 'general', 'writer'}
+                words = prompt.split()
+                if any(a in content for a in high_agents):
+                    level = 'high'
+                elif any(a in content for a in low_agents) and len(words) < 10:
+                    level = 'low'
         except Exception:
-            content = ''
-        high_agents = {'debugger', 'architect', 'planner'}
-        low_agents  = {'code-helper', 'general', 'writer'}
+            pass
+
+    if not level:
         words = prompt.split()
-        if any(a in content for a in high_agents):
-            print('high')
-            sys.exit(0)
-        if any(a in content for a in low_agents) and len(words) < 10:
-            print('low')
-            sys.exit(0)
+        token_count = len(words) * 1.3
+        prompt_words = set(re.findall(r'\b\w+\b', prompt.lower()))
+        has_low_verb  = bool(prompt_words & low_verbs)
+        has_high_verb = bool(prompt_words & high_verbs)
+        has_question  = '?' in prompt
+        if has_high_verb or token_count > 200:
+            level = 'high'
+        elif token_count < 50 and (has_low_verb or (not has_question and len(words) <= 3)):
+            level = 'low'
+        else:
+            level = 'medium'
 
-# Keyword + token count classification
-words = prompt.split()
-token_count = len(words) * 1.3
-prompt_words = set(re.findall(r'\b\w+\b', prompt.lower()))
+messages = {
+    'off':   '[THINK] Skip extended thinking. Opus 4.8 defaults to on but this prompt does not need a formal reasoning pass — answer directly. Saves output tokens.',
+    'low':   '[THINK] Trivial task. Respond directly, minimal reasoning.',
+    'high':  '[THINK] Complex task. Reason thoroughly before acting.',
+    'ultra': '[THINK] User requested deep reasoning (--ultrathink/--think-hard). Plan exhaustively, verify each step, justify decisions, surface trade-offs. Use full reasoning budget.',
+}
+msg = messages.get(level)
+if not msg:
+    sys.exit(0)
 
-has_low_verb  = bool(prompt_words & low_verbs)
-has_high_verb = bool(prompt_words & high_verbs)
-has_question  = '?' in prompt
+print(level)
+print(json.dumps({
+    'hookSpecificOutput': {
+        'hookEventName': 'UserPromptSubmit',
+        'additionalContext': msg,
+    }
+}))
+PYEOF
+)
 
-if has_high_verb or token_count > 200:
-    print('high')
-elif token_count < 50 and (has_low_verb or (not has_question and len(words) <= 3)):
-    print('low')
-else:
-    print('medium')
-" 2>/dev/null || echo "medium")
-fi
+[ -z "$RESULT" ] && exit 0
 
-MSG=""
-case "$LEVEL" in
-  off)   MSG="[THINK] Skip extended thinking. Opus 4.8 defaults to on but this prompt does not need a formal reasoning pass — answer directly. Saves output tokens." ;;
-  low)   MSG="[THINK] Trivial task. Respond directly, minimal reasoning." ;;
-  high)  MSG="[THINK] Complex task. Reason thoroughly before acting." ;;
-  ultra) MSG="[THINK] User requested deep reasoning (--ultrathink/--think-hard). Plan exhaustively, verify each step, justify decisions, surface trade-offs. Use full reasoning budget." ;;
-  *)     exit 0 ;;
-esac
+LEVEL=$(printf '%s' "$RESULT" | head -1)
+JSON=$(printf '%s' "$RESULT" | sed -n '2p')
 
 echo "[Supercharger] thinking-budget: level=$LEVEL" >&2
-
-CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys, json; print(json.dumps(sys.stdin.read()))")
-printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$CONTEXT_JSON"
+printf '%s\n' "$JSON"
 
 exit 0
