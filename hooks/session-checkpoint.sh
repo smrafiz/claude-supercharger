@@ -45,7 +45,12 @@ def _g(*cmd):
     except Exception:
         return ''
 
+# `rev-parse --abbrev-ref HEAD` fails on a fresh repo with no commits on some
+# git builds (notably the Ubuntu CI runner). `symbolic-ref --short HEAD` works
+# regardless of whether HEAD points at a commit. Try both before giving up.
 branch = _g('git', '-C', cwd, 'rev-parse', '--abbrev-ref', 'HEAD')
+if not branch or branch == 'HEAD':
+    branch = _g('git', '-C', cwd, 'symbolic-ref', '--short', 'HEAD')
 
 files = set()
 for cmd in (
