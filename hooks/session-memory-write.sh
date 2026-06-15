@@ -49,15 +49,21 @@ fi
 DECISIONS_LINE="none"
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
-  # v2.6.19: tail the transcript to the last 200 lines before piping to python.
-  # Decisions extraction only uses the last 5 assistant messages anyway, and
-  # the file can grow to many MB in long sessions. Bench: ~50ms saved on a
-  # 5MB transcript; effectively constant cost regardless of session length.
-  DECISIONS_LINE=$(tail -200 "$TRANSCRIPT" 2>/dev/null | python3 <<'PYEOF'
-import sys, json, re
+  # v2.6.21: tail the transcript inside python (the previous v2.6.19 attempt
+  # piped `tail` into python with a heredoc, but the `<<'PYEOF'` heredoc
+  # silently overrides the piped stdin — python read its own source code,
+  # never the transcript. Shellcheck SC2259 caught this. Move the tail into
+  # python itself: read the file, keep the last 200 lines. Same O(constant)
+  # cost characteristic, but no stdin conflict.
+  DECISIONS_LINE=$(TRANSCRIPT="$TRANSCRIPT" python3 <<'PYEOF'
+import os, json, re
+from collections import deque
+path = os.environ.get('TRANSCRIPT', '')
 texts = []
 try:
-    for line in sys.stdin:
+    with open(path) as f:
+        lines = deque(f, maxlen=200)
+    for line in lines:
         try:
             obj = json.loads(line)
         except Exception:
