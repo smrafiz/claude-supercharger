@@ -16,72 +16,91 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
-MEMORY_FILE=".claude/supercharger-memory.md"
-PROJECT_CONFIG=".supercharger.json"
+# v2.6.26: one python3 fork does compact-summary parse + memory-file read +
+# project-config parse + git status/branch + message build + JSON wrap.
+# Was: 1 jq + 1 git rev-parse-git-dir + 1 git status + 1 wc + 3 python3 forks
+# (compact_summary, hints, JSON wrap) + 1 git rev-parse-branch = 8 forks.
+# Now: 1 python3 fork that runs the 2 git subprocesses itself. ~190ms → ~70ms.
+RESULT=$(HOOK_INPUT="$_INPUT" PROJECT_DIR="$PROJECT_DIR" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
+import json, os, subprocess, sys
 
-lines=()
+raw = os.environ.get('HOOK_INPUT', '')
+project_dir = os.environ.get('PROJECT_DIR', '')
+suppress = os.environ.get('HOOK_SUPPRESS', 'false').lower() in ('true', '1', 'yes')
 
-# ── Lazy-stub detection: clean working tree + small memory → short form ──
-DIRTY=0
-if command -v git >/dev/null 2>&1 && git rev-parse --git-dir >/dev/null 2>&1; then
-  if [ -n "$(git status --porcelain 2>/dev/null)" ]; then
-    DIRTY=1
-  fi
-fi
-MEM_BYTES=0
-[ -f "$MEMORY_FILE" ] && MEM_BYTES=$(wc -c < "$MEMORY_FILE" 2>/dev/null | tr -d ' ' || echo 0)
+memory_file = '.claude/supercharger-memory.md'
+config_file = '.supercharger.json'
 
-# ── Compact summary (what Claude Code actually preserved) ──
-COMPACT_SUMMARY=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
+def _g(*cmd):
+    try:
+        return subprocess.check_output(cmd, stderr=subprocess.DEVNULL).decode().strip()
+    except Exception:
+        return ''
+
+# Detect dirty working tree
+dirty = bool(_g('git', '-C', project_dir, 'status', '--porcelain'))
+
+# Memory file size
+mem_bytes = 0
+mem_path = os.path.join(project_dir, memory_file)
+if os.path.isfile(mem_path):
+    try:
+        mem_bytes = os.path.getsize(mem_path)
+    except Exception:
+        pass
+
+lines = []
+
+# Compact summary
 try:
-    d = json.load(sys.stdin)
-    s = d.get('compact_summary', '')
-    if s: print(s[:1500])
-except: pass
-" 2>/dev/null || echo "")
-[ -n "$COMPACT_SUMMARY" ] && lines+=("Compaction summary: ${COMPACT_SUMMARY}")
+    d = json.loads(raw)
+    s = (d.get('compact_summary') or '')[:1500]
+    if s:
+        lines.append('Compaction summary: ' + s)
+except Exception:
+    pass
 
-# ── Session memory (full body only when work is in progress; otherwise stub) ──
-if [ -f "$MEMORY_FILE" ]; then
-  if [ "$DIRTY" = "1" ] || [ "$MEM_BYTES" -gt 500 ]; then
-    CONTENT=$(head -c 2000 "$MEMORY_FILE" 2>/dev/null || echo "")
-    [ -n "$CONTENT" ] && lines+=("$CONTENT")
-  else
-    lines+=("Session memory exists (clean tree). Read $MEMORY_FILE if context is needed.")
-  fi
-fi
+# Memory body (full when dirty or large; stub otherwise)
+if os.path.isfile(mem_path):
+    if dirty or mem_bytes > 500:
+        try:
+            with open(mem_path) as f:
+                content = f.read(2000)
+            if content:
+                lines.append(content)
+        except Exception:
+            pass
+    else:
+        lines.append(f'Session memory exists (clean tree). Read {memory_file} if context is needed.')
 
-# ── Project config hints ──
-if [ -f "$PROJECT_CONFIG" ]; then
-  HINTS=$(python3 -c "
-import json, sys
-try:
-    d = json.load(open('$PROJECT_CONFIG'))
-    h = d.get('hints','')
-    if h: print('Project hints: ' + h)
-except: pass
-" 2>/dev/null || echo "")
-  [ -n "$HINTS" ] && lines+=("$HINTS")
-fi
+# Project config hints
+cfg_path = os.path.join(project_dir, config_file)
+if os.path.isfile(cfg_path):
+    try:
+        with open(cfg_path) as f:
+            cd = json.load(f)
+        h = cd.get('hints', '')
+        if h:
+            lines.append('Project hints: ' + h)
+    except Exception:
+        pass
 
-# ── Current branch ──
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "")
-[ -n "$BRANCH" ] && lines+=("Current branch: $BRANCH")
+# Current branch (rev-parse first, then symbolic-ref as v2.6.20 fallback)
+branch = _g('git', '-C', project_dir, 'rev-parse', '--abbrev-ref', 'HEAD')
+if not branch or branch == 'HEAD':
+    branch = _g('git', '-C', project_dir, 'symbolic-ref', '--short', 'HEAD')
+if branch:
+    lines.append('Current branch: ' + branch)
 
-[ ${#lines[@]} -eq 0 ] && exit 0
+if not lines:
+    sys.exit(0)
 
-# Compose message
-MSG="[POST-COMPACT] Context restored after compaction:"$'\n'
-for line in "${lines[@]}"; do
-  MSG="${MSG}${line}"$'\n'
-done
-MSG="${MSG}Resume from this state — do not re-read files already in memory."
-
-CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
-  || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+msg = '[POST-COMPACT] Context restored after compaction:\n' + '\n'.join(lines) + '\nResume from this state — do not re-read files already in memory.'
+print(json.dumps({'systemMessage': msg, 'suppressOutput': suppress}))
+PYEOF
+)
+[ -z "$RESULT" ] && exit 0
+printf '%s\n' "$RESULT"
 
 # Signal statusline: memory was restored
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
