@@ -47,15 +47,15 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `git-safety` | PreToolUse | Bash (git *) | shellcheck source=hooks/lib-suppress.sh |
 | `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
-| `learn-from-blocks` | SessionStart | # Event: SessionStart | Injects accumulated learnings: blocked commands, user corrections, |
-| `learn-from-prompts` | UserPromptSubmit | # Event: UserPromptSubmit | Detects correction AND reinforcement patterns in user prompts. |
+| `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |
+| `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |
 | `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
 | `messagedisplay-discovery` | MessageDisplay | * | MessageDisplay is a Claude Code event (added in late-May 2026 builds) that |
-| `notify-permission` | PermissionRequest | # Event: PermissionRequest | Only fires for tools not auto-approved by smart-approve. |
-| `notify-stop` | Stop | # Event: Stop | Shows prompt + response summary with git branch. |
+| `notify-permission` | PermissionRequest | (none) | Only fires for tools not auto-approved by smart-approve. |
+| `notify-stop` | Stop | * | Shows prompt + response summary with git branch. |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
@@ -78,13 +78,13 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `session-memory-write` | Stop | * | Writes a compressed session summary to .claude/supercharger-memory.md |
 | `skill-poisoning-scanner` | PreToolUse | Skill | Scans skill content for hidden shell commands, encoded payloads, |
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
-| `smart-approve` | PermissionRequest | # Event: PermissionRequest | Auto-approves known-safe tool calls to reduce user prompts. |
+| `smart-approve` | PermissionRequest | (none) | Auto-approves known-safe tool calls to reduce user prompts. |
 | `standards-inject` | SessionStart | (none) | Detects project stack via lib/detect_stack.py and injects matching standards |
 | `statusline` | — | — | Registered via: settings.json → statusLine → { type: "command", command: "..." } |
 | `stop-failure` | StopFailure | (none) | Logs API errors (rate limits, auth failures) to errors.log for diagnosis. |
 | `stop-keep-going` | Stop | (none) | Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going |
 | `stop-verify` | Stop | * | Merged from verify-on-stop.sh + project-verify.sh |
-| `subagent-cost` | SubagentStart (start) | # Event: SubagentStart (start) | SubagentStop (stop) | Modes: |
+| `subagent-cost` | SubagentStart,SubagentStop | (none) | Modes: |
 | `subagent-discovery` | SubagentStart, SubagentStop | * | Subagent nesting now goes up to 5 levels deep (Claude Code v2.1.172). |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
 | `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Smart Approve
-# Event: PermissionRequest
+# Event: PermissionRequest | Matcher: (none)
 # Auto-approves known-safe tool calls to reduce user prompts.
 # Uses updatedPermissions for session persistence — approved once, never asked again.
 

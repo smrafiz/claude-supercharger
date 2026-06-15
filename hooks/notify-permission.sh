@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Permission Request Notification
-# Event: PermissionRequest
+# Event: PermissionRequest | Matcher: (none)
 # Only fires for tools not auto-approved by smart-approve.
 
 set -euo pipefail

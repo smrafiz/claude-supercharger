@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Task Complete Notification
-# Event: Stop
+# Event: Stop | Matcher: *
 # Shows prompt + response summary with git branch.
 
 set -euo pipefail

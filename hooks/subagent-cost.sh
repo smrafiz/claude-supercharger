@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Subagent Cost Tracker
-# Event: SubagentStart (start) | SubagentStop (stop)
+# Event: SubagentStart,SubagentStop | Matcher: (none)
 # Modes:
 #   start — records agent start time asynchronously
 #   stop  — calculates cost, logs to JSONL, updates session-cost, injects summary

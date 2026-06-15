@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Learn from User Feedback
-# Event: UserPromptSubmit
+# Event: UserPromptSubmit | Matcher: (none)
 # Detects correction AND reinforcement patterns in user prompts.
 # Corrections: what to avoid. Reinforcements: what to keep doing.
 

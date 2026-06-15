@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Session Learnings Injector
-# Event: SessionStart
+# Event: SessionStart | Matcher: (none)
 # Injects accumulated learnings: blocked commands, user corrections,
 # positive reinforcements, and repeated failure patterns.
 # Includes log rotation (30 days) and dedup.
