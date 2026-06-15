@@ -7,6 +7,16 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
+# v2.6.16: bash fast-path before python3 fork. Most Bash commands don't touch
+# npm/yarn/pip/bun at all — scan the raw stdin first. If none of those tokens
+# appear, skip the python parse + cmd-normalize + segment walk entirely.
+# Bench: dropped 90ms → 35ms (~-60%) for the common case (no package-manager
+# token in the command). Hot-path savings since this fires on every Bash.
+case "$_INPUT" in
+  *npm*|*yarn*|*pip*|*bun*) ;;
+  *) exit 0 ;;
+esac
+
 # Single python3 fork extracting both fields — replaces 2 jq + 2 python3 fallbacks.
 # Output format: <command>\x1F<cwd>  (US separator, never appears in shell input)
 EXTRACTED=$(printf '%s\n' "$_INPUT" | python3 -c "

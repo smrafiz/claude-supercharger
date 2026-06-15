@@ -7,6 +7,17 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+
+# v2.6.16: bash fast-path before jq + sourcing cmd-normalize. Only the
+# destructive git verbs (push/reset/checkout/restore/clean/branch -D/
+# stash drop|clear) and `git commit` (for the checkpoint message at the
+# bottom) can trigger any output. If none of those tokens appears in the
+# raw stdin, exit immediately — no jq, no python, no source.
+case "$_INPUT" in
+  *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"stash drop"*|*"stash clear"*|*commit*) ;;
+  *) exit 0 ;;
+esac
+
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
