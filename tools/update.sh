@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Smart Updater
 # Detects current settings, backs up, pulls, and reinstalls while preserving config.
-# Usage: bash tools/update.sh [--dry-run|--check]
+# Usage: bash tools/update.sh [--dry-run|--check|--yes|-y|--non-interactive]
+#
+# --yes / -y / --non-interactive   Skip the "Update now?" and "Proceed?"
+#                                   confirmation prompts. Also honored when
+#                                   SUPERCHARGER_NONINTERACTIVE=1 is exported.
+#                                   Use for dotfile sync, CI, automated rollouts.
 
 set -euo pipefail
 
@@ -20,11 +25,16 @@ NC='\033[0m'
 
 
 # Parse flags early — before any network calls or config detection
+NONINTERACTIVE="${SUPERCHARGER_NONINTERACTIVE:-0}"
+[ "$NONINTERACTIVE" = "1" ] && NONINTERACTIVE=true || NONINTERACTIVE=false
 for _arg in "$@"; do
   case "$_arg" in
     --dry-run)
       echo -e "  ${YELLOW}--dry-run: no changes made.${NC}"
       exit 0
+      ;;
+    --yes|-y|--non-interactive)
+      NONINTERACTIVE=true
       ;;
   esac
 done
@@ -163,10 +173,14 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   echo -e "    Roles:   ${BOLD}${ROLES_CSV}${NC}"
   echo -e "    Economy: ${BOLD}${DETECTED_ECONOMY}${NC}"
   echo ""
-  read -r -p "  Update now? [y/N] " CONFIRM
-  if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-    echo "  Cancelled."
-    exit 0
+  if [ "$NONINTERACTIVE" = "true" ]; then
+    echo -e "  ${YELLOW}--yes: auto-confirming update.${NC}"
+  else
+    read -r -p "  Update now? [y/N] " CONFIRM
+    if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+      echo "  Cancelled."
+      exit 0
+    fi
   fi
   echo ""
   TMP=$(mktemp -d)
@@ -240,10 +254,14 @@ echo ""
 
 
 
-read -r -p "  Proceed with update? [y/N] " CONFIRM
-if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
-  echo "  Update cancelled."
-  exit 0
+if [ "$NONINTERACTIVE" = "true" ]; then
+  echo -e "  ${YELLOW}--yes: auto-proceeding with update.${NC}"
+else
+  read -r -p "  Proceed with update? [y/N] " CONFIRM
+  if [[ ! "$CONFIRM" =~ ^[Yy]$ ]]; then
+    echo "  Update cancelled."
+    exit 0
+  fi
 fi
 
 echo ""
