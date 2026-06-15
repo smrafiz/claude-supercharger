@@ -1,8 +1,8 @@
 # Claude Supercharger
 
-Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around.
+Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.10-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-905%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.11-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-905%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -42,13 +42,14 @@ You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or ex
                                     └── Runs outside Claude's view
 ```
 
-|  | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
-|---|---|---|
-| Claude sees the rules | Yes | No |
-| Can be argued with | Yes | Can't argue with exit code 2 |
-| Advisory or enforced | Advisory | Enforced |
+|  | Prompt-only frameworks (`CLAUDE.md` rules) | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
+|---|---|---|---|
+| Claude sees the rules | Yes | Yes | No |
+| Can be argued with | Yes | Yes | Can't argue with exit code 2 |
+| Advisory or enforced | Advisory | Advisory | Enforced |
+| **Cost in context tokens** | **~5–20K per session** | a few hundred | **0** |
 
-This is the line between Supercharger and prompt-only frameworks. SuperClaude, agent-os, BMad modes — all are markdown files Claude reads and chooses to follow. Supercharger ships real hooks that run regardless.
+This is the line between Supercharger and prompt-only frameworks. SuperClaude, agent-os, BMad modes — all are markdown files Claude reads and chooses to follow. Every rule they enforce burns context tokens that compound over a session and shrink the effective window for actual work. Supercharger's enforcement lives in the shell, not the prompt: zero context cost, zero risk of being talked out of it.
 
 ---
 
