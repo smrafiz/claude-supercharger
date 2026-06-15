@@ -35,22 +35,33 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 | Event | Fires when | Can block? |
 |---|---|---|
 | `PreToolUse` | Before Claude runs any tool | Yes — exit 2 |
-| `PostToolUse` | After a tool completes | No |
+| `PostToolUse` | After a tool completes | No (but can rewrite output — see `updatedToolOutput`) |
 | `PostToolUseFailure` | After a tool errors | No |
 | `SessionStart` | A new session opens | No |
 | `SessionEnd` | A session closes | No |
-| `Stop` | Claude finishes a response | No |
+| `Stop` | Claude finishes a response | Yes — `decision: "block"` |
+| `StopFailure` | Stop hook itself errors | No |
 | `UserPromptSubmit` | User sends a message | No |
-| `PreCompact` | Before context compaction | No |
+| `PreCompact` | Before context compaction | Yes — exit 2 |
 | `PostCompact` | After context compaction | No |
 | `FileChanged` | A watched file changes | No |
+| `CwdChanged` | Working directory changes (`/cd`) | No |
 | `PermissionRequest` | A tool triggers a permission check | Yes |
 | `PermissionDenied` | A tool is blocked by permissions | No |
 | `SubagentStart` | A sub-agent spins up | No |
 | `SubagentStop` | A sub-agent finishes | No |
+| `MessageDisplay` | An assistant message is about to render | No (but can rewrite text) |
+| `Elicitation` | An MCP server asks the user for structured input | No |
+| `ElicitationResult` | The user submits an elicitation response | No |
+| `TaskCreated` / `TaskCompleted` | A scheduled task transitions state | No |
+| `TeammateIdle` | A teammate session goes idle | No |
+| `ConfigChange` | settings.json is edited mid-session | No |
+| `InstructionsLoaded` | CLAUDE.md / rules are (re)loaded | No |
 | `Notification` | System notification event | No |
 
-`PreToolUse` is where most hooks live — it's the only place you can intercept and block.
+`PreToolUse` is where most hooks live — it's the only place you can intercept and block tool execution.
+
+**Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, worktree, subagent, messagedisplay, elicitation all follow this shape).
 
 ---
 
@@ -122,6 +133,23 @@ Or use the permission-style denial (shows inline in Claude's output):
 ```
 
 Use `additionalContext` sparingly. Every injection costs tokens. Only send it when Claude needs to know something it couldn't infer on its own.
+
+`additionalContext` also works on `Stop` and `SubagentStop` (Claude Code v2.1.163+) — useful for handing quality feedback or recall hints to the next turn without surfacing as an error. `agent-handoff-gate.sh` uses this channel.
+
+**Rewrite tool output (PostToolUse):** substitute what Claude sees with a compacted summary while the original is still preserved in the transcript log.
+
+```json
+{
+  "hookSpecificOutput": {
+    "hookEventName": "PostToolUse",
+    "updatedToolOutput": "[TRACEBACK COMPACTED: 12 frames → ValueError: boom (at /x.py:42)]"
+  }
+}
+```
+
+This is the right channel for output-compactors (`bash-output-compactor.sh`, `trace-compactor.sh`, `mcp-output-truncator.sh`). It became available for all tools in Claude Code v2.1.121; before that it was MCP-only. Don't use `systemMessage` for this — `systemMessage` *adds* a message; Claude still sees the full heavy output. `updatedToolOutput` replaces.
+
+**Rewrite assistant text (MessageDisplay):** same `hookSpecificOutput` shape, with the assistant message text in the appropriate field — but this is a sensitive surface (a malicious hook could hide injection markers from the user). Discovery-only support today; see `hooks/messagedisplay-discovery.sh`.
 
 ---
 
@@ -326,6 +354,14 @@ Check that the exit code and stdout match what you expect before registering.
 ## Practical rules
 
 **Always `set -euo pipefail`.** An unhandled error in a hook exits non-zero, which Claude surfaces as a warning.
+
+**Defend stdin parsing against malformed input.** Under `set -euo pipefail`, `jq` (or `python3`) returning non-zero on invalid JSON propagates through `pipefail` and kills your script before any `try/except` safety net can fire. Always append `|| true` (or `|| echo ""`) to command substitutions that parse stdin:
+
+```bash
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+```
+
+This was the bug behind the v2.6.10 audit — 53 hooks crashed silently on malformed payloads before the fix. The regression test `tests/test-malformed-input.sh` exercises every hook with `'{not valid json'` to guard against re-introduction.
 
 **Handle missing fields.** Claude sends stdin even when the field your hook cares about isn't present. Always default to empty string and exit 0 early if there's nothing to check.
 
