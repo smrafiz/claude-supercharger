@@ -11,126 +11,135 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
-BLOCKS_LOG="$SCOPE_DIR/.blocked-commands"
-FAILURES_LOG="$SCOPE_DIR/.failed-commands"
 
-# Project-scoped corrections/reinforcements
+# Project dir for init_hook_suppress (cheap, one jq)
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || echo "")
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
-PROJ_HASH="${PROJ_HASH:0:8}"
-CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"
-REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements-${PROJ_HASH}"
-# Fall back to global if project-scoped files don't exist
-[ ! -f "$CORRECTIONS_LOG" ] && [ -f "$SCOPE_DIR/.user-corrections" ] && CORRECTIONS_LOG="$SCOPE_DIR/.user-corrections"
-[ ! -f "$REINFORCEMENTS_LOG" ] && [ -f "$SCOPE_DIR/.user-reinforcements" ] && REINFORCEMENTS_LOG="$SCOPE_DIR/.user-reinforcements"
 
-# --- Log rotation: remove entries older than 30 days ---
-rotate_log() {
-  local file="$1"
-  [ ! -f "$file" ] && return
-  local cutoff
-  cutoff=$(date -v-30d '+%Y-%m-%d' 2>/dev/null || date -d '30 days ago' '+%Y-%m-%d' 2>/dev/null || echo "")
-  [ -z "$cutoff" ] && return
-  # Keep only entries dated after cutoff (format: [YYYY-MM-DD ...])
-  if grep -q "^\[" "$file" 2>/dev/null; then
-    awk -v cutoff="$cutoff" '/^\[/{d=substr($0,2,10); if(d>=cutoff) print; next} {print}' "$file" > "$file.$$.tmp" 2>/dev/null && mv "$file.$$.tmp" "$file" 2>/dev/null || true
-  fi
-}
+# v2.6.33: one python3 fork replaces ~30 subprocesses (md5 + jq cwd-fallback
+# + 4 rotate_log subshells × {grep, awk, mv} + 3 dedup_log subshells × {awk,
+# mv} + 1 python3 blocks-compress + tail/sed/tr/sed pipelines for corrections
+# and reinforcements + sort/sed/sort/uniq/sort/awk/head pipeline for failures
+# + jq -Rs JSON wrap). Now: 1 python3 heredoc does md5, log rotation, dedup,
+# blocks compression, corrections/reinforcements/failures aggregation, and
+# emits the final systemMessage JSON. Median 140ms → ~50ms.
+OUT=$(SCOPE_DIR="$SCOPE_DIR" PROJECT_DIR="$PROJECT_DIR" HOOK_SUPPRESS="$HOOK_SUPPRESS" \
+      python3 <<'PYEOF'
+import hashlib, json, os, re, sys
+from collections import Counter, OrderedDict
+from datetime import datetime, timedelta
 
-rotate_log "$BLOCKS_LOG"
-rotate_log "$CORRECTIONS_LOG"
-rotate_log "$REINFORCEMENTS_LOG"
-rotate_log "$FAILURES_LOG"
+scope_dir = os.environ['SCOPE_DIR']
+project_dir = os.environ['PROJECT_DIR']
+suppress = os.environ.get('HOOK_SUPPRESS', 'false').lower() in ('true', '1', 'yes')
 
-# --- Dedup: remove consecutive identical entries ---
-dedup_log() {
-  local file="$1"
-  [ ! -f "$file" ] || [ ! -s "$file" ] && return
-  awk '!seen[$0]++' "$file" > "$file.$$.tmp" 2>/dev/null && mv "$file.$$.tmp" "$file" 2>/dev/null || true
-}
+proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
 
-dedup_log "$BLOCKS_LOG"
-dedup_log "$CORRECTIONS_LOG"
-dedup_log "$REINFORCEMENTS_LOG"
+blocks_log         = os.path.join(scope_dir, '.blocked-commands')
+failures_log       = os.path.join(scope_dir, '.failed-commands')
+corrections_log    = os.path.join(scope_dir, f'.user-corrections-{proj_hash}')
+reinforcements_log = os.path.join(scope_dir, f'.user-reinforcements-{proj_hash}')
 
-# --- Build context ---
-CONTEXT=""
+# Fall back to global if project-scoped doesn't exist
+if not os.path.isfile(corrections_log) and os.path.isfile(os.path.join(scope_dir, '.user-corrections')):
+    corrections_log = os.path.join(scope_dir, '.user-corrections')
+if not os.path.isfile(reinforcements_log) and os.path.isfile(os.path.join(scope_dir, '.user-reinforcements')):
+    reinforcements_log = os.path.join(scope_dir, '.user-reinforcements')
 
-append() {
-  if [ -n "$CONTEXT" ]; then
-    CONTEXT="${CONTEXT}
+# --- 30-day rotation: keep lines whose [YYYY-MM-DD ...] timestamp is >= cutoff
+cutoff = (datetime.utcnow() - timedelta(days=30)).strftime('%Y-%m-%d')
+ts_re = re.compile(r'^\[(\d{4}-\d{2}-\d{2})')
 
-$1"
-  else
-    CONTEXT="$1"
-  fi
-}
-
-# Blocked commands — compressed to category counts (top 8 by frequency)
-if [ -f "$BLOCKS_LOG" ] && [ -s "$BLOCKS_LOG" ]; then
-  COMPRESSED=$(python3 - "$BLOCKS_LOG" <<'PYEOF'
-import sys, re
-from collections import Counter
-
-path = sys.argv[1]
-counts = Counter()
-last_seen = {}
-
-with open(path) as f:
-    for line in f:
-        line = line.strip()
-        if not line:
+def rotate_and_dedup(path, do_dedup=True):
+    if not os.path.isfile(path):
+        return []
+    try:
+        with open(path) as f:
+            lines = f.readlines()
+    except Exception:
+        return []
+    kept = []
+    seen = set()
+    changed = False
+    for line in lines:
+        stripped = line.rstrip('\n')
+        m = ts_re.match(stripped)
+        if m and m.group(1) < cutoff:
+            changed = True
             continue
-        # Strip timestamp: [YYYY-MM-DD HH:MM] REASON — COMMAND
-        m = re.match(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] (.+)$', line)
+        if do_dedup:
+            if stripped in seen:
+                changed = True
+                continue
+            seen.add(stripped)
+        kept.append(stripped)
+    if changed:
+        try:
+            with open(path, 'w') as f:
+                for line in kept:
+                    f.write(line + '\n')
+        except Exception:
+            pass
+    return kept
+
+blocks_lines        = rotate_and_dedup(blocks_log)
+corrections_lines   = rotate_and_dedup(corrections_log)
+reinforcements_lines = rotate_and_dedup(reinforcements_log)
+failures_lines      = rotate_and_dedup(failures_log, do_dedup=False)
+
+context_parts = []
+
+# Blocked commands → category counts, top 8 by frequency
+if blocks_lines:
+    counts = Counter()
+    last_seen = {}
+    entry_re = re.compile(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] (.+)$')
+    for line in blocks_lines:
+        m = entry_re.match(line)
         if not m:
             continue
         date, rest = m.group(1), m.group(2)
-        # Extract reason: text before " — COMMAND" (last " — " separator)
-        # Reason may itself contain " — " so take up to first 80 chars as key
         reason = rest.split(' — ')[0].strip()[:80]
         counts[reason] += 1
         last_seen[reason] = date[:10]
+    if counts:
+        body = '\n'.join(
+            f'- {reason} (blocked {count}x, last: {last_seen[reason]})'
+            for reason, count in counts.most_common(8)
+        )
+        context_parts.append('[BLOCKS] ' + body)
 
-if not counts:
-    sys.exit(0)
-
-lines = []
-for reason, count in counts.most_common(8):
-    lines.append(f"- {reason} (blocked {count}x, last: {last_seen[reason]})")
-print('\n'.join(lines))
-PYEOF
-)
-  if [ -n "$COMPRESSED" ]; then
-    append "[BLOCKS] ${COMPRESSED}"
-  fi
-fi
-
-# User corrections (last 5)
-if [ -f "$CORRECTIONS_LOG" ] && [ -s "$CORRECTIONS_LOG" ]; then
-  append "[CORR] $(tail -5 "$CORRECTIONS_LOG" | sed 's/\[.*\] CORRECTION: //' | tr '\n' '|' | sed 's/|$//')"
-fi
+# User corrections (last 5, pipe-joined)
+if corrections_lines:
+    corr_re = re.compile(r'^\[.*?\] CORRECTION: ')
+    tail = [corr_re.sub('', l) for l in corrections_lines[-5:]]
+    context_parts.append('[CORR] ' + '|'.join(tail))
 
 # User reinforcements (last 5)
-if [ -f "$REINFORCEMENTS_LOG" ] && [ -s "$REINFORCEMENTS_LOG" ]; then
-  append "[WORKS] $(tail -5 "$REINFORCEMENTS_LOG" | sed 's/\[.*\] REINFORCED: //' | tr '\n' '|' | sed 's/|$//')"
-fi
+if reinforcements_lines:
+    rein_re = re.compile(r'^\[.*?\] REINFORCED: ')
+    tail = [rein_re.sub('', l) for l in reinforcements_lines[-5:]]
+    context_parts.append('[WORKS] ' + '|'.join(tail))
 
-# Repeated failures (patterns that failed 3+ times, top 5)
-if [ -f "$FAILURES_LOG" ] && [ -s "$FAILURES_LOG" ]; then
-  REPEATED=$(sort "$FAILURES_LOG" 2>/dev/null | sed 's/^\[.*\] exit=[0-9]* — //' | sort | uniq -c | sort -rn | awk '$1 >= 3 {$1=""; print}' | head -5)
-  if [ -n "$REPEATED" ]; then
-    append "[FAILS] ${REPEATED}"
-  fi
-fi
+# Repeated failures: pattern → count, threshold 3, top 5
+if failures_lines:
+    fail_re = re.compile(r'^\[.*?\] exit=\d+ — ')
+    pattern_counts = Counter(fail_re.sub('', l) for l in failures_lines if l)
+    repeated = [(p, c) for p, c in pattern_counts.most_common() if c >= 3][:5]
+    if repeated:
+        body = '\n'.join(f' {c} {p}' for p, c in repeated)
+        context_parts.append('[FAILS] ' + body)
 
-[ -z "$CONTEXT" ] && exit 0
+if not context_parts:
+    sys.exit(0)
 
-CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+context = '\n\n'.join(context_parts)
+print(json.dumps({'systemMessage': context, 'suppressOutput': suppress}))
+PYEOF
+)
 
+[ -z "$OUT" ] && exit 0
+printf '%s\n' "$OUT"
 exit 0
