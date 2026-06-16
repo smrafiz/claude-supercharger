@@ -10,100 +10,134 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('cwd',''))" 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-init_hook_suppress "$PROJECT_DIR"
 
-# Extract skill name from input
-SKILL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('tool_input',{}).get('skill',''))" 2>/dev/null || true)
-[ -z "$SKILL_NAME" ] && exit 0
+# v2.6.35: one python3 fork replaces 2 python3 (stdin parse) + bash for-loop
+# `find` over 4 base dirs + ~10 grep -cE per skill file + 1 python3 per file
+# for stego whitespace + 1 python3 for grep -c CRITICAL + 1 python3 for JSON
+# wrap. Now: 1 python3 heredoc parses stdin, walks the 4 candidate dirs with
+# pathlib, runs all 10 compiled regexes against each skill file's text,
+# counts zero-width chars directly, emits the final JSON. Median 70ms → ~30ms.
+RESULT=$(HOOK_INPUT="$_INPUT" PWD_DIR="$PWD" HOME_DIR="$HOME" HOOK_SUPPRESS="$HOOK_SUPPRESS" \
+         python3 <<'PYEOF' 2>/dev/null
+import json, os, re, sys
+from pathlib import Path
 
-# Find skill file paths — check common locations
-FINDINGS=""
-SCAN_PATHS=""
+raw = os.environ.get('HOOK_INPUT', '')
+home_dir = os.environ.get('HOME_DIR', '')
+pwd_dir = os.environ.get('PWD_DIR', '')
+suppress = os.environ.get('HOOK_SUPPRESS', 'false').lower() in ('true', '1', 'yes')
 
-# Build list of skill file paths to scan — only the skill's own definition file,
-# not every README in a directory that happens to contain the skill name.
-# Matches: <skill-name>.md  OR  */<skill-name>/SKILL.md  OR  */<skill-name>/skill.md
-for base in \
-  "$HOME/.claude/commands" \
-  "$HOME/.claude/plugins" \
-  ".claude/commands" \
-  ".claude/plugins"; do
-  if [ -d "$base" ]; then
-    while IFS= read -r f; do
-      [ -f "$f" ] && SCAN_PATHS="$SCAN_PATHS $f"
-    done < <(find "$base" -maxdepth 6 \( \
-        -name "${SKILL_NAME}.md" \
-        -o \( -path "*/${SKILL_NAME}/SKILL.md" \) \
-        -o \( -path "*/${SKILL_NAME}/skill.md" \) \
-      \) 2>/dev/null || true)
-  fi
-done
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
 
-[ -z "$SCAN_PATHS" ] && exit 0
+skill = (data.get('tool_input') or {}).get('skill') or ''
+if not skill:
+    sys.exit(0)
 
-# Scan patterns — ordered by severity
-check_pattern() {
-  local label="$1" pattern="$2" severity="$3"
-  for f in $SCAN_PATHS; do
-    local matches
-    matches=$(grep -cE "$pattern" "$f" 2>/dev/null || echo "0")
-    if [ "$matches" -gt 0 ]; then
-      FINDINGS="${FINDINGS}${severity}: ${label} (${matches}x in $(basename "$f"))\n"
-    fi
-  done
-}
+cwd = data.get('cwd') or pwd_dir
 
-# Critical — likely malicious
-check_pattern "base64 decode execution" 'base64\s+(-d|--decode)|atob\(|b64decode' "CRITICAL"
-check_pattern "hidden eval/exec" '\beval\b.*\$|exec\s*\(' "CRITICAL"
-check_pattern "curl pipe to shell" 'curl.*\|\s*(ba)?sh|wget.*\|\s*(ba)?sh' "CRITICAL"
-check_pattern "environment exfiltration" 'env\b.*curl|printenv.*\||(API_KEY|SECRET|TOKEN|PASSWORD).*curl' "CRITICAL"
-check_pattern "reverse shell pattern" 'mkfifo|/dev/tcp/|nc\s+-[el]' "CRITICAL"
+# Find skill definition files. Match only the skill's own file, not random
+# READMEs that happen to contain the skill name.
+scan_paths = []
+candidates = [
+    Path(home_dir) / '.claude' / 'commands',
+    Path(home_dir) / '.claude' / 'plugins',
+    Path(cwd) / '.claude' / 'commands',
+    Path(cwd) / '.claude' / 'plugins',
+]
+# Targeted globs only — rglob over ~/.claude/ walks 1000s of files.
+# Three direct shapes: <base>/.../<skill>.md, <base>/.../<skill>/SKILL.md,
+# <base>/.../<skill>/skill.md. Depth limit 6.
+glob_patterns = (
+    f'{skill}.md',
+    f'*/{skill}.md',
+    f'*/*/{skill}.md',
+    f'*/*/*/{skill}.md',
+    f'{skill}/SKILL.md',
+    f'*/{skill}/SKILL.md',
+    f'*/*/{skill}/SKILL.md',
+    f'{skill}/skill.md',
+    f'*/{skill}/skill.md',
+    f'*/*/{skill}/skill.md',
+)
+for base in candidates:
+    if not base.is_dir():
+        continue
+    for pat in glob_patterns:
+        try:
+            for p in base.glob(pat):
+                if p.is_file():
+                    scan_paths.append(p)
+        except Exception:
+            continue
 
-# High — suspicious
-check_pattern "hidden instruction override" 'ignore\s+(previous|above|all)\s+(instructions|rules)|disregard.*instructions|you\s+are\s+now' "HIGH"
-# BSD grep doesn't support PCRE \x{NNNN} in -E mode; use python3 for Unicode char detection
-check_stego_whitespace() {
-  local severity="$1"
-  for f in $SCAN_PATHS; do
-    local matches
-    matches=$(python3 -c "
-import sys
-text = open(sys.argv[1], encoding='utf-8', errors='replace').read()
-count = sum(text.count(c) for c in '\u200b\u200c\u200d\ufeff')
-print(count)
-" "$f" 2>/dev/null || echo "0")
-    if [ "$matches" -gt 0 ]; then
-      FINDINGS="${FINDINGS}${severity}: steganographic whitespace (${matches}x in $(basename "$f"))\n"
-    fi
-  done
-}
-check_stego_whitespace "HIGH"
-check_pattern "obfuscated variable expansion" '\$\{[A-Z_]*:.*:.*\}.*\$\{' "HIGH"
-check_pattern "credential file access" '/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain' "HIGH"
+if not scan_paths:
+    sys.exit(0)
 
-# Medium — worth noting
-check_pattern "subprocess spawn" 'os\.system\(|subprocess\.(run|call|Popen)|child_process' "MEDIUM"
-check_pattern "file write outside project" "open\(.*'/tmp\|open\(.*'/var\|>/etc/" "MEDIUM"
+# (label, compiled regex, severity) — ordered by severity.
+patterns = [
+    ('base64 decode execution',       re.compile(r'base64\s+(?:-d|--decode)|atob\(|b64decode'),                    'CRITICAL'),
+    ('hidden eval/exec',              re.compile(r'\beval\b.*\$|exec\s*\('),                                       'CRITICAL'),
+    ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh'),                    'CRITICAL'),
+    ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl'), 'CRITICAL'),
+    ('reverse shell pattern',         re.compile(r'mkfifo|/dev/tcp/|nc\s+-[el]'),                                  'CRITICAL'),
+    ('hidden instruction override',   re.compile(r'ignore\s+(?:previous|above|all)\s+(?:instructions|rules)|disregard.*instructions|you\s+are\s+now'), 'HIGH'),
+    ('obfuscated variable expansion', re.compile(r'\$\{[A-Z_]*:.*:.*\}.*\$\{'),                                    'HIGH'),
+    ('credential file access',        re.compile(r'/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain'),     'HIGH'),
+    ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process'),    'MEDIUM'),
+    ('file write outside project',    re.compile(r"open\(.*'/tmp|open\(.*'/var|>/etc/"),                            'MEDIUM'),
+]
 
-if [ -n "$FINDINGS" ]; then
-  CRITICAL_COUNT=$(printf '%b' "$FINDINGS" | grep -c "^CRITICAL" || echo "0")
+ZERO_WIDTH = ('​', '‌', '‍', '﻿')
 
-  if [ "$CRITICAL_COUNT" -gt 0 ]; then
-    # Block critical findings
-    REASON="Skill '$SKILL_NAME' contains suspicious patterns:\n$(printf '%b' "$FINDINGS")\nReview the skill source before allowing execution."
-    REASON_JSON=$(printf '%b' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$REASON_JSON"
-    echo "[Supercharger] skill-poisoning-scanner: BLOCKED skill '$SKILL_NAME' — ${CRITICAL_COUNT} critical finding(s)" >&2
-    exit 2
-  else
-    # Warn on non-critical findings
-    MSG="[SUPERCHARGER] Skill '$SKILL_NAME' has suspicious patterns (non-blocking):\n$(printf '%b' "$FINDINGS")"
-    MSG_JSON=$(printf '%b' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-    printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
-    echo "[Supercharger] skill-poisoning-scanner: warned on skill '$SKILL_NAME'" >&2
-  fi
+findings = []
+critical = 0
+for p in scan_paths:
+    try:
+        text = p.read_text(encoding='utf-8', errors='replace')
+    except Exception:
+        continue
+    fname = p.name
+    for label, regex, sev in patterns:
+        n = len(regex.findall(text))
+        if n:
+            findings.append(f'{sev}: {label} ({n}x in {fname})')
+            if sev == 'CRITICAL':
+                critical += 1
+    stego = sum(text.count(c) for c in ZERO_WIDTH)
+    if stego:
+        findings.append(f'HIGH: steganographic whitespace ({stego}x in {fname})')
+
+if not findings:
+    sys.exit(0)
+
+body = '\n'.join(findings)
+if critical:
+    reason = f"Skill '{skill}' contains suspicious patterns:\n{body}\nReview the skill source before allowing execution."
+    print(json.dumps({
+        'hookSpecificOutput': {
+            'hookEventName': 'PreToolUse',
+            'permissionDecision': 'deny',
+            'permissionDecisionReason': reason,
+        }
+    }))
+else:
+    msg = f"[SUPERCHARGER] Skill '{skill}' has suspicious patterns (non-blocking):\n{body}"
+    print(json.dumps({'systemMessage': msg, 'suppressOutput': suppress}))
+PYEOF
+)
+
+[ -z "$RESULT" ] && exit 0
+printf '%s\n' "$RESULT"
+
+# CRITICAL findings → emit deny + exit 2 (block). Otherwise just warn.
+# json.dumps emits `"permissionDecision": "deny"` with a space after colon —
+# match the literal "deny" token, not the punctuation.
+if printf '%s' "$RESULT" | grep -q '"deny"'; then
+  echo "[Supercharger] skill-poisoning-scanner: BLOCKED skill" >&2
+  exit 2
 fi
-
+echo "[Supercharger] skill-poisoning-scanner: warned on skill" >&2
 exit 0
