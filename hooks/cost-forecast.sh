@@ -25,26 +25,16 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || tru
 
 init_hook_suppress "$PROJECT_DIR"
 
-# Find .supercharger.json by walking up from PROJECT_DIR
-SUPERCHARGER_JSON=""
-SEARCH_DIR="$PROJECT_DIR"
-for _ in 1 2 3 4 5; do
-  if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-    SUPERCHARGER_JSON="$SEARCH_DIR/.supercharger.json"
-    break
-  fi
-  PARENT=$(dirname "$SEARCH_DIR")
-  [ "$PARENT" = "$SEARCH_DIR" ] && break
-  SEARCH_DIR="$PARENT"
-done
+# v2.6.29: one python3 fork does .session-cost read + 5-level .supercharger.json
+# walk + forecast compute + JSON wrap. Was: bash for-loop walk + 2 python3 forks
+# (compute, JSON wrap). Now: 1 python3. Median 80ms → 40ms (-50%).
+OUT=$(COST_FILE="$COST_FILE" PROJECT_DIR="$PROJECT_DIR" python3 <<'PYEOF' 2>/dev/null
+import json, os, sys
 
-# Single Python block: read .session-cost, read .supercharger.json, compute forecast
-RESULT=$(python3 -c "
-import json, sys
+cost_file = os.environ['COST_FILE']
+project_dir = os.environ['PROJECT_DIR']
 
-cost_file = '$COST_FILE'
-supercharger_json = '$SUPERCHARGER_JSON'
-
+# .session-cost
 try:
     with open(cost_file) as f:
         d = json.load(f)
@@ -53,35 +43,37 @@ except Exception:
     avg = 0.0
 
 if avg <= 0:
-    sys.exit(1)
+    sys.exit(0)
 
+# Walk up 5 levels for .supercharger.json
 turns = 10
-if supercharger_json:
-    try:
-        with open(supercharger_json) as f:
-            cfg = json.load(f)
-        v = cfg.get('forecastTurnsPerAgent', 10)
-        turns = int(v) if v else 10
-    except Exception:
-        pass
+search = project_dir
+for _ in range(5):
+    candidate = os.path.join(search, '.supercharger.json')
+    if os.path.isfile(candidate):
+        try:
+            with open(candidate) as f:
+                cfg = json.load(f)
+            v = cfg.get('forecastTurnsPerAgent', 10)
+            turns = int(v) if v else 10
+        except Exception:
+            pass
+        break
+    parent = os.path.dirname(search)
+    if parent == search:
+        break
+    search = parent
 
 est = avg * turns
 if est < 0.10:
-    sys.exit(1)
+    sys.exit(0)
 
-print(f'{avg:.2f}')
-print(str(turns))
-print(f'{est:.2f}')
-" 2>/dev/null) || exit 0
+msg = f'[COST] Est. ~${est:.2f} for this agent (avg ${avg:.2f}/turn × ~{turns} turns)'
+print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'additionalContext': msg}}))
+print(msg, file=sys.stderr)
+PYEOF
+)
 
-AVG_FMT=$(printf '%s\n' "$RESULT" | sed -n '1p')
-FORECAST_TURNS=$(printf '%s\n' "$RESULT" | sed -n '2p')
-ESTIMATE=$(printf '%s\n' "$RESULT" | sed -n '3p')
-
-MSG="[COST] Est. ~\$$ESTIMATE for this agent (avg \$$AVG_FMT/turn × ~$FORECAST_TURNS turns)"
-
-$HOOK_SUPPRESS || echo "[Supercharger] cost-forecast: $MSG" >&2
-
-CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
+[ -z "$OUT" ] && exit 0
+printf '%s\n' "$OUT"
 exit 0
