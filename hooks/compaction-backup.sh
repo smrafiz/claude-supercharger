@@ -33,39 +33,65 @@ if (( NOW - LAST_ROTATION > 86400 )); then
   echo "$NOW" > "$ROTATION_CHECK"
 fi
 
-# Update session memory before context is wiped.
-# Pass the original PreCompact JSON (contains transcript_path) so session-memory-write
-# can extract decisions from the actual transcript — empty stdin would skip extraction.
+# v2.6.34: parallelize the two inline child hooks (session-memory-write and
+# lesson-record). Both read transcript / scope files independently; running
+# them concurrently overlaps the IO + python cold-starts. wait blocks until
+# both finish — still race-free vs the post-fix in v2.6.5. Cuts ~70ms off
+# the sync PreCompact path.
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [ -f "$HOOKS_DIR/session-memory-write.sh" ]; then
-  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null || true
+  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/session-memory-write.sh" 2>/dev/null &
 fi
-# Also flush any pending lesson capture so decisions/lessons land before transcript is wiped.
 if [ -f "$HOOKS_DIR/lesson-record.sh" ]; then
-  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/lesson-record.sh" 2>/dev/null || true
+  printf '%s\n' "$_INPUT" | bash "$HOOKS_DIR/lesson-record.sh" 2>/dev/null &
 fi
+wait
 
-# Inject session-specific compaction guidance
-GUIDANCE=""
+# v2.6.34: one python3 fork does git diff + cost read + JSON wrap.
+# Was 3 forks (git diff + tr + sed pipeline, python3 cost read, jq -Rs).
+# git diff stays a subprocess INSIDE python — same total cost, one fewer
+# python cold-start.
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+GUIDANCE=$(SCOPE_DIR="$SCOPE_DIR" python3 <<'PYEOF' 2>/dev/null
+import json, os, subprocess
+
+scope_dir = os.environ['SCOPE_DIR']
+parts = []
 
 # Modified files
-MODIFIED=$(git diff --name-only HEAD 2>/dev/null | head -10 | tr '\n' ',' | sed 's/,$//' || echo "")
-[ -n "$MODIFIED" ] && GUIDANCE="${GUIDANCE}PRESERVE modified files: ${MODIFIED}. "
+try:
+    out = subprocess.check_output(['git', 'diff', '--name-only', 'HEAD'],
+                                  stderr=subprocess.DEVNULL, timeout=2).decode()
+    files = [f for f in out.splitlines() if f][:10]
+    if files:
+        parts.append('PRESERVE modified files: ' + ','.join(files) + '.')
+except Exception:
+    pass
 
 # Economy tier
-TIER=$(cat "$HOME/.claude/supercharger/scope/.economy-tier" 2>/dev/null || echo "")
-[ -n "$TIER" ] && GUIDANCE="${GUIDANCE}PRESERVE economy: ${TIER}. "
+try:
+    with open(os.path.join(scope_dir, '.economy-tier')) as f:
+        tier = f.read().strip()
+    if tier:
+        parts.append('PRESERVE economy: ' + tier + '.')
+except Exception:
+    pass
 
 # Session cost
-if [ -f "$HOME/.claude/supercharger/scope/.session-cost" ]; then
-  COST=$(python3 -c "import json; print(json.load(open('$HOME/.claude/supercharger/scope/.session-cost')).get('total_usd',''))" 2>/dev/null || echo "")
-  [ -n "$COST" ] && GUIDANCE="${GUIDANCE}Session cost so far: \$${COST}. "
-fi
+try:
+    with open(os.path.join(scope_dir, '.session-cost')) as f:
+        cost = json.load(f).get('total_usd', '')
+    if cost != '':
+        parts.append(f'Session cost so far: ${cost}.')
+except Exception:
+    pass
 
-if [ -n "$GUIDANCE" ]; then
-  GUIDANCE="[COMPACT] ${GUIDANCE}DISCARD: full file contents, verbose tool output, completed task details."
-  CONTEXT_JSON=$(printf '%s' "$GUIDANCE" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$GUIDANCE" | tr -d '"\\' | tr '\n' ' ')")
-  printf '{"systemMessage":%s,"suppressOutput":true}\n' "$CONTEXT_JSON"
-fi
+if not parts:
+    exit(0)
+guidance = '[COMPACT] ' + ' '.join(parts) + ' DISCARD: full file contents, verbose tool output, completed task details.'
+print(json.dumps({'systemMessage': guidance, 'suppressOutput': True}))
+PYEOF
+)
 
+[ -n "$GUIDANCE" ] && printf '%s\n' "$GUIDANCE"
 exit 0
