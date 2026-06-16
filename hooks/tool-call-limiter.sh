@@ -14,6 +14,8 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 check_hook_disabled "tool-call-limiter" && exit 0
 
 _INPUT=$(cat)
@@ -25,7 +27,8 @@ if [ -n "${SESSION_MAX_TOOL_CALLS:-}" ]; then
 else
   PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-  SEARCH_DIR="$PROJECT_DIR"
+  # v2.6.36: walk from main worktree root if PROJECT_DIR is a linked worktree
+  SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")
   for _ in 1 2 3 4 5; do
     if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
       CAP=$(python3 -c "

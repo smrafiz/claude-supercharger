@@ -7,11 +7,15 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.6.36: resolve to main worktree if PROJECT_DIR is a linked worktree
+PROJECT_DIR=$(_resolve_project_root "$PROJECT_DIR")
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "adaptive-economy" && exit 0
 

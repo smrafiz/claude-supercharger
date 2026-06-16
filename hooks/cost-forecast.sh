@@ -7,6 +7,8 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
@@ -23,12 +25,16 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
+# v2.6.36: resolve to main worktree root if PROJECT_DIR is a linked worktree —
+# .supercharger.json lives in the main repo, not the linked checkout.
+PROJECT_ROOT=$(_resolve_project_root "$PROJECT_DIR")
+
 init_hook_suppress "$PROJECT_DIR"
 
 # v2.6.29: one python3 fork does .session-cost read + 5-level .supercharger.json
 # walk + forecast compute + JSON wrap. Was: bash for-loop walk + 2 python3 forks
 # (compute, JSON wrap). Now: 1 python3. Median 80ms → 40ms (-50%).
-OUT=$(COST_FILE="$COST_FILE" PROJECT_DIR="$PROJECT_DIR" python3 <<'PYEOF' 2>/dev/null
+OUT=$(COST_FILE="$COST_FILE" PROJECT_DIR="$PROJECT_ROOT" python3 <<'PYEOF' 2>/dev/null
 import json, os, sys
 
 cost_file = os.environ['COST_FILE']

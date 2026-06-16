@@ -9,23 +9,30 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 [ "${SUPERCHARGER_NO_MEMORY:-0}" = "1" ] && exit 0
 
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
+# v2.6.36: .supercharger.json (project policy) lives in the main repo even when
+# CWD is a linked worktree. PROJECT_DIR stays per-worktree for git state and
+# memory file (intentionally isolated per worktree).
+CONFIG_ROOT=$(_resolve_project_root "$PROJECT_DIR")
 
 # v2.6.26: one python3 fork does compact-summary parse + memory-file read +
 # project-config parse + git status/branch + message build + JSON wrap.
 # Was: 1 jq + 1 git rev-parse-git-dir + 1 git status + 1 wc + 3 python3 forks
 # (compact_summary, hints, JSON wrap) + 1 git rev-parse-branch = 8 forks.
 # Now: 1 python3 fork that runs the 2 git subprocesses itself. ~190ms → ~70ms.
-RESULT=$(HOOK_INPUT="$_INPUT" PROJECT_DIR="$PROJECT_DIR" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
+RESULT=$(HOOK_INPUT="$_INPUT" PROJECT_DIR="$PROJECT_DIR" CONFIG_ROOT="$CONFIG_ROOT" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
 import json, os, subprocess, sys
 
 raw = os.environ.get('HOOK_INPUT', '')
 project_dir = os.environ.get('PROJECT_DIR', '')
+config_root = os.environ.get('CONFIG_ROOT', '') or project_dir
 suppress = os.environ.get('HOOK_SUPPRESS', 'false').lower() in ('true', '1', 'yes')
 
 memory_file = '.claude/supercharger-memory.md'
@@ -73,8 +80,8 @@ if os.path.isfile(mem_path):
     else:
         lines.append(f'Session memory exists (clean tree). Read {memory_file} if context is needed.')
 
-# Project config hints
-cfg_path = os.path.join(project_dir, config_file)
+# Project config hints (from main repo, even in a linked worktree)
+cfg_path = os.path.join(config_root, config_file)
 if os.path.isfile(cfg_path):
     try:
         with open(cfg_path) as f:

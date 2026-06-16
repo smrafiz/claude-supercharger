@@ -12,6 +12,8 @@
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 [ "${SUPERCHARGER_TOOL_PREFS:-1}" = "0" ] && exit 0
 
@@ -21,7 +23,8 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "tool-preferences" && exit 0
 hook_profile_skip "tool-preferences" && exit 0
 
-CONFIG="$PROJECT_DIR/.supercharger.json"
+# v2.6.36: read .supercharger.json from main worktree root if in a linked worktree
+CONFIG="$(_resolve_project_root "$PROJECT_DIR")/.supercharger.json"
 [ ! -f "$CONFIG" ] && exit 0
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)

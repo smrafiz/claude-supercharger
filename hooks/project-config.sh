@@ -21,9 +21,15 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 WELCOME_FLAG="$SUPERCHARGER_DIR/.welcomed"
 mkdir -p "$SUPERCHARGER_DIR"
 
-# Walk up to find .supercharger.json (max 5 levels)
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
+
+# Walk up to find .supercharger.json (max 5 levels).
+# v2.6.36: in a linked worktree, start from main repo root.
 CONFIG_FILE=""
-SEARCH_DIR="$PROJECT_DIR"
+SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")
 for _ in 1 2 3 4 5; do
   if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
     CONFIG_FILE="$SEARCH_DIR/.supercharger.json"
@@ -33,9 +39,6 @@ for _ in 1 2 3 4 5; do
   [ "$PARENT" = "$SEARCH_DIR" ] && break
   SEARCH_DIR="$PARENT"
 done
-
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 
 RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" python3 << 'PYEOF'
 import json, os, sys, re

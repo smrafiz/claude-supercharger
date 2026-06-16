@@ -9,6 +9,8 @@ set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 MODE="${1:-accumulate}"
 
@@ -120,6 +122,9 @@ if [[ "$MODE" == "check" ]]; then
     # || true: pipefail must not abort when cwd field is absent
     _SEARCH_DIR=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
     [ -z "$_SEARCH_DIR" ] && _SEARCH_DIR="$PWD"
+    # v2.6.36: if we're in a linked worktree, .supercharger.json lives in the
+    # main repo. Resolve to that before walking.
+    _SEARCH_DIR=$(_resolve_project_root "$_SEARCH_DIR")
     _HAS_CAP=0
     for _ in 1 2 3 4 5; do
       if [ -f "$_SEARCH_DIR/.supercharger.json" ]; then
@@ -137,7 +142,12 @@ if [[ "$MODE" == "check" ]]; then
 
   # Single python3 fork: parse stdin, walk up for .supercharger.json, read
   # .session-cost, evaluate threshold.
-  DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
+  # v2.6.36: pre-resolved worktree-aware root passed via env; python uses it as
+  # walk start instead of the raw cwd from the payload.
+  _CWD_FROM_PAYLOAD=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+  [ -z "$_CWD_FROM_PAYLOAD" ] && _CWD_FROM_PAYLOAD="$PWD"
+  PROJECT_ROOT=$(_resolve_project_root "$_CWD_FROM_PAYLOAD")
+  DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" HOOK_INPUT="$_INPUT" PROJECT_ROOT="$PROJECT_ROOT" python3 <<'PYEOF'
 import json, os, sys
 
 try:
@@ -146,7 +156,8 @@ except Exception:
     print('pass'); sys.exit(0)
 
 tool = (data.get('tool_name') or '').strip()
-cwd = data.get('cwd') or os.environ.get('PWD', '/')
+# v2.6.36: walk from worktree-aware root, not raw cwd
+cwd = os.environ.get('PROJECT_ROOT') or data.get('cwd') or os.environ.get('PWD', '/')
 
 cap = ''
 env_cap = os.environ.get('SESSION_BUDGET_CAP', '')

@@ -15,11 +15,17 @@
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-project-root.sh
+. "$HOOKS_DIR/lib-project-root.sh"
 
 [ "${SUPERCHARGER_PATH_GUARD:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.6.36: PROJECT_DIR stays as the actual CWD (used as boundary for symlink/
+# abs-path checks — writes within the linked worktree must be allowed).
+# CONFIG_ROOT is the worktree-aware location for .supercharger.json.
+CONFIG_ROOT=$(_resolve_project_root "$PROJECT_DIR")
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "path-guard" && exit 0
 hook_profile_skip "path-guard" && exit 0
@@ -35,11 +41,11 @@ FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/
 
 # Disabled categories from .supercharger.json (project-level opt-out)
 DISABLED_CATS=""
-if [ -f "$PROJECT_DIR/.supercharger.json" ]; then
+if [ -f "$CONFIG_ROOT/.supercharger.json" ]; then
   DISABLED_CATS=$(python3 -c "
 import json, sys
 try:
-    with open('$PROJECT_DIR/.supercharger.json') as f:
+    with open('$CONFIG_ROOT/.supercharger.json') as f:
         d = json.load(f)
     cats = d.get('disableSecurityCategories', [])
     print(','.join(cats))
