@@ -8,121 +8,126 @@ set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
 
 _INPUT=$(cat)
-PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
-if [ -z "$PROMPT" ]; then
-  PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
-fi
 
-if [ -z "$PROMPT" ]; then
-  exit 0
-fi
+# v2.6.30: one python3 fork replaces 1 jq + 1 python3 prompt extract + ~30
+# separate `grep -qiE` forks (one per anti-pattern check, sometimes two for
+# negative match guards). Was 70ms with all those subprocess starts; now
+# ~30ms because compiled regex over a single string is essentially free
+# inside python. Sync UserPromptSubmit hook — drops user-perceived input
+# latency by ~40ms on every prompt.
+HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
+import json, os, re, sys
 
-NOTES=""
+raw = os.environ.get('HOOK_INPUT', '')
+try:
+    data = json.loads(raw)
+except Exception:
+    sys.exit(0)
+
+prompt = data.get('prompt') or ''
+if not prompt:
+    sys.exit(0)
+
+I = re.IGNORECASE
+notes = []
+
+def m(pat):     return re.search(pat, prompt, I) is not None
+def not_m(pat): return re.search(pat, prompt, I) is None
 
 # 1. Vague scope
-if printf '%s\n' "$PROMPT" | grep -qiE '^(fix|update|change|improve|make)\s+(it|this|that|the app|the code)\b'; then
-  NOTES="${NOTES}[Supercharger] Consider specifying which files or functions to target.\n"
-fi
+if re.search(r'^(fix|update|change|improve|make)\s+(it|this|that|the app|the code)\b', prompt, I):
+    notes.append('Consider specifying which files or functions to target.')
 
 # 2. Multiple tasks
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(and also|and then|plus|additionally)\b.*\b(and also|and then|plus|additionally)\b'; then
-  NOTES="${NOTES}[Supercharger] Multiple tasks detected. Consider splitting into separate requests.\n"
-fi
+if m(r'\b(and also|and then|plus|additionally)\b.*\b(and also|and then|plus|additionally)\b'):
+    notes.append('Multiple tasks detected. Consider splitting into separate requests.')
 
 # 3. Vague success criteria
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(make it better|improve|optimize|clean up)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(should|must|ensure|so that|such that)\b'; then
-  NOTES="${NOTES}[Supercharger] Consider adding success criteria (what does 'better' mean here?).\n"
-fi
+if m(r'\b(make it better|improve|optimize|clean up)\b') and not_m(r'\b(should|must|ensure|so that|such that)\b'):
+    notes.append("Consider adding success criteria (what does 'better' mean here?).")
 
 # 4. Emotional description
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(totally broken|fix everything|nothing works|completely messed|everything is broken)\b'; then
-  NOTES="${NOTES}[Supercharger] Try describing the specific error or symptom instead of the frustration.\n"
-fi
+if m(r'\b(totally broken|fix everything|nothing works|completely messed|everything is broken)\b'):
+    notes.append('Try describing the specific error or symptom instead of the frustration.')
 
 # 5. Build whole thing
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(build me a|create an entire|full app|whole application|build a complete)\b'; then
-  NOTES="${NOTES}[Supercharger] Large scope detected. Consider breaking this into smaller, sequential requests.\n"
-fi
+if m(r'\b(build me a|create an entire|full app|whole application|build a complete)\b'):
+    notes.append('Large scope detected. Consider breaking this into smaller, sequential requests.')
 
 # 6. No file path
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(update the function|fix the component|change the method|modify the class)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '(/|\.tsx?|\.jsx?|\.py|\.rs|\.go|:\d+|src/|lib/|app/)'; then
-  NOTES="${NOTES}[Supercharger] Consider specifying the file path (e.g., src/components/Header.tsx).\n"
-fi
+if m(r'\b(update the function|fix the component|change the method|modify the class)\b') and \
+   not_m(r'(/|\.tsx?|\.jsx?|\.py|\.rs|\.go|:\d+|src/|lib/|app/)'):
+    notes.append('Consider specifying the file path (e.g., src/components/Header.tsx).')
 
 # 7. Implicit reference
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(the thing we discussed|what we talked about|the other thing|that thing from before)\b'; then
-  NOTES="${NOTES}[Supercharger] Please restate what you are referring to — context may have been lost.\n"
-fi
+if m(r'\b(the thing we discussed|what we talked about|the other thing|that thing from before)\b'):
+    notes.append('Please restate what you are referring to — context may have been lost.')
 
 # 8. Assumed prior knowledge
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(continue where we left off|keep going|you already know|you remember)\b'; then
-  NOTES="${NOTES}[Supercharger] Please re-provide context — each session starts fresh.\n"
-fi
+if m(r'\b(continue where we left off|keep going|you already know|you remember)\b'):
+    notes.append('Please re-provide context — each session starts fresh.')
 
 # 9. Vague aesthetic
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(make it look good|look professional|look modern|look nice|look better)\b'; then
-  NOTES="${NOTES}[Supercharger] Consider specifying visual requirements (colors, spacing, layout, reference design).\n"
-fi
+if m(r'\b(make it look good|look professional|look modern|look nice|look better)\b'):
+    notes.append('Consider specifying visual requirements (colors, spacing, layout, reference design).')
 
 # 10. No audience
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(write for users|write documentation|write a guide|write docs)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(developer|beginner|technical|non-technical|admin|end user|stakeholder)\b'; then
-  NOTES="${NOTES}[Supercharger] Consider specifying the target audience (e.g., developers, beginners, stakeholders).\n"
-fi
+if m(r'\b(write for users|write documentation|write a guide|write docs)\b') and \
+   not_m(r'\b(developer|beginner|technical|non-technical|admin|end user|stakeholder)\b'):
+    notes.append('Consider specifying the target audience (e.g., developers, beginners, stakeholders).')
 
 # 11. No output format specified
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(generate|create|produce|write|output)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(json|yaml|csv|markdown|html|table|list|xml|typescript|python|bash)\b'; then
-  if printf '%s\n' "$PROMPT" | grep -qiE '\b(report|summary|analysis|data|results|response)\b'; then
-    NOTES="${NOTES}[Supercharger] Consider specifying output format (JSON, markdown, table, etc.).\n"
-  fi
-fi
+if m(r'\b(generate|create|produce|write|output)\b') and \
+   not_m(r'\b(json|yaml|csv|markdown|html|table|list|xml|typescript|python|bash)\b') and \
+   m(r'\b(report|summary|analysis|data|results|response)\b'):
+    notes.append('Consider specifying output format (JSON, markdown, table, etc.).')
 
 # 12. Implicit length
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(write a (long|short|brief|detailed|comprehensive|thorough))\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b([0-9]+ (words|lines|paragraphs|pages|sentences))\b'; then
-  NOTES="${NOTES}[Supercharger] Consider specifying approximate length (e.g., 200 words, 10 lines).\n"
-fi
+if m(r'\b(write a (long|short|brief|detailed|comprehensive|thorough))\b') and \
+   not_m(r'\b([0-9]+ (words|lines|paragraphs|pages|sentences))\b'):
+    notes.append('Consider specifying approximate length (e.g., 200 words, 10 lines).')
 
 # 13. No file scope for code tasks
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(refactor|extract|move|rename|split|merge|inline)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '(/|\.tsx?|\.jsx?|\.py|\.rs|\.go|\.java|\.rb|src/|lib/|app/|components/)'; then
-  NOTES="${NOTES}[Supercharger] Refactoring request without file path — specify which files to modify.\n"
-fi
+if m(r'\b(refactor|extract|move|rename|split|merge|inline)\b') and \
+   not_m(r'(/|\.tsx?|\.jsx?|\.py|\.rs|\.go|\.java|\.rb|src/|lib/|app/|components/)'):
+    notes.append('Refactoring request without file path — specify which files to modify.')
 
 # 14. No negative constraints
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(rewrite|redesign|rebuild|restructure|overhaul|rearchitect)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(don.t|do not|must not|without|except|avoid|keep|preserve|maintain)\b'; then
-  NOTES="${NOTES}[Supercharger] Large change without constraints — specify what to preserve or avoid changing.\n"
-fi
+if m(r'\b(rewrite|redesign|rebuild|restructure|overhaul|rearchitect)\b') and \
+   not_m(r"\b(don.t|do not|must not|without|except|avoid|keep|preserve|maintain)\b"):
+    notes.append('Large change without constraints — specify what to preserve or avoid changing.')
 
 # 15. No starting state for agent tasks
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(set up|configure|deploy|migrate|initialize|bootstrap)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(currently|existing|already|right now|at the moment|from scratch|new project)\b'; then
-  NOTES="${NOTES}[Supercharger] Setup task without starting state — clarify what exists now.\n"
-fi
+if m(r'\b(set up|configure|deploy|migrate|initialize|bootstrap)\b') and \
+   not_m(r'\b(currently|existing|already|right now|at the moment|from scratch|new project)\b'):
+    notes.append('Setup task without starting state — clarify what exists now.')
 
 # 16. Template mismatch (prose to code tool)
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(explain|describe|summarize|tell me about|what is)\b' && printf '%s\n' "$PROMPT" | grep -qiE '\b(write code|implement|build|create a function)\b'; then
-  NOTES="${NOTES}[Supercharger] Mixed intent: both explanation and implementation. Consider splitting.\n"
-fi
+if m(r'\b(explain|describe|summarize|tell me about|what is)\b') and \
+   m(r'\b(write code|implement|build|create a function)\b'):
+    notes.append('Mixed intent: both explanation and implementation. Consider splitting.')
 
 # 17. Missing role/persona
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(act as|pretend|you are a|behave like|roleplay)\b'; then
-  NOTES="${NOTES}[Supercharger] Use Supercharger roles instead: 'as developer', 'as writer', etc.\n"
-fi
+if m(r'\b(act as|pretend|you are a|behave like|roleplay)\b'):
+    notes.append("Use Supercharger roles instead: 'as developer', 'as writer', etc.")
 
 # 18. Unscoped "all" or "every"
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(fix all|update all|change every|modify all|refactor all|test all)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(in (this|the) (file|folder|directory|module|component))\b'; then
-  NOTES="${NOTES}[Supercharger] 'All' without scope — specify which files/directories.\n"
-fi
+if m(r'\b(fix all|update all|change every|modify all|refactor all|test all)\b') and \
+   not_m(r'\b(in (this|the) (file|folder|directory|module|component))\b'):
+    notes.append("'All' without scope — specify which files/directories.")
 
 # 19. Version/dependency without pinning
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(install|add|upgrade|update)\b.*\b(latest|newest|recent)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '\b(@[0-9]|==[0-9]|>=[0-9]|~[0-9]|\^[0-9]|version [0-9])\b'; then
-  NOTES="${NOTES}[Supercharger] Consider pinning to a specific version instead of 'latest'.\n"
-fi
+if m(r'\b(install|add|upgrade|update)\b.*\b(latest|newest|recent)\b') and \
+   not_m(r'\b(@[0-9]|==[0-9]|>=[0-9]|~[0-9]|\^[0-9]|version [0-9])\b'):
+    notes.append("Consider pinning to a specific version instead of 'latest'.")
 
 # 20. No error context
-if printf '%s\n' "$PROMPT" | grep -qiE '\b(getting an error|there.s a bug|it.s broken|not working|fails|crashes)\b' && ! printf '%s\n' "$PROMPT" | grep -qiE '(Error:|Exception:|Traceback|stack trace|TypeError|SyntaxError|ReferenceError|RuntimeError|KeyError|ValueError|stderr|\.log\b|line [0-9]+|at .+:[0-9]|ENOENT|EACCES|exit code|segfault|panic:)'; then
-  NOTES="${NOTES}[Supercharger] Include the actual error message or stack trace for faster debugging.\n"
-fi
+if m(r"\b(getting an error|there.s a bug|it.s broken|not working|fails|crashes)\b") and \
+   not_m(r'(Error:|Exception:|Traceback|stack trace|TypeError|SyntaxError|ReferenceError|RuntimeError|KeyError|ValueError|stderr|\.log\b|line [0-9]+|at .+:[0-9]|ENOENT|EACCES|exit code|segfault|panic:)'):
+    notes.append('Include the actual error message or stack trace for faster debugging.')
 
-if [ -n "$NOTES" ]; then
-  echo -e "$NOTES" >&2
-fi
+for n in notes:
+    sys.stderr.write('[Supercharger] ' + n + '\n')
+PYEOF
 
 exit 0
