@@ -15,9 +15,6 @@ set -euo pipefail
 _INPUT=$(cat 2>/dev/null || echo "")
 
 MEMORY_FILE=".claude/supercharger-memory.md"
-AUDIT_DIR="$HOME/.claude/supercharger/audit"
-TODAY=$(date -u +"%Y-%m-%d")
-AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 # --- Uncommitted changed files only (open work) ---

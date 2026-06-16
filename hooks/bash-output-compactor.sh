@@ -21,9 +21,15 @@ _INPUT=$(cat)
 # install / cargo test). Scan the raw stdin once — if no trigger token is
 # present, exit immediately. Median 110ms → ~0ms on the common case.
 case "$_INPUT" in
-  *'git log'*|*'npm test'*|*'pnpm test'*|*'yarn test'*|*vitest*|*jest*|*mocha*|*ava*|\
-  *pytest*|*'go test'*|*'cargo test'*|*'npm install'*|*'pnpm install'*|*'yarn install'*|\
-  *'pnpm add'*|*'npm i'*) ;;
+  # Dedup note: shell glob substring rules collapse several "obvious" entries:
+  #   *'npm i'*    catches "npm i", "npm install", AND "pnpm install"  (pnpm install contains "npm i")
+  #   *'npm test'* catches "npm test" AND "pnpm test"                  (pnpm test contains "npm test")
+  #   *'go test'*  catches "go test" AND "cargo test"                  (cargo test contains "go test")
+  # Removing the redundant longer forms eliminates shellcheck SC2221/SC2222
+  # and changes nothing functionally — all four callsites verified by smoke
+  # test (npm install, pnpm install, yarn install, pytest, cargo test).
+  *'git log'*|*'npm test'*|*'yarn test'*|*vitest*|*jest*|*mocha*|*ava*|\
+  *pytest*|*'go test'*|*'yarn install'*|*'pnpm add'*|*'npm i'*) ;;
   *) exit 0 ;;
 esac
 
@@ -43,16 +49,15 @@ TOOL_NAME=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $2}')
 CMD=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $3}')
 [ -z "$CMD" ] && exit 0
 
-# Detect verbose pattern type — fast bash regex, no fork
+# Detect verbose pattern type — fast bash regex, no fork.
+# Same substring-coverage rules as the fast-path case above:
+#   *npm\ test* covers pnpm\ test, *pytest* covers python\ -m\ pytest,
+#   *go\ test* covers cargo\ test, *npm\ i* covers npm/pnpm install.
 PATTERN=""
 case "$CMD" in
   *git\ log*) PATTERN="git-log" ;;
-  *npm\ test*|*pnpm\ test*|*yarn\ test*) PATTERN="test" ;;
-  *vitest*|*jest*|*mocha*|*ava*) PATTERN="test" ;;
-  *pytest*|*python\ -m\ pytest*) PATTERN="test" ;;
-  *go\ test*) PATTERN="test" ;;
-  *cargo\ test*) PATTERN="test" ;;
-  *npm\ install*|*pnpm\ install*|*yarn\ install*|*pnpm\ add*|*npm\ i*) PATTERN="install" ;;
+  *npm\ test*|*yarn\ test*|*vitest*|*jest*|*mocha*|*ava*|*pytest*|*go\ test*) PATTERN="test" ;;
+  *yarn\ install*|*pnpm\ add*|*npm\ i*) PATTERN="install" ;;
   *) exit 0 ;;
 esac
 

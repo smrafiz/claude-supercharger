@@ -81,7 +81,7 @@ case "$RESULT" in
   ok\ *)
     # ok <cache_read> <cache_create> <hit_rate> <window_json> <degraded>
     set -- $RESULT
-    CACHE_READ="$2"; CACHE_CREATE="$3"; HIT_RATE="$4"
+    HIT_RATE="$4"
     # rest of fields after $5 are window (may contain spaces inside json) + degraded
     WINDOW="${RESULT#ok $2 $3 $4 }"
     DEGRADED="${WINDOW##* }"

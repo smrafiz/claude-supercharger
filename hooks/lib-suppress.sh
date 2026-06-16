@@ -53,6 +53,7 @@ init_hook_suppress() {
     HOOK_SUPPRESS=false; return
   fi
   # Fallback: check PWD (unreliable in hook context — prefer passing dir explicitly)
+  # shellcheck disable=SC2034  # HOOK_SUPPRESS is read by every sourcing hook
   [ -f "${PWD}/.supercharger-debug" ] && HOOK_SUPPRESS=false || true
 
   # Timing instrumentation — only active when profiler is running

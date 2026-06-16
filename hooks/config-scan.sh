@@ -114,7 +114,7 @@ done
 # If user/project settings allow Edit/Write/Bash without path restriction, all
 # supercharger guards on those tools (path-guard, env-file-guard, safety, git-safety,
 # tool-preferences, code-security-scanner) are inactive for that tool.
-PROTECTED_TOOLS_PATTERN='^(Edit|Write|Bash|MultiEdit)$'
+# (The protected-tools regex is re-declared inside the python heredoc below.)
 SETTINGS_FILES=()
 [ -f "$HOME/.claude/settings.json" ] && SETTINGS_FILES+=("$HOME/.claude/settings.json")
 [ -f "$PROJECT_DIR/.claude/settings.json" ] && SETTINGS_FILES+=("$PROJECT_DIR/.claude/settings.json")
