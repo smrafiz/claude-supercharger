@@ -10,35 +10,42 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+
+# v2.6.37: bash fast-path. If the entire payload is shorter than 3500 bytes,
+# the embedded output can't reach the 3000-char truncation threshold. Skip all
+# forks (jq, python3) and exit immediately. This is the common case — most MCP
+# responses are short.
+if [ "${#_INPUT}" -lt 3500 ]; then
+  exit 0
+fi
+
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
-# Extract tool response output
-OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null || true)
-if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
-fi
-
-[ -z "$OUTPUT" ] && exit 0
-
-# Skip short responses — no truncation needed
-[ "${#OUTPUT}" -lt 3000 ] && exit 0
-
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
-
-MCP_OUTPUT="$OUTPUT" MCP_TOOL="$TOOL_NAME" MCP_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF'
+# v2.6.37: one python3 fork replaces 2 jq (output, tool_name) + 1 python3
+# fallback + 1 python3 main. Now: parse stdin once, extract output + tool_name,
+# length-check, build summary, emit JSON.
+MCP_INPUT="$_INPUT" MCP_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
 import os, json, sys
 
-output = os.environ.get('MCP_OUTPUT', '')
-tool = os.environ.get('MCP_TOOL', 'mcp')
+raw = os.environ.get('MCP_INPUT', '')
+try:
+    d = json.loads(raw)
+except Exception:
+    sys.exit(0)
+
+output = (d.get('tool_response') or {}).get('output') or ''
+if not isinstance(output, str):
+    sys.exit(0)
 original_len = len(output)
 
 MAX_HEAD = 3000
 MAX_TAIL = 500
 MAX_TOTAL = MAX_HEAD + MAX_TAIL
-
 if original_len <= MAX_TOTAL:
     sys.exit(0)
+
+tool = d.get('tool_name') or 'mcp'
 
 def describe_value(v, depth=0):
     if isinstance(v, dict):
@@ -80,11 +87,8 @@ if summary is None:
 
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
-# v2.6.2: replace what Claude sees with the summary via hookSpecificOutput.
-# updatedToolOutput became available for all tools (was MCP-only in v2.1.121
-# but is now the general PostToolUse channel) — cleaner than systemMessage
-# which added a separate message ON TOP of Claude still seeing the full heavy
-# response. The original output stays in the transcript log either way.
+# v2.6.2: updatedToolOutput replaces what Claude sees, vs systemMessage which
+# stacks on top of the original. Original stays in the transcript log.
 print(json.dumps({
     'hookSpecificOutput': {
         'hookEventName': 'PostToolUse',
