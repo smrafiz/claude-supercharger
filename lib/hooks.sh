@@ -140,7 +140,8 @@ deploy_hook_scripts() {
   # diagnostics, and confuse audits).
   for installed in "$target_dir/"*.sh; do
     [ ! -f "$installed" ] && continue
-    local base=$(basename "$installed")
+    local base
+    base=$(basename "$installed")
     # Keep webhook-lib.sh (renamed copy of lib/webhook.sh, handled below)
     [ "$base" = "webhook-lib.sh" ] && continue
     if [ ! -f "$source_dir/hooks/$base" ]; then

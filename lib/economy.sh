@@ -7,7 +7,6 @@ TIER_LABELS=(
   "Lean      — every word earns its place (~45% reduction)"
   "Minimal   — telegraphic, bare output (~60% reduction)"
 )
-DEFAULT_TIER="lean"
 SELECTED_TIER=""
 
 # Role constraints: role|default|floor|ceiling

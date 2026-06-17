@@ -42,7 +42,7 @@ except Exception:
     print('0 0 0 0')
 " 2>/dev/null || echo "0 0 0 0")
 
-  read USAGE_INPUT USAGE_CACHE_WRITE USAGE_CACHE_READ USAGE_OUTPUT <<< "$USAGE_FIELDS"
+  read -r USAGE_INPUT USAGE_CACHE_WRITE USAGE_CACHE_READ USAGE_OUTPUT <<< "$USAGE_FIELDS"
 
   # If all zero, nothing to accumulate — exit cleanly
   TOTAL_TOKENS=$((USAGE_INPUT + USAGE_CACHE_WRITE + USAGE_CACHE_READ + USAGE_OUTPUT))
