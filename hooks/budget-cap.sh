@@ -54,22 +54,48 @@ except Exception:
   # Read existing state or start fresh
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 
+  # Detect model from payload to pick the right price tier. Falls back to
+  # SUPERCHARGER_PRICING_MODEL env var, then Sonnet 4.6.
+  PAYLOAD_MODEL=$( (printf '%s\n' "$_INPUT" | grep -oE '"model"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+
   COST_INPUT="$COST_FILE" \
   USAGE_INPUT="$USAGE_INPUT" USAGE_CACHE_WRITE="$USAGE_CACHE_WRITE" \
   USAGE_CACHE_READ="$USAGE_CACHE_READ" USAGE_OUTPUT="$USAGE_OUTPUT" \
-  NOW="$NOW" python3 << 'PYEOF' > "$COST_TMP"
+  NOW="$NOW" \
+  PAYLOAD_MODEL="$PAYLOAD_MODEL" \
+  PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
+  python3 << 'PYEOF' > "$COST_TMP"
 import json, os
 
 cost_file = os.environ['COST_INPUT']
 now = os.environ['NOW']
 
-# Calculate turn cost using pricing table
-# input: $3.00/MTok, cache_write: $3.75/MTok, cache_read: $0.30/MTok, output: $15.00/MTok
+# Pricing tiers (June 2026) — input / cache_write_5min / cache_read / output per MTok.
+# Cache write 5min is 1.25× input; cache read is 0.10× input (Anthropic standard).
+# Sources: cloudzero.com/blog/claude-api-pricing, devtk.ai/en/blog/claude-api-pricing-guide-2026
+PRICING = {
+    'opus':   (5.00,  6.25, 0.50, 25.00),
+    'sonnet': (3.00,  3.75, 0.30, 15.00),
+    'haiku':  (0.80,  1.00, 0.08,  4.00),
+}
+
+model = (os.environ.get('PAYLOAD_MODEL') or '').lower()
+override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
+if override in PRICING:
+    tier = override
+elif 'opus' in model:
+    tier = 'opus'
+elif 'haiku' in model:
+    tier = 'haiku'
+else:
+    tier = 'sonnet'
+in_p, cw_p, cr_p, out_p = PRICING[tier]
+
 inp = int(os.environ.get('USAGE_INPUT', 0) or 0)
 cw  = int(os.environ.get('USAGE_CACHE_WRITE', 0) or 0)
 cr  = int(os.environ.get('USAGE_CACHE_READ', 0) or 0)
 out = int(os.environ.get('USAGE_OUTPUT', 0) or 0)
-turn_cost = (inp * 3.00 + cw * 3.75 + cr * 0.30 + out * 15.00) / 1_000_000
+turn_cost = (inp * in_p + cw * cw_p + cr * cr_p + out * out_p) / 1_000_000
 
 # Load existing state
 state = {}

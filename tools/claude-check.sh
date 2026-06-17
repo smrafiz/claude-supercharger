@@ -219,7 +219,10 @@ fi
 echo ""
 echo -e "${BLUE}Session Summaries:${NC}"
 SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
-SUMMARY_COUNT=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ')
+# `find` exits 1 if the dir is missing — pipefail then aborts the script under
+# set -e. `|| true` absorbs that so the rest of the check still runs.
+SUMMARY_COUNT=$( { find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' '; } || echo 0)
+[ -z "$SUMMARY_COUNT" ] && SUMMARY_COUNT=0
 if [ "$SUMMARY_COUNT" -gt 0 ]; then
   LATEST=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
   echo -e "  ${GREEN}✓${NC} ${SUMMARY_COUNT} summary file(s) — latest: ${LATEST}"
@@ -324,17 +327,33 @@ fi
 # Check fallbackModel chain (Claude Code v2.1.166+)
 # A configured chain trips fewer "overloaded — try again" interruptions on
 # Opus and routes degraded calls to Sonnet/Haiku instead of failing outright.
+# Also check ENABLE_PROMPT_CACHING_1H (Anthropic dropped the default cache TTL
+# from 1h to 5min on 2026-03-06 — API users now pay for cache rewrites if a
+# pause exceeds 5 minutes. Claude Code subscriptions auto-request 1h when this
+# env var is set).
 if [ -f "$HOME/.claude/settings.json" ]; then
-  HAS_FALLBACK=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+  SETTINGS_CHECK=$(SETTINGS_PATH="$HOME/.claude/settings.json" \
+                   ENV_1H="${ENABLE_PROMPT_CACHING_1H:-}" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 fb = s.get('fallbackModel') or s.get('fallback_model')
-print('1' if fb else '0')
-" 2>/dev/null || echo 0)
+env = (s.get('env') or {})
+in_settings = str(env.get('ENABLE_PROMPT_CACHING_1H', '')).strip() in ('1', 'true', 'True')
+in_shell = os.environ.get('ENV_1H', '').strip() in ('1', 'true', 'True')
+print(f\"{1 if fb else 0}|{1 if (in_settings or in_shell) else 0}\")
+" 2>/dev/null || echo "0|0")
+  HAS_FALLBACK="${SETTINGS_CHECK%%|*}"
+  HAS_CACHE_1H="${SETTINGS_CHECK##*|}"
   if [ "$HAS_FALLBACK" = "0" ]; then
     echo -e "  ${YELLOW}→${NC} fallbackModel chain not set — Opus overloads drop the call instead of routing to Sonnet/Haiku"
-    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: ${DIM}\"fallbackModel\": [\"claude-sonnet-4-6\", \"claude-haiku-4-5\"]${NC}"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"fallbackModel\": [\"claude-sonnet-4-6\", \"claude-haiku-4-5\"]"
+    UNUSED=$((UNUSED + 1))
+  fi
+  if [ "$HAS_CACHE_1H" = "0" ]; then
+    echo -e "  ${YELLOW}→${NC} ENABLE_PROMPT_CACHING_1H not set — default cache TTL is 5min (dropped from 1h on 2026-03-06)"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"env\": {\"ENABLE_PROMPT_CACHING_1H\": \"1\"}"
+    echo -e "    Pauses >5min currently re-pay the 1.25x cache write; 1h TTL pays 2x once and amortizes across hour-long sessions."
     UNUSED=$((UNUSED + 1))
   fi
 fi

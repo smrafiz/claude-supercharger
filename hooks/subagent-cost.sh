@@ -80,7 +80,9 @@ if [[ "$MODE" == "stop" ]]; then
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
-  STOP_OUT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" python3 <<'PYEOF' 2>/dev/null
+  STOP_OUT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" \
+             PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
+             python3 <<'PYEOF' 2>/dev/null
 import json, os, sys
 from datetime import datetime, timezone
 
@@ -129,8 +131,27 @@ if started_at:
     except Exception:
         pass
 
-# Cost (Opus 4.8 input/output rate scaled for the 4 token categories)
-turn_cost = (input_tok * 3.00 + cache_write * 3.75 + cache_read * 0.30 + output_tok * 15.00) / 1_000_000
+# Pricing tiers (June 2026) per MTok: input / cache_write_5min / cache_read / output.
+# Sources: cloudzero.com/blog/claude-api-pricing. Model detected from payload
+# `model` field if present; falls back to SUPERCHARGER_PRICING_MODEL env var,
+# then Sonnet 4.6.
+PRICING = {
+    'opus':   (5.00, 6.25, 0.50, 25.00),
+    'sonnet': (3.00, 3.75, 0.30, 15.00),
+    'haiku':  (0.80, 1.00, 0.08,  4.00),
+}
+payload_model = (d.get('model') or '').lower()
+override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
+if override in PRICING:
+    tier = override
+elif 'opus' in payload_model:
+    tier = 'opus'
+elif 'haiku' in payload_model:
+    tier = 'haiku'
+else:
+    tier = 'sonnet'
+in_p, cw_p, cr_p, out_p = PRICING[tier]
+turn_cost = (input_tok * in_p + cache_write * cw_p + cache_read * cr_p + output_tok * out_p) / 1_000_000
 total_tokens = input_tok + cache_write + cache_read + output_tok
 
 # Format
