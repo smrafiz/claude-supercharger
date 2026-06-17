@@ -10,7 +10,7 @@
 #
 # Each category is opt-out via .supercharger.json:
 #   {"disableSecurityCategories": ["path-traversal", "symlink", "git-internals",
-#                                   "abs-path", "build-artifacts"]}
+#                                   "selfmod", "abs-path", "build-artifacts"]}
 
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -112,6 +112,28 @@ if 'git-internals' not in disabled:
     home = os.path.expanduser('~')
     if p.startswith(os.path.join(home, '.claude', 'hooks')) or p.startswith(os.path.join(home, '.claude', 'supercharger', 'hooks')):
         print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
+        sys.exit(0)
+
+# --- 3.3b Self-modification — agent disabling its own guardrails (OWASP 2026
+# Least-Agency; mirrors the Bash-side check in safety.sh `selfmod` category).
+# Ona Security (March 2026) documented Claude Code agents disabling their own
+# sandboxes by reasoning about and modifying the blocker. These writes are the
+# tool-call channel for the same attack.
+if 'selfmod' not in disabled:
+    home = os.path.expanduser('~')
+    selfmod_targets = [
+        os.path.join(home, '.claude', 'supercharger', 'scope', '.disabled-security-categories'),
+        os.path.join(home, '.claude', 'supercharger', 'scope', '.disabled-hooks'),
+        os.path.join(home, '.claude', 'settings.json'),
+        os.path.join(home, '.claude', 'CLAUDE.md'),
+    ]
+    if any(p == t for t in selfmod_targets):
+        print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
+        sys.exit(0)
+    # Project-level: .supercharger.json (any depth — could be repo root or nested)
+    # and project-local .claude/settings.json.
+    if p.endswith('/.supercharger.json') or p.endswith('/.claude/settings.json') or p.endswith('/.claude/settings.local.json'):
+        print('self-modification — agent should not edit project guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
 
 # --- 3.4 Absolute-path writes outside project root ---
