@@ -32,7 +32,9 @@ mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 # Count how many times this command pattern failed recently
 FAIL_COUNT=0
 if [ -f "$FAILURES_LOG" ]; then
-  FAIL_COUNT=$(grep -cF "$CMD_KEY" "$FAILURES_LOG" 2>/dev/null || echo "0")
+  # v2.6.42: awk emits exactly one number; `grep -c | || echo 0` doubled
+  # output on zero matches and aborted `[ "$FAIL_COUNT" -ge 2 ]` under set -e.
+  FAIL_COUNT=$(awk -v k="$CMD_KEY" 'index($0,k){c++} END{print c+0}' "$FAILURES_LOG" 2>/dev/null || echo 0)
 fi
 
 # Log the failure

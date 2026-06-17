@@ -328,6 +328,8 @@ count_installed_hooks() {
   # Count by generating the list — single source of truth
   local hooks_dir="$HOME/.claude/supercharger/hooks"
   local count
-  count=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir" | grep -c '.' 2>/dev/null || echo "0")
+  # v2.6.42: awk emits exactly one number; `grep -c | || echo 0` doubled
+  # output on zero matches and showed "0\n0 hooks installed" in install.sh.
+  count=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir" | awk 'NF{c++} END{print c+0}')
   echo "$count"
 }

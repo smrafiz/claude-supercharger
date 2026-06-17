@@ -134,7 +134,9 @@ os.replace(tf.name, cache_file)
 fi
 
 # Count error lines
-ERROR_COUNT=$(printf '%s\n' "$ERRORS" | grep -c ' error TS' 2>/dev/null || echo "?")
+# v2.6.42: awk emits exactly one number; `grep -c | || echo ?` interpolated
+# "0\n0" into the user-facing message on zero matches.
+ERROR_COUNT=$(printf '%s\n' "$ERRORS" | awk '/ error TS/{c++} END{print c+0}')
 
 # Compact output for context injection
 COMPACT=$(printf '%s\n' "$ERRORS" | grep ' error TS' | head -8 | sed 's|'"$PROJECT_ROOT/"'||g' | tr '\n' '|' | sed 's/|$//')

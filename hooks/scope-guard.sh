@@ -153,7 +153,9 @@ print('\n'.join(changed))
 PYEOF
 )
 
-  COUNT=$(echo "$CHANGED" | grep -c '\S' 2>/dev/null || echo "0")
+  # v2.6.42: awk emits exactly one number; `grep -c | || echo 0` doubled
+  # output on zero matches and aborted the arithmetic at lines below.
+  COUNT=$(echo "$CHANGED" | awk 'NF{c++} END{print c+0}')
   CONTRACT=$(cat "$CONTRACT_FILE" 2>/dev/null || echo "scope:general")
 
   if echo "$CONTRACT" | grep -q "single-file-scope" && [ "$COUNT" -gt 1 ]; then
