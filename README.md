@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.45-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.46-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -58,7 +58,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 ### Runtime enforcement — can't be bypassed
 
 - **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main, `git reset --hard`
-- **Path guard** — blocks 5 attack categories on Edit/Write: path traversal (incl. URL-encoded `%2e%2e`, null bytes), symlink attacks, `.git/hooks/` writes, writes to `~/.ssh/` / `~/.aws/` / `/etc/`, build artifact injection (`node_modules/.bin/`, `.next/`, `.venv/`). Each category opt-out per project
+- **Path guard** — blocks 6 attack categories on Edit/Write: path traversal (incl. URL-encoded `%2e%2e`, null bytes), symlink attacks, `.git/hooks/` writes, **self-modification** (writes to `.disabled-security-categories`, `.claude/settings.json` hooks block, or `.supercharger.json` — closes the [Ona Security sandbox-bypass pattern](https://www.penligent.ai/hackinglabs/claude-code-sandbox-bypass/) where agents disable their own guardrails), writes to `~/.ssh/` / `~/.aws/` / `/etc/`, build artifact injection (`node_modules/.bin/`, `.next/`, `.venv/`). Each category opt-out per project
 - **Confidence gate** — blocks Edit/Write/destructive Bash when confidence is low (recent failures, no prior read, repeated attempts). Warns or denies via PreToolUse hook
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
 - **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
@@ -287,6 +287,16 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
+---
+
+## Standards alignment
+
+Supercharger maps to the [**OWASP Top 10 for Agentic Applications 2026**](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/) framework:
+
+- **Least-Agency** — every guardrail category (`filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `selfmod`, etc.) is opt-out per project via `.supercharger.json`. Agents get the minimum autonomy needed for the task; raising autonomy requires an explicit human-authored config change
+- **Strong Observability** — every blocked command, every Edit/Write/Bash decision, every subagent spawn is logged to `~/.claude/supercharger/scope/.blocked-commands` and `audit/` JSONL. Tool-use patterns and decision pathways are reconstructable
+- **Self-modification defense** — `selfmod` category in `safety.sh` (Bash channel) and `path-guard.sh` (Write/Edit channel) blocks attempts to modify `.disabled-security-categories`, `.claude/settings.json` hooks block, or `.supercharger.json` — closes the [March 2026 Ona Security sandbox-bypass pattern](https://www.penligent.ai/hackinglabs/claude-code-sandbox-bypass/) where Claude Code agents reasoned about their bubblewrap sandbox and disabled the blocker
+- **Sandbox-bypass attempt detection** — `config-scan.sh` covers three documented CVEs at session start: foreign hook injection ([CVE-2025-59536](https://nvd.nist.gov/vuln/detail/CVE-2025-59536)), ANTHROPIC_BASE_URL exfiltration ([CVE-2026-21852](https://nvd.nist.gov/vuln/detail/CVE-2026-21852)), and `defaultMode=bypassPermissions` ([CVE-2026-33068](https://nvd.nist.gov/vuln/detail/CVE-2026-33068))
 ---
 
 ## Requirements
