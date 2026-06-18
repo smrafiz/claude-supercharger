@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.46-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.47-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -283,7 +283,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 ## Going deeper
 
-- All 94 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- All 96 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
@@ -297,6 +297,15 @@ Supercharger maps to the [**OWASP Top 10 for Agentic Applications 2026**](https:
 - **Strong Observability** — every blocked command, every Edit/Write/Bash decision, every subagent spawn is logged to `~/.claude/supercharger/scope/.blocked-commands` and `audit/` JSONL. Tool-use patterns and decision pathways are reconstructable
 - **Self-modification defense** — `selfmod` category in `safety.sh` (Bash channel) and `path-guard.sh` (Write/Edit channel) blocks attempts to modify `.disabled-security-categories`, `.claude/settings.json` hooks block, or `.supercharger.json` — closes the [March 2026 Ona Security sandbox-bypass pattern](https://www.penligent.ai/hackinglabs/claude-code-sandbox-bypass/) where Claude Code agents reasoned about their bubblewrap sandbox and disabled the blocker
 - **Sandbox-bypass attempt detection** — `config-scan.sh` covers three documented CVEs at session start: foreign hook injection ([CVE-2025-59536](https://nvd.nist.gov/vuln/detail/CVE-2025-59536)), ANTHROPIC_BASE_URL exfiltration ([CVE-2026-21852](https://nvd.nist.gov/vuln/detail/CVE-2026-21852)), and `defaultMode=bypassPermissions` ([CVE-2026-33068](https://nvd.nist.gov/vuln/detail/CVE-2026-33068))
+
+### Scope of protection
+
+Supercharger guards **agent-initiated** tool calls (Bash, Write, Edit, etc.) — anything the model invokes through Claude Code's tool channel passes through PreToolUse hooks first. Two flows fall outside that channel and cannot be enforced by exit-code blocking:
+
+- **User `!` shell escapes** — Claude Code's `! <cmd>` prompt prefix runs commands directly in the user's shell, not through the Bash tool. PreToolUse:Bash hooks never fire. `shell-escape-advisor.sh` (UserPromptSubmit) scans prompts starting with `!` for `rm -rf`, `curl|bash`, `git push --force`, `git reset --hard` and emits an advisory warning — but the shell still executes the command. Treat `!` like running the command in a separate terminal: Supercharger does not see it.
+- **Commands run in your terminal outside the Claude Code session** — by design. Supercharger is a Claude Code layer, not a shell-level guard.
+
+If you need shell-level enforcement of dangerous patterns regardless of source, layer a shell-level guard (e.g. an `rm` function in `~/.zshrc` or a `command_not_found_handler` wrapper). Supercharger's enforcement applies to what the agent does on your behalf.
 ---
 
 ## Requirements
