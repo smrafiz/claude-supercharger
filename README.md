@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.47-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.48-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -135,7 +135,7 @@ Drop `.supercharger.json` in your repo root. Commit it so your whole team gets t
 
 | Profile | Behavior |
 |--|--|
-| `standard` | All 83 hooks active (default) |
+| `standard` | All 96 hooks active (default) |
 | `fast` | Skips 8 analytics hooks; keeps code quality and security |
 | `minimal` | Skips 11 hooks; security-only |
 

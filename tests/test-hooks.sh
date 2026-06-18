@@ -951,6 +951,11 @@ INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_resp
 OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)
 echo "$OUT" | grep -qi "secret\|leak\|credential\|token\|sensitive" && pass || fail "expected secret warning, got: $OUT"
 
+begin_test "output-secrets-scanner: detects GCP API key (AIza) in output"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'GOOGLE_MAPS_KEY=AIzaSyD-1234567890_abcdefghijklmnopqrstu and other text'}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "secret\|leak\|credential\|sensitive\|AIza" && pass || fail "expected secret warning, got: $OUT"
+
 begin_test "output-secrets-scanner: clean output passes silently"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'Hello world\nAll tests passed\n'}}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)

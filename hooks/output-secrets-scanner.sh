@@ -47,8 +47,10 @@ SECRET_PATTERNS=(
   'xox[baprs]-[0-9A-Za-z-]{10,}'
   # HuggingFace
   'hf_[A-Za-z0-9]{30,}'
-  # GCP service account
+  # GCP service account JSON
   '"private_key":\s*"-----BEGIN'
+  # GCP API key (Maps, Firebase, Translate, YouTube — most common GCP creds)
+  'AIza[0-9A-Za-z_-]{35}'
   # Azure storage
   'AccountKey=[A-Za-z0-9+/]{60,}='
   # Twilio
