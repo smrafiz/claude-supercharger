@@ -72,9 +72,12 @@ if [ -n "$RESULT" ]; then
   JSON_OUT=$(printf '%s\n' "$RESULT" | sed -n '2p')
   echo "[Supercharger] INJECTION DETECTED in output from ${TOOL_NAME}" >&2
   printf '%s\n' "$JSON_OUT"
+  # Per-session, not global (v2.6.49)
   SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  [ -z "$SID" ] && SID="default"
   mkdir -p "$SCOPE_DIR"
-  echo "injection" > "$SCOPE_DIR/.scan-alert" 2>/dev/null || true
+  echo "injection" > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
   exit 2
 fi
 

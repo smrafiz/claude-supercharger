@@ -204,7 +204,7 @@ try:
  # Scan alert indicator (shown 2 min after scanner fires)
  scan = ''
  try:
-     scan_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.scan-alert')
+     scan_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.scan-alert-{session_id}')
      if os.path.isfile(scan_file):
          if time.time() - os.path.getmtime(scan_file) < 120:
              with open(scan_file) as f:
