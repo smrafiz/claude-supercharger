@@ -73,21 +73,21 @@ score_config() {
     pts=$((pts + 5)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
-    ISSUES+=("~/.claude/CLAUDE.md missing or does not contain 'Supercharger'")
+    ISSUES+=("$HOME/.claude/CLAUDE.md missing or does not contain 'Supercharger'")
   fi
 
   if [ -f "$HOME/.claude/rules/economy.md" ]; then
     pts=$((pts + 5)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
-    ISSUES+=("~/.claude/rules/economy.md not found")
+    ISSUES+=("$HOME/.claude/rules/economy.md not found")
   fi
 
   if [ -f "$HOME/.claude/rules/supercharger.md" ]; then
     pts=$((pts + 5)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
-    ISSUES+=("~/.claude/rules/supercharger.md not found")
+    ISSUES+=("$HOME/.claude/rules/supercharger.md not found")
   fi
 
   # At least 1 role file in ~/.claude/rules/
@@ -119,7 +119,7 @@ score_agents() {
     pts=$((pts + 10)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
-    ISSUES+=("~/.claude/agents/ missing or contains no .md files")
+    ISSUES+=("$HOME/.claude/agents/ missing or contains no .md files")
   fi
 
   # At least 5 agent files
@@ -142,7 +142,7 @@ score_tools() {
     pts=$((pts + 5)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
-    ISSUES+=("~/.claude/supercharger/tools/ directory not found")
+    ISSUES+=("$HOME/.claude/supercharger/tools/ directory not found")
   fi
 
   if [ -f "$TOOLS_DIR/economy-switch.sh" ] && [ -x "$TOOLS_DIR/economy-switch.sh" ]; then

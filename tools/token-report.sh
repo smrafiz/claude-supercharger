@@ -33,8 +33,8 @@ if [ ! -d "$SESSION_DIR" ]; then
 fi
 
 # Top-level JSONL only (exclude subagent dirs), sorted by mtime
-JSONL_FILES=$(find "$SESSION_DIR" -maxdepth 1 -name "*.jsonl" -not -empty 2>/dev/null \
-  | xargs ls -t 2>/dev/null \
+JSONL_FILES=$(find "$SESSION_DIR" -maxdepth 1 -name "*.jsonl" -not -empty -print0 2>/dev/null \
+  | xargs -0 ls -t 2>/dev/null \
   | head -"$SESSIONS")
 
 if [ -z "$JSONL_FILES" ]; then

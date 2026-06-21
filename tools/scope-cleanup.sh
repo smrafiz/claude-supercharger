@@ -118,6 +118,7 @@ if [ "${ORPHANS:-0}" = "1" ]; then
     matched=0
     for entry in "${patterns_max_age[@]}"; do
       pattern="${entry%%:*}"
+      # shellcheck disable=SC2254
       case "$base" in $pattern) matched=1; break ;; esac
     done
     [ "$matched" = "0" ] && echo "  $base"

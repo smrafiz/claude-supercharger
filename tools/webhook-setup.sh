@@ -126,6 +126,7 @@ echo ""
 read -rp "Select platform: " platform_choice
 
 write_config() {
+  # shellcheck disable=SC2034
   local platform="$1"
   local json_content="$2"
   mkdir -p "$(dirname "$WEBHOOK_CONFIG")"
