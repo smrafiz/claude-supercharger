@@ -13,7 +13,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 # v2.6.36: resolve to main worktree if PROJECT_DIR is a linked worktree
 PROJECT_DIR=$(_resolve_project_root "$PROJECT_DIR")
 init_hook_suppress "$PROJECT_DIR"

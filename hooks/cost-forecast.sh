@@ -22,7 +22,7 @@ fi
 _INPUT=$(cat)
 
 # Read project dir from stdin cwd field via jq
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 # v2.6.36: resolve to main worktree root if PROJECT_DIR is a linked worktree —

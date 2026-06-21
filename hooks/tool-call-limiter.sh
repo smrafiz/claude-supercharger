@@ -25,7 +25,7 @@ CAP=""
 if [ -n "${SESSION_MAX_TOOL_CALLS:-}" ]; then
   CAP="$SESSION_MAX_TOOL_CALLS"
 else
-  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   # v2.6.36: walk from main worktree root if PROJECT_DIR is a linked worktree
   SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")

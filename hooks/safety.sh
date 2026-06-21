@@ -24,7 +24,7 @@ fi
 
 # cwd from hook payload, used by the rm guard to detect rm targets that resolve
 # to the project root or its ancestors. Optional — fallback paths still apply.
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"

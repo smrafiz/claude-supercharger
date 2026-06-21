@@ -14,7 +14,7 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 
 # Project dir for init_hook_suppress (cheap, one jq)
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || echo "")
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || echo "")
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 

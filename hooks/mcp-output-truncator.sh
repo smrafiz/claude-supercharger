@@ -19,7 +19,7 @@ if [ "${#_INPUT}" -lt 3500 ]; then
   exit 0
 fi
 
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
 # v2.6.37: one python3 fork replaces 2 jq (output, tool_name) + 1 python3

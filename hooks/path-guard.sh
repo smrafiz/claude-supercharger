@@ -21,7 +21,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_PATH_GUARD:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 # v2.6.36: PROJECT_DIR stays as the actual CWD (used as boundary for symlink/
 # abs-path checks — writes within the linked worktree must be allowed).
 # CONFIG_ROOT is the worktree-aware location for .supercharger.json.

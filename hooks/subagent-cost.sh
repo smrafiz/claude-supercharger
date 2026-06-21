@@ -20,7 +20,7 @@ mkdir -p "$SCOPE_DIR"
 if [[ "$MODE" == "start" ]]; then
   _INPUT=$(cat)
 
-  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
   # v2.6.22: one python3 fork does parse + extract + timestamp + write.
@@ -76,7 +76,7 @@ if [[ "$MODE" == "stop" ]]; then
   # JSONL + atomically updates session-cost + emits final hookSpecificOutput.
   # Cwd extraction stays a separate jq for the init_hook_suppress call below.
   # Median 100ms → ~30ms (-70%).
-  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
