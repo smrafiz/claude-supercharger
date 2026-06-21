@@ -15,7 +15,10 @@ sys.path.insert(0, os.environ.get('SL_LIB_DIR', ''))
 
 try:
  raw = os.environ.get('SL_INPUT', '') or '{}'
- data = json.loads(raw) if raw.strip() else {}
+ try:
+     data = json.loads(raw) if raw.strip() else {}
+ except Exception:
+     data = {}
  if not isinstance(data, dict):
      data = {}
 
