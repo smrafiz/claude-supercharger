@@ -83,10 +83,17 @@ if not texts:
 recent = ' '.join(texts[-5:])
 patterns = [
     r"\b(?:I'?ll|I will|I'?m going to|going with)\s+([^.\n]{10,140}?)\s+(?:because|since|so that|to)\s+([^.\n]{5,120})",
-    r"\bdecided to\s+([^.\n]{10,140}?)(?:\s+(?:because|since)\s+([^.\n]{5,120}))?",
+    r"\bdecided to\s+([^.\n]+?)(?:\s+(?:because|since)\s+([^.\n]{5,120})|(?=[.\n]|$))",
     r"\bskipped?\s+([^.\n]{5,120}?)\s+(?:because|since|to)\s+([^.\n]{5,120})",
     r"\bchose\s+([^.\n]{5,140}?)\s+(?:over|for|because|since)\s+([^.\n]{5,120})",
 ]
+def _truncate_words(s, limit):
+    # Cut at last word boundary <= limit, never mid-word
+    if len(s) <= limit:
+        return s
+    cut = s.rfind(' ', 0, limit)
+    return s[:cut] if cut > 0 else s[:limit]
+
 seen = set()
 out = []
 for pat in patterns:
@@ -94,9 +101,9 @@ for pat in patterns:
         action = m.group(1).strip().rstrip(',;:')
         reason = (m.group(2) or '').strip().rstrip('.,;:')
         if reason:
-            line = f"{action[:80]} ({reason[:60]})"
+            line = f"{_truncate_words(action, 80)} ({_truncate_words(reason, 60)})"
         else:
-            line = action[:120]
+            line = _truncate_words(action, 120)
         key = action.lower()[:40]
         if key in seen:
             continue

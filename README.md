@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.49-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.50-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-915%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -158,6 +158,17 @@ SUPERCHARGER_PROFILE=fast claude
 | Bash output compactor | `SUPERCHARGER_BASH_COMPACTOR=0` |
 | All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
+
+### Tune behavior
+
+| Setting | Env var | Default |
+|--|--|--|
+| Lesson-recall match threshold (Jaccard overlap) | `SUPERCHARGER_LESSON_THRESHOLD` | `0.35` |
+| Pricing model override (cost trackers) | `SUPERCHARGER_PRICING_MODEL` | auto-detect from payload |
+| Performance profile | `SUPERCHARGER_PROFILE` | `standard` (or `fast`, `minimal`) |
+| Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
+
+Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.
 
 Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
 
