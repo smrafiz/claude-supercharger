@@ -119,6 +119,17 @@ if _cat_enabled "filesystem"; then
         if [[ "$args" =~ (^|[[:space:]])(\.|\.\/|\.\/\*|\*)([[:space:]]|$) ]]; then
           block "recursive force rm on current directory (deletes CWD contents)"
         fi
+        # Catch CWD-equivalent refs: $PWD, ${PWD}, $(pwd), `pwd`, "$PWD" — these
+        # resolve to the CWD at shell-eval time, so they wipe whichever directory
+        # the shell happens to be in (including from a prior `cd X &&` in the
+        # same compound). The python check above can't see this because it
+        # tokenizes pre-expansion and python's expandvars uses the hook process
+        # PWD, not the shell's. Match on the literal substring.
+        case "$args" in
+          *'$PWD'*|*'${PWD}'*|*'$(pwd)'*|*'`pwd`'*)
+            block "recursive force rm on CWD via \$PWD/\$(pwd) (deletes whatever dir the shell is in)"
+            ;;
+        esac
         # Catch rm targets that resolve to PROJECT_DIR or an ancestor — the
         # exact pattern when Claude runs from a subdir and types the project
         # name as a relative path.
