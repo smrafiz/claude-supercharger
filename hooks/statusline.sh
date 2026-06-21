@@ -289,20 +289,22 @@ try:
  except Exception:
      rl_str = ''
 
- # Plan-aware cost label: subscribers (Max/Pro/Team) see API-equivalent, not invoiced
- # Set in .supercharger.json: {"plan": "max"} (or "pro"/"team"/"subscription")
+ # Plan-aware cost label.
+ # Auto-detect: Anthropic API users have no weekly limit — only subscribers do.
+ # If rl_7d_pct > 0, this is a subscriber (Max/Pro/Team) and the cost line is
+ # API-equivalent burn, not invoiced. Override via .supercharger.json:
+ #   {"plan": "max"|"pro"|"team"|"subscription"} → forces equiv label
+ #   {"plan": "api"}                             → forces Cost label
  cost_label = 'Cost:'
  cost_suffix = ''
+ _plan_override = ''
  try:
      _search = cwd or os.getcwd()
      for _ in range(5):
          _cfg = os.path.join(_search, '.supercharger.json')
          if os.path.isfile(_cfg):
              with open(_cfg) as _f:
-                 _plan = (json.load(_f).get('plan') or '').lower()
-             if _plan in ('max', 'pro', 'team', 'subscription'):
-                 cost_label = 'Tokens:'
-                 cost_suffix = ' equiv'
+                 _plan_override = (json.load(_f).get('plan') or '').lower()
              break
          _parent = os.path.dirname(_search)
          if _parent == _search:
@@ -310,6 +312,21 @@ try:
          _search = _parent
  except Exception:
      pass
+
+ _is_subscriber = False
+ if _plan_override == 'api':
+     _is_subscriber = False
+ elif _plan_override in ('max', 'pro', 'team', 'subscription'):
+     _is_subscriber = True
+ else:
+     try:
+         _is_subscriber = float(rl_7d_pct or 0) > 0
+     except Exception:
+         _is_subscriber = False
+
+ if _is_subscriber:
+     cost_label = 'Tokens:'
+     cost_suffix = ' equiv'
 
  # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}{cost_suffix}'
