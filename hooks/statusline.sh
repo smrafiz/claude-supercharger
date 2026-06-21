@@ -289,8 +289,30 @@ try:
  except Exception:
      rl_str = ''
 
+ # Plan-aware cost label: subscribers (Max/Pro/Team) see API-equivalent, not invoiced
+ # Set in .supercharger.json: {"plan": "max"} (or "pro"/"team"/"subscription")
+ cost_label = 'Cost:'
+ cost_suffix = ''
+ try:
+     _search = cwd or os.getcwd()
+     for _ in range(5):
+         _cfg = os.path.join(_search, '.supercharger.json')
+         if os.path.isfile(_cfg):
+             with open(_cfg) as _f:
+                 _plan = (json.load(_f).get('plan') or '').lower()
+             if _plan in ('max', 'pro', 'team', 'subscription'):
+                 cost_label = 'Tokens:'
+                 cost_suffix = ' equiv'
+             break
+         _parent = os.path.dirname(_search)
+         if _parent == _search:
+             break
+         _search = _parent
+ except Exception:
+     pass
+
  # Line 2: context bar + tokens
- cost_fmt = f'${cost:.2f}'
+ cost_fmt = f'${cost:.2f}{cost_suffix}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
  line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
 
@@ -318,7 +340,7 @@ try:
  except Exception:
      budget_str = ''
 
- line3 = f'{DIM}Cost:{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
+ line3 = f'{DIM}{cost_label}{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
 
  print(line1)
  try:
