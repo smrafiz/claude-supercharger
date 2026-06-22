@@ -11,7 +11,7 @@ export SUPERCHARGER_NO_DEDUP=1
 begin_test "subagent-stop-check: flags 'couldn't' in last message"
 INPUT='{"agent_name":"researcher","last_assistant_message":"I couldn'\''t find the file you requested.","cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
-echo "$OUT" | grep -q "systemMessage" && pass || fail "no systemMessage for inability"
+echo "$OUT" | grep -q "additionalContext" && pass || fail "no additionalContext for inability"
 
 begin_test "subagent-stop-check: flags failure in last message"
 INPUT='{"agent_name":"builder","last_assistant_message":"The build failed to complete due to missing dependencies.","cwd":"/tmp"}'
@@ -21,12 +21,12 @@ echo "$OUT" | grep -qi "failure\|failed" && pass || fail "failure not flagged"
 begin_test "subagent-stop-check: flags TODO in last message"
 INPUT='{"agent_name":"coder","last_assistant_message":"I have implemented the basic structure. TODO: add error handling.","cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
-echo "$OUT" | grep -q "systemMessage" && pass || fail "no systemMessage for TODO"
+echo "$OUT" | grep -q "additionalContext" && pass || fail "no additionalContext for TODO"
 
 begin_test "subagent-stop-check: flags deferred work"
 INPUT='{"agent_name":"analyst","last_assistant_message":"You would need to configure the database connection separately.","cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
-echo "$OUT" | grep -q "systemMessage" && pass || fail "no systemMessage for deferred work"
+echo "$OUT" | grep -q "additionalContext" && pass || fail "no additionalContext for deferred work"
 
 begin_test "subagent-stop-check: includes agent name in message"
 INPUT='{"agent_name":"my-researcher","last_assistant_message":"I was unable to access the remote API.","cwd":"/tmp"}'
