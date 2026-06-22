@@ -62,27 +62,39 @@ if printf '%s\n' "$COMMIT_SEG" | grep -qE '(^|[[:space:]])--amend([[:space:]]|$)
   exit 0
 fi
 
-# Re-target message extraction at the commit segment, not the full compound command.
-CMD="$COMMIT_SEG"
+# Re-target message extraction at the commit segment, not the full compound
+# command. EXCEPT when the segment contains a heredoc fragment — the segment
+# iterator is line-based and truncates multi-line heredocs to just their first
+# line, dropping the body. In that case, use the original COMMAND so the python
+# extractor can see the full heredoc.
+if printf '%s\n' "$COMMIT_SEG" | grep -qE '<<-?'"'"'?EOF'"'"'?'; then
+  CMD="$COMMAND"
+else
+  CMD="$COMMIT_SEG"
+fi
 
 # Extract commit message — handles -m "...", -m '...', and HEREDOC $(cat <<'EOF'...) patterns
 MSG=$(COMMIT_CMD="$CMD" python3 -c "
 import os, re
 cmd = os.environ['COMMIT_CMD']
 
-# Try -m '...' or -m \"...\"
-m = re.search(r\"-m\s+[\\\"'](.+?)[\\\"']\", cmd)
-if m:
-    print(m.group(1))
+# Try HEREDOC FIRST: -m \"\$(cat <<'EOF' or <<EOF ... extract first non-empty line.
+# Heredoc must come before inline because the inline regex's character class
+# [\\\"'] would otherwise capture the ' inside <<'EOF' and return garbage.
+# Require closing \\nEOF terminator so the lazy body match expands to the full
+# heredoc (otherwise it stops at 1 char).
+heredoc = re.search(r\"<<'?EOF'?\s*\n(.+?)\nEOF\b\", cmd, re.DOTALL)
+if heredoc:
+    lines = [l.strip() for l in heredoc.group(1).splitlines() if l.strip()]
+    if lines:
+        print(lines[0])
+    else:
+        print('')
 else:
-    # Try HEREDOC: -m \"\$(cat <<'EOF' or <<EOF ... extract first non-empty line after
-    heredoc = re.search(r\"<<'?EOF'?\s*\n(.+?)(\nEOF)?\", cmd, re.DOTALL)
-    if heredoc:
-        lines = [l.strip() for l in heredoc.group(1).splitlines() if l.strip()]
-        if lines:
-            print(lines[0])
-        else:
-            print('')
+    # Fall back to inline -m '...' or -m \"...\"
+    m = re.search(r\"-m\s+[\\\"'](.+?)[\\\"']\", cmd)
+    if m:
+        print(m.group(1))
     else:
         print('')
 " 2>/dev/null || echo "")
