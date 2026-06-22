@@ -44,6 +44,7 @@ elif inp.get('url'):
     summary = inp['url'][:80]
 elif isinstance(inp, dict) and inp:
     summary = str(inp)[:60]
+summary = summary.replace('\n', ' ').replace('\r', '')
 
 if tier == 'minimal':
     msg = f'[denied] {tool}' + (f': {summary[:50]}' if summary else '')
@@ -61,8 +62,8 @@ else:
     msg = ' | '.join(parts)
 
 # Five lines for bash to sed-split: cwd, session_id, tool_name, raw msg (used
-# as dedup key), JSON-encoded msg (used in final stdout). msg is single-line by
-# construction (no newlines in any branch above), so line splitting is safe.
+# as dedup key), JSON-encoded msg (used in final stdout). summary is normalized
+# (newlines stripped) so msg is always single-line — sed line splitting is safe.
 print(cwd)
 print(session_id)
 print(tool)

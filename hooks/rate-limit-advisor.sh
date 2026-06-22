@@ -7,8 +7,9 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 hook_profile_skip "rate-limit-advisor" && exit 0
 
 _INPUT=$(cat)
+init_hook_suppress "$PWD"
 
-HOOK_INPUT="$_INPUT" python3 - <<PYEOF
+HOOK_INPUT="$_INPUT" python3 - <<'PYEOF'
 import json, sys, os, time
 
 try:

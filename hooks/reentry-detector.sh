@@ -24,10 +24,11 @@ MARKERS='^\[MEM\] |^\[CTX\] |^\[LEARNING\] |^\[SUPERCHARGER\] |\[Supercharger\]|
 
 if echo "$PROMPT" | grep -qE "$MARKERS"; then
   # Count how many markers are present — single match might be quoting, 2+ is a loop.
-  # v2.6.42: awk emits exactly one number; `grep -c | || echo 0` doubled output
-  # on zero matches and aborted `[ "$MATCH_COUNT" -ge 2 ]` under set -e. Same
-  # shape as the v2.6.27/v2.6.38 fixes.
-  MATCH_COUNT=$(echo "$PROMPT" | awk -v p="$MARKERS" 'BEGIN{IGNORECASE=0} match($0, p){c++} END{print c+0}')
+  # grep -oE emits one line per match; wc -l gives the count. Portable across
+  # gawk/mawk/nawk. Uses the same MARKERS pattern as the outer grep -qE above.
+  # v2.6.60: replaced awk match() — awk -v strips backslashes corrupting \[MEM\]
+  # into character classes, and mawk does not support ERE alternation in match().
+  MATCH_COUNT=$(printf '%s' "$PROMPT" | grep -oE "$MARKERS" | wc -l | tr -d ' ')
   if [ "$MATCH_COUNT" -ge 2 ]; then
     MSG="[SUPERCHARGER] Re-entry loop detected: your prompt contains system-generated markers ([MEM], [CTX], hook output). This usually means hook output was pasted back as input. Clear context with /clear and re-type your prompt."
     MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
