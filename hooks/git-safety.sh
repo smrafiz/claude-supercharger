@@ -116,7 +116,7 @@ while IFS= read -r seg; do
     block "git restore --source=<ref> . overwrites working tree from <ref>, destroying unstaged work"
   fi
 
-  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-f)([[:space:]]|$) ]]; then
+  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
     block "git clean with force permanently removes untracked files"
   fi
 
