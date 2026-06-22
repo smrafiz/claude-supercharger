@@ -1,0 +1,8 @@
+Claude Supercharger
+Copyright (c) 2026 S.M. Rafiz
+
+This product includes software adapted from third-party sources:
+
+- Portions of the guardrails system are adapted from
+  TheArchitectit/agent-guardrails-template, licensed under BSD-3-Clause.
+  See https://github.com/TheArchitectit/agent-guardrails-template for details.
