@@ -103,7 +103,9 @@ fi
 
 # Git — reset --hard, branch -D, tag -d, reflog delete
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',git,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '^git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
+  # Git flags are case-sensitive (-d safe vs -D force); match against original
+  # COMMAND not lowercased CMD_NORM.
+  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
     MATCH_REASON="destructive git operation"
     MATCH_CAT="git"
   fi
