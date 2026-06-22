@@ -87,6 +87,9 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/n
 hook_already_emitted "subagent-stop-check" "$SESSION_ID" "$MSG" && exit 0
 
 MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
+# Use additionalContext (not systemMessage) — systemMessage on SubagentStop
+# can be interpreted by Claude Code as the subagent's terminal output,
+# swallowing the actual findings.
+printf '{"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":%s}}\n' "$MSG_JSON"
 
 exit 0

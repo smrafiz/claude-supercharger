@@ -77,10 +77,9 @@ echo "[Supercharger] agent-handoff-gate: quality issue detected (${QUALITY_ISSUE
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || exit 0
 
-if [ "$HOOK_SUPPRESS" = "false" ]; then
-  printf '{"systemMessage":%s,"suppressOutput":false}\n' "$CONTEXT_JSON"
-else
-  printf '{"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":%s}}\n' "$CONTEXT_JSON"
-fi
+# Always use additionalContext on SubagentStop — systemMessage in this event
+# can be interpreted by Claude Code as a replacement for the subagent's
+# terminal message, swallowing the actual findings.
+printf '{"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 exit 0
