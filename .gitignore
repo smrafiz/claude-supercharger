@@ -8,3 +8,6 @@
 .worktrees/
 .opencode/
 opencode.json
+
+# stray root version stamp (installed copy lives in ~/.claude/supercharger/)
+/.version

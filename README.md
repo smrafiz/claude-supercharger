@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.6.68-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-939%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.6.69-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-939%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -112,6 +112,8 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 `./uninstall.sh` restores your original config from backup.
 
+Install writes hooks/agents/commands/rules to `~/.claude/`, registers them in `~/.claude/settings.json`, and appends a managed block to `~/.claude/CLAUDE.md`. It also sets two `settings.json` keys — `env.ENABLE_PROMPT_CACHING_1H=1` (1-hour prompt cache) and an `attribution` override. `./uninstall.sh` reverses all of these from the pre-install backup.
+
 ---
 
 <details>
@@ -158,6 +160,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Bash output compactor | `SUPERCHARGER_BASH_COMPACTOR=0` |
 | All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
+| Daily update check (network) | `SUPERCHARGER_NO_UPDATE_CHECK=1` |
 
 ### Tune behavior
 
@@ -232,9 +235,9 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 | Profile | Servers | Context cost |
 |--|--|--|
 | `light` (default) | context7 | ~300 tokens |
-| `dev` | + Magic UI | ~1,200 tokens |
-| `research` | + Sequential Thinking, Memory | ~1,500 tokens |
-| `full` | + Playwright, GitHub | ~3,500 tokens |
+| `dev` | + Playwright, GitHub, Magic UI | ~1,200 tokens |
+| `research` | + Memory, Sequential Thinking | ~1,500 tokens |
+| `full` | everything (dev + research) | ~3,500 tokens |
 
 Supercharger tags its entries `#supercharger` and never touches your existing servers. Heavy servers are opt-in via `SUPERCHARGER_MCP_EXTRAS="playwright,github"`.
 
@@ -278,7 +281,7 @@ Hook output is hidden by default. Enable per-project: `touch .supercharger-debug
 `bash ~/.claude/supercharger/tools/update.sh`
 
 **Does this send any data anywhere?**
-Nothing. No API keys, no external calls, no telemetry. Everything runs locally.
+No telemetry, no analytics, no API keys read, and no user data ever leaves your machine. The only network call is an optional once-daily version check (`update-check.sh`, Full mode) that fetches this project's public version string from GitHub and sends nothing but a static `User-Agent`. Disable it with `SUPERCHARGER_NO_UPDATE_CHECK=1`, `--mode safe`, or `hook-toggle.sh update-check off`. `tools/update.sh` also contacts GitHub, but only when you run it. Optional webhook notifications (opt-in via `webhook.json`) POST to URLs you configure. Nothing else makes network calls.
 
 **Can I write my own hooks?**
 ```bash
@@ -294,7 +297,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
 
 ## Going deeper
 
-- All 84 hooks documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
+- Every hook documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
 - Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 - Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
 - Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)

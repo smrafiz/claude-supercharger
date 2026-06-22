@@ -5,6 +5,10 @@
 
 set -euo pipefail
 
+# Opt out of the once-daily version check (the only network call Supercharger
+# makes). Set SUPERCHARGER_NO_UPDATE_CHECK=1 to disable entirely.
+[ "${SUPERCHARGER_NO_UPDATE_CHECK:-0}" = "1" ] && exit 0
+
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 VERSION_FILE="$SUPERCHARGER_DIR/.version"
 CACHE_FILE="$SUPERCHARGER_DIR/.update-cache"

@@ -109,8 +109,11 @@ if [ "$TOOL_NAME" = "Bash" ]; then
     allow_cmd "${PM_CMD} *"
   fi
 
-  # Node/Python/Ruby running project scripts
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(node|python3?|ruby|tsx|ts-node|npx|bunx)[[:space:]]'; then
+  # Node/Python/Ruby running project scripts — but NOT inline-eval forms
+  # (-e/-c/-p/--eval/--print run arbitrary code) and NOT npx/bunx (fetch and
+  # run arbitrary packages). Those still require explicit user confirmation.
+  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(node|python3?|ruby|tsx|ts-node)[[:space:]]' \
+     && ! printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]])(-e|-c|-p|--eval|--print)([[:space:]]|=|$)'; then
     allow_cmd "${BASE_CMD} *"
   fi
 
