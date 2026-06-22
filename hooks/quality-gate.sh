@@ -105,7 +105,7 @@ lint_and_fix() {
       # Format
       if [ -f "$PROJECT_ROOT/package.json" ] && grep -q '"prettier"' "$PROJECT_ROOT/package.json" 2>/dev/null; then
         if command -v npx &>/dev/null; then
-          $TIMEOUT_CMD npx --no prettier --write "$file" 2>/dev/null || true
+          $TIMEOUT_CMD npx --no-install prettier --write "$file" 2>/dev/null || true
         fi
       fi
       ;;

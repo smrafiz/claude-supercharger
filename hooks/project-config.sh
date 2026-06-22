@@ -160,8 +160,10 @@ if config_file and os.path.isfile(config_file):
             except (ValueError, TypeError):
                 pass
 
-        # Per-project hook overrides
-        disable_hooks = config.get('disableHooks', [])
+        # Per-project hook overrides. Distinguish key-absent (leave existing
+        # .disabled-hooks alone — written by another project) from key-present-
+        # but-empty (clear). Conflating these caused cross-project state bleed.
+        disable_hooks = config.get('disableHooks', None)
         disabled_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.disabled-hooks')
         if isinstance(disable_hooks, list) and disable_hooks:
             valid = [h.strip() for h in disable_hooks if isinstance(h, str) and h.strip()]
@@ -170,9 +172,11 @@ if config_file and os.path.isfile(config_file):
                 with open(disabled_file, 'w') as f:
                     f.write('\n'.join(valid) + '\n')
                 cfg_parts.append('Disabled hooks: ' + ', '.join(valid))
-        else:
+        elif disable_hooks is not None:
+            # Key explicitly present but empty list — clear the file
             if os.path.isfile(disabled_file):
                 os.remove(disabled_file)
+        # Key absent → no change (preserves another project's setting)
 
         # Per-project performance profile
         profile = config.get('profile', '').strip().lower()

@@ -22,15 +22,29 @@ try:
 except Exception:
     d = {}
 
-reason = d.get('stop_reason') or d.get('error') or d.get('message') or 'unknown'
-reason = str(reason)
+# Search across multiple fields — stop_reason may carry a generic "error" while
+# the specific class (rate_limit_error, authentication_failed, billing_error)
+# lives in .error. Walk all three and pick the first that matches an advice key.
+reason_candidates = [
+    str(d.get('stop_reason') or ''),
+    str(d.get('error') or ''),
+    str(d.get('message') or ''),
+]
+reason = reason_candidates[0] or reason_candidates[1] or reason_candidates[2] or 'unknown'
 
 advice_map = (
     ('rate_limit', '[STOP FAILURE] Rate limit reached. Pause for 60 seconds before retrying. Do not loop or retry immediately.'),
     ('authentication_failed', "[STOP FAILURE] Authentication failed. The user may need to run 'claude login' to re-authenticate."),
     ('billing_error', '[STOP FAILURE] Billing issue detected. The user should check their subscription at claude.ai/settings.'),
 )
-advice = next((msg for prefix, msg in advice_map if reason.startswith(prefix)), '')
+advice = ''
+for cand in reason_candidates:
+    if not cand:
+        continue
+    match = next((msg for prefix, msg in advice_map if cand.startswith(prefix) or prefix in cand), '')
+    if match:
+        advice = match
+        break
 
 # Emit two lines: reason on line 1 (for bash log), JSON on line 2 (or empty)
 print(reason)

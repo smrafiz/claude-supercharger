@@ -12,9 +12,9 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
-OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null || true)
+OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_response.output // empty' 2>/dev/null || true)
 if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
+  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; r=json.load(sys.stdin).get('tool_response',{}); print(r.get('stdout') or r.get('output') or '')" 2>/dev/null || echo "")
 fi
 
 [ -z "$OUTPUT" ] && exit 0
