@@ -42,6 +42,8 @@ You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or ex
                                     └── Runs outside Claude's view
 ```
 
+![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
+
 |  | Prompt-only frameworks (`CLAUDE.md` rules) | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
 |---|---|---|---|
 | Claude sees the rules | Yes | Yes | No |
