@@ -36,6 +36,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `cwd-changed` | CwdChanged | (none) | Re-runs stack detection when working directory changes, injects updated context. |
 | `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
+| `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `elicitation-discovery` | Elicitation, ElicitationResult | * | Elicitation lets MCP servers solicit structured input from the user — a |
@@ -105,6 +106,7 @@ Run any of these manually:
 
 | Tool | Purpose |
 |------|---------|
+| `tools/agent-report-tail.sh` | Claude Supercharger — Agent Report Recovery |
 | `tools/bump-version.sh` | Claude Supercharger — Version Bump Tool |
 | `tools/cache-clear.sh` | Claude Supercharger — Cache Clear Tool |
 | `tools/claude-check.sh` | Claude Supercharger — Installation Health Check |

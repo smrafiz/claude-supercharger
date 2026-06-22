@@ -70,8 +70,10 @@ else
   fail "expected exit 1 for enabled hook, got $result"
 fi
 
-# ── Test 4: cleared when disableHooks removed from config ─────────────────────
-begin_test "hook overrides: cleared when disableHooks removed from config"
+# ── Test 4: key ABSENT preserves file (v2.6.66 tri-state — no cross-project clear)
+# When disableHooks is not present at all, project-config must leave an existing
+# .disabled-hooks alone — it may have been written by another project.
+begin_test "hook overrides: preserved when disableHooks key absent (no cross-project clear)"
 result=$(
   setup_test_home
   mkdir -p "$HOME/.claude/supercharger/scope"
@@ -79,6 +81,32 @@ result=$(
   PROJ=$(mktemp -d)
   cat > "$PROJ/.supercharger.json" <<'JSON'
 {"roles": ["developer"]}
+JSON
+  INPUT=$(python3 -c "import json; print(json.dumps({'cwd': '$PROJ'}))")
+  printf '%s\n' "$INPUT" | bash "$PROJECT_CONFIG" >/dev/null 2>&1 || true
+  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  if [ -f "$DISABLED_FILE" ] && grep -qx "typecheck" "$DISABLED_FILE"; then
+    echo "ok"
+  fi
+  rm -rf "$PROJ"
+  teardown_test_home
+)
+if [ "$result" = "ok" ]; then
+  pass
+else
+  fail "expected .disabled-hooks preserved when disableHooks key is absent"
+fi
+
+# ── Test 5: empty list CLEARS file (v2.6.66 tri-state — explicit reset) ────────
+# disableHooks: [] is an explicit "clear my overrides" signal — distinct from absent.
+begin_test "hook overrides: cleared when disableHooks is an empty list"
+result=$(
+  setup_test_home
+  mkdir -p "$HOME/.claude/supercharger/scope"
+  printf 'typecheck\n' > "$HOME/.claude/supercharger/scope/.disabled-hooks"
+  PROJ=$(mktemp -d)
+  cat > "$PROJ/.supercharger.json" <<'JSON'
+{"roles": ["developer"], "disableHooks": []}
 JSON
   INPUT=$(python3 -c "import json; print(json.dumps({'cwd': '$PROJ'}))")
   printf '%s\n' "$INPUT" | bash "$PROJECT_CONFIG" >/dev/null 2>&1 || true
@@ -92,7 +120,7 @@ JSON
 if [ "$result" = "ok" ]; then
   pass
 else
-  fail "expected .disabled-hooks to be removed when disableHooks not in config"
+  fail "expected .disabled-hooks removed when disableHooks is an empty list"
 fi
 
 report
