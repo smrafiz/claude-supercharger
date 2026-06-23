@@ -8,6 +8,22 @@
 # report still exists in the agent's JSONL transcript on disk; this tool
 # extracts it.
 #
+# CC SUBAGENT RETURN CHANNELS (per liuup/claude-code-analysis 04h-multi-agent):
+# There are three independent return paths, not one. The v2.1.176 regression
+# appears to affect only the *coordinator* path (used by the Task tool's
+# spawned agents that we rely on here):
+#   1. Direct synchronous return — `runAgent()` iterates response messages and
+#      returns structured output to the caller. Used by simple/in-process
+#      subagent calls. May still work reliably in v2.1.176.
+#   2. Mailbox files at `.claude/teams/{team}/inboxes/{agent}.json`, polled by
+#      `useInboxPoller()` with file locking. Used by swarm/teammates mode.
+#   3. Resume-injection via `resumeAgentBackground()` queueing results into the
+#      parent's `pendingUserMessages`. Used by background agents.
+# This tool targets the JSONL transcript scrape — a 4th out-of-band path that
+# survives all three above being degraded. Keep using it until #69970 is fixed
+# upstream; do NOT delete this tool just because the parent return-channel
+# starts working again, since the failure modes differ per CC version.
+#
 # Usage:
 #   bash tools/agent-report-tail.sh <agent-id>
 #   bash tools/agent-report-tail.sh <agent-id> --all
