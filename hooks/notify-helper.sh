@@ -48,11 +48,15 @@ _send_notification() {
   branch=$(_get_branch)
   [ -n "$branch" ] && title="${title} [${branch}]"
 
-  # Sanitize for osascript
+  # Sanitize for osascript: strip backticks and $ first (shell-eval vectors
+  # inside the -e argument since bash interprets the string BEFORE osascript
+  # sees it), then escape backslashes and double-quotes for AppleScript.
+  # v2.6.72: a branch name like `test`open /App/Calc.app`` triggered RCE
+  # before the strip — sed only handled \ and " but bash still expanded ` and $.
   local safe_msg
-  safe_msg=$(printf '%s' "$msg" | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 200)
+  safe_msg=$(printf '%s' "$msg" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 200)
   local safe_title
-  safe_title=$(printf '%s' "$title" | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g")
+  safe_title=$(printf '%s' "$title" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g")
 
   if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
     printf '\a'
@@ -64,7 +68,9 @@ _send_notification() {
       Apple_Terminal) term_app="Terminal" ;;
       vscode) term_app="Visual Studio Code" ;;
     esac
-    osascript -e "display notification \"$safe_msg\" with title \"$safe_title\"" 2>/dev/null || true
+    # Pass via env var to avoid shell re-interpretation of any surviving metachars
+    SC_NOTIFY_MSG="$safe_msg" SC_NOTIFY_TITLE="$safe_title" \
+      osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
   elif command -v notify-send &>/dev/null; then
     notify-send "$title" "$msg" 2>/dev/null || true
   else
