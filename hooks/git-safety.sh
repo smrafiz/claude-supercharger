@@ -55,6 +55,14 @@ block() {
   exit 2
 }
 
+# INVARIANT: this is the only hook in the codebase that emits
+# `hookSpecificOutput.updatedInput`. Per CC architecture chapter 05 §7,
+# `updatedInput` is LAST-WRITE-WINS across hooks on the same event — if
+# another hook on PreToolUse:Bash later emits updatedInput, this rewrite
+# is silently discarded with no error. Before adding a second updatedInput
+# emitter, verify the registration order in lib/hooks.sh and either: (a)
+# coordinate the rewrites, or (b) move git-safety.sh to be registered last
+# so its rewrite is the surviving one.
 rewrite() {
   local safe_cmd="$1" reason="$2"
   echo "[Supercharger] git-safety: rewrote unsafe command — ${reason}" >&2
