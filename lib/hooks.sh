@@ -89,6 +89,8 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
+    hooks+=("UserPromptExpansion||${hooks_dir}/slash-command-guard.sh|")
+    hooks+=("Setup||${hooks_dir}/setup-check.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/reentry-detector.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/thinking-budget.sh|")

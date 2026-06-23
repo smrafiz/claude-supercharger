@@ -58,8 +58,13 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 | `ConfigChange` | settings.json is edited mid-session | No |
 | `InstructionsLoaded` | CLAUDE.md / rules are (re)loaded | No |
 | `Notification` | System notification event | No |
+| `Setup` | Claude Code runs `--init` / `--init-only` / `--maintenance` | No |
+| `UserPromptExpansion` | A user-typed `/<command>` or MCP prompt expands, before reaching Claude | Yes — supports matcher on `command_name` |
+| `PostToolBatch` | A parallel tool batch resolves, before the next model call | Yes |
 
 `PreToolUse` is where most hooks live — it's the only place you can intercept and block tool execution.
+
+**Agent-frontmatter hooks.** Custom subagents (under `.claude/agents/<name>.md`) can declare a `hooks:` block in frontmatter to register hooks scoped to the agent's lifecycle only. The CC changelog (v2.1.0) lists `PreToolUse`, `PostToolUse`, `Stop`, but in practice **6 events fire** in agent sessions: `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PostToolUseFailure`, `Stop`, `SubagentStop`. Use this for per-agent guards (e.g. block a reviewer agent from Write tools at runtime even if the static `tools:` list drifts).
 
 **Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, worktree, subagent, messagedisplay, elicitation all follow this shape).
 
