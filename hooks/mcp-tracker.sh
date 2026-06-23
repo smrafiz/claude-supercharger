@@ -21,8 +21,10 @@ fi
 [ -z "$TOOL_NAME" ] && exit 0
 hook_profile_skip "mcp-tracker" && exit 0
 
-# Extract MCP server name from tool_name (format: mcp__servername__toolname)
-if [[ "$TOOL_NAME" =~ ^mcp__([^_]+) ]]; then
+# Extract MCP server name from tool_name (format: mcp__servername__toolname).
+# Lazy match to the next `__` so server names containing `_` (e.g. `my_server`)
+# aren't truncated at the first underscore.
+if [[ "$TOOL_NAME" =~ ^mcp__(.+)__ ]]; then
   MCP_NAME="${BASH_REMATCH[1]}"
   SCOPE_DIR="$HOME/.claude/supercharger/scope"
   mkdir -p "$SCOPE_DIR" 2>/dev/null || true
