@@ -72,7 +72,7 @@ _send_notification() {
     SC_NOTIFY_MSG="$safe_msg" SC_NOTIFY_TITLE="$safe_title" \
       osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
   elif command -v notify-send &>/dev/null; then
-    notify-send "$title" "$msg" 2>/dev/null || true
+    notify-send "$safe_title" "$safe_msg" 2>/dev/null || true  # v2.6.77: use sanitized vars
   else
     printf '\a'
   fi

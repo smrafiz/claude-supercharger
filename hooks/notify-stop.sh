@@ -75,7 +75,10 @@ fi
 # Add cost to notification if available
 COST_INFO=""
 if [ -f "$HOME/.claude/supercharger/scope/.session-cost" ]; then
-  COST_DISPLAY=$(python3 -c "import json; c=json.load(open('$HOME/.claude/supercharger/scope/.session-cost')); print(f'\${c.get(\"total_usd\",0):.2f}')" 2>/dev/null || echo "")
+  # v2.6.77: pass path via env var — prevents shell-interpolating $HOME into
+  # python3 -c string (same injection class as the v2.6.72 osascript RCE fix)
+  COST_DISPLAY=$(SC_COST_FILE="$HOME/.claude/supercharger/scope/.session-cost" \
+    python3 -c "import json,os; c=json.load(open(os.environ['SC_COST_FILE'])); print(f'{c.get(\"total_usd\",0):.2f}')" 2>/dev/null || echo "")
   [ -n "$COST_DISPLAY" ] && COST_INFO=" — ${COST_DISPLAY} this session"
 fi
 

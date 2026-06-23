@@ -56,6 +56,16 @@ while [ $# -gt 0 ]; do
   shift
 done
 
+# v2.6.77: validate AGENT_ID before using it in a file path — prevents path
+# traversal (e.g. ../../.ssh/id_rsa) when the tool is invoked with a
+# model-generated or user-supplied agent id.
+if [ -n "$AGENT_ID" ] && [ "$AGENT_ID" != "__LATEST__" ]; then
+  if ! [[ "$AGENT_ID" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "error: invalid agent-id (must match [a-zA-Z0-9_-]+)" >&2
+    exit 1
+  fi
+fi
+
 if [ -z "$AGENT_ID" ]; then
   echo "usage: $(basename "$0") <agent-id> [--all]" >&2
   echo "       $(basename "$0") --latest [--all]" >&2

@@ -30,7 +30,9 @@ if [ -f "$UTILS" ]; then
 fi
 
 if [ -f "$SETTINGS" ]; then
-  if python3 -c "import json,sys; d=json.load(open('$SETTINGS')); sys.exit(0 if 'hooks' in d and d['hooks'] else 1)" 2>/dev/null; then
+  # v2.6.77: pass path via env var — prevents shell-interpolating $SETTINGS into
+  # python3 -c string (same injection class as the v2.6.72 osascript RCE fix)
+  if SC_SETTINGS_PATH="$SETTINGS" python3 -c "import json,sys,os; d=json.load(open(os.environ['SC_SETTINGS_PATH'])); sys.exit(0 if 'hooks' in d and d['hooks'] else 1)" 2>/dev/null; then
     status_bits+=("settings ok")
   else
     issues+=("settings.json missing hooks key — run install.sh")
