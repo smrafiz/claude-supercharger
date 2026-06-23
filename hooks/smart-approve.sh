@@ -3,6 +3,16 @@
 # Event: PermissionRequest | Matcher: (none)
 # Auto-approves known-safe tool calls to reduce user prompts.
 # Uses updatedPermissions for session persistence — approved once, never asked again.
+#
+# RELATIONSHIP TO CC's BUILT-IN AUTO-MODE CLASSIFIER:
+# CC ships an LLM-based auto-mode rule reviewer (categories: allow / soft_deny /
+# hard_deny / environment) that reads user-defined rules at runtime and may
+# pre-decide PermissionRequest events. This shell hook runs ADDITIVELY in the
+# same pipeline — not as a replacement. Per Piebald-AI/claude-code-system-prompts
+# auto-mode-rule-reviewer (v2.1.x), the two are independent decision sources:
+# tightening here does not loosen CC's classifier, and vice versa. Treat this
+# hook as a fast deterministic allow-list for known-safe shapes; let CC's LLM
+# classifier handle the fuzzy, intent-based decisions.
 
 set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
