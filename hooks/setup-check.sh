@@ -28,7 +28,6 @@ if [ -f "$UTILS" ]; then
   ver=$(grep -E '^VERSION=' "$UTILS" 2>/dev/null | head -1 | cut -d'"' -f2)
   [ -n "$ver" ] || ver="unknown"
 fi
-status_bits+=("v$ver")
 
 if [ -f "$SETTINGS" ]; then
   if python3 -c "import json,sys; d=json.load(open('$SETTINGS')); sys.exit(0 if 'hooks' in d and d['hooks'] else 1)" 2>/dev/null; then
@@ -54,9 +53,9 @@ fi
 _join() { local sep="$1"; shift; local out="" i; for i in "$@"; do out+="${out:+$sep}$i"; done; printf '%s' "$out"; }
 
 if [ "${#issues[@]}" -eq 0 ]; then
-  msg="[Supercharger] Setup check: $(_join ', ' "${status_bits[@]}") — healthy"
+  msg="[Supercharger] Setup check (v$ver): $(_join ', ' "${status_bits[@]}") — healthy"
 else
-  msg="[Supercharger] Setup check FAILED: $(_join '; ' "${issues[@]}")"
+  msg="[Supercharger] Setup check (v$ver) FAILED: $(_join '; ' "${issues[@]}")"
 fi
 
 printf '%s\n' "$msg" >&2
