@@ -51,7 +51,8 @@ if [[ "$MODE" == "contract" ]]; then
   # next session can extract a fresh scope instead of inheriting stale state.
   if [ -f "$CONTRACT_FILE" ]; then
     _NOW=$(date +%s 2>/dev/null || echo 0)
-    _MT=$(stat -f '%m' "$CONTRACT_FILE" 2>/dev/null || stat -c '%Y' "$CONTRACT_FILE" 2>/dev/null || echo "$_NOW")
+    _MT=$(stat -c '%Y' "$CONTRACT_FILE" 2>/dev/null || stat -f '%m' "$CONTRACT_FILE" 2>/dev/null || echo "")
+    case "$_MT" in ''|*[!0-9]*) _MT=$_NOW ;; esac
     if [ "$((_NOW - _MT))" -lt 21600 ]; then
       exit 0
     fi
