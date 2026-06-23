@@ -79,7 +79,9 @@ if [ "$TOOL_NAME" = "Read" ]; then
   FILE_PATH=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $4}')
   if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
     READS_FILE="$SCOPE_DIR/.read-history"
-    CURRENT_MTIME=$(stat -f '%m' "$FILE_PATH" 2>/dev/null || stat -c '%Y' "$FILE_PATH" 2>/dev/null || echo "0")
+    # v2.6.78: GNU-first + numeric guard for Linux stat-f portability
+    CURRENT_MTIME=$(stat -c '%Y' "$FILE_PATH" 2>/dev/null || stat -f '%m' "$FILE_PATH" 2>/dev/null || echo "")
+    case "$CURRENT_MTIME" in ''|*[!0-9]*) CURRENT_MTIME=0 ;; esac
 
     if [ -f "$READS_FILE" ]; then
       PREV_ENTRY=$(grep -F "${FILE_PATH}	" "$READS_FILE" 2>/dev/null | tail -1 || echo "")

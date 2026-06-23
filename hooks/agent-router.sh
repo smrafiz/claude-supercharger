@@ -158,7 +158,8 @@ HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
 LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
 LAST_MTIME=0
 if [ -f "$HASH_FILE" ]; then
-  LAST_MTIME=$(stat -f '%m' "$HASH_FILE" 2>/dev/null || stat -c '%Y' "$HASH_FILE" 2>/dev/null || echo 0)
+  LAST_MTIME=$(stat -c '%Y' "$HASH_FILE" 2>/dev/null || stat -f '%m' "$HASH_FILE" 2>/dev/null || echo "")
+  case "$LAST_MTIME" in ''|*[!0-9]*) LAST_MTIME=0 ;; esac
 fi
 NOW_TS=$(date +%s)
 echo "$HASH" > "$HASH_FILE"

@@ -42,9 +42,13 @@ fi
 RESTORED_FLAG="$SCOPE_DIR/.memory-restored"
 ECO_ACK_FLAG="$SCOPE_DIR/.eco-reinforce-acked"
 [ ! -f "$RESTORED_FLAG" ] && exit 0
-RESTORED_MTIME=$(stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || stat -c '%Y' "$RESTORED_FLAG" 2>/dev/null || echo 0)
+RESTORED_MTIME=$(stat -c '%Y' "$RESTORED_FLAG" 2>/dev/null || stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || echo "")
+case "$RESTORED_MTIME" in ''|*[!0-9]*) RESTORED_MTIME=0 ;; esac
 ACK_MTIME=0
-[ -f "$ECO_ACK_FLAG" ] && ACK_MTIME=$(stat -f '%m' "$ECO_ACK_FLAG" 2>/dev/null || stat -c '%Y' "$ECO_ACK_FLAG" 2>/dev/null || echo 0)
+if [ -f "$ECO_ACK_FLAG" ]; then
+  ACK_MTIME=$(stat -c '%Y' "$ECO_ACK_FLAG" 2>/dev/null || stat -f '%m' "$ECO_ACK_FLAG" 2>/dev/null || echo "")
+  case "$ACK_MTIME" in ''|*[!0-9]*) ACK_MTIME=0 ;; esac
+fi
 [ "$RESTORED_MTIME" -le "$ACK_MTIME" ] && exit 0
 touch "$ECO_ACK_FLAG" 2>/dev/null || true
 

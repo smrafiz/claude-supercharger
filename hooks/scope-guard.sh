@@ -44,9 +44,12 @@ if [[ "$MODE" == "snapshot" ]]; then
     else
       git ls-files 2>/dev/null | while read -r f; do
         if [ -f "$PROJECT_DIR/$f" ]; then
-          mtime=$(stat -f "%m" "$PROJECT_DIR/$f" 2>/dev/null \
-               || stat -c "%Y" "$PROJECT_DIR/$f" 2>/dev/null \
-               || echo "0")
+          # v2.6.78: GNU-first + numeric guard (Linux `stat -f` returns
+          # filesystem stats, polluting the value with non-numeric text).
+          mtime=$(stat -c "%Y" "$PROJECT_DIR/$f" 2>/dev/null \
+               || stat -f "%m" "$PROJECT_DIR/$f" 2>/dev/null \
+               || echo "")
+          case "$mtime" in ''|*[!0-9]*) mtime=0 ;; esac
           echo "file:$f:$mtime"
         fi
       done

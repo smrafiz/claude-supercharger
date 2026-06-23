@@ -21,7 +21,12 @@ LOCAL=$(cat "$VERSION_FILE")
 
 # Use cached result if fresh
 if [ -f "$CACHE_FILE" ]; then
-  CACHE_MTIME=$(stat -f "%m" "$CACHE_FILE" 2>/dev/null || stat -c "%Y" "$CACHE_FILE" 2>/dev/null || echo 0)
+  # v2.6.78: GNU-first stat order with numeric guard. Linux `stat -f` returns
+  # filesystem stats (mountpoint string "File: ..."), which polluted CACHE_MTIME
+  # and tripped set -u on "File" — same Linux-portability fix as scope-guard
+  # in v2.6.73.
+  CACHE_MTIME=$(stat -c "%Y" "$CACHE_FILE" 2>/dev/null || stat -f "%m" "$CACHE_FILE" 2>/dev/null || echo "")
+  case "$CACHE_MTIME" in ''|*[!0-9]*) CACHE_MTIME=0 ;; esac
   CACHE_AGE=$(( $(date +%s) - CACHE_MTIME ))
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     REMOTE=$(cat "$CACHE_FILE")

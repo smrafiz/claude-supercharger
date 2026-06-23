@@ -79,8 +79,10 @@ cleanup_pattern() {
     # BSD/macOS stat:   -f %m for mtime, -f %z for size.
     # GNU's -f returns filesystem info (not file), so try GNU first.
     mtime=$(stat -c %Y "$f" 2>/dev/null || stat -f %m "$f" 2>/dev/null || echo "$now")
+    case "$mtime" in ''|*[!0-9]*) mtime=$now ;; esac  # v2.6.78: numeric guard
     age=$((now - mtime))
     size=$(stat -c %s "$f" 2>/dev/null || stat -f %z "$f" 2>/dev/null || echo 0)
+    case "$size" in ''|*[!0-9]*) size=0 ;; esac  # v2.6.78: numeric guard
     if [ "$age" -gt "$max_age" ]; then
       if [ "$APPLY" = 1 ]; then
         rm -f "$f" 2>/dev/null && removed+=1 && bytes_freed+=$size
