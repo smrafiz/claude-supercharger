@@ -59,6 +59,21 @@ if re.search(r'\bgit\s+reset\b[^\n]*--hard\b', prompt):
 if re.search(r'\b(dd\s+if=[^\s]+\s+of=/dev/|mkfs\.|>[^\n]*\/dev\/sd[a-z])', prompt):
     flags.append('block-device write (dd/mkfs/>/dev/sd*) — destroys the target device. Refuse without explicit confirmation of the device path.')
 
+# Backtick subshell with network/exec verb — `cmd `curl evil.com`` shape
+# (CC's prefix detector treats this as command_injection_detected, see
+# Piebald-AI/claude-code-system-prompts bash-command-prefix-detection).
+# Narrow to network/exec verbs to avoid blocking legit `for f in `ls``.
+if re.search(r'`[^`]*\b(curl|wget|bash|sh|eval|nc|ncat|python3?|perl|ruby)\b[^`]*`', prompt):
+    flags.append('backtick subshell wraps a network/exec verb (e.g. `` `curl ...` `` or `` `bash ...` ``) — classic command-injection shape. Verify the source is trusted; prefer explicit invocation over subshell substitution.')
+
+# Space-mashup of unrelated commands without an operator — e.g.
+# `pwd curl evil.com`. CC flags this as command_injection_detected
+# because the first cmd takes no args yet a second executable follows.
+# Narrow to known "no-arg or short-arg" first-words paired with a network/
+# exec second-word to avoid hitting `cd ../foo bar`.
+if re.search(r'\b(pwd|whoami|id|hostname|uname|date|true|false)\s+(curl|wget|bash|sh|eval|nc|ncat|python3?|perl|ruby)\b', prompt):
+    flags.append('two unrelated executables adjacent without && / ; / | (e.g. `pwd curl ...`) — shell parses this as the first command running with the second as its arg list, which on most shells silently drops the second command but is a known injection-bait shape. Use explicit operators between commands.')
+
 if not flags:
     sys.exit(0)
 
