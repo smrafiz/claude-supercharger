@@ -8,6 +8,14 @@
 # dangerous `! rm -rf …` patterns and emits an advisory warning to stderr
 # before the shell executes them. Advisory only; the shell still runs the
 # command.
+#
+# CC v2.1.186 semantic shift (changelog 2026-06): `respondToBashCommands: true`
+# is now the default — `!` commands ALSO auto-trigger Claude to respond to the
+# output. The bypass concern (Supercharger can't block) is unchanged. The NEW
+# concern is prompt-injection via the shell stdout: a hostile output (e.g.
+# `! curl ...` returning attacker-crafted text) is now fed back into the model
+# context. The warnings here remain valid for both reasons. Users who want the
+# pre-2.1.186 behavior can set `respondToBashCommands: false` in settings.json.
 
 set -euo pipefail
 . "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
