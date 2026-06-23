@@ -47,7 +47,16 @@ fi
 
 # ── contract ──────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "contract" ]]; then
-  [ -f "$CONTRACT_FILE" ] && exit 0
+  # TTL: stale contracts (>6h) from crashed sessions are self-healed so the
+  # next session can extract a fresh scope instead of inheriting stale state.
+  if [ -f "$CONTRACT_FILE" ]; then
+    _NOW=$(date +%s 2>/dev/null || echo 0)
+    _MT=$(stat -f '%m' "$CONTRACT_FILE" 2>/dev/null || stat -c '%Y' "$CONTRACT_FILE" 2>/dev/null || echo "$_NOW")
+    if [ "$((_NOW - _MT))" -lt 21600 ]; then
+      exit 0
+    fi
+    rm -f "$CONTRACT_FILE"
+  fi
   _INPUT=$(cat)
   PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
   if [ -z "$PROMPT" ]; then

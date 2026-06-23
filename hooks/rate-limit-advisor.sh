@@ -9,8 +9,10 @@ hook_profile_skip "rate-limit-advisor" && exit 0
 _INPUT=$(cat)
 init_hook_suppress "$PWD"
 
-HOOK_INPUT="$_INPUT" python3 - <<'PYEOF'
+HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 - <<'PYEOF'
 import json, sys, os, time
+
+suppress = os.environ.get('HOOK_SUPPRESS', 'true').lower() in ('true', '1', 'yes')
 
 try:
     data = json.loads(os.environ.get('HOOK_INPUT', '{}'))
@@ -78,5 +80,8 @@ except Exception:
 
 ttx = int(time_to_exhaust)
 msg = f'[RATE] At current pace, session exhausts in ~{ttx}m. Consider: eco minimal, fewer subagents, or pause for rate reset.'
-print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': msg}}))
+if suppress:
+    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': msg}}))
+else:
+    print(json.dumps({'systemMessage': msg, 'suppressOutput': False}))
 PYEOF

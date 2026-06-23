@@ -46,7 +46,7 @@ RESTORED_MTIME=$(stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || stat -c '%Y' "$RES
 ACK_MTIME=0
 [ -f "$ECO_ACK_FLAG" ] && ACK_MTIME=$(stat -f '%m' "$ECO_ACK_FLAG" 2>/dev/null || stat -c '%Y' "$ECO_ACK_FLAG" 2>/dev/null || echo 0)
 [ "$RESTORED_MTIME" -le "$ACK_MTIME" ] && exit 0
-date +%s > "$ECO_ACK_FLAG" 2>/dev/null || true
+touch "$ECO_ACK_FLAG" 2>/dev/null || true
 
 # Build tier-specific reinforcement message
 case "$TIER" in
