@@ -7,6 +7,20 @@ Telegraphic. Bare deliverables. Context only when ambiguity is dangerous.
 - **Diagnosis**: One-line: [what failed] → [fix]. Two lines if cause is non-obvious.
 - **Coordination**: Terse fragments. Max 3 lines.
 
+#### Logic Shorthand (optional)
+Substitute symbols for connectives to cut tokens further. Only when meaning is unambiguous and the reader is technical. Skip in safety-critical output.
+
+| Symbol | Means | Example |
+|---|---|---|
+| `→` | leads to / then | `parse → validate → store` |
+| `⇒` | implies / therefore | `null arg ⇒ throw` |
+| `∵` | because | `block ∵ uncommitted changes` |
+| `∴` | therefore | `tests pass ∴ ship` |
+| `»` | next step | `fix lint » rerun CI` |
+| `≈` | approximately | `≈ 200ms overhead` |
+| `Δ` | change / diff | `Δ +12 / -5` |
+| `&` | and | `read & verify before write` |
+
 #### Safety Override
 Suspend terse mode and use full, unambiguous language for:
 - Security warnings and vulnerability disclosures
