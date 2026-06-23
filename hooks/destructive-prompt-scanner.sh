@@ -16,6 +16,18 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
+# v2.6.79: bash fast-path. Skip the python fork (~70ms) when the prompt has
+# no destructive keyword anywhere. ~95% of prompts trip none of these.
+# Keep the keyword list aligned with the python patterns below — any keyword
+# added there must appear here too, or the python check becomes unreachable.
+# Loose substring match — any of these keywords triggers the python regex pass.
+# We accept some over-firing (e.g. word "drop" in legit prose) because the
+# python check then either confirms a real pattern or silently exits.
+case "$_INPUT" in
+  *'rm -'*|*'curl '*|*'wget '*|*'git push'*|*'git reset'*|*'dd if'*|*'mkfs.'*|*'/dev/sd'*|*'DROP TABLE'*|*'DROP DATABASE'*|*'DROP SCHEMA'*|*'TRUNCATE TABLE'*|*'TRUNCATE DATABASE'*|*'TRUNCATE SCHEMA'*|*'drop table'*|*'drop database'*|*'drop schema'*|*'truncate table'*|*'truncate database'*|*'truncate schema'*|*'bash '*|*'eval '*|*' nc '*|*'ncat '*|*'python '*|*'python3 '*|*'perl '*|*'ruby '*|*' sh '*|*'`sh'*) ;;
+  *) exit 0 ;;
+esac
+
 HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
 import json, os, re, sys
 

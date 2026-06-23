@@ -22,6 +22,13 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
+# v2.6.79: bash fast-path. Only prompts containing `!` need the python regex
+# pass. ~95% of prompts have no `!` anywhere → skip the ~80ms python fork.
+case "$_INPUT" in
+  *'!'*) ;;
+  *) exit 0 ;;
+esac
+
 HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
 import json, os, re, sys
 
