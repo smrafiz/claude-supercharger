@@ -15,8 +15,18 @@ SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
-SNAPSHOT_FILE="$SCOPE_DIR/.snapshot"
-CONTRACT_FILE="$SCOPE_DIR/.contract"
+# v2.6.77: drain stdin once at top so all modes can use SID-suffixed paths.
+# Concurrent sessions in the same project previously shared `.snapshot` and
+# `.contract`, so session B's snapshot would overwrite A's baseline, producing
+# false scope-alert mismatches or missed violations downstream.
+_INPUT=$(cat 2>/dev/null || echo "")
+# `|| true` keeps the pipeline from tripping `set -e` under `pipefail` when jq
+# parse-fails on malformed JSON (head closes the pipe early → jq exits non-zero).
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+[ -z "$SID" ] && SID="default"
+
+SNAPSHOT_FILE="$SCOPE_DIR/.snapshot-${SID}"
+CONTRACT_FILE="$SCOPE_DIR/.contract-${SID}"
 
 # ── snapshot ──────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "snapshot" ]]; then
@@ -58,7 +68,7 @@ if [[ "$MODE" == "contract" ]]; then
     fi
     rm -f "$CONTRACT_FILE"
   fi
-  _INPUT=$(cat)
+  # _INPUT already drained at top (v2.6.77)
   PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
   if [ -z "$PROMPT" ]; then
     PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
@@ -91,7 +101,7 @@ fi
 
 # ── check ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "check" ]]; then
-  _INPUT=$(cat)
+  # _INPUT already drained at top (v2.6.77)
   TOUCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   if [ -z "$TOUCHED" ]; then
     TOUCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
@@ -184,9 +194,14 @@ fi
 
 # ── clear ─────────────────────────────────────────────────────────────────────
 if [[ "$MODE" == "clear" ]]; then
-  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" "$SCOPE_DIR/.session-tokens"
-  _INPUT=$(cat 2>/dev/null || echo "")
-  SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64)
+  # SNAPSHOT_FILE and CONTRACT_FILE are already SID-suffixed (v2.6.77).
+  # Also clean the legacy unsuffixed paths from pre-v2.6.77 sessions if any
+  # crashed before the upgrade.
+  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" \
+        "$SCOPE_DIR/.snapshot" "$SCOPE_DIR/.contract" \
+        "$SCOPE_DIR/.session-tokens"
+  # SID already set at top (v2.6.77); keep the original re-extraction below
+  # for forward-compat with the legacy clear-only payload that lacks session_id.
   if [ -n "$SID" ]; then
     rm -f "$SCOPE_DIR/.agent-classified-$SID" \
           "$SCOPE_DIR/.agent-dispatched-$SID" \

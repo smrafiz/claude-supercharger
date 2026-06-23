@@ -24,7 +24,11 @@ esac
 
 # Pre-resolve init_hook_suppress and disable checks. These need PROJECT_DIR
 # from the payload — pluck it with bash substring scan to avoid an extra fork.
-PROJECT_DIR=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+# v2.6.77: use jq path consistent with other hooks. The regex skipped payloads
+# with non-default whitespace or escaped quotes in the cwd value, falling back
+# to $PWD (hook runner dir, not project), which mis-targeted .supercharger-debug
+# detection.
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "confidence-gate" && exit 0

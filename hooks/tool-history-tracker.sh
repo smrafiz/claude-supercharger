@@ -47,7 +47,13 @@ printf '%s\n' "$ENTRY" >> "$HISTORY"
 if [ -f "$HISTORY" ]; then
   COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
   if [ "$COUNT" -gt 20 ]; then
-    tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
+    # v2.6.77: serialize the read-count-trim-replace under flock to prevent
+    # last-writer-wins races when two async invocations both exceed 20 entries
+    # at the same time (rare but plausible in tool-dense sessions).
+    (
+      flock -w 2 9 || true
+      tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
+    ) 9>"$HISTORY.lock" 2>/dev/null || true
   fi
 fi
 

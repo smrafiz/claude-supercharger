@@ -57,8 +57,12 @@ if not level:
         try:
             if time.time() - os.path.getmtime(agent_file) < 2:
                 content = open(agent_file).read().strip().lower()
-                high_agents = {'debugger', 'architect', 'planner'}
-                low_agents  = {'code-helper', 'general', 'writer'}
+                # v2.6.77: agent-router writes the full agent name like
+                # "Sherlock Holmes (Detective)" to .agent-classified. Old keys
+                # 'debugger'/'architect'/'planner' never matched any of the 9
+                # agent names — entire branch was dead code.
+                high_agents = {'detective', 'architect', 'strategist', 'scientist'}
+                low_agents  = {'writer', 'generalist'}
                 words = prompt.split()
                 if any(a in content for a in high_agents):
                     level = 'high'

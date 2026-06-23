@@ -138,4 +138,7 @@ SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true
 mkdir -p "$SCOPE_DIR"
 echo "code" > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
 
-exit 2
+# v2.6.77: was `exit 2` which hard-blocks every warning despite the JSON
+# emitting `permissionDecision: "ask"`. Exit 0 lets CC honor the JSON
+# decision (ask user) instead of unconditional deny.
+exit 0

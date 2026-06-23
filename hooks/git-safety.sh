@@ -85,7 +85,11 @@ while IFS= read -r seg; do
     has_force=false
     has_protected=false
 
-    if [[ "$seg" =~ (^|[[:space:]])(--force|--force-with-lease|-f)([[:space:]]|$) ]]; then
+    # v2.6.77: also match --force-with-lease=<ref> form. Previously the
+    # trailing `([[:space:]]|$)` required a space/EOL after the flag, so
+    # `git push --force-with-lease=origin/main main` was not detected and
+    # force-push to protected branches bypassed the gate.
+    if [[ "$seg" =~ (^|[[:space:]])(--force|--force-with-lease(=[^[:space:]]*)?|-f)([[:space:]]|$) ]]; then
       has_force=true
     fi
 

@@ -172,7 +172,12 @@ if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" !=
   CONTEXT="[CTX] tier=${TIER}"
 fi
 
-CONTEXT_JSON=$(printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
+# v2.6.77: try jq first (consistent with context-advisor.sh), python3 second,
+# bare printf as last resort. The printf branch was emitting malformed JSON if
+# CONTEXT contained any character not stripped by `tr -d '"\\'`.
+CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null \
+  || printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null \
+  || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
 if [ "$HOOK_SUPPRESS" = "false" ]; then
   printf '{"systemMessage":%s,"suppressOutput":false}\n' "$CONTEXT_JSON"
 else

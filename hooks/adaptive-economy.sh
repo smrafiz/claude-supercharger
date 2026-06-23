@@ -87,7 +87,13 @@ fi
 # Dedup: bucket PCT to nearest 10 to avoid re-injection on every prompt
 PCT_BUCKET=$(( PCT / 10 * 10 ))
 DEDUP_KEY="${PCT_BUCKET}:${TIER}"
-DEDUP_FILE="$SCOPE_DIR/.eco-last"
+# v2.6.77: per-session dedup file (matches v2.6.49 scan-alert pattern).
+# A global `.eco-last` made concurrent sessions in two projects share
+# state — session B silently skipped its own eco advisory if session A
+# had already crossed the same bucket.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+[ -z "$SID" ] && SID="default"
+DEDUP_FILE="$SCOPE_DIR/.eco-last-${SID}"
 LAST_KEY=$(cat "$DEDUP_FILE" 2>/dev/null || echo "")
 if [ "$DEDUP_KEY" = "$LAST_KEY" ]; then
   exit 0

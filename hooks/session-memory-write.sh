@@ -140,8 +140,10 @@ if [ -f "$MEMORY_FILE" ]; then
   fi
 fi
 
-# Truncate to 2000 chars
-printf '%.1200s\n' "$CONTENT" > "$MEMORY_FILE"
+# v2.6.77: comment said 2000 but code did 1200 — align to 2000 (the originally
+# intended budget) so the `decisions:` field at the line tail survives in busy
+# sessions with many open files + commits.
+printf '%.2000s\n' "$CONTENT" > "$MEMORY_FILE"
 
 echo "[Supercharger] session-memory: wrote $MEMORY_FILE" >&2
 

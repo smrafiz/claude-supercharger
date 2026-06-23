@@ -12,9 +12,13 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
-OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.output // empty' 2>/dev/null || true)
+# v2.6.77: Bash PostToolUse payloads deliver output under `.tool_response.stdout`,
+# not `.tool_response.output`. Reading only `.output` made this hook inert for
+# every Bash tool call — secrets in `cat ~/.env`, `env`, `printenv` output were
+# never scanned. Read both fields, prefer stdout (Bash) then output (Read tool).
+OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_response.output // empty' 2>/dev/null || true)
 if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_response',{}).get('output',''))" 2>/dev/null || echo "")
+  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; r=json.load(sys.stdin).get('tool_response',{}); print(r.get('stdout','') or r.get('output',''))" 2>/dev/null || echo "")
 fi
 
 [ -z "$OUTPUT" ] && exit 0

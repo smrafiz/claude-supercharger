@@ -45,8 +45,10 @@ teardown_test_home
 begin_test "thinking-budget: uses agent classification when available"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
-# Write agent classification file (fresh — within 2s)
-echo "debugger" > "$HOME/.claude/supercharger/scope/.agent-classified-test-session"
+# v2.6.77: agent-router writes the full named-persona; "Detective" lowercases to
+# include "detective" which is now the high-thinking key (was 'debugger' which
+# never matched any of the 9 real agent names).
+echo "Sherlock Holmes (Detective)" > "$HOME/.claude/supercharger/scope/.agent-classified-test-session"
 touch "$HOME/.claude/supercharger/scope/.agent-classified-test-session"
 OUTPUT=$(echo '{"prompt":"fix it","session_id":"test-session"}' | bash "$HOOK" 2>/dev/null)
 if echo "$OUTPUT" | grep -qi "THINK" && echo "$OUTPUT" | grep -qiE "complex|thorough"; then

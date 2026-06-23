@@ -7,7 +7,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 hook_profile_skip "rate-limit-advisor" && exit 0
 
 _INPUT=$(cat)
-init_hook_suppress "$PWD"
+# v2.6.77: $PWD here is the hook runner's CWD, not the project root, so
+# .supercharger-debug detection never fired. Use payload cwd like other hooks.
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
 
 HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 - <<'PYEOF'
 import json, sys, os, time

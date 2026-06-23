@@ -38,6 +38,10 @@ if [ ${#PROMPT} -lt 500 ] && [[ "$PROMPT_LOWER" =~ ^(don.t|do not|stop |never |n
     : # skip duplicate
   else
     printf '[%s] CORRECTION: %s\n' "$(date '+%Y-%m-%d %H:%M')" "$SNIPPET" >> "$LOG" 2>/dev/null || true
+    # v2.6.77: cap at 200 lines (same pattern as adaptive-economy history)
+    if [ "$(wc -l < "$LOG" 2>/dev/null || echo 0)" -gt 250 ]; then
+      tail -200 "$LOG" > "$LOG.$$.tmp" && mv "$LOG.$$.tmp" "$LOG"
+    fi
     echo "[Supercharger] learn: logged correction" >&2
   fi
   exit 0
@@ -52,6 +56,10 @@ if [ ${#PROMPT} -lt 300 ] && [[ "$PROMPT_LOWER" =~ ^(perfect|exactly|yes.*(right
     : # skip duplicate
   else
     printf '[%s] REINFORCED: %s\n' "$(date '+%Y-%m-%d %H:%M')" "$SNIPPET" >> "$LOG" 2>/dev/null || true
+    # v2.6.77: cap at 200 lines
+    if [ "$(wc -l < "$LOG" 2>/dev/null || echo 0)" -gt 250 ]; then
+      tail -200 "$LOG" > "$LOG.$$.tmp" && mv "$LOG.$$.tmp" "$LOG"
+    fi
     echo "[Supercharger] learn: logged reinforcement" >&2
   fi
   exit 0

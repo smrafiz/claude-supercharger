@@ -22,9 +22,12 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
-check_hook_disabled "human-approval-gate" && exit 0
 
+# v2.6.77: drain stdin BEFORE check_hook_disabled. Previously an early exit
+# left CC writing into a closed pipe → SIGPIPE on stricter shells (macOS).
 _INPUT=$(cat)
+
+check_hook_disabled "human-approval-gate" && exit 0
 
 # ── Check if gate is enabled ─────────────────────────────────────────────────
 GATE_ENABLED=""
@@ -41,21 +44,24 @@ except Exception:
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   # v2.6.36: walk from main worktree root if PROJECT_DIR is a linked worktree
   SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")
+  # v2.6.77: pass SEARCH_DIR via env var. Shell-interpolating it into a
+  # python3 -c string broke on paths containing single quotes (`o'malley`)
+  # — Python parse-error silently disabled the gate for that project.
   for _ in 1 2 3 4 5; do
     if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-      GATE_ENABLED=$(python3 -c "
-import json
+      GATE_ENABLED=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
+import json, os
 try:
-    with open('$SEARCH_DIR/.supercharger.json') as f:
+    with open(os.environ['SC_CFG']) as f:
         d = json.load(f)
     print('1' if d.get('humanApprovalGate') else '')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
-      SKIP_CATS=$(python3 -c "
-import json
+      SKIP_CATS=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
+import json, os
 try:
-    with open('$SEARCH_DIR/.supercharger.json') as f:
+    with open(os.environ['SC_CFG']) as f:
         d = json.load(f)
     cats = d.get('humanApprovalGateSkip', [])
     print(','.join(cats))

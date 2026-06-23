@@ -238,6 +238,12 @@ if _cat_enabled "persistence"; then
     block "shell profile modification — agent should not modify shell startup files"
   fi
 
+  # v2.6.77: tee -a bypass — `tee -a ~/.bashrc <<< 'x'` achieves the same
+  # append without a `>` redirect, so the regex above missed it.
+  if [[ "$CMD" =~ tee[[:space:]]+(-[a-zA-Z]*a[a-zA-Z]*|--append)[[:space:]]+[^|]*\.(bashrc|zshrc|profile|bash_profile|zprofile) ]]; then
+    block "shell profile modification via tee -a — agent should not modify shell startup files"
+  fi
+
   if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then
     block "SSH key operation — agent should not manage SSH keys"
   fi

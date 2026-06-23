@@ -1018,6 +1018,7 @@ echo "=== Scope Guard Tests ==="
 
 SCOPE_GUARD="$REPO_DIR/hooks/scope-guard.sh"
 
+# v2.6.77: snapshot/contract files are SID-suffixed
 begin_test "scope-guard: snapshot mode creates snapshot file"
 TMPDIR_SG=$(mktemp -d)
 git init "$TMPDIR_SG" --quiet
@@ -1025,8 +1026,8 @@ touch "$TMPDIR_SG/file.txt"
 git -C "$TMPDIR_SG" add . && git -C "$TMPDIR_SG" commit -m "init" --quiet
 SCOPE_DIR_SG="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_SG"
-bash "$SCOPE_GUARD" snapshot "$TMPDIR_SG" 2>&1
-SNAP_FILE="$SCOPE_DIR_SG/.snapshot"
+echo '{"session_id":"snap1"}' | bash "$SCOPE_GUARD" snapshot "$TMPDIR_SG" 2>&1
+SNAP_FILE="$SCOPE_DIR_SG/.snapshot-snap1"
 rm -rf "$TMPDIR_SG"
 [ -f "$SNAP_FILE" ] && pass || fail "snapshot file not created at $SNAP_FILE"
 rm -f "$SNAP_FILE"
@@ -1034,14 +1035,14 @@ rm -f "$SNAP_FILE"
 begin_test "scope-guard: clear mode removes snapshot"
 SCOPE_DIR_SG="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_SG"
-echo "commit:abc dir:/tmp time:1000" > "$SCOPE_DIR_SG/.snapshot"
-printf '{"cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear 2>&1
-[ ! -f "$SCOPE_DIR_SG/.snapshot" ] && pass || fail "snapshot not cleared"
+echo "commit:abc dir:/tmp time:1000" > "$SCOPE_DIR_SG/.snapshot-clr1"
+printf '{"session_id":"clr1","cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear 2>&1
+[ ! -f "$SCOPE_DIR_SG/.snapshot-clr1" ] && pass || fail "snapshot not cleared"
 
 begin_test "scope-guard: check mode exits cleanly when no snapshot"
 SCOPE_DIR_SG="$HOME/.claude/supercharger/scope"
-rm -f "$SCOPE_DIR_SG/.snapshot"
-INPUT=$(python3 -c "import json; print(json.dumps({'tool_input':{'file_path':'/tmp/test.txt'},'cwd':'/tmp'}))")
+rm -f "$SCOPE_DIR_SG/.snapshot-chk1"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'chk1','tool_input':{'file_path':'/tmp/test.txt'},'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SCOPE_GUARD" check 2>&1)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 when no snapshot, got exit=$EXIT"
@@ -1580,21 +1581,21 @@ echo "=== Scope Guard Contract Tests ==="
 begin_test "scope-guard: contract mode skips if contract already exists"
 SCOPE_DIR_SGC="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_SGC"
-echo "scope: tests only" > "$SCOPE_DIR_SGC/.contract"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'add a new payment module','cwd':'/tmp'}))")
+echo "scope: tests only" > "$SCOPE_DIR_SGC/.contract-ctr1"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'ctr1','prompt':'add a new payment module','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SCOPE_GUARD" contract 2>&1)
 EXIT=$?
-rm -f "$SCOPE_DIR_SGC/.contract"
+rm -f "$SCOPE_DIR_SGC/.contract-ctr1"
 [ "$EXIT" -eq 0 ] && pass || fail "expected silent exit when contract already exists, got exit=$EXIT out=$OUT"
 
 begin_test "scope-guard: contract mode creates contract file on first prompt"
 SCOPE_DIR_SGC="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_SGC"
-rm -f "$SCOPE_DIR_SGC/.contract"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'fix the login bug in src/auth.ts only, do not touch other files','cwd':'/tmp'}))")
+rm -f "$SCOPE_DIR_SGC/.contract-ctr2"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'ctr2','prompt':'fix the login bug in src/auth.ts only, do not touch other files','cwd':'/tmp'}))")
 printf '%s' "$INPUT" | bash "$SCOPE_GUARD" contract 2>/dev/null
-[ -f "$SCOPE_DIR_SGC/.contract" ] && pass || fail "expected contract file to be created"
-rm -f "$SCOPE_DIR_SGC/.contract"
+[ -f "$SCOPE_DIR_SGC/.contract-ctr2" ] && pass || fail "expected contract file to be created"
+rm -f "$SCOPE_DIR_SGC/.contract-ctr2"
 
 echo ""
 echo "=== Session Memory Inject Tests ==="
