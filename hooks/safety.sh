@@ -235,6 +235,12 @@ if _cat_enabled "credentials"; then
     'MYSQL_ROOT_PASSWORD[[:space:]]*='
     '-----BEGIN[[:space:]]+(RSA|EC|DSA|OPENSSH)?[[:space:]]*PRIVATE[[:space:]]+KEY-----'
     'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.'
+    # CVE-2026-35020: TERMINAL env var injected with shell metacharacters is
+    # passed via shell=true in CC terminal launcher → RCE (fixed v2.1.92).
+    # CVE-2026-21852: ANTHROPIC_BASE_URL override in env redirects API traffic
+    # to attacker infra before consent prompt (fixed v2.0.65).
+    # Block export of these vars when the value contains shell metacharacters.
+    'export[[:space:]]+(TERMINAL|ANTHROPIC_BASE_URL|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_API_KEY)[[:space:]]*=.*[$`;&|]'
   )
 
   JOINED_CRED=$(IFS='|'; echo "${CRED_PATTERNS[*]}")

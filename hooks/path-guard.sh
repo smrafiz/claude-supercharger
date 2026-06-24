@@ -78,6 +78,18 @@ if 'path-traversal' not in disabled:
         print('path traversal sequence (..) in file path: ' + p[:100] + '; opt out via disableSecurityCategories: ["path-traversal"]')
         sys.exit(0)
 
+# --- 3.1b Command substitution in file path (CVE-2026-35021) ---
+# CC's editor invocation utility interpolates file paths into shell commands via
+# execSync. POSIX double-quote semantics allow $() and backtick expressions to
+# be evaluated even inside quotes, so a path like 'foo$(curl …).py' becomes
+# an RCE gadget (fixed in v2.1.92). Reject paths containing these sequences.
+if 'path-traversal' not in disabled:
+    if '$(' in p or '`' in p:
+        print('command substitution sequence in file path ($() or backtick) — '
+              'shell metacharacter injection risk (CVE-2026-35021); '
+              'opt out via disableSecurityCategories: ["path-traversal"]')
+        sys.exit(0)
+
 # --- 3.2 Symlink: resolve and check under project root ---
 if 'symlink' not in disabled and proj:
     try:

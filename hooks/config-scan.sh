@@ -189,6 +189,35 @@ def scan_settings(path: Path, settings: dict):
             f'{sample}{suffix}. Plugin discovery in this session is scoped to that allowlist '
             f'(admin policy, v2.1.152+).'
         )
+
+    # --- CVE-2026-35022: auth helper fields with shell metacharacters ---
+    # apiKeyHelper and env.aws*/gcp* are passed via shell=true in CC auth flow.
+    # A malicious project settings file can inject shell metacharacters to
+    # achieve RCE through the auth helper execution path (fixed in v2.1.92+).
+    _shell_meta = re.compile(r'[\$`;|&]')
+    auth_helper_fields = [
+        ('apiKeyHelper', settings.get('apiKeyHelper') or ''),
+    ]
+    env_block = settings.get('env') or {}
+    if isinstance(env_block, dict):
+        for _k in ('awsAuthRefresh', 'awsCredentialExport', 'gcpAuthRefresh'):
+            auth_helper_fields.append((_k, env_block.get(_k) or ''))
+    for field_name, field_val in auth_helper_fields:
+        if not isinstance(field_val, str) or not field_val:
+            continue
+        m = _shell_meta.search(field_val)
+        if m:
+            sys.stderr.write(
+                f'[Supercharger] config-scan: CVE-2026-35022: {field_name} in {where} '
+                f'contains shell metachar {m.group(0)!r}\n'
+            )
+            out.append(
+                f'[SECURITY] {where} sets {field_name} to a value containing shell '
+                f'metacharacters ({m.group(0)!r}). Auth helper fields are executed via '
+                f'shell=true in Claude Code — a malicious value achieves RCE via the '
+                f'auth helper path (CVE-2026-35022, fixed v2.1.92). Verify this '
+                f'setting is intentional and remove if from an untrusted source.'
+            )
     return out
 
 settings_files = []
