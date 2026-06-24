@@ -31,9 +31,17 @@ begin_test "normalize_cmd: strips command prefix"
 OUT=$(normalize_cmd "command ls")
 [ "$OUT" = "ls" ] && pass || fail "got: '$OUT'"
 
-begin_test "normalize_cmd: strips env prefix"
+begin_test "normalize_cmd: strips env prefix AND inline env-vars (v2.6.80)"
 OUT=$(normalize_cmd "env FOO=bar ls")
-[ "$OUT" = "FOO=bar ls" ] && pass || fail "got: '$OUT'"
+[ "$OUT" = "ls" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: strips bare inline env-var prefix (v2.6.80)"
+OUT=$(normalize_cmd "PATH=/usr/bin ls")
+[ "$OUT" = "ls" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: strips multiple chained inline env-vars (v2.6.80)"
+OUT=$(normalize_cmd "FOO=bar PATH=/usr/bin BAZ=qux ls -la")
+[ "$OUT" = "ls -la" ] && pass || fail "got: '$OUT'"
 
 begin_test "normalize_cmd: strips nested sudo+command prefixes"
 OUT=$(normalize_cmd "sudo command rm -rf /tmp/x")

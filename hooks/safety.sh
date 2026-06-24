@@ -111,7 +111,10 @@ if _cat_enabled "filesystem"; then
       fi
 
       if $has_recursive && $has_force; then
-        if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|\$HOME|\.\.)([[:space:]]|$) ]]; then
+        # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
+        # tightened to catch `~/` and `$HOME/` (with trailing slash) since
+        # `rm -rf ~/` and `rm -rf $HOME/` are equally destructive.
+        if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
           block "recursive force rm on dangerous target"
         fi
         # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
@@ -223,7 +226,12 @@ if _cat_enabled "credentials"; then
   )
 
   JOINED_CRED=$(IFS='|'; echo "${CRED_PATTERNS[*]}")
-  if printf '%s\n' "$CMD" | LC_ALL=C grep -qE "$JOINED_CRED"; then
+  # v2.6.80: scan the ORIGINAL command, not the normalized one. cmd-normalize
+  # strips leading `VAR=value` env-var assignments, which is correct for the
+  # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
+  # but it would hide credential leaks like `API_KEY=secret123 echo done`
+  # where the secret IS the env-var value.
+  if printf '%s\n' "$COMMAND" | LC_ALL=C grep -qE "$JOINED_CRED"; then
     block "potential credential in command — never embed secrets in commands"
   fi
 fi

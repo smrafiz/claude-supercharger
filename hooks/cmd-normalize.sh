@@ -12,6 +12,14 @@ normalize_cmd() {
   while [[ "$cmd" =~ ^(sudo|command|env)[[:space:]]+ ]]; do
     cmd="${cmd#${BASH_REMATCH[0]}}"
   done
+  # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
+  # Fuzz harness found this bypass: `env FOO=bar rm -rf /` stripped to
+  # `FOO=bar rm -rf /` and the first token check saw `FOO=bar` instead of `rm`,
+  # so the rm-deny rules never fired. Same applies to bare `PATH=/usr/bin rm`
+  # without `env`. Loop until no leading assignment remains.
+  while [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do
+    cmd="${cmd#${BASH_REMATCH[0]}}"
+  done
   cmd=$(printf '%s\n' "$cmd" | tr -s ' ')
   printf '%s\n' "$cmd"
 }
@@ -66,10 +74,19 @@ segments.append(''.join(buf))
 
 # Strip leading sudo/command/env (mirrors normalize_cmd)
 prefixes = re.compile(r'^(sudo|command|env)\s+')
+# v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
+# Same bypass class found in normalize_cmd — segments after a separator can
+# also start with FOO=bar (`echo x; FOO=bar rm -rf /` chains).
+env_var = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=\S*\s+')
 for seg in segments:
     seg = seg.strip()
     while True:
         m = prefixes.match(seg)
+        if not m:
+            break
+        seg = seg[m.end():].lstrip()
+    while True:
+        m = env_var.match(seg)
         if not m:
             break
         seg = seg[m.end():].lstrip()
