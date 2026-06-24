@@ -68,4 +68,21 @@ begin_test "env-guard: blocks redirect to .env (write)"
 run_input '{"tool_name":"Bash","tool_input":{"command":"echo SECRET=foo > .env"}}'
 [ "$?" = "2" ] && pass || fail "redirect to .env not blocked"
 
+# v2.6.83: /proc and /sys reads — process-env exfil vector
+begin_test "env-guard: blocks Read of /proc/self/environ (v2.6.83)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proc/self/environ"}}'
+[ "$?" = "2" ] && pass || fail "/proc/self/environ Read not blocked"
+
+begin_test "env-guard: blocks Read of /proc/<pid>/environ (v2.6.83)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proc/12345/environ"}}'
+[ "$?" = "2" ] && pass || fail "/proc/<pid>/environ Read not blocked"
+
+begin_test "env-guard: blocks Read of /sys/* (v2.6.83)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/sys/class/net/eth0/address"}}'
+[ "$?" = "2" ] && pass || fail "/sys Read not blocked"
+
+begin_test "env-guard: allows Read of unrelated absolute path"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/tmp/normal.txt"}}'
+[ "$?" = "0" ] && pass || fail "regular /tmp Read incorrectly blocked"
+
 report

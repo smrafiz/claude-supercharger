@@ -164,7 +164,19 @@ PYEOF
 fi
 
 # --- Dangerous patterns (category: database, destructive, network) ---
-DB_PATTERNS=('DROP[[:space:]]+TABLE' 'DROP[[:space:]]+DATABASE')
+# v2.6.83: ORM schema-drop with --force/--force-reset. Real incident:
+# drizzle-kit push --force on Railway PostgreSQL wiped 60+ tables (Feb 2026).
+# Agent picks --force specifically to bypass the interactive confirmation
+# stdin prompt — nothing else catches it because no `rm` is invoked.
+DB_PATTERNS=(
+  'DROP[[:space:]]+TABLE' 'DROP[[:space:]]+DATABASE'
+  'drizzle-kit[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force([[:space:]]|$)'
+  'prisma[[:space:]]+db[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force-reset([[:space:]]|$)'
+  'prisma[[:space:]]+migrate[[:space:]]+reset'
+  'typeorm[[:space:]]+schema:drop'
+  'sequelize[[:space:]]+db:drop'
+  'knex[[:space:]]+migrate:rollback[[:space:]]+([^&|;]*[[:space:]])?--all([[:space:]]|$)'
+)
 DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+(-R[[:space:]]+)?777' 'mkfs\.' 'dd[[:space:]]+if='
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'

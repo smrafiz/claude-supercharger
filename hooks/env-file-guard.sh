@@ -54,10 +54,22 @@ if [ "$TOOL" = "Bash" ]; then
   exit 0
 fi
 
-# Read tool: block reading .env files directly
+# Read tool: block reading .env files + /proc and /sys (process env exfil)
 if [ "$TOOL" = "Read" ]; then
   FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
   [ -z "$FILE_PATH" ] && exit 0
+
+  # v2.6.83: block /proc/<pid>/environ and /sys reads. Real incident: GitHub
+  # issue-body prompt injection caused agent to Read /proc/self/environ,
+  # exposing ANTHROPIC_API_KEY + GITHUB_TOKEN, which were then posted as a
+  # PR comment (CC v2.1.128 fix, May 2026). Block at the Read input rather
+  # than relying on output-secrets-scanner to catch the values downstream.
+  case "$FILE_PATH" in
+    /proc/*|/sys/*)
+      block "Read of $FILE_PATH blocked — /proc and /sys may expose process env (e.g. /proc/self/environ contains ANTHROPIC_API_KEY)" "$FILE_PATH"
+      ;;
+  esac
+
   base=$(basename "$FILE_PATH")
   case "$base" in
     .env.example|.env.template|.env.sample|.env.dist) exit 0 ;;

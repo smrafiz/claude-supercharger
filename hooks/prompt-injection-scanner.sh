@@ -21,10 +21,15 @@ except Exception:
     sys.exit(0)
 
 tool_name = d.get('tool_name') or ''
-if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch')):
+# v2.6.83: include Read so file-content injections (GitHub issues read via
+# `gh issue view`, malicious README, poisoned PR body in `gh pr view`) are
+# scanned for instruction-override markers.
+if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch', 'Read')):
     sys.exit(0)
 
-output = (d.get('tool_response') or {}).get('output') or ''
+resp = d.get('tool_response') or {}
+# Read payloads use `.content`; MCP/Web tools use `.output`. Try both.
+output = resp.get('output') or resp.get('content') or ''
 if not output:
     sys.exit(0)
 

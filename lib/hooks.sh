@@ -30,7 +30,11 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/bash-output-compactor.sh|")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
-  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
+  # v2.6.83: include Read so file content (issue bodies, PRs, docs) is scanned
+  # for injection markers — OWASP ASI01 + multiple real-world incidents where
+  # the agent followed instructions embedded in a Read file (e.g. GitHub issue
+  # title prompt-injecting `npm publish` with a stolen token).
+  hooks+=("PostToolUse|mcp__,WebFetch,WebSearch,Read|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")

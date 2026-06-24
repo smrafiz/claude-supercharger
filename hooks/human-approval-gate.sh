@@ -76,6 +76,24 @@ except Exception:
   done
 fi
 
+# v2.6.83: high-risk subset is gated BY DEFAULT — even when humanApprovalGate
+# is unset. These are the unrecoverable shapes with documented real-world
+# incidents (terraform destroy, prisma migrate reset, drizzle-kit push --force,
+# DROP DATABASE). Opt-out: set `humanApprovalGate: false` in .supercharger.json
+# or `SUPERCHARGER_NO_HUMAN_GATE_DEFAULT=1` env var.
+if [ -z "$GATE_ENABLED" ] && [ "${SUPERCHARGER_NO_HUMAN_GATE_DEFAULT:-0}" != "1" ]; then
+  COMMAND_PEEK=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json
+try:
+    print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))
+except Exception:
+    print('')
+" 2>/dev/null || echo "")
+  if printf '%s\n' "$COMMAND_PEEK" | grep -qiE '(terraform[[:space:]]+destroy|prisma[[:space:]]+migrate[[:space:]]+reset|drizzle-kit[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force([[:space:]]|$)|drop[[:space:]]+database|kubectl[[:space:]]+delete[[:space:]]+namespace)'; then
+    GATE_ENABLED="1"
+  fi
+fi
+
 [ -z "$GATE_ENABLED" ] && exit 0
 
 # ── Extract command ───────────────────────────────────────────────────────────

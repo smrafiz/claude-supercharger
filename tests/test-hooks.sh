@@ -261,6 +261,27 @@ begin_test "safety: DROP DATABASE is blocked"
 run_hook "$SAFETY_HOOK" "psql -c 'DROP DATABASE mydb'"
 assert_exit_code 2 $? && pass
 
+# v2.6.83: ORM schema-drop --force patterns (real incident: drizzle-kit push --force Feb 2026)
+begin_test "safety: drizzle-kit push --force is blocked (v2.6.83)"
+run_hook "$SAFETY_HOOK" "drizzle-kit push --force"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: prisma db push --force-reset is blocked (v2.6.83)"
+run_hook "$SAFETY_HOOK" "prisma db push --force-reset"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: prisma migrate reset is blocked (v2.6.83)"
+run_hook "$SAFETY_HOOK" "prisma migrate reset"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: typeorm schema:drop is blocked (v2.6.83)"
+run_hook "$SAFETY_HOOK" "typeorm schema:drop"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: drizzle-kit push (no --force) is allowed"
+run_hook "$SAFETY_HOOK" "drizzle-kit push"
+assert_exit_code 0 $? && pass
+
 begin_test "safety: chmod 777 /tmp/test is blocked"
 run_hook "$SAFETY_HOOK" "chmod 777 /tmp/test"
 assert_exit_code 2 $? && pass
