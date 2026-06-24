@@ -30,6 +30,10 @@ fi
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
+# Detect subagent origin (CC v2.1.186+): agent_id present in common fields
+# when PermissionRequest comes from a background subagent surfaced in main session.
+AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)
+
 allow_tool() {
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
   printf '{"permissionDecision":"allow","reason":"auto-approved read-only tool %s"}\n' "$TOOL_NAME"
@@ -84,6 +88,15 @@ if [ "$TOOL_NAME" = "Bash" ]; then
   fi
 
   [ -z "$COMMAND" ] && exit 0
+
+  # v2.6.80: subagent-originated PermissionRequests (CC v2.1.186+) now surface
+  # in the main session. Skip Bash auto-approval for subagent requests — the
+  # user delegating a task should not implicitly grant the agent open shell access.
+  # Read-only tool approvals (Read/Glob/Grep/LS) above are unaffected.
+  if [ -n "${AGENT_ID:-}" ]; then
+    echo "[Supercharger] smart-approve: skipping Bash auto-approve (subagent ${AGENT_ID})" >&2
+    exit 0
+  fi
 
   BASE_CMD=$(printf '%s\n' "$COMMAND" | awk '{print $1}')
 
