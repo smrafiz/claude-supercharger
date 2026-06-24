@@ -67,11 +67,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = 99 hooks total (commit-check is opt-in, not counted here)
-if [ "$HOOK_COUNT" -eq 99 ]; then
+# Full mode + developer = 102 hooks total (commit-check is opt-in, not counted here)
+if [ "$HOOK_COUNT" -eq 102 ]; then
   pass
 else
-  fail "expected 99 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 102 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -140,11 +140,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner = 5
-if [ "$HOOK_COUNT" -eq 19 ]; then
+# Safe mode = safety + smart-approve + audit-trail + trace-compactor +
+# injection-scanner + per-MCP guards (v2.6.84: github/playwright/sql) = 22
+if [ "$HOOK_COUNT" -eq 22 ]; then
   pass
 else
-  fail "expected 19 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 22 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -173,11 +174,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# standard maps to full = 99 hooks (with developer, commit-check is opt-in)
-if [ "$HOOK_COUNT" -eq 99 ]; then
+# standard maps to full = 102 hooks (with developer, commit-check is opt-in)
+if [ "$HOOK_COUNT" -eq 102 ]; then
   pass
 else
-  fail "expected 99 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 102 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

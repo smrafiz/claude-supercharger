@@ -36,13 +36,22 @@ if not output:
 normalized = unicodedata.normalize('NFKC', output).lower()
 
 patterns = (
-    (re.compile(r'ignore (all |your )?(previous|above|prior) instructions'),         'instruction override'),
+    # v2.6.84: broadened P1 to cover garak "Ignore the above directions",
+    # OWASP "ignore any previous instructions", and command/directions variants.
+    (re.compile(r'ignore (all |your |any |the )?(previous|above|prior|following) (instructions?|directions?|commands?)'), 'instruction override'),
     (re.compile(r'you are now\b'),                                                   'persona hijack'),
     (re.compile(r'new instructions?:'),                                              'instruction injection'),
-    (re.compile(r'system prompt'),                                                   'system prompt leak'),
-    (re.compile(r'disregard (your|all|the)'),                                        'instruction discard'),
+    # v2.6.84: narrowed `system prompt` to action-verb context to cut FPs on
+    # AI blogs / LLM docs fetched via WebFetch.
+    (re.compile(r'(reveal|leak|print|output|show|return|expose|include|repeat) (the |your |my )?system prompt'), 'system prompt leak'),
+    # v2.6.84: added 'any' to alternation (PayloadsAllTheThings canonical form).
+    (re.compile(r'disregard (your|all|the|any)'),                                    'instruction discard'),
     (re.compile(r'forget (your|all|previous|what)'),                                 'memory wipe'),
     (re.compile(r'act as (a |an )?(different|new|evil|uncensored)'),                 'role override'),
+    # v2.6.84: pretend/virtualization shape — entire DAN corpus uses this.
+    (re.compile(r'pretend (you are|to be)\b'),                                       'virtualization jailbreak'),
+    # v2.6.84: authority-shift opener documented in OWASP injection payloads.
+    (re.compile(r'from now on[,\s]'),                                                'authority shift'),
     (re.compile(r'jailbreak'),                                                       'jailbreak'),
     (re.compile(r'<\|im_start\|>'),                                                  'token injection'),
     (re.compile(r'<\|system\|>'),                                                    'token injection'),

@@ -30,6 +30,13 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/bash-output-compactor.sh|")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
+  # v2.6.84: per-server MCP write gates. Real CVEs / incidents:
+  # github write-gate → Invariant Labs May 2025 cross-repo exfil;
+  # playwright guard → CVE-2025-9611 + GH #1495 / #1651;
+  # sql guard → Supabase 2025 service-role injection.
+  hooks+=("PreToolUse|mcp__github__|${hooks_dir}/mcp-github-write-gate.sh|")
+  hooks+=("PreToolUse|mcp__playwright__,mcp__puppeteer__|${hooks_dir}/mcp-playwright-guard.sh|")
+  hooks+=("PreToolUse|mcp__postgres__,mcp__supabase__,mcp__mysql__,mcp__sqlite__|${hooks_dir}/mcp-sql-guard.sh|")
   # v2.6.83: include Read so file content (issue bodies, PRs, docs) is scanned
   # for injection markers — OWASP ASI01 + multiple real-world incidents where
   # the agent followed instructions embedded in a Read file (e.g. GitHub issue
