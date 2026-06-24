@@ -1492,6 +1492,16 @@ INPUT=$(python3 -c "import json; print(json.dumps({'agent_type':'Tony Stark (Eng
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
 python3 -c "import json,sys; json.loads(sys.argv[1])" "$OUT" 2>/dev/null && pass || fail "expected valid JSON output, got: $OUT"
 
+begin_test "subagent-safety: injects report-pin path with agent-id (v2.6.82)"
+INPUT=$(python3 -c "import json; print(json.dumps({'agent_id':'a-report-test-1','agent_type':'detective','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
+echo "$OUT" | grep -q "subagent-reports/a-report-test-1.md" && pass || fail "expected report-pin path with agent-id: $OUT"
+
+begin_test "subagent-safety: report-pin instruction mentions Write tool as LAST tool call (v2.6.82)"
+INPUT=$(python3 -c "import json; print(json.dumps({'agent_id':'a-pin-2','agent_type':'general-purpose','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
+echo "$OUT" | grep -qi "write tool" && echo "$OUT" | grep -qi "last tool call" && pass || fail "report-pin missing Write+LAST language: $OUT"
+
 echo ""
 echo "=== Agent Handoff Gate Tests ==="
 
