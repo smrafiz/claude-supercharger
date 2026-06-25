@@ -91,6 +91,9 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse||${hooks_dir}/slow-tool-detector.sh|async")
     hooks+=("Stop|*|${hooks_dir}/stop-keep-going.sh|")
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-stop-check.sh|")
+    # v2.7.1: auto-recover subagent reports when the agent ignores the
+    # report-pin instruction from subagent-safety.sh. async — pure scrape.
+    hooks+=("SubagentStop|*|${hooks_dir}/subagent-report-fallback.sh|async")
     hooks+=("PostToolUseFailure||${hooks_dir}/tool-failure-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
