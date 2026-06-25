@@ -2,7 +2,14 @@
 
 Internal launch plan for getting Supercharger in front of Claude Code users. Not user-facing docs — gitignore if you don't want it public.
 
-**Status:** v2.6.82 shipped. 1018 tests passing. Production-ready but underleveraged. Goal: 10× stars in 90 days.
+**Status:** v2.7.1 shipped (MINOR milestone v2.7.0 cut after v2.6.85). 1071 tests passing. 103 hooks (full) / 22 (safe). Production-ready but underleveraged. Goal: 10× stars in 90 days.
+
+**Recent narrative arc** (use these in HN/X/blog hooks — they're real, not marketing):
+- Built after CC v2.1.176 silently stopped firing PreToolUse:Bash hooks → wiped a project of mine with `rm -rf <abs-path>` (filed as anthropics/claude-code#69970)
+- Fuzz harness landed v2.6.81 — 4655 mutations found 3 real bypasses I'd missed (env-var prefix, `${HOME}` braced, credential-via-env-var regression)
+- Per-MCP server safety hooks in v2.6.84 — closed CVE-2025-9611 (Playwright), Invariant Labs May 2025 (GitHub MCP cross-repo exfil), Supabase 2025 (SQL injection via support ticket)
+- CVE-2026-35020/35021/35022 closed v2.6.85 — TERMINAL env injection, file-path command substitution, auth helper shell injection
+- v2.7.1 SubagentStop auto-fallback closes the "subagent ignored my instruction" gap from v2.6.82's report-pin workaround — every subagent run now produces a recoverable disk report regardless of compliance
 
 ---
 
@@ -57,7 +64,7 @@ Pin one issue titled "v2.7 Roadmap — feedback wanted". Lists ~5 next-feature i
 
 ### 0.6 GitHub Releases
 
-You've been tagging (v2.6.82 just landed). Make sure each tag has a release with the CHANGELOG entry as the body. `gh release create v2.6.82 --notes-from-tag` if not auto-published.
+You've been tagging (v2.7.1 just landed; v2.7.0 has a GitHub Release with consolidated notes). Make sure each future tag has a release with the CHANGELOG entry as the body. `gh release create vX.Y.Z --notes-from-tag` if not auto-published.
 
 ---
 
@@ -72,8 +79,8 @@ DM 5-10 people personally with: link, 2-line context, ask for star. Not for upvo
 ### 1.2 awesome-claude-code card update (issue #2096)
 
 Already submitted, validation-passed. Comment on the issue with:
-- v2.6.82 changelog highlights
-- Test count 1018
+- v2.7.0 + v2.7.1 changelog highlights (consolidates 14 patch releases + subagent auto-recovery)
+- Test count 1071
 - Quote a real bug we caught (the rm -rf project-wipe incident is your best story)
 - Ask maintainer to bump card prominence
 
@@ -101,7 +108,7 @@ Sequence matters: HN first (highest reach, hardest to time), then Reddit (warm),
 ```
 Author here. Built this after Claude wiped a project of mine with `rm -rf /Users/.../creative-shapes-theme` on a CC v2.1.176 bug where PreToolUse:Bash hooks silently stopped firing (filed as anthropics/claude-code#69970).
 
-Supercharger runs ~99 shell hooks outside Claude's process. The model can't see them, can't prompt-engineer around them. They block destructive commands, scan tool output for secrets, manage token economy tiers, route prompts to named agents, etc.
+Supercharger runs ~103 shell hooks outside Claude's process. The model can't see them, can't prompt-engineer around them. They block destructive commands, scan tool output for secrets, manage token economy tiers, route prompts to named agents, etc.
 
 Three things that make it different from "safer prompt" approaches:
 1. Zero context-window cost — rules live in shell, not your prompt
@@ -151,12 +158,26 @@ can't prompt-engineer around them.
 - session memory persistence
 
 **The story:** Built it after CC wiped my project on a silent hook
-regression (filed #69970). Now ships 1018 tests + fuzz harness.
+regression (filed #69970). Now ships 1071 tests + fuzz harness.
 
 GIF demo + repo: <link>
 
 Open to feedback on what else to block.
 ```
+
+**Updated bullet list to use** (replace the older one above):
+
+**What it catches now (v2.7.1):**
+- `rm -rf` on `/`, `~`, `$PWD`, `$(pwd)`, `${HOME}`, `..` (incl. inline env-var prefix bypass: `env FOO=bar rm -rf /`)
+- ORM schema-drop: `drizzle-kit push --force`, `prisma migrate reset`, `typeorm schema:drop`, `sequelize db:drop`, `knex migrate:rollback --all`
+- `terraform destroy`, `kubectl delete namespace` (default-on)
+- `git push --force` / `--force-with-lease=<ref>` to main/master
+- credentials in commands (AWS, GitHub PAT, OpenAI sk-, Stripe, GCP, npm, pypi, JWT)
+- `/proc/self/environ` and `/sys/*` Read blocks (CC v2.1.128 fix replicated)
+- 9 disclosed CVEs (CVE-2025-9611, -59536, CVE-2026-21852, -26268, -33068, -35020, -35021, -35022 + the OWASP set)
+- per-MCP server attack surfaces: GitHub (push/merge/delete), Playwright (browser_run_code_unsafe + SSRF), Postgres/Supabase (DROP/TRUNCATE/DELETE)
+- prompt injection in MCP/Web/Read tool output (22 patterns, ~85% recall on Giskard/garak/PayloadsAllTheThings)
+- subagent return-channel degradation (auto-recovery via SubagentStop fallback in v2.7.1)
 
 **Cross-post:** r/programming (highest reach but stricter mods), r/devops (warm), r/MachineLearning (skip — wrong audience).
 
@@ -178,7 +199,7 @@ So I built shell-level guardrails that the model can't see and can't override. �
 
 **Tweet 3:** specific blocks — rm -rf, force-push, secret-leak. Screenshot of a real block message.
 
-**Tweet 4:** the v2.1.186 subagent return-channel bug — 80-tool subagent reports lost to "Ready.". Show the workaround we built.
+**Tweet 4:** the v2.1.176+ subagent return-channel bug — 80-tool subagent report lost to "Ready.". Show the v2.6.82 instruction + v2.7.1 SubagentStop auto-recovery: every subagent's full report now ends up on disk regardless of compliance.
 
 **Tweet 5:** zero-context-cost claim. The competitive frame vs prompt-based safety.
 
@@ -273,7 +294,7 @@ other patterns.
 
 Unlike prompt-based "be careful" approaches, Supercharger costs zero
 context tokens (rules live in shell) and physically prevents the dangerous
-action (exit 2 deny, not advisory). 1018 tests, MIT licensed, runs on
+action (exit 2 deny, not advisory). 1071 tests, MIT licensed, runs on
 macOS + Linux. Ships as a one-line install or a Claude Code plugin.
 ```
 
