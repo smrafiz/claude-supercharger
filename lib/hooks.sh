@@ -23,6 +23,10 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/path-guard.sh|")
+  # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
+  # auto-loaded every SessionStart, so a poisoned write compromises all future
+  # sessions — must be in safe mode, not just full.
+  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/memory-write-guard.sh|")
   hooks+=("PreToolUse|Bash|${hooks_dir}/tool-preferences.sh|")
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
@@ -42,6 +46,9 @@ get_hooks_for_mode() {
   # the agent followed instructions embedded in a Read file (e.g. GitHub issue
   # title prompt-injecting `npm publish` with a stolen token).
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch,Read|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
+  # v2.7.2: structural provenance check on MCP results — forged tool-call/system
+  # framing the prompt-injection-scanner's persuasion patterns don't cover (ASI04).
+  hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-provenance.sh|asyncRewake")
   hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
@@ -80,6 +87,9 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     hooks+=("PreToolUse|WorktreeCreate,WorktreeRemove|${hooks_dir}/worktree-discovery.sh|async")
+    # v2.7.2: runaway fan-out / recursion breaker (OWASP ASI08). Blocking gate,
+    # so NOT async — must run before the spawn proceeds.
+    hooks+=("SubagentStart||${hooks_dir}/subagent-circuit-breaker.sh|")
     hooks+=("SubagentStart|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("MessageDisplay|*|${hooks_dir}/messagedisplay-discovery.sh|async")
