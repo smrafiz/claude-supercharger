@@ -138,13 +138,20 @@ if 'selfmod' not in disabled:
         os.path.join(home, '.claude', 'supercharger', 'scope', '.disabled-hooks'),
         os.path.join(home, '.claude', 'settings.json'),
         os.path.join(home, '.claude', 'CLAUDE.md'),
+        # v2.7.5: MCP server config. Real incident: "SymJack" (May 2026) — a
+        # symlink disguised as a doc resolved to the user's MCP config on copy,
+        # inserting an attacker-controlled MCP server that auto-spawns with full
+        # privileges next session. ~/.claude.json holds the mcpServers map.
+        os.path.join(home, '.mcp.json'),
+        os.path.join(home, '.claude.json'),
     ]
     if any(p == t for t in selfmod_targets):
         print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
-    # Project-level: .supercharger.json (any depth — could be repo root or nested)
-    # and project-local .claude/settings.json.
-    if p.endswith('/.supercharger.json') or p.endswith('/.claude/settings.json') or p.endswith('/.claude/settings.local.json'):
+    # Project-level: .supercharger.json (any depth — could be repo root or nested),
+    # project-local .claude/settings.json, and .mcp.json (SymJack — MCP server
+    # insertion via a project-scoped config write).
+    if p.endswith('/.supercharger.json') or p.endswith('/.claude/settings.json') or p.endswith('/.claude/settings.local.json') or p.endswith('/.mcp.json'):
         print('self-modification — agent should not edit project guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
 

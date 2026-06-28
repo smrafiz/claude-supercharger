@@ -98,4 +98,27 @@ OUT=$(echo "$INPUT" | bash "$HOOK" 2>&1)
 echo "$OUT" | grep -qi "command substitution" && fail "false positive: $OUT" || pass
 rm -rf "$PROJ"
 
+# v2.7.5: SymJack — block writes to MCP server config that would insert an
+# attacker-controlled server (auto-spawns with full privileges next session).
+begin_test "path-guard: blocks project .mcp.json write (SymJack, v2.7.5)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.mcp.json","content":"{}"},"cwd":"%s"}' "$PROJ" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "expected 2 for .mcp.json write"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks ~/.mcp.json write (SymJack, v2.7.5)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.mcp.json","content":"{}"},"cwd":"%s"}' "$HOME" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "expected 2 for ~/.mcp.json write"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks ~/.claude.json write (SymJack, v2.7.5)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.claude.json","content":"{}"},"cwd":"%s"}' "$HOME" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "expected 2 for ~/.claude.json write"
+rm -rf "$PROJ"
+
 report

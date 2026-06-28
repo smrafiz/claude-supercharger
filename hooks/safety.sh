@@ -189,6 +189,13 @@ NETWORK_PATTERNS=(
   '(^|;|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
   'base64.*\|.*(bash|sh|zsh)' '<<<.*\|.*(bash|sh|zsh)'
+  # v2.7.5: `ps` env-dump piped to an encoder/exfil channel. Real incident:
+  # "Comment and Control" (CVSS 9.4, Apr 2026) — PR-title injection ran
+  # `ps auxeww | base64` to read every process's environment (ANTHROPIC_API_KEY,
+  # GITHUB_TOKEN) and exfil it base64-encoded via a PR comment, bypassing secret
+  # scanning. Gated on the `e` (env) flag AND a base64/network pipe, so the
+  # ubiquitous `ps aux | grep` / `ps -ef | grep` stay allowed.
+  'ps[[:space:]]+[a-z-]*e[a-z-]*.*\|.*(base64|curl|wget|ncat|[[:space:]]nc[[:space:]]|xxd|openssl[[:space:]]+enc)'
 )
 
 DANGEROUS_PATTERNS=()
