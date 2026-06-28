@@ -308,7 +308,8 @@ fi
 # Fast-path: skip the fork unless the command contains a trigger keyword.
 _NEED_PY=false
 case "$CMD" in
-  *python*\ -c*|*node\ -e*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
+  *python*\ -c*|*node\ -e*|*node\ --eval*|*node\ -p*|*node\ --print*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
+  *npx*\ -c*|*deno\ eval*|*bun\ -e*|*bun\ --eval*) _NEED_PY=true ;;
   *.env*|*.npmrc*|*.pypirc*|*.pgpass*|*.netrc*|*.git-credentials*|*id_rsa*|*id_ed25519*|*id_ecdsa*|*id_dsa*|*.pem*|*.key*|*.p12*|*.pfx*|*.ppk*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;

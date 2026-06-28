@@ -9,6 +9,25 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
+# v2.7.3: bash fast-path. All 20 anti-patterns below require a trigger verb, so
+# prompts with none (confirmations like "yes"/"go"/"next", bare file paths, short
+# replies) can skip the ~30ms python fork. Lowercase once via tr (~2ms) so the
+# keyword list stays single-case. Keep this list aligned with the python patterns
+# below — any trigger word added there must have a substring here, or that check
+# becomes unreachable. Over-firing into python is harmless (it just exits).
+_LC=$(printf '%s' "$_INPUT" | tr '[:upper:]' '[:lower:]' 2>/dev/null || printf '%s' "$_INPUT")
+case "$_LC" in
+  *fix*|*updat*|*chang*|*improv*|*make*|*optim*|*clean*|*broke*|*broken*|*messed*|*'nothing works'*|\
+  *build*|*creat*|*'full app'*|*whole*|*'and also'*|*'and then'*|*' plus '*|*addition*|\
+  *modif*|*discuss*|*talked*|*' thing'*|*continu*|*'keep going'*|*remember*|*'already know'*|\
+  *'look '*|*writ*|*generat*|*produc*|*report*|*summ*|*analy*|*refactor*|*extract*|*' move '*|\
+  *rename*|*split*|*merge*|*inline*|*rewrit*|*redesign*|*rebuild*|*restructur*|*overhaul*|*rearchitect*|\
+  *'set up'*|*configur*|*deploy*|*migrat*|*initial*|*bootstrap*|*explain*|*describ*|*'tell me'*|\
+  *'what is'*|*'act as'*|*pretend*|*'you are a'*|*behave*|*roleplay*|*install*|*' add '*|*upgrad*|\
+  *error*|*' bug'*|*'not working'*|*fail*|*crash*|*' test '*) ;;
+  *) exit 0 ;;
+esac
+
 # v2.6.30: one python3 fork replaces 1 jq + 1 python3 prompt extract + ~30
 # separate `grep -qiE` forks (one per anti-pattern check, sometimes two for
 # negative match guards). Was 70ms with all those subprocess starts; now

