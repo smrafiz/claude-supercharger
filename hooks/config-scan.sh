@@ -179,6 +179,19 @@ def scan_settings(path: Path, settings: dict):
             f'a cloned repo you do not fully trust, remove the entry before continuing.'
         )
 
+    # --- TrustFall (no CVE, May 2026, Anthropic won't patch): a cloned repo
+    # ships settings with enableAllProjectMcpServers:true so every server in
+    # project .mcp.json auto-spawns as an unsandboxed OS process the moment the
+    # folder-trust dialog is accepted — no per-server prompt. In headless CI no
+    # dialog appears at all. Surface it so the user reviews .mcp.json first.
+    if settings.get('enableAllProjectMcpServers') is True:
+        out.append(
+            f'[SECURITY] {where} sets enableAllProjectMcpServers — every server in '
+            f'project .mcp.json auto-starts as an UNSANDBOXED OS process on folder-trust, '
+            f'with no per-server prompt (TrustFall, unpatched). Review .mcp.json before '
+            f'trusting this folder; remove the flag if this repo is not fully trusted.'
+        )
+
     plugin_marketplaces = settings.get('pluginSuggestionMarketplaces')
     if isinstance(plugin_marketplaces, list) and plugin_marketplaces:
         sample = ', '.join(plugin_marketplaces[:3])
@@ -240,6 +253,58 @@ for path, settings in settings_files:
     if new_warnings:
         sys.stderr.write(f'[Supercharger] config-scan: settings.json risk detected in {path}\n')
         warnings.extend(new_warnings)
+
+# --- TrustFall / SymJack: project .mcp.json defines stdio MCP servers that
+# spawn as OS processes. A cloned repo can ship a server whose command is a
+# binary/script carried in the repo (relative path, project-local path, or a
+# project-local script passed to an interpreter) — that runs with full user
+# privileges on trust. Flag those; stay quiet for well-known launchers
+# (npx/uvx/docker/...) with no project-local path, to keep FP low.
+def _mcp_server_risk(server, project_dir):
+    if not isinstance(server, dict):
+        return None
+    cmd = server.get('command') or ''
+    if not isinstance(cmd, str) or not cmd:
+        return None  # http/sse servers have no command — not a spawn vector here
+    args = server.get('args') if isinstance(server.get('args'), list) else []
+    argstr = ' '.join(str(a) for a in args if isinstance(a, (str, int, float)))
+    reasons = []
+    rp = os.path.realpath(project_dir) if project_dir else ''
+    if cmd.startswith('./') or cmd.startswith('../'):
+        reasons.append('relative command path')
+    elif '/' in cmd and not os.path.isabs(cmd):
+        reasons.append('relative command path')
+    elif os.path.isabs(cmd) and rp and os.path.realpath(cmd).startswith(rp):
+        reasons.append('command points inside the project dir')
+    if re.search(r'(^|\s)(\./|\.\./)', argstr):
+        reasons.append('runs a project-local script (relative path in args)')
+    if rp:
+        for a in args:
+            if isinstance(a, str) and a.startswith('/') and os.path.realpath(a).startswith(rp):
+                reasons.append('an argument references a path inside the project')
+                break
+    return reasons or None
+
+mcp_json = Path(project_dir) / '.mcp.json'
+if mcp_json.is_file():
+    try:
+        with mcp_json.open() as f:
+            mcp_data = json.load(f)
+    except Exception:
+        mcp_data = None
+    servers = (mcp_data or {}).get('mcpServers') or {}
+    if isinstance(servers, dict):
+        for name, server in servers.items():
+            reasons = _mcp_server_risk(server, project_dir)
+            if reasons:
+                cmd = (server.get('command') or '')[:60]
+                sys.stderr.write(f'[Supercharger] config-scan: risky MCP server "{name}" in .mcp.json — {reasons}\n')
+                warnings.append(
+                    f"[SECURITY] Project .mcp.json server '{name}' {', '.join(reasons)} "
+                    f"(command: {cmd}). A cloned repo can ship a malicious MCP binary/script "
+                    f"that spawns with full user privileges on folder-trust (TrustFall/SymJack). "
+                    f"Verify this server is intentional before trusting this folder."
+                )
 
 if not warnings:
     sys.exit(0)

@@ -1883,6 +1883,48 @@ OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1
 rm -rf "$TMPDIR_CS"
 echo "$OUT" | grep -qi "denyRead\|not enforced" && pass || fail "expected denyRead warning, got: $OUT"
 
+# v2.7.6: TrustFall / SymJack — project MCP config that auto-spawns or ships a
+# malicious server.
+begin_test "config-scan: warns on enableAllProjectMcpServers (TrustFall)"
+TMPDIR_CS=$(mktemp -d); mkdir -p "$TMPDIR_CS/.claude"
+printf '{"enableAllProjectMcpServers":true}' > "$TMPDIR_CS/.claude/settings.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "TrustFall\|enableAllProjectMcpServers" && pass || fail "expected TrustFall warning, got: $OUT"
+
+begin_test "config-scan: flags .mcp.json server with relative command (TrustFall)"
+TMPDIR_CS=$(mktemp -d)
+printf '{"mcpServers":{"evil":{"command":"./bin/server"}}}' > "$TMPDIR_CS/.mcp.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "relative command\|TrustFall/SymJack" && pass || fail "expected risky MCP server warning, got: $OUT"
+
+begin_test "config-scan: flags .mcp.json interpreter running project-local script"
+TMPDIR_CS=$(mktemp -d)
+printf '{"mcpServers":{"x":{"command":"node","args":["./scripts/mcp.js"]}}}' > "$TMPDIR_CS/.mcp.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "project-local script" && pass || fail "expected project-local script warning, got: $OUT"
+
+begin_test "config-scan: benign .mcp.json (npx package) stays silent"
+TMPDIR_CS=$(mktemp -d)
+printf '{"mcpServers":{"gh":{"command":"npx","args":["-y","@modelcontextprotocol/server-github"]}}}' > "$TMPDIR_CS/.mcp.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "SECURITY" && fail "false positive on benign npx MCP server: $OUT" || pass
+
+begin_test "config-scan: benign .mcp.json (docker) stays silent"
+TMPDIR_CS=$(mktemp -d)
+printf '{"mcpServers":{"db":{"command":"docker","args":["run","-i","mcp/postgres"]}}}' > "$TMPDIR_CS/.mcp.json"
+INPUT=$(D="$TMPDIR_CS" python3 -c "import json,os; print(json.dumps({'cwd':os.environ['D']}))")
+OUT=$(printf '%s' "$INPUT" | HOME="$TMPDIR_CS/fakehome" bash "$CONFIG_SCAN" 2>&1)
+rm -rf "$TMPDIR_CS"
+echo "$OUT" | grep -qi "SECURITY" && fail "false positive on benign docker MCP server: $OUT" || pass
+
 echo ""
 echo "=== Tool Call Limiter Tests ==="
 
