@@ -21,10 +21,14 @@ MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 if [ ! -f "$MEMORY_FILE" ]; then
   # Check for crash checkpoint
   CKPT=""
+  _NOW_TS=$(date +%s)
   for f in "$HOME/.claude/supercharger/scope"/.checkpoint-*; do
     [ -f "$f" ] || continue
-    # Only use if < 24h old
-    if python3 -c "import os,time; exit(0 if time.time()-os.path.getmtime('$f')<86400 else 1)" 2>/dev/null; then
+    # Only use if < 24h old. v2.7.8: bash stat replaces a python3 fork per file
+    # (GNU-first, BSD fallback, numeric guard — identical <86400s logic).
+    _MT=$(stat -c '%Y' "$f" 2>/dev/null || stat -f '%m' "$f" 2>/dev/null || echo 0)
+    case "$_MT" in ''|*[!0-9]*) _MT=0 ;; esac
+    if [ "$_MT" -gt 0 ] && [ $((_NOW_TS - _MT)) -lt 86400 ]; then
       CKPT=$(cat "$f" 2>/dev/null)
       break
     else
@@ -65,12 +69,14 @@ else
   # Last session cost
   COST_FILE="$HOME/.claude/supercharger/scope/.session-cost"
   if [ -f "$COST_FILE" ]; then
-    LAST_COST=$(python3 -c "
-import json, os, time
-f = '$COST_FILE'
-if time.time() - os.path.getmtime(f) < 86400:
-    print(json.load(open(f)).get('total_usd', ''))
-" 2>/dev/null || echo "")
+    # v2.7.8: bash stat + jq replace a python3 fork — identical <86400s mtime
+    # guard and total_usd read.
+    _CT=$(stat -c '%Y' "$COST_FILE" 2>/dev/null || stat -f '%m' "$COST_FILE" 2>/dev/null || echo 0)
+    case "$_CT" in ''|*[!0-9]*) _CT=0 ;; esac
+    LAST_COST=""
+    if [ "$_CT" -gt 0 ] && [ $(( $(date +%s) - _CT )) -lt 86400 ]; then
+      LAST_COST=$(jq -r '.total_usd // empty' "$COST_FILE" 2>/dev/null || echo "")
+    fi
     [ -n "$LAST_COST" ] && ENRICHMENT="${ENRICHMENT} last_cost:\$${LAST_COST}"
   fi
   # Recent failures

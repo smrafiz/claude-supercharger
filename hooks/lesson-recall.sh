@@ -105,6 +105,9 @@ PYEOF
 
 [ -z "$OUT" ] && exit 0
 
-OUT_JSON=$(printf '%s' "$OUT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+# v2.7.8: jq -Rs replaces a python3 fork for JSON string-escaping on the
+# per-prompt path (fires on lesson match); python fallback kept for jq-less hosts.
+OUT_JSON=$(printf '%s' "$OUT" | jq -Rs '.' 2>/dev/null \
+  || printf '%s' "$OUT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
 printf '{"hookSpecificOutput":{"hookEventName":"UserPromptSubmit","additionalContext":%s}}\n' "$OUT_JSON"
 exit 0

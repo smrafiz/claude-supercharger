@@ -150,6 +150,9 @@ if [ -n "$PROJECT_HASH" ]; then
   printf '%s %s\n' "$(date +%s)" "$MSG_HASH" > "$TTL_FILE"
 fi
 
-MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+# v2.7.8: jq -Rs replaces a python3 fork for JSON string-escaping (same pattern
+# as session-memory-inject / agent-router); python fallback kept for jq-less hosts.
+MSG_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null \
+  || printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
 printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
 exit 0
