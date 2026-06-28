@@ -104,6 +104,10 @@ get_hooks_for_mode() {
     # v2.7.1: auto-recover subagent reports when the agent ignores the
     # report-pin instruction from subagent-safety.sh. async — pure scrape.
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-report-fallback.sh|async")
+    # v2.7.4: when the final message is a degraded stub (CC #54323), tell the
+    # parent the report was recovered + how to read it. BLOCKING — async cannot
+    # inject hookSpecificOutput into the parent's context.
+    hooks+=("SubagentStop|*|${hooks_dir}/subagent-report-notify.sh|")
     hooks+=("PostToolUseFailure||${hooks_dir}/tool-failure-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/agent-router.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/context-advisor.sh|async")
