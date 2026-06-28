@@ -33,7 +33,16 @@ output = resp.get('output') or resp.get('content') or ''
 if not output:
     sys.exit(0)
 
-normalized = unicodedata.normalize('NFKC', output).lower()
+_nfkc = unicodedata.normalize('NFKC', output)
+normalized = _nfkc.lower()
+
+# Case-sensitive markers (base64 is case-sensitive) must match the NON-lowercased
+# text. v2.7.7 fix: these were previously checked against `normalized` (lowercased)
+# and so could NEVER fire — base64 stubs like "aWdub3JlI" have uppercase letters.
+cased_patterns = (
+    (re.compile(r'aWdub3JlI'),  'base64 "ignore"'),
+    (re.compile(r'c3lzdGVtI'),  'base64 "system"'),
+)
 
 patterns = (
     # v2.6.84: broadened P1 to cover garak "Ignore the above directions",
@@ -59,12 +68,12 @@ patterns = (
     (re.compile(r'<<sys>>'),                                                         'token injection'),
     (re.compile(r'aaaa[a-za-z0-9+/=]{20,}'),                                         'base64 payload'),
     (re.compile(r'base64 -d'),                                                       'base64 decode'),
-    (re.compile(r'aWdub3JlI'),                                                       'base64 "ignore"'),
-    (re.compile(r'c3lzdGVtI'),                                                       'base64 "system"'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
 )
 
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
+if not matched:
+    matched = next((label for regex, label in cased_patterns if regex.search(_nfkc)), None)
 if not matched:
     sys.exit(0)
 
