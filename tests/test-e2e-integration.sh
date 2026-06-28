@@ -189,7 +189,9 @@ for i in 0 1 2 3 4 5 6 7; do
   EXPECTED="${EXPECTATIONS[$i]}"
   # Escape prompt for JSON
   PROMPT_ESCAPED=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$PROMPT" 2>/dev/null | tr -d '"')
-  INPUT="{\"prompt\":\"$PROMPT_ESCAPED\",\"session_id\":\"think-test\"}"
+  # v2.7.9: unique session per prompt — this block verifies per-prompt
+  # CLASSIFICATION, not the new level-dedup (which would suppress repeat levels).
+  INPUT="{\"prompt\":\"$PROMPT_ESCAPED\",\"session_id\":\"think-test-$i\"}"
   OUTPUT=$(export HOME="$FAKE_HOME3"; printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/thinking-budget.sh" 2>/dev/null)
 
   HAS_THINK=false; IS_LOW=false; IS_HIGH=false; IS_MEDIUM_NO_OUTPUT=false

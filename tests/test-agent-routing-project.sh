@@ -97,4 +97,22 @@ if [ "$VALID_JSON" = "ok" ] && [ "$NO_SECONDARY" = "true" ] && [ "$AGENT_DETECTE
 else fail "JSON invalid, description not truncated, or agent not detected — valid=$VALID_JSON secondary_absent=$NO_SECONDARY detected=$AGENT_DETECTED"; fi
 teardown_test_home
 
+# v2.7.9 (B2): the static project-agent roster injects ONCE per session, not on
+# every prompt — first prompt carries project=, a later different-category prompt
+# (same session) omits it.
+begin_test "agent-routing: project roster injected once per session"
+setup_test_home
+unset SUPERCHARGER_NO_DEDUP
+mkdir -p "$HOME/.claude/supercharger/scope"
+PROJECT_DIR=$(mktemp -d)
+write_agent "$PROJECT_DIR/.claude/agents" "Deploy Expert" "Handles deployment for this project."
+P1=$(printf '{"prompt":"fix the auth bug","session_id":"rostonce","workspace":{"current_dir":"%s"}}' "$PROJECT_DIR" | bash "$ROUTER" 2>/dev/null)
+P2=$(printf '{"prompt":"write a blog post about the release","session_id":"rostonce","workspace":{"current_dir":"%s"}}' "$PROJECT_DIR" | bash "$ROUTER" 2>/dev/null)
+rm -rf "$PROJECT_DIR"
+P1_HAS=$(printf '%s\n' "$P1" | grep -c "project=" || true)
+P2_HAS=$(printf '%s\n' "$P2" | grep -c "project=" || true)
+if [ "$P1_HAS" -ge 1 ] && [ "$P2_HAS" -eq 0 ]; then pass
+else fail "expected roster on P1 only — P1 project=$P1_HAS P2 project=$P2_HAS"; fi
+teardown_test_home
+
 report

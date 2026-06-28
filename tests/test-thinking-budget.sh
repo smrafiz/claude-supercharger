@@ -70,4 +70,25 @@ else
 fi
 teardown_test_home
 
+# v2.7.9 (B1a): dedup — same level twice within TTL collapses to one injection
+begin_test "thinking-budget: dedups identical level within session"
+setup_test_home
+unset SUPERCHARGER_NO_DEDUP
+mkdir -p "$HOME/.claude/supercharger/scope"
+J='{"prompt":"debug this null pointer crash in the parser","session_id":"deduptb"}'
+FIRST=$(echo "$J" | bash "$HOOK" 2>/dev/null | grep -c "THINK")
+SECOND=$(echo "$J" | bash "$HOOK" 2>/dev/null | grep -c "THINK")
+if [ "$FIRST" -eq 1 ] && [ "$SECOND" -eq 0 ]; then pass
+else fail "expected first=1 second=0 (dedup), got first=$FIRST second=$SECOND"; fi
+teardown_test_home
+
+begin_test "thinking-budget: level change re-emits after dedup"
+setup_test_home
+unset SUPERCHARGER_NO_DEDUP
+mkdir -p "$HOME/.claude/supercharger/scope"
+echo '{"prompt":"investigate and refactor the broken auth module","session_id":"chgtb"}' | bash "$HOOK" >/dev/null 2>&1
+LOW=$(echo '{"prompt":"yes","session_id":"chgtb"}' | bash "$HOOK" 2>/dev/null | grep -c "THINK")
+[ "$LOW" -eq 1 ] && pass || fail "expected level-change (high->low) to re-emit, got $LOW"
+teardown_test_home
+
 report

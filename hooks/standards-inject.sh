@@ -113,7 +113,16 @@ for name in matched:
             end = body.find('---', 3)
             if end != -1:
                 body = body[end+3:].lstrip()
-        out_blocks.append('# ' + name + '\n' + body.rstrip())
+        body = body.rstrip()
+        # v2.7.9 (B4): cap the standard-tier body. It was injected uncapped —
+        # a Next.js+React project could resident 1-3KB (~250-750 tok) of stack
+        # reference in base context every session. The head carries the
+        # load-bearing rules (Forbidden/Toolchain lead these files); the tail is
+        # detail Claude can read on demand. ~1500 chars keeps the essentials.
+        CAP = 1500
+        if len(body) > CAP:
+            body = body[:CAP].rstrip() + '\n…(truncated — full rules in rules/stacks/' + name + '.md)'
+        out_blocks.append('# ' + name + '\n' + body)
     else:
         secs = parse_sections(text)
         kept = [secs[k] for k in keep if k in secs]

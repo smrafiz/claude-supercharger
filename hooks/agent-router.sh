@@ -104,7 +104,12 @@ parse_agent_fields() {
 
 PROJECT_AGENTS_LIST=""
 PROJECT_AGENTS_DIR="$PROJECT_DIR/.claude/agents"
-if [ -d "$PROJECT_AGENTS_DIR" ]; then
+# v2.7.9 (B2): the project-agent roster is STATIC for the session, but it was
+# rescanned and re-injected on every category-change prompt — 200-600+ chars of
+# repeated context. Inject it ONCE per session: skip the scan entirely once the
+# roster flag exists, so steady-state prompts carry just task=/agent=/tier=.
+ROSTER_FLAG="$SCOPE_DIR/.router-roster-${SESSION_ID}"
+if [ ! -f "$ROSTER_FLAG" ] && [ -d "$PROJECT_AGENTS_DIR" ]; then
   for agent_file in "$PROJECT_AGENTS_DIR"/*.md; do
     [ -f "$agent_file" ] || continue
     IFS=$'\t' read -r name desc <<< "$(parse_agent_fields "$agent_file")"
@@ -172,6 +177,11 @@ fi
 if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" != "$LAST_TIER" ]; then
   CONTEXT="[CTX] tier=${TIER}"
 fi
+
+# v2.7.9 (B2): we've passed the dedup gates and will emit — if this emission
+# carried the project-agent roster, mark it done so later prompts skip the scan
+# and omit the (static) roster from their context.
+[ -n "$PROJECT_AGENTS_LIST" ] && touch "$ROSTER_FLAG" 2>/dev/null || true
 
 # v2.6.77: try jq first (consistent with context-advisor.sh), python3 second,
 # bare printf as last resort. The printf branch was emitting malformed JSON if

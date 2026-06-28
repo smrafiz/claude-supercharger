@@ -110,6 +110,13 @@ PYEOF
 LEVEL=$(printf '%s' "$RESULT" | head -1)
 JSON=$(printf '%s' "$RESULT" | sed -n '2p')
 
+# v2.7.9 (B1a): dedup on level. The [THINK] line is identical for a given level,
+# so re-injecting it on every prompt is pure token waste — in a debugging session
+# nearly every prompt classifies "high" and stacks the same line. Collapse repeats
+# within the 600s TTL; a level CHANGE (high->low) still re-emits immediately.
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+hook_already_emitted "thinking-budget" "$SESSION_ID" "$LEVEL" && exit 0
+
 echo "[Supercharger] thinking-budget: level=$LEVEL" >&2
 printf '%s\n' "$JSON"
 
