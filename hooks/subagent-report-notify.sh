@@ -21,7 +21,8 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "subagent-report-notify" && exit 0
 
-AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+# v2.7.12: accept subagent_id too (key-drift resilience across CC versions).
+AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // .subagent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$AGENT_ID" ] && exit 0
 
 REPORT_DIR="$HOME/.claude/supercharger/scope/subagent-reports"

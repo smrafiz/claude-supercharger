@@ -1584,6 +1584,12 @@ INPUT=$(python3 -c "import json; print(json.dumps({'agent_id':'a-pin-2','agent_t
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
 echo "$OUT" | grep -qi "write tool" && echo "$OUT" | grep -qi "last tool call" && pass || fail "report-pin missing Write+LAST language: $OUT"
 
+# v2.7.12: real CC SubagentStart shape — subagent_id/subagent_type (not agent_id)
+begin_test "subagent-safety: pins report path from subagent_id (real Start shape)"
+INPUT=$(python3 -c "import json; print(json.dumps({'subagent_id':'a-real-start-id','subagent_type':'Marie Curie (Scientist)','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
+echo "$OUT" | grep -q "subagent-reports/a-real-start-id.md" && pass || fail "expected report-pin keyed by subagent_id, got: $OUT"
+
 echo ""
 echo "=== Agent Handoff Gate Tests ==="
 
@@ -1604,6 +1610,17 @@ INPUT=$(python3 -c "import json; print(json.dumps({'result':'','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty output, got exit=$EXIT"
+
+# v2.7.12: real CC SubagentStop shape — output is in last_assistant_message, not result
+begin_test "agent-handoff-gate: reads last_assistant_message (real Stop shape) — fires on failure"
+INPUT=$(python3 -c "import json; print(json.dumps({'last_assistant_message':'I was unable to finish; the build failed and I could not resolve the errors.','agent_id':'ag3','agent_type':'Engineer','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
+[ -n "$OUT" ] && pass || fail "expected quality warning from last_assistant_message, got empty"
+
+begin_test "agent-handoff-gate: clean last_assistant_message passes silently"
+INPUT=$(python3 -c "import json; print(json.dumps({'last_assistant_message':'Done. Implemented the feature and all tests pass.','agent_id':'ag4','agent_type':'Engineer','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
+[ -z "$OUT" ] && pass || fail "expected silent pass on clean last_assistant_message, got: $OUT"
 
 echo ""
 echo "=== Compaction Backup Tests ==="

@@ -12,12 +12,17 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
-AGENT_TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.agent_type // empty' 2>/dev/null || true)
+# v2.7.12: SubagentStart sends subagent_id/subagent_type (NOT agent_id/agent_type
+# — those are the SubagentStop spellings). Reading only agent_id here left it
+# empty, so the report-pin path fell back to <session>-<ts>.md while the
+# SubagentStop fallback wrote <agent_id>.md — the two never matched, silently
+# defeating the report-pin (the v2.7.1 fallback was masking it). Read both.
+AGENT_TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.agent_type // .subagent_type // empty' 2>/dev/null || true)
 [ -z "$AGENT_TYPE" ] && AGENT_TYPE="unknown"
 
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
-AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // .subagent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$AGENT_ID" ] && AGENT_ID="$SESSION_ID-$(date +%s)"
 SAFETY_FLAG="$HOME/.claude/supercharger/scope/.subagent-safety-injected-${SESSION_ID}"
 REPORT_DIR="$HOME/.claude/supercharger/scope/subagent-reports"

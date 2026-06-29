@@ -18,8 +18,10 @@ AGENT_OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
-    # agent result may be in result, output, or content
-    out = d.get('result') or d.get('output') or ''
+    # v2.7.12: CC's SubagentStop payload carries the agent's final text in
+    # last_assistant_message — the older result/output/content keys are absent,
+    # so this gate saw empty output and never fired. Try the real key first.
+    out = d.get('last_assistant_message') or d.get('result') or d.get('output') or d.get('content') or ''
     if isinstance(out, list):
         out = ' '.join(str(x.get('text','') if isinstance(x,dict) else x) for x in out)
     print(str(out)[:4000])
