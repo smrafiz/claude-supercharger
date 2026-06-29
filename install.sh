@@ -138,6 +138,35 @@ fi
 # Step 1: Banner + Mode
 show_banner
 
+# Quick vs Custom fork — collapse the multi-question wizard to sensible defaults
+# for the common case. Quick presets the tunable choices and only asks Notify
+# (a personal/environmental preference we can't guess) plus the safety prompts
+# for any existing CLAUDE.md/settings.json. Custom runs the full wizard.
+# Only offered when interactive and mode wasn't preset via flags.
+QUICK_INSTALL="false"
+if [ -z "$ARG_MODE" ] && [[ "$NON_INTERACTIVE" == "false" ]]; then
+  echo -e "${BOLD}How do you want to install?${NC}"
+  echo ""
+  echo -e "  ${BOLD}→ Press Enter for Quick install${NC} ${CYAN}(recommended)${NC}"
+  echo -e "    Full mode · Developer · minimal economy · light MCP · conventional commits on"
+  echo -e "    Every choice is changeable later (e.g. ${BOLD}eco lean${NC}, ${BOLD}./install.sh${NC} → Custom)."
+  echo -e "  ${BOLD}→ Type ${NC}${BOLD}c${NC}${BOLD} for Custom${NC} — choose everything"
+  echo ""
+  read -rp "> " install_choice
+  echo ""
+  case "$install_choice" in
+    c|C|custom|Custom) ;;  # fall through to the full wizard
+    *)
+      ARG_MODE="full"
+      ARG_ROLES="developer"
+      ARG_ECONOMY="minimal"
+      ARG_MCP_PROFILE="light"
+      ARG_COMMITS="on"
+      QUICK_INSTALL="true"
+      ;;
+  esac
+fi
+
 if [[ "$FIRST_TIME" == "true" ]] && [ -z "$ARG_MODE" ]; then
   echo -e "${CYAN}Welcome! Looks like this is your first time with Claude Supercharger.${NC}"
   echo ""
@@ -159,7 +188,7 @@ fi
 if [ -n "$ARG_MODE" ]; then
   MODE="$ARG_MODE"
 else
-  echo -e "${BOLD}Step 1 of 7: Install Mode${NC}"
+  echo -e "${BOLD}Install Mode${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} Safe       — safety hooks + auto-approve + audit trail (5 hooks)"
   echo -e "  ${BOLD}2)${NC} Full       — everything: git-safety, agent routing, context advisor, quality gate [recommended]"
@@ -189,7 +218,7 @@ if [ -n "$ARG_ROLES" ]; then
     SELECTED_ROLES=("writer")
   fi
 else
-  echo -e "${BOLD}Step 2 of 7: Your Roles${NC}"
+  echo -e "${BOLD}Your Roles${NC}"
   select_roles
   echo ""
 fi
@@ -206,7 +235,7 @@ if [ -n "$ARG_ECONOMY" ]; then
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
   SELECTED_TIER=$(validate_tier_for_roles "$SELECTED_TIER" "$ROLES_CSV")
 else
-  echo -e "${BOLD}Step 3 of 7: Token Economy${NC}"
+  echo -e "${BOLD}Token Economy${NC}"
   echo ""
   echo -e "${BOLD}Select Token Economy:${NC}"
   ROLES_CSV=$(IFS=,; echo "${SELECTED_ROLES[*]}")
@@ -218,7 +247,7 @@ MCP_PROFILE="light"
 if [ -n "$ARG_MCP_PROFILE" ]; then
   MCP_PROFILE=$(echo "$ARG_MCP_PROFILE" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]]; then
-  echo -e "${BOLD}Step 4 of 7: MCP Servers${NC}"
+  echo -e "${BOLD}MCP Servers${NC}"
   echo ""
   echo -e "  MCP servers extend Claude with real-time tools."
   echo -e "  More = more capable, but higher token cost per session."
@@ -247,7 +276,7 @@ NOTIFY_MODE="on"
 if [ -n "$ARG_NOTIFY" ]; then
   NOTIFY_MODE=$(echo "$ARG_NOTIFY" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]]; then
-  echo -e "${BOLD}Step 5 of 7: Desktop Notifications${NC}"
+  echo -e "${BOLD}Desktop Notifications${NC}"
   echo ""
   echo -e "  ${BOLD}1)${NC} On     — popup when Claude needs your attention [default]"
   echo -e "  ${BOLD}2)${NC} Sound  — beep only, no popup"
@@ -267,7 +296,7 @@ COMMITS_MODE="off"
 if [ -n "$ARG_COMMITS" ]; then
   COMMITS_MODE=$(echo "$ARG_COMMITS" | tr '[:upper:]' '[:lower:]')
 elif [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$HAS_DEVELOPER" == "true" ]]; then
-  echo -e "${BOLD}Step 6 of 8: Conventional Commits${NC}"
+  echo -e "${BOLD}Conventional Commits${NC}"
   echo ""
   echo -e "  Enforce conventional commit format? (feat:, fix:, chore:, etc.)"
   echo ""
@@ -287,7 +316,7 @@ CLAUDE_MD_ACTION="deploy"
 if [ -n "$ARG_CONFIG" ]; then
   CLAUDE_MD_ACTION="$ARG_CONFIG"
 elif [ -f "$HOME/.claude/CLAUDE.md" ]; then
-  echo -e "${BOLD}Step 7 of 8: Existing Config${NC}"
+  echo -e "${BOLD}Existing Config${NC}"
   echo ""
   info "Found existing CLAUDE.md"
   echo ""
@@ -324,7 +353,7 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
 fi
 
 # Step 4: Install
-echo -e "${BOLD}Step 8 of 8: Installing...${NC}"
+echo -e "${BOLD}Installing...${NC}"
 echo ""
 
 # Ensure directories exist
@@ -460,8 +489,12 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   fi
 fi
 
-# Deploy extras (Full mode)
-deploy_extras "$SCRIPT_DIR" "$MODE" "$NON_INTERACTIVE"
+# Deploy extras (Full mode). Quick already picked the MCP profile, so suppress
+# the secondary "Run MCP setup?" wizard prompt (treat Quick as non-interactive
+# for extras only).
+EXTRAS_NONINT="$NON_INTERACTIVE"
+[[ "$QUICK_INSTALL" == "true" ]] && EXTRAS_NONINT="true"
+deploy_extras "$SCRIPT_DIR" "$MODE" "$EXTRAS_NONINT"
 
 # Summary
 echo ""

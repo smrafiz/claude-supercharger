@@ -20,6 +20,32 @@ assert_file_exists "$HOME/.claude/rules/economy.md" &&
 pass
 teardown_test_home
 
+# --- Test: Quick install fork applies defaults with minimal prompts ---
+begin_test "install: Quick fork (Enter) applies full/developer/minimal/light/commits-on"
+setup_test_home
+# Enter = Quick, then 1 = notify on. No existing config => no safety prompts.
+printf '\n1\n' | bash "$REPO_DIR/install.sh" >/dev/null 2>&1
+QV=$(cat "$HOME/.claude/supercharger/.version" 2>/dev/null)
+QR=$(cat "$HOME/.claude/supercharger/.roles" 2>/dev/null)
+QE=$(cat "$HOME/.claude/supercharger/scope/.economy-tier" 2>/dev/null)
+QM=$(cat "$HOME/.claude/supercharger/scope/.mcp-profile" 2>/dev/null)
+if [ -n "$QV" ] && [ "$QR" = "developer" ] && [ "$QE" = "minimal" ] && [ "$QM" = "light" ] && \
+   [ -f "$HOME/.claude/supercharger/.conventional-commits" ]; then pass
+else fail "Quick defaults wrong: ver=$QV role=$QR eco=$QE mcp=$QM commits=$([ -f "$HOME/.claude/supercharger/.conventional-commits" ] && echo on || echo off)"; fi
+teardown_test_home
+
+# --- Test: Custom fork routes to the full wizard and honors choices ---
+begin_test "install: Custom fork (c) runs wizard and honors choices"
+setup_test_home
+# c=custom, 2=full, 1=developer, 3=minimal, 1=light, 1=notify on, 1=commits off, n=skip mcp-setup
+printf 'c\n2\n1\n3\n1\n1\n1\nn\n' | bash "$REPO_DIR/install.sh" >/dev/null 2>&1
+CR=$(cat "$HOME/.claude/supercharger/.roles" 2>/dev/null)
+CE=$(cat "$HOME/.claude/supercharger/scope/.economy-tier" 2>/dev/null)
+if [ "$CR" = "developer" ] && [ "$CE" = "minimal" ] && \
+   [ ! -f "$HOME/.claude/supercharger/.conventional-commits" ]; then pass
+else fail "Custom wizard wrong: role=$CR eco=$CE commits=$([ -f "$HOME/.claude/supercharger/.conventional-commits" ] && echo on || echo off)"; fi
+teardown_test_home
+
 # --- Test: non-interactive merge preserves existing content ---
 begin_test "install: non-interactive merge preserves existing content"
 setup_test_home
