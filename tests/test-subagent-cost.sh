@@ -201,4 +201,32 @@ DUR=$(tail -1 "$SCOPE_DIR/.subagent-costs-durses.jsonl" 2>/dev/null | python3 -c
 python3 -c "import sys; sys.exit(0 if float('$DUR' or 0)>=4 else 1)" && pass || fail "expected duration>=4s, got $DUR"
 teardown_test_home
 
+# ── v2.7.13: SubagentStop re-fires (stop_hook_active) must NOT over-count.
+# Each re-fire carries the cumulative transcript total; upsert one row per
+# agent_id (last wins) and add only the delta to the session aggregate. ──────
+begin_test "stop: re-fires upsert one row + don't inflate session-cost"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TRANS="$SCOPE_DIR/refire-transcript.jsonl"
+mk_trans() { python3 -c '
+import json,sys
+n=int(sys.argv[1])
+print("\n".join(json.dumps({"type":"assistant","message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":1000}}}) for _ in range(n)))' "$1"; }
+# Three SubagentStop firings with a GROWING transcript (1 -> 3 -> 7 messages)
+for N in 1 3 7; do
+  mk_trans "$N" > "$TRANS"
+  PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"agent_id":"refireX","agent_type":"general-purpose","session_id":"refireses","agent_transcript_path":sys.argv[1]}))' "$TRANS")
+  echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
+done
+F="$SCOPE_DIR/.subagent-costs-refireses.jsonl"
+ROWS=$(wc -l < "$F" 2>/dev/null | tr -d ' ')
+# final cumulative = 7 messages * 2000 tok = 14000; session aggregate must equal
+# the single final cost, NOT the sum of all three firings.
+FINAL_TOK=$(tail -1 "$F" | python3 -c "import sys,json; print(json.load(sys.stdin)['total_tokens'])" 2>/dev/null)
+SUB=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['subagent_total'],6))" 2>/dev/null)
+LAST_COST=$(tail -1 "$F" | python3 -c "import sys,json; print(round(json.load(sys.stdin)['cost_usd'],6))" 2>/dev/null)
+if [ "$ROWS" = "1" ] && [ "$FINAL_TOK" = "14000" ] && [ "$SUB" = "$LAST_COST" ]; then pass
+else fail "expected 1 row / 14000 tok / subagent_total==final ($LAST_COST); got rows=$ROWS tok=$FINAL_TOK sub=$SUB"; fi
+teardown_test_home
+
 report

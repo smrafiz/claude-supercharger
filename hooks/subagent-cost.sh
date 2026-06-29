@@ -203,8 +203,40 @@ try:
 except Exception:
     pass
 
-# Append to JSONL log
+# v2.7.13: UPSERT one row per agent_id, last-cumulative-wins. CC re-fires
+# SubagentStop repeatedly (stop_hook_active re-entry) — observed ~10x for one
+# agent — and each firing carries the CUMULATIVE transcript total. Appending
+# every time over-counted the rollup ~7-10x once entries became nonzero (v2.7.11).
+# Drop any prior row for this agent and write the latest; add only the DELTA to
+# the session aggregate below. Carry forward the real duration (the first stop
+# captures it; re-fires find no active file and compute 0).
 jsonl_file = os.path.join(scope_dir, f'.subagent-costs-{session_id}.jsonl')
+prev_cost = 0.0
+prev_duration = 0.0
+kept_lines = []
+if os.path.isfile(jsonl_file):
+    try:
+        with open(jsonl_file) as f:
+            for line in f:
+                line = line.rstrip('\n')
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except Exception:
+                    kept_lines.append(line)
+                    continue
+                if row.get('agent_id') == agent_id:
+                    prev_cost = max(prev_cost, float(row.get('cost_usd', 0) or 0))
+                    prev_duration = max(prev_duration, float(row.get('duration_s', 0) or 0))
+                else:
+                    kept_lines.append(line)
+    except Exception:
+        kept_lines = []
+
+if duration_s == 0 and prev_duration > 0:
+    duration_s = prev_duration
+
 entry = {
     'agent_id': agent_id,
     'agent_name': agent_name,
@@ -219,11 +251,18 @@ entry = {
     'total_tokens': total_tokens,
     'cost_usd': float(turn_cost),
 }
+kept_lines.append(json.dumps(entry))
 try:
-    with open(jsonl_file, 'a') as f:
-        f.write(json.dumps(entry) + '\n')
+    tmp_jsonl = jsonl_file + f'.{os.getpid()}.tmp'
+    with open(tmp_jsonl, 'w') as f:
+        f.write('\n'.join(kept_lines) + '\n')
+    os.rename(tmp_jsonl, jsonl_file)
 except Exception:
     pass
+
+# Only the incremental cost since this agent's last logged value feeds the
+# session aggregate — so re-fires don't inflate it.
+cost_delta = max(0.0, turn_cost - prev_cost)
 
 # Update .session-cost atomically (write tmp then rename)
 cost_file = os.path.join(scope_dir, '.session-cost')
@@ -238,8 +277,8 @@ prev_total = float(state.get('total_usd', 0) or 0)
 prev_turns = int(state.get('turn_count', 0) or 0)
 prev_subagent = float(state.get('subagent_total', 0) or 0)
 first_updated = state.get('first_updated', '') or now
-new_total = prev_total + turn_cost
-new_subagent = prev_subagent + turn_cost
+new_total = prev_total + cost_delta
+new_subagent = prev_subagent + cost_delta
 avg = new_total / prev_turns if prev_turns > 0 else 0.0
 new_state = {
     'total_usd': round(new_total, 8),
