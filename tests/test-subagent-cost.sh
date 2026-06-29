@@ -157,4 +157,48 @@ else
 fi
 teardown_test_home
 
+# ── v2.7.11: real CC 2.1.181 SubagentStop shape — agent_type (not agent_name),
+# no usage in payload, tokens recovered from agent_transcript_path ─────────────
+begin_test "stop: reads agent_type as name (real CC payload shape)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+PAYLOAD='{"agent_id":"x1","agent_type":"Marie Curie (Scientist)","session_id":"realshape"}'
+echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
+NAME=$(tail -1 "$SCOPE_DIR/.subagent-costs-realshape.jsonl" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['agent_name'])" 2>/dev/null)
+[ "$NAME" = "Marie Curie (Scientist)" ] && pass || fail "expected name from agent_type, got '$NAME'"
+teardown_test_home
+
+begin_test "stop: recovers token usage + cost from agent_transcript_path"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TRANS="$SCOPE_DIR/fake-agent-transcript.jsonl"
+# Two assistant messages with usage (no usage in the stop payload itself)
+{
+  printf '%s\n' '{"type":"assistant","message":{"model":"claude-opus-4-8","usage":{"input_tokens":1000,"cache_creation_input_tokens":2000,"cache_read_input_tokens":3000,"output_tokens":500}}}'
+  printf '%s\n' '{"type":"assistant","message":{"model":"claude-opus-4-8","usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":3000,"output_tokens":500}}}'
+} > "$TRANS"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"agent_id":"x2","agent_type":"Tony Stark (Engineer)","session_id":"transcost","agent_transcript_path":sys.argv[1]}))' "$TRANS")
+echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
+ENTRY=$(tail -1 "$SCOPE_DIR/.subagent-costs-transcost.jsonl" 2>/dev/null)
+TOT=$(echo "$ENTRY" | python3 -c "import sys,json; print(json.load(sys.stdin)['total_tokens'])" 2>/dev/null)
+COST=$(echo "$ENTRY" | python3 -c "import sys,json; print('yes' if json.load(sys.stdin)['cost_usd']>0 else 'no')" 2>/dev/null)
+# total = 2000 in + 2000 cw + 6000 cr + 1000 out = 11000
+if [ "$TOT" = "11000" ] && [ "$COST" = "yes" ]; then pass
+else fail "expected total=11000 cost>0, got total=$TOT cost=$COST"; fi
+teardown_test_home
+
+begin_test "start(subagent_id) → stop(agent_id) yields nonzero duration"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+# Seed the active file 5s in the past, keyed by the id stop will use, but written
+# via the START payload's subagent_id key (the real CC mismatch).
+echo '{"subagent_id":"dur9","subagent_type":"Sherlock Holmes (Detective)","session_id":"durses"}' | bash "$HOOK" start >/dev/null 2>&1
+# Backdate the active file 5s so duration is measurable
+PAST=$(python3 -c "from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(seconds=5)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
+python3 -c "import json; p='$SCOPE_DIR/.subagent-active-dur9'; d=json.load(open(p)); d['started_at']='$PAST'; json.dump(d,open(p,'w'))"
+echo '{"agent_id":"dur9","agent_type":"Sherlock Holmes (Detective)","session_id":"durses"}' | bash "$HOOK" stop >/dev/null 2>&1
+DUR=$(tail -1 "$SCOPE_DIR/.subagent-costs-durses.jsonl" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['duration_s'])" 2>/dev/null)
+python3 -c "import sys; sys.exit(0 if float('$DUR' or 0)>=4 else 1)" && pass || fail "expected duration>=4s, got $DUR"
+teardown_test_home
+
 report

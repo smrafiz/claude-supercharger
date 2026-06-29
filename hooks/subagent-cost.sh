@@ -39,8 +39,12 @@ try:
 except Exception:
     d = {}
 
-agent_id = (d.get('agent_id') or '') or 'unknown-' + pid
-agent_name = (d.get('agent_name') or '') or (d.get('name') or '') or 'agent'
+# v2.7.11: SubagentStart uses subagent_id/subagent_type; SubagentStop uses
+# agent_id/agent_type. Read both spellings so START and STOP key the active file
+# by the SAME id — otherwise the stop-side start-time lookup always misses and
+# duration is always 0.
+agent_id = (d.get('agent_id') or d.get('subagent_id') or '') or 'unknown-' + pid
+agent_name = (d.get('agent_name') or d.get('agent_type') or d.get('subagent_type') or d.get('name') or '') or 'agent'
 now = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 if scope_dir:
@@ -94,18 +98,47 @@ try:
 except Exception:
     d = {}
 
-agent_id   = (d.get('agent_id') or '') or 'unknown'
-agent_name = (d.get('agent_name') or '') or (d.get('name') or '') or 'agent'
+# v2.7.11: CC's SubagentStop payload uses agent_id/agent_type and carries NO
+# usage field (confirmed CC 2.1.181). Read both key spellings; recover real token
+# usage from agent_transcript_path since the payload omits it.
+agent_id   = (d.get('agent_id') or d.get('subagent_id') or '') or 'unknown'
+agent_name = (d.get('agent_name') or d.get('agent_type') or d.get('subagent_type') or d.get('name') or '') or 'agent'
 session_id = (d.get('session_id') or '') or 'default'
 
-u = d.get('usage') or {}
 def _i(v):
     try:    return int(v or 0)
     except Exception: return 0
+
+u = d.get('usage') or {}
 input_tok   = _i(u.get('input_tokens'))
 cache_write = _i(u.get('cache_creation_input_tokens'))
 cache_read  = _i(u.get('cache_read_input_tokens'))
 output_tok  = _i(u.get('output_tokens'))
+
+# Fallback: sum per-message usage from the subagent transcript when the payload
+# has none (the normal case). Each assistant message = one billed API call, so
+# summing input/cache/output across messages is the correct cost basis. Also
+# captures the model for pricing (payload has no model field either).
+transcript_model = ''
+if not (input_tok or cache_write or cache_read or output_tok):
+    tpath = d.get('agent_transcript_path') or d.get('transcript_path') or ''
+    if tpath and os.path.isfile(tpath):
+        try:
+            with open(tpath) as tf:
+                for line in tf:
+                    try:    td = json.loads(line)
+                    except Exception: continue
+                    msg = td.get('message') or {}
+                    mu = msg.get('usage') or td.get('usage') or {}
+                    if not mu:
+                        continue
+                    input_tok   += _i(mu.get('input_tokens'))
+                    cache_write += _i(mu.get('cache_creation_input_tokens'))
+                    cache_read  += _i(mu.get('cache_read_input_tokens'))
+                    output_tok  += _i(mu.get('output_tokens'))
+                    transcript_model = transcript_model or (msg.get('model') or td.get('model') or '')
+        except Exception:
+            pass
 
 # Read start record
 started_at = ''
@@ -140,7 +173,7 @@ PRICING = {
     'sonnet': (3.00, 3.75, 0.30, 15.00),
     'haiku':  (0.80, 1.00, 0.08,  4.00),
 }
-payload_model = (d.get('model') or '').lower()
+payload_model = (d.get('model') or transcript_model or '').lower()
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
 if override in PRICING:
     tier = override
