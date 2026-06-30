@@ -75,13 +75,47 @@ if not m:
     raise SystemExit(0)
 
 idx = m.start()
-before = assist[:idx].strip()
-after = assist[idx:].strip()
 
+# v2.7.18: quality gate. The old code took marker-to-EOF and the first sentence,
+# so prose like "...the offset drifted (root cause)." recorded the fragment
+# "root cause)." — and it fired on ANY message merely mentioning a marker (a
+# dashboard, a commit summary), polluting lessons.jsonl with junk that
+# lesson-recall then re-injected. Now: (1) reject parenthetical asides like
+# "(root cause)"; (2) extract the FULL sentence containing the marker, not just
+# the tail; (3) require a substantive sentence (length + word count) so
+# fragments are dropped.
+if assist[max(0, idx - 1):idx] == '(':
+    raise SystemExit(0)
+
+# Sentence start: just after the previous sentence terminator.
+sent_start = 0
+for b in re.finditer(r'[.!?]\s', assist[:idx]):
+    sent_start = b.end()
+# Sentence end: the next terminator at/after the marker.
+end_m = re.search(r'[.!?](\s|$)', assist[idx:])
+sent_end = idx + end_m.end() if end_m else len(assist)
+sentence = assist[sent_start:sent_end]
+# Strip leading markdown/list/punctuation noise and collapse whitespace.
+sentence = re.sub(r'^[\s\-*#>`)\].,:;]+', '', sentence)
+sentence = re.sub(r'\s+', ' ', sentence).strip()
+
+words = re.findall(r'[a-zA-Z0-9]+', sentence)
+if len(sentence) < 30 or len(words) < 6:
+    raise SystemExit(0)
+
+# Reject the assistant NARRATING about debugging ("I can't pin the root cause
+# down…", "Let me check the root cause") vs. STATING a finding ("Root cause:
+# the cache TTL was 5min", "Fixed by adding a guard"). Real code lessons are
+# declarative and don't use first-person/conversational language. The standalone
+# capital "I" must be case-SENSITIVE (lowercasing would match in/is/it).
+if (re.search(r"(^|\s)(I|I['’](m|ll|d|ve))(\s|['’]|$)", sentence)
+        or re.search(r"\blet me\b", sentence, re.IGNORECASE)):
+    raise SystemExit(0)
+
+before = assist[:idx].strip()
 sig = (user[:100] if user else before.split('\n')[-1][:100]).strip()
-fix = after[:200].strip()
-first_sent = re.split(r'(?<=[.!?])\s', after, maxsplit=1)[0]
-lesson = first_sent[:160].strip()
+fix = sentence[:200].strip()
+lesson = sentence[:200].strip()
 
 files = re.findall(r'[\w./\-]+\.[a-zA-Z0-9]{1,6}\b', assist)
 files = list(dict.fromkeys(files))[:5]

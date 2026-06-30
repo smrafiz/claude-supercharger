@@ -48,6 +48,38 @@ LESSONS_FILE="$PROJ/.claude/supercharger/lessons.jsonl"
 rm -rf "$PROJ"
 teardown_test_home
 
+# v2.7.18: quality gate — reject parenthetical asides, fragments, and the
+# assistant NARRATING about debugging; accept declarative findings.
+_lesson_rec() {  # $1=assistant text -> echoes "recorded" or "skipped"
+  local proj; proj=$(mktemp -d); mkdir -p "$proj/.claude/supercharger"
+  local tr="$proj/.transcript.jsonl"
+  python3 -c 'import json; print(json.dumps({"type":"user","message":{"content":"debug q"}}))' > "$tr"
+  python3 -c 'import json,sys; print(json.dumps({"type":"assistant","message":{"content":[{"type":"text","text":sys.argv[1]}]}}))' "$1" >> "$tr"
+  printf '{"cwd":"%s","transcript_path":"%s"}' "$proj" "$tr" | bash "$RECORD_HOOK" >/dev/null 2>&1 || true
+  [ -s "$proj/.claude/supercharger/lessons.jsonl" ] && echo recorded || echo skipped
+  rm -rf "$proj"
+}
+
+begin_test "lessons: rejects parenthetical aside '(root cause)'"
+setup_test_home
+[ "$(_lesson_rec 'The offset drifted past EOF (root cause).')" = "skipped" ] && pass || fail "parenthetical aside should be skipped"
+teardown_test_home
+
+begin_test "lessons: rejects assistant narration (first-person)"
+setup_test_home
+[ "$(_lesson_rec "I cannot pin the root cause down from inside the live session without making it worse.")" = "skipped" ] && pass || fail "first-person narration should be skipped"
+teardown_test_home
+
+begin_test "lessons: records a declarative finding (full sentence)"
+setup_test_home
+[ "$(_lesson_rec 'Root cause: Claude Code sends the session cwd in workspace.current_dir, not cwd.')" = "recorded" ] && pass || fail "declarative finding should be recorded"
+teardown_test_home
+
+begin_test "lessons: does not false-reject sentences containing it/is/in"
+setup_test_home
+[ "$(_lesson_rec 'The problem was that it is reading the wrong field and the value is empty in every call.')" = "recorded" ] && pass || fail "case-sensitive I check must not catch it/is/in"
+teardown_test_home
+
 begin_test "lessons: SUPERCHARGER_LESSONS=0 disables record"
 setup_test_home
 PROJ=$(mktemp -d)
