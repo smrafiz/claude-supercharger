@@ -39,6 +39,10 @@ try:
 except Exception:
     print('skip 0 0 [] no'); sys.exit(0)
 
+# v2.7.15: CC's PostToolUse payload carries NO usage (tool_response has none), so
+# the old tool_response.usage read was always empty -> this monitor was inert.
+# Read the MOST RECENT assistant turn's cache stats from the transcript instead
+# (per-turn hit rate is exactly what we want to sample).
 usage = data.get('tool_response', {})
 if isinstance(usage, dict):
     usage = usage.get('usage', usage)
@@ -49,6 +53,31 @@ if not isinstance(usage, dict):
 
 cache_read = int(usage.get('cache_read_input_tokens', 0) or 0)
 cache_create = int(usage.get('cache_creation_input_tokens', 0) or 0)
+
+if cache_read + cache_create == 0:
+    tpath = data.get('transcript_path') or ''
+    if tpath and os.path.isfile(tpath):
+        try:
+            last = {}
+            with open(tpath) as tf:
+                for line in tf:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    try:
+                        d = json.loads(line)
+                    except Exception:
+                        continue
+                    if d.get('type') != 'assistant':
+                        continue
+                    u = (d.get('message') or {}).get('usage') or {}
+                    if u:
+                        last = u
+            cache_read = int(last.get('cache_read_input_tokens', 0) or 0)
+            cache_create = int(last.get('cache_creation_input_tokens', 0) or 0)
+        except Exception:
+            pass
+
 total = cache_read + cache_create
 
 if total == 0:

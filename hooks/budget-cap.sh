@@ -25,79 +25,37 @@ COST_TMP="$SCOPE_DIR/.session-cost.$$.tmp"
 if [[ "$MODE" == "accumulate" ]]; then
   _INPUT=$(cat)
 
-  # Extract all usage fields in one Python call
-  USAGE_FIELDS=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-try:
-    data = json.load(sys.stdin)
-    usage = data.get('usage') or (data.get('tool_response') or {}).get('usage') or data.get('tool_response') or {}
-    if not isinstance(usage, dict):
-        usage = {}
-    inp = int(usage.get('input_tokens', 0) or 0)
-    cw = int(usage.get('cache_creation_input_tokens', 0) or 0)
-    cr = int(usage.get('cache_read_input_tokens', 0) or 0)
-    out = int(usage.get('output_tokens', 0) or 0)
-    print(f'{inp} {cw} {cr} {out}')
-except Exception:
-    print('0 0 0 0')
-" 2>/dev/null || echo "0 0 0 0")
-
-  read -r USAGE_INPUT USAGE_CACHE_WRITE USAGE_CACHE_READ USAGE_OUTPUT <<< "$USAGE_FIELDS"
-
-  # If all zero, nothing to accumulate — exit cleanly
-  TOTAL_TOKENS=$((USAGE_INPUT + USAGE_CACHE_WRITE + USAGE_CACHE_READ + USAGE_OUTPUT))
-  if [ "$TOTAL_TOKENS" -eq 0 ]; then
-    echo "[Supercharger] budget-cap: no usage data in payload — skipping" >&2
+  # v2.7.15: CC's PostToolUse payload carries NO token usage (verified: tool_response
+  # = {interrupted,isImage,noOutputExpected,stderr,stdout}), so the old payload-usage
+  # read was always 0 → the budget cap never accumulated and never enforced. The
+  # payload DOES carry `transcript_path`; each assistant message's `usage` is one
+  # billed API call. We INCREMENTALLY sum only the messages past a stored byte
+  # offset (O(new lines), not O(whole transcript) per call) and add that delta to
+  # the running total — keyed separately from subagent cost so neither clobbers
+  # the other (each adds its own delta; the invariant total_usd == main_total +
+  # subagent_total holds).
+  TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+  if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
     exit 0
   fi
 
-  # Read existing state or start fresh
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-
-  # Detect model from payload to pick the right price tier. Falls back to
-  # SUPERCHARGER_PRICING_MODEL env var, then Sonnet 4.6.
-  PAYLOAD_MODEL=$( (printf '%s\n' "$_INPUT" | grep -oE '"model"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
-
-  COST_INPUT="$COST_FILE" \
-  USAGE_INPUT="$USAGE_INPUT" USAGE_CACHE_WRITE="$USAGE_CACHE_WRITE" \
-  USAGE_CACHE_READ="$USAGE_CACHE_READ" USAGE_OUTPUT="$USAGE_OUTPUT" \
-  NOW="$NOW" \
-  PAYLOAD_MODEL="$PAYLOAD_MODEL" \
+  COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" NOW="$NOW" \
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
-  python3 << 'PYEOF' > "$COST_TMP"
+  python3 << 'PYEOF' > "$COST_TMP" || { rm -f "$COST_TMP"; exit 0; }
 import json, os
 
 cost_file = os.environ['COST_INPUT']
+transcript = os.environ['TRANSCRIPT']
 now = os.environ['NOW']
 
-# Pricing tiers (June 2026) — input / cache_write_5min / cache_read / output per MTok.
-# Cache write 5min is 1.25× input; cache read is 0.10× input (Anthropic standard).
-# Sources: cloudzero.com/blog/claude-api-pricing, devtk.ai/en/blog/claude-api-pricing-guide-2026
 PRICING = {
     'opus':   (5.00,  6.25, 0.50, 25.00),
     'sonnet': (3.00,  3.75, 0.30, 15.00),
     'haiku':  (0.80,  1.00, 0.08,  4.00),
 }
-
-model = (os.environ.get('PAYLOAD_MODEL') or '').lower()
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
-if override in PRICING:
-    tier = override
-elif 'opus' in model:
-    tier = 'opus'
-elif 'haiku' in model:
-    tier = 'haiku'
-else:
-    tier = 'sonnet'
-in_p, cw_p, cr_p, out_p = PRICING[tier]
 
-inp = int(os.environ.get('USAGE_INPUT', 0) or 0)
-cw  = int(os.environ.get('USAGE_CACHE_WRITE', 0) or 0)
-cr  = int(os.environ.get('USAGE_CACHE_READ', 0) or 0)
-out = int(os.environ.get('USAGE_OUTPUT', 0) or 0)
-turn_cost = (inp * in_p + cw * cw_p + cr * cr_p + out * out_p) / 1_000_000
-
-# Load existing state
 state = {}
 if os.path.isfile(cost_file):
     try:
@@ -106,17 +64,69 @@ if os.path.isfile(cost_file):
     except Exception:
         state = {}
 
-prev_total = float(state.get('total_usd', 0) or 0)
-prev_turns = int(state.get('turn_count', 0) or 0)
+prev_total    = float(state.get('total_usd', 0) or 0)
+prev_turns    = int(state.get('turn_count', 0) or 0)
 prev_subagent = float(state.get('subagent_total', 0) or 0)
-first_updated = state.get('first_updated', '')
+prev_main     = float(state.get('main_total', 0) or 0)
+offset        = int(state.get('main_offset', 0) or 0)
+first_updated = state.get('first_updated', '') or now
 
-new_total = prev_total + turn_cost
-new_turns = prev_turns + 1
+# Reset offset if the transcript shrank/rotated.
+try:
+    size = os.path.getsize(transcript)
+except Exception:
+    size = 0
+if offset > size:
+    offset = 0
+
+def _i(v):
+    try:    return int(v or 0)
+    except Exception: return 0
+
+delta_cost = 0.0
+new_msgs = 0
+new_offset = offset
+try:
+    with open(transcript) as f:
+        f.seek(offset)
+        for line in f:
+            new_offset += len(line.encode('utf-8', 'replace'))
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                d = json.loads(line)
+            except Exception:
+                continue
+            if d.get('type') != 'assistant':
+                continue
+            msg = d.get('message') or {}
+            u = msg.get('usage') or {}
+            if not u:
+                continue
+            model = (msg.get('model') or d.get('model') or '').lower()
+            if override in PRICING:
+                tier = override
+            elif 'opus' in model:
+                tier = 'opus'
+            elif 'haiku' in model:
+                tier = 'haiku'
+            else:
+                tier = 'sonnet'
+            in_p, cw_p, cr_p, out_p = PRICING[tier]
+            delta_cost += (_i(u.get('input_tokens')) * in_p
+                           + _i(u.get('cache_creation_input_tokens')) * cw_p
+                           + _i(u.get('cache_read_input_tokens')) * cr_p
+                           + _i(u.get('output_tokens')) * out_p) / 1_000_000
+            new_msgs += 1
+except Exception:
+    # On any read error, keep prior state unchanged.
+    new_offset = offset
+
+new_main  = prev_main + delta_cost
+new_turns = prev_turns + new_msgs
+new_total = new_main + prev_subagent
 avg = new_total / new_turns if new_turns > 0 else 0.0
-
-if not first_updated:
-    first_updated = now
 
 result = {
     'total_usd': round(new_total, 8),
@@ -124,15 +134,15 @@ result = {
     'avg_per_turn': round(avg, 8),
     'first_updated': first_updated,
     'last_updated': now,
-    'subagent_total': round(prev_subagent, 8)
+    'subagent_total': round(prev_subagent, 8),
+    'main_total': round(new_main, 8),
+    'main_offset': new_offset,
 }
 print(json.dumps(result))
 PYEOF
 
-  # Atomic move
-  mv "$COST_TMP" "$COST_FILE"
-
-  echo "[Supercharger] budget-cap: accumulated file=$COST_FILE" >&2
+  [ -s "$COST_TMP" ] && mv "$COST_TMP" "$COST_FILE" || rm -f "$COST_TMP"
+  echo "[Supercharger] budget-cap: accumulated (transcript-incremental) file=$COST_FILE" >&2
   exit 0
 fi
 

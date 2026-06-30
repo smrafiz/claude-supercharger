@@ -8,17 +8,19 @@ echo "=== Budget Cap Tests ==="
 
 # ── Accumulator Tests ──────────────────────────────────────────────────────────
 
-begin_test "accumulates cost from PostToolUse usage data"
-setup_test_home
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
-mkdir -p "$SCOPE_DIR"
+# v2.7.15: accumulate now sources usage from the transcript (PostToolUse carries
+# none). Each assistant message = one billed turn; we sum incrementally by offset.
+asst_msg() { # input cw cr output -> a transcript assistant line (no model = sonnet)
+  printf '{"type":"assistant","message":{"usage":{"input_tokens":%s,"cache_creation_input_tokens":%s,"cache_read_input_tokens":%s,"output_tokens":%s}}}\n' "$1" "$2" "$3" "$4"
+}
 
-# input: 1000*3.00/1M = 0.003000
-# cache_write: 500*3.75/1M = 0.001875
-# cache_read: 2000*0.30/1M = 0.000600
-# output: 200*15.00/1M = 0.003000
-# total = 0.008475
-PAYLOAD='{"tool_name":"Write","usage":{"input_tokens":1000,"cache_creation_input_tokens":500,"cache_read_input_tokens":2000,"output_tokens":200}}'
+begin_test "accumulates cost from transcript usage data"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+# sonnet: 1000*3 + 500*3.75 + 2000*0.30 + 200*15 = 8475 /1M = 0.008475
+asst_msg 1000 500 2000 200 > "$TR"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 EXIT=$?
 if [ "$EXIT" -ne 0 ]; then
@@ -28,69 +30,42 @@ elif [ ! -f "$SCOPE_DIR/.session-cost" ]; then
 else
   TOTAL=$(python3 -c "
 import json
-with open('$SCOPE_DIR/.session-cost') as f:
-    d = json.load(f)
-total = d.get('total_usd', 0)
-# accept within 0.000001 of 0.008475
-print('ok' if abs(total - 0.008475) < 0.000001 else f'bad:{total}')
+d = json.load(open('$SCOPE_DIR/.session-cost'))
+print('ok' if abs(d.get('total_usd',0) - 0.008475) < 0.000001 else f'bad:{d.get(\"total_usd\")}')
 " 2>/dev/null || echo "parse-error")
-  if [ "$TOTAL" = "ok" ]; then
-    pass
-  else
-    fail "expected total≈0.008475, got $TOTAL"
-  fi
+  [ "$TOTAL" = "ok" ] && pass || fail "expected total≈0.008475, got $TOTAL"
 fi
 teardown_test_home
 
-begin_test "accumulates across multiple calls"
+begin_test "accumulates incrementally across calls (one new turn per call)"
 setup_test_home
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
-mkdir -p "$SCOPE_DIR"
-
-PAYLOAD='{"tool_name":"Write","usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":100}}'
-echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-
-TURN_COUNT=$(python3 -c "
-import json
-with open('$SCOPE_DIR/.session-cost') as f:
-    d = json.load(f)
-print(d.get('turn_count', 0))
-" 2>/dev/null || echo "0")
-
-if [ "$TURN_COUNT" = "3" ]; then
-  pass
-else
-  fail "expected turn_count=3, got $TURN_COUNT"
-fi
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
+: > "$TR"
+for i in 1 2 3; do
+  asst_msg 1000 0 0 100 >> "$TR"       # append one new turn
+  echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
+done
+TURN_COUNT=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost')).get('turn_count',0))" 2>/dev/null || echo 0)
+[ "$TURN_COUNT" = "3" ] && pass || fail "expected turn_count=3, got $TURN_COUNT"
 teardown_test_home
 
 begin_test "computes avg_per_turn"
 setup_test_home
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
-mkdir -p "$SCOPE_DIR"
-
-PAYLOAD='{"tool_name":"Write","usage":{"input_tokens":1000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":100}}'
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+{ asst_msg 1000 0 0 100; asst_msg 1000 0 0 100; } > "$TR"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-
 CHECK=$(python3 -c "
 import json
-with open('$SCOPE_DIR/.session-cost') as f:
-    d = json.load(f)
-total = d.get('total_usd', 0)
-turns = d.get('turn_count', 0)
-avg = d.get('avg_per_turn', 0)
-expected_avg = total / turns if turns > 0 else 0
-print('ok' if abs(avg - expected_avg) < 0.000001 else f'bad:{avg} vs {expected_avg}')
+d = json.load(open('$SCOPE_DIR/.session-cost'))
+total=d.get('total_usd',0); turns=d.get('turn_count',0); avg=d.get('avg_per_turn',0)
+exp = total/turns if turns>0 else 0
+print('ok' if abs(avg-exp) < 0.000001 else f'bad:{avg} vs {exp}')
 " 2>/dev/null || echo "parse-error")
-
-if [ "$CHECK" = "ok" ]; then
-  pass
-else
-  fail "avg_per_turn mismatch: $CHECK"
-fi
+[ "$CHECK" = "ok" ] && pass || fail "avg_per_turn mismatch: $CHECK"
 teardown_test_home
 
 begin_test "handles missing usage data gracefully"

@@ -2153,23 +2153,26 @@ echo "=== Failure Tracker Tests ==="
 
 FAIL_TRACK="$REPO_DIR/hooks/failure-tracker.sh"
 
-begin_test "failure-tracker: exits cleanly on successful command (exit_code=0)"
-INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'tool_response':{'exit_code':0},'cwd':'/tmp'}))")
+# v2.7.15: PostToolUse carries no exit_code; failure is inferred from
+# interrupted + strong stderr error markers, and the log is project-keyed.
+begin_test "failure-tracker: clean stdout (no error marker) does not log"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'tool_response':{'interrupted':False,'stderr':'','stdout':'file1 file2'},'cwd':'/tmp/ftA'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null)
-EXIT=$?
-[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 for successful cmd, got exit=$EXIT"
+[ "$?" -eq 0 ] && pass || fail "expected exit 0 for clean command"
 
-begin_test "failure-tracker: exits cleanly when no exit_code field"
-INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'ls'},'tool_response':{},'cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null)
-EXIT=$?
-[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no exit_code, got exit=$EXIT"
+begin_test "failure-tracker: benign stderr (git progress) does not log"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'git clone x'},'tool_response':{'interrupted':False,'stderr':\"Cloning into 'x'...\nremote: Counting objects\",'stdout':''},'cwd':'/tmp/ftA'}))")
+printf '%s' "$INPUT" | bash "$FAIL_TRACK" >/dev/null 2>&1 || true
+PH=$(printf '%s' "/tmp/ftA" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "/tmp/ftA" | md5 -q 2>/dev/null | cut -c1-8)
+FL="$HOME/.claude/supercharger/scope/.failed-commands-${PH}"
+[ ! -f "$FL" ] || ! grep -q "git clone" "$FL" && pass || fail "benign stderr must not be logged as failure"
 
-begin_test "failure-tracker: logs failed command to .failed-commands"
-INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'make build'},'tool_response':{'exit_code':1},'cwd':'/tmp'}))")
-printf '%s' "$INPUT" | bash "$FAIL_TRACK" 2>/dev/null || true
-FAIL_LOG="$HOME/.claude/supercharger/scope/.failed-commands"
-[ -f "$FAIL_LOG" ] && grep -q "make build" "$FAIL_LOG" && pass || fail "expected make build in .failed-commands"
+begin_test "failure-tracker: strong error marker in stderr is logged (no exit_code)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'make build'},'tool_response':{'interrupted':False,'stderr':'make: *** No rule to make target. command not found','stdout':''},'cwd':'/tmp/ftB'}))")
+printf '%s' "$INPUT" | bash "$FAIL_TRACK" >/dev/null 2>&1 || true
+PH2=$(printf '%s' "/tmp/ftB" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "/tmp/ftB" | md5 -q 2>/dev/null | cut -c1-8)
+FL2="$HOME/.claude/supercharger/scope/.failed-commands-${PH2}"
+[ -f "$FL2" ] && grep -q "make build" "$FL2" && pass || fail "expected make build in project-keyed failure log"
 
 echo ""
 echo "=== Subagent Cost Tests ==="

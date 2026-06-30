@@ -99,4 +99,20 @@ else
 fi
 teardown_test_home
 
+# v2.7.15: PostToolUse has no usage; cache stats now come from the transcript's
+# latest assistant turn. Degraded hit-rate (3 consecutive <50%) must still warn.
+begin_test "reads cache stats from transcript and warns on degraded hit rate"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/t.jsonl"
+# latest assistant turn: 100 read / 900 create = 10% hit (degraded)
+printf '%s\n' '{"type":"assistant","message":{"usage":{"cache_read_input_tokens":100,"cache_creation_input_tokens":900}}}' > "$TR"
+# pre-seed window with two prior degraded readings so this 3rd trips the warn
+printf '[10,10]\n' > "$SCOPE_DIR/.cache-health"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter"   # +1 = 5th call -> sampled
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
+OUTPUT=$(echo "$PAYLOAD" | bash "$HOOK" 2>/dev/null)
+echo "$OUTPUT" | grep -qi "CACHE" && pass || fail "expected degraded-cache warning from transcript stats, got: $OUTPUT"
+teardown_test_home
+
 report

@@ -288,6 +288,12 @@ new_state = {
     'last_updated': now,
     'subagent_total': round(new_subagent, 8),
 }
+# v2.7.15: preserve budget-cap's main-loop tracking fields (it keys off these to
+# compute its incremental delta — dropping them would double-count main cost).
+if 'main_total' in state:
+    new_state['main_total'] = state['main_total']
+if 'main_offset' in state:
+    new_state['main_offset'] = state['main_offset']
 tmp_file = cost_file + f'.{os.getpid()}.tmp'
 try:
     with open(tmp_file, 'w') as f:
