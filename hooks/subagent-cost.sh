@@ -264,43 +264,64 @@ except Exception:
 # session aggregate — so re-fires don't inflate it.
 cost_delta = max(0.0, turn_cost - prev_cost)
 
-# Update .session-cost atomically (write tmp then rename)
+# Update .session-cost. v2.7.16: the read-modify-write is shared with budget-cap
+# (async PostToolUse) — without a lock, concurrent invocations both read the same
+# prev value and the last rename wins, dropping the other's delta. fcntl.flock
+# (portable across macOS+Linux, unlike the `flock` shell util) serializes the
+# whole RMW. The atomic rename already prevented corruption; this prevents lost
+# updates.
 cost_file = os.path.join(scope_dir, '.session-cost')
-state = {}
-if os.path.isfile(cost_file):
-    try:
-        with open(cost_file) as f:
-            state = json.load(f)
-    except Exception:
-        state = {}
-prev_total = float(state.get('total_usd', 0) or 0)
-prev_turns = int(state.get('turn_count', 0) or 0)
-prev_subagent = float(state.get('subagent_total', 0) or 0)
-first_updated = state.get('first_updated', '') or now
-new_total = prev_total + cost_delta
-new_subagent = prev_subagent + cost_delta
-avg = new_total / prev_turns if prev_turns > 0 else 0.0
-new_state = {
-    'total_usd': round(new_total, 8),
-    'turn_count': prev_turns,
-    'avg_per_turn': round(avg, 8),
-    'first_updated': first_updated,
-    'last_updated': now,
-    'subagent_total': round(new_subagent, 8),
-}
-# v2.7.15: preserve budget-cap's main-loop tracking fields (it keys off these to
-# compute its incremental delta — dropping them would double-count main cost).
-if 'main_total' in state:
-    new_state['main_total'] = state['main_total']
-if 'main_offset' in state:
-    new_state['main_offset'] = state['main_offset']
-tmp_file = cost_file + f'.{os.getpid()}.tmp'
+import fcntl
+lock_file = cost_file + '.lock'
+_lf = None
 try:
-    with open(tmp_file, 'w') as f:
-        json.dump(new_state, f)
-    os.rename(tmp_file, cost_file)
+    _lf = open(lock_file, 'w')
+    fcntl.flock(_lf, fcntl.LOCK_EX)
 except Exception:
-    pass
+    _lf = None
+try:
+    state = {}
+    if os.path.isfile(cost_file):
+        try:
+            with open(cost_file) as f:
+                state = json.load(f)
+        except Exception:
+            state = {}
+    prev_total = float(state.get('total_usd', 0) or 0)
+    prev_turns = int(state.get('turn_count', 0) or 0)
+    prev_subagent = float(state.get('subagent_total', 0) or 0)
+    first_updated = state.get('first_updated', '') or now
+    new_total = prev_total + cost_delta
+    new_subagent = prev_subagent + cost_delta
+    avg = new_total / prev_turns if prev_turns > 0 else 0.0
+    new_state = {
+        'total_usd': round(new_total, 8),
+        'turn_count': prev_turns,
+        'avg_per_turn': round(avg, 8),
+        'first_updated': first_updated,
+        'last_updated': now,
+        'subagent_total': round(new_subagent, 8),
+    }
+    # v2.7.15: preserve budget-cap's main-loop tracking fields (it keys off these
+    # to compute its incremental delta — dropping them would double-count main cost).
+    if 'main_total' in state:
+        new_state['main_total'] = state['main_total']
+    if 'main_offset' in state:
+        new_state['main_offset'] = state['main_offset']
+    tmp_file = cost_file + f'.{os.getpid()}.tmp'
+    try:
+        with open(tmp_file, 'w') as f:
+            json.dump(new_state, f)
+        os.rename(tmp_file, cost_file)
+    except Exception:
+        pass
+finally:
+    if _lf is not None:
+        try:
+            fcntl.flock(_lf, fcntl.LOCK_UN)
+            _lf.close()
+        except Exception:
+            pass
 
 # Emit hookSpecificOutput JSON for Claude
 summary = f'[AGENT] {agent_name} completed: ~{cost_fmt} ({tokens_fmt} tokens, {duration_s}s)'

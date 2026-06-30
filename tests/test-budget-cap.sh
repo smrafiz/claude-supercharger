@@ -99,6 +99,29 @@ else
 fi
 teardown_test_home
 
+# v2.7.16: fcntl.flock serializes the RMW — concurrent writers on the same
+# transcript count each message exactly once (no lost updates, no double-count).
+begin_test "concurrent accumulate writers don't lose or double-count (flock)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+# 10 assistant turns, 1000 input tokens each (sonnet $3/MTok => $0.003/turn => $0.030)
+: > "$TR"
+for i in $(seq 1 10); do
+  printf '%s\n' '{"type":"assistant","message":{"usage":{"input_tokens":1000,"output_tokens":0}}}' >> "$TR"
+done
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
+# fire 10 concurrent accumulators racing from offset 0
+for i in $(seq 1 10); do echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1 & done
+wait
+RES=$(python3 -c "
+import json
+d = json.load(open('$SCOPE_DIR/.session-cost'))
+print('ok' if abs(d.get('main_total',0) - 0.030) < 0.000001 and d.get('turn_count',0) == 10 else f'bad:main={d.get(\"main_total\")} turns={d.get(\"turn_count\")}')
+" 2>/dev/null || echo "parse-error")
+[ "$RES" = "ok" ] && pass || fail "concurrent writers miscounted: $RES (want main=0.030 turns=10)"
+teardown_test_home
+
 # ── Blocker Tests ──────────────────────────────────────────────────────────────
 
 begin_test "no cap configured = passthrough"

@@ -42,8 +42,8 @@ if [[ "$MODE" == "accumulate" ]]; then
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" NOW="$NOW" \
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
-  python3 << 'PYEOF' > "$COST_TMP" || { rm -f "$COST_TMP"; exit 0; }
-import json, os
+  COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
+import json, os, fcntl
 
 cost_file = os.environ['COST_INPUT']
 transcript = os.environ['TRANSCRIPT']
@@ -55,6 +55,17 @@ PRICING = {
     'haiku':  (0.80,  1.00, 0.08,  4.00),
 }
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
+
+# v2.7.16: serialize the whole read-modify-write — shared with subagent-cost via
+# fcntl.flock (portable; macOS has no `flock` shell util). Without it concurrent
+# async writers drop each other's delta. Hold across the (incremental) transcript
+# read since the byte offset we resume from lives in cost_file.
+_lf = None
+try:
+    _lf = open(cost_file + '.lock', 'w')
+    fcntl.flock(_lf, fcntl.LOCK_EX)
+except Exception:
+    _lf = None
 
 state = {}
 if os.path.isfile(cost_file):
@@ -138,10 +149,24 @@ result = {
     'main_total': round(new_main, 8),
     'main_offset': new_offset,
 }
-print(json.dumps(result))
+# Write atomically (tmp + rename) inside the lock, then release.
+tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
+try:
+    with open(tmp, 'w') as f:
+        json.dump(result, f)
+    os.rename(tmp, cost_file)
+except Exception:
+    try: os.remove(tmp)
+    except Exception: pass
+finally:
+    if _lf is not None:
+        try:
+            fcntl.flock(_lf, fcntl.LOCK_UN)
+            _lf.close()
+        except Exception:
+            pass
 PYEOF
 
-  [ -s "$COST_TMP" ] && mv "$COST_TMP" "$COST_FILE" || rm -f "$COST_TMP"
   echo "[Supercharger] budget-cap: accumulated (transcript-incremental) file=$COST_FILE" >&2
   exit 0
 fi

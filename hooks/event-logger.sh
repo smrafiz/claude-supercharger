@@ -8,6 +8,12 @@ set -euo pipefail
 EVENT_TYPE="${1:-unknown}"
 _INPUT=$(cat)
 
+# v2.7.16: SubagentStop re-fires (stop_hook_active) — log the subagent once, not
+# ~10x per agent.
+if [ "$EVENT_TYPE" = "subagent_stop" ]; then
+  case "$_INPUT" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
+fi
+
 LOG_DIR="$HOME/.claude/supercharger"
 LOG_FILE="$LOG_DIR/events.log"
 mkdir -p "$LOG_DIR"

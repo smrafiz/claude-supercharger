@@ -60,5 +60,13 @@ run_event_logger "task_created" '{"task_name":"trigger-rotate"}'
 line_count=$(wc -l < "$LOG_FILE" | tr -d ' ')
 if [ "$line_count" -le 500 ]; then pass; else fail "log not rotated (${line_count} lines)"; fi
 
+# v2.7.16: SubagentStop re-fire (stop_hook_active) must not log a duplicate line
+begin_test "event-logger: subagent_stop re-fire is not logged twice"
+: > "$LOG_FILE"
+run_event_logger "subagent_stop" '{"agent_id":"a1","stop_hook_active":false}'
+run_event_logger "subagent_stop" '{"agent_id":"a1","stop_hook_active":true}'
+N=$(grep -c "subagent_stop" "$LOG_FILE" 2>/dev/null || echo 0)
+[ "$N" = "1" ] && pass || fail "expected 1 subagent_stop line (re-fire skipped), got $N"
+
 teardown_test_home
 report

@@ -12,6 +12,10 @@ mkdir -p "$SUMMARIES_DIR" 2>/dev/null || true
 
 _INPUT=$(cat)
 
+# v2.7.16: skip Stop re-fires (stop_hook_active) so the completion webhook fires
+# once per session, not once per re-entry.
+case "$_INPUT" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
+
 # v2.6.24: one python3 fork does stdin-parse + economy-detect + both file
 # writes. Was: 1 python3 (cost parse) + 2 greps (economy) + 1 basename + 1
 # git branch + 1 git diff + 1 date (×2) — 7 forks. Now: 1 python3 + 1 git
