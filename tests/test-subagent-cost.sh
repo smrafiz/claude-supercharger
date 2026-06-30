@@ -229,4 +229,26 @@ if [ "$ROWS" = "1" ] && [ "$FINAL_TOK" = "14000" ] && [ "$SUB" = "$LAST_COST" ];
 else fail "expected 1 row / 14000 tok / subagent_total==final ($LAST_COST); got rows=$ROWS tok=$FINAL_TOK sub=$SUB"; fi
 teardown_test_home
 
+# v2.7.20: a later re-fire whose transcript is gone ($0 / "agent" fallback) must
+# NOT clobber the richer earlier recording for the same agent_id.
+begin_test "stop: data-less re-fire does not clobber a good recording"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/agent-transcript.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"model":"claude-sonnet-4-6","usage":{"input_tokens":100000,"output_tokens":5000}}}' > "$TR"
+# re-fire 1: real transcript -> records general-purpose w/ cost
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"agent_id":"agX","agent_type":"general-purpose","session_id":"clob","agent_transcript_path":sys.argv[1]}))' "$TR")
+echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
+# re-fire 2: NO transcript_path, no agent_type -> would compute $0 / "agent"
+echo '{"agent_id":"agX","session_id":"clob"}' | bash "$HOOK" stop >/dev/null 2>&1
+F="$SCOPE_DIR/.subagent-costs-clob.jsonl"
+RES=$(python3 -c "
+import json
+rows=[json.loads(l) for l in open('$F') if l.strip()]
+r=[x for x in rows if x['agent_id']=='agX'][-1]
+print('ok' if r['agent_name']=='general-purpose' and r['cost_usd']>0 else f'bad:{r[\"agent_name\"]}/{r[\"cost_usd\"]}')
+" 2>/dev/null || echo parse-error)
+[ "$RES" = "ok" ] && pass || fail "data-less re-fire clobbered the good row: $RES"
+teardown_test_home
+
 report

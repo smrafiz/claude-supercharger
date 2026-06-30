@@ -213,6 +213,7 @@ except Exception:
 jsonl_file = os.path.join(scope_dir, f'.subagent-costs-{session_id}.jsonl')
 prev_cost = 0.0
 prev_duration = 0.0
+prev_entry = None
 kept_lines = []
 if os.path.isfile(jsonl_file):
     try:
@@ -227,7 +228,10 @@ if os.path.isfile(jsonl_file):
                     kept_lines.append(line)
                     continue
                 if row.get('agent_id') == agent_id:
-                    prev_cost = max(prev_cost, float(row.get('cost_usd', 0) or 0))
+                    rc = float(row.get('cost_usd', 0) or 0)
+                    if prev_entry is None or rc >= prev_cost:
+                        prev_entry = row
+                    prev_cost = max(prev_cost, rc)
                     prev_duration = max(prev_duration, float(row.get('duration_s', 0) or 0))
                 else:
                     kept_lines.append(line)
@@ -237,20 +241,30 @@ if os.path.isfile(jsonl_file):
 if duration_s == 0 and prev_duration > 0:
     duration_s = prev_duration
 
-entry = {
-    'agent_id': agent_id,
-    'agent_name': agent_name,
-    'session_id': session_id,
-    'started_at': started_at,
-    'stopped_at': now,
-    'duration_s': float(duration_s),
-    'input_tokens': input_tok,
-    'cache_write_tokens': cache_write,
-    'cache_read_tokens': cache_read,
-    'output_tokens': output_tok,
-    'total_tokens': total_tokens,
-    'cost_usd': float(turn_cost),
-}
+# v2.7.20: a later SubagentStop re-fire can arrive AFTER the agent's transcript
+# was cleaned up → it computes $0 / "agent" fallback name and would clobber the
+# good earlier recording. Keep the richer prior row when this firing is weaker
+# (cost not higher); only overwrite when we have MORE cost than before.
+if prev_entry is not None and turn_cost <= prev_cost:
+    entry = dict(prev_entry)
+    entry['stopped_at'] = now
+    if float(duration_s) > float(entry.get('duration_s', 0) or 0):
+        entry['duration_s'] = float(duration_s)
+else:
+    entry = {
+        'agent_id': agent_id,
+        'agent_name': agent_name,
+        'session_id': session_id,
+        'started_at': started_at,
+        'stopped_at': now,
+        'duration_s': float(duration_s),
+        'input_tokens': input_tok,
+        'cache_write_tokens': cache_write,
+        'cache_read_tokens': cache_read,
+        'output_tokens': output_tok,
+        'total_tokens': total_tokens,
+        'cost_usd': float(turn_cost),
+    }
 kept_lines.append(json.dumps(entry))
 try:
     tmp_jsonl = jsonl_file + f'.{os.getpid()}.tmp'
