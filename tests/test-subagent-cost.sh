@@ -251,4 +251,14 @@ print('ok' if r['agent_name']=='general-purpose' and r['cost_usd']>0 else f'bad:
 [ "$RES" = "ok" ] && pass || fail "data-less re-fire clobbered the good row: $RES"
 teardown_test_home
 
+# v2.7.21: a ghost SubagentStop (brand-new agent_id, no transcript -> $0/0 tokens)
+# must NOT create a phantom row.
+begin_test "stop: ghost firing (new id, no data) writes no phantom row"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+echo '{"agent_id":"ghostA","session_id":"gh"}' | bash "$HOOK" stop >/dev/null 2>&1
+F="$SCOPE_DIR/.subagent-costs-gh.jsonl"
+{ [ ! -f "$F" ] || [ ! -s "$F" ]; } && pass || fail "phantom row written: $(cat "$F" 2>/dev/null)"
+teardown_test_home
+
 report

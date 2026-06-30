@@ -241,6 +241,15 @@ if os.path.isfile(jsonl_file):
 if duration_s == 0 and prev_duration > 0:
     duration_s = prev_duration
 
+# v2.7.21: CC fires extra "ghost" SubagentStop events with a fresh agent_id, no
+# agent_type (so the name falls back to "agent") and no transcript → $0 cost, 0
+# tokens. Writing those creates phantom $0 rows that clutter the per-session log
+# and inflate /sc-status run counts. Skip a brand-new agent_id ONLY when it has
+# the fallback name AND no usable data — a real agent always carries an
+# agent_type, so this never drops a genuine (even zero-usage) run.
+if prev_entry is None and agent_name == 'agent' and total_tokens == 0 and turn_cost == 0:
+    raise SystemExit(0)
+
 # v2.7.20: a later SubagentStop re-fire can arrive AFTER the agent's transcript
 # was cleaned up → it computes $0 / "agent" fallback name and would clobber the
 # good earlier recording. Keep the richer prior row when this firing is weaker
