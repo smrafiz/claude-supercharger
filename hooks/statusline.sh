@@ -360,7 +360,37 @@ try:
  except Exception:
      budget_str = ''
 
- line3 = f'{DIM}{cost_label}{RESET} {YELLOW}{cost_fmt}{RESET} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
+ # Subagent tokens + cost for THIS session. CC does NOT fold subagent usage
+ # into the parent cost it reports above, so the bar would otherwise undercount
+ # whenever agents are spawned. Sum the per-session subagent-costs log, deduped
+ # by agent_id (SubagentStop re-fires can leave >1 row per agent — keep the
+ # highest, matching subagent-cost.sh's last-cumulative-wins upsert).
+ sub_seg = ''
+ try:
+     sub_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.subagent-costs-{session_id}.jsonl')
+     if os.path.isfile(sub_file):
+         by_agent = {}
+         with open(sub_file) as f:
+             for ln in f:
+                 ln = ln.strip()
+                 if not ln:
+                     continue
+                 try:
+                     r = json.loads(ln)
+                 except Exception:
+                     continue
+                 aid = r.get('agent_id', '?')
+                 c = float(r.get('cost_usd', 0) or 0)
+                 if aid not in by_agent or c >= by_agent[aid][0]:
+                     by_agent[aid] = (c, int(r.get('total_tokens', 0) or 0))
+         sub_cost = sum(c for c, _t in by_agent.values())
+         sub_tok = sum(t for _c, t in by_agent.values())
+         if sub_tok > 0 or sub_cost > 0:
+             sub_seg = f' {DIM}(sub: {fmt_tokens(sub_tok)} / ${sub_cost:.2f}){RESET}'
+ except Exception:
+     sub_seg = ''
+
+ line3 = f'{DIM}{cost_label}{RESET} {YELLOW}{cost_fmt}{RESET}{sub_seg} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
 
  print(line1)
  try:

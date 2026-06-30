@@ -710,6 +710,26 @@ OUTPUT=$(echo '{"model":{},"workspace":{},"cost":{},"context_window":{}}' | bash
 LINE_COUNT=$(echo "$OUTPUT" | wc -l | tr -d ' ')
 [ "$LINE_COUNT" -eq 3 ] && pass || fail "should still output 3 lines with missing fields"
 
+# v2.7.19: line 3 shows a subagent tokens/cost segment for this session, deduped
+# by agent_id (re-fire rows collapse to the highest), absent when no agents.
+begin_test "statusline: line 3 shows subagent tokens+cost (deduped)"
+SL_HOME=$(mktemp -d); mkdir -p "$SL_HOME/.claude/supercharger/scope"
+cat > "$SL_HOME/.claude/supercharger/scope/.subagent-costs-slsess.jsonl" <<'EOF'
+{"agent_id":"a1","total_tokens":120000,"cost_usd":0.30}
+{"agent_id":"a1","total_tokens":180000,"cost_usd":0.45}
+{"agent_id":"a2","total_tokens":40000,"cost_usd":0.10}
+EOF
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"slsess","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
+L3=$(echo "$OUTPUT" | sed -n '3p' | sed 's/\x1b\[[0-9;]*m//g')
+echo "$L3" | grep -q "sub: 220.0K / \$0.55" && pass || fail "expected 'sub: 220.0K / \$0.55', got: $L3"
+rm -rf "$SL_HOME"
+
+begin_test "statusline: no subagent segment when no agents this session"
+SL_HOME=$(mktemp -d); mkdir -p "$SL_HOME/.claude/supercharger/scope"
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"empty","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
+echo "$OUTPUT" | sed -n '3p' | grep -q "sub:" && fail "unexpected sub segment with no agents" || pass
+rm -rf "$SL_HOME"
+
 # --- Stack Detection Tests ---
 
 echo ""
