@@ -85,4 +85,15 @@ else
 fi
 rm -rf "$PROJ" "$FAKE_HOME"
 
+# v2.7.23: checkpoint cleanup (session-memory-write on Stop) must be SID-scoped —
+# was a bare `.checkpoint-*` glob that deleted concurrent sessions' checkpoints.
+begin_test "session-memory-write: checkpoint cleanup does not delete other sessions"
+FAKE_HOME=$(mktemp -d); SD="$FAKE_HOME/.claude/supercharger/scope"; mkdir -p "$SD"
+echo "ckA" > "$SD/.checkpoint-sessA"
+echo "ckB" > "$SD/.checkpoint-sessB"
+PROJ=$(mktemp -d)
+printf '{"session_id":"sessA","cwd":"%s"}' "$PROJ" | HOME="$FAKE_HOME" bash "$REPO_DIR/hooks/session-memory-write.sh" >/dev/null 2>&1
+[ -f "$SD/.checkpoint-sessB" ] && pass || fail "other session's checkpoint was deleted (cross-session glob bug)"
+rm -rf "$PROJ" "$FAKE_HOME"
+
 report

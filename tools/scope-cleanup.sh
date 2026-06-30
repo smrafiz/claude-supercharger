@@ -34,39 +34,52 @@ declare -i removed=0 kept=0
 declare -i bytes_freed=0
 
 # pattern => max age (sec)
+# v2.7.23: removed 10 dead/misnamed entries that matched no real writer
+# (.pending-*, .eco-stop-*, .tier-snapshot-*, .eco-reinforce-counter,
+#  .last-idle-notify, .prompt-cost-*/.prompt-tokens-*/.last-prompt-tokens-*,
+#  bare .gate-pending, .loop-detector/.loop-detector-*) and added coverage for
+# real scope files that previously leaked forever (no pruner matched them).
+# Note: .snapshot-* mtime is set once at SessionStart, so a session running
+# longer than its TTL would lose its scope-alert baseline — acceptable (rare;
+# check mode degrades gracefully).
 patterns_max_age=(
   ".dedup-*:$SECS_HOUR"
   ".agent-classified-*:$SECS_WEEK"
   ".denied-*:$SECS_WEEK"
   ".keep-going-*:$SECS_WEEK"
   ".stack-cache-*:$SECS_MONTH"
-  ".pending-*:$SECS_HOUR"
   ".router-hash-*:$SECS_DAY"
+  ".router-cache-*:$SECS_DAY"
+  ".router-roster-*:$SECS_WEEK"
   ".last-tier-*:$SECS_WEEK"
   ".last-category-*:$SECS_WEEK"
   ".subagent-active-*:$SECS_DAY"
   ".subagent-costs-*.jsonl:$SECS_WEEK"
+  ".subagent-spawns-*.json:$SECS_WEEK"
+  ".subagent-safety-injected-*:$SECS_WEEK"
+  ".tool-history-*:$SECS_WEEK"
+  ".tool-calls-*:$SECS_DAY"
+  ".snapshot-*:$SECS_WEEK"
+  ".contract-*:$SECS_DAY"
   ".user-corrections-*:$SECS_MONTH"
   ".user-reinforcements-*:$SECS_MONTH"
   ".agent-dispatched-*:$SECS_WEEK"
   ".gate-pending-*:$SECS_HOUR"
-  ".eco-stop-*:$SECS_DAY"
-  ".tier-snapshot-*:$SECS_WEEK"
   ".rate-limit-*:$SECS_DAY"
   ".quality-gate-cache-*:$SECS_WEEK"
   ".typecheck-cache-*:$SECS_WEEK"
   ".notify-ts-*:$SECS_DAY"
   ".cache-health-counter:$SECS_DAY"
-  ".eco-reinforce-counter:$SECS_DAY"
+  ".eco-reinforce-acked:$SECS_WEEK"
+  ".eco-last-*:$SECS_WEEK"
   ".memory-restored:$SECS_DAY"
-  ".last-idle-notify:$SECS_DAY"
-  ".prompt-cost-*:$SECS_WEEK"
-  ".prompt-tokens-*:$SECS_WEEK"
-  ".last-prompt-tokens-*:$SECS_WEEK"
   ".active-mcp-*:$SECS_DAY"
-  ".gate-pending:$SECS_HOUR"
-  ".loop-detector:$SECS_DAY"
-  ".loop-detector-*:$SECS_DAY"
+  ".failed-commands-*:$SECS_WEEK"
+  ".scan-alert-*:$SECS_DAY"
+  ".standards-inject-*:$SECS_MONTH"
+  ".repetition-flag-*:$SECS_DAY"
+  ".loop-history:$SECS_WEEK"
+  ".read-history:$SECS_WEEK"
 )
 
 cleanup_pattern() {

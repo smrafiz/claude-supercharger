@@ -1156,12 +1156,14 @@ rm -rf "$TMPDIR_SG"
 [ -f "$SNAP_FILE" ] && pass || fail "snapshot file not created at $SNAP_FILE"
 rm -f "$SNAP_FILE"
 
-begin_test "scope-guard: clear mode removes snapshot"
+# v2.7.23: clear PRESERVES the snapshot baseline (scope-guard's own check-mode
+# baseline, no longer wiped every turn; reset at SessionStart / TTL-pruned).
+begin_test "scope-guard: clear mode preserves snapshot baseline"
 SCOPE_DIR_SG="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_SG"
 echo "commit:abc dir:/tmp time:1000" > "$SCOPE_DIR_SG/.snapshot-clr1"
 printf '{"session_id":"clr1","cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear 2>&1
-[ ! -f "$SCOPE_DIR_SG/.snapshot-clr1" ] && pass || fail "snapshot not cleared"
+[ -f "$SCOPE_DIR_SG/.snapshot-clr1" ] && pass || fail "snapshot wrongly cleared"
 
 begin_test "scope-guard: check mode exits cleanly when no snapshot"
 SCOPE_DIR_SG="$HOME/.claude/supercharger/scope"

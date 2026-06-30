@@ -38,16 +38,18 @@ if echo "$CONTRACT" | grep -q "auth.py"; then pass
 else fail "file path not extracted: $CONTRACT"; fi
 teardown_test_home
 
-# Test 4: clear removes snapshot and contract files
-begin_test "scope-guard: clear removes snapshot and contract files"
+# Test 4: clear removes the per-prompt contract but PRESERVES the snapshot
+# baseline (v2.7.23 — snapshot is scope-guard's own check-mode baseline, no
+# longer wiped every turn; only the contract is per-prompt scratch).
+begin_test "scope-guard: clear removes contract, preserves snapshot baseline"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo "scope:general" > "$HOME/.claude/supercharger/scope/.contract-s4"
 echo "commit:abc" > "$HOME/.claude/supercharger/scope/.snapshot-s4"
 echo '{"session_id":"s4"}' | bash "$SCOPE_GUARD" clear
-if [ ! -f "$HOME/.claude/supercharger/scope/.snapshot-s4" ] && \
+if [ -f "$HOME/.claude/supercharger/scope/.snapshot-s4" ] && \
    [ ! -f "$HOME/.claude/supercharger/scope/.contract-s4" ]; then pass
-else fail "files not cleared"; fi
+else fail "expected snapshot kept + contract cleared (snap=$([ -f "$HOME/.claude/supercharger/scope/.snapshot-s4" ] && echo k || echo G) contract=$([ -f "$HOME/.claude/supercharger/scope/.contract-s4" ] && echo BUG || echo cleared))"; fi
 teardown_test_home
 
 # v2.7.22: clear must NOT wipe cumulative session telemetry (subagent costs) —
@@ -60,6 +62,22 @@ echo "x" > "$SD/.agent-classified-sc9"   # per-turn scratch that SHOULD clear
 echo '{"session_id":"sc9","cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear >/dev/null 2>&1
 if [ -s "$SD/.subagent-costs-sc9.jsonl" ] && [ ! -f "$SD/.agent-classified-sc9" ]; then pass
 else fail "clear wiped costs ($([ -f "$SD/.subagent-costs-sc9.jsonl" ] && echo kept || echo GONE)) or kept scratch"; fi
+teardown_test_home
+
+# v2.7.23: clear must also preserve the other cumulative/session-baseline files
+# (snapshot = check-mode baseline, tool-history = confidence history, the
+# once/session safety flag) while still clearing per-turn scratch.
+begin_test "scope-guard: clear preserves snapshot/tool-history/safety-flag, clears scratch"
+setup_test_home
+SD="$HOME/.claude/supercharger/scope"; mkdir -p "$SD"
+echo "base" > "$SD/.snapshot-sc23"
+echo "hist" > "$SD/.tool-history-sc23"
+echo "1"    > "$SD/.subagent-safety-injected-sc23"
+echo "x"    > "$SD/.router-hash-sc23"   # per-turn scratch -> should clear
+echo '{"session_id":"sc23","cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear >/dev/null 2>&1
+if [ -f "$SD/.snapshot-sc23" ] && [ -f "$SD/.tool-history-sc23" ] && \
+   [ -f "$SD/.subagent-safety-injected-sc23" ] && [ ! -f "$SD/.router-hash-sc23" ]; then pass
+else fail "clear wrongly wiped a cumulative file or kept scratch (snap=$([ -f "$SD/.snapshot-sc23" ] && echo k || echo G) hist=$([ -f "$SD/.tool-history-sc23" ] && echo k || echo G) flag=$([ -f "$SD/.subagent-safety-injected-sc23" ] && echo k || echo G) scratch=$([ -f "$SD/.router-hash-sc23" ] && echo BUG || echo cleared))"; fi
 teardown_test_home
 
 # Test 5: contract is idempotent (second call doesn't overwrite)

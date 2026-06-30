@@ -84,6 +84,10 @@ block() {
   # Truncate to 120 chars to avoid bloating session context
   safe_cmd="${safe_cmd:0:120}"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
+  # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
+  if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then
+    tail -n 500 "$blocks_log" > "$blocks_log.tmp" 2>/dev/null && mv "$blocks_log.tmp" "$blocks_log" 2>/dev/null || true
+  fi
   RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2

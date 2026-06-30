@@ -200,7 +200,13 @@ if [[ "$MODE" == "clear" ]]; then
   # SNAPSHOT_FILE and CONTRACT_FILE are already SID-suffixed (v2.6.77).
   # Also clean the legacy unsuffixed paths from pre-v2.6.77 sessions if any
   # crashed before the upgrade.
-  rm -f "$SNAPSHOT_FILE" "$CONTRACT_FILE" \
+  # v2.7.23: $SNAPSHOT_FILE (.snapshot-$SID) is NO LONGER cleared here. `clear`
+  # runs on every Stop (turn end), but the snapshot is scope-guard's OWN
+  # SessionStart baseline that `check` mode diffs against — wiping it per turn
+  # silently disabled ALL scope-alerts after turn 1 (the hook destroyed the data
+  # it needs). It's overwritten fresh at SessionStart (snapshot mode) and
+  # TTL-pruned below. Legacy unsuffixed .snapshot/.contract cleanup stays.
+  rm -f "$CONTRACT_FILE" \
         "$SCOPE_DIR/.snapshot" "$SCOPE_DIR/.contract" \
         "$SCOPE_DIR/.session-tokens"
   # SID already set at top (v2.6.77); keep the original re-extraction below
@@ -212,15 +218,14 @@ if [[ "$MODE" == "clear" ]]; then
           "$SCOPE_DIR/.last-tier-$SID" \
           "$SCOPE_DIR/.router-hash-$SID" \
           "$SCOPE_DIR/.router-cache-$SID" \
-          "$SCOPE_DIR/.repetition-flag-$SID" \
-          "$SCOPE_DIR/.subagent-safety-injected-$SID" \
-          "$SCOPE_DIR/.tool-history-$SID" 2>/dev/null || true
-  # v2.7.22: do NOT clear .subagent-costs-$SID.jsonl here. The `clear` mode runs
-  # on every Stop (turn end) to reset per-prompt scratch state, but subagent cost
-  # is CUMULATIVE session telemetry that /sc-status and the statusline read — so
-  # wiping it every turn made the subagent rollup / statusline `(sub:)` segment
-  # vanish ~one turn after any agent ran. It is TTL-pruned (1 week) by
-  # scope-cleanup.sh and reset naturally when a new session_id starts.
+          "$SCOPE_DIR/.repetition-flag-$SID" 2>/dev/null || true
+  # v2.7.22/.23: CUMULATIVE session state is NOT cleared per-turn — only
+  # TTL-pruned (below) or reset at SessionStart. Removed from this per-turn rm:
+  #   .subagent-costs-$SID.jsonl       (v2.7.22) — /sc-status + statusline rollup
+  #   .snapshot-$SID                   (v2.7.23) — scope-guard's check baseline
+  #   .tool-history-$SID               (v2.7.23) — confidence-gate session history
+  #   .subagent-safety-injected-$SID   (v2.7.23) — once/session preamble dedup flag
+  # Wiping them every Stop defeated their purpose (lost data / repeated work).
   fi
   # Also TTL-prune any orphaned session files older than 7 days
   find "$SCOPE_DIR" -maxdepth 1 -type f \( \
@@ -232,6 +237,8 @@ if [[ "$MODE" == "clear" ]]; then
     -o -name '.repetition-flag-*' \
     -o -name '.subagent-safety-injected-*' \
     -o -name '.subagent-costs-*.jsonl' \
+    -o -name '.snapshot-*' \
+    -o -name '.contract-*' \
     -o -name '.tool-history-*' \
     -o -name '.router-cache-*' \) -mtime +7 -delete 2>/dev/null || true
   exit 0

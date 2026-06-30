@@ -303,8 +303,10 @@ CKPT5="$SCOPE5/.checkpoint-cleanup-test"
 printf '%s' "ckpt:2026-04-22T10:00Z branch:main files:src/app.ts" > "$CKPT5"
 result "checkpoint file present before session end" "$([ -f "$CKPT5" ] && echo PASS || echo FAIL)"
 
-# Run session-memory-write.sh — writes memory and deletes checkpoints
-(cd "$PROJ5" && export HOME="$FAKE_HOME5"; bash "$REPO_DIR/hooks/session-memory-write.sh") 2>/dev/null
+# Run session-memory-write.sh — writes memory and deletes THIS session's
+# checkpoint. v2.7.23: cleanup is SID-scoped, so pass a session_id matching the
+# checkpoint filename (.checkpoint-cleanup-test).
+(cd "$PROJ5" && export HOME="$FAKE_HOME5"; printf '{"session_id":"cleanup-test","cwd":"%s"}' "$PROJ5" | bash "$REPO_DIR/hooks/session-memory-write.sh") 2>/dev/null
 
 MEMORY5="$PROJ5/.claude/supercharger-memory.md"
 if [ -f "$MEMORY5" ]; then

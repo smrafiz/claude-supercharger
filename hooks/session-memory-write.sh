@@ -147,7 +147,10 @@ printf '%.2000s\n' "$CONTENT" > "$MEMORY_FILE"
 
 echo "[Supercharger] session-memory: wrote $MEMORY_FILE" >&2
 
-# Clean up checkpoint files (successful memory write = no longer needed)
-rm -f "$HOME/.claude/supercharger/scope"/.checkpoint-* 2>/dev/null || true
+# Clean up THIS session's checkpoint (successful memory write = no longer needed).
+# v2.7.23: was a bare `.checkpoint-*` glob that deleted concurrent sessions'
+# live checkpoints too. Scope to this session_id.
+_CK_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+[ -n "$_CK_SID" ] && rm -f "$HOME/.claude/supercharger/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
 
 exit 0

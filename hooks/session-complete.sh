@@ -85,8 +85,11 @@ except Exception:
     pass
 PYEOF
 
-# Clean up checkpoint files on normal session end
-rm -f "$HOME/.claude/supercharger/scope"/.checkpoint-* 2>/dev/null || true
+# Clean up THIS session's checkpoint. v2.7.23: was a bare `.checkpoint-*` glob,
+# so a concurrent session's Stop deleted OTHER live sessions' checkpoints. Scope
+# to this session_id (checkpoints are written as .checkpoint-<session_id>).
+_CK_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+[ -n "$_CK_SID" ] && rm -f "$HOME/.claude/supercharger/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
 
 # Send webhook notification if configured — uses shared webhook lib
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
