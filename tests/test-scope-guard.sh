@@ -50,6 +50,18 @@ if [ ! -f "$HOME/.claude/supercharger/scope/.snapshot-s4" ] && \
 else fail "files not cleared"; fi
 teardown_test_home
 
+# v2.7.22: clear must NOT wipe cumulative session telemetry (subagent costs) —
+# it ran on every Stop, making the /sc-status + statusline subagent data vanish.
+begin_test "scope-guard: clear preserves .subagent-costs (cumulative telemetry)"
+setup_test_home
+SD="$HOME/.claude/supercharger/scope"; mkdir -p "$SD"
+echo '{"agent_id":"a1","agent_name":"general-purpose","cost_usd":0.42,"total_tokens":200000}' > "$SD/.subagent-costs-sc9.jsonl"
+echo "x" > "$SD/.agent-classified-sc9"   # per-turn scratch that SHOULD clear
+echo '{"session_id":"sc9","cwd":"/tmp"}' | bash "$SCOPE_GUARD" clear >/dev/null 2>&1
+if [ -s "$SD/.subagent-costs-sc9.jsonl" ] && [ ! -f "$SD/.agent-classified-sc9" ]; then pass
+else fail "clear wiped costs ($([ -f "$SD/.subagent-costs-sc9.jsonl" ] && echo kept || echo GONE)) or kept scratch"; fi
+teardown_test_home
+
 # Test 5: contract is idempotent (second call doesn't overwrite)
 begin_test "scope-guard: contract not overwritten on second call"
 setup_test_home

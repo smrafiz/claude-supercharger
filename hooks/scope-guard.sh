@@ -214,8 +214,13 @@ if [[ "$MODE" == "clear" ]]; then
           "$SCOPE_DIR/.router-cache-$SID" \
           "$SCOPE_DIR/.repetition-flag-$SID" \
           "$SCOPE_DIR/.subagent-safety-injected-$SID" \
-          "$SCOPE_DIR/.subagent-costs-$SID.jsonl" \
           "$SCOPE_DIR/.tool-history-$SID" 2>/dev/null || true
+  # v2.7.22: do NOT clear .subagent-costs-$SID.jsonl here. The `clear` mode runs
+  # on every Stop (turn end) to reset per-prompt scratch state, but subagent cost
+  # is CUMULATIVE session telemetry that /sc-status and the statusline read — so
+  # wiping it every turn made the subagent rollup / statusline `(sub:)` segment
+  # vanish ~one turn after any agent ran. It is TTL-pruned (1 week) by
+  # scope-cleanup.sh and reset naturally when a new session_id starts.
   fi
   # Also TTL-prune any orphaned session files older than 7 days
   find "$SCOPE_DIR" -maxdepth 1 -type f \( \
