@@ -68,6 +68,26 @@ print('ok' if abs(avg-exp) < 0.000001 else f'bad:{avg} vs {exp}')
 [ "$CHECK" = "ok" ] && pass || fail "avg_per_turn mismatch: $CHECK"
 teardown_test_home
 
+# v2.7.17: re-running on the SAME (unchanged) transcript must NOT re-sum — the
+# byte offset must land exactly at EOF (binary tell()), not drift past it.
+begin_test "incremental offset is exact — repeated calls don't re-count"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+# include a non-ASCII char so byte length != char length (would break text-mode seek)
+{ asst_msg 1000 0 0 100; printf '{"type":"user","message":{"content":"caf\xc3\xa9 \xe2\x9c\x93 unicode"}}\n'; asst_msg 1000 0 0 100; } > "$TR"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
+echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
+M1=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['main_total'],8))")
+T1=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])")
+echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1   # same transcript, no new lines
+echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
+M2=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['main_total'],8))")
+T2=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])")
+if [ "$M1" = "$M2" ] && [ "$T1" = "$T2" ] && [ "$T1" = "2" ]; then pass
+else fail "re-counted on unchanged transcript: main $M1->$M2, turns $T1->$T2 (want stable, turns=2)"; fi
+teardown_test_home
+
 begin_test "handles missing usage data gracefully"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"

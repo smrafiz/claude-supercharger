@@ -82,13 +82,22 @@ prev_main     = float(state.get('main_total', 0) or 0)
 offset        = int(state.get('main_offset', 0) or 0)
 first_updated = state.get('first_updated', '') or now
 
-# Reset offset if the transcript shrank/rotated.
+# v2.7.17: read the transcript in BINARY mode. Text-mode seek() does NOT accept
+# hand-counted byte offsets (only opaque f.tell() cookies), so the previous
+# `new_offset += len(line.encode())` arithmetic drifted, overshot the real file
+# size, tripped the reset-to-0 below, and re-summed the WHOLE transcript every
+# call → runaway ~3.8x over-count. Binary readline()/tell() give true byte
+# positions that seek() honors. If the offset is past EOF (shrink/rotation OR a
+# legacy corrupt offset), reset BOTH the offset and main_total so we re-derive
+# main cost cleanly instead of adding to an already-inflated value.
 try:
     size = os.path.getsize(transcript)
 except Exception:
     size = 0
 if offset > size:
     offset = 0
+    prev_main = 0.0
+    prev_turns = 0   # re-derive main turn count from the full re-read
 
 def _i(v):
     try:    return int(v or 0)
@@ -98,15 +107,15 @@ delta_cost = 0.0
 new_msgs = 0
 new_offset = offset
 try:
-    with open(transcript) as f:
+    with open(transcript, 'rb') as f:
         f.seek(offset)
-        for line in f:
-            new_offset += len(line.encode('utf-8', 'replace'))
-            line = line.strip()
-            if not line:
-                continue
+        while True:
+            bline = f.readline()
+            if not bline:
+                break
+            new_offset = f.tell()
             try:
-                d = json.loads(line)
+                d = json.loads(bline.decode('utf-8', 'replace'))
             except Exception:
                 continue
             if d.get('type') != 'assistant':
