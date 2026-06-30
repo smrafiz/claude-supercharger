@@ -381,8 +381,17 @@ try:
                      continue
                  aid = r.get('agent_id', '?')
                  c = float(r.get('cost_usd', 0) or 0)
+                 # v2.7.24: show NEW tokens only (input + cache_write + output),
+                 # excluding cache_read. total_tokens is ~90-96% cache-read
+                 # (context re-read every message), which dwarfs actual work. Fall
+                 # back to total_tokens for legacy rows that lack the breakdown.
+                 _new = (int(r.get('input_tokens', 0) or 0)
+                         + int(r.get('cache_write_tokens', 0) or 0)
+                         + int(r.get('output_tokens', 0) or 0))
+                 if _new == 0:
+                     _new = int(r.get('total_tokens', 0) or 0)
                  if aid not in by_agent or c >= by_agent[aid][0]:
-                     by_agent[aid] = (c, int(r.get('total_tokens', 0) or 0))
+                     by_agent[aid] = (c, _new)
          sub_cost = sum(c for c, _t in by_agent.values())
          sub_tok = sum(t for _c, t in by_agent.values())
          if sub_tok > 0 or sub_cost > 0:

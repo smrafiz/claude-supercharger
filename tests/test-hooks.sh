@@ -724,6 +724,18 @@ L3=$(echo "$OUTPUT" | sed -n '3p' | sed 's/\x1b\[[0-9;]*m//g')
 echo "$L3" | grep -q "sub: 220.0K / \$0.55" && pass || fail "expected 'sub: 220.0K / \$0.55', got: $L3"
 rm -rf "$SL_HOME"
 
+# v2.7.24: segment shows NEW tokens only (input+cache_write+output), excluding
+# cache_read which is ~90-96% of total_tokens (context re-reads).
+begin_test "statusline: subagent segment excludes cache_read (new tokens only)"
+SL_HOME=$(mktemp -d); mkdir -p "$SL_HOME/.claude/supercharger/scope"
+cat > "$SL_HOME/.claude/supercharger/scope/.subagent-costs-newtok.jsonl" <<'EOF'
+{"agent_id":"a1","input_tokens":1000,"cache_write_tokens":50000,"cache_read_tokens":900000,"output_tokens":4000,"total_tokens":955000,"cost_usd":2.00}
+EOF
+OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"newtok","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
+L3=$(echo "$OUTPUT" | sed -n '3p' | sed 's/\x1b\[[0-9;]*m//g')
+echo "$L3" | grep -q "sub: 55.0K / \$2.00" && pass || fail "expected new-token 'sub: 55.0K / \$2.00' (not 955K), got: $L3"
+rm -rf "$SL_HOME"
+
 begin_test "statusline: no subagent segment when no agents this session"
 SL_HOME=$(mktemp -d); mkdir -p "$SL_HOME/.claude/supercharger/scope"
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"empty","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
