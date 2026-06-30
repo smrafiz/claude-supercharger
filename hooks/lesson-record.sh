@@ -14,6 +14,16 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_LESSONS:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
+
+# v2.7.14: CC re-fires Stop repeatedly (stop_hook_active re-entry — e.g. when
+# stop-keep-going/stop-verify return a block). Each re-fire sees the SAME last
+# assistant message and would append an IDENTICAL lesson, so lessons.jsonl
+# accumulated N duplicates per lesson (and lesson-recall surfaced them N times).
+# Skip re-entries — only record on the first/terminal stop. Same guard idiom as
+# notify-stop.sh.
+STOP_ACTIVE=$(printf '%s\n' "$_INPUT" | jq -r '.stop_hook_active // false' 2>/dev/null || echo false)
+[ "$STOP_ACTIVE" = "true" ] && exit 0
+
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "lesson-record" && exit 0

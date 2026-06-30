@@ -53,7 +53,17 @@ content = ti.get('content') or ti.get('new_string') or ''
 if not content:
     sys.exit(0)
 
-normalized = unicodedata.normalize('NFKC', content).lower()
+_nfkc = unicodedata.normalize('NFKC', content)
+normalized = _nfkc.lower()
+
+# Case-sensitive base64 markers must match the NON-lowercased text. v2.7.14 fix:
+# these lived in `patterns` (matched against the lowercased `normalized`) so the
+# uppercase letters could NEVER match — same dead-pattern bug fixed in
+# prompt-injection-scanner (v2.7.7); this hook was missed.
+cased_patterns = (
+    (re.compile(r'aWdub3JlI'),  'base64 "ignore"'),
+    (re.compile(r'c3lzdGVtI'),  'base64 "system"'),
+)
 
 # High-confidence poisoning markers. These never appear in legitimate memory
 # (which records facts, preferences, and how-to notes) — so denying on a match
@@ -73,13 +83,13 @@ patterns = (
     (re.compile(r'<<sys>>'),                                                         'token injection'),
     (re.compile(r'<function_calls>'),                                                'tool-call injection'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
-    (re.compile(r'aWdub3JlI'),                                                       'base64 "ignore"'),
-    (re.compile(r'c3lzdGVtI'),                                                       'base64 "system"'),
     # Credential-exfil directive persisted as a "fact" the agent will later act on.
     (re.compile(r'(send|post|upload|exfiltrate|curl|fetch) .{0,40}(secret|credential|token|api[_ -]?key|password|\.env|/proc/self/environ)'), 'credential-exfil directive'),
 )
 
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
+if not matched:
+    matched = next((label for regex, label in cased_patterns if regex.search(_nfkc)), None)
 if not matched:
     sys.exit(0)
 

@@ -77,17 +77,21 @@ if not scan_paths:
     sys.exit(0)
 
 # (label, compiled regex, severity) — ordered by severity.
+# v2.7.14: all patterns are re.IGNORECASE — previously case-sensitive against raw
+# skill text, so UPPERCASE injection (e.g. "IGNORE PREVIOUS INSTRUCTIONS", "CURL ... | SH")
+# evaded every check. This matches the three sibling scanners' case-insensitive behavior.
+I = re.IGNORECASE
 patterns = [
-    ('base64 decode execution',       re.compile(r'base64\s+(?:-d|--decode)|atob\(|b64decode'),                    'CRITICAL'),
-    ('hidden eval/exec',              re.compile(r'\beval\b.*\$|exec\s*\('),                                       'CRITICAL'),
-    ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh'),                    'CRITICAL'),
-    ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl'), 'CRITICAL'),
-    ('reverse shell pattern',         re.compile(r'mkfifo|/dev/tcp/|nc\s+-[el]'),                                  'CRITICAL'),
-    ('hidden instruction override',   re.compile(r'ignore\s+(?:previous|above|all)\s+(?:instructions|rules)|disregard.*instructions|you\s+are\s+now'), 'HIGH'),
-    ('obfuscated variable expansion', re.compile(r'\$\{[A-Z_]*:.*:.*\}.*\$\{'),                                    'HIGH'),
-    ('credential file access',        re.compile(r'/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain'),     'HIGH'),
-    ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process'),    'MEDIUM'),
-    ('file write outside project',    re.compile(r"open\(.*'/tmp|open\(.*'/var|>/etc/"),                            'MEDIUM'),
+    ('base64 decode execution',       re.compile(r'base64\s+(?:-d|--decode)|atob\(|b64decode', I),                    'CRITICAL'),
+    ('hidden eval/exec',              re.compile(r'\beval\b.*\$|exec\s*\(', I),                                       'CRITICAL'),
+    ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh', I),                    'CRITICAL'),
+    ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl', I), 'CRITICAL'),
+    ('reverse shell pattern',         re.compile(r'mkfifo|/dev/tcp/|nc\s+-[el]', I),                                  'CRITICAL'),
+    ('hidden instruction override',   re.compile(r'ignore\s+(?:previous|above|all)\s+(?:instructions|rules)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
+    ('obfuscated variable expansion', re.compile(r'\$\{[A-Z_]*:.*:.*\}.*\$\{', I),                                    'HIGH'),
+    ('credential file access',        re.compile(r'/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain', I),     'HIGH'),
+    ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process', I),    'MEDIUM'),
+    ('file write outside project',    re.compile(r"open\(.*'/tmp|open\(.*'/var|>/etc/", I),                            'MEDIUM'),
 ]
 
 ZERO_WIDTH = ('​', '‌', '‍', '﻿')

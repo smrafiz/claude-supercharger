@@ -193,4 +193,18 @@ COUNT=$(wc -l < "$LESSONS_FILE" | tr -d ' ')
 rm -rf "$PROJ"
 teardown_test_home
 
+# v2.7.14: Stop re-fires (stop_hook_active) must NOT record a duplicate lesson
+begin_test "lessons: stop_hook_active re-fire records nothing"
+setup_test_home
+PROJ=$(mktemp -d); mkdir -p "$PROJ/.claude/supercharger"
+TR="$PROJ/t.jsonl"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"The issue was a null pointer. Root cause: missing guard. Fixed by adding a check."}]}}' > "$TR"
+printf '{"transcript_path":"%s","cwd":"%s","stop_hook_active":true}' "$TR" "$PROJ" | bash "$RECORD_HOOK" >/dev/null 2>&1
+RC=$?
+LF="$PROJ/.claude/supercharger/lessons.jsonl"
+if [ "$RC" -eq 0 ] && [ ! -f "$LF" ]; then pass
+else fail "re-fire should record nothing; rc=$RC lessons_exists=$([ -f "$LF" ] && echo yes || echo no)"; fi
+rm -rf "$PROJ"
+teardown_test_home
+
 report
