@@ -269,6 +269,43 @@ try:
  else:
      cache_str = f'cache {cache_pct}%'
 
+ # v2.7.36: total session tokens (parent NEW + subagent NEW). Parent count is
+ # accumulated per-session by budget-cap into .main-tokens-<session>; sub comes
+ # from .subagent-costs-<session>. Shown as "<main>+<sub> = <total> tok".
+ sess_seg = ''
+ try:
+     _scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     _main_tok = 0
+     _mtf = os.path.join(_scope, f'.main-tokens-{session_id}')
+     if os.path.isfile(_mtf):
+         with open(_mtf) as _f:
+             _main_tok = int((json.load(_f) or {}).get('new_tokens', 0) or 0)
+     _sub_tok = 0
+     _stf = os.path.join(_scope, f'.subagent-costs-{session_id}.jsonl')
+     if os.path.isfile(_stf):
+         _by = {}
+         with open(_stf) as _f:
+             for _ln in _f:
+                 _ln = _ln.strip()
+                 if not _ln:
+                     continue
+                 try:
+                     _r = json.loads(_ln)
+                 except Exception:
+                     continue
+                 _aid = _r.get('agent_id', '?')
+                 _c = float(_r.get('cost_usd', 0) or 0)
+                 _nw = (int(_r.get('input_tokens', 0) or 0) + int(_r.get('cache_write_tokens', 0) or 0)
+                        + int(_r.get('output_tokens', 0) or 0)) or int(_r.get('total_tokens', 0) or 0)
+                 if _aid not in _by or _c >= _by[_aid][0]:
+                     _by[_aid] = (_c, _nw)
+         _sub_tok = sum(_t for _c, _t in _by.values())
+     _total_tok = _main_tok + _sub_tok
+     if _total_tok > 0:
+         sess_seg = f' {DIM}|{RESET} {fmt_tokens(_main_tok)}{DIM}+{RESET}{fmt_tokens(_sub_tok)} {DIM}={RESET} {fmt_tokens(_total_tok)} {DIM}tok{RESET}'
+ except Exception:
+     sess_seg = ''
+
  # Rate limits (isolated — must not crash line 2)
  rl_str = ''
  try:
@@ -348,7 +385,7 @@ try:
  # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}{cost_suffix}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}'
+ line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}{sess_seg}'
 
  # Line 3: cost + duration + rate limits
  if mins >= 60:

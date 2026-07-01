@@ -38,10 +38,13 @@ if [[ "$MODE" == "accumulate" ]]; then
   if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
     exit 0
   fi
+  # v2.7.36: per-session parent token total is keyed by session_id.
+  SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 
   NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
   COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" NOW="$NOW" \
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
+  SESSION_ID="$SESSION_ID" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
 import json, os, fcntl
 
@@ -94,16 +97,19 @@ try:
     size = os.path.getsize(transcript)
 except Exception:
     size = 0
+reset = False
 if offset > size:
     offset = 0
     prev_main = 0.0
     prev_turns = 0   # re-derive main turn count from the full re-read
+    reset = True     # v2.7.36: also re-derive the per-session token total
 
 def _i(v):
     try:    return int(v or 0)
     except Exception: return 0
 
 delta_cost = 0.0
+delta_tokens = 0   # v2.7.36: parent NEW tokens (input + cache_write + output)
 new_msgs = 0
 new_offset = offset
 try:
@@ -138,6 +144,10 @@ try:
                            + _i(u.get('cache_creation_input_tokens')) * cw_p
                            + _i(u.get('cache_read_input_tokens')) * cr_p
                            + _i(u.get('output_tokens')) * out_p) / 1_000_000
+            # NEW tokens only (exclude cache_read) — matches the sub-token display
+            delta_tokens += (_i(u.get('input_tokens'))
+                             + _i(u.get('cache_creation_input_tokens'))
+                             + _i(u.get('output_tokens')))
             new_msgs += 1
 except Exception:
     # On any read error, keep prior state unchanged.
@@ -174,6 +184,28 @@ finally:
             _lf.close()
         except Exception:
             pass
+
+# v2.7.36: per-session parent NEW-token running total (input + cache_write +
+# output, excl cache_read — same basis as the sub-token display), for the
+# statusline's combined session-token metric. Keyed by session_id, separate from
+# the machine-global cost file. `reset` mirrors the cost re-derive above so a
+# transcript rotation re-derives instead of double-counting.
+sid = os.environ.get('SESSION_ID', '')
+if sid:
+    tf = os.path.join(os.environ.get('SCOPE_DIR') or os.path.dirname(cost_file), '.main-tokens-' + sid)
+    prev_tok = 0
+    try:
+        with open(tf) as f:
+            prev_tok = int(json.load(f).get('new_tokens', 0) or 0)
+    except Exception:
+        prev_tok = 0
+    main_tok = delta_tokens if reset else prev_tok + delta_tokens
+    try:
+        with open(tf + '.tmp', 'w') as f:
+            json.dump({'new_tokens': main_tok, 'updated': now}, f)
+        os.replace(tf + '.tmp', tf)
+    except Exception:
+        pass
 PYEOF
 
   echo "[Supercharger] budget-cap: accumulated (transcript-incremental) file=$COST_FILE" >&2

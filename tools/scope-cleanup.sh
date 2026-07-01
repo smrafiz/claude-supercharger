@@ -56,6 +56,7 @@ patterns_max_age=(
   ".subagent-active-*:$SECS_DAY"
   ".subagent-costs-*.jsonl:$SECS_WEEK"
   ".subagent-spawns-*.json:$SECS_WEEK"
+  ".main-tokens-*:$SECS_WEEK"
   ".subagent-safety-injected-*:$SECS_WEEK"
   ".tool-history-*:$SECS_WEEK"
   ".tool-calls-*:$SECS_DAY"

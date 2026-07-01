@@ -233,4 +233,28 @@ else
 fi
 teardown_test_home
 
+# v2.7.36: per-session parent NEW-token total (input + cache_write + output,
+# excluding cache_read) written to .main-tokens-<session_id> for the statusline.
+begin_test "accumulate: writes per-session parent token total (excl cache_read)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/tr.jsonl"
+asst_msg 1000 50000 900000 4000 > "$TR"   # new = 1000+50000+4000 = 55000 (cache_read 900000 excluded)
+printf '{"tool_name":"Write","session_id":"tk1","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
+GOT=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-tk1'))['new_tokens'])" 2>/dev/null)
+[ "$GOT" = "55000" ] && pass || fail "expected new_tokens=55000, got: $GOT"
+teardown_test_home
+
+begin_test "accumulate: parent token total is incremental (no double-count)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/tr.jsonl"
+asst_msg 1000 50000 900000 4000 > "$TR"    # 55000
+printf '{"tool_name":"Write","session_id":"tk2","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
+asst_msg 200 10000 800000 2000 >> "$TR"     # +12200
+printf '{"tool_name":"Write","session_id":"tk2","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
+GOT=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-tk2'))['new_tokens'])" 2>/dev/null)
+[ "$GOT" = "67200" ] && pass || fail "expected incremental 67200 (not 122200), got: $GOT"
+teardown_test_home
+
 report
