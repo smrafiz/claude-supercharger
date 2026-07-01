@@ -390,7 +390,8 @@ try:
      dur_str = f'{mins}m {secs}s'
 
  # Line 2 — "where am I": context, cache, elapsed time, rate limits.
- line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx} {DIM}|{RESET} {cache_str} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
+ # v2.7.38: line 2 = context | time | cache; rate limits (Session/Weekly) move to line 3.
+ line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str} {DIM}|{RESET} {cache_str}'
 
  # Budget cap display (cost line)
  budget_str = ''
@@ -417,9 +418,9 @@ try:
  if _sub_tok > 0 or _sub_cost > 0:
      line3 = (f'{DIM}{cost_label}{RESET} {DIM}main{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{RESET}'
               f' {DIM}· sub{RESET} {fmt_tokens(_sub_tok)}{DIM}/{RESET}{YELLOW}${_sub_cost:.2f}{RESET}'
-              f' {DIM}· total{RESET} {fmt_tokens(_ttok)}{DIM}/{RESET}{YELLOW}${_tcost:.2f}{cost_suffix}{RESET}{budget_str}')
+              f' {DIM}· total{RESET} {fmt_tokens(_ttok)}{DIM}/{RESET}{YELLOW}${_tcost:.2f}{cost_suffix}{RESET}{budget_str}{rl_str}')
  else:
-     line3 = f'{DIM}{cost_label}{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}{budget_str}'
+     line3 = f'{DIM}{cost_label}{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}{budget_str}{rl_str}'
 
  print(line1)
  try:
