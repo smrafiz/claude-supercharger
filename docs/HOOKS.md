@@ -54,7 +54,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
-| `messagedisplay-discovery` | MessageDisplay | * | MessageDisplay is a Claude Code event (added in late-May 2026 builds) that |
 | `notify-permission` | PermissionRequest | (none) | Only fires for tools not auto-approved by smart-approve. |
 | `notify-stop` | Stop | * | Shows prompt + response summary with git branch. |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |

@@ -79,13 +79,6 @@ run_basic_suite \
   "SUPERCHARGER_SUBAGENT_DISCOVERY" \
   '{"hook_event_name":"SubagentStart","session_id":"t1","subagent_id":"a1","parent_agent_id":"root","depth":1,"subagent_type":"Scientist","cwd":"/tmp"}'
 
-# messagedisplay-discovery
-run_basic_suite \
-  "messagedisplay-discovery" \
-  "messagedisplay-payloads.jsonl" \
-  "SUPERCHARGER_MESSAGEDISPLAY_DISCOVERY" \
-  '{"hook_event_name":"MessageDisplay","session_id":"t1","message_id":"m1","text":"hello world","cwd":"/tmp"}'
-
 # elicitation-discovery
 run_basic_suite \
   "elicitation-discovery" \

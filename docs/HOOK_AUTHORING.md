@@ -50,7 +50,6 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 | `PermissionDenied` | A tool is blocked by permissions | No |
 | `SubagentStart` | A sub-agent spins up | No |
 | `SubagentStop` | A sub-agent finishes | No |
-| `MessageDisplay` | An assistant message is about to render | No (but can rewrite text) |
 | `Elicitation` | An MCP server asks the user for structured input | No |
 | `ElicitationResult` | The user submits an elicitation response | No |
 | `TaskCreated` / `TaskCompleted` | A scheduled task transitions state | No |
@@ -59,14 +58,17 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 | `InstructionsLoaded` | CLAUDE.md / rules are (re)loaded | No |
 | `Notification` | System notification event | No |
 | `Setup` | Claude Code runs `--init` / `--init-only` / `--maintenance` | No |
-| `UserPromptExpansion` | A user-typed `/<command>` or MCP prompt expands, before reaching Claude | Yes — supports matcher on `command_name` |
-| `PostToolBatch` | A parallel tool batch resolves, before the next model call | Yes |
+
+> Note: `MessageDisplay` and `UserPromptExpansion` existed in mid-2026 Claude Code
+> builds but were later dropped — current CC rejects them as unknown events.
+> Supercharger's hooks for them were removed in v2.7.25. `PostToolBatch` is
+> likewise not in the current valid-events list.
 
 `PreToolUse` is where most hooks live — it's the only place you can intercept and block tool execution.
 
 **Agent-frontmatter hooks.** Custom subagents (under `.claude/agents/<name>.md`) can declare a `hooks:` block in frontmatter to register hooks scoped to the agent's lifecycle only. The CC changelog (v2.1.0) lists `PreToolUse`, `PostToolUse`, `Stop`, but in practice **6 events fire** in agent sessions: `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PostToolUseFailure`, `Stop`, `SubagentStop`. Use this for per-agent guards (e.g. block a reviewer agent from Write tools at runtime even if the static `tools:` list drifts).
 
-**Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, worktree, subagent, messagedisplay, elicitation all follow this shape).
+**Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, worktree, subagent, elicitation all follow this shape).
 
 ---
 
@@ -153,8 +155,6 @@ Use `additionalContext` sparingly. Every injection costs tokens. Only send it wh
 ```
 
 This is the right channel for output-compactors (`bash-output-compactor.sh`, `trace-compactor.sh`, `mcp-output-truncator.sh`). It became available for all tools in Claude Code v2.1.121; before that it was MCP-only. Don't use `systemMessage` for this — `systemMessage` *adds* a message; Claude still sees the full heavy output. `updatedToolOutput` replaces.
-
-**Rewrite assistant text (MessageDisplay):** same `hookSpecificOutput` shape, with the assistant message text in the appropriate field — but this is a sensitive surface (a malicious hook could hide injection markers from the user). Discovery-only support today; see `hooks/messagedisplay-discovery.sh`.
 
 ---
 

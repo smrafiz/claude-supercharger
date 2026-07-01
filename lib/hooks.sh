@@ -92,7 +92,11 @@ get_hooks_for_mode() {
     hooks+=("SubagentStart||${hooks_dir}/subagent-circuit-breaker.sh|")
     hooks+=("SubagentStart|*|${hooks_dir}/subagent-discovery.sh|async")
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-discovery.sh|async")
-    hooks+=("MessageDisplay|*|${hooks_dir}/messagedisplay-discovery.sh|async")
+    # v2.7.25: MessageDisplay + UserPromptExpansion removed — current Claude Code
+    # no longer lists them as valid hook events, so registering them triggered a
+    # settings.json warning on every startup. The events existed in mid-2026 CC
+    # builds but were dropped; their hooks are non-functional now. If CC
+    # re-introduces an expansion/display event, restore from git history.
     hooks+=("Elicitation|*|${hooks_dir}/elicitation-discovery.sh|async")
     hooks+=("ElicitationResult|*|${hooks_dir}/elicitation-discovery.sh|async")
     hooks+=("CwdChanged|*|${hooks_dir}/cwd-changed.sh|")
@@ -117,7 +121,6 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
-    hooks+=("UserPromptExpansion||${hooks_dir}/slash-command-guard.sh|")
     hooks+=("Setup||${hooks_dir}/setup-check.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/reentry-detector.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
