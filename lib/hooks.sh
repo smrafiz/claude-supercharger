@@ -86,7 +86,11 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
-    hooks+=("PreToolUse|WorktreeCreate,WorktreeRemove|${hooks_dir}/worktree-discovery.sh|async")
+    # v2.7.26: WorktreeCreate/WorktreeRemove are EVENTS, not tools — the original
+    # PreToolUse tool-matcher never fired (Cron* above ARE tools, so that line is
+    # fine; worktree ops fire as top-level events). Register on the events.
+    hooks+=("WorktreeCreate|*|${hooks_dir}/worktree-discovery.sh|async")
+    hooks+=("WorktreeRemove|*|${hooks_dir}/worktree-discovery.sh|async")
     # v2.7.2: runaway fan-out / recursion breaker (OWASP ASI08). Blocking gate,
     # so NOT async — must run before the spawn proceeds.
     hooks+=("SubagentStart||${hooks_dir}/subagent-circuit-breaker.sh|")

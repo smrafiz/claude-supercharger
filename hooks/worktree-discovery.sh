@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Worktree* Discovery Hook
-# Event: PreToolUse | Matcher: WorktreeCreate, WorktreeRemove
+# Events: WorktreeCreate | WorktreeRemove  (Matcher: *)
 #
-# WorktreeCreate/WorktreeRemove are git-worktree tool types Claude Code added
-# in the v2.1.x series. Their tool_input schemas are not yet fully documented
-# (issue #36205). This hook is pure observation: it captures the payload to a
-# local audit log so we can design proper safety guards (e.g. block worktree
-# creation outside the project tree, prevent removal of dirty worktrees) once
-# we know the real shape.
+# WorktreeCreate/WorktreeRemove are hook EVENTS Claude Code added in the v2.1.x
+# series (they fire on git-worktree lifecycle, not as tool calls — v2.7.26 fixed
+# a mis-wiring that had registered this on PreToolUse with a tool matcher, so it
+# never fired). Their payload schemas are not yet fully documented (issue
+# #36205). This hook is pure observation: it captures the payload to a local
+# audit log so we can design proper safety guards (e.g. block worktree creation
+# outside the project tree, prevent removal of dirty worktrees) once we know the
+# real shape.
 #
 # Behavior: passthrough (exit 0). Never blocks.
 # Storage: ~/.claude/supercharger/audit/worktree-payloads.jsonl  (capped at 10KB/entry)
@@ -46,12 +48,17 @@ def trunc(v, lim=2000):
         return [trunc(x, lim) for x in v[:20]]
     return v
 
+# v2.7.26: these are EVENTS with an unknown payload shape — capture ALL
+# top-level keys generically (not just tool_* fields) so the real schema is
+# fully visible in the audit log.
+known = {"hook_event_name", "session_id", "cwd"}
 record = {
     "ts": datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
     "hook_event_name": data.get("hook_event_name", ""),
-    "tool_name": data.get("tool_name", ""),
-    "tool_input": trunc(data.get("tool_input", {})),
     "session_id": data.get("session_id", ""),
+    "cwd": data.get("cwd", ""),
+    "keys": sorted(data.keys()),
+    "extra": {k: trunc(v) for k, v in data.items() if k not in known},
 }
 print(json.dumps(record))
 PYEOF
