@@ -29,8 +29,11 @@ try:
  cost_data = data.get('cost') or {}
  cost = cost_data.get('total_cost_usd', 0) or 0
  duration_ms = cost_data.get('total_duration_ms', 0) or 0
- lines_added = cost_data.get('total_lines_added', 0) or 0
- lines_removed = cost_data.get('total_lines_removed', 0) or 0
+ # v2.7.35: computed from the real uncommitted diff below (see git section),
+ # NOT cost.total_lines_added/removed — that's CC's cumulative session edit
+ # count, which never resets and reads misleadingly like a git stat.
+ lines_added = 0
+ lines_removed = 0
  mins = duration_ms // 60000
  secs = (duration_ms % 60000) // 1000
 
@@ -103,6 +106,19 @@ try:
                            capture_output=True, text=True, timeout=2)
      if result.returncode == 0 and result.stdout.strip():
          branch = f' {DIM}|{RESET} {result.stdout.strip()}'
+ except Exception:
+     pass
+
+ # v2.7.35: real uncommitted diff (staged + unstaged vs HEAD) — current WIP size,
+ # 0 when the tree is clean. Replaces CC's cumulative-session edit count.
+ try:
+     dr = subprocess.run(['git', 'diff', 'HEAD', '--numstat'],
+                         capture_output=True, text=True, timeout=2, cwd=cwd or None)
+     if dr.returncode == 0:
+         for ln in dr.stdout.splitlines():
+             p = ln.split('\t')
+             if len(p) >= 2 and p[0].isdigit() and p[1].isdigit():
+                 lines_added += int(p[0]); lines_removed += int(p[1])
  except Exception:
      pass
 
@@ -235,11 +251,9 @@ try:
  else:
      ctx_str = ''
 
- # Token breakdown (session cumulative)
- if display_input > 0 or display_output > 0:
-     tok_seg = f' {DIM}|{RESET} {fmt_tokens(display_input)} in {DIM}/{RESET} {fmt_tokens(display_output)} out'
- else:
-     tok_seg = ''
+ # v2.7.35: dropped the "N in / N out" segment — `in` just duplicated the context
+ # figure and `out` was a tiny low-signal number. Context bar + cache% cover it.
+ tok_seg = ''
 
  # Cache health coloring
  if cache_total == 0:
@@ -395,7 +409,9 @@ try:
          sub_cost = sum(c for c, _t in by_agent.values())
          sub_tok = sum(t for _c, t in by_agent.values())
          if sub_tok > 0 or sub_cost > 0:
-             sub_seg = f' {DIM}(sub: {fmt_tokens(sub_tok)} / ${sub_cost:.2f}){RESET}'
+             # v2.7.35: also show the combined total (main cost + sub cost) so the
+             # sub figure isn't misread as part of the main number.
+             sub_seg = f' {DIM}(sub: {fmt_tokens(sub_tok)} / ${sub_cost:.2f} · total ${cost + sub_cost:.2f}){RESET}'
  except Exception:
      sub_seg = ''
 
