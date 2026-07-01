@@ -120,9 +120,13 @@ message = (
     'Review each pattern before proceeding. These may be intentional (test files, security tools, docs) — if so, no action needed.'
 )
 
+# v2.7.30: the header intent is "warn Claude, do NOT block". The old shape
+# ({'permissionDecision':'ask'} without the required hookEventName) was malformed
+# and dropped by CC — and 'ask' would have escalated to a blocking prompt anyway.
+# Warn Claude via hookSpecificOutput.additionalContext (supported on PreToolUse),
+# no permission decision → no block.
 print(json.dumps({
-    'hookSpecificOutput': {'permissionDecision': 'ask'},
-    'systemMessage': message,
+    'hookSpecificOutput': {'hookEventName': 'PreToolUse', 'additionalContext': message},
     'suppressOutput': suppress,
 }))
 PYEOF

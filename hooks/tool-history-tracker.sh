@@ -26,17 +26,23 @@ try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
+import re
 sid = d.get('session_id', 'default')
 tool = d.get('tool_name', '?')
-resp = d.get('tool_response') or {}
-exit_code = resp.get('exit_code')
-err = resp.get('error') or d.get('error')
-if exit_code is not None:
-    success = exit_code == 0
-elif err:
-    success = False
-else:
-    success = True
+resp = d.get('tool_response')
+# v2.7.30: PostToolUse tool_response has NO exit_code (it's
+# {interrupted,isImage,noOutputExpected,stderr,stdout} for Bash) — reading it
+# meant EVERY command logged as success, so confidence-gate never saw failures.
+# Infer failure from interrupted + strong stderr markers, same as failure-tracker.
+success = True
+if isinstance(resp, dict):
+    stderr = str(resp.get('stderr') or '')
+    if resp.get('interrupted') is True:
+        success = False
+    elif resp.get('error') or d.get('error'):
+        success = False
+    elif re.search(r'command not found|Traceback|fatal:|ModuleNotFoundError|No such file or directory|Permission denied|npm ERR!|error:|panic:', stderr):
+        success = False
 print(json.dumps({'session_id': sid, 'tool': tool, 'success': success, 'ts': int(time.time())}))
 " 2>/dev/null)
 

@@ -9,10 +9,12 @@ echo "=== Tool Failure Advisor Tests ==="
 export SUPERCHARGER_NO_DEDUP=1
 export SUPERCHARGER_TIER=standard
 
-begin_test "tool-failure-advisor: emits systemMessage for Bash failure"
+# v2.7.30: injects into Claude's context via hookSpecificOutput.additionalContext
+# (PostToolUseFailure), not systemMessage (which only reaches the user).
+begin_test "tool-failure-advisor: injects failure context to Claude (additionalContext)"
 INPUT='{"tool_name":"Bash","error":"No such file or directory","tool_input":{"command":"cat /nonexistent"},"cwd":"/tmp"}'
 OUT=$(printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
-echo "$OUT" | grep -q "systemMessage" && pass || fail "no systemMessage for Bash failure"
+echo "$OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='PostToolUseFailure'; assert d['hookSpecificOutput']['additionalContext']" 2>/dev/null && pass || fail "expected PostToolUseFailure additionalContext, got: $OUT"
 
 begin_test "tool-failure-advisor: includes tool name in message"
 INPUT='{"tool_name":"Bash","error":"command not found: foobar","tool_input":{"command":"foobar"},"cwd":"/tmp"}'

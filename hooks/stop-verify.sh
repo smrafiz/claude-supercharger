@@ -97,7 +97,10 @@ ${TRUNCATED}"
 
 REASON_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"stopReason":%s}\n' "$REASON_JSON"
+# v2.7.30: BLOCK the stop via decision:"block" (+reason, shown to Claude). The
+# old {"stopReason":...} only applies when continue:false — so the verify
+# failure never actually blocked completion; Claude finished with it ignored.
+printf '{"decision":"block","reason":%s}\n' "$REASON_JSON"
 
 echo "[Supercharger] stop-verify: FAILED (exit $VERIFY_EXIT)" >&2
 exit 0

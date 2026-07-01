@@ -148,6 +148,9 @@ echo "$MSG" >&2
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
 
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+# v2.7.30: header intent is "inject errors into context" — systemMessage only
+# reaches the USER, so Claude never saw the tsc errors it's meant to fix. Use
+# hookSpecificOutput.additionalContext (supported on PostToolUse) to reach Claude.
+printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 exit 0

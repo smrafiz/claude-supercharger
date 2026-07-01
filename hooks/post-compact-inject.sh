@@ -103,7 +103,10 @@ if not lines:
     sys.exit(0)
 
 msg = '[POST-COMPACT] Context restored after compaction:\n' + '\n'.join(lines) + '\nResume from this state — do not re-read files already in memory.'
-print(json.dumps({'systemMessage': msg, 'suppressOutput': suppress}))
+# v2.7.30: header intent is "re-inject constraints so Claude doesn't lose them" —
+# systemMessage only reaches the USER, defeating the purpose. PostCompact
+# supports hookSpecificOutput.additionalContext (context-only) → reaches Claude.
+print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PostCompact', 'additionalContext': msg}}))
 PYEOF
 )
 [ -z "$RESULT" ] && exit 0

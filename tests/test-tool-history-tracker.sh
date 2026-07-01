@@ -33,13 +33,22 @@ COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
 [ "$COUNT" -le 20 ] && pass || fail "expected ≤20 entries, got $COUNT"
 teardown_test_home
 
-begin_test "tool-history-tracker: marks success=false when exit_code != 0"
+# v2.7.30: PostToolUse tool_response has no exit_code — failure is inferred from
+# interrupted or strong stderr markers (real Bash tool_response shape).
+begin_test "tool-history-tracker: marks success=false on failed bash (stderr marker)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 HISTORY="$HOME/.claude/supercharger/scope/.tool-history-sess1"
-INPUT='{"session_id":"sess1","tool_name":"Bash","tool_response":{"exit_code":1}}'
+INPUT='{"session_id":"sess1","tool_name":"Bash","tool_response":{"interrupted":false,"stdout":"","stderr":"bash: foo: command not found"}}'
 echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1 || true
 grep -q '"success": false' "$HISTORY" && pass || fail "expected success:false in history"
+
+begin_test "tool-history-tracker: marks success=false when interrupted"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+HISTORY="$HOME/.claude/supercharger/scope/.tool-history-sess1"
+echo '{"session_id":"sess1","tool_name":"Bash","tool_response":{"interrupted":true,"stdout":"","stderr":""}}' | bash "$HOOK" >/dev/null 2>&1 || true
+grep -q '"success": false' "$HISTORY" && pass || fail "expected success:false on interrupted"
 teardown_test_home
 
 begin_test "tool-history-tracker: per-session isolation — sess A doesn't see sess B"
