@@ -1190,15 +1190,18 @@ echo "=== Smart Approve Tests ==="
 
 SMART_APPROVE="$REPO_DIR/hooks/smart-approve.sh"
 
-begin_test "smart-approve: auto-approves Read tool"
+# v2.7.29: must emit the PermissionRequest shape (hookSpecificOutput.decision.
+# behavior=allow), NOT the PreToolUse permissionDecision field — the old shape
+# was silently ignored by CC so no auto-approval ever took effect.
+begin_test "smart-approve: auto-approves Read tool (PermissionRequest decision shape)"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Read','tool_input':{'file_path':'/tmp/test.txt'},'cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>&1)
-echo "$OUT" | grep -q '"allow"' && pass || fail "expected allow decision, got: $OUT"
+OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>/dev/null)
+echo "$OUT" | python3 -c "import sys,json; d=json.load(sys.stdin); assert d['hookSpecificOutput']['hookEventName']=='PermissionRequest'; assert d['hookSpecificOutput']['decision']['behavior']=='allow'" 2>/dev/null && pass || fail "wrong shape (expected PermissionRequest decision.behavior=allow), got: $OUT"
 
 begin_test "smart-approve: auto-approves Glob tool"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Glob','tool_input':{'pattern':'**/*.ts'},'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>&1)
-echo "$OUT" | grep -q '"allow"' && pass || fail "expected allow decision, got: $OUT"
+echo "$OUT" | grep -q '"behavior":"allow"' && pass || fail "expected decision.behavior=allow, got: $OUT"
 
 begin_test "smart-approve: does not auto-approve unknown tool"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'SomeDangerousTool','tool_input':{},'cwd':'/tmp'}))")
@@ -1677,6 +1680,17 @@ begin_test "agent-handoff-gate: clean last_assistant_message passes silently"
 INPUT=$(python3 -c "import json; print(json.dumps({'last_assistant_message':'Done. Implemented the feature and all tests pass.','agent_id':'ag4','agent_type':'Engineer','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
 [ -z "$OUT" ] && pass || fail "expected silent pass on clean last_assistant_message, got: $OUT"
+
+# v2.7.29: SubagentStop re-fires ~10x — the same warning must be emitted only
+# once per (session, message), not on every re-fire.
+begin_test "agent-handoff-gate: re-fire is deduped (emits once)"
+HG_HOME=$(mktemp -d); mkdir -p "$HG_HOME/.claude/supercharger/scope"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hgdedup','last_assistant_message':'I added a TODO stub; this should work but I have not tested it.','agent_id':'ag5','cwd':'/tmp'}))")
+OUT1=$(printf '%s' "$INPUT" | HOME="$HG_HOME" bash "$HANDOFF_GATE" 2>/dev/null)
+OUT2=$(printf '%s' "$INPUT" | HOME="$HG_HOME" bash "$HANDOFF_GATE" 2>/dev/null)
+if [ -n "$OUT1" ] && [ -z "$OUT2" ]; then pass
+else fail "expected emit-once (fire1 non-empty, fire2 empty); got fire1='$OUT1' fire2='$OUT2'"; fi
+rm -rf "$HG_HOME"
 
 echo ""
 echo "=== Compaction Backup Tests ==="

@@ -2,7 +2,7 @@
 # Claude Supercharger — Smart Approve
 # Event: PermissionRequest | Matcher: (none)
 # Auto-approves known-safe tool calls to reduce user prompts.
-# Uses updatedPermissions for session persistence — approved once, never asked again.
+# Emits a PermissionRequest decision (hookSpecificOutput.decision.behavior=allow).
 #
 # RELATIONSHIP TO CC's BUILT-IN AUTO-MODE CLASSIFIER:
 # CC ships an LLM-based auto-mode rule reviewer (categories: allow / soft_deny /
@@ -34,23 +34,31 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 # when PermissionRequest comes from a background subagent surfaced in main session.
 AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)
 
+# v2.7.29: PermissionRequest approves via hookSpecificOutput.decision.behavior —
+# NOT the top-level permissionDecision field (that's the PreToolUse shape). The
+# old output was malformed for this event, so CC silently ignored every
+# auto-approval and fell through to a normal prompt (the whole feature was a
+# no-op). The human-readable reason stays on stderr; the decision JSON carries
+# only behavior, per the current contract.
+_approve_json='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
+
 allow_tool() {
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
-  printf '{"permissionDecision":"allow","reason":"auto-approved read-only tool %s"}\n' "$TOOL_NAME"
+  printf '%s\n' "$_approve_json"
   exit 0
 }
 
 allow_cmd() {
   local rule="$1"
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${rule})" >&2
-  printf '{"permissionDecision":"allow","reason":"auto-approved safe command: %s"}\n' "$rule"
+  printf '%s\n' "$_approve_json"
   exit 0
 }
 
 allow_path() {
   local pattern="$1"
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${pattern})" >&2
-  printf '{"permissionDecision":"allow","reason":"auto-approved safe path pattern: %s"}\n' "$pattern"
+  printf '%s\n' "$_approve_json"
   exit 0
 }
 

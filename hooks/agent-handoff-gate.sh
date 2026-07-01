@@ -77,6 +77,12 @@ fi
 
 echo "[Supercharger] agent-handoff-gate: quality issue detected (${QUALITY_ISSUE}) for agent=${AGENT_ID}" >&2
 
+# v2.7.29: SubagentStop re-fires ~10x with stop_hook_active — without a dedup the
+# parent received the same [AGENT-GATE] injection up to 10 times per stop. Guard
+# with the shared once-per-(session,message) latch, same as subagent-stop-check.
+SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
+hook_already_emitted "agent-handoff-gate" "$SESSION_ID" "$MSG" && exit 0
+
 CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || exit 0
 
 # Always use additionalContext on SubagentStop — systemMessage in this event
