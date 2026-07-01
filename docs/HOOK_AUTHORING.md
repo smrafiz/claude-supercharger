@@ -68,7 +68,7 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 
 **Agent-frontmatter hooks.** Custom subagents (under `.claude/agents/<name>.md`) can declare a `hooks:` block in frontmatter to register hooks scoped to the agent's lifecycle only. The CC changelog (v2.1.0) lists `PreToolUse`, `PostToolUse`, `Stop`, but in practice **6 events fire** in agent sessions: `PreToolUse`, `PostToolUse`, `PermissionRequest`, `PostToolUseFailure`, `Stop`, `SubagentStop`. Use this for per-agent guards (e.g. block a reviewer agent from Write tools at runtime even if the static `tools:` list drifts).
 
-**Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, worktree, subagent, elicitation all follow this shape).
+**Discovery pattern.** For brand-new events whose `stdin` shape isn't yet stable (Anthropic ships events before documenting their payloads), write a *discovery hook* — passthrough, async, never blocks — that logs the payload to `~/.claude/supercharger/audit/<event>-payloads.jsonl` so the schema can be reverse-engineered. See `hooks/cron-discovery.sh` for the template (cron, subagent, elicitation all follow this shape). Note: not every valid event can be observed this way — `WorktreeCreate` is a *provider* hook (CC delegates worktree creation to it and requires a returned path), so a passive discovery hook registered there breaks `isolation: worktree`; discovery hooks only fit fire-and-forget events.
 
 ---
 

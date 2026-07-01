@@ -86,11 +86,14 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
-    # v2.7.26: WorktreeCreate/WorktreeRemove are EVENTS, not tools — the original
-    # PreToolUse tool-matcher never fired (Cron* above ARE tools, so that line is
-    # fine; worktree ops fire as top-level events). Register on the events.
-    hooks+=("WorktreeCreate|*|${hooks_dir}/worktree-discovery.sh|async")
-    hooks+=("WorktreeRemove|*|${hooks_dir}/worktree-discovery.sh|async")
+    # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
+    # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an
+    # observational one: CC delegates worktree creation to the registered hook and
+    # requires it to return the new worktree path (stdout or
+    # hookSpecificOutput.worktreePath). A passive/discovery hook returns nothing,
+    # so CC fails the creation — registering here BREAKS `isolation: worktree` for
+    # every agent (regression introduced and caught in v2.7.26). We can't observe
+    # these events without taking over worktree creation, which is out of scope.
     # v2.7.2: runaway fan-out / recursion breaker (OWASP ASI08). Blocking gate,
     # so NOT async — must run before the spawn proceeds.
     hooks+=("SubagentStart||${hooks_dir}/subagent-circuit-breaker.sh|")

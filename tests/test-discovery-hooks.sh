@@ -65,13 +65,6 @@ run_basic_suite \
   "SUPERCHARGER_CRON_DISCOVERY" \
   '{"hook_event_name":"PreToolUse","tool_name":"CronCreate","tool_input":{"schedule":"0 9 * * *","prompt":"run audit"},"session_id":"t1","cwd":"/tmp"}'
 
-# worktree-discovery (v2.7.26: fires on the WorktreeCreate/WorktreeRemove EVENTS)
-run_basic_suite \
-  "worktree-discovery" \
-  "worktree-payloads.jsonl" \
-  "SUPERCHARGER_WORKTREE_DISCOVERY" \
-  '{"hook_event_name":"WorktreeCreate","worktree_path":"/tmp/wt","branch":"feature/x","session_id":"t1","cwd":"/tmp"}'
-
 # subagent-discovery
 run_basic_suite \
   "subagent-discovery" \
