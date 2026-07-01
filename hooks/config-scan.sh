@@ -310,7 +310,11 @@ if not warnings:
     sys.exit(0)
 
 combined = ' '.join(warnings)
-print(json.dumps({'systemMessage': combined, 'suppressOutput': not debug_on}))
+# v2.7.40: a prompt-injection / rogue-hook alert should reach BOTH the user
+# (systemMessage) AND Claude (additionalContext) — Claude needs to know the
+# project config may be hostile so it stays skeptical of injected instructions.
+print(json.dumps({'systemMessage': combined, 'suppressOutput': not debug_on,
+                  'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': combined}}))
 PYEOF
 )
 

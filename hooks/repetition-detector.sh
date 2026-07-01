@@ -113,6 +113,8 @@ fi
 COMBINED=$(printf '%s\n' "${MESSAGES[@]}")
 CONTEXT_JSON=$(printf '%s' "$COMBINED" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
   || printf '"%s"' "$(printf '%s' "$COMBINED" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+# v2.7.40: loop/re-read advice is for Claude to act on → additionalContext
+# (PostToolUse), not systemMessage (user-only).
+printf '{"hookSpecificOutput":{"hookEventName":"PostToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 exit 0

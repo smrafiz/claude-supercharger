@@ -181,7 +181,9 @@ if [ -n "$REMAINING" ]; then
 ${TRUNCATED}
 
 Fix these issues before marking the task complete."
-  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json,os; _s=not(os.path.exists(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks')) or os.path.exists('.supercharger-debug')); print(json.dumps({'systemMessage':sys.stdin.read(),'suppressOutput':_s}))" 2>/dev/null)
+  # v2.7.40: lint feedback is for Claude to fix → hookSpecificOutput.additionalContext
+  # (PostToolUse), not systemMessage (which only reaches the user).
+  CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps({'hookSpecificOutput':{'hookEventName':'PostToolUse','additionalContext':sys.stdin.read()}}))" 2>/dev/null)
   [ -n "$CONTEXT_JSON" ] && printf '%s\n' "$CONTEXT_JSON"
 fi
 

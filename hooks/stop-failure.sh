@@ -47,8 +47,10 @@ for cand in reason_candidates:
         break
 
 # Emit two lines: reason on line 1 (for bash log), JSON on line 2 (or empty)
+# v2.7.40: StopFailure is context-only — advice must ride hookSpecificOutput.
+# additionalContext, not stopReason (which only applies with continue:false).
 print(reason)
-print(json.dumps({'stopReason': advice}) if advice else '')
+print(json.dumps({'hookSpecificOutput': {'hookEventName': 'StopFailure', 'additionalContext': advice}}) if advice else '')
 PYEOF
 )
 REASON=$(printf '%s\n' "$RESULT" | sed -n '1p')

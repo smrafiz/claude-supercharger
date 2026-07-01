@@ -2091,10 +2091,12 @@ INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'rate_limit_exc
 printf '%s' "$INPUT" | bash "$STOP_FAIL" > /dev/null 2>&1 || true
 grep -q "rate_limit_exceeded" "$LOG_DIR/errors.log" 2>/dev/null && pass || fail "expected rate_limit_exceeded in errors.log"
 
-begin_test "stop-failure: rate_limit emits advisory context"
+# v2.7.40: advice rides hookSpecificOutput.additionalContext (StopFailure is
+# context-only), not stopReason.
+begin_test "stop-failure: rate_limit emits advisory context (additionalContext)"
 INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'rate_limit_exceeded'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$STOP_FAIL" 2>/dev/null)
-printf '%s' "$OUT" | grep -q "stopReason" && pass || fail "expected stopReason in output, got: $OUT"
+printf '%s' "$OUT" | grep -q "additionalContext" && pass || fail "expected additionalContext in output, got: $OUT"
 
 begin_test "stop-failure: unknown reason exits cleanly (no output)"
 INPUT=$(python3 -c "import json; print(json.dumps({'stop_reason':'unknown_error'}))")
