@@ -295,8 +295,10 @@ try:
                      continue
                  _aid = _r.get('agent_id', '?')
                  _c = float(_r.get('cost_usd', 0) or 0)
-                 _nw = (int(_r.get('input_tokens', 0) or 0) + int(_r.get('cache_write_tokens', 0) or 0)
-                        + int(_r.get('output_tokens', 0) or 0)) or int(_r.get('total_tokens', 0) or 0)
+                 # v2.7.39: content tokens = input + output (exclude ALL cache),
+                 # same basis as main. Legacy rows w/o breakdown fall back to total.
+                 _nw = (int(_r.get('input_tokens', 0) or 0) + int(_r.get('output_tokens', 0) or 0)) \
+                       or int(_r.get('total_tokens', 0) or 0)
                  if _aid not in _by or _c >= _by[_aid][0]:
                      _by[_aid] = (_c, _nw)
          _sub_tok = sum(_t for _c, _t in _by.values())

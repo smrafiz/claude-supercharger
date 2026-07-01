@@ -144,10 +144,9 @@ try:
                            + _i(u.get('cache_creation_input_tokens')) * cw_p
                            + _i(u.get('cache_read_input_tokens')) * cr_p
                            + _i(u.get('output_tokens')) * out_p) / 1_000_000
-            # NEW tokens only (exclude cache_read) — matches the sub-token display
-            delta_tokens += (_i(u.get('input_tokens'))
-                             + _i(u.get('cache_creation_input_tokens'))
-                             + _i(u.get('output_tokens')))
+            # v2.7.39: CONTENT tokens = input + output only (exclude ALL cache —
+            # both cache_read re-reads AND cache_write). Matches the sub display.
+            delta_tokens += (_i(u.get('input_tokens')) + _i(u.get('output_tokens')))
             new_msgs += 1
 except Exception:
     # On any read error, keep prior state unchanged.
