@@ -13,153 +13,24 @@
 # tightening here does not loosen CC's classifier, and vice versa. Treat this
 # hook as a fast deterministic allow-list for known-safe shapes; let CC's LLM
 # classifier handle the fuzzy, intent-based decisions.
+#
+# v2.7.32: the allow-list decision lives in lib-smart-approve.sh so that
+# notify-permission.sh can consult the SAME verdict and skip its desktop
+# notification for anything auto-approved here (no "permission needed" ping for
+# permissions the user never has to act on).
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+. "$HOOKS_DIR/lib-timing.sh"
+. "$HOOKS_DIR/lib-smart-approve.sh"
 
 _INPUT=$(cat)
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
-if [ -z "$TOOL_NAME" ]; then
-  TOOL_NAME=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_name',''))" 2>/dev/null || echo "")
-fi
-
-[ -z "$TOOL_NAME" ] && exit 0
-
-# Get PROJECT_DIR for project-scoped approvals
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-
-# Detect subagent origin (CC v2.1.186+): agent_id present in common fields
-# when PermissionRequest comes from a background subagent surfaced in main session.
-AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null || true)
-
-# v2.7.29: PermissionRequest approves via hookSpecificOutput.decision.behavior —
-# NOT the top-level permissionDecision field (that's the PreToolUse shape). The
-# old output was malformed for this event, so CC silently ignored every
-# auto-approval and fell through to a normal prompt (the whole feature was a
-# no-op). The human-readable reason stays on stderr; the decision JSON carries
-# only behavior, per the current contract.
-_approve_json='{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
-
-allow_tool() {
+if smart_approve_verdict "$_INPUT"; then
+  TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "?"' 2>/dev/null || echo "?")
   echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME}" >&2
-  printf '%s\n' "$_approve_json"
-  exit 0
-}
-
-allow_cmd() {
-  local rule="$1"
-  echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${rule})" >&2
-  printf '%s\n' "$_approve_json"
-  exit 0
-}
-
-allow_path() {
-  local pattern="$1"
-  echo "[Supercharger] smart-approve: auto-approved ${TOOL_NAME} (${pattern})" >&2
-  printf '%s\n' "$_approve_json"
-  exit 0
-}
-
-# --- Always-safe tools ---
-case "$TOOL_NAME" in
-  Read|Glob|Grep|LS|ls)
-    allow_tool
-    ;;
-esac
-
-# --- Write/Edit: auto-approve if file is inside project directory ---
-if [ "$TOOL_NAME" = "Write" ] || [ "$TOOL_NAME" = "Edit" ] || [ "$TOOL_NAME" = "MultiEdit" ]; then
-  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
-  if [ -n "$FILE_PATH" ] && [ -n "$PROJECT_DIR" ]; then
-    # Resolve to absolute path
-    case "$FILE_PATH" in
-      /*) ABS_PATH="$FILE_PATH" ;;
-      *)  ABS_PATH="${PROJECT_DIR}/${FILE_PATH}" ;;
-    esac
-    # Allow if inside project directory
-    case "$ABS_PATH" in
-      "${PROJECT_DIR}"/*)
-        allow_path "${PROJECT_DIR}/**"
-        ;;
-    esac
-  fi
-  exit 0
+  printf '%s\n' '{"hookSpecificOutput":{"hookEventName":"PermissionRequest","decision":{"behavior":"allow"}}}'
 fi
 
-# --- Bash commands ---
-if [ "$TOOL_NAME" = "Bash" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
-  if [ -z "$COMMAND" ]; then
-    COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
-  fi
-
-  [ -z "$COMMAND" ] && exit 0
-
-  # v2.6.80: subagent-originated PermissionRequests (CC v2.1.186+) now surface
-  # in the main session. Skip Bash auto-approval for subagent requests — the
-  # user delegating a task should not implicitly grant the agent open shell access.
-  # Read-only tool approvals (Read/Glob/Grep/LS) above are unaffected.
-  if [ -n "${AGENT_ID:-}" ]; then
-    echo "[Supercharger] smart-approve: skipping Bash auto-approve (subagent ${AGENT_ID})" >&2
-    exit 0
-  fi
-
-  BASE_CMD=$(printf '%s\n' "$COMMAND" | awk '{print $1}')
-
-  # --help / --version
-  if printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]])--(help|version)([[:space:]]|$)'; then
-    allow_cmd "${BASE_CMD} --help"
-  fi
-
-  # Read-only shell commands
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|printf|which|type|grep|find|rg|wc|sort|uniq|diff|file|stat|env|printenv)([[:space:]]|$)'; then
-    allow_cmd "${BASE_CMD} *"
-  fi
-
-  # Read-only git subcommands
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|show|remote|tag|stash list|rev-parse|describe)([[:space:]]|$)'; then
-    GIT_SUB=$(printf '%s\n' "$COMMAND" | awk '{print $2}')
-    allow_cmd "git ${GIT_SUB} *"
-  fi
-
-  # command -v (tool existence check)
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*command[[:space:]]+-v[[:space:]]'; then
-    allow_cmd "command -v *"
-  fi
-
-  # Test runners
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(npm|yarn|pnpm)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*(cargo|go)[[:space:]]+test([[:space:]]|$)|^[[:space:]]*pytest([[:space:]]|$)|^[[:space:]]*vitest([[:space:]]|$)|^[[:space:]]*jest([[:space:]]|$)'; then
-    allow_cmd "${COMMAND%% *} test *"
-  fi
-
-  # Package manager run/build/dev commands
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(npm|yarn|pnpm|bun)[[:space:]]+(run|build|dev|start|lint|format|typecheck|type-check)([[:space:]]|$)'; then
-    PM_CMD=$(printf '%s\n' "$COMMAND" | awk '{print $1 " " $2}')
-    allow_cmd "${PM_CMD} *"
-  fi
-
-  # Node/Python/Ruby running project scripts — but NOT inline-eval forms
-  # (-e/-c/-p/--eval/--print run arbitrary code) and NOT npx/bunx (fetch and
-  # run arbitrary packages). Those still require explicit user confirmation.
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(node|python3?|ruby|tsx|ts-node)[[:space:]]' \
-     && ! printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]])(-e|-c|-p|--eval|--print)([[:space:]]|=|$)'; then
-    allow_cmd "${BASE_CMD} *"
-  fi
-
-  # curl — GET only
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*curl[[:space:]]'; then
-    if ! printf '%s\n' "$COMMAND" | grep -qiE '(-X[[:space:]]*(POST|PUT|DELETE|PATCH)|--request[[:space:]]*(POST|PUT|DELETE|PATCH)|-d[[:space:]]|--data[[:space:]]|--data-raw[[:space:]]|--data-binary[[:space:]])'; then
-      allow_cmd "curl *"
-    fi
-  fi
-
-  # Build tools
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*(make|cargo build|go build|tsc|gcc|g\+\+|rustc|javac)([[:space:]]|$)'; then
-    allow_cmd "${BASE_CMD} *"
-  fi
-fi
-
-# Everything else: pass through, let Claude Code decide
+# Everything else: pass through, let Claude Code / its classifier decide.
 exit 0

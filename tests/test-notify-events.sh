@@ -49,6 +49,24 @@ EXIT=$?
 teardown_test_home
 [ "$EXIT" -eq 0 ] && pass || fail "exit=$EXIT out=$OUT"
 
+# v2.7.32: no "Permission Needed" ping for tools smart-approve auto-approves —
+# but still notify for tools that genuinely need the user's decision.
+begin_test "notify-permission: skips notification for smart-approved tool, notifies otherwise"
+_setup
+rm -f "$HOME/.claude/supercharger/.no-desktop-notify" "$HOME/.claude/supercharger/.sound-only-notify" 2>/dev/null || true
+MOCK=$(mktemp -d)
+for b in osascript notify-send; do printf '#!/bin/sh\necho fired >> "%s/notified"\n' "$MOCK" > "$MOCK/$b"; chmod +x "$MOCK/$b"; done
+# auto-approvable (Read) → must NOT notify
+printf '{"tool_name":"Read","tool_input":{"file_path":"/tmp/x"},"cwd":"/tmp"}' | env PATH="$MOCK:$PATH" bash "$NP" >/dev/null 2>&1
+APPROVED_NOTIFIED=$([ -f "$MOCK/notified" ] && echo yes || echo no)
+rm -f "$MOCK/notified"
+# not auto-approvable (unknown tool) → SHOULD notify
+printf '{"tool_name":"WebFetch","tool_input":{"url":"https://x"},"cwd":"/tmp"}' | env PATH="$MOCK:$PATH" bash "$NP" >/dev/null 2>&1
+UNKNOWN_NOTIFIED=$([ -f "$MOCK/notified" ] && echo yes || echo no)
+rm -rf "$MOCK"; teardown_test_home
+{ [ "$APPROVED_NOTIFIED" = no ] && [ "$UNKNOWN_NOTIFIED" = yes ]; } && pass \
+  || fail "approved should NOT notify (got $APPROVED_NOTIFIED), unknown SHOULD notify (got $UNKNOWN_NOTIFIED)"
+
 # --- notify-stop ---
 
 begin_test "notify-stop: exits 0 on valid payload"

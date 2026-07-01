@@ -5,7 +5,9 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
+HOOKS_DIR="$(dirname "${BASH_SOURCE[0]}")"
+source "$HOOKS_DIR/notify-helper.sh"
+source "$HOOKS_DIR/lib-smart-approve.sh"
 
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
 
@@ -13,6 +15,11 @@ _INPUT=$(cat)
 
 # Suppress during subagents
 _is_subagent "$_INPUT" && exit 0
+
+# v2.7.32: don't notify for permissions smart-approve auto-approves — the user
+# never has to act on those, so a "Permission Needed" ping is pure noise. Uses
+# the SAME verdict as smart-approve.sh so the two can't drift.
+smart_approve_verdict "$_INPUT" && exit 0
 
 # Cooldown (7s — permission requests can cluster)
 _cooldown_ok "permission" 7 || exit 0
