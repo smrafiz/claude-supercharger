@@ -163,5 +163,8 @@ fi
 # as session-memory-inject / agent-router); python fallback kept for jq-less hosts.
 MSG_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null \
   || printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
+# v2.7.31: inject standards into Claude's context via
+# hookSpecificOutput.additionalContext (SessionStart). systemMessage only reached
+# the USER, so the detected stack's standards never entered Claude's context.
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$MSG_JSON"
 exit 0

@@ -38,7 +38,10 @@ if [ ! -f "$MEMORY_FILE" ]; then
   if [ -n "$CKPT" ]; then
     MSG="[RECOVERY] Restored from mid-session checkpoint: $CKPT"
     CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-    printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+    # v2.7.31: inject into Claude's context (SessionStart supports
+    # hookSpecificOutput.additionalContext). systemMessage only reached the USER,
+    # so the project memory / checkpoint recovery never entered Claude's context.
+    printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$CONTEXT_JSON"
     echo "[Supercharger] session-memory: recovered from checkpoint" >&2
   fi
   exit 0
@@ -114,7 +117,10 @@ if recent:
 fi
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$CONTEXT_JSON" "$HOOK_SUPPRESS"
+# v2.7.31: the main memory injection must reach CLAUDE — SessionStart supports
+# hookSpecificOutput.additionalContext; systemMessage only reached the USER, so
+# the project memory was never actually entering Claude's context.
+printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$CONTEXT_JSON"
 
 echo "[Supercharger] session-memory: injected $MEMORY_FILE" >&2
 exit 0
