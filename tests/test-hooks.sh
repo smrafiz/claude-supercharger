@@ -721,10 +721,11 @@ cat > "$SL_HOME/.claude/supercharger/scope/.subagent-costs-slsess.jsonl" <<'EOF'
 EOF
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"slsess","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
 L3=$(echo "$OUTPUT" | sed -n '3p' | sed 's/\x1b\[[0-9;]*m//g')
-echo "$L3" | grep -q "sub: 220.0K / \$0.55" && pass || fail "expected 'sub: 220.0K / \$0.55', got: $L3"
-# v2.7.35: combined total (main 1.23 + sub 0.55 = 1.78) shown so sub isn't misread
-echo "$L3" | grep -q "total \$1.78" && pass || fail "expected combined 'total \$1.78', got: $L3"
-# v2.7.35: line 2 no longer carries the redundant "N in / N out" segment
+# v2.7.37: unified line 3 — main tok/cost · sub tok/cost · total tok/cost
+echo "$L3" | grep -q "sub 220.0K/\$0.55" && pass || fail "expected 'sub 220.0K/\$0.55', got: $L3"
+# combined total cost (main 1.23 + sub 0.55 = 1.78); main tokens 0 in test so total tok = 220K
+echo "$L3" | grep -q "total 220.0K/\$1.78" && pass || fail "expected 'total 220.0K/\$1.78', got: $L3"
+# line 2 carries no in/out segment
 L2=$(echo "$OUTPUT" | sed -n '2p' | sed 's/\x1b\[[0-9;]*m//g')
 echo "$L2" | grep -q " in / " && fail "line 2 still has in/out segment: $L2" || pass
 rm -rf "$SL_HOME"
@@ -738,7 +739,7 @@ cat > "$SL_HOME/.claude/supercharger/scope/.subagent-costs-newtok.jsonl" <<'EOF'
 EOF
 OUTPUT=$(echo '{"model":{"display_name":"Opus"},"session_id":"newtok","cost":{"total_cost_usd":1.23}}' | HOME="$SL_HOME" bash "$STATUSLINE_HOOK" 2>/dev/null)
 L3=$(echo "$OUTPUT" | sed -n '3p' | sed 's/\x1b\[[0-9;]*m//g')
-echo "$L3" | grep -q "sub: 55.0K / \$2.00" && pass || fail "expected new-token 'sub: 55.0K / \$2.00' (not 955K), got: $L3"
+echo "$L3" | grep -q "sub 55.0K/\$2.00" && pass || fail "expected new-token 'sub 55.0K/\$2.00' (not 955K), got: $L3"
 rm -rf "$SL_HOME"
 
 begin_test "statusline: no subagent segment when no agents this session"

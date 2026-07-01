@@ -269,18 +269,18 @@ try:
  else:
      cache_str = f'cache {cache_pct}%'
 
- # v2.7.36: total session tokens (parent NEW + subagent NEW). Parent count is
- # accumulated per-session by budget-cap into .main-tokens-<session>; sub comes
- # from .subagent-costs-<session>. Shown as "<main>+<sub> = <total> tok".
- sess_seg = ''
+ # v2.7.37: per-session token + cost totals for the unified line-3 block. Main
+ # tokens from budget-cap's .main-tokens-<session>; sub tokens+cost from
+ # .subagent-costs-<session> (deduped by agent_id, new-tokens basis).
+ _main_tok = 0
+ _sub_tok = 0
+ _sub_cost = 0.0
  try:
      _scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
-     _main_tok = 0
      _mtf = os.path.join(_scope, f'.main-tokens-{session_id}')
      if os.path.isfile(_mtf):
          with open(_mtf) as _f:
              _main_tok = int((json.load(_f) or {}).get('new_tokens', 0) or 0)
-     _sub_tok = 0
      _stf = os.path.join(_scope, f'.subagent-costs-{session_id}.jsonl')
      if os.path.isfile(_stf):
          _by = {}
@@ -300,11 +300,9 @@ try:
                  if _aid not in _by or _c >= _by[_aid][0]:
                      _by[_aid] = (_c, _nw)
          _sub_tok = sum(_t for _c, _t in _by.values())
-     _total_tok = _main_tok + _sub_tok
-     if _total_tok > 0:
-         sess_seg = f' {DIM}|{RESET} {fmt_tokens(_main_tok)}{DIM}+{RESET}{fmt_tokens(_sub_tok)} {DIM}={RESET} {fmt_tokens(_total_tok)} {DIM}tok{RESET}'
+         _sub_cost = sum(_c for _c, _t in _by.values())
  except Exception:
-     sess_seg = ''
+     pass
 
  # Rate limits (isolated — must not crash line 2)
  rl_str = ''
@@ -385,17 +383,16 @@ try:
  # Line 2: context bar + tokens
  cost_fmt = f'${cost:.2f}{cost_suffix}'
  pct_ctx = f'{pct}% ({ctx_str})' if ctx_str else f'{pct}%'
- line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx}{tok_seg} {DIM}|{RESET} {cache_str}{sess_seg}'
-
- # Line 3: cost + duration + rate limits
+ # Duration (v2.7.37: on line 2 now, alongside context/cache/rate-limits)
  if mins >= 60:
-     hrs = mins // 60
-     rem_mins = mins % 60
-     dur_str = f'{hrs}h {rem_mins}m'
+     dur_str = f'{mins // 60}h {mins % 60}m'
  else:
      dur_str = f'{mins}m {secs}s'
 
- # Budget cap display
+ # Line 2 — "where am I": context, cache, elapsed time, rate limits.
+ line2 = f'{bar_color}{bar}{RESET} {DIM}Context:{RESET} {pct_ctx} {DIM}|{RESET} {cache_str} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{rl_str}'
+
+ # Budget cap display (cost line)
  budget_str = ''
  try:
      scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
@@ -404,55 +401,25 @@ try:
          with open(cost_file) as f:
              sc = json.load(f)
          sc_cost = sc.get('total_usd', 0)
-         # Check for budget cap
          cap = float(os.environ.get('SESSION_BUDGET_CAP', '0') or '0')
          if cap > 0:
              budget_str = f' {DIM}|{RESET} {DIM}Budget:{RESET} {YELLOW}${sc_cost:.2f}/${cap:.2f}{RESET}'
  except Exception:
      budget_str = ''
 
- # Subagent tokens + cost for THIS session. CC does NOT fold subagent usage
- # into the parent cost it reports above, so the bar would otherwise undercount
- # whenever agents are spawned. Sum the per-session subagent-costs log, deduped
- # by agent_id (SubagentStop re-fires can leave >1 row per agent — keep the
- # highest, matching subagent-cost.sh's last-cumulative-wins upsert).
- sub_seg = ''
- try:
-     sub_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.subagent-costs-{session_id}.jsonl')
-     if os.path.isfile(sub_file):
-         by_agent = {}
-         with open(sub_file) as f:
-             for ln in f:
-                 ln = ln.strip()
-                 if not ln:
-                     continue
-                 try:
-                     r = json.loads(ln)
-                 except Exception:
-                     continue
-                 aid = r.get('agent_id', '?')
-                 c = float(r.get('cost_usd', 0) or 0)
-                 # v2.7.24: show NEW tokens only (input + cache_write + output),
-                 # excluding cache_read. total_tokens is ~90-96% cache-read
-                 # (context re-read every message), which dwarfs actual work. Fall
-                 # back to total_tokens for legacy rows that lack the breakdown.
-                 _new = (int(r.get('input_tokens', 0) or 0)
-                         + int(r.get('cache_write_tokens', 0) or 0)
-                         + int(r.get('output_tokens', 0) or 0))
-                 if _new == 0:
-                     _new = int(r.get('total_tokens', 0) or 0)
-                 if aid not in by_agent or c >= by_agent[aid][0]:
-                     by_agent[aid] = (c, _new)
-         sub_cost = sum(c for c, _t in by_agent.values())
-         sub_tok = sum(t for _c, t in by_agent.values())
-         if sub_tok > 0 or sub_cost > 0:
-             # v2.7.35: also show the combined total (main cost + sub cost) so the
-             # sub figure isn't misread as part of the main number.
-             sub_seg = f' {DIM}(sub: {fmt_tokens(sub_tok)} / ${sub_cost:.2f} · total ${cost + sub_cost:.2f}){RESET}'
- except Exception:
-     sub_seg = ''
-
- line3 = f'{DIM}{cost_label}{RESET} {YELLOW}{cost_fmt}{RESET}{sub_seg} {DIM}|{RESET} {DIM}Time:{RESET} {dur_str}{budget_str}{rl_str}'
+ # v2.7.37: unified line 3 — Claude + subagents, tokens AND cost together, with
+ # the combined total. `equiv` (plan-equivalent $) is shown once, on the total.
+ # CC does not fold subagent spend into its parent cost, so main + sub is a true
+ # sum. Main tokens come from budget-cap's per-session accumulator (0 until it
+ # runs a turn, then climbs).
+ _tcost = cost + _sub_cost
+ _ttok = _main_tok + _sub_tok
+ if _sub_tok > 0 or _sub_cost > 0:
+     line3 = (f'{DIM}{cost_label}{RESET} {DIM}main{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{RESET}'
+              f' {DIM}· sub{RESET} {fmt_tokens(_sub_tok)}{DIM}/{RESET}{YELLOW}${_sub_cost:.2f}{RESET}'
+              f' {DIM}· total{RESET} {fmt_tokens(_ttok)}{DIM}/{RESET}{YELLOW}${_tcost:.2f}{cost_suffix}{RESET}{budget_str}')
+ else:
+     line3 = f'{DIM}{cost_label}{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}{budget_str}'
 
  print(line1)
  try:
