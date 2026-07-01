@@ -208,6 +208,20 @@ else
 fi
 teardown_test_home
 
+# v2.7.28: regression guard. WorktreeCreate/WorktreeRemove are PROVIDER hooks —
+# CC delegates worktree creation to a hook registered there and requires a
+# returned path, so a passive hook registered on those events BREAKS
+# `isolation: worktree` for every agent (shipped + reverted, v2.7.26→.27). No
+# unit test spawns a live worktree, so nothing caught it. This asserts the
+# anti-pattern never returns: lib/hooks.sh must not register any hook on those
+# two events.
+begin_test "hooks: no passive hook registered on WorktreeCreate/WorktreeRemove (provider events)"
+if grep -qE 'hooks\+=\("Worktree(Create|Remove)' "$REPO_DIR/lib/hooks.sh"; then
+  fail "lib/hooks.sh registers a hook on a Worktree* provider event — this breaks isolation:worktree"
+else
+  pass
+fi
+
 # --- Test: help flag ---
 begin_test "install: --help prints usage and exits"
 OUTPUT=$(bash "$REPO_DIR/install.sh" --help 2>&1) || true
