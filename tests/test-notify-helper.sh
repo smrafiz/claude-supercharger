@@ -97,6 +97,29 @@ EXIT=$?
 rm -rf "$TMPHOME"
 [ "$EXIT" -eq 0 ] && pass || fail "expected 0 on first call, got $EXIT"
 
+# v2.7.33: macOS `system attribute` reads env vars as MacRoman and mangles UTF-8
+# (— → ,Äî). The darwin branch must transliterate the message/title to ASCII.
+begin_test "notify-helper: macOS notification is transliterated to ASCII (no mojibake)"
+if [[ "$OSTYPE" == darwin* ]]; then
+  NHTMP=$(mktemp -d)
+  bash -c "
+    set +e
+    osascript() { printf '%s' \"\$SC_NOTIFY_TITLE|\$SC_NOTIFY_MSG\" > '$NHTMP/got'; }
+    export -f osascript
+    SUPERCHARGER_DIR='$NHTMP/sc' SCOPE_DIR='$NHTMP/sc/scope'
+    export HOME='$NHTMP/home'
+    mkdir -p \"\$HOME\" \"\$SUPERCHARGER_DIR\" \"\$SCOPE_DIR\"
+    . '$HELPER'
+    _send_notification 'Claude — Done' 'parse → validate ⇒ store'
+  " >/dev/null 2>&1
+  GOT=$(cat "$NHTMP/got" 2>/dev/null); rm -rf "$NHTMP"
+  if [ -z "$GOT" ]; then fail "no notification captured"
+  elif printf '%s' "$GOT" | LC_ALL=C grep -q '[^ -~]'; then fail "non-ASCII leaked to notification: $GOT"
+  else pass; fi
+else
+  pass  # Linux notify-send handles UTF-8 natively; transliteration is macOS-only
+fi
+
 begin_test "notify-helper: _cooldown_ok blocks within window"
 TMPHOME=$(mktemp -d)
 EXIT=$(HOME="$TMPHOME" bash -c "

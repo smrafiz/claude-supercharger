@@ -68,8 +68,18 @@ _send_notification() {
       Apple_Terminal) term_app="Terminal" ;;
       vscode) term_app="Visual Studio Code" ;;
     esac
+    # v2.7.33: transliterate to ASCII. AppleScript's `system attribute` reads env
+    # vars as MacRoman, so UTF-8 punctuation/symbols get mojibake'd (— → ,Äî,
+    # → → ,Üí). iconv //TRANSLIT maps them to ASCII (— → -, → → ->); tr drops any
+    # leftover non-ASCII; fall back to the raw string if iconv is unavailable.
+    # NOTE: iconv //TRANSLIT exits non-zero even when it transliterates fine, so
+    # `|| true` is required — under a caller's `set -euo pipefail` the assignment
+    # would otherwise abort the hook before it ever notifies.
+    local ascii_msg ascii_title
+    ascii_msg=$(printf '%s' "$safe_msg" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr -cd '\11\12\15\40-\176' || true); [ -z "$ascii_msg" ] && ascii_msg="$safe_msg"
+    ascii_title=$(printf '%s' "$safe_title" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr -cd '\11\12\15\40-\176' || true); [ -z "$ascii_title" ] && ascii_title="$safe_title"
     # Pass via env var to avoid shell re-interpretation of any surviving metachars
-    SC_NOTIFY_MSG="$safe_msg" SC_NOTIFY_TITLE="$safe_title" \
+    SC_NOTIFY_MSG="$ascii_msg" SC_NOTIFY_TITLE="$ascii_title" \
       osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
   elif command -v notify-send &>/dev/null; then
     notify-send "$safe_title" "$safe_msg" 2>/dev/null || true  # v2.6.77: use sanitized vars
