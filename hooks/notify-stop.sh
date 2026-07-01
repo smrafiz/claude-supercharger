@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Task Complete Notification
 # Event: Stop | Matcher: *
-# Shows prompt + response summary with git branch.
+# Notifies when a turn finishes — but only for turns longer than a threshold
+# (default 30s, override with scope/.notify-min-seconds) so quick back-and-forth
+# doesn't ping. Layout uses the title/subtitle/body tiers:
+#   title    Claude — Done (2m 14s)
+#   subtitle <branch> · $<cost> session
+#   body     "query" -> response
 
 set -euo pipefail
 
@@ -20,6 +25,17 @@ _is_subagent "$_INPUT" && exit 0
 
 # Cooldown (12s — task complete notifications)
 _cooldown_ok "stop" 12 || exit 0
+
+# v2.7.34: duration gate — only notify for turns past the threshold so quick
+# replies stay silent. Override seconds via scope/.notify-min-seconds.
+DURATION_MS=$(printf '%s\n' "$_INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null || echo 0)
+case "$DURATION_MS" in ''|*[!0-9]*) DURATION_MS=0 ;; esac
+MIN_SECS=30
+if [ -f "$SUPERCHARGER_DIR/scope/.notify-min-seconds" ]; then
+  MIN_SECS=$(tr -cd '0-9' < "$SUPERCHARGER_DIR/scope/.notify-min-seconds" 2>/dev/null || echo 30)
+  MIN_SECS=${MIN_SECS:-30}
+fi
+[ $((DURATION_MS / 1000)) -lt "$MIN_SECS" ] && exit 0
 
 # Extract transcript path
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
@@ -51,9 +67,7 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
   [ ${#RESPONSE} -gt 150 ] && RESPONSE="${RESPONSE:0:147}..."
 fi
 
-# Extract elapsed time
-DURATION_MS=$(printf '%s\n' "$_INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null || true)
-DURATION_MS="${DURATION_MS:-0}"
+# Elapsed time for the title
 MINS=$((DURATION_MS / 60000))
 SECS=$(( (DURATION_MS % 60000) / 1000 ))
 if [ "$MINS" -gt 0 ]; then
@@ -64,6 +78,7 @@ else
   ELAPSED=""
 fi
 
+# Body: what happened this turn
 if [ -n "$QUERY" ] && [ -n "$RESPONSE" ]; then
   MSG="\"${QUERY}\" → ${RESPONSE}"
 elif [ -n "$RESPONSE" ]; then
@@ -72,16 +87,18 @@ else
   MSG="Task completed"
 fi
 
-# Add cost to notification if available
-COST_INFO=""
-if [ -f "$HOME/.claude/supercharger/scope/.session-cost" ]; then
-  # v2.6.77: pass path via env var — prevents shell-interpolating $HOME into
+# Subtitle: branch + session cost context
+SUBTITLE=""
+BRANCH=$(_get_branch)
+[ -n "$BRANCH" ] && SUBTITLE="$BRANCH"
+if [ -f "$SUPERCHARGER_DIR/scope/.session-cost" ]; then
+  # v2.6.77: pass path via env var — prevents shell-interpolating $HOME into the
   # python3 -c string (same injection class as the v2.6.72 osascript RCE fix)
-  COST_DISPLAY=$(SC_COST_FILE="$HOME/.claude/supercharger/scope/.session-cost" \
+  COST_DISPLAY=$(SC_COST_FILE="$SUPERCHARGER_DIR/scope/.session-cost" \
     python3 -c "import json,os; c=json.load(open(os.environ['SC_COST_FILE'])); print(f'{c.get(\"total_usd\",0):.2f}')" 2>/dev/null || echo "")
-  [ -n "$COST_DISPLAY" ] && COST_INFO=" — ${COST_DISPLAY} this session"
+  [ -n "$COST_DISPLAY" ] && SUBTITLE="${SUBTITLE:+$SUBTITLE · }\$${COST_DISPLAY} session"
 fi
 
-_send_notification "Claude — Done${ELAPSED}" "${MSG}${COST_INFO}"
+_send_notification "Claude — Done${ELAPSED}" "$MSG" "$SUBTITLE"
 
 exit 0

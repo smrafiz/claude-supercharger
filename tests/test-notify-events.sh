@@ -112,4 +112,27 @@ EXIT=$?
 teardown_test_home
 [ "$EXIT" -eq 0 ] && pass || fail "exit=$EXIT out=$OUT"
 
+# v2.7.34: duration gate — short turns stay silent, long turns notify.
+begin_test "notify-stop: gates sub-threshold turns, notifies long turns"
+if [[ "$OSTYPE" == darwin* ]]; then
+  _gate() { # $1=ms → fired|silent  (fresh HOME so the 12s cooldown never bleeds across cases)
+    local h m; h=$(mktemp -d); mkdir -p "$h/.claude/supercharger/scope"
+    m=$(mktemp -d); printf '#!/bin/sh\ntouch "%s/n"\n' "$m" > "$m/osascript"; chmod +x "$m/osascript"
+    printf '{"cost":{"total_duration_ms":%s},"transcript_path":""}' "$1" | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
+    [ -f "$m/n" ] && echo fired || echo silent; rm -rf "$h" "$m"
+  }
+  SHORT=$(_gate 5000); LONG=$(_gate 90000)
+  { [ "$SHORT" = silent ] && [ "$LONG" = fired ]; } && pass || fail "5s=$SHORT (want silent) 90s=$LONG (want fired)"
+else pass; fi  # Linux path exercised elsewhere; gate logic is OS-agnostic
+
+begin_test "notify-stop: .notify-min-seconds overrides the default threshold"
+if [[ "$OSTYPE" == darwin* ]]; then
+  h=$(mktemp -d); mkdir -p "$h/.claude/supercharger/scope"
+  echo 3 > "$h/.claude/supercharger/scope/.notify-min-seconds"
+  m=$(mktemp -d); printf '#!/bin/sh\ntouch "%s/n"\n' "$m" > "$m/osascript"; chmod +x "$m/osascript"
+  # 5s turn: default (30) would gate, but override=3 → notifies
+  printf '{"cost":{"total_duration_ms":5000},"transcript_path":""}' | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
+  [ -f "$m/n" ] && pass || fail "override to 3s should notify a 5s turn"; rm -rf "$h" "$m"
+else pass; fi
+
 report

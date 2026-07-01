@@ -42,11 +42,13 @@ _is_subagent() {
 _send_notification() {
   local title="$1"
   local msg="$2"
+  local subtitle="${3:-}"   # v2.7.34: optional middle tier (title/subtitle/body)
 
-  # Append git branch to title
+  # A caller-supplied subtitle owns the context line; otherwise keep the legacy
+  # behaviour of appending the git branch to the title.
   local branch
   branch=$(_get_branch)
-  [ -n "$branch" ] && title="${title} [${branch}]"
+  [ -z "$subtitle" ] && [ -n "$branch" ] && title="${title} [${branch}]"
 
   # Sanitize for osascript: strip backticks and $ first (shell-eval vectors
   # inside the -e argument since bash interprets the string BEFORE osascript
@@ -57,6 +59,8 @@ _send_notification() {
   safe_msg=$(printf '%s' "$msg" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 200)
   local safe_title
   safe_title=$(printf '%s' "$title" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g")
+  local safe_sub
+  safe_sub=$(printf '%s' "$subtitle" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 120)
 
   if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
     printf '\a'
@@ -75,14 +79,22 @@ _send_notification() {
     # NOTE: iconv //TRANSLIT exits non-zero even when it transliterates fine, so
     # `|| true` is required — under a caller's `set -euo pipefail` the assignment
     # would otherwise abort the hook before it ever notifies.
-    local ascii_msg ascii_title
+    local ascii_msg ascii_title ascii_sub
     ascii_msg=$(printf '%s' "$safe_msg" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr -cd '\11\12\15\40-\176' || true); [ -z "$ascii_msg" ] && ascii_msg="$safe_msg"
     ascii_title=$(printf '%s' "$safe_title" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr -cd '\11\12\15\40-\176' || true); [ -z "$ascii_title" ] && ascii_title="$safe_title"
+    ascii_sub=$(printf '%s' "$safe_sub" | iconv -f UTF-8 -t ASCII//TRANSLIT 2>/dev/null | tr -cd '\11\12\15\40-\176' || true); [ -z "$ascii_sub" ] && ascii_sub="$safe_sub"
     # Pass via env var to avoid shell re-interpretation of any surviving metachars
-    SC_NOTIFY_MSG="$ascii_msg" SC_NOTIFY_TITLE="$ascii_title" \
-      osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
+    if [ -n "$ascii_sub" ]; then
+      SC_NOTIFY_MSG="$ascii_msg" SC_NOTIFY_TITLE="$ascii_title" SC_NOTIFY_SUB="$ascii_sub" \
+        osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE") subtitle (system attribute "SC_NOTIFY_SUB")' 2>/dev/null || true
+    else
+      SC_NOTIFY_MSG="$ascii_msg" SC_NOTIFY_TITLE="$ascii_title" \
+        osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
+    fi
   elif command -v notify-send &>/dev/null; then
-    notify-send "$safe_title" "$safe_msg" 2>/dev/null || true  # v2.6.77: use sanitized vars
+    # Linux notify-send has no subtitle tier — fold it into the body (\n works here)
+    local ns_body="$safe_msg"; [ -n "$safe_sub" ] && ns_body="${safe_sub}"$'\n'"${safe_msg}"
+    notify-send "$safe_title" "$ns_body" 2>/dev/null || true  # v2.6.77: use sanitized vars
   else
     printf '\a'
   fi
