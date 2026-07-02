@@ -47,21 +47,27 @@ candidates = [
     Path(cwd) / '.claude' / 'commands',
     Path(cwd) / '.claude' / 'plugins',
 ]
+# v2.7.54: skills are often invoked NAMESPACED ("plugin:skill"), but the file on
+# disk is named by the BARE skill — a raw-name glob then matches nothing and the
+# skill is never scanned (a full bypass for any plugin skill). Search the bare
+# name (after the last ':' or '/') in addition to the raw invoked value.
+skill_names = {skill}
+_bare = re.split(r'[:/]', skill)[-1]
+if _bare:
+    skill_names.add(_bare)
+
 # Targeted globs only — rglob over ~/.claude/ walks 1000s of files.
-# Three direct shapes: <base>/.../<skill>.md, <base>/.../<skill>/SKILL.md,
-# <base>/.../<skill>/skill.md. Depth limit 6.
-glob_patterns = (
-    f'{skill}.md',
-    f'*/{skill}.md',
-    f'*/*/{skill}.md',
-    f'*/*/*/{skill}.md',
-    f'{skill}/SKILL.md',
-    f'*/{skill}/SKILL.md',
-    f'*/*/{skill}/SKILL.md',
-    f'{skill}/skill.md',
-    f'*/{skill}/skill.md',
-    f'*/*/{skill}/skill.md',
-)
+# Three direct shapes: <base>/.../<name>.md, <base>/.../<name>/SKILL.md,
+# <base>/.../<name>/skill.md. Depth limit 6.
+glob_patterns = []
+for _nm in skill_names:
+    glob_patterns += [
+        f'{_nm}.md', f'*/{_nm}.md', f'*/*/{_nm}.md', f'*/*/*/{_nm}.md',
+        f'{_nm}/SKILL.md', f'*/{_nm}/SKILL.md', f'*/*/{_nm}/SKILL.md',
+        f'{_nm}/skill.md', f'*/{_nm}/skill.md', f'*/*/{_nm}/skill.md',
+    ]
+
+_seen = set()
 for base in candidates:
     if not base.is_dir():
         continue
@@ -69,7 +75,10 @@ for base in candidates:
         try:
             for p in base.glob(pat):
                 if p.is_file():
-                    scan_paths.append(p)
+                    rp = str(p.resolve())
+                    if rp not in _seen:
+                        _seen.add(rp)
+                        scan_paths.append(p)
         except Exception:
             continue
 
