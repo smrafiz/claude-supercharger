@@ -44,17 +44,19 @@ done
 echo ""
 echo "=== Agent Model Assignment Tests ==="
 
-begin_test "agents: general uses sonnet model"
-grep -q "^model: claude-sonnet" "$AGENTS_DIR/general.md" && pass || fail "general should use sonnet"
+# v2.7.56: model tiered by task. Read-only REASONING agents (produce plans /
+# root-causes / designs / reviews where reasoning quality is the deliverable) run
+# on Opus; EXECUTION/throughput agents run on Sonnet (fast + cheaper). Extends the
+# original reviewer=Opus intent consistently to the other reasoning agents.
+for agent in architect debugger planner researcher reviewer; do
+  begin_test "agents: $agent (reasoning) uses opus model"
+  grep -q "^model: claude-opus" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use opus (reasoning-critical)"
+done
 
-begin_test "agents: code-helper uses sonnet model"
-grep -q "^model: claude-sonnet" "$AGENTS_DIR/code-helper.md" && pass || fail "code-helper should use sonnet"
-
-begin_test "agents: debugger uses sonnet model"
-grep -q "^model: claude-sonnet" "$AGENTS_DIR/debugger.md" && pass || fail "debugger should use sonnet"
-
-begin_test "agents: architect uses sonnet model"
-grep -q "^model: claude-sonnet" "$AGENTS_DIR/architect.md" && pass || fail "architect should use sonnet"
+for agent in general code-helper writer data-analyst; do
+  begin_test "agents: $agent (execution) uses sonnet model"
+  grep -q "^model: claude-sonnet" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use sonnet (throughput)"
+done
 
 echo ""
 echo "=== Reviewer Severity Model Tests ==="
