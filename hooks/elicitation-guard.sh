@@ -112,13 +112,26 @@ for k in keys:
 # Message-text phishing signal (independent of field names).
 msg_trigger = bool(MSG_CRED.search(message))
 
-# Trusted-server allowlist from .supercharger.json (project-level opt-in).
+# Trusted-server allowlist. Two sources, unioned:
+#   1. .supercharger.json trustedElicitationServers (project-level, versioned)
+#   2. the global scope allowlist managed by /trust-mcp (scope/.trusted-
+#      elicitation-servers) — because .supercharger.json is itself protected by
+#      the self-modification path-guard, so the command can't edit it directly.
 trusted = set()
 try:
     with open(os.path.join(os.environ.get('CONFIG_ROOT', ''), '.supercharger.json')) as f:
         cfg = json.load(f)
     for s in (cfg.get('trustedElicitationServers') or []):
         trusted.add(str(s).strip().lower())
+except Exception:
+    pass
+try:
+    with open(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger',
+                           'scope', '.trusted-elicitation-servers')) as f:
+        for line in f:
+            s = line.strip().lower()
+            if s:
+                trusted.add(s)
 except Exception:
     pass
 

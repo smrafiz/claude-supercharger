@@ -205,6 +205,25 @@ begin_test "elicitation-guard: no-desktop-notify suppresses the decline notifica
 OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"api_key":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
 printf '%s' "$OUT" | grep -q decline && pass || fail "decline JSON must still emit with notifications off, got: $OUT"
 
+# v2.7.53: /trust-mcp tool manages the scope allowlist the guard also reads.
+TRUST="$REPO_DIR/tools/trust-mcp.sh"
+
+begin_test "trust-mcp: adds a server (normalized) to the scope allowlist"
+bash "$TRUST" My-Postgres-MCP >/dev/null 2>&1
+grep -qxF "my-postgres-mcp" "$HOME/.claude/supercharger/scope/.trusted-elicitation-servers" 2>/dev/null && pass || fail "server not added/normalized"
+
+begin_test "trust-mcp: --list shows the trusted server"
+bash "$TRUST" --list 2>/dev/null | grep -q "my-postgres-mcp" && pass || fail "--list missing the server"
+
+begin_test "elicitation-guard: honors a scope-file-trusted server (credential field allowed)"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"my-postgres-mcp","cwd":"/tmp","schema":{"properties":{"password":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "scope-trusted server wrongly declined, got: $OUT"
+
+begin_test "trust-mcp: --remove untrusts the server (guard declines again)"
+bash "$TRUST" --remove my-postgres-mcp >/dev/null 2>&1
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"my-postgres-mcp","cwd":"/tmp","schema":{"properties":{"password":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+printf '%s' "$OUT" | grep -q decline && pass || fail "removed server should be declined again, got: $OUT"
+
 teardown_test_home
 
 report
