@@ -100,6 +100,36 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 ---
 
+## Recent highlights (v2.7.x)
+
+The v2.7 line focused on making the runtime observable, hardening the guards, and cutting per-hook overhead — without changing how you use it.
+
+### Sharper visibility
+
+- **Unified token + cost line** — one statusline row shows main, subagent, and total tokens with their dollar cost side by side. Counts are **content tokens** (input + output), so cache traffic no longer inflates the number into the billions
+- **Real git diff in the statusline** — actual `+N / −M` for the working tree, cached per repo off `.git` mtime so it costs nothing on an unchanged tree
+- **Memory-restored badge** — a `Mem: Restored` marker after compaction, scoped to the session that actually compacted
+
+### Smarter notifications
+
+- **"Done" desktop notifications** — fire only after genuinely long tasks (duration-gated), use the correct `PermissionRequest` shape, and render cleanly (fixed the MacRoman mojibake in AppleScript-delivered titles)
+
+### Hardened guards
+
+- **Closed 7 verified gate bypasses** — absolute-path `rm` targets, leading-`+` force-push refspecs (`git push origin +main`), symlink escapes on relative paths, SQL guards defeated by comment/whitespace obfuscation (plus a broadened server allowlist), GitHub writes with an omitted branch defaulting to `main`, and `find -delete` / `find -exec rm`
+
+### Lower overhead
+
+- **Per-hook fork reduction** — cheap bash pre-gates short-circuit the expensive `python3`/`jq` work in the PreToolUse, PostToolUse, and UserPromptSubmit chains; the agent router now spends ~3 fewer process spawns per prompt
+- **Zero-setup `/perf`** — on bash 5+, hooks slower than ~40ms are recorded automatically (zero-fork `EPOCHREALTIME` clock), so `/perf` surfaces slow hooks with no profiling flag to toggle
+
+### Correct under concurrency
+
+- **Cumulative session state is preserved** — fixed Stop/SubagentStop hooks that re-fire every turn wrongly wiping running per-session totals
+- **Per-session isolation** — session-scoped state files (memory-restore badge, transcript token/cost offsets) keyed by session id, so running several Claude sessions at once no longer cross-contaminates token and cost counts
+
+---
+
 ## Install modes
 
 | Mode | Hooks | Use when |
