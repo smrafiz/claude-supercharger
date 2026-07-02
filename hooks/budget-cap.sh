@@ -46,7 +46,7 @@ if [[ "$MODE" == "accumulate" ]]; then
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
   SESSION_ID="$SESSION_ID" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
-import json, os, fcntl
+import json, os, fcntl, time
 
 cost_file = os.environ['COST_INPUT']
 transcript = os.environ['TRANSCRIPT']
@@ -66,7 +66,21 @@ override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
 _lf = None
 try:
     _lf = open(cost_file + '.lock', 'w')
-    fcntl.flock(_lf, fcntl.LOCK_EX)
+    # v2.7.51: bounded acquire — NEVER block forever. budget-cap runs on every
+    # PostToolUse; an alive-but-stuck lock holder would otherwise hang every
+    # subsequent tool call (the kernel releases flock when a holder DIES, but not
+    # when it's merely wedged). Try non-blocking for ~2s, then proceed best-effort
+    # without the lock — a rare lost delta under real contention beats a permanent
+    # session hang. Uncontended acquire still succeeds on the first try.
+    _deadline = time.time() + 2.0
+    while True:
+        try:
+            fcntl.flock(_lf, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            break
+        except (BlockingIOError, OSError):
+            if time.time() >= _deadline:
+                break  # give up the lock, proceed best-effort
+            time.sleep(0.02)
 except Exception:
     _lf = None
 

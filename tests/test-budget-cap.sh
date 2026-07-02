@@ -296,4 +296,30 @@ print('ok' if abs(mt-0.063)<1e-6 and has else f'bad:main_total={mt} map={has}')"
 [ "$RES" = "ok" ] && pass || fail "legacy migration wrong: $RES (want main_total≈0.063, main_offsets present)"
 teardown_test_home
 
+# v2.7.51: budget-cap runs on every PostToolUse and takes a flock on .session-cost.
+# A stuck (alive) lock holder must NOT hang it forever — the acquire is bounded to
+# ~2s, after which it proceeds best-effort. Hold the lock 6s in the background and
+# assert the hook still returns quickly and writes state.
+begin_test "accumulate: a held lock does not hang the hook (bounded flock)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/transcript.jsonl"
+asst_msg 1000 0 0 0 > "$TR"
+PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
+# Background holder grabs the lock and keeps it for 6s (> the 2s acquire budget).
+python3 -c "import fcntl,time; f=open('$SCOPE_DIR/.session-cost.lock','w'); fcntl.flock(f, fcntl.LOCK_EX); time.sleep(6)" &
+HOLDER=$!
+sleep 1  # let the holder acquire before we race it
+START=$(date +%s)
+echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
+END=$(date +%s)
+kill "$HOLDER" 2>/dev/null; wait "$HOLDER" 2>/dev/null
+ELAPSED=$((END - START))
+if [ "$ELAPSED" -lt 5 ] && [ -f "$SCOPE_DIR/.session-cost" ]; then
+  pass
+else
+  fail "hook hung on held lock: elapsed=${ELAPSED}s (want <5), cost-file=$([ -f "$SCOPE_DIR/.session-cost" ] && echo yes || echo no)"
+fi
+teardown_test_home
+
 report
