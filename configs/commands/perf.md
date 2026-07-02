@@ -9,10 +9,13 @@ bash ~/.claude/supercharger/tools/hook-perf.sh $ARGUMENTS
 ```
 
 If the command exits with "No hook timing data found", explain:
-- Profiling data is only collected while the `.profiling` sentinel is active
-- To start collecting: `touch ~/.claude/supercharger/scope/.profiling`
-- To stop: `rm ~/.claude/supercharger/scope/.profiling`
-- Then use Claude normally for a session; re-run `/perf` to see results
+- On **bash 5+** (zero-fork `EPOCHREALTIME` clock), hooks slower than ~40ms are
+  recorded **automatically** — no setup; just use Claude and re-run `/perf`.
+  Tune with `SUPERCHARGER_PERF_THRESHOLD_MS`.
+- On **bash 3.2** (macOS default — no cheap ms clock) auto-timing is off to avoid
+  a per-hook python fork. Check `bash --version`; if 3.2, enable full profiling.
+- **Full profiling** (every hook fire, any bash): `touch ~/.claude/supercharger/scope/.profiling`,
+  use Claude for a session, re-run `/perf`, then `rm ~/.claude/supercharger/scope/.profiling`.
 
 **Step 2 — Interpret results**
 

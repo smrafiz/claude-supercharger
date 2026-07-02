@@ -35,6 +35,12 @@ _emit_hook_timing() {
     end_ms=$(python3 -c "import time; print(int(time.time()*1000))" 2>/dev/null || echo "$HOOK_START_MS")
   fi
   local elapsed=$((end_ms - HOOK_START_MS))
+  # v2.7.45: outside full-profiling mode, only record SLOW invocations so
+  # always-on timing costs ~nothing (2 clock reads + a compare, no I/O) for the
+  # fast common case, while still surfacing the hooks worth optimizing in /perf.
+  if [ "${_HOOK_PERF_FULL:-0}" != 1 ] && [ "$elapsed" -lt "${SUPERCHARGER_PERF_THRESHOLD_MS:-40}" ]; then
+    return
+  fi
   local audit_dir="$HOME/.claude/supercharger/audit"
   mkdir -p "$audit_dir" 2>/dev/null || return
   local date_str
@@ -56,10 +62,15 @@ init_hook_suppress() {
   # shellcheck disable=SC2034  # HOOK_SUPPRESS is read by every sourcing hook
   [ -f "${PWD}/.supercharger-debug" ] && HOOK_SUPPRESS=false || true
 
-  # Timing instrumentation — only active when profiler is running
+  # Timing instrumentation. v2.7.45: always-on SLOW-hook detection when
+  # EPOCHREALTIME is available (bash 5+, zero-fork clock). The full .profiling
+  # sentinel logs EVERY fire and also enables timing on bash 3.2 (where the clock
+  # needs a python fork, so we don't add it unconditionally there).
   HOOK_START_MS=0
   HOOK_NAME=""
-  if [ -f "$HOME/.claude/supercharger/scope/.profiling" ]; then
+  _HOOK_PERF_FULL=0
+  [ -f "$HOME/.claude/supercharger/scope/.profiling" ] && _HOOK_PERF_FULL=1
+  if [ "$_HOOK_PERF_FULL" = 1 ] || [ -n "${EPOCHREALTIME:-}" ]; then
     # $EPOCHREALTIME (bash 5+): "seconds.microseconds" — convert to ms, zero fork
     if [[ -n "${EPOCHREALTIME:-}" ]]; then
       HOOK_START_MS=$(( ${EPOCHREALTIME/./} / 1000 ))

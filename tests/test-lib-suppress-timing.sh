@@ -55,4 +55,43 @@ else
   fail "HOOK_START_MS not >0 when sentinel present"
 fi
 
+# v2.7.45: always-on slow-hook logging. _emit_hook_timing records only
+# invocations >= threshold in auto mode, and everything in full-profiling mode.
+# NB: on bash 3.2 the emit forks python for the end timestamp, so a "just now"
+# start can measure ~30-50ms of fork latency — use a huge threshold so that
+# noise can't exceed it; we're testing the skip path, not the clock.
+begin_test "timing: emit SKIPS an invocation below threshold (auto mode)"
+result=$(
+  TH=$(mktemp -d); export HOME="$TH"; mkdir -p "$HOME/.claude/supercharger/scope"
+  export SUPERCHARGER_PERF_THRESHOLD_MS=100000
+  source "$LIB"
+  HOOK_NAME=ftfast; _HOOK_PERF_FULL=0
+  HOOK_START_MS=$(python3 -c 'import time;print(int(time.time()*1000))')
+  _emit_hook_timing
+  grep -c ftfast "$HOME/.claude/supercharger/audit/$(date +%Y-%m-%d).jsonl" 2>/dev/null || echo 0
+)
+[ "${result##* }" = "0" ] && pass || fail "below-threshold invocation was logged (expected skip): $result"
+
+begin_test "timing: emit RECORDS a slow invocation above threshold (auto mode)"
+result=$(
+  TH=$(mktemp -d); export HOME="$TH"; mkdir -p "$HOME/.claude/supercharger/scope"
+  source "$LIB"
+  HOOK_NAME=ftslow; _HOOK_PERF_FULL=0
+  HOOK_START_MS=$(python3 -c 'import time;print(int(time.time()*1000)-200)')
+  _emit_hook_timing
+  grep -c ftslow "$HOME/.claude/supercharger/audit/$(date +%Y-%m-%d).jsonl" 2>/dev/null || echo 0
+)
+[ "${result##* }" = "1" ] && pass || fail "slow invocation not recorded: $result"
+
+begin_test "timing: full-profiling mode records even a fast invocation"
+result=$(
+  TH=$(mktemp -d); export HOME="$TH"; mkdir -p "$HOME/.claude/supercharger/scope"
+  source "$LIB"
+  HOOK_NAME=ftfull; _HOOK_PERF_FULL=1
+  HOOK_START_MS=$(python3 -c 'import time;print(int(time.time()*1000))')
+  _emit_hook_timing
+  grep -c ftfull "$HOME/.claude/supercharger/audit/$(date +%Y-%m-%d).jsonl" 2>/dev/null || echo 0
+)
+[ "${result##* }" = "1" ] && pass || fail "full mode did not record fast invocation: $result"
+
 report
