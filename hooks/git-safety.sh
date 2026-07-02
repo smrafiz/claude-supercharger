@@ -78,7 +78,10 @@ rewrite() {
     printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"git-safety: %s (rewriter unavailable, please run safely)"}}\n' "$reason"
     exit 2
   fi
-  printf '{"hookSpecificOutput":{"updatedInput":{"command":%s}}}\n' "$cmd_json"
+  # v2.7.55: include hookEventName — a hookSpecificOutput without it is dropped by
+  # CC (verified class, v2.7.30), which would silently discard this rewrite and let
+  # the original unsafe command run. The deny/fallback paths above already carry it.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":%s}}}\n' "$cmd_json"
   exit 0
 }
 
