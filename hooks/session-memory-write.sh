@@ -26,12 +26,15 @@ OPEN_FILES=$(git status --porcelain 2>/dev/null | sed 's/^...//' | sort -u | gre
 # --- Recent commits (completed decisions) ---
 RECENT_COMMITS=$(git log --oneline -3 2>/dev/null || echo "")
 
-# --- Branch ---
-BRANCH=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo "unknown")
+# --- Branch + project root (v2.7.43 perf: one rev-parse instead of two; Stop
+# fires every turn, so this saves a git cold-start per turn). rev-parse prints
+# one line per requested item.
+_RP=$(git rev-parse --abbrev-ref HEAD --show-toplevel 2>/dev/null || true)
+BRANCH=$(printf '%s\n' "$_RP" | sed -n '1p'); [ -z "$BRANCH" ] && BRANCH="unknown"
 
 # --- Recent corrections (last 5, project-scoped) ---
 CORRECTIONS=""
-PROJECT_DIR=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+PROJECT_DIR=$(printf '%s\n' "$_RP" | sed -n '2p'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
 PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
 PROJ_HASH="${PROJ_HASH:0:8}"
 CORRECTIONS_FILE="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"

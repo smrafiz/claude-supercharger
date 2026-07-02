@@ -9,9 +9,6 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-init_hook_suppress "$PROJECT_DIR"
-hook_profile_skip "failure-tracker" && exit 0
 
 # v2.7.15: CC's PostToolUse Bash payload has NO exit_code (verified: tool_response
 # = {interrupted,isImage,noOutputExpected,stderr,stdout}), so the old
@@ -21,10 +18,21 @@ hook_profile_skip "failure-tracker" && exit 0
 # stdout. The markers are unambiguous failures (command not found, Traceback,
 # fatal:, …) so benign tools that merely write progress/warnings to stderr (git,
 # npm) don't trip a false "repeated failure" nudge.
+FAIL_MARKERS='command not found|: not found|No such file or directory|Permission denied|fatal:|Traceback \(most recent call|Segmentation fault|core dumped|Cannot find module|ModuleNotFoundError|ImportError|ENOENT|EACCES|exited with (code )?[1-9]|exit code [1-9]|panic:|undefined reference|[a-zA-Z]*Error:|FAILED|assertion failed|cannot access|unknown command|No such command'
+
+# v2.7.42 perf: most Bash commands SUCCEED — no failure signal in the payload.
+# One cheap grep over the raw payload (markers OR interrupted:true) short-circuits
+# BEFORE any jq fork; only actual failures pay for the 3 jq + logic below. The
+# raw-JSON escaping doesn't hide these plain-text markers; the precise per-field
+# check still runs afterward, so this only filters, never mis-records.
+printf '%s' "$_INPUT" | LC_ALL=C grep -qiE "$FAIL_MARKERS"'|"interrupted":[[:space:]]*true' || exit 0
+
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
+hook_profile_skip "failure-tracker" && exit 0
+
 INTERRUPTED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.interrupted // false' 2>/dev/null || echo false)
 ERRTEXT=$(printf '%s\n' "$_INPUT" | jq -r '(.tool_response.stderr // "") + "\n" + (.tool_response.stdout // "")' 2>/dev/null | head -c 4000 || true)
-
-FAIL_MARKERS='command not found|: not found|No such file or directory|Permission denied|fatal:|Traceback \(most recent call|Segmentation fault|core dumped|Cannot find module|ModuleNotFoundError|ImportError|ENOENT|EACCES|exited with (code )?[1-9]|exit code [1-9]|panic:|undefined reference|[a-zA-Z]*Error:|FAILED|assertion failed|cannot access|unknown command|No such command'
 
 FAILED=false
 [ "$INTERRUPTED" = "true" ] && FAILED=true

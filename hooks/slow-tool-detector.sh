@@ -9,6 +9,9 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+# v2.7.42 perf: the whole hook needs duration_ms; if the payload doesn't carry it,
+# skip before the jq+python forks (which would just parse and exit anyway).
+case "$_INPUT" in *duration_ms*) ;; *) exit 0 ;; esac
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "slow-tool-detector" && exit 0
