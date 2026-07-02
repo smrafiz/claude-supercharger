@@ -7,20 +7,25 @@ SENTINEL="$HOME/.claude/supercharger/scope/.profiling"
 
 echo "=== lib-suppress Timing Tests ==="
 
-begin_test "timing: HOOK_START_MS is set after sourcing lib-suppress"
+# v2.7.46: without a sentinel, HOOK_START_MS is 0 on bash 3.2 (no cheap clock →
+# always-on timing off), but POPULATED on bash 5+ (EPOCHREALTIME → always-on
+# slow-hook timing). Assert the correct state for whichever bash is running.
+begin_test "timing: HOOK_START_MS reflects always-on state (no sentinel)"
 result=$(
   unset HOOK_START_MS
   rm -f "$SENTINEL"
   source "$LIB"
   init_hook_suppress
-  if [ -n "${HOOK_START_MS+x}" ] && [ "${HOOK_START_MS:-x}" = "0" ] 2>/dev/null; then
-    echo "ok"
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    [ "${HOOK_START_MS:-0}" -gt 0 ] 2>/dev/null && echo "ok"   # bash 5+: always-on
+  else
+    [ -n "${HOOK_START_MS+x}" ] && [ "${HOOK_START_MS:-x}" = "0" ] && echo "ok"  # bash 3.2: off
   fi
 )
 if [ "$result" = "ok" ]; then
   pass
 else
-  fail "HOOK_START_MS not set or not 0 when no sentinel"
+  fail "HOOK_START_MS wrong for this bash (EPOCHREALTIME='${EPOCHREALTIME:-unset}')"
 fi
 
 begin_test "timing: HOOK_START_MS is numeric"
