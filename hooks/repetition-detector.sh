@@ -16,11 +16,15 @@ _INPUT=$(cat)
 # file_path, session_id) using @tsv. Was 3-4 separate jq forks. Median
 # 70ms → ~30ms on the common case (no loop, no re-read).
 FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // "", .tool_name // "", .tool_input.command // "", .tool_input.file_path // "", .session_id // "default"] | @tsv' 2>/dev/null || true)
-PROJECT_DIR=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $1}'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.7.44 perf: split the jq @tsv line ONCE with a bash read (IFS=tab) instead of
+# 4 separate awk forks. This hook fires on every Bash AND Read (hottest hook).
+IFS=$'\t' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH _ <<EOF_FIELDS
+$FIELDS
+EOF_FIELDS
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "repetition-detector" && exit 0
 
-TOOL_NAME=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $2}')
 [ -z "$TOOL_NAME" ] && exit 0
 
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
@@ -34,12 +38,10 @@ LOOP_FILE="$SCOPE_DIR/.loop-history"
 FINGERPRINT=""
 case "$TOOL_NAME" in
   Bash)
-    CMD=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $3}')
-    [ -z "$CMD" ] && FINGERPRINT="" || FINGERPRINT="Bash:${CMD}"
+    [ -z "$F_CMD" ] && FINGERPRINT="" || FINGERPRINT="Bash:${F_CMD}"
     ;;
   Read)
-    FPATH=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $4}')
-    [ -z "$FPATH" ] && FINGERPRINT="" || FINGERPRINT="Read:${FPATH}"
+    [ -z "$F_FPATH" ] && FINGERPRINT="" || FINGERPRINT="Read:${F_FPATH}"
     ;;
 esac
 
