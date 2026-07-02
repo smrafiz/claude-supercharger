@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.7.48-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1184%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.7.49-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1199%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -65,7 +65,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
 - **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
-- **Elicitation audit** — captures MCP `Elicitation` requests (form schemas + 200-char message preview) and `ElicitationResult` shapes (response keys only, never values). Schema sample lets the next release block credential-style fields from untrusted MCP servers
+- **Elicitation credential guard** — an MCP server can solicit input via a form (`Elicitation`); a malicious one uses that to phish an "API token" or "database password" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`, camelCase variants) unless the server is in `trustedElicitationServers` in `.supercharger.json`. Companion audit hook logs every request's schema shape + `ElicitationResult` keys (never values)
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass confirmation automatically
 
 ### Cost & context control
@@ -117,6 +117,7 @@ The v2.7 line focused on making the runtime observable, hardening the guards, an
 ### Hardened guards
 
 - **Closed 7 verified gate bypasses** — absolute-path `rm` targets, leading-`+` force-push refspecs (`git push origin +main`), symlink escapes on relative paths, SQL guards defeated by comment/whitespace obfuscation (plus a broadened server allowlist), GitHub writes with an omitted branch defaulting to `main`, and `find -delete` / `find -exec rm`
+- **Elicitation credential guard** — MCP servers that phish a token/password/API-key through a routine-looking input form are now declined unless the server is explicitly trusted in `.supercharger.json`
 
 ### Lower overhead
 

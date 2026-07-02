@@ -6,14 +6,13 @@
 # legitimate UX primitive (form fields, confirmation prompts) but also a
 # direct vector for credential harvesting: a malicious or compromised MCP
 # server can ask for an "API token", "GitHub PAT", "database password" in
-# a form that looks routine. Today Supercharger has no coverage of this
-# event — prompt-injection-scanner.sh covers tool output, not elicitation
-# payloads. Before we can ship a real defensive guard (warn when fields
-# named "token"/"password"/"key" appear in an elicitation request, block
-# elicitation from MCP servers outside an allowlist), we need the payload
-# shape: schema, server identity, message text length, requested field types.
+# a form that looks routine. The blocking guard now lives in elicitation-guard.sh
+# (v2.7.49): it declines credential-style fields from servers outside
+# trustedElicitationServers. THIS hook is the async companion — it observes and
+# logs every request's schema shape, server identity, and message length so the
+# guard's heuristics can be tuned and post-incident review has a trail.
 #
-# Behavior: passthrough (exit 0). Never blocks.
+# Behavior: passthrough (exit 0). Never blocks — elicitation-guard.sh does that.
 # Storage: ~/.claude/supercharger/audit/elicitation-payloads.jsonl
 # Disable: SUPERCHARGER_ELICITATION_DISCOVERY=0
 #

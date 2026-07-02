@@ -147,4 +147,41 @@ begin_test "github-gate: write with OMITTED branch is blocked (defaults to main)
 echo '{"tool_name":"mcp__github__create_or_update_file","tool_input":{"path":"x","content":"y"}}' | bash "$GH" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "omitted-branch write not blocked"
 
+# ---------- Elicitation guard (v2.7.49) ----------
+EG="$REPO_DIR/hooks/elicitation-guard.sh"
+
+begin_test "elicitation-guard: declines credential field (api_key) from untrusted server"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"type":"object","properties":{"api_key":{"type":"string"},"note":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+printf '%s' "$OUT" | grep -q '"action": "decline"' && pass || fail "expected decline, got: $OUT"
+
+begin_test "elicitation-guard: declines camelCase credential (githubToken)"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"x","cwd":"/tmp","schema":{"properties":{"githubToken":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+printf '%s' "$OUT" | grep -q decline && pass || fail "expected decline for githubToken, got: $OUT"
+
+begin_test "elicitation-guard: allows benign form (username/email)"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"x","cwd":"/tmp","schema":{"properties":{"username":{"type":"string"},"email":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "expected passthrough, got: $OUT"
+
+begin_test "elicitation-guard: no false positive (monkey, patch_notes)"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"x","cwd":"/tmp","schema":{"properties":{"monkey":{"type":"string"},"patch_notes":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "false positive on monkey/patch_notes, got: $OUT"
+
+begin_test "elicitation-guard: trusted server (.supercharger.json) may ask for credentials"
+EG_DIR=$(mktemp -d)
+printf '%s' '{"trustedElicitationServers":["postgres-mcp"]}' > "$EG_DIR/.supercharger.json"
+OUT=$(printf '{"hook_event_name":"Elicitation","server_name":"postgres-mcp","cwd":"%s","schema":{"properties":{"password":{"type":"string"}}}}' "$EG_DIR" | bash "$EG" 2>/dev/null)
+rm -rf "$EG_DIR"
+[ -z "$OUT" ] && pass || fail "trusted server wrongly declined, got: $OUT"
+
+begin_test "elicitation-guard: SUPERCHARGER_ELICITATION_GUARD=0 disables"
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"password":{"type":"string"}}}}' | SUPERCHARGER_ELICITATION_GUARD=0 bash "$EG" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "kill switch didn't disable, got: $OUT"
+
+begin_test "elicitation-guard: decline writes an audit record"
+setup_test_home
+printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"secret_token":{"type":"string"}}}}' | bash "$EG" >/dev/null 2>&1
+AUDIT="$HOME/.claude/supercharger/audit/elicitation-guard.jsonl"
+[ -f "$AUDIT" ] && grep -q '"action": "declined"' "$AUDIT" && grep -q secret_token "$AUDIT" && pass || fail "expected audit record with declined + field name"
+teardown_test_home
+
 report
