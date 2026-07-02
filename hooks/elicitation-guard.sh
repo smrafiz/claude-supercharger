@@ -86,6 +86,16 @@ STRONG = re.compile(r'password|passwd|passphrase|secret|token|credential|'
                     r'client[_-]?secret')
 # Short/ambiguous words: require a token boundary so "monkey" != key, "patch" != pat.
 DELIM = re.compile(r'(?:^|[_\-])(key|pat|pin|otp|mfa|auth|creds?|pwd)(?:$|[_\-])')
+# v2.7.52: message-text phishing. A server can use an innocuous field name ("value")
+# but ask for a credential in prose ("paste your GitHub token here"). Require an
+# action verb within a short span of a possessive + credential noun so benign
+# prompts ("enter the API endpoint", "type your name") don't trip.
+MSG_CRED = re.compile(
+    r'(?i)(?:enter|paste|provide|input|type|share|supply|give|copy)\b[^.\n]{0,40}?'
+    r'\b(?:your|the|a|an|my)\b[^.\n]{0,25}?'
+    r'(?:password|passphrase|api[\s_-]?key|secret[\s_-]?key|secret|token|'
+    r'credential|access[\s_-]?key|private[\s_-]?key|personal[\s-]access[\s-]token|'
+    r'\bpat\b|client[\s_-]?secret|(?:2fa|otp|one[\s-]?time)[\s-]?code)')
 
 def norm(name):
     # split camelCase → snake so apiKey/githubToken normalize before matching
@@ -98,6 +108,9 @@ for k in keys:
         continue
     if STRONG.search(n) or DELIM.search(n):
         cred_fields.append(k)
+
+# Message-text phishing signal (independent of field names).
+msg_trigger = bool(MSG_CRED.search(message))
 
 # Trusted-server allowlist from .supercharger.json (project-level opt-in).
 trusted = set()
@@ -120,6 +133,7 @@ def audit(action):
             'ts': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),
             'server': server, 'action': action,
             'cred_fields': sorted(cred_fields),
+            'msg_trigger': msg_trigger,
             'trusted': is_trusted,
             'message_preview': message[:120],
         }
@@ -128,11 +142,14 @@ def audit(action):
     except Exception:
         pass
 
-if cred_fields and not is_trusted:
+if (cred_fields or msg_trigger) and not is_trusted:
     audit('declined')
+    if cred_fields:
+        reason = "credential-style field(s) " + ", ".join(sorted(cred_fields))
+    else:
+        reason = "credential-request phrasing in the prompt text"
     sys.stderr.write(
-        "[Supercharger] elicitation-guard: DECLINED credential-style field(s) "
-        + ", ".join(sorted(cred_fields))
+        "[Supercharger] elicitation-guard: DECLINED " + reason
         + " from MCP server '" + (server or 'unknown') + "'. "
         + "If this server is trusted, add it to trustedElicitationServers in .supercharger.json.\n"
     )
