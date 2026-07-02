@@ -14,8 +14,15 @@ SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 
 _INPUT=$(cat)
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+# v2.7.48: one jq extracts both single-line fields (session_id + project_dir) via
+# @tsv instead of two separate forks; split with fork-free parameter expansion.
+# The multi-line prompt is read in its own jq so a newline in it can't corrupt the
+# tab split. $PWD is unreliable in hook context, so project_dir comes from the JSON.
+_META=$(printf '%s\n' "$_INPUT" | jq -r '[(.session_id // ""), (.workspace.current_dir // .cwd // "")] | @tsv' 2>/dev/null || printf '\t')
+SESSION_ID=${_META%%$'\t'*}
+PROJECT_DIR=${_META#*$'\t'}
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 ROUTE_FILE="$SCOPE_DIR/.agent-classified-${SESSION_ID}"
 
@@ -25,10 +32,6 @@ if [ -z "$PROMPT" ]; then
 fi
 
 [ -z "$PROMPT" ] && exit 0
-
-# Resolve project directory from hook JSON payload — $PWD is not reliable in hook context
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null || true)
-[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
@@ -129,7 +132,7 @@ fi
 TIER=""
 ECONOMY_TIER_FILE="$SCOPE_DIR/.economy-tier"
 if [ -f "$ECONOMY_TIER_FILE" ]; then
-  TIER=$(cat "$ECONOMY_TIER_FILE" 2>/dev/null | tr -d '[:space:]')
+  TIER=$(tr -d '[:space:]' < "$ECONOMY_TIER_FILE" 2>/dev/null)  # v2.7.48: drop the cat fork
 fi
 if [ -z "$TIER" ]; then
   ECONOMY_MD="$HOME/.claude/rules/economy.md"
@@ -142,8 +145,9 @@ fi
 # Track last-seen category and tier for suppression logic
 LAST_CATEGORY_FILE="$SCOPE_DIR/.last-category-${SESSION_ID}"
 LAST_TIER_FILE="$SCOPE_DIR/.last-tier-${SESSION_ID}"
-LAST_CATEGORY=$(cat "$LAST_CATEGORY_FILE" 2>/dev/null || echo "")
-LAST_TIER=$(cat "$LAST_TIER_FILE" 2>/dev/null || echo "")
+# v2.7.48: fork-free reads via the read builtin (single-value scope files)
+LAST_CATEGORY=""; [ -f "$LAST_CATEGORY_FILE" ] && IFS= read -r LAST_CATEGORY < "$LAST_CATEGORY_FILE" 2>/dev/null || true
+LAST_TIER="";     [ -f "$LAST_TIER_FILE" ]     && IFS= read -r LAST_TIER     < "$LAST_TIER_FILE" 2>/dev/null     || true
 echo "$CATEGORY" > "$LAST_CATEGORY_FILE"
 echo "$TIER" > "$LAST_TIER_FILE"
 
