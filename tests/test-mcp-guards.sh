@@ -149,6 +149,10 @@ echo '{"tool_name":"mcp__github__create_or_update_file","tool_input":{"path":"x"
 
 # ---------- Elicitation guard (v2.7.49) ----------
 EG="$REPO_DIR/hooks/elicitation-guard.sh"
+# v2.7.50: run under a test HOME with desktop notifications suppressed — the guard
+# now fires a background notification on decline, and we don't want test spam.
+setup_test_home
+touch "$HOME/.claude/supercharger/.no-desktop-notify" 2>/dev/null || true
 
 begin_test "elicitation-guard: declines credential field (api_key) from untrusted server"
 OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"type":"object","properties":{"api_key":{"type":"string"},"note":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
@@ -178,10 +182,16 @@ OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"
 [ -z "$OUT" ] && pass || fail "kill switch didn't disable, got: $OUT"
 
 begin_test "elicitation-guard: decline writes an audit record"
-setup_test_home
 printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"secret_token":{"type":"string"}}}}' | bash "$EG" >/dev/null 2>&1
 AUDIT="$HOME/.claude/supercharger/audit/elicitation-guard.jsonl"
 [ -f "$AUDIT" ] && grep -q '"action": "declined"' "$AUDIT" && grep -q secret_token "$AUDIT" && pass || fail "expected audit record with declined + field name"
+
+begin_test "elicitation-guard: no-desktop-notify suppresses the decline notification"
+# off-switch is set (above); confirm the block still emits the decline JSON and the
+# guard exits 0 without attempting a desktop notification.
+OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"api_key":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
+printf '%s' "$OUT" | grep -q decline && pass || fail "decline JSON must still emit with notifications off, got: $OUT"
+
 teardown_test_home
 
 report

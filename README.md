@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.7.49-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1199%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.7.50-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1200%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -65,7 +65,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
 - **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure tokens before Claude can echo them
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
-- **Elicitation credential guard** — an MCP server can solicit input via a form (`Elicitation`); a malicious one uses that to phish an "API token" or "database password" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`, camelCase variants) unless the server is in `trustedElicitationServers` in `.supercharger.json`. Companion audit hook logs every request's schema shape + `ElicitationResult` keys (never values)
+- **Elicitation credential guard** — an MCP server can solicit input via a form (`Elicitation`); a malicious one uses that to phish an "API token" or "database password" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`, camelCase variants) unless the server is in `trustedElicitationServers` in `.supercharger.json`. Since an Elicitation carries no in-session message, a declined form raises a **desktop notification** (respecting your notify off-switch) so the block isn't silent. Companion audit hook logs every request's schema shape + `ElicitationResult` keys (never values)
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) bypass confirmation automatically
 
 ### Cost & context control
