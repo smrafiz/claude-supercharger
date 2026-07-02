@@ -9,6 +9,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+# v2.7.42 perf: only acts after package installs. Cheap raw-string gate before
+# the jq+python parse — skips ~65ms on the vast majority of Bash calls (ls, git,
+# echo, ...) that contain no install verb. The precise install-command grep below
+# still runs for anything mentioning install/add.
+case "$_INPUT" in *install*|*add*) ;; *) exit 0 ;; esac
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 

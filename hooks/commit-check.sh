@@ -9,6 +9,11 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 _INPUT=$(cat)
+# v2.7.42 perf: commit-check only acts on `git commit`. Cheap raw-string gate
+# BEFORE any jq/python fork — skips ~3 interpreter cold-starts (~68ms) on the
+# vast majority of Bash calls that aren't commits. A false positive (arg text
+# mentioning "git commit") still gets the correct no-op via the segment check.
+case "$_INPUT" in *'git commit'*) ;; *) exit 0 ;; esac
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "commit-check" && exit 0

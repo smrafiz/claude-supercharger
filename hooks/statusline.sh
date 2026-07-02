@@ -99,26 +99,66 @@ try:
  empty = 20 - filled
  bar = '\u2588' * filled + '\u2591' * empty
 
- # Git branch
+ # v2.7.42 perf: the branch + uncommitted-diff (2 git forks, ~37ms) run on EVERY
+ # render — including CC's rapid refresh timer. Cache them in a per-repo scope
+ # file. The diff can't key on .git mtime (unstaged edits don't touch it), so the
+ # key includes a ~3s time bucket: recompute at most once per bucket, serve cached
+ # values to the intervening renders. Staleness is bounded at ~3s (fine for a WIP
+ # gauge); branch is always fresh (HEAD mtime is in the key too).
  branch = ''
+ import time as _t
  try:
-     result = subprocess.run(['git', 'branch', '--show-current'],
-                           capture_output=True, text=True, timeout=2)
-     if result.returncode == 0 and result.stdout.strip():
-         branch = f' {DIM}|{RESET} {result.stdout.strip()}'
- except Exception:
-     pass
-
- # v2.7.35: real uncommitted diff (staged + unstaged vs HEAD) — current WIP size,
- # 0 when the tree is clean. Replaces CC's cumulative-session edit count.
- try:
-     dr = subprocess.run(['git', 'diff', 'HEAD', '--numstat'],
-                         capture_output=True, text=True, timeout=2, cwd=cwd or None)
-     if dr.returncode == 0:
-         for ln in dr.stdout.splitlines():
-             p = ln.split('\t')
-             if len(p) >= 2 and p[0].isdigit() and p[1].isdigit():
-                 lines_added += int(p[0]); lines_removed += int(p[1])
+     _gdir = os.path.join(cwd or '.', '.git')
+     _sig = []
+     for _f in ('HEAD', 'index'):
+         try: _sig.append(str(int(os.path.getmtime(os.path.join(_gdir, _f)))))
+         except Exception: pass
+     _key = '|'.join(_sig) + '|' + str(int(_t.time()) // 3)
+     _cf = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope',
+                        '.statusline-git-' + __import__('hashlib').md5((cwd or '.').encode()).hexdigest()[:8])
+     _cached = None
+     try:
+         with open(_cf) as _f:
+             _c = json.load(_f)
+         if _c.get('key') == _key:
+             _cached = _c
+     except Exception:
+         _cached = None
+     if _cached is not None:
+         _br = _cached.get('branch', '')
+         if _br:
+             branch = f' {DIM}|{RESET} {_br}'
+         lines_added += int(_cached.get('added', 0) or 0)
+         lines_removed += int(_cached.get('removed', 0) or 0)
+     else:
+         _br = ''
+         try:
+             _r = subprocess.run(['git', 'branch', '--show-current'],
+                                 capture_output=True, text=True, timeout=2, cwd=cwd or None)
+             if _r.returncode == 0:
+                 _br = _r.stdout.strip()
+         except Exception:
+             pass
+         _add = _rem = 0
+         try:
+             _dr = subprocess.run(['git', 'diff', 'HEAD', '--numstat'],
+                                  capture_output=True, text=True, timeout=2, cwd=cwd or None)
+             if _dr.returncode == 0:
+                 for _ln in _dr.stdout.splitlines():
+                     _p = _ln.split('\t')
+                     if len(_p) >= 2 and _p[0].isdigit() and _p[1].isdigit():
+                         _add += int(_p[0]); _rem += int(_p[1])
+         except Exception:
+             pass
+         if _br:
+             branch = f' {DIM}|{RESET} {_br}'
+         lines_added += _add; lines_removed += _rem
+         try:
+             with open(_cf + '.tmp', 'w') as _f:
+                 json.dump({'key': _key, 'branch': _br, 'added': _add, 'removed': _rem}, _f)
+             os.replace(_cf + '.tmp', _cf)
+         except Exception:
+             pass
  except Exception:
      pass
 

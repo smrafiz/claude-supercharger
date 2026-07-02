@@ -29,6 +29,16 @@ _INPUT=$(cat)
 
 check_hook_disabled "human-approval-gate" && exit 0
 
+# v2.7.42 perf: this gate only ever acts on a fixed set of high-risk commands
+# (SQL DDL, terraform/kubectl/helm, git reset --hard, publish, redis flush, dd/
+# mkfs, docker prune, ...). If the raw payload contains NONE of their trigger
+# keywords, exit BEFORE the python cwd-parse + 5-level parent-dir walk + config
+# reads (~149ms measured) that previously ran on EVERY Bash call. One cheap grep
+# vs 2-4 python forks. A keyword hit just proceeds to the precise checks below.
+if ! printf '%s' "$_INPUT" | grep -qiE 'terraform|prisma|drizzle|drop|kubectl|reset[[:space:]]+--hard|branch[[:space:]]+-D|reflog|tag[[:space:]]+-d|publish|twine|gem[[:space:]]+push|flushall|flushdb|\.drop\(|docker|dd[[:space:]]+if=|mkfs|fdisk|parted|diskutil|helm|truncate|alter[[:space:]]+table'; then
+  exit 0
+fi
+
 # ── Check if gate is enabled ─────────────────────────────────────────────────
 GATE_ENABLED=""
 if [ -n "${SUPERCHARGER_HUMAN_GATE:-}" ]; then
