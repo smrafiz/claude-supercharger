@@ -82,7 +82,20 @@ prev_total    = float(state.get('total_usd', 0) or 0)
 prev_turns    = int(state.get('turn_count', 0) or 0)
 prev_subagent = float(state.get('subagent_total', 0) or 0)
 prev_main     = float(state.get('main_total', 0) or 0)
-offset        = int(state.get('main_offset', 0) or 0)
+# v2.7.47: the resume byte-offset is PER-TRANSCRIPT (per session), not one global
+# int. A single shared offset let concurrent sessions — each with its OWN
+# transcript_path — ping-pong it: session B (small transcript) would rewind the
+# offset, then session A (large transcript) re-read an already-counted region and
+# ADD it again → runaway token/cost over-count. Key the offset by transcript path.
+# Migrate any legacy single main_offset onto the active transcript so the first
+# post-upgrade turn stays incremental instead of re-deriving.
+offsets = state.get('main_offsets')
+if not isinstance(offsets, dict):
+    offsets = {}
+    _legacy = int(state.get('main_offset', 0) or 0)
+    if _legacy:
+        offsets[transcript] = _legacy
+offset        = int(offsets.get(transcript, 0) or 0)
 first_updated = state.get('first_updated', '') or now
 
 # v2.7.17: read the transcript in BINARY mode. Text-mode seek() does NOT accept
@@ -165,8 +178,14 @@ result = {
     'last_updated': now,
     'subagent_total': round(prev_subagent, 8),
     'main_total': round(new_main, 8),
-    'main_offset': new_offset,
 }
+# v2.7.47: persist the per-transcript offset map. Prune entries whose transcript
+# file is gone, and bound the map so it can't grow without limit.
+offsets[transcript] = new_offset
+offsets = {k: v for k, v in offsets.items() if k and os.path.isfile(k)}
+if len(offsets) > 40:
+    offsets = {transcript: new_offset}
+result['main_offsets'] = offsets
 # Write atomically (tmp + rename) inside the lock, then release.
 tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
 try:
@@ -198,7 +217,10 @@ if sid:
             prev_tok = int(json.load(f).get('new_tokens', 0) or 0)
     except Exception:
         prev_tok = 0
-    main_tok = delta_tokens if reset else prev_tok + delta_tokens
+    # reset OR a from-zero read (fresh session, or a post-upgrade session whose
+    # offset isn't in the new map yet) means delta_tokens already IS the full
+    # session total — use it directly instead of adding to a stale prev_tok.
+    main_tok = delta_tokens if (reset or offset == 0) else prev_tok + delta_tokens
     try:
         with open(tf + '.tmp', 'w') as f:
             json.dump({'new_tokens': main_tok, 'updated': now}, f)

@@ -257,4 +257,43 @@ GOT=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-tk2'
 [ "$GOT" = "7200" ] && pass || fail "expected incremental 7200, got: $GOT"
 teardown_test_home
 
+# v2.7.47: per-transcript offset. Two sessions, each with its OWN transcript,
+# interleaved. Before the fix a single global offset ping-ponged: the small
+# transcript rewound it, then the large one re-read an already-counted region and
+# double-counted. Each session's token total must stay independent.
+begin_test "accumulate: concurrent sessions with distinct transcripts don't cross-contaminate"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TA="$SCOPE_DIR/trA.jsonl"; TB="$SCOPE_DIR/trB.jsonl"
+asst_msg 1000 0 0 4000 > "$TA"        # A msg1: content 5000
+asst_msg 200  0 0 2000 >> "$TA"       # A msg2: +2200  -> A total 7200
+asst_msg 300  0 0 700  > "$TB"        # B msg1: content 1000
+printf '{"tool_name":"Write","session_id":"sA","transcript_path":"%s"}' "$TA" | bash "$HOOK" >/dev/null 2>&1  # A -> 7200
+printf '{"tool_name":"Write","session_id":"sB","transcript_path":"%s"}' "$TB" | bash "$HOOK" >/dev/null 2>&1  # B (smaller) rewinds a shared offset
+printf '{"tool_name":"Write","session_id":"sA","transcript_path":"%s"}' "$TA" | bash "$HOOK" >/dev/null 2>&1  # A again, NO new msgs
+GOTA=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-sA'))['new_tokens'])" 2>/dev/null)
+GOTB=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-sB'))['new_tokens'])" 2>/dev/null)
+if [ "$GOTA" = "7200" ] && [ "$GOTB" = "1000" ]; then pass
+else fail "cross-transcript contamination: A=$GOTA (want 7200) B=$GOTB (want 1000)"; fi
+teardown_test_home
+
+# v2.7.47: upgrade from the legacy single main_offset int must NOT re-derive the
+# whole transcript (which would double the global cost). Migration seeds the
+# active transcript's offset from the legacy value → a no-new-message call is a
+# no-op, not a re-count.
+begin_test "accumulate: migrates legacy main_offset without double-counting cost"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/trM.jsonl"
+asst_msg 1000 0 0 4000 > "$TR"        # cost = (1000*3 + 4000*15)/1e6 = 0.063
+SZ=$(wc -c < "$TR" | tr -d ' ')
+python3 -c "import json;json.dump({'total_usd':0.063,'main_total':0.063,'turn_count':1,'main_offset':$SZ,'first_updated':'x','last_updated':'x','subagent_total':0.0}, open('$SCOPE_DIR/.session-cost','w'))"
+printf '{"tool_name":"Write","session_id":"sM","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1  # no new lines
+RES=$(python3 -c "
+import json; d=json.load(open('$SCOPE_DIR/.session-cost'))
+mt=d.get('main_total',0); has=isinstance(d.get('main_offsets'),dict)
+print('ok' if abs(mt-0.063)<1e-6 and has else f'bad:main_total={mt} map={has}')" 2>/dev/null)
+[ "$RES" = "ok" ] && pass || fail "legacy migration wrong: $RES (want main_total≈0.063, main_offsets present)"
+teardown_test_home
+
 report

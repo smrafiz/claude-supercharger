@@ -250,10 +250,12 @@ try:
  except Exception:
      pass
 
- # Memory restore indicator (shown 5 min after compaction)
+ # Memory restore indicator (shown 5 min after compaction). v2.7.47: per-session
+ # file — a global one lit the badge in every concurrent session, not just the
+ # one that actually compacted.
  mem = ''
  try:
-     mem_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.memory-restored')
+     mem_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.memory-restored-{session_id}')
      if os.path.isfile(mem_file):
          if time.time() - os.path.getmtime(mem_file) < 300:
              mem = f' {DIM}|{RESET} {CYAN}Mem: Restored{RESET}'

@@ -1569,12 +1569,24 @@ SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_ER"
 echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
 SESSION="er2_$$"
-touch "$SCOPE_DIR_ER/.memory-restored"
-rm -f "$SCOPE_DIR_ER/.eco-reinforce-acked"
+# v2.7.47: flag is session-scoped — touch the per-session file, not the global one
+touch "$SCOPE_DIR_ER/.memory-restored-${SESSION}"
+rm -f "$SCOPE_DIR_ER/.eco-reinforce-acked-${SESSION}"
 INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'${SESSION}','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
-rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored" "$SCOPE_DIR_ER/.eco-reinforce-acked"
+rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored-${SESSION}" "$SCOPE_DIR_ER/.eco-reinforce-acked-${SESSION}"
 [ -n "$OUT" ] && pass || fail "expected economy reinforce injection after compaction, got empty"
+
+# v2.7.47: a DIFFERENT session's compaction flag must NOT trigger reinforcement
+# (the leak: a global flag fired this in every session).
+begin_test "economy-reinforce: another session's compaction flag does not leak"
+echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
+touch "$SCOPE_DIR_ER/.memory-restored-othersess"
+rm -f "$SCOPE_DIR_ER/.eco-reinforce-acked-er2b"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'er2b','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored-othersess"
+[ -z "$OUT" ] && pass || fail "leaked: another session's flag triggered reinforcement, got: $OUT"
 
 begin_test "economy-reinforce: lean tier silent without compaction flag"
 SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
@@ -1752,6 +1764,17 @@ begin_test "post-compact-inject: injects compact summary when present"
 INPUT=$(python3 -c "import json; print(json.dumps({'compact_summary':'Tests pass. Auth feature complete. Modified: src/auth.ts','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$POST_COMPACT" 2>&1)
 [ -n "$OUT" ] && pass || fail "expected injected context after compact, got empty"
+
+# v2.7.47: the restored flag is written per-session so the statusline badge only
+# lights up in the session that compacted, not every concurrent session.
+begin_test "post-compact-inject: writes session-scoped restored flag, not global"
+PC_SCOPE="$HOME/.claude/supercharger/scope"; mkdir -p "$PC_SCOPE"
+rm -f "$PC_SCOPE/.memory-restored" "$PC_SCOPE"/.memory-restored-*
+INPUT=$(python3 -c "import json; print(json.dumps({'compact_summary':'Tests pass.','session_id':'pcsess','cwd':'/tmp'}))")
+printf '%s' "$INPUT" | bash "$POST_COMPACT" >/dev/null 2>&1
+if [ -f "$PC_SCOPE/.memory-restored-pcsess" ] && [ ! -f "$PC_SCOPE/.memory-restored" ]; then pass
+else fail "expected .memory-restored-pcsess present and global .memory-restored absent"; fi
+rm -f "$PC_SCOPE/.memory-restored-pcsess"
 
 echo ""
 echo "=== Event Logger Tests ==="

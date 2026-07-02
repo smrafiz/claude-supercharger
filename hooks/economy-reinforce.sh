@@ -35,12 +35,15 @@ fi
 # Standard tier is verbose by default — no reinforcement needed
 [ "$TIER" = "standard" ] && exit 0
 
-# Fire only after compaction (post-compact-inject writes .memory-restored).
+# Fire only after compaction (post-compact-inject writes .memory-restored-<sid>).
 # First prompt gets tier rules from SessionStart; we only re-inject when
 # compaction may have dropped them. Track own ack flag so we fire at most
 # once per compaction event without consuming the shared statusline flag.
-RESTORED_FLAG="$SCOPE_DIR/.memory-restored"
-ECO_ACK_FLAG="$SCOPE_DIR/.eco-reinforce-acked"
+# v2.7.47: both flags are keyed by session_id — a global restored flag made this
+# fire in every concurrent session after any one session compacted.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+RESTORED_FLAG="$SCOPE_DIR/.memory-restored${SID:+-$SID}"
+ECO_ACK_FLAG="$SCOPE_DIR/.eco-reinforce-acked${SID:+-$SID}"
 [ ! -f "$RESTORED_FLAG" ] && exit 0
 RESTORED_MTIME=$(stat -c '%Y' "$RESTORED_FLAG" 2>/dev/null || stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || echo "")
 case "$RESTORED_MTIME" in ''|*[!0-9]*) RESTORED_MTIME=0 ;; esac
