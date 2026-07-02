@@ -61,6 +61,23 @@ POST_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
 POST_LINES=${POST_LINES##* }
 [ "$POST_LINES" = "$PRE_LINES" ] && pass || fail "expected no audit entry without sentinel; pre=$PRE_LINES post=$POST_LINES"
 
+# v2.7.41 red-team regressions — all were CONFIRMED bypasses (exit 0) before.
+_blk(){ echo "$2" | bash "$1" >/dev/null 2>&1; [ "$?" -eq 2 ]; }
+_ok(){ echo "$2" | bash "$1" >/dev/null 2>&1; [ "$?" -eq 0 ]; }
+
+begin_test "safety: rm -rf on absolute system path /etc is blocked (was bypass)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /etc"},"cwd":"/tmp"}' && pass || fail "rm -rf /etc not blocked"
+begin_test "safety: rm -rf on absolute home dotdir ~/.ssh is blocked (was bypass)"
+_blk "$SAFETY_HOOK" "$(printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf %s/.ssh"},"cwd":"/tmp"}' "$HOME")" && pass || fail "rm -rf abs \$HOME/.ssh not blocked"
+begin_test "safety: rm -rf /tmp/build (legit) still allowed"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/build"},"cwd":"/tmp"}' && pass || fail "legit rm -rf /tmp/build wrongly blocked"
+begin_test "safety: find . -delete is blocked (was bypass)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"find . -delete"},"cwd":"/tmp"}' && pass || fail "find -delete not blocked"
+begin_test "git-safety: +ref force-push to main is blocked (was bypass)"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +main"},"cwd":"/tmp"}' && pass || fail "git push +main not blocked"
+begin_test "git-safety: normal push to main still allowed"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin main"},"cwd":"/tmp"}' && pass || fail "normal push wrongly blocked"
+
 begin_test "lib-suppress: SUPERCHARGER_PROFILE=minimal skips quality-gate"
 TMPDIR_PROF=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_PROF/test.py"

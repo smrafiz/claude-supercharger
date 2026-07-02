@@ -96,6 +96,15 @@ while IFS= read -r seg; do
     if [[ "$seg" =~ (^|[[:space:]])(--force|--force-with-lease(=[^[:space:]]*)?|-f)([[:space:]]|$) ]]; then
       has_force=true
     fi
+    # v2.7.41: `git push origin +main` / `+HEAD:master` — the leading-`+` refspec
+    # is git's native force-push and needs no --force flag, so it slipped past the
+    # flag check above and force-pushed to protected branches.
+    if [[ "$seg" =~ push ]] && [[ "$seg" =~ (^|[[:space:]])[+][A-Za-z0-9_/.:-]+([[:space:]]|$) ]]; then
+      has_force=true
+      if [[ "$seg" =~ [+]([^[:space:]]*:)?(refs/heads/)?(main|master)([[:space:]]|$) ]]; then
+        has_protected=true
+      fi
+    fi
 
     if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
       has_protected=true

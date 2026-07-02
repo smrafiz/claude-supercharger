@@ -64,6 +64,14 @@ if [ -n "$BRANCH" ]; then
       deny "write to protected branch '$BRANCH' — open a PR instead"
       ;;
   esac
+else
+  # v2.7.41: an OMITTED branch defaults to the repo's DEFAULT branch (usually
+  # main) — the highest-impact case, which previously skipped the check entirely.
+  case "$TOOL" in
+    *create_or_update_file*|*push_files*|*delete_file*)
+      deny "write with no branch specified — GitHub defaults to the repo's default branch (usually main); target a feature branch or open a PR"
+      ;;
+  esac
 fi
 
 # delete_file on CI/sensitive paths

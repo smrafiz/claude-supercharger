@@ -103,8 +103,17 @@ if 'symlink' not in disabled and proj:
         else:
             full = os.path.realpath(os.path.join(proj_real, p))
         if not (full == proj_real or full.startswith(proj_real + os.sep)):
-            # Allow common safe absolute paths (handled by abs-path category)
-            pass  # fall through to abs-path check
+            # v2.7.41: a RELATIVE path whose realpath escapes the project root via
+            # an in-repo SYMLINK (repo ships `escape -> /etc`, agent writes
+            # `escape/x`). Previously fell through unblocked (abs-path only checks
+            # os.path.isabs). Restricted to the symlink case — a `..` in the path
+            # is the path-traversal category's job (separately disableable), and
+            # absolute paths defer to abs-path (it has a safe-list).
+            if not os.path.isabs(p) and '..' not in p.replace('\\', '/').split('/'):
+                print('relative path resolves outside the project root ('
+                      + full + ') — via an in-repo symlink, out-of-project write; '
+                      'opt out via disableSecurityCategories: ["symlink"]')
+                sys.exit(0)
     except Exception:
         pass
 

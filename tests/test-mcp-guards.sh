@@ -125,4 +125,26 @@ begin_test "sql-guard: alternate field name (sql)"
 echo '{"tool_name":"mcp__supabase__execute_sql","tool_input":{"sql":"DROP DATABASE prod"}}' | bash "$SQL" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "expected 2 (sql field, not query)"
 
+# v2.7.41 red-team regressions: newline/comment between verb+object, extra
+# servers, and github omitted-branch — all were bypasses (exit 0) before.
+begin_test "sql-guard: newline between verb and object is blocked (was bypass)"
+python3 -c 'import json;print(json.dumps({"tool_name":"mcp__postgres__query","tool_input":{"query":"DROP\nTABLE users"}}))' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "DROP<newline>TABLE not blocked"
+
+begin_test "sql-guard: /**/ comment separator is blocked (was bypass)"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"DROP/**/TABLE users"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "DROP/**/TABLE not blocked"
+
+begin_test "sql-guard: covers extra SQL servers (neon)"
+echo '{"tool_name":"mcp__neon__run_sql","tool_input":{"sql":"DROP TABLE users"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "neon DROP TABLE not blocked"
+
+begin_test "sql-guard: legit SELECT with deleted_at column still allowed"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"SELECT * FROM users WHERE deleted_at IS NULL"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "legit SELECT wrongly blocked"
+
+begin_test "github-gate: write with OMITTED branch is blocked (defaults to main)"
+echo '{"tool_name":"mcp__github__create_or_update_file","tool_input":{"path":"x","content":"y"}}' | bash "$GH" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "omitted-branch write not blocked"
+
 report

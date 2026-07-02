@@ -121,4 +121,18 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "expected 2 for ~/.claude.json write"
 rm -rf "$PROJ"
 
+# v2.7.41 red-team regression: a RELATIVE path through an in-repo symlink that
+# resolves outside the project root was a bypass (exit 0) — repo ships
+# `escape -> /etc`, agent writes `escape/x`.
+begin_test "path-guard: relative path via symlink escaping project is blocked (was bypass)"
+PROJ=$(mktemp -d); ln -s /etc "$PROJ/escape"
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"escape/pwned.conf","content":"x"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "relative symlink escape not blocked"
+# legit relative write inside the project still allowed
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"src/app.js","content":"x"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "legit in-project relative write wrongly blocked"
+rm -rf "$PROJ"
+
 report

@@ -137,14 +137,22 @@ if _cat_enabled "filesystem"; then
             block "recursive force rm on CWD via \$PWD/\$(pwd) (deletes whatever dir the shell is in)"
             ;;
         esac
-        # Catch rm targets that resolve to PROJECT_DIR or an ancestor — the
-        # exact pattern when Claude runs from a subdir and types the project
-        # name as a relative path.
-        if [ -n "$PROJECT_DIR" ]; then
-          BAD=$(ARGS="$args" CWD="$PROJECT_DIR" python3 <<'PYEOF' 2>/dev/null || true
+        # Catch rm targets that resolve to PROJECT_DIR/ancestor (project-dir wipe),
+        # OR to a protected absolute system dir (/etc, /usr, ...), OR to home /
+        # a sensitive home dotdir (~/.ssh, ...) / another user's home. v2.7.41:
+        # added the absolute-target class — previously only cwd-ancestors were
+        # caught, so `rm -rf /etc` and `rm -rf ~/.ssh` (absolute) slipped through.
+        BAD=$(ARGS="$args" CWD="${PROJECT_DIR:-/}" python3 <<'PYEOF' 2>/dev/null || true
 import os, shlex, sys
 args = os.environ.get('ARGS','')
-cwd  = os.path.realpath(os.environ.get('CWD','/'))
+cwd  = os.path.realpath(os.environ.get('CWD','/') or '/')
+home = os.path.realpath(os.path.expanduser('~'))
+SYS_ROOTS = ('/etc','/usr','/bin','/sbin','/lib','/lib64','/boot','/sys','/dev',
+             '/proc','/root','/System','/Library','/private/etc')
+# NB: deliberately NOT /var or /private/var — macOS temp dirs (mktemp -d ->
+# /var/folders/... -> /private/var/...) live there and are legit to rm.
+HOME_SENS = ('.ssh','.aws','.gnupg','.config','.kube','.docker','.gcloud','.azure',
+             '.password-store','.gpg','.netrc')
 try:
     tokens = shlex.split(args, posix=True)
 except ValueError:
@@ -153,14 +161,26 @@ for tok in tokens:
     if not tok or tok.startswith('-'): continue
     expanded = os.path.expanduser(os.path.expandvars(tok))
     target = os.path.realpath(os.path.join(cwd, expanded))
-    # Block if target is cwd or an ancestor of cwd (project-dir wipe).
+    # 1. cwd or an ancestor of cwd (project-dir wipe)
     if target == cwd or cwd.startswith(target + os.sep):
         print(target); sys.exit(0)
+    # 2. protected absolute system root (or under one)
+    for r in SYS_ROOTS:
+        if target == r or target.startswith(r + os.sep):
+            print(target); sys.exit(0)
+    # 3. home itself, another user's home (/Users/x, /home/x), or a dotdir in home
+    if target == home:
+        print(target); sys.exit(0)
+    p = target.split('/')
+    if len(p) == 3 and p[1] in ('Users','home') and p[2]:
+        print(target); sys.exit(0)
+    if target.startswith(home + os.sep):
+        if target[len(home):].lstrip('/').split('/')[0] in HOME_SENS:
+            print(target); sys.exit(0)
 PYEOF
 )
-          if [ -n "$BAD" ]; then
-            block "recursive force rm targeting project root or ancestor ($BAD)"
-          fi
+        if [ -n "$BAD" ]; then
+          block "recursive force rm on protected path ($BAD)"
         fi
       fi
     fi
@@ -185,6 +205,9 @@ DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+(-R[[:space:]]+)?777' 'mkfs\.' 'dd[[:space:]]+if='
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
+  # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
+  # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
+  'find[[:space:]].*-delete([[:space:]]|$)' 'find[[:space:]].*-exec[[:space:]]+rm([[:space:]]|$)'
 )
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'

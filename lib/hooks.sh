@@ -40,7 +40,7 @@ get_hooks_for_mode() {
   # sql guard → Supabase 2025 service-role injection.
   hooks+=("PreToolUse|mcp__github__|${hooks_dir}/mcp-github-write-gate.sh|")
   hooks+=("PreToolUse|mcp__playwright__,mcp__puppeteer__|${hooks_dir}/mcp-playwright-guard.sh|")
-  hooks+=("PreToolUse|mcp__postgres__,mcp__supabase__,mcp__mysql__,mcp__sqlite__|${hooks_dir}/mcp-sql-guard.sh|")
+  hooks+=("PreToolUse|mcp__postgres__,mcp__supabase__,mcp__mysql__,mcp__sqlite__,mcp__neon__,mcp__mssql__,mcp__sqlserver__,mcp__mariadb__,mcp__bigquery__,mcp__snowflake__,mcp__clickhouse__,mcp__planetscale__,mcp__cockroach__,mcp__cockroachdb__,mcp__redshift__,mcp__oracle__,mcp__duckdb__,mcp__motherduck__,mcp__turso__,mcp__libsql__,mcp__timescale__,mcp__singlestore__|${hooks_dir}/mcp-sql-guard.sh|")
   # v2.6.83: include Read so file content (issue bodies, PRs, docs) is scanned
   # for injection markers — OWASP ASI01 + multiple real-world incidents where
   # the agent followed instructions embedded in a Read file (e.g. GitHub issue
