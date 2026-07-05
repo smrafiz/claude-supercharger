@@ -2,14 +2,16 @@ Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
 
 If `$ARGUMENTS` is empty, examine the most recent hook activity. If `$ARGUMENTS` names a hook (e.g., `confidence-gate`), explain that hook's last firing specifically.
 
-**Sources to consult (read in order, stop at first match):**
+**Sources to consult (read in order, stop at first match).** Scope files gained
+`-<session>`/`-<project-hash>` suffixes over time — these are the CURRENT names, so
+use the globs exactly as written (pick the most-recently-MODIFIED match, `ls -t … | head -1`):
 
-1. `~/.claude/supercharger/scope/.scan-alert` (mtime + content) — last scanner finding
-2. `~/.claude/supercharger/scope/.blocked-commands-*` (most recent line) — last block reason
-3. `~/.claude/supercharger/scope/.user-corrections-*` (most recent line) — last correction
-4. `~/.claude/supercharger/scope/.failed-commands` (most recent line) — last failure cluster
-5. `~/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl` (last 5 entries) — recent audit events
-6. `~/.claude/supercharger/scope/.tool-history` (last entry) — last tool result
+1. `~/.claude/supercharger/scope/.scan-alert-*` (mtime + content; newest) — last scanner finding
+2. `~/.claude/supercharger/scope/.blocked-commands` (last line — **single global file, NO suffix**) — last block reason
+3. `~/.claude/supercharger/scope/.user-corrections*` (last line of newest) — last correction
+4. `~/.claude/supercharger/scope/.failed-commands-*` (last line of newest — per-project hash) — last failure cluster
+5. `~/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl` (last 5 entries **that have a `hook` field** — skip timing/field-less rows) — recent audit events
+6. `~/.claude/supercharger/scope/.tool-history-*` (last line of newest — per-session) — last tool result
 
 For each source that matched, explain:
 
