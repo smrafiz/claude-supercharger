@@ -16,18 +16,18 @@ _INPUT=$(cat)
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
-SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
-[ -z "$SESSION_ID" ] && SESSION_ID="default"
-HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
-
-ENTRY=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json, time
+# v2.7.58: ONE python fork does both the session-id sanitize AND the entry build.
+# Was jq (session_id) + python (entry) = 2 forks on EVERY PostToolUse — the
+# highest-frequency event, and this hook can't be pre-gated (it must record every
+# call for the confidence-gate). python already parsed the payload, so the jq was
+# pure redundancy. Line 1 = sanitized session id, line 2 = entry JSON.
+RESULT=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json, time, re
 try:
     d = json.load(sys.stdin)
 except Exception:
     sys.exit(0)
-import re
-sid = d.get('session_id', 'default')
+sid = re.sub(r'[^a-zA-Z0-9_-]', '', str(d.get('session_id') or 'default'))[:64] or 'default'
 tool = d.get('tool_name', '?')
 resp = d.get('tool_response')
 # v2.7.30: PostToolUse tool_response has NO exit_code (it's
@@ -43,10 +43,16 @@ if isinstance(resp, dict):
         success = False
     elif re.search(r'command not found|Traceback|fatal:|ModuleNotFoundError|No such file or directory|Permission denied|npm ERR!|error:|panic:', stderr):
         success = False
+print(sid)
 print(json.dumps({'session_id': sid, 'tool': tool, 'success': success, 'ts': int(time.time())}))
 " 2>/dev/null)
 
+[ -z "$RESULT" ] && exit 0
+SESSION_ID=${RESULT%%$'\n'*}
+ENTRY=${RESULT#*$'\n'}
+[ -z "$SESSION_ID" ] && SESSION_ID="default"
 [ -z "$ENTRY" ] && exit 0
+HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
 
 printf '%s\n' "$ENTRY" >> "$HISTORY"
 
