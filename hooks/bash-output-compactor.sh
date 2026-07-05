@@ -37,7 +37,11 @@ esac
 # four sequential jq calls (~50ms × 4 = ~200ms saved per invocation when bash
 # output is short). Fields are joined with US separator (\x1f) so they can
 # never appear in command/output.
-FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // "", .tool_name // "", .tool_input.command // "", .tool_response.stdout // .tool_response.output // ""] | @tsv' 2>/dev/null || true)
+# v2.7.59: .cwd // .workspace.current_dir — CC 2.1.176+ sometimes sends the CWD in
+# workspace.current_dir instead of .cwd (the v2.6.57 drift). This consolidated
+# @tsv extraction (added in the perf sweep) had dropped the fallback → empty
+# PROJECT_DIR → wrong project-scoped debug/profile detection.
+FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "", .tool_name // "", .tool_input.command // "", .tool_response.stdout // .tool_response.output // ""] | @tsv' 2>/dev/null || true)
 PROJECT_DIR=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $1}'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "bash-output-compactor" && exit 0

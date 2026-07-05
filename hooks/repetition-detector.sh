@@ -15,7 +15,10 @@ _INPUT=$(cat)
 # v2.6.27: one jq fork extracts all 5 fields (cwd, tool_name, command,
 # file_path, session_id) using @tsv. Was 3-4 separate jq forks. Median
 # 70ms → ~30ms on the common case (no loop, no re-read).
-FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // "", .tool_name // "", .tool_input.command // "", .tool_input.file_path // "", .session_id // "default"] | @tsv' 2>/dev/null || true)
+# v2.7.59: .cwd // .workspace.current_dir — restore the v2.6.57 dual-field fallback
+# the perf-sweep @tsv consolidation dropped (CC 2.1.176+ may send CWD only in
+# workspace.current_dir; without it, empty PROJECT_DIR → wrong suppress scope).
+FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "", .tool_name // "", .tool_input.command // "", .tool_input.file_path // "", .session_id // "default"] | @tsv' 2>/dev/null || true)
 # v2.7.44 perf: split the jq @tsv line ONCE with a bash read (IFS=tab) instead of
 # 4 separate awk forks. This hook fires on every Bash AND Read (hottest hook).
 IFS=$'\t' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH _ <<EOF_FIELDS
