@@ -46,6 +46,7 @@ Use that value for `Cost (session)`. (The budget cap still uses the accumulator,
 - `.supercharger.json` (role, economy, profile, budget, hints)
 - `~/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl` (count of today's events)
 - `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (per-subagent cost rollup — aggregate by `agent_name`, show top 3 by `cost_usd`)
+- `~/.claude/supercharger/scope/.blocked-commands` (the block log; last 3 lines for "Recent blocks" — format: `[ts] category — reason — command`)
 
 Output format (no other text before/after):
 
@@ -72,10 +73,10 @@ Lessons        : <count> recorded
 Disabled hooks : <list from .disabled-hooks, or "none">
 Last compact   : <relative time from .memory-restored mtime, or "this session">
 
-Recent blocks  : <last 3 from learn-from-blocks log if available>
+Recent blocks  : <last 3 lines of scope/.blocked-commands — show the category/reason, not the raw command; or "—" if the file is absent>
 ```
 
-To compute the Subagents line: read every `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (one per session), aggregate `cost_usd` by `agent_name`, count total entries, sort by aggregate cost descending. If no files exist or every cost is 0, render `—` instead of a zero list. This is a CROSS-SESSION rollup (all sessions on this machine, not just the current one — label it "Subagents (all sessions)") and mirrors Claude Code's `/usage` per-subagent breakdown.
+To compute the Subagents line: read every `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (one per session). **DEDUP by `agent_id` first** — SubagentStop can write several entries per agent, so the raw entry count over-reports runs (observed: 135 raw entries for 49 real agents). Keep the max `cost_usd` per `agent_id` (same as the statusline), then: run count = number of unique `agent_id`s; aggregate the deduped costs by `agent_name`; sort descending; show top 3. If no files exist or every cost is 0, render `—` instead of a zero list. This is a CROSS-SESSION rollup (all sessions on this machine, not just the current one — label it "Subagents (all sessions)") and mirrors Claude Code's `/usage` per-subagent breakdown.
 
 Compute confidence score using the same formula as `hooks/confidence-gate.sh`:
 - start at 1.0
