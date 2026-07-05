@@ -92,6 +92,8 @@ OUT=$(printf '%s' "$INPUT_AE" | SUPERCHARGER_PROFILE=fast bash "$REPO_DIR/hooks/
 [ -z "$OUT" ] && pass || fail "expected skip under fast profile, got: $OUT"
 
 begin_test "lib-suppress: SUPERCHARGER_PROFILE=fast keeps quality-gate active"
+setup_test_home  # v2.7.72: quality-gate RUNS here (not skipped), so it writes a cache —
+                 # isolate HOME so it lands in a temp scope, not the real one.
 TMPDIR_FAST=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_FAST/test.py"
 INPUT_FAST=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_FAST/test.py")
@@ -102,6 +104,7 @@ rm -rf "$TMPDIR_FAST"
 # We verify it didn't skip silently with zero output due to profile skip by checking the profile skip path
 OUT_SKIP=$(printf '{"tool_input":{"file_path":"/dev/null"}}' | SUPERCHARGER_PROFILE=fast bash -c '. '"$REPO_DIR"'/hooks/lib-suppress.sh; hook_profile_skip "quality-gate" && echo SKIPPED || echo ACTIVE' 2>&1)
 [ "$OUT_SKIP" = "ACTIVE" ] && pass || fail "quality-gate should be active in fast profile, got: $OUT_SKIP"
+teardown_test_home
 
 echo ""
 echo "=== Re-entry Detector Tests ==="
@@ -1020,6 +1023,9 @@ echo ""
 echo "=== TypeCheck Hook Tests ==="
 
 begin_test "typecheck: skips tsc when file hash unchanged"
+setup_test_home  # v2.7.72: isolate HOME — the hook writes a project-hashed cache and
+                 # the test's rm can miss it (macOS /var vs /private/var path hash
+                 # mismatch), leaking .typecheck-cache-* into the REAL scope dir.
 TMPDIR_TC=$(mktemp -d)
 mkdir -p "$TMPDIR_TC/src"
 echo '{"compilerOptions":{"strict":true}}' > "$TMPDIR_TC/tsconfig.json"
@@ -1035,8 +1041,11 @@ OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/typecheck.sh" 2>&1)
 rm -f "$CACHE_FILE"
 rm -rf "$TMPDIR_TC"
 [ -z "$OUT" ] && pass || fail "expected empty output on cache hit, got: $OUT"
+teardown_test_home
 
 begin_test "quality-gate: skips lint when file hash unchanged and no prior issues"
+setup_test_home  # v2.7.72: isolate HOME (see typecheck test above) so the hook's
+                 # cache write can't leak .quality-gate-cache-* into the real scope.
 TMPDIR_QG=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_QG/clean.py"
 HASH=$(sha256sum "$TMPDIR_QG/clean.py" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$TMPDIR_QG/clean.py" 2>/dev/null | cut -d' ' -f1 || echo "")
@@ -1050,6 +1059,7 @@ OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/quality-gate.sh" 2>&1)
 rm -f "$CACHE_FILE"
 rm -rf "$TMPDIR_QG"
 [ -z "$OUT" ] && pass || fail "expected silent cache hit, got: $OUT"
+teardown_test_home
 
 echo ""
 echo "=== Skill Poisoning Scanner Tests ==="
