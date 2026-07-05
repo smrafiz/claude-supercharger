@@ -34,7 +34,9 @@ PY
 Use that value for `Cost (session)`. (The budget cap still uses the accumulator, which is accurate for sessions that start after v2.7.63.)
 
 **Files to read (skip any that don't exist):**
-- `~/.claude/supercharger/scope/.economy-tier`
+- `~/.claude/supercharger/scope/.economy-tier` (Tier: minimal|lean|standard; absent → standard)
+- `~/.claude/supercharger/scope/.mcp-profile` (MCP profile: light|dev|research|full; absent → "—")
+- `~/.claude/supercharger/scope/.profile` (Hook profile: standard|fast|minimal; absent → standard)
 - `~/.claude/supercharger/scope/.disabled-hooks`
 - `~/.claude/supercharger/scope/.tool-history-$SID` (last 10 entries)
 - `~/.claude/supercharger/scope/.repetition-flag-$SID`
