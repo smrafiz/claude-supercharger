@@ -2,6 +2,13 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
+# v2.7.70: isolate HOME so these tests — which source lib-suppress and can trigger
+# its EXIT-trap timing write when .profiling is on / on bash 5 — never pollute the
+# REAL audit dir with records named "test-lib-suppress-timing" (that leaked into the
+# /perf report as a bogus "hook").
+export HOME="$(mktemp -d)"
+mkdir -p "$HOME/.claude/supercharger/scope" "$HOME/.claude/supercharger/audit"
+
 LIB="$REPO_DIR/hooks/lib-suppress.sh"
 SENTINEL="$HOME/.claude/supercharger/scope/.profiling"
 

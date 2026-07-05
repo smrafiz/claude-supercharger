@@ -65,4 +65,26 @@ else
 fi
 rm -rf "$TMPDIR_JSON"
 
+# v2.7.70: /perf must only report REAL hooks. Test artifacts (a test that sources
+# lib-suppress under .profiling records timing under the TEST file's name) and
+# records with no hook field leaked into the report as bogus "hooks". Filter by
+# hooks/<name>.sh existence.
+begin_test "hook-perf: filters non-hook names (test artifacts, unknown, missing)"
+TMPDIR_FILT=$(mktemp -d)
+cat > "$TMPDIR_FILT/hooks.jsonl" << 'JSONL'
+{"hook":"safety","elapsed_ms":50}
+{"hook":"test-lib-suppress-timing","elapsed_ms":999}
+{"hook":"unknown","elapsed_ms":999}
+{"hook":"not-a-real-hook","elapsed_ms":999}
+{"elapsed_ms":999}
+JSONL
+OUTPUT=$(bash "$TOOL" --audit "$TMPDIR_FILT" --days 1 2>&1)
+rm -rf "$TMPDIR_FILT"
+if echo "$OUTPUT" | grep -q "safety" \
+   && ! echo "$OUTPUT" | grep -qE "test-lib-suppress-timing|unknown|not-a-real-hook"; then
+  pass
+else
+  fail "expected only real hooks (safety), got: $OUTPUT"
+fi
+
 report

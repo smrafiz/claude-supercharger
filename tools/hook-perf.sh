@@ -42,6 +42,7 @@ if [ ! -f "$PROFILING_FILE" ] && [ "$JSON" = "0" ]; then
 fi
 
 SUPERCHARGER_AUDIT_DIR="$AUDIT_DIR" \
+SUPERCHARGER_HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../hooks" 2>/dev/null && pwd)" \
 SUPERCHARGER_DAYS="$DAYS" \
 SUPERCHARGER_SLOW="$SLOW" \
 SUPERCHARGER_JSON="$JSON" \
@@ -55,6 +56,20 @@ slow_only = os.environ.get('SUPERCHARGER_SLOW', '0') == '1'
 json_out  = os.environ.get('SUPERCHARGER_JSON', '0') == '1'
 
 cutoff = time.time() - days * 86400
+
+# v2.7.70: only report REAL deployed hooks. The audit log can pick up junk — test
+# artifacts (a test that sources lib-suppress under .profiling records timing under
+# the TEST file's name, e.g. "test-lib-suppress-timing") and records with no hook
+# field ("?"). Filter to names that have a matching hooks/<name>.sh, so /perf never
+# presents a test file (or noise) as a hook.
+hooks_dir = os.environ.get('SUPERCHARGER_HOOKS_DIR', '')
+if not hooks_dir and audit_dir:
+    hooks_dir = os.path.join(os.path.dirname(audit_dir), 'hooks')  # .../supercharger/{audit,hooks}
+def _is_real_hook(name):
+    if not name:
+        return False
+    base = name[:-3] if name.endswith('.sh') else name  # accept "safety" and "safety.sh"
+    return os.path.isfile(os.path.join(hooks_dir, base + '.sh'))
 
 # Accumulate: hook -> [elapsed_ms, ...]
 totals = defaultdict(list)
@@ -76,7 +91,7 @@ if os.path.isdir(audit_dir):
                         d = json.loads(line)
                         hook = d.get('hook', '')
                         elapsed = d.get('elapsed_ms')
-                        if hook and elapsed is not None:
+                        if elapsed is not None and _is_real_hook(hook):
                             totals[hook].append(float(elapsed))
                     except (json.JSONDecodeError, TypeError, ValueError):
                         pass
