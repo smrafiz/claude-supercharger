@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.7.62-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1241%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.7.63-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1242%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -71,7 +71,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 ### Cost & context control
 
 - **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
-- **Budget cap** — set `"budget": 5.00` in `.supercharger.json`. Warns at 80%, blocks non-read tools at 100%
+- **Budget cap** — set `"budget": 5.00` in `.supercharger.json`. Caps **this session's** cost (resets each new conversation); warns at 80%, blocks non-read tools at 100%
 - **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
 - **Rate-limit burn projection** — `~52m left at this pace`
 - **Bash output compactor** — verbose `git log`, `pytest`, `npm install` output (>50 lines) compressed to a structured summary before it enters context. Failures keep their excerpt; passes show counts. Cuts the most common source of mid-session context exhaustion

@@ -1312,11 +1312,12 @@ rm -f "$SCOPE_DIR_BC/.budget-cap" "$SCOPE_DIR_BC/.session-cost"
 begin_test "budget-cap: check mode blocks at 100% (over budget)"
 SCOPE_DIR_BC="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_BC"
-echo '{"total_usd":1.05,"input":0,"output":0}' > "$SCOPE_DIR_BC/.session-cost"
-INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/f'},'cwd':'/tmp'}))")
+# v2.7.63: cap reads THIS session's cost from .main-tokens-<sid>.cost_usd
+printf '{"new_tokens":1000,"cost_usd":1.05}' > "$SCOPE_DIR_BC/.main-tokens-bcsess"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/f'},'cwd':'/tmp','session_id':'bcsess'}))")
 OUT=$(printf '%s' "$INPUT" | SESSION_BUDGET_CAP=1.00 bash "$BUDGET_CAP" check 2>&1)
 EXIT=$?
-rm -f "$SCOPE_DIR_BC/.session-cost"
+rm -f "$SCOPE_DIR_BC/.main-tokens-bcsess"
 [ "$EXIT" -eq 2 ] && pass || fail "expected exit 2 (block) when over budget, got exit=$EXIT out=$OUT"
 
 echo ""

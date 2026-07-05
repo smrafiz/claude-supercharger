@@ -226,18 +226,27 @@ sid = os.environ.get('SESSION_ID', '')
 if sid:
     tf = os.path.join(os.environ.get('SCOPE_DIR') or os.path.dirname(cost_file), '.main-tokens-' + sid)
     prev_tok = 0
+    prev_cost = 0.0
     try:
         with open(tf) as f:
-            prev_tok = int(json.load(f).get('new_tokens', 0) or 0)
+            _pd = json.load(f)
+            prev_tok = int(_pd.get('new_tokens', 0) or 0)
+            prev_cost = float(_pd.get('cost_usd', 0) or 0)
     except Exception:
         prev_tok = 0
+        prev_cost = 0.0
     # reset OR a from-zero read (fresh session, or a post-upgrade session whose
     # offset isn't in the new map yet) means delta_tokens already IS the full
     # session total — use it directly instead of adding to a stale prev_tok.
     main_tok = delta_tokens if (reset or offset == 0) else prev_tok + delta_tokens
+    # v2.7.63: accumulate PER-SESSION cost here too (same reset/offset==0 re-derive
+    # rule) so the budget cap compares THIS session's spend, not the machine-global
+    # lifetime .session-cost total (which never resets → would block every session
+    # instantly once lifetime spend exceeds the cap).
+    sess_cost = delta_cost if (reset or offset == 0) else prev_cost + delta_cost
     try:
         with open(tf + '.tmp', 'w') as f:
-            json.dump({'new_tokens': main_tok, 'updated': now}, f)
+            json.dump({'new_tokens': main_tok, 'cost_usd': round(sess_cost, 8), 'updated': now}, f)
         os.replace(tf + '.tmp', tf)
     except Exception:
         pass
@@ -284,7 +293,7 @@ if [[ "$MODE" == "check" ]]; then
   _CWD_FROM_PAYLOAD=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
   [ -z "$_CWD_FROM_PAYLOAD" ] && _CWD_FROM_PAYLOAD="$PWD"
   PROJECT_ROOT=$(_resolve_project_root "$_CWD_FROM_PAYLOAD")
-  DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" HOOK_INPUT="$_INPUT" PROJECT_ROOT="$PROJECT_ROOT" python3 <<'PYEOF'
+  DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" SCOPE_DIR="$SCOPE_DIR" HOOK_INPUT="$_INPUT" PROJECT_ROOT="$PROJECT_ROOT" python3 <<'PYEOF'
 import json, os, sys
 
 try:
@@ -324,14 +333,23 @@ try:
 except Exception:
     print('pass'); sys.exit(0)
 
+# v2.7.63: budget is PER-SESSION — compare against THIS session's spend
+# (.main-tokens-<sid> cost_usd), NOT the machine-global lifetime .session-cost
+# total_usd (which never resets and would block every session instantly). A fresh
+# session has no per-session file yet → spend 0 → pass, and "start a new session"
+# in the block message now actually resets the count.
+import re as _re
 spend = 0.0
-cost_file = os.environ.get('COST_FILE', '')
-if cost_file and os.path.isfile(cost_file):
-    try:
-        with open(cost_file) as f:
-            spend = float(json.load(f).get('total_usd', 0) or 0)
-    except Exception:
-        spend = 0.0
+sid = _re.sub(r'[^a-zA-Z0-9_-]', '', str(data.get('session_id') or ''))[:64]
+scope_dir = os.environ.get('SCOPE_DIR', '') or os.path.dirname(os.environ.get('COST_FILE', ''))
+if sid and scope_dir:
+    sf = os.path.join(scope_dir, '.main-tokens-' + sid)
+    if os.path.isfile(sf):
+        try:
+            with open(sf) as f:
+                spend = float(json.load(f).get('cost_usd', 0) or 0)
+        except Exception:
+            spend = 0.0
 
 pct = (spend / cap_f * 100) if cap_f > 0 else 0
 READ_ONLY = {'Read', 'Glob', 'Grep'}

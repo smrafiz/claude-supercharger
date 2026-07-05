@@ -161,76 +161,61 @@ else
 fi
 teardown_test_home
 
+# v2.7.63: the cap now reads THIS session's cost from .main-tokens-<sid> (cost_usd),
+# not the machine-global .session-cost total_usd — so the check payload carries a
+# session_id and the per-session cost file holds the spend.
 begin_test "under 80% = passthrough"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-
-# $3.00 spent with $5.00 cap = 60% → passthrough
-printf '{"total_usd":3.00,"turn_count":10,"avg_per_turn":0.30,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}' > "$SCOPE_DIR/.session-cost"
-
-PAYLOAD='{"tool_name":"Write","cwd":"/tmp"}'
+printf '{"new_tokens":1000,"cost_usd":3.00}' > "$SCOPE_DIR/.main-tokens-bsess"  # $3.00 of $5.00 = 60%
+PAYLOAD='{"tool_name":"Write","cwd":"/tmp","session_id":"bsess"}'
 echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check >/dev/null 2>&1
-EXIT=$?
-if [ "$EXIT" -eq 0 ]; then
-  pass
-else
-  fail "expected exit 0 (under 80%), got $EXIT"
-fi
+[ "$?" -eq 0 ] && pass || fail "expected exit 0 (under 80%)"
 teardown_test_home
 
 begin_test "at 80% = warn (exit 0)"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-
-# $4.10 spent with $5.00 cap = 82% → warn
-printf '{"total_usd":4.10,"turn_count":10,"avg_per_turn":0.41,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}' > "$SCOPE_DIR/.session-cost"
-
-PAYLOAD='{"tool_name":"Write","cwd":"/tmp"}'
+printf '{"new_tokens":1000,"cost_usd":4.10}' > "$SCOPE_DIR/.main-tokens-bsess"  # 82%
+PAYLOAD='{"tool_name":"Write","cwd":"/tmp","session_id":"bsess"}'
 OUTPUT=$(echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check 2>/dev/null)
 EXIT=$?
-if [ "$EXIT" -eq 0 ] && echo "$OUTPUT" | grep -qi "BUDGET"; then
-  pass
-else
-  fail "expected exit 0 + BUDGET in output (exit=$EXIT, output=$OUTPUT)"
-fi
+{ [ "$EXIT" -eq 0 ] && echo "$OUTPUT" | grep -qi "BUDGET"; } && pass || fail "expected exit 0 + BUDGET (exit=$EXIT, out=$OUTPUT)"
 teardown_test_home
 
 begin_test "at 100% = block (exit 2)"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-
-# $5.50 spent with $5.00 cap = 110% → block
-printf '{"total_usd":5.50,"turn_count":10,"avg_per_turn":0.55,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}' > "$SCOPE_DIR/.session-cost"
-
-PAYLOAD='{"tool_name":"Write","cwd":"/tmp"}'
+printf '{"new_tokens":1000,"cost_usd":5.50}' > "$SCOPE_DIR/.main-tokens-bsess"  # 110%
+PAYLOAD='{"tool_name":"Write","cwd":"/tmp","session_id":"bsess"}'
 echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check >/dev/null 2>&1
-EXIT=$?
-if [ "$EXIT" -eq 2 ]; then
-  pass
-else
-  fail "expected exit 2 (blocked), got $EXIT"
-fi
+[ "$?" -eq 2 ] && pass || fail "expected exit 2 (blocked)"
 teardown_test_home
 
 begin_test "read-only tools bypass block"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-
-# Over cap
-printf '{"total_usd":6.00,"turn_count":10,"avg_per_turn":0.60,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}' > "$SCOPE_DIR/.session-cost"
-
-PAYLOAD='{"tool_name":"Read","cwd":"/tmp"}'
+printf '{"new_tokens":1000,"cost_usd":6.00}' > "$SCOPE_DIR/.main-tokens-bsess"  # over cap
+PAYLOAD='{"tool_name":"Read","cwd":"/tmp","session_id":"bsess"}'
 echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check >/dev/null 2>&1
-EXIT=$?
-if [ "$EXIT" -eq 0 ]; then
-  pass
-else
-  fail "expected exit 0 for Read tool bypass, got $EXIT"
-fi
+[ "$?" -eq 0 ] && pass || fail "expected exit 0 for Read tool bypass"
+teardown_test_home
+
+# v2.7.63: the whole point — a FRESH session (no .main-tokens-<sid> yet) is NOT
+# blocked even when the machine-global lifetime .session-cost is astronomically
+# over the cap. This is the bug that made the budget cap fire instantly for everyone.
+begin_test "fresh session is not blocked by the global lifetime total"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+printf '{"total_usd":64320.42,"main_total":64165.42}' > "$SCOPE_DIR/.session-cost"  # huge lifetime
+PAYLOAD='{"tool_name":"Write","cwd":"/tmp","session_id":"brandnew"}'
+echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "fresh session wrongly blocked by global lifetime total"
 teardown_test_home
 
 # v2.7.36: per-session parent NEW-token total (input + cache_write + output,

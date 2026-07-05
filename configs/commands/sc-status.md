@@ -3,7 +3,8 @@ Render the current Claude Supercharger session state. Arguments: $ARGUMENTS
 Read these files (silently — do not show their raw content) and produce a dashboard:
 
 **Files to read (skip any that don't exist):**
-- `~/.claude/supercharger/scope/.session-cost`
+- `~/.claude/supercharger/scope/.main-tokens-*` (per-SESSION cost — use the newest file's `cost_usd` for the current session's cost; this is what the budget cap measures as of v2.7.63)
+- `~/.claude/supercharger/scope/.session-cost` (`total_usd` is the machine-GLOBAL lifetime accumulator across ALL sessions/projects — label it "lifetime", never "session")
 - `~/.claude/supercharger/scope/.economy-tier`
 - `~/.claude/supercharger/scope/.disabled-hooks`
 - `~/.claude/supercharger/scope/.tool-history` (last 10 entries)
@@ -26,7 +27,8 @@ Tier           : <minimal|lean|standard>
 MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
 
-Cost           : $X.XX / $Y.YY budget (Z% used)
+Cost (session) : $X.XX / $Y.YY budget (Z% used)   [from newest .main-tokens-* cost_usd; budget from .supercharger.json]
+Cost (lifetime): $L.LL across all sessions since <first_updated>   [.session-cost total_usd — NOT this session]
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
 Confidence     : <derived from last 5 tool history entries — same formula as confidence-gate>

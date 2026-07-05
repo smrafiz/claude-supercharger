@@ -52,10 +52,10 @@ setup_test_home
 _mk_worktree_fixture '{"budget":0.10}'
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-# spent $0.15 > cap $0.10 → 100% over → block on non-readonly
-printf '{"total_usd":0.15,"turn_count":5}' > "$SCOPE_DIR/.session-cost"
+# v2.7.63: spent $0.15 > cap $0.10 → 100% over → block; per-session cost keyed by sid
+printf '{"new_tokens":1000,"cost_usd":0.15}' > "$SCOPE_DIR/.main-tokens-wtesess"
 
-PAYLOAD="{\"tool_name\":\"Bash\",\"cwd\":\"$WT\"}"
+PAYLOAD="{\"tool_name\":\"Bash\",\"cwd\":\"$WT\",\"session_id\":\"wtesess\"}"
 OUTPUT=$(printf '%s' "$PAYLOAD" | bash "$REPO_DIR/hooks/budget-cap.sh" check 2>&1)
 EXIT=$?
 # Hook should block (exit 2) or at least emit a deny message

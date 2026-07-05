@@ -56,8 +56,9 @@ begin_test "budget-cap: budget cap from main repo blocks over-budget tool (workt
 setup_test_home
 mk_worktree '{"budget":0.01}'
 mkdir -p "$(scope_dir)"
-printf '{"total_usd":1.0,"turn_count":10}\n' > "$(scope_dir)/.session-cost"
-OUT=$(printf '{"tool_name":"Bash","cwd":"%s"}\n' "$WT" | bash "$HOOKS/budget-cap.sh" check 2>&1)
+# v2.7.63: cap reads THIS session's cost from .main-tokens-<sid>.cost_usd
+printf '{"new_tokens":1000,"cost_usd":1.0}\n' > "$(scope_dir)/.main-tokens-wtsess"
+OUT=$(printf '{"tool_name":"Bash","cwd":"%s","session_id":"wtsess"}\n' "$WT" | bash "$HOOKS/budget-cap.sh" check 2>&1)
 EXIT=$?
 if [ "$EXIT" -eq 2 ] || printf '%s' "$OUT" | grep -qi 'budget cap reached'; then
   pass
