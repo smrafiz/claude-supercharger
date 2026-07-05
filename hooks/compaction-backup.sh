@@ -77,12 +77,19 @@ try:
 except Exception:
     pass
 
-# Session cost
+# v2.7.61: .session-cost total_usd is the machine-GLOBAL accumulator (it is not
+# reset per session), so labelling it "Session cost" was misleading (e.g. showed
+# $53609.92 lifetime as if it were one session). Label it accurately and round to
+# cents instead of dumping the raw 8-decimal float.
 try:
     with open(os.path.join(scope_dir, '.session-cost')) as f:
         cost = json.load(f).get('total_usd', '')
     if cost != '':
-        parts.append(f'Session cost so far: ${cost}.')
+        try:
+            cost = f'{float(cost):.2f}'
+        except Exception:
+            pass
+        parts.append(f'Total cost so far (all sessions): ${cost}.')
 except Exception:
     pass
 

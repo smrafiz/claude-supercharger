@@ -46,4 +46,24 @@ else
   fail "hook reads tool_response.exit_code (does not exist on PostToolUse Bash):"$'\n'"$OFFENDERS"
 fi
 
+# v2.7.61: the live CC binary REJECTS hookSpecificOutput on PostCompact/PreCompact
+# ("(root): Invalid input") — its schema allows hookSpecificOutput only for
+# PreToolUse/UserPromptSubmit/PostToolUse/PostToolBatch/Stop/SubagentStop. A compact
+# hook must emit raw text or top-level systemMessage. post-compact-inject shipped
+# the invalid JSON for ~30 releases (v2.7.30) and silently dropped the restored
+# context every compaction. Guard it: no compact-lifecycle hook emits hookSpecificOutput.
+begin_test "payload-contract: PreCompact/PostCompact hooks don't emit hookSpecificOutput"
+OFFENDERS=""
+for f in "$HOOKS"/post-compact-inject.sh "$HOOKS"/precompact-priorities.sh "$HOOKS"/compaction-backup.sh; do
+  [ -f "$f" ] || continue
+  while IFS= read -r line; do
+    [ -n "$line" ] && OFFENDERS="${OFFENDERS}  $(basename "$f"): ${line}"$'\n'
+  done < <(grep -nE 'hookSpecificOutput' "$f" 2>/dev/null | grep -vE '^[0-9]+:[[:space:]]*#')
+done
+if [ -z "$OFFENDERS" ]; then
+  pass
+else
+  fail "compact-lifecycle hook emits hookSpecificOutput (CC rejects it):"$'\n'"$OFFENDERS"
+fi
+
 report

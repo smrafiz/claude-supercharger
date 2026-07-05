@@ -103,10 +103,14 @@ if not lines:
     sys.exit(0)
 
 msg = '[POST-COMPACT] Context restored after compaction:\n' + '\n'.join(lines) + '\nResume from this state — do not re-read files already in memory.'
-# v2.7.30: header intent is "re-inject constraints so Claude doesn't lose them" —
-# systemMessage only reaches the USER, defeating the purpose. PostCompact
-# supports hookSpecificOutput.additionalContext (context-only) → reaches Claude.
-print(json.dumps({'hookSpecificOutput': {'hookEventName': 'PostCompact', 'additionalContext': msg}}))
+# v2.7.61: emit RAW plain text, NOT hookSpecificOutput JSON. GROUND TRUTH from the
+# live CC binary: PostCompact does NOT accept hookSpecificOutput (its schema lists
+# hookSpecificOutput only for PreToolUse/UserPromptSubmit/PostToolUse/PostToolBatch/
+# Stop) — the v2.7.30 JSON output failed validation ("(root): Invalid input"), so
+# the restored context never reached Claude. The sibling precompact-priorities.sh
+# emits raw text on the compact lifecycle and the binary accepts it → raw stdout is
+# the context channel for these events. print the message directly.
+print(msg)
 PYEOF
 )
 [ -z "$RESULT" ] && exit 0

@@ -1804,6 +1804,20 @@ INPUT=$(python3 -c "import json; print(json.dumps({'compact_summary':'Tests pass
 OUT=$(printf '%s' "$INPUT" | bash "$POST_COMPACT" 2>&1)
 [ -n "$OUT" ] && pass || fail "expected injected context after compact, got empty"
 
+# v2.7.61: PostCompact does NOT accept hookSpecificOutput (live CC binary rejects
+# it — "(root): Invalid input"), so the hook must emit RAW TEXT, not the v2.7.30
+# JSON wrapper. A regression to JSON silently drops the restored context.
+begin_test "post-compact-inject: emits raw text, not the rejected hookSpecificOutput JSON"
+INPUT=$(python3 -c "import json; print(json.dumps({'compact_summary':'Auth done. Modified: src/auth.ts','cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$POST_COMPACT" 2>/dev/null)
+if printf '%s' "$OUT" | grep -q 'hookSpecificOutput'; then
+  fail "PostCompact output wraps hookSpecificOutput — CC rejects it as invalid: $OUT"
+elif printf '%s' "$OUT" | grep -q '\[POST-COMPACT\]'; then
+  pass
+else
+  fail "expected raw [POST-COMPACT] context text, got: $OUT"
+fi
+
 # v2.7.47: the restored flag is written per-session so the statusline badge only
 # lights up in the session that compacted, not every concurrent session.
 begin_test "post-compact-inject: writes session-scoped restored flag, not global"
