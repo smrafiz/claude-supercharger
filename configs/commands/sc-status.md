@@ -10,6 +10,29 @@ SID=$(ls -t "$HOME/.claude/projects/$ENC"/*.jsonl 2>/dev/null | head -1 | xargs 
 ```
 `$SID` is THIS session. Use it for every per-session read below (`.main-tokens-$SID`, `.tool-history-$SID`, `.memory-restored-$SID`, `.repetition-flag-$SID`). If `$SID` is empty (no transcript yet), fall back to the globally-newest `.main-tokens-*` and note it.
 
+**Session cost — compute from the TRANSCRIPT, do NOT trust `.main-tokens-$SID.cost_usd`.** That accumulator only counts from when v2.7.63 deployed, so a session spanning the upgrade is badly under-reported (observed: $22.83 vs a real $2343.54). A one-shot command can afford to re-sum the transcript for ground truth:
+```bash
+python3 - "$HOME/.claude/projects/$ENC/$SID.jsonl" <<'PY'
+import json,sys
+P={'opus':(5.0,6.25,0.5,25.0),'sonnet':(3.0,3.75,0.3,15.0),'haiku':(0.8,1.0,0.08,4.0)}
+t=0.0
+try:
+    for ln in open(sys.argv[1]):
+        try: d=json.loads(ln)
+        except: continue
+        if d.get('type')!='assistant': continue
+        u=(d.get('message') or {}).get('usage') or {}
+        if not u: continue
+        m=((d.get('message') or {}).get('model') or '').lower()
+        k='opus' if 'opus' in m else 'haiku' if 'haiku' in m else 'sonnet'
+        ip,cw,cr,op=P[k]
+        t+=(u.get('input_tokens',0)*ip+u.get('cache_creation_input_tokens',0)*cw+u.get('cache_read_input_tokens',0)*cr+u.get('output_tokens',0)*op)/1e6
+except Exception: pass
+print(f'{t:.2f}')
+PY
+```
+Use that value for `Cost (session)`. (The budget cap still uses the accumulator, which is accurate for sessions that start after v2.7.63.)
+
 **Files to read (skip any that don't exist):**
 - `~/.claude/supercharger/scope/.main-tokens-$SID` (this session's cost — `cost_usd`; what the budget cap measures as of v2.7.63)
 - `~/.claude/supercharger/scope/.session-cost` (`total_usd` is the machine-GLOBAL lifetime accumulator across ALL sessions/projects — label it "lifetime", never "session")
@@ -35,7 +58,7 @@ Tier           : <minimal|lean|standard>
 MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
 
-Cost (session) : $X.XX / $Y.YY budget (Z% used)   [from .main-tokens-$SID cost_usd; budget from .supercharger.json]
+Cost (session) : $X.XX / $Y.YY budget (Z% used)   [computed from the transcript — ground truth; budget from .supercharger.json]
 Cost (lifetime): $L.LL across all sessions since <first_updated>   [.session-cost total_usd — NOT this session]
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
