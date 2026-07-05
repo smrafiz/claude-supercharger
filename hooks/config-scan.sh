@@ -34,14 +34,25 @@ debug_on = (os.path.isfile(os.path.expanduser('~/.claude/supercharger/scope/.deb
             or os.path.isfile('.supercharger-debug'))
 
 # --- Injection patterns in CLAUDE.md + .claude/*.md ---
+# v2.7.62: tightened three over-broad patterns that false-positived on legitimate
+# project agent/command files (.claude/agents/*.md), which naturally contain AI
+# prose like "consider the system prompt", "you are now the reviewer", "act as a
+# fresh pair of eyes". These are ADVISORY warnings (not blocks), so precision is
+# worth more than recall here — a missed advisory is not a bypass (the real
+# injection defenses are prompt-injection-scanner on tool output + memory-write-
+# guard). Each now requires an adversarial context, not the bare phrase.
 injection = re.compile(
     r'ignore (all |your )?(previous|above|prior) instructions'
-    r'|you are now'
+    # persona hijack — require a malicious persona/mode, not "you are now <task>"
+    r'|you are now (a |an )?(different|new|evil|uncensored|unrestricted|jailbroken|dan\b|developer mode|do[ -]?anything[ -]?now)'
     r'|new instructions?:'
-    r'|system prompt'
-    r'|disregard (your|all|the)'
-    r'|forget (your|all|previous|what)'
-    r'|act as (a |an )?(different|new|evil|uncensored)'
+    # system-prompt attacks — require an exfil/override verb, or a redefinition, not the bare phrase
+    r'|(reveal|show|print|repeat|leak|expose|ignore|override|reset|replace|forget|change) (your |the |my )?system prompt'
+    r'|system prompt\s*[:=]'
+    r'|disregard (your|all|the) (previous |above |prior )?(instructions?|rules?|guidelines?|system)'
+    r'|forget (your|all|previous|everything) (instructions?|rules?|training|guidelines?)'
+    # role hijack — require an AI/persona object, so "act as a new reviewer" is fine
+    r'|act as (a |an )?(different|new|evil|uncensored|unrestricted|jailbroken) (ai|assistant|model|persona|system|chatbot|llm)'
     r'|jailbreak'
     r'|<\|im_start\|>'
     r'|<\|system\|>'
