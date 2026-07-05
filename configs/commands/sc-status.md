@@ -2,14 +2,22 @@ Render the current Claude Supercharger session state. Arguments: $ARGUMENTS
 
 Read these files (silently — do not show their raw content) and produce a dashboard:
 
+**STEP 0 — determine the CURRENT session id (do this first; everything per-session depends on it).**
+Do NOT guess by "newest file" — under concurrent sessions that grabs another project's session (the exact bug this step fixes). Derive it from the current working directory's own transcript directory:
+```bash
+ENC="-$(pwd | sed 's|/|-|g; s|^-||')"                 # cwd → CC's project-dir encoding
+SID=$(ls -t "$HOME/.claude/projects/$ENC"/*.jsonl 2>/dev/null | head -1 | xargs -r basename | sed 's/\.jsonl$//')
+```
+`$SID` is THIS session. Use it for every per-session read below (`.main-tokens-$SID`, `.tool-history-$SID`, `.memory-restored-$SID`, `.repetition-flag-$SID`). If `$SID` is empty (no transcript yet), fall back to the globally-newest `.main-tokens-*` and note it.
+
 **Files to read (skip any that don't exist):**
-- `~/.claude/supercharger/scope/.main-tokens-*` (per-SESSION cost — use the newest file's `cost_usd` for the current session's cost; this is what the budget cap measures as of v2.7.63)
+- `~/.claude/supercharger/scope/.main-tokens-$SID` (this session's cost — `cost_usd`; what the budget cap measures as of v2.7.63)
 - `~/.claude/supercharger/scope/.session-cost` (`total_usd` is the machine-GLOBAL lifetime accumulator across ALL sessions/projects — label it "lifetime", never "session")
 - `~/.claude/supercharger/scope/.economy-tier`
 - `~/.claude/supercharger/scope/.disabled-hooks`
-- `~/.claude/supercharger/scope/.tool-history` (last 10 entries)
-- `~/.claude/supercharger/scope/.repetition-flag-*` (any session)
-- `~/.claude/supercharger/scope/.memory-restored` (mtime → "compaction X min ago")
+- `~/.claude/supercharger/scope/.tool-history-$SID` (last 10 entries)
+- `~/.claude/supercharger/scope/.repetition-flag-$SID`
+- `~/.claude/supercharger/scope/.memory-restored-$SID` (per-session; mtime → "compaction X min ago"). The bare `.memory-restored` (no suffix) is a DEPRECATED global flag not written since v2.7.47 — do NOT use it; if `.memory-restored-$SID` is absent, this session hasn't compacted → "this session".
 - `.claude/supercharger/lessons.jsonl` (count + 3 most recent `lesson` fields)
 - `.claude/supercharger-memory.md` (size + last modified)
 - `.supercharger.json` (role, economy, profile, budget, hints)
@@ -27,7 +35,7 @@ Tier           : <minimal|lean|standard>
 MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
 
-Cost (session) : $X.XX / $Y.YY budget (Z% used)   [from newest .main-tokens-* cost_usd; budget from .supercharger.json]
+Cost (session) : $X.XX / $Y.YY budget (Z% used)   [from .main-tokens-$SID cost_usd; budget from .supercharger.json]
 Cost (lifetime): $L.LL across all sessions since <first_updated>   [.session-cost total_usd — NOT this session]
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
@@ -50,7 +58,7 @@ Compute confidence score using the same formula as `hooks/confidence-gate.sh`:
 - start at 1.0
 - subtract 0.20 per failure in last 5 tool-history entries
 - subtract 0.30 if the current would-be Edit target is unread (skip this term — there's no current target)
-- subtract 0.20 if `.repetition-flag-*` exists for current session
+- subtract 0.20 if `.repetition-flag-$SID` exists (current session only)
 - clamp [0.0, 1.0]
 - format to 2 decimals
 
