@@ -32,6 +32,32 @@ LESSONS_FILE="$PROJ/.claude/supercharger/lessons.jsonl"
 rm -rf "$PROJ"
 teardown_test_home
 
+# v2.7.57: lesson-record reads only the transcript TAIL (was a full-file jq -rs
+# slurp costing ~550ms/turn on a long session). The last user+assistant must still
+# be found and extracted correctly from a LARGE transcript with lots of prior noise.
+begin_test "lessons: extracts the last pair from a large transcript (tail-read)"
+setup_test_home
+PROJ=$(mktemp -d)
+mkdir -p "$PROJ/.claude/supercharger"
+TRANSCRIPT="$PROJ/.transcript.jsonl"
+: > "$TRANSCRIPT"
+for i in $(seq 1 600); do
+  printf '%s\n' '{"type":"user","message":{"content":"unrelated earlier chatter no marker here"}}' >> "$TRANSCRIPT"
+  printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"just talking, nothing diagnostic in this line at all"}]}}' >> "$TRANSCRIPT"
+done
+printf '%s\n' '{"type":"user","message":{"content":"the deploy 500s"}}' >> "$TRANSCRIPT"
+printf '%s\n' '{"type":"assistant","message":{"content":[{"type":"text","text":"The root cause was a stale env var. Fixed by reloading config."}]}}' >> "$TRANSCRIPT"
+INPUT=$(printf '{"cwd":"%s","transcript_path":"%s"}' "$PROJ" "$TRANSCRIPT")
+echo "$INPUT" | bash "$RECORD_HOOK" >/dev/null 2>&1 || true
+LESSONS_FILE="$PROJ/.claude/supercharger/lessons.jsonl"
+if [ -s "$LESSONS_FILE" ] && grep -q "stale env var" "$LESSONS_FILE" && grep -q "the deploy 500s" "$LESSONS_FILE"; then
+  pass
+else
+  fail "tail-read missed the last pair in a large transcript: $(tail -1 "$LESSONS_FILE" 2>/dev/null)"
+fi
+rm -rf "$PROJ"
+teardown_test_home
+
 begin_test "lessons: record skipped when no marker"
 setup_test_home
 PROJ=$(mktemp -d)
