@@ -1132,6 +1132,18 @@ INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_resp
 OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)
 echo "$OUT" | grep -qi "secret\|leak\|credential\|AWS\|sensitive\|key" && pass || fail "expected secret warning, got: $OUT"
 
+# v2.7.60: the AWS SECRET access-key VALUE (prefix-less) was slipping through —
+# only the AKIA id was caught. Now anchored on the label + 40-char value.
+begin_test "output-secrets-scanner: detects AWS SECRET access-key value (v2.7.60)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'stdout':'AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY'}}))")
+printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "AWS secret-key value not detected (exit should be 2)"
+
+begin_test "output-secrets-scanner: does not flag benign AWS_REGION output"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'stdout':'building with AWS_REGION=us-east-1 and NODE_ENV=production'}}))")
+printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "false positive on benign AWS_REGION output"
+
 begin_test "output-secrets-scanner: detects GitHub token in output"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'token: ghp_1234567890abcdefghij1234567890abcdef12'}}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)

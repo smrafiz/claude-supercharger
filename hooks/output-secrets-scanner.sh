@@ -25,9 +25,14 @@ fi
 [ "${#OUTPUT}" -lt 10 ] && exit 0
 
 SECRET_PATTERNS=(
-  # AWS
+  # AWS access-key IDs
   'AKIA[0-9A-Z]{16}'
   'ASIA[0-9A-Z]{16}'
+  # v2.7.60: AWS SECRET access-key VALUE — the dangerous half, but prefix-less, so
+  # anchor on the label + its exact 40-char base64 value (high-signal, no FP on
+  # normal output). The liveness audit found this slipped through (only the AKIA
+  # id was caught; an env dump exposing only the secret value went unscanned).
+  'AWS_SECRET_ACCESS_KEY.{0,6}[A-Za-z0-9/+]{40}'
   # GitHub
   'gh[opsu]_[A-Za-z0-9_]{36,}'
   # Generic
