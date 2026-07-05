@@ -34,8 +34,6 @@ PY
 Use that value for `Cost (session)`. (The budget cap still uses the accumulator, which is accurate for sessions that start after v2.7.63.)
 
 **Files to read (skip any that don't exist):**
-- `~/.claude/supercharger/scope/.main-tokens-$SID` (this session's cost — `cost_usd`; what the budget cap measures as of v2.7.63)
-- `~/.claude/supercharger/scope/.session-cost` (`total_usd` is the machine-GLOBAL lifetime accumulator across ALL sessions/projects — label it "lifetime", never "session")
 - `~/.claude/supercharger/scope/.economy-tier`
 - `~/.claude/supercharger/scope/.disabled-hooks`
 - `~/.claude/supercharger/scope/.tool-history-$SID` (last 10 entries)
@@ -60,7 +58,6 @@ MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
 
 Cost (session) : $X.XX / $Y.YY budget (Z% used)   [computed from the transcript — ground truth; budget from .supercharger.json]
-Cost (lifetime): $L.LL across all sessions since <first_updated>   [.session-cost total_usd — NOT this session]
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
 Confidence     : <derived from last 5 tool history entries — same formula as confidence-gate>
