@@ -211,11 +211,11 @@ DESTRUCT_PATTERNS=(
 )
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
-  '\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
+  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
   '(^|;|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
   '(^|;|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
-  'base64.*\|.*(bash|sh|zsh)' '<<<.*\|.*(bash|sh|zsh)'
+  'base64.*\|.*(bash|sh|zsh)([[:space:]]|$)' '<<<.*\|.*(bash|sh|zsh)([[:space:]]|$)'
   # v2.7.5: `ps` env-dump piped to an encoder/exfil channel. Real incident:
   # "Comment and Control" (CVSS 9.4, Apr 2026) — PR-title injection ran
   # `ps auxeww | base64` to read every process's environment (ANTHROPIC_API_KEY,
