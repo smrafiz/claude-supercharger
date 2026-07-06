@@ -136,7 +136,12 @@ for pf in ant_files:
         continue
     m = anthropic_pat.search(text)
     if m:
-        rel = str(pf).removeprefix(project_dir + '/')
+        # v2.8.5: str.removeprefix is Python 3.9+; the project supports 3.6+.
+        # On 3.6-3.8 this raised AttributeError (uncaught) and killed the whole
+        # scan under `2>/dev/null`, silently dropping ALL config-scan warnings.
+        _pfx = project_dir + '/'
+        _sp = str(pf)
+        rel = _sp[len(_pfx):] if _sp.startswith(_pfx) else _sp
         sys.stderr.write(f'[Supercharger] config-scan: {m.group(0)} reference in {rel} — possible CVE-2026-21852 injection\n')
         warnings.append(
             f'[SECURITY] Project file {rel} references {m.group(0)}. Cloning untrusted '

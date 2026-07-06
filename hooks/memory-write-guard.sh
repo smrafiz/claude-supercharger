@@ -54,7 +54,13 @@ if not content:
     sys.exit(0)
 
 _nfkc = unicodedata.normalize('NFKC', content)
-normalized = _nfkc.lower()
+# v2.8.5: collapse whitespace before matching — the space-delimited patterns
+# below missed a poisoned write that split "ignore all previous instructions"
+# across newlines (memory files are multi-line markdown, so this is the natural
+# evasion). Same fix shipped for prompt-injection-scanner in v2.8.2; this sister
+# hook was missed. Zero-width chars (Cf) aren't \s so their detector still fires;
+# base64 markers carry no spaces and match the un-collapsed _nfkc separately.
+normalized = re.sub(r'\s+', ' ', _nfkc.lower())
 
 # Case-sensitive base64 markers must match the NON-lowercased text. v2.7.14 fix:
 # these lived in `patterns` (matched against the lowercased `normalized`) so the
