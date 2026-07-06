@@ -106,9 +106,9 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 ---
 
-## Recent highlights (v2.7.x)
+## Recent highlights (v2.8)
 
-The v2.7 line focused on making the runtime observable, hardening the guards, and cutting per-hook overhead — without changing how you use it.
+The v2.7 → v2.8 line focused on making the runtime observable, hardening the guards, and cutting per-hook overhead — without changing how you use it.
 
 ### Sharper visibility
 
