@@ -1246,6 +1246,24 @@ OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
 # Scanner is asyncRewake (warns, doesn't block) — clean code should produce no warning output
 echo "$OUT" | grep -qi "WARN\|vulnerab\|injection\|security" && fail "false positive on clean code: $OUT" || pass
 
+# v2.8.2: single-quoted secrets (Python default) — was a miss (double-quote only)
+begin_test "code-security-scanner: warns on single-quoted hardcoded password (v2.8.2)"
+INPUT=$(python3 -c "import json; c = 'DB_HOST = \"localhost\"\npassword = ' + chr(39) + 'hunter2secret' + chr(39) + '\n'; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/cfg.py','content':c}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "password\|secret" && pass || fail "single-quoted password not flagged: $OUT"
+
+# v2.8.2: SHA-1 flagged alongside MD5
+begin_test "code-security-scanner: warns on SHA-1 hashing (v2.8.2)"
+INPUT=$(python3 -c "import json; c = 'import hashlib\ndigest = hashlib.sha1(data).hexdigest()\n'; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/h.py','content':c}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "sha-1\|md5\|broken\|hashing" && pass || fail "sha1 not flagged: $OUT"
+
+# v2.8.2: env-var read must NOT be flagged (no quote right after the operator)
+begin_test "code-security-scanner: no false positive on env-var password read (v2.8.2)"
+INPUT=$(python3 -c "import json; c = 'import os\npassword = os.environ[\"DB_PASSWORD\"]\nprint(len(password))\n'; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/e.py','content':c}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "hardcoded password" && fail "false positive on env read: $OUT" || pass
+
 echo ""
 echo "=== Scope Guard Tests ==="
 

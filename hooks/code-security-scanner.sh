@@ -70,14 +70,19 @@ sql_checks = (
     (r'"(?:SELECT|INSERT|UPDATE|DELETE)[^"]*"[ \t]*\+',            'string-concatenated SQL query — SQL injection risk; use parameterised queries'),
 )
 # --- Hardcoded secrets ---
+# v2.8.2: match single/double/backtick quotes and `:` assignment. Previously
+# only `key = "double"` fired — `password = 'x'` (Python's default quoting) and
+# `password: "x"` (YAML/JS object) both slipped past. {3,} avoids empty stubs;
+# a quote must follow the operator, so env reads (= os.environ[...]) don't match.
 secret_checks = (
-    (r'password[ \t]*=[ \t]*"[^"]+"',  'hardcoded password — use environment variables or a secrets manager'),
-    (r'secret[ \t]*=[ \t]*"[^"]+"',    'hardcoded secret — use environment variables or a secrets manager'),
-    (r'api_key[ \t]*=[ \t]*"[^"]+"',   'hardcoded api_key — use environment variables or a secrets manager'),
+    ("password[ \t]*[:=][ \t]*[\"'`][^\"'`]{3,}",     'hardcoded password — use environment variables or a secrets manager'),
+    ("secret[ \t]*[:=][ \t]*[\"'`][^\"'`]{3,}",       'hardcoded secret — use environment variables or a secrets manager'),
+    ("api[_-]?key[ \t]*[:=][ \t]*[\"'`][^\"'`]{3,}",  'hardcoded api_key — use environment variables or a secrets manager'),
 )
 # --- Weak hashing ---
+# v2.8.2: SHA-1 is collision-broken too — flag it alongside MD5.
 hash_checks = (
-    (r"crypto\.createHash\(['\"]md5['\"]|hashlib\.md5\(",  'MD5 hashing — cryptographically broken; use SHA-256 or bcrypt for passwords'),
+    (r"crypto\.createHash\(['\"](?:md5|sha1)['\"]|hashlib\.(?:md5|sha1)\(",  'MD5/SHA-1 hashing — cryptographically broken; use SHA-256 or bcrypt for passwords'),
 )
 # --- Obfuscated injection ---
 obf_checks = (
@@ -88,12 +93,7 @@ for pat, msg in js_checks + py_checks + sql_checks + hash_checks + obf_checks:
     if re.search(pat, content):
         warnings.append(msg)
 
-for pat, msg in (
-    (r'password[ \t]*=[ \t]*"[^"]+"', 'hardcoded password — use environment variables or a secrets manager'),
-):
-    pass  # placeholder so secret_checks above could be case-insensitive via re.I if needed
-
-# secret_checks are case-insensitive in the original — re-run with IGNORECASE
+# secret_checks are case-insensitive — run with IGNORECASE
 for pat, msg in secret_checks:
     if re.search(pat, content, re.IGNORECASE) and msg not in warnings:
         warnings.append(msg)
