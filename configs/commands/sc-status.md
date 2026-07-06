@@ -42,7 +42,7 @@ Use that value for `Cost (session)`. (The budget cap still uses the accumulator,
 - `~/.claude/supercharger/scope/.repetition-flag-$SID`
 - `~/.claude/supercharger/scope/.memory-restored-$SID` (per-session; mtime → "compaction X min ago"). The bare `.memory-restored` (no suffix) is a DEPRECATED global flag not written since v2.7.47 — do NOT use it; if `.memory-restored-$SID` is absent, this session hasn't compacted → "this session".
 - `.claude/supercharger/lessons.jsonl` (count + 3 most recent `lesson` fields)
-- `.claude/supercharger-memory.md` (size + last modified)
+- Claude file-memory dir `~/.claude/projects/$ENC/memory/` (reuse `$ENC` from STEP 0): count the entry files (`*.md` **excluding** `MEMORY.md` — MEMORY.md is the index, not an entry) and take the NEWEST mtime across the dir as "last updated". This is the curated, recalled memory the user maintains — NOT the git-gated `.claude/supercharger-memory.md` session file (which is stale-by-design and no longer surfaced here as of v2.7.75). If the dir is absent, render `—`.
 - `.supercharger.json` (role, economy, profile, budget, hints)
 - `~/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl` (count of today's events)
 - `~/.claude/supercharger/scope/.subagent-costs-*.jsonl` (per-subagent cost rollup — aggregate by `agent_name`, show top 3 by `cost_usd`)
@@ -63,7 +63,7 @@ Cost (session) : $X.XX / $Y.YY budget (Z% used)   [computed from the transcript 
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
 Tools (last 10): N success / M failure
 Confidence     : <derived from last 5 tool history entries — same formula as confidence-gate>
-Memory         : <bytes> bytes, last modified <relative time>
+Memory         : <N> entries, updated <relative time>   [Claude file-memory]
 Lessons        : <count> recorded
   - <most recent lesson, truncated to 80 chars>
   - <2nd most recent>
