@@ -336,7 +336,7 @@ fi
 # redirect. It had drifted narrow (only .claude/settings.json + CLAUDE.md), so
 # `echo '{"disableSecurityCategories":[...]}' > .supercharger.json` and appends
 # to the scope disable-files slipped through and could disable the guards.
-if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAUDE\.md|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks) ]]; then
+if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks) ]]; then
   if [[ "$CMD" =~ (>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>) ]]; then
     block "self-modification — agent should not directly edit its own guardrail config files"
   fi

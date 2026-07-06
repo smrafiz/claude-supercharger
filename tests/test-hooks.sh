@@ -604,6 +604,16 @@ begin_test "safety: writing project .mcp.json is blocked (v2.8.6)"
 run_hook "$SAFETY_HOOK" "echo '{}' > .mcp.json"
 assert_exit_code 2 $? && pass
 
+# v2.8.6: complete path-guard parity — ~/.claude.json (SymJack global MCP map)
+# and .claude/settings.local.json were still Bash-writable.
+begin_test "safety: writing ~/.claude.json is blocked (SymJack, v2.8.6)"
+run_hook "$SAFETY_HOOK" "echo '{}' > ~/.claude.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: writing .claude/settings.local.json is blocked (v2.8.6)"
+run_hook "$SAFETY_HOOK" "echo '{}' > .claude/settings.local.json"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: reading .supercharger.json is allowed (no write verb, v2.8.6)"
 run_hook "$SAFETY_HOOK" "cat .supercharger.json"
 assert_exit_code 0 $? && pass
