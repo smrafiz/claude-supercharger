@@ -14,6 +14,12 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
 ```
 
+Or install without keeping the repo around — clones to a temp dir, installs, cleans up:
+
+```bash
+bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
+```
+
 30 seconds. Backs up your config. `./uninstall.sh` reverses everything.
 
 ---
