@@ -135,4 +135,42 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "legit in-project relative write wrongly blocked"
 rm -rf "$PROJ"
 
+# v2.8.4: relative top-level guardrail-config writes were a selfmod bypass
+# (endswith('/.supercharger.json') required a leading slash).
+begin_test "path-guard: blocks RELATIVE .supercharger.json write (v2.8.4 selfmod bypass)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":".supercharger.json","content":"{}"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "relative .supercharger.json not blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks RELATIVE .mcp.json write (v2.8.4)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":".mcp.json","content":"{}"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "relative .mcp.json not blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks RELATIVE .claude/settings.json write (v2.8.4)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":".claude/settings.json","content":"{}"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "relative .claude/settings.json not blocked"
+rm -rf "$PROJ"
+
+# v2.8.4: URL-encoded command substitution %24%28...%29 must be caught too
+begin_test "path-guard: blocks URL-encoded command substitution (v2.8.4)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/foo%%24%%28id%%29.py","content":"x"},"cwd":"%s"}' "$PROJ" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "encoded command substitution not blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: allows a normal relative config-like file (no false positive, v2.8.4)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"config/app.json","content":"{}"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "false positive on normal config/app.json"
+rm -rf "$PROJ"
+
 report

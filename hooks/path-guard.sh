@@ -84,7 +84,9 @@ if 'path-traversal' not in disabled:
 # be evaluated even inside quotes, so a path like 'foo$(curl …).py' becomes
 # an RCE gadget (fixed in v2.1.92). Reject paths containing these sequences.
 if 'path-traversal' not in disabled:
-    if '$(' in p or '`' in p:
+    # v2.8.4: also check the URL-decoded form (`raw`, computed above) — an
+    # encoded `%24%28…%29` would otherwise slip the literal `$(`/backtick test.
+    if '$(' in p or '`' in p or '$(' in raw or '`' in raw:
         print('command substitution sequence in file path ($() or backtick) — '
               'shell metacharacter injection risk (CVE-2026-35021); '
               'opt out via disableSecurityCategories: ["path-traversal"]')
@@ -160,7 +162,14 @@ if 'selfmod' not in disabled:
     # Project-level: .supercharger.json (any depth — could be repo root or nested),
     # project-local .claude/settings.json, and .mcp.json (SymJack — MCP server
     # insertion via a project-scoped config write).
-    if p.endswith('/.supercharger.json') or p.endswith('/.claude/settings.json') or p.endswith('/.claude/settings.local.json') or p.endswith('/.mcp.json'):
+    # v2.8.4: match by basename / leading-slash-agnostic regex. The old
+    # `endswith('/.supercharger.json')` required a leading slash, so a RELATIVE
+    # top-level write (file_path ".supercharger.json" / ".mcp.json" /
+    # ".claude/settings.json") bypassed selfmod entirely — the exact guardrail
+    # this defends. basename covers the single-file configs at any location.
+    _norm = p.replace('\\', '/')
+    if (os.path.basename(p) in ('.supercharger.json', '.mcp.json')
+            or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', _norm)):
         print('self-modification — agent should not edit project guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
 
