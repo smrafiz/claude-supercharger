@@ -117,25 +117,34 @@ msg_trigger = bool(MSG_CRED.search(message))
 #   2. the global scope allowlist managed by /trust-mcp (scope/.trusted-
 #      elicitation-servers) — because .supercharger.json is itself protected by
 #      the self-modification path-guard, so the command can't edit it directly.
+# v2.7.74: normalize IDENTICALLY to the writer (tools/trust-mcp.sh does
+# `tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_.-'`). The reader previously only
+# did .strip().lower(), so a server name containing a char the writer strips
+# (space, ':', '@') was stored reduced but compared un-reduced → trust silently
+# never matched. Mirror the writer so a trusted name always matches.
+_ALLOWED = set('abcdefghijklmnopqrstuvwxyz0123456789_.-')
+def _normkey(s):
+    return ''.join(c for c in str(s).strip().lower() if c in _ALLOWED)
+
 trusted = set()
 try:
     with open(os.path.join(os.environ.get('CONFIG_ROOT', ''), '.supercharger.json')) as f:
         cfg = json.load(f)
     for s in (cfg.get('trustedElicitationServers') or []):
-        trusted.add(str(s).strip().lower())
+        trusted.add(_normkey(s))
 except Exception:
     pass
 try:
     with open(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger',
                            'scope', '.trusted-elicitation-servers')) as f:
         for line in f:
-            s = line.strip().lower()
+            s = _normkey(line)
             if s:
                 trusted.add(s)
 except Exception:
     pass
 
-server_l = str(server).strip().lower()
+server_l = _normkey(server)
 is_trusted = bool(server_l) and server_l in trusted
 
 def audit(action):

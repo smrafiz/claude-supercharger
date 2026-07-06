@@ -35,8 +35,12 @@ SECRET_PATTERNS=(
   'AWS_SECRET_ACCESS_KEY.{0,6}[A-Za-z0-9/+]{40}'
   # GitHub
   'gh[opsu]_[A-Za-z0-9_]{36,}'
-  # Generic
-  '[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]'
+  # Generic key/secret/token — v2.7.74: require an ASSIGNED value, not the bare
+  # word. The keyword-only form fired on any output that merely mentioned "API
+  # key"/"access token" (code comments, docs, help text) — cry-wolf that trained
+  # the user to ignore the scanner. Now anchor on <keyword><:|=><16+ char value>,
+  # same label+value approach as the AWS_SECRET_ACCESS_KEY pattern above.
+  '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+.-]{16,}'
   'Bearer [A-Za-z0-9._-]+'
   # Private keys
   'BEGIN.{0,10}PRIVATE KEY'

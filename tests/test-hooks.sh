@@ -1169,6 +1169,16 @@ INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_resp
 printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "false positive on benign AWS_REGION output"
 
+begin_test "output-secrets-scanner: does NOT flag bare keyword prose (v2.7.74 FP fix)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'stdout':'the trust file gates any API key or access token prompt from an MCP server'}}))")
+printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "false positive on bare 'API key'/'access token' prose (exit should be 0)"
+
+begin_test "output-secrets-scanner: DOES flag keyword assigned a value (v2.7.74)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'stdout':'api_key='+'Z'*24}}))")
+printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "assigned api_key=<value> not detected (exit should be 2)"
+
 begin_test "output-secrets-scanner: detects GitHub token in output"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{'output':'token: ghp_1234567890abcdefghij1234567890abcdef12'}}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SECRETS_SCANNER" 2>&1)
