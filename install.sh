@@ -190,7 +190,7 @@ if [ -n "$ARG_MODE" ]; then
 else
   echo -e "${BOLD}Install Mode${NC}"
   echo ""
-  echo -e "  ${BOLD}1)${NC} Safe       — safety hooks + auto-approve + audit trail (5 hooks)"
+  echo -e "  ${BOLD}1)${NC} Safe       — safety hooks + auto-approve + audit trail (25 hooks)"
   echo -e "  ${BOLD}2)${NC} Full       — everything: git-safety, agent routing, context advisor, quality gate [recommended]"
   echo ""
   read -rp "> " mode_choice

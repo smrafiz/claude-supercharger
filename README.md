@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.7.75-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1249%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.8.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1249%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -118,6 +118,8 @@ The v2.7 line focused on making the runtime observable, hardening the guards, an
 
 - **Closed 7 verified gate bypasses** — absolute-path `rm` targets, leading-`+` force-push refspecs (`git push origin +main`), symlink escapes on relative paths, SQL guards defeated by comment/whitespace obfuscation (plus a broadened server allowlist), GitHub writes with an omitted branch defaulting to `main`, and `find -delete` / `find -exec rm`
 - **Elicitation credential guard** — MCP servers that phish a token/password/API-key through a routine-looking input form are now declined unless the server is explicitly trusted in `.supercharger.json`
+- **Precision secret detection** — the output scanner no longer fires on the bare words "API key" / "access token" in comments or docs; it requires an actual assigned value (`api_key=<value>`), so it flags real leaks without the cry-wolf that trains you to ignore it
+- **Command-output correctness** — a sweep of the diagnostic commands (`/sc-status`, `/why`, `/perf`, `/cache-stats`) fixed scope-file paths that had silently drifted as hooks gained per-session/per-project suffixes; a meta-test now fails CI if any command references a path no hook writes
 
 ### Lower overhead
 
@@ -135,8 +137,8 @@ The v2.7 line focused on making the runtime observable, hardening the guards, an
 
 | Mode | Hooks | Use when |
 |--|--|--|
-| **Safe** | 19 | Security blocks only. Minimal footprint. |
-| **Full** | 98 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Safe** | 25 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
+| **Full** | 90 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
