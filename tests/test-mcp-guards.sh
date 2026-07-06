@@ -60,6 +60,18 @@ begin_test "playwright-guard: blocks puppeteer_evaluate"
 echo '{"tool_name":"mcp__puppeteer__puppeteer_evaluate","tool_input":{"script":"x"}}' | bash "$PW" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "expected 2"
 
+begin_test "playwright-guard: blocks plain browser_run_code (v2.8.1 — #1495 RCE, was bypass)"
+echo '{"tool_name":"mcp__playwright__browser_run_code","tool_input":{"code":"x"}}' | bash "$PW" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "browser_run_code (no _unsafe) not blocked"
+
+begin_test "playwright-guard: blocks https:// to RFC1918 172.x (v2.8.1 — was http-only bypass)"
+echo '{"tool_name":"mcp__playwright__browser_navigate","tool_input":{"url":"https://172.16.0.5/admin"}}' | bash "$PW" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "https://172.16 not blocked"
+
+begin_test "playwright-guard: allows public 172.200 (v2.8.1 — no longer over-blocked)"
+echo '{"tool_name":"mcp__playwright__browser_navigate","tool_input":{"url":"https://172.200.1.1/"}}' | bash "$PW" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "public 172.200 wrongly blocked (172.16-31 is the private range)"
+
 begin_test "playwright-guard: blocks nav to file://"
 echo '{"tool_name":"mcp__playwright__browser_navigate","tool_input":{"url":"file:///etc/passwd"}}' | bash "$PW" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "expected 2"
@@ -138,6 +150,23 @@ echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"DROP/**/TABLE u
 begin_test "sql-guard: covers extra SQL servers (neon)"
 echo '{"tool_name":"mcp__neon__run_sql","tool_input":{"sql":"DROP TABLE users"}}' | bash "$SQL" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "neon DROP TABLE not blocked"
+
+# v2.8.1: broadened DROP/ALTER object lists — these were all bypasses (exit 0) before.
+begin_test "sql-guard: blocks DROP ROLE (v2.8.1)"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"DROP ROLE admin"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "DROP ROLE not blocked"
+
+begin_test "sql-guard: blocks ALTER SYSTEM (v2.8.1 — Postgres config change)"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"ALTER SYSTEM SET fsync = off"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "ALTER SYSTEM not blocked"
+
+begin_test "sql-guard: blocks DROP MATERIALIZED VIEW (v2.8.1)"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"DROP MATERIALIZED VIEW sales_summary"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "DROP MATERIALIZED VIEW not blocked"
+
+begin_test "sql-guard: still allows a column named alter_count (no false positive)"
+echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"SELECT alter_count, role_id FROM audit"}}' | bash "$SQL" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "false positive on alter_count/role_id column names"
 
 begin_test "sql-guard: legit SELECT with deleted_at column still allowed"
 echo '{"tool_name":"mcp__postgres__query","tool_input":{"query":"SELECT * FROM users WHERE deleted_at IS NULL"}}' | bash "$SQL" >/dev/null 2>&1

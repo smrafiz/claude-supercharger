@@ -42,10 +42,13 @@ deny() {
   exit 2
 }
 
-# Unsafe in-browser code eval — no legitimate agentic use
+# Unsafe in-browser code eval — no legitimate agentic use.
+# v2.8.1: match *browser_run_code* (was *browser_run_code_unsafe*), which missed
+# the plain `browser_run_code` tool — the exact #1495 RCE this hook documents.
+# The broader glob still catches the `_unsafe` variant (it contains the prefix).
 case "$TOOL" in
-  *browser_run_code_unsafe*|*puppeteer_evaluate*|*evaluate_handle*)
-    deny "$TOOL blocked — arbitrary in-browser JS eval (CVE-2025-9611 class)"
+  *browser_run_code*|*puppeteer_evaluate*|*evaluate_handle*)
+    deny "$TOOL blocked — arbitrary in-browser JS eval (CVE-2025-9611 / GH #1495 class)"
     ;;
 esac
 
@@ -54,19 +57,25 @@ case "$TOOL" in
   *browser_navigate*|*puppeteer_navigate*|*goto*)
     URL=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null || true)
     if [ -n "$URL" ]; then
-      # Normalize for matching
       URL_LC=$(printf '%s' "$URL" | tr '[:upper:]' '[:lower:]')
+      # v2.8.1: strip the scheme and match the HOST, so a target is caught
+      # regardless of http:// vs https:// vs no-scheme. Previously the 172.x
+      # RFC1918 entries were http-only (https://172.16.x bypassed), and
+      # `172.2*.*` over-matched public 172.200-255. Bracket ranges fix both.
+      HOST=${URL_LC#*://}
       case "$URL_LC" in
         file://*)
           deny "navigate to file:// blocked (local file disclosure, GH #1651)"
           ;;
-        http://localhost*|https://localhost*|http://127.*|https://127.*)
+      esac
+      case "$HOST" in
+        localhost*|127.*|0.0.0.0*|\[::1\]*|\[::ffff:127.*)
           deny "navigate to localhost blocked (SSRF to local services)"
           ;;
-        http://10.*|https://10.*|http://192.168.*|https://192.168.*|http://172.16.*|http://172.17.*|http://172.18.*|http://172.19.*|http://172.2*.*|http://172.30.*|http://172.31.*)
+        10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*)
           deny "navigate to RFC1918 private network blocked (SSRF)"
           ;;
-        http://169.254.*|https://169.254.*|*metadata.google.internal*|*169.254.169.254*)
+        169.254.*|*metadata.google.internal*|*169.254.169.254*)
           deny "navigate to cloud metadata endpoint blocked (credential exfil)"
           ;;
       esac

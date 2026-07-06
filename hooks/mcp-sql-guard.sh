@@ -78,10 +78,13 @@ deny() {
 }
 
 # Use POSIX word boundaries via space/punctuation requirements
-printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|INDEX|VIEW)' && deny "DROP"
+# v2.8.1: broadened DROP/ALTER object lists — previously DROP ROLE/USER/FUNCTION/
+# SEQUENCE/OWNED/MATERIALIZED VIEW and ALTER SYSTEM/ROLE/USER slipped past (all
+# destructive; ALTER SYSTEM SET can change Postgres server config, e.g. fsync).
+printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])DROP[[:space:]]+(TABLE|DATABASE|SCHEMA|INDEX|VIEW|MATERIALIZED|ROLE|USER|FUNCTION|PROCEDURE|SEQUENCE|TRIGGER|TYPE|EXTENSION|OWNED|POLICY|DOMAIN|TABLESPACE)' && deny "DROP"
 printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])TRUNCATE([[:space:]]+TABLE)?[[:space:]]+' && deny "TRUNCATE"
 printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])DELETE[[:space:]]+FROM[[:space:]]+' && deny "DELETE FROM"
-printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])ALTER[[:space:]]+(TABLE|DATABASE|SCHEMA)' && deny "ALTER"
+printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])ALTER[[:space:]]+(TABLE|DATABASE|SCHEMA|SYSTEM|ROLE|USER|SEQUENCE)' && deny "ALTER"
 printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])GRANT[[:space:]]+' && deny "GRANT"
 printf '%s' "$QUERY_NORM" | grep -qE '(^|[^A-Z_])REVOKE[[:space:]]+' && deny "REVOKE"
 
