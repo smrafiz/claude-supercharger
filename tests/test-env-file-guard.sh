@@ -85,4 +85,30 @@ begin_test "env-guard: allows Read of unrelated absolute path"
 run_input '{"tool_name":"Read","tool_input":{"file_path":"/tmp/normal.txt"}}'
 [ "$?" = "0" ] && pass || fail "regular /tmp Read incorrectly blocked"
 
+# v2.8.9: Read-channel parity with the Bash-channel credential set. Reading these
+# via the Read tool bypassed the guard (it only matched .env*).
+begin_test "env-guard: blocks Read of SSH private key (v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/id_rsa"}}'
+[ "$?" = "2" ] && pass || fail "Read of id_rsa not blocked"
+
+begin_test "env-guard: blocks Read of *.pem (v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/server.pem"}}'
+[ "$?" = "2" ] && pass || fail "Read of .pem not blocked"
+
+begin_test "env-guard: blocks Read of .netrc (v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.netrc"}}'
+[ "$?" = "2" ] && pass || fail "Read of .netrc not blocked"
+
+begin_test "env-guard: blocks Read of ~/.aws/credentials (v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.aws/credentials"}}'
+[ "$?" = "2" ] && pass || fail "Read of aws credentials not blocked"
+
+begin_test "env-guard: blocks Read of .git-credentials (v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/.git-credentials"}}'
+[ "$?" = "2" ] && pass || fail "Read of .git-credentials not blocked"
+
+begin_test "env-guard: allows Read of a normal source file (no false positive, v2.8.9)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/src/index.ts"}}'
+[ "$?" = "0" ] && pass || fail "normal source Read wrongly blocked"
+
 report

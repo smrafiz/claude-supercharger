@@ -71,12 +71,33 @@ if [ "$TOOL" = "Read" ]; then
   esac
 
   base=$(basename "$FILE_PATH")
+  # templates are safe
   case "$base" in
     .env.example|.env.template|.env.sample|.env.dist) exit 0 ;;
   esac
-  if [[ "$base" =~ ^\.env(\.[a-zA-Z0-9_-]+)?$ ]]; then
-    block "Read of .env file blocked — credentials likely present" "$FILE_PATH"
-  fi
+  # v2.8.9: the Read tool is a separate channel from Bash — reading id_rsa /
+  # *.pem / .netrc / .git-credentials / cloud credentials via Read bypassed this
+  # guard, which only matched .env*. safety.sh/safety-detect.py already block the
+  # full set for `cat`; mirror it here (keep in sync with
+  # hooks/safety-detect.py:_SENSITIVE_NAME_RE). Pure bash case — no python fork
+  # on the frequent Read path.
+  case "$base" in
+    .env|.env.*)
+      block "Read of .env file blocked — credentials likely present" "$FILE_PATH" ;;
+    id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*)
+      block "Read of SSH private key blocked ($base) — key material" "$FILE_PATH" ;;
+    *.pem|*.key|*.ppk|*.p12|*.pfx|*.crt|*.cer)
+      block "Read of key/certificate file blocked ($base)" "$FILE_PATH" ;;
+    .npmrc|.pypirc|.pgpass|.netrc|.authinfo|.authinfo.gpg|.git-credentials|.my.cnf)
+      block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
+    wallet.dat|wallet.json|*.wallet|credentials)
+      block "Read of wallet/credentials file blocked ($base)" "$FILE_PATH" ;;
+  esac
+  # credential paths not distinguished by basename alone
+  case "$FILE_PATH" in
+    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json)
+      block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
+  esac
   exit 0
 fi
 

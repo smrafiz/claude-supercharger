@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Utility Functions
 
-VERSION="2.8.8"
+VERSION="2.8.9"
 
 # Color codes — declared here, used across tools/* via `source lib/utils.sh`.
 # shellcheck disable=SC2034
