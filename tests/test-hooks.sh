@@ -590,6 +590,24 @@ begin_test "safety: self-modification of settings.json is blocked"
 run_hook "$SAFETY_HOOK" "echo '{}' > .claude/settings.json"
 assert_exit_code 2 $? && pass
 
+# v2.8.6: Bash-channel selfmod parity with path-guard — writing guardrail config
+# via a shell redirect was a bypass (only .claude/settings.json + CLAUDE.md listed).
+begin_test "safety: self-modification of .supercharger.json is blocked (v2.8.6)"
+run_hook "$SAFETY_HOOK" "echo '{}' > .supercharger.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: append to .disabled-security-categories is blocked (v2.8.6)"
+run_hook "$SAFETY_HOOK" "echo network >> ~/.claude/supercharger/scope/.disabled-security-categories"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: writing project .mcp.json is blocked (v2.8.6)"
+run_hook "$SAFETY_HOOK" "echo '{}' > .mcp.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: reading .supercharger.json is allowed (no write verb, v2.8.6)"
+run_hook "$SAFETY_HOOK" "cat .supercharger.json"
+assert_exit_code 0 $? && pass
+
 begin_test "safety: regular echo to file is allowed"
 run_hook "$SAFETY_HOOK" "echo 'hello' > output.txt"
 assert_exit_code 0 $? && pass

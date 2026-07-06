@@ -331,9 +331,14 @@ if _cat_enabled "history" && [[ "$CMD" =~ (\.(bash_history|zsh_history|python_hi
 fi
 
 # --- Self-modification prevention (category: selfmod) ---
-if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAUDE\.md) ]]; then
+# v2.8.6: keep parity with path-guard's selfmod set (Write/Edit channel). This
+# is the Bash channel for the SAME attack — writing guardrail config via a shell
+# redirect. It had drifted narrow (only .claude/settings.json + CLAUDE.md), so
+# `echo '{"disableSecurityCategories":[...]}' > .supercharger.json` and appends
+# to the scope disable-files slipped through and could disable the guards.
+if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings\.json|\.claude/CLAUDE\.md|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks) ]]; then
   if [[ "$CMD" =~ (>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>) ]]; then
-    block "self-modification — agent should not directly edit its own config files"
+    block "self-modification — agent should not directly edit its own guardrail config files"
   fi
 fi
 
