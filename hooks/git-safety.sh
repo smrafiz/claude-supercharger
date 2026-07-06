@@ -104,7 +104,11 @@ while IFS= read -r seg; do
     # flag check above and force-pushed to protected branches.
     if [[ "$seg" =~ push ]] && [[ "$seg" =~ (^|[[:space:]])[+][A-Za-z0-9_/.:-]+([[:space:]]|$) ]]; then
       has_force=true
-      if [[ "$seg" =~ [+]([^[:space:]]*:)?(refs/heads/)?(main|master)([[:space:]]|$) ]]; then
+      # v2.8.8: parity with mcp-github-write-gate's protected set — the leading-`+`
+      # refspec is a native force-push the de-force rewrite CAN'T neutralize (it
+      # strips flags, not the `+`), so `git push origin +production` slipped through
+      # while `+main`/`+master` were caught. Match production/prod/release too.
+      if [[ "$seg" =~ [+]([^[:space:]]*:)?(refs/heads/)?(main|master|production|prod|release)(/[A-Za-z0-9._-]+)?([[:space:]]|$) ]]; then
         has_protected=true
       fi
     fi

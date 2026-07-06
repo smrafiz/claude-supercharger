@@ -78,6 +78,15 @@ _blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +
 begin_test "git-safety: normal push to main still allowed"
 _ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin main"},"cwd":"/tmp"}' && pass || fail "normal push wrongly blocked"
 
+# v2.8.8: parity with mcp-github-write-gate — +ref force-push to production/prod/
+# release was a bypass (only main/master were protected; the + can't be de-forced).
+begin_test "git-safety: +ref force-push to production is blocked (v2.8.8)"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +production"},"cwd":"/tmp"}' && pass || fail "git push +production not blocked"
+begin_test "git-safety: +ref force-push to release/1.0 is blocked (v2.8.8)"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +release/1.0"},"cwd":"/tmp"}' && pass || fail "git push +release/1.0 not blocked"
+begin_test "git-safety: +ref force-push to a feature branch still allowed (v2.8.8)"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +feature-x"},"cwd":"/tmp"}' && pass || fail "non-protected +feature wrongly blocked"
+
 begin_test "lib-suppress: SUPERCHARGER_PROFILE=minimal skips quality-gate"
 TMPDIR_PROF=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_PROF/test.py"
