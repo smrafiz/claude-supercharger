@@ -30,11 +30,23 @@ if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch', 
 resp = d.get('tool_response') or {}
 # Read payloads use `.content`; MCP/Web tools use `.output`. Try both.
 output = resp.get('output') or resp.get('content') or ''
+# v2.8.2: MCP/Read responses often arrive as structured content (list of blocks
+# or a dict), not a bare string. Previously NFKC on a non-str raised → the whole
+# python errored under `2>/dev/null` → the scanner was INERT for structured
+# payloads. Coerce to a string first (mirrors mcp-provenance).
+if isinstance(output, (dict, list)):
+    output = json.dumps(output)
 if not output:
     sys.exit(0)
 
 _nfkc = unicodedata.normalize('NFKC', output)
-normalized = _nfkc.lower()
+# v2.8.2: collapse whitespace before matching. The canonical injection
+# "Ignore all previous instructions" is routinely embedded across newlines in
+# issue bodies / READMEs / web pages; the space-delimited patterns below missed
+# it (same bypass class as the sql-guard DROP\nTABLE fix). \s+ → single space
+# does not touch zero-width chars (category Cf, not whitespace) so the ZW check
+# still fires, and base64 patterns carry no spaces so they're unaffected.
+normalized = re.sub(r'\s+', ' ', _nfkc.lower())
 
 # Case-sensitive markers (base64 is case-sensitive) must match the NON-lowercased
 # text. v2.7.7 fix: these were previously checked against `normalized` (lowercased)

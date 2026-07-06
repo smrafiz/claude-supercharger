@@ -33,7 +33,10 @@ if isinstance(output, (dict, list)):
 if not output:
     sys.exit(0)
 
-normalized = unicodedata.normalize('NFKC', output).lower()
+# v2.8.2: collapse whitespace so the tool-chaining directive pattern (below)
+# can't be split across newlines ("call the\nX\ntool to"). Structural tag
+# patterns are whitespace-immune already; this hardens the prose heuristic.
+normalized = re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', output).lower())
 
 patterns = (
     # Forged tool/function-call framing embedded in a result payload.
