@@ -7,8 +7,15 @@
 
 normalize_cmd() {
   local cmd="$1"
-  cmd=$(printf '%s\n' "$cmd" | sed 's/^[[:space:]]*//' | sed 's/[[:space:]]*$//')
-  cmd=$(printf '%s\n' "$cmd" | sed 's/^\\//')
+  # v2.8.12: pure-bash — was 4×sed + 1×tr (~10ms of forks per call). This helper
+  # is sourced by safety.sh, git-safety.sh, enforce-pkg-manager.sh and runs on
+  # EVERY Bash tool call, so the forks compounded on the hot path. Parameter
+  # expansion is behavior-identical (verified by fuzz-safety + cmd-normalize tests).
+  # Trim leading, then trailing whitespace (spaces + tabs).
+  cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+  cmd="${cmd%"${cmd##*[![:space:]]}"}"
+  # Strip one leading backslash (was sed 's/^\\//').
+  cmd="${cmd#\\}"
   while [[ "$cmd" =~ ^(sudo|command|env)[[:space:]]+ ]]; do
     cmd="${cmd#${BASH_REMATCH[0]}}"
   done
@@ -20,7 +27,8 @@ normalize_cmd() {
   while [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do
     cmd="${cmd#${BASH_REMATCH[0]}}"
   done
-  cmd=$(printf '%s\n' "$cmd" | tr -s ' ')
+  # Collapse runs of spaces to one (matches `tr -s ' '` — spaces only, not tabs).
+  while [[ "$cmd" == *"  "* ]]; do cmd="${cmd//  / }"; done
   printf '%s\n' "$cmd"
 }
 
@@ -30,6 +38,23 @@ normalize_cmd() {
 # Output: one segment per line.
 split_segments() {
   local cmd="$1"
+  # v2.8.12: fork-free fast-path. The python splitter only earns its ~31ms fork
+  # when the command actually contains a shell separator (&& || ; |). Most Bash
+  # calls (npm test, git status, cat x) have none → a single segment. Any of
+  # those chars ANYWHERE (even inside quotes) falls through to the quote-aware
+  # python splitter, so this can never mis-split a quoted separator.
+  case "$cmd" in
+    *'&'*|*'|'*|*';'*) ;;
+    *)
+      local seg="$cmd"
+      # Mirror the python per-segment logic (strip() first, THEN prefixes) so the
+      # fast-path is self-contained and order-identical to the fork path.
+      seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
+      while [[ "$seg" =~ ^(sudo|command|env)[[:space:]]+ ]]; do seg="${seg#${BASH_REMATCH[0]}}"; done
+      while [[ "$seg" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do seg="${seg#${BASH_REMATCH[0]}}"; done
+      [ -n "$seg" ] && printf '%s\n' "$seg"
+      return ;;
+  esac
   CMD_INPUT="$cmd" python3 -c "
 import os, re
 cmd = os.environ.get('CMD_INPUT', '')
