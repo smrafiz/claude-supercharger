@@ -48,7 +48,14 @@ elif '--think' in prompt:
     level = 'high'
 
 if not level:
-    low_verbs  = {'read','show','list','run','yes','no','ok','okay','sure','continue','go','next'}
+    # v2.8.13: only PURE read-only/display verbs count as a positive triviality
+    # signal. Bare acknowledgments (go/yes/okay/continue/next/sure) and ambiguous
+    # verbs (run) were removed — they carry NO complexity signal: a terse "go" /
+    # "next" usually CONTINUES whatever (possibly complex) work is in flight, and
+    # a wrong "minimal reasoning" hint makes the model under-think it. Their
+    # complexity depends on conversation context this hook can't see, so we now
+    # decline to label them (→ medium → no hint) rather than guess "trivial".
+    low_verbs  = {'read','show','list','cat','print','ls','view','display'}
     high_verbs = {'design','architect','plan','debug','investigate','refactor','analyze','migrate','redesign'}
 
     # Agent classification (fresh within 2s)
@@ -62,7 +69,11 @@ if not level:
                 # 'debugger'/'architect'/'planner' never matched any of the 9
                 # agent names — entire branch was dead code.
                 high_agents = {'detective', 'architect', 'strategist', 'scientist'}
-                low_agents  = {'writer', 'generalist'}
+                # v2.8.13: 'generalist' is the DEFAULT/fallback agent, not a
+                # triviality signal — a terse continuation prompt routes to
+                # generalist yet may continue complex work, so it must not force
+                # 'low'. Only 'writer' + a short prompt is a soft low signal.
+                low_agents  = {'writer'}
                 words = prompt.split()
                 if any(a in content for a in high_agents):
                     level = 'high'
@@ -80,7 +91,12 @@ if not level:
         has_question  = '?' in prompt
         if has_high_verb or token_count > 200:
             level = 'high'
-        elif token_count < 50 and (has_low_verb or (not has_question and len(words) <= 3)):
+        elif token_count < 50 and has_low_verb:
+            # v2.8.13: require a POSITIVE read-only verb. The old
+            # `(not has_question and len(words) <= 3)` fallback labelled ANY short
+            # non-question prompt trivial — including terse high-stakes commands
+            # ("delete prod", "deploy now") and continuation acks ("go", "ship
+            # it"). Shortness is not triviality; drop the length-only path.
             level = 'low'
         else:
             level = 'medium'

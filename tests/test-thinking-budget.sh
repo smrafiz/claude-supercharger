@@ -58,15 +58,16 @@ else
 fi
 teardown_test_home
 
-# Test 5: yes/no prompt is low complexity
-begin_test "thinking-budget: yes/no prompt is low complexity"
+# Test 5: read-only-verb prompt is low complexity (v2.8.13: was 'yes' — bare acks
+# are no longer trivial; a positive read-only verb is required for 'low').
+begin_test "thinking-budget: read-only prompt is low complexity"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
-OUTPUT=$(echo '{"prompt":"yes","session_id":"default"}' | bash "$HOOK" 2>/dev/null)
+OUTPUT=$(echo '{"prompt":"show the file contents","session_id":"default"}' | bash "$HOOK" 2>/dev/null)
 if echo "$OUTPUT" | grep -qi "THINK" && echo "$OUTPUT" | grep -qiE "trivial|minimal|directly"; then
   pass
 else
-  fail "expected low THINK message for 'yes', got: $OUTPUT"
+  fail "expected low THINK message for read-only prompt, got: $OUTPUT"
 fi
 teardown_test_home
 
@@ -87,8 +88,35 @@ setup_test_home
 unset SUPERCHARGER_NO_DEDUP
 mkdir -p "$HOME/.claude/supercharger/scope"
 echo '{"prompt":"investigate and refactor the broken auth module","session_id":"chgtb"}' | bash "$HOOK" >/dev/null 2>&1
-LOW=$(echo '{"prompt":"yes","session_id":"chgtb"}' | bash "$HOOK" 2>/dev/null | grep -c "THINK")
+# v2.8.13: "show me the file" is a genuine read-only-verb low (was "yes", which no
+# longer classifies low — bare acks are ambiguous continuations, not trivial).
+LOW=$(echo '{"prompt":"show me the file","session_id":"chgtb"}' | bash "$HOOK" 2>/dev/null | grep -c "THINK")
 [ "$LOW" -eq 1 ] && pass || fail "expected level-change (high->low) to re-emit, got $LOW"
 teardown_test_home
+
+# v2.8.13: bare acknowledgment / continuation prompts must NOT be labelled trivial
+# — they usually continue in-flight (possibly complex) work, and a wrong "minimal
+# reasoning" hint makes the model under-think. They now get no hint (medium).
+export SUPERCHARGER_NO_DEDUP=1
+for ack in go okay next yes continue; do
+  begin_test "thinking-budget: bare '$ack' gets NO trivial hint (v2.8.13)"
+  setup_test_home; mkdir -p "$HOME/.claude/supercharger/scope"
+  OUT=$(echo "{\"prompt\":\"$ack\",\"session_id\":\"ack-$ack\"}" | bash "$HOOK" 2>/dev/null)
+  echo "$OUT" | grep -qi "trivial" && fail "'$ack' wrongly labelled trivial: $OUT" || pass
+  teardown_test_home
+done
+
+begin_test "thinking-budget: terse high-stakes command not labelled trivial (v2.8.13)"
+setup_test_home; mkdir -p "$HOME/.claude/supercharger/scope"
+OUT=$(echo '{"prompt":"delete prod","session_id":"dp"}' | bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qi "trivial" && fail "'delete prod' wrongly labelled trivial: $OUT" || pass
+teardown_test_home
+
+begin_test "thinking-budget: read-only verb still classifies trivial (v2.8.13)"
+setup_test_home; mkdir -p "$HOME/.claude/supercharger/scope"
+OUT=$(echo '{"prompt":"list the files in src","session_id":"ro"}' | bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -qiE "trivial|minimal|directly" && pass || fail "read-only verb should stay trivial: $OUT"
+teardown_test_home
+unset SUPERCHARGER_NO_DEDUP
 
 report

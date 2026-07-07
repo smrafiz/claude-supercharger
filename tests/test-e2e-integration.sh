@@ -173,10 +173,12 @@ PROMPTS=(
   "investigate why the CI pipeline is failing intermittently"
   "refactor the entire authentication module to use OAuth2"
 )
+# v2.8.13: "yes" (bare ack) and "run the tests" ('run' is ambiguous) no longer
+# classify low — they get no hint (medium). "show me the file" stays low (read-only verb).
 EXPECTATIONS=(
+  "medium"
   "low"
-  "low"
-  "low"
+  "medium"
   "medium"
   "medium_or_high"
   "high"
