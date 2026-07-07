@@ -5,6 +5,13 @@
 
 set -euo pipefail
 
+# v2.9.2: honor the global kill-switch. When `/sc off` deactivates Supercharger,
+# render NOTHING so the status bar looks like plain Claude Code. The statusLine
+# command is re-run each turn, so this takes effect immediately; `/sc on` (removes
+# the flag) brings the statusline back on the next render. This is why the toggle
+# doesn't need to touch the settings.json statusLine key.
+[ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ] && exit 0
+
 _INPUT=$(cat)
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"

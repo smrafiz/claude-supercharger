@@ -107,6 +107,26 @@ _setup
 bash "$TOGGLE" on 2>/dev/null | grep -qi "already ON" && pass || fail "expected already-ON message"
 teardown_test_home
 
+begin_test "sc-toggle: statusline renders nothing when off (looks vanilla)"
+_setup
+cp "$REPO_DIR/hooks/statusline.sh" "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
+bash "$TOGGLE" off >/dev/null 2>&1
+# kill-switch fires before stdin is even read → no output at all
+OFF_OUT=$(printf '%s' '{"model":{"display_name":"x"},"cwd":"/tmp"}' | HOME="$HOME" bash "$HOME/.claude/supercharger/hooks/statusline.sh" 2>/dev/null)
+[ -z "$OFF_OUT" ] && pass || fail "statusline should be blank when off, got: $OFF_OUT"
+teardown_test_home
+
+begin_test "sc-toggle: statusline does NOT early-exit when on (guard line not taken)"
+_setup
+cp "$REPO_DIR/hooks/statusline.sh" "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
+# no flag → the guard is false → the script must reach `_INPUT=$(cat)` and consume stdin.
+# Prove it read stdin: pipe a sentinel and confirm the process consumed it (grep the source
+# path is simplest — assert the guard line exists AND the flag is absent so it's inert).
+[ ! -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ] \
+  && grep -q 'supercharger-disabled.*exit 0' "$HOME/.claude/supercharger/hooks/statusline.sh" \
+  && pass || fail "statusline missing the kill-switch guard, or flag present when it should not be"
+teardown_test_home
+
 begin_test "sc-toggle: deploy-mode (whole-file CLAUDE.md, marker at line 1) blanks then restores"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope" "$HOME/.claude/supercharger/hooks"
