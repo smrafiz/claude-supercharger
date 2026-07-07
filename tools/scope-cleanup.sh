@@ -83,7 +83,7 @@ patterns_max_age=(
   ".standards-inject-*:$SECS_MONTH"
   ".repetition-flag-*:$SECS_DAY"
   ".loop-history:$SECS_WEEK"
-  ".read-history:$SECS_WEEK"
+  ".read-history*:$SECS_WEEK"
 )
 
 cleanup_pattern() {

@@ -92,7 +92,10 @@ rep = int(os.path.isfile(os.path.join(scope_dir, f'.repetition-flag-{session_id}
 # Read-before-write violation (Edit only)
 rbw = 0
 if tool == 'Edit' and target_file:
-    rh = os.path.join(scope_dir, '.read-history')
+    # v2.8.14: session-scoped (was global .read-history — stale reads from other
+    # sessions/projects masked real read-before-write violations). Keyed to match
+    # repetition-detector's writer.
+    rh = os.path.join(scope_dir, f'.read-history-{session_id}')
     if not os.path.isfile(rh):
         rbw = 1
     else:
