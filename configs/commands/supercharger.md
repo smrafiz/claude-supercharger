@@ -37,6 +37,7 @@ Claude Supercharger — Slash Commands
     /learn          Record an explicit project rule (surfaces on future prompts)
 
   Meta
+    /sc             Activate / deactivate Supercharger (off | on | status) — flip to default Claude
     /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
     /supercharger   This screen
     /sc-update      Check for and apply Supercharger updates

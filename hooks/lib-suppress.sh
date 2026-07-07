@@ -11,6 +11,14 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
+# v2.9.0: global kill-switch (`/sc off`). When Supercharger is deactivated, every
+# hook that sources this lib exits IMMEDIATELY → default Claude Code behavior, no
+# reinstall needed. sc-toggle.sh exports SUPERCHARGER_TOGGLE to bypass this for its
+# own bookkeeping. (exit at source-time terminates the sourcing hook process.)
+if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ]; then
+  exit 0
+fi
+
 # Disabled hooks content — loaded once at init time, bash 3.2 compatible
 _DISABLED_HOOKS_CONTENT=""
 

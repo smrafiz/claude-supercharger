@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.8.14-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1300%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.9.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1314%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -102,6 +102,7 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Tool preferences** — `.supercharger.json` `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests instead of blanket-denying. Catches `npx`/`bunx` wrappers
 - **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` force extended reasoning; `--no-think` suppresses it (useful on Opus 4.8 where extended thinking is on by default and burns output tokens on routine prompts)
 - **Per-subagent cost breakdown** — `/sc-status` aggregates cost across subagents (Scientist, Detective, Engineer, etc.) so you can see which one burned the budget. Mirrors Claude Code's `/usage` view
+- **On/off switch** — `/sc off` flips to plain default Claude Code (a global kill-switch every hook honors instantly; nothing uninstalled), `/sc on` restores everything. For when you want the vanilla experience for a task, or to A/B compare
 - **20+ slash commands** — `/think`, `/sc-status`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
 
 ---
@@ -267,6 +268,7 @@ Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 | `/why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
 | `/learn <rule>` | Record an explicit project rule. Surfaces on future prompts |
 | `/perf [--slow]` | Hook timing report |
+| `/sc off\|on\|status` | Deactivate/reactivate Supercharger — flip to plain default Claude on demand, no uninstall |
 | `/supercharger` | List all slash commands |
 
 </details>

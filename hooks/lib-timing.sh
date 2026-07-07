@@ -10,6 +10,15 @@
 # v2.7.45: always-on SLOW-hook timing when EPOCHREALTIME is available (bash 5+,
 # zero-fork clock); full profiling via the .profiling sentinel (logs every fire,
 # and enables timing on bash 3.2 where the clock needs a python fork).
+
+# v2.9.0: global kill-switch (`/sc off`). Security hooks (safety.sh, path-guard,
+# git-safety, env-file-guard) source THIS lib, so the check must live here too —
+# when deactivated they exit immediately (stock Claude). sc-toggle bypasses via
+# SUPERCHARGER_TOGGLE. (source-time exit terminates the sourcing hook.)
+if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ]; then
+  exit 0
+fi
+
 _HOOK_PERF_FULL=0
 [ -f "$HOME/.claude/supercharger/scope/.profiling" ] && _HOOK_PERF_FULL=1
 if [ "$_HOOK_PERF_FULL" = 1 ] || [ -n "${EPOCHREALTIME:-}" ]; then
