@@ -162,7 +162,7 @@ fi
 # #1: Dedup — if identical to last injection AND seen within TTL, skip entirely.
 # Without TTL, sessions that idle for hours never re-inject context. 30s window
 # refreshes the hint after a meaningful pause.
-HASH=$(printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || echo "")
+HASH=$(printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || printf '%s' "$CONTEXT" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest())' 2>/dev/null || echo "")
 HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
 LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
 LAST_MTIME=0

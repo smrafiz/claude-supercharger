@@ -182,7 +182,7 @@ hook_already_emitted() {
   local scope_dir="$HOME/.claude/supercharger/scope"
   local dedup_file="${scope_dir}/.dedup-${sid}-${hook_name}"
   local now hash
-  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf 'NOHASH')
+  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf '%s' "$msg" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:32])' 2>/dev/null || printf 'NOHASH')
 
   if [ -f "$dedup_file" ]; then
     now=$(date +%s)

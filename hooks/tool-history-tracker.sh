@@ -62,10 +62,16 @@ if [ -f "$HISTORY" ]; then
     # v2.6.77: serialize the read-count-trim-replace under flock to prevent
     # last-writer-wins races when two async invocations both exceed 20 entries
     # at the same time (rare but plausible in tool-dense sessions).
-    (
-      flock -w 2 9 || true
-      tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
-    ) 9>"$HISTORY.lock" 2>/dev/null || true
+    # v2.9.3: Git Bash ships no flock — degrade to a best-effort trim (the race is
+    # rare and non-destructive; worst case is a few extra lines until the next run).
+    if command -v flock >/dev/null 2>&1; then
+      (
+        flock -w 2 9 || true
+        tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
+      ) 9>"$HISTORY.lock" 2>/dev/null || true
+    else
+      tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" 2>/dev/null && mv "$HISTORY.$$.tmp" "$HISTORY" 2>/dev/null || rm -f "$HISTORY.$$.tmp" 2>/dev/null
+    fi
   fi
 fi
 

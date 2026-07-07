@@ -1,0 +1,17 @@
+# Claude Supercharger — enforce LF line endings.
+# Git Bash on Windows cannot execute .sh files with CRLF endings (the shebang
+# line breaks). core.autocrlf=true would otherwise rewrite them on checkout.
+# Force LF for every executable/interpreted/text asset the hooks rely on.
+*.sh    text eol=lf
+*.bash  text eol=lf
+*.py    text eol=lf
+*.json  text eol=lf
+*.md    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Treat these as binary — never touch their bytes.
+*.png   binary
+*.gif   binary
+*.jpg   binary
+*.ico   binary

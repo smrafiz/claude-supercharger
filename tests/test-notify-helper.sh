@@ -133,4 +133,62 @@ EXIT=$(HOME="$TMPHOME" bash -c "
 rm -rf "$TMPHOME"
 [ "$EXIT" = "1" ] && pass || fail "expected 1 on second call within window, got $EXIT"
 
+# --- v2.9.3: Windows / WSL PowerShell-toast branch ---
+
+# Force OSTYPE=msys so the darwin branch fails; stub powershell.exe on PATH so the
+# branch fires and captures the env-var-passed title/body.
+begin_test "notify-helper: Windows branch invokes powershell with title+body via env"
+WTMP=$(mktemp -d)
+mkdir -p "$WTMP/bin"
+cat > "$WTMP/bin/powershell.exe" <<PSSTUB
+#!/usr/bin/env bash
+printf '%s|%s' "\$SC_NOTIFY_TITLE" "\$SC_NOTIFY_BODY" > "$WTMP/got"
+PSSTUB
+chmod +x "$WTMP/bin/powershell.exe"
+PATH="$WTMP/bin:$PATH" OSTYPE=msys bash -c "
+  export OSTYPE=msys
+  SUPERCHARGER_DIR='$WTMP/sc' SCOPE_DIR='$WTMP/sc/scope'
+  export HOME='$WTMP/home'
+  mkdir -p \"\$HOME\" \"\$SUPERCHARGER_DIR\" \"\$SCOPE_DIR\"
+  . '$HELPER'
+  _send_notification 'Claude Done' 'task finished'
+" >/dev/null 2>&1
+GOT=$(cat "$WTMP/got" 2>/dev/null); rm -rf "$WTMP"
+if [ -z "$GOT" ]; then fail "powershell stub not invoked (Windows branch missed)"
+elif printf '%s' "$GOT" | grep -q 'task finished'; then pass
+else fail "body not passed to powershell: $GOT"; fi
+
+begin_test "notify-helper: Windows branch subtitle folds into body"
+WTMP=$(mktemp -d)
+mkdir -p "$WTMP/bin"
+cat > "$WTMP/bin/powershell.exe" <<PSSTUB
+#!/usr/bin/env bash
+printf '%s' "\$SC_NOTIFY_BODY" > "$WTMP/got"
+PSSTUB
+chmod +x "$WTMP/bin/powershell.exe"
+PATH="$WTMP/bin:$PATH" bash -c "
+  export OSTYPE=msys
+  SUPERCHARGER_DIR='$WTMP/sc' SCOPE_DIR='$WTMP/sc/scope'
+  export HOME='$WTMP/home'
+  mkdir -p \"\$HOME\" \"\$SUPERCHARGER_DIR\" \"\$SCOPE_DIR\"
+  . '$HELPER'
+  _send_notification 'Claude Done' 'body text' 'sub context'
+" >/dev/null 2>&1
+GOT=$(cat "$WTMP/got" 2>/dev/null); rm -rf "$WTMP"
+printf '%s' "$GOT" | grep -q 'sub context - body text' && pass || fail "subtitle not folded: $GOT"
+
+begin_test "notify-helper: Windows branch with no powershell falls back to bell (no crash)"
+WTMP=$(mktemp -d)
+OUT=$(PATH="/usr/bin:/bin" bash -c "
+  export OSTYPE=msys
+  SUPERCHARGER_DIR='$WTMP/sc' SCOPE_DIR='$WTMP/sc/scope'
+  export HOME='$WTMP/home'
+  mkdir -p \"\$HOME\" \"\$SUPERCHARGER_DIR\" \"\$SCOPE_DIR\"
+  . '$HELPER'
+  _send_notification 'Claude Done' 'task finished'
+" 2>&1)
+EXIT=$?
+rm -rf "$WTMP"
+[ "$EXIT" -eq 0 ] && pass || fail "Windows-no-powershell path errored (exit $EXIT): $OUT"
+
 report

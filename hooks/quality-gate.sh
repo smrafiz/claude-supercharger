@@ -142,7 +142,7 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   fi
 
   # Compare with previous iteration — break if issues unchanged (fix can't resolve them)
-  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || echo "")
+  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || python3 -c 'import sys,hashlib; print(hashlib.md5(open(sys.argv[1],"rb").read()).hexdigest())' "$FILE_PATH" 2>/dev/null || echo "")
   if [ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$PREV_ISSUES" ]; then
     break
   fi

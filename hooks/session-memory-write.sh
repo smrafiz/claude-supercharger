@@ -35,7 +35,7 @@ BRANCH=$(printf '%s\n' "$_RP" | sed -n '1p'); [ -z "$BRANCH" ] && BRANCH="unknow
 # --- Recent corrections (last 5, project-scoped) ---
 CORRECTIONS=""
 PROJECT_DIR=$(printf '%s\n' "$_RP" | sed -n '2p'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || printf '%s' "$PROJECT_DIR" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest())' 2>/dev/null || echo "global")
 PROJ_HASH="${PROJ_HASH:0:8}"
 CORRECTIONS_FILE="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"
 # Fall back to global file if project-scoped one doesn't exist yet
