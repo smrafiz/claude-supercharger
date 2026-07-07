@@ -514,6 +514,7 @@ echo -e "  Economy:  ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
 echo -e "  Notify:   ${BOLD}$(capitalize "$NOTIFY_MODE")${NC}"
 echo ""
 echo -e "  Slash commands installed — type ${BOLD}/supercharger${NC} in any chat to list them."
+echo -e "  Want plain Claude for a bit? ${BOLD}/sc off${NC} switches to default Claude, ${BOLD}/sc on${NC} restores it."
 echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
   echo -e "  Run ${BOLD}claude-check${NC} to verify installation."

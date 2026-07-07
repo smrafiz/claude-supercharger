@@ -16,7 +16,12 @@ echo "║  Claude Supercharger v${VERSION} Uninstaller   ║"
 echo "╚═══════════════════════════════════════════╝"
 echo -e "${NC}"
 
-read -rp "Are you sure you want to uninstall Claude Supercharger? (y/N): " -n 1
+echo -e "${CYAN}  Just want to pause Supercharger — not remove it?${NC}"
+echo -e "  Run ${BOLD}/sc off${NC} instead: it switches to plain default Claude Code (guards, memory,"
+echo -e "  economy, statusline all off), and ${BOLD}/sc on${NC} restores everything. Nothing to reinstall."
+echo
+
+read -rp "Still want to fully uninstall Claude Supercharger? (y/N): " -n 1
 echo
 if [[ ! $REPLY =~ ^[Yy]$ ]]; then
   echo -e "${BLUE}Uninstall cancelled.${NC}"
