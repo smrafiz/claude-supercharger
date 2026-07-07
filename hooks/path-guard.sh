@@ -175,6 +175,17 @@ if 'selfmod' not in disabled:
 
 # --- 3.4 Absolute-path writes outside project root ---
 if 'abs-path' not in disabled and os.path.isabs(p) and proj:
+    # v2.8.11: allow Claude Code's own file-memory store —
+    # ~/.claude/projects/<project-enc>/memory/*.md — which the memory feature
+    # writes via the Write tool. Previously the abs-path guard blocked it, so
+    # `/remember` and auto-memory silently failed under Supercharger. This
+    # permits only the LOCATION (narrow: under projects/, in a memory/ dir, .md);
+    # the CONTENT is still scanned by memory-write-guard for poisoning. realpath
+    # is used so an in-path symlink escaping the store can't abuse the allowance.
+    _mem_root = os.path.join(os.path.realpath(os.path.expanduser('~')), '.claude', 'projects')
+    _rp = os.path.realpath(p)
+    if _rp.startswith(_mem_root + os.sep) and '/memory/' in _rp and _rp.endswith('.md'):
+        sys.exit(0)
     abs_blocked = [
         os.path.expanduser('~/.ssh/'),
         os.path.expanduser('~/.aws/'),

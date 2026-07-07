@@ -173,4 +173,28 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "false positive on normal config/app.json"
 rm -rf "$PROJ"
 
+# v2.8.11: Claude Code's own file-memory store must be writable (was blocked by
+# abs-path, silently breaking /remember + auto-memory under Supercharger).
+HOME_R=$(python3 -c "import os;print(os.path.realpath(os.path.expanduser('~')))")
+begin_test "path-guard: allows write to ~/.claude/projects/*/memory/*.md (v2.8.11)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.claude/projects/-enc/memory/note.md","content":"x"},"cwd":"%s"}' "$HOME_R" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "memory-store .md write wrongly blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: still blocks a non-.md file in the memory dir (v2.8.11)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.claude/projects/-enc/memory/evil.sh","content":"x"},"cwd":"%s"}' "$HOME_R" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "non-.md write in memory dir should still be blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: memory allowance does not weaken ~/.ssh protection (v2.8.11)"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.ssh/authorized_keys","content":"x"},"cwd":"%s"}' "$HOME_R" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "~/.ssh write must still be blocked"
+rm -rf "$PROJ"
+
 report
