@@ -317,6 +317,9 @@ No. The installer backs up everything before touching it. `./uninstall.sh` resto
 **A hook blocked something I actually need.**
 `bash tools/hook-toggle.sh <hook-name> off` — or run the command directly in your terminal, outside Claude.
 
+**Can I temporarily switch back to plain Claude Code?**
+Yes — `/sc off` deactivates Supercharger globally (a kill-switch every hook honors instantly: no guards, no injection, no statusline — stock Claude), and `/sc on` restores everything. `/sc status` shows the current state. Nothing is uninstalled; files stay dormant on disk, `settings.json` is never touched, and a backup is written to `~/.claude/backups/` first. Good for A/B comparing, or a task where you want the vanilla experience. Two notes: hooks go off immediately (next tool call), but the `CLAUDE.md` prompt rules clear on your **next session** (they're loaded once at start); and **while off, the security guards are off too** — you're on stock Claude with no safety net until you `/sc on`.
+
 **How do I debug what hooks are doing?**
 Hook output is hidden by default. Enable per-project: `touch .supercharger-debug` in your repo root. Enable globally: `touch ~/.claude/supercharger/scope/.debug-hooks`.
 
