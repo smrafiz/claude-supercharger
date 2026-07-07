@@ -1,0 +1,160 @@
+# Windows Support — Plan
+
+Status: **proposed** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-07-07
+
+This plan is the output of a research spike (two subagents: one on Claude Code's Windows
+hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
+it takes for Supercharger to run on Windows, and phases the work so value ships early.
+
+---
+
+## 1. Goal & scope
+
+**Goal:** Supercharger works for Windows users — first via WSL and Git Bash (bash preserved),
+not a native PowerShell rewrite.
+
+**Explicitly out of scope — a native PowerShell port.** Porting 94 hooks + libs to PowerShell
+would recreate the *cross-channel parity-drift* bug class (a guard in bash **and** PowerShell whose
+lists inevitably diverge) at 2× the maintenance surface — the exact class we spent v2.8.x closing.
+Rejected.
+
+---
+
+## 2. Key finding — Claude Code does the hard part
+
+From the Claude Code docs (hooks / settings / setup / statusline):
+
+- **Windows hook interpreter:** **Git Bash if installed → PowerShell fallback.** CC *auto-selects*
+  Git Bash; it is not `cmd`. macOS/Linux use `sh -c`.
+- **Shebang:** `#!/bin/bash` is honored by Git Bash. (Ignored by PowerShell.)
+- **Paths:** Git Bash **auto-converts** `C:\Users\…` → `/c/Users/…` (POSIX) before the hook sees them.
+- **`.sh` hooks must use shell form** (a `command` string, **no `args` field**); exec form can't run `.sh` on Windows.
+- **Config location:** `%USERPROFILE%\.claude\`. **statusLine runs the same way** as hooks.
+- **Gotcha — line endings:** `core.autocrlf=true` can give `.sh` files CRLF, which breaks Git Bash. Enforce LF.
+
+**Consequence:** with Git for Windows present, our bash hooks **run largely as-is** — the runtime handles
+interpreter selection and path conversion. The remaining work is a bounded set of missing-tool fallbacks,
+notifications, and install/test plumbing — **not a rewrite**.
+
+References:
+- https://code.claude.com/docs/en/hooks.md
+- https://code.claude.com/docs/en/settings.md
+- https://code.claude.com/docs/en/setup.md
+- https://code.claude.com/docs/en/statusline.md
+
+---
+
+## 3. Feasibility verdict
+
+| Environment | State | Effort |
+|---|---|---|
+| **WSL 2** (CC running inside WSL) | Basically works today — it's Linux. Only real gap: notifications. | Small (docs + notify) |
+| **Native Windows + Git for Windows** | Hooks run via Git Bash; gaps are missing tools + notifications + LF. | ~2–3 days, mostly mechanical |
+| **Native Windows, PowerShell only (no Git Bash)** | Not supported (can't run `.sh`). Document "install Git for Windows." | N/A (out of scope) |
+
+**Bottom line: viable, not a rewrite.** Estimate ~2–3 focused days for Git Bash/WSL support.
+
+---
+
+## 4. Gap inventory (audit, with corrections)
+
+### 4.1 Genuine gaps — must fix
+
+| # | Gap | Sites | File:line (representative) | Fix |
+|---|---|---|---|---|
+| G1 | **Desktop notifications** — only macOS (`osascript`) + Linux (`notify-send`); no Windows branch → silent (bell only) | 8 | `hooks/notify-helper.sh:67-101` (89,92 osascript; 94,97 notify-send) | Add a Windows branch: PowerShell toast (`New-BurntToastNotification`) or `msg`; graceful no-op if absent |
+| G2 | **`md5sum`/`md5`** — neither exists on Git Bash; fallback chain ends empty | 8 | `repetition-detector.sh:52`, `failure-tracker.sh:54`, `quality-gate.sh:40,145`, `agent-router.sh:165`, `session-memory-write.sh:38`, `learn-from-prompts.sh:25`, `lib-suppress.sh:185` | Add `python3 hashlib.md5` as the final fallback — one helper in `lib/utils.sh`, call everywhere |
+| G3 | **`flock` shell utility** — absent on Git Bash; shell use has no fallback | 1 | `tool-history-tracker.sh:66` (`flock -w 2 9`) | Fall back to python `fcntl.flock`, or skip locking on Windows (best-effort append) |
+| G4 | **`jq` + `python3` not on Git Bash by default** | prereqs | `install.sh:8-24` (jq gate), `:25-28` (python) | Installer: detect on Windows, guide `choco install jq` / python; keep the hard `jq` gate but with a Windows-specific message |
+| G5 | **CRLF line endings** break Git Bash execution | repo | — | Add `.gitattributes`: `*.sh text eol=lf` (also `*.py`, `*.md` as appropriate) |
+| G6 | **Symlink `! -L` tests** — reliability on Windows/Git Bash unclear | 8 | `enforce-pkg-manager.sh:62,69,76,85` | Validate on Windows; worst case the check is advisory, so degrade safely |
+
+### 4.2 Already handled — no work
+
+- **`stat`/`date`** — every site is GNU-first with BSD fallback (`stat -c … || stat -f …`); Git Bash has GNU stat. Date uses portable format strings. (`repetition-detector.sh:95`, `update-check.sh:28`, `scope-cleanup.sh:98`, …)
+- **`timeout`/`gtimeout`** — guarded with `command -v`; Git Bash ships `timeout`.
+- **`iconv`** — used with `|| true` fallback (`notify-helper.sh:83-85`); missing → skips transliteration, notification still fires.
+- **`realpath`** — only via Python `os.path.realpath()` (cross-platform).
+- **`grep`/`awk`/`sed -E`** — POSIX/portable; no `grep -P`.
+- **`chmod`** — emulated on NTFS under Git Bash; succeeds harmlessly.
+
+### 4.3 Audit "blockers" DOWNGRADED (verified against current behavior)
+
+- **`sed -i.bak` / `sed -i.tmp`** (install.sh:376,384; uninstall.sh:62,65; tools/bump-version.sh, tools/release.sh) — the audit flagged this as a BSD/GNU blocker. **False alarm:** we run these on **macOS (BSD sed) in green CI today**, and GNU sed (Git Bash) also accepts the attached-suffix form. Portable. No change. *(One item to eyeball: the multi-line trailing-blank-strip `sed -e :a …` in uninstall.sh:65 — confirm it runs on Git Bash GNU sed; if flaky, replace with the awk trailing-blank trim already used in `sc-toggle.sh`.)*
+- **Installer hook-path backslashes** — the audit assumed Windows-native path expansion. But `install.sh` runs **under Git Bash**, where `$HOME` is already `/c/Users/…` (POSIX), so `${hooks_dir}/safety.sh` emits forward-slash commands CC can run. **Likely fine** — needs a Windows smoke test to confirm, not a code change up front.
+
+---
+
+## 5. Phased plan
+
+### Phase 1 — cross-platform hardening (a 2.x minor, ships value now)
+
+Everything here **also improves mac/Linux robustness** and needs **no Windows machine to land**. It
+directly fixes the already-reported "no notifications" bug.
+
+1. **`notify-helper.sh` Windows branch (G1)** — add a `powershell.exe`/`pwsh` toast path (BurntToast if
+   present, else `msg` / balloon), gated on OSTYPE/`uname` detecting `msys`/`cygwin`/WSL. Keep the bell as
+   the final fallback. *Works for WSL (via `powershell.exe` interop) and Git Bash.*
+2. **`md5` python fallback helper (G2)** — one function in `lib/utils.sh` (`sc_md5`), swap the 8 call sites
+   to it. Chain: `md5sum` → `md5 -q` → `python3 hashlib.md5`.
+3. **`flock` fallback (G3)** — `tool-history-tracker.sh`: if `command -v flock` absent, best-effort append
+   (or a python `fcntl.flock` wrapper).
+4. **`.gitattributes` LF (G5)** — `*.sh text eol=lf`.
+5. **Tests** — extend the suite: `sc_md5` returns 8 hex on all fallback tiers; notify-helper picks the right
+   backend per simulated platform; flock-absent path still writes.
+
+Exit criteria: full suite green on both CI OSes; notifications documented as working on WSL.
+
+### Phase 2 — native Windows support + verification (3.0)
+
+1. **`install.sh` Windows detection (G4)** — detect Git Bash / MSYS, check `jq`/`python3`, print
+   `choco install jq` guidance; confirm the generated settings.json hook commands run under Git Bash.
+2. **Windows smoke test of hook registration** — verify `${hooks_dir}/*.sh` commands fire (path form OK).
+3. **Symlink test validation (G6)** — confirm `! -L` behaves on Git Bash; degrade safely if not.
+4. **Windows CI job** — GitHub Actions `windows-latest` + Git Bash running a Windows-relevant subset of the
+   suite. **This is the linchpin** — turns "probably works" into "verified" and prevents regression.
+5. **Docs** — a "Windows" section: Git for Windows requirement, `choco install jq`, LF note, WSL as the
+   recommended sandboxed path.
+
+Exit criteria: Windows CI green on the subset; a real Windows/WSL manual pass; README "Not supported: Windows"
+line replaced with a real setup guide.
+
+---
+
+## 6. Testing strategy
+
+- **Phase 1** is verifiable on existing mac/Linux CI (the fallbacks are platform-agnostic logic).
+- **Phase 2** needs the `windows-latest` CI job — without it, Windows support is unverifiable and will rot.
+  Scope it to the hooks/tests that don't need a full Claude Code session (unit-level hook invocation with
+  crafted stdin payloads, exactly like the current suite).
+- **Manual pass** on a real Windows box (Git Bash) and a WSL 2 instance before announcing.
+
+---
+
+## 7. Risks & mitigations
+
+| Risk | Mitigation |
+|---|---|
+| Windows behavior drifts silently (no coverage) | Phase 2 Windows CI job is mandatory, not optional |
+| Path form in settings.json fails on native Windows | Verified by the Phase 2 smoke test before claiming support |
+| Notification backend (BurntToast) not installed | Layered fallback: BurntToast → `msg` → bell → silent; never errors |
+| Scope creep toward a PowerShell port | Explicitly ruled out here; bash-only, Git Bash/WSL is the contract |
+| CRLF corruption of `.sh` on clone | `.gitattributes` LF enforcement (Phase 1) |
+
+---
+
+## 8. Decision log
+
+- **2026-07-07** — Rejected native PowerShell port (parity-drift surface). Chose Git Bash/WSL.
+- **2026-07-07** — Downgraded two audit "blockers" (`sed -i.bak`, installer backslash paths) after verifying
+  against current green CI and the Git-Bash-runs-install fact.
+- **2026-07-07** — Sequenced Phase 1 (platform hardening, ships on 2.x) before Phase 2 (native Windows + CI, 3.0),
+  so the notification fix and robustness land immediately and de-risk the harder native work.
+
+---
+
+## 9. Recommended first action
+
+Build **Phase 1, item 1** — the `notify-helper.sh` Windows branch. Smallest, highest-value, independently
+useful (fixes the reported "no notifications" issue on WSL today), and it proves the platform-detection
+pattern the rest of Phase 1 reuses.
