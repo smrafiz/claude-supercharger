@@ -11,6 +11,11 @@
 # zero-fork clock); full profiling via the .profiling sentinel (logs every fire,
 # and enables timing on bash 3.2 where the clock needs a python fork).
 
+# v2.9.3: force Python UTF-8 mode (Windows Python defaults to cp1252 → UnicodeError
+# on UTF-8 content). No-op on mac/Linux. Set before any python fork in sourcing
+# hooks. Mirrors lib-suppress.sh; both libs set it so all hooks are covered.
+export PYTHONUTF8=1
+
 # v2.9.0: global kill-switch (`/sc off`). Security hooks (safety.sh, path-guard,
 # git-safety, env-file-guard) source THIS lib, so the check must live here too —
 # when deactivated they exit immediately (stock Claude). sc-toggle bypasses via

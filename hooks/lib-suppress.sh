@@ -11,6 +11,13 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
+# v2.9.3: force Python UTF-8 mode. Windows Python defaults to the locale codec
+# (cp1252), so any hook that reads/writes UTF-8 content (→, box chars, emoji) via
+# open() crashes with UnicodeEncode/DecodeError on Git Bash — the write never
+# happens and downstream reads FileNotFoundError. UTF-8 mode makes file+stdio I/O
+# default to utf-8; it's a no-op on mac/Linux (already utf-8). Set before any fork.
+export PYTHONUTF8=1
+
 # v2.9.0: global kill-switch (`/sc off`). When Supercharger is deactivated, every
 # hook that sources this lib exits IMMEDIATELY → default Claude Code behavior, no
 # reinstall needed. sc-toggle.sh exports SUPERCHARGER_TOGGLE to bypass this for its
