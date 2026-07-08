@@ -27,7 +27,7 @@ jobs:
   test-windows:
     name: Test suite (Windows / Git Bash)
     runs-on: windows-latest
-    timeout-minutes: 25
+    timeout-minutes: 12
     defaults:
       run:
         shell: bash
@@ -40,51 +40,6 @@ jobs:
           echo "bash:    $(bash --version | head -1)"
           echo "jq:      $(jq --version)"
           echo "python3: $(python3 --version 2>&1 || python --version)"
-
-      # TEMPORARY probe: observe what native Windows Python actually sees for HOME /
-      # expanduser / a POSIX path, so the path-class fix isn't a guess. Decides
-      # whether `os.environ.get('HOME')` is MSYS-converted (openable) or raw POSIX.
-      - name: PROBE native Windows Python path behavior (temporary)
-        shell: bash --noprofile --norc {0}
-        run: |
-          set +e
-          T=$(mktemp -d); echo "hello" > "$T/marker.txt"; export HOME="$T"
-          echo "HOME(bash)=$HOME"; echo "cygpath-w=$(cygpath -w "$T" 2>/dev/null)"
-          python3 - <<'PY'
-          import os
-          print("HOME(py)   =", repr(os.environ.get('HOME')))
-          print("expanduser =", repr(os.path.expanduser('~')))
-          print("USERPROFILE=", repr(os.environ.get('USERPROFILE')))
-          h = os.environ.get('HOME','')
-          p = os.path.join(h, 'marker.txt')
-          try: print("open via HOME:", "OK", open(p).read().strip())
-          except Exception as e: print("open via HOME:", "FAIL", type(e).__name__, e)
-          PY
-          WIN=$(cygpath -w "$T")
-          WIN="$WIN" python3 -c "import os; p=os.path.join(os.environ['WIN'],'marker.txt'); print('open via cygpath:', ('OK '+open(p).read().strip()) if os.path.isfile(p) else 'MISSING')"
-
-      # TEMPORARY diagnostic: run the ENTIRE suite on Git Bash to surface every
-      # Windows-only failure at once (per-file timeout so a hang can't block the
-      # sweep; never fails the step so we see the full list). Triage → fix real
-      # hook bugs / guard test-harness-only issues → then remove this step.
-      - name: FULL SUITE sweep (temporary — enumerate all Windows failures)
-        shell: bash --noprofile --norc {0}   # NO -e/-o pipefail, so the sweep never dies mid-loop
-        run: |
-          set +e
-          fails=""
-          for t in tests/test-*.sh; do
-            timeout 90 bash "$t" >/tmp/o 2>&1
-            ec=$?
-            if [ "$ec" -ne 0 ]; then
-              echo "##### FAIL/TIMEOUT (exit $ec): ${t##*/} #####"
-              grep -aiE "FAIL|Error|error:|not found|No such|Traceback|command not found" /tmp/o 2>/dev/null | head -12
-              fails="$fails ${t##*/}(${ec})"
-            fi
-          done
-          echo "=================================================="
-          echo "FAILING FILES:${fails:- NONE}"
-          echo "=================================================="
-          exit 0
 
       # Split per-suite with a hard timeout so a hang fails fast and the step
       # view pinpoints the culprit (rather than one opaque multi-suite step).
@@ -100,6 +55,18 @@ jobs:
       # Regression + functional proof for all 7 python-CRLF fixes on real Git Bash.
       - name: windows-crlf hardening (7 hooks)
         run: timeout 180 bash tests/test-windows-crlf.sh
+
+      # Newly-fixed suites confirmed green on Git Bash — verify the path/security
+      # fixes hold on real Windows: circuit-breaker os.replace (owasp-asi),
+      # Fact-A/jq (stop-verify), expanduser→HOME (rate-limit, mcp-guards),
+      # compound-env cygpath (session-analytics).
+      - name: windows-verified fixes (path/security classes)
+        run: |
+          timeout 120 bash tests/test-owasp-asi.sh
+          timeout 120 bash tests/test-stop-verify-detect.sh
+          timeout 120 bash tests/test-rate-limit-advisor.sh
+          timeout 120 bash tests/test-mcp-guards.sh
+          timeout 120 bash tests/test-session-analytics.sh
 
   version-check:
     name: Version consistency
