@@ -40,7 +40,12 @@ if [ "$SESSION_SKIP" = false ]; then
   while IFS= read -r -d '' proj_dir; do
     proj_slug=$(basename "$proj_dir")
     while IFS= read -r -d '' f; do
-      FILE_LIST="${FILE_LIST}${proj_slug}|${f}"$'\n'
+      # v2.9.3: paths ride to python in a compound env var, which MSYS does NOT
+      # path-convert → native Windows Python can't open '/tmp/…'. Convert to native
+      # form here (no-op where cygpath is absent, i.e. mac/Linux).
+      nf="$f"
+      command -v cygpath >/dev/null 2>&1 && nf="$(cygpath -w "$f" 2>/dev/null || printf '%s' "$f")"
+      FILE_LIST="${FILE_LIST}${proj_slug}|${nf}"$'\n'
     done < <(find "$proj_dir" -maxdepth 1 -name "*.jsonl" -not -empty -print0 2>/dev/null)
   done < <(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d -print0 2>/dev/null)
 fi

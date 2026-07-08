@@ -18,8 +18,11 @@ AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"
 detect_test_cmd() {
   local dir="${1:-.}"
   if [ -f "$dir/package.json" ]; then
-    # Check for test script in package.json
-    if python3 -c "import json; d=json.load(open('$dir/package.json')); exit(0 if 'test' in d.get('scripts',{}) else 1)" 2>/dev/null; then
+    # Check for test script in package.json. v2.9.3: use jq (path is argv → MSYS
+    # path-converted) instead of an interpolated POSIX path baked into python -c,
+    # which native Windows Python can't open (Fact A). `has("test")` mirrors the
+    # prior `'test' in scripts` key check.
+    if jq -e '.scripts | has("test")' "$dir/package.json" >/dev/null 2>&1; then
       # Detect package manager
       if [ -f "$dir/pnpm-lock.yaml" ]; then echo "pnpm test"
       elif [ -f "$dir/bun.lockb" ]; then echo "bun test"
