@@ -36,7 +36,7 @@ from detect_stack import detect_stack
 TIER = os.environ.get('SUPERCHARGER_TIER', 'standard')
 proj = os.environ['PROJECT_DIR']
 rules_dir = os.environ['RULES_DIR']
-home = os.path.expanduser('~')
+home = (os.environ.get('HOME') or os.path.expanduser('~'))
 
 s = detect_stack(proj)
 if not s['detected']:

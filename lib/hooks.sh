@@ -299,7 +299,7 @@ for line in hooks_input.strip().split('\n'):
 
     settings['hooks'][event].append(hook_entry)
 
-statusline_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh')
+statusline_path = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'hooks', 'statusline.sh')
 if os.path.isfile(statusline_path):
     settings['statusLine'] = {
         'type': 'command',

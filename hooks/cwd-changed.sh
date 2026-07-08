@@ -29,7 +29,7 @@ if not s['detected']:
     sys.exit(0)
 
 # Only inject if stack differs from cached value for this dir
-cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+cache_dir = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
 proj_hash = hashlib.md5(new_dir.encode()).hexdigest()[:8]
 cache_path = os.path.join(cache_dir, f'.stack-cache-{proj_hash}')
 
