@@ -27,6 +27,7 @@ jobs:
   test-windows:
     name: Test suite (Windows / Git Bash)
     runs-on: windows-latest
+    timeout-minutes: 12
     defaults:
       run:
         shell: bash
@@ -40,11 +41,16 @@ jobs:
           echo "jq:      $(jq --version)"
           echo "python3: $(python3 --version 2>&1 || python --version)"
 
-      - name: Run cross-platform hardening suites
-        run: |
-          bash tests/test-notify-helper.sh
-          bash tests/test-md5-fallback.sh
-          bash tests/test-tool-history-tracker.sh
+      # Split per-suite with a hard timeout so a hang fails fast and the step
+      # view pinpoints the culprit (rather than one opaque multi-suite step).
+      - name: notify-helper (G1 Windows toast branch)
+        run: timeout 180 bash tests/test-notify-helper.sh
+
+      - name: md5 fallback (G2 python tier)
+        run: timeout 180 bash tests/test-md5-fallback.sh
+
+      - name: tool-history-tracker (G3 flock-absent trim)
+        run: timeout 180 bash tests/test-tool-history-tracker.sh
 
   version-check:
     name: Version consistency
