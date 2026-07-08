@@ -168,6 +168,13 @@ to master as 3.0. README already replaced the bare "use WSL or Git Bash" line wi
   on the python capture + a regression guard. Lesson: **any hook that turns Python `print()` output into a
   filename/key is CRLF-exposed on Windows**; jq-primary and md5sum-primary paths are safe (Git Bash ships both),
   so tool-history was the only always-python offender — but this is the pattern to watch in future hooks.
+- **2026-07-08** — Post-fix, a 3-subagent audit swept **every always-python hook** for the same CRLF-into-key
+  pattern and found **6 more** genuine exposures beyond tool-history (all `${VAR//$'\r'/}`-fixed): the HIGH ones
+  were `enforce-pkg-manager.sh` (pkg-manager enforcement no-op'd) and `subagent-circuit-breaker.sh` (breaker
+  failed open) — two guards silently disabled on Windows. `test-windows-crlf.sh` now guards all 7 strips and
+  functionally proves the pkg-manager block on the `windows-latest` CI subset. Rule of thumb recorded in
+  [[windows-python-crlf-keys]]: jq-primary and md5sum-primary paths are safe; *always-python* captures that
+  become a filename/key/control-flow value are the exposure.
 - **2026-07-08** — The PATH-mirror tool-hiding test technique (symlink all of `$PATH` minus one tool to force a
   fallback branch) is **mac/Linux-only**: on MSYS `ln -s` copies files, so it clones `C:\Windows\System32` and
   hangs the runner. Skip such tests on msys/cygwin — the fallback tools' native presence/absence on Git Bash
