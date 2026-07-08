@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **ready to merge** — Phase 1 + Phase 2 complete on branch `feat/windows-support`; **all CI green including the `windows-latest` Git Bash job**. Windows CI caught (and we fixed) a real cross-platform bug — see decision log 2026-07-08. Only the 2.9.3→3.0.0 version re-bump remains at the merge commit · Target: **merge → 3.0** · Last updated: 2026-07-08
+Status: **systemic Windows work complete; ~10 items gated on a real Windows box** — on branch `feat/windows-support`. A full-suite Git Bash sweep found 23 failing suites across 5+ root-cause families; all inspection-resolvable ones fixed (**23 → 10**), incl. a security fail-open (see decision log 2026-07-08). All CI green (mac/Linux 1337 + the `windows-latest` Git Bash subset verifying every fixed class). The remaining ~10 (harness artifacts, NTFS exec-bit, a few residual root-causes) + a full Windows security pass are the **3.0 exit criteria needing the maintainer's Windows machine**. · Target: **merge → 3.0 after the Windows pass** · Last updated: 2026-07-08
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -168,6 +168,33 @@ to master as 3.0. README already replaced the bare "use WSL or Git Bash" line wi
   on the python capture + a regression guard. Lesson: **any hook that turns Python `print()` output into a
   filename/key is CRLF-exposed on Windows**; jq-primary and md5sum-primary paths are safe (Git Bash ships both),
   so tool-history was the only always-python offender — but this is the pattern to watch in future hooks.
+- **2026-07-08** — Ran the FULL suite on `windows-latest` Git Bash (temporary CI sweep) to find *every* Windows
+  failure, not just the CRLF class. Surfaced **23 failing suites across 5+ root-cause families**, diagnosed by
+  4 parallel subagents + a decisive CI probe. Fixed all the ones resolvable by inspection, driving **23 → 10**:
+  - **cp1252 encoding** (`PYTHONUTF8=1` in both shared libs + 39 lib-less hooks/tools) — Windows Python's locale
+    codec crashes on UTF-8 content.
+  - **Fact B — `expanduser('~')` ≠ `$HOME`**: a CI probe proved MSYS auto-converts the `HOME` env var to a
+    native path that Python can open, so `os.environ.get('HOME') or os.path.expanduser('~')` is correct on every
+    platform (10 hooks). Cleared rate-limit, mcp-guards/elicitation, hook-overrides/project-config, install statusLine.
+  - **Fact A — interpolated POSIX paths in `python3 -c`** (not MSYS-converted): hook-doctor (env var), stop-verify (jq).
+  - **`fcntl` absent** (budget-cap, subagent-cost) → guarded import, best-effort no-lock.
+  - **`os.rename` not atomic-overwrite on Windows** (F4) → `os.replace` ×4; this was the real circuit-breaker
+    fail-open (counter froze → never tripped), beyond the earlier `\r` fix.
+  - **POSIX paths into native git/compound-env** (session-checkpoint `git -C`, session-analytics) → `cygpath -w`.
+  - **Security fail-safe**: `safety.sh`'s python realpath layer fails open on Git Bash (realpath of a POSIX
+    system literal → C-drive path, never matches). Added a **Windows-gated** bash string-match net (provably no
+    mac/Linux change; validated by `OSTYPE=msys` simulation). safety-detect.py confirmed string/regex-based
+    (no realpath fail-open) + reachable via MSYS-converted argv.
+  The permanent Windows CI subset was expanded to regression-guard these path/security fixes on real Git Bash;
+  the temporary probe/sweep were removed.
+- **2026-07-08 — REMAINING (needs a real Windows box; the macOS-inspection limit).** ~10 suites still fail on Git
+  Bash and could not be responsibly closed from macOS: `standards-inject` + `session-checkpoint` (cygpath fixes
+  were correct-in-principle/no-op on mac but did not fully land — root cause unobservable without Windows);
+  `budget-cap`/`subagent-cost` residual cost-logic; `hook-doctor` (NTFS has no exec bits — `[ -x ]` is meaningless
+  where CC runs hooks via `bash`); and **harness artifacts** confirmed by the subagents to leave the guards intact
+  or fail-*closed* (`path-guard`, `scope-guard`, `hook-new`, the 2 fork-latency "hangs"). These + a full Windows
+  security pass are the **3.0 exit criteria** requiring the maintainer's Windows machine. mac/Linux stayed green
+  (1337) throughout; no regressions.
 - **2026-07-08** — Post-fix, a 3-subagent audit swept **every always-python hook** for the same CRLF-into-key
   pattern and found **6 more** genuine exposures beyond tool-history (all `${VAR//$'\r'/}`-fixed): the HIGH ones
   were `enforce-pkg-manager.sh` (pkg-manager enforcement no-op'd) and `subagent-circuit-breaker.sh` (breaker
