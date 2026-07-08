@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **in progress** — Phase 1 shipped on branch `feat/windows-support` (2.9.3); Phase 2 code landed (G4 install detection, `windows-latest` CI job, G6 verified-safe, docs), pending Windows-CI-green verification before the 3.0 merge · Target: **merge → 3.0** · Last updated: 2026-07-08
+Status: **ready to merge** — Phase 1 + Phase 2 complete on branch `feat/windows-support`; **all CI green including the `windows-latest` Git Bash job**. Windows CI caught (and we fixed) a real cross-platform bug — see decision log 2026-07-08. Only the 2.9.3→3.0.0 version re-bump remains at the merge commit · Target: **merge → 3.0** · Last updated: 2026-07-08
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -160,6 +160,19 @@ to master as 3.0. README already replaced the bare "use WSL or Git Bash" line wi
   against current green CI and the Git-Bash-runs-install fact.
 - **2026-07-07** — Sequenced Phase 1 (platform hardening, ships on 2.x) before Phase 2 (native Windows + CI, 3.0),
   so the notification fix and robustness land immediately and de-risk the harder native work.
+- **2026-07-08** — The `windows-latest` Git Bash CI job **paid for itself immediately**: it caught a real bug the
+  mac/Linux suite structurally could not. `tool-history-tracker.sh` is always python-parsed (v2.7.58), and
+  **Windows Python's `print()` emits CRLF** — so `SESSION_ID=${RESULT%%$'\n'*}` kept a trailing `\r`, the hook
+  wrote `.tool-history-<sid>\r`, and `confidence-gate`'s python-derived (clean) reader looked for the CR-less
+  name → session history silently never found on Windows, degrading confidence scoring. Fixed with `tr -d '\r'`
+  on the python capture + a regression guard. Lesson: **any hook that turns Python `print()` output into a
+  filename/key is CRLF-exposed on Windows**; jq-primary and md5sum-primary paths are safe (Git Bash ships both),
+  so tool-history was the only always-python offender — but this is the pattern to watch in future hooks.
+- **2026-07-08** — The PATH-mirror tool-hiding test technique (symlink all of `$PATH` minus one tool to force a
+  fallback branch) is **mac/Linux-only**: on MSYS `ln -s` copies files, so it clones `C:\Windows\System32` and
+  hangs the runner. Skip such tests on msys/cygwin — the fallback tools' native presence/absence on Git Bash
+  already exercises the branches. Also corrected a plan assumption: **modern Git for Windows DOES ship `md5sum`**
+  (MSYS2 coreutils), so the G2 python md5 tier is a rare-edge fallback there, not the primary path.
 
 ---
 
