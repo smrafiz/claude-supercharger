@@ -33,25 +33,33 @@ OUT=$(python3 -c 'import sys,hashlib; print(hashlib.md5(open(sys.argv[1],"rb").r
 rm -f "$TMPF"
 [ "$OUT" = "$REF" ] && pass || fail "file hash mismatch: py=$OUT ref=$REF"
 
-# End-to-end: shadow md5sum+md5 out of PATH, confirm repetition-detector still
-# keys its history file by a hash (i.e. the python tier actually fires in-hook).
+# End-to-end: confirm repetition-detector still keys its history file by a hash
+# when the native md5 tools are gone (i.e. the python tier actually fires in-hook).
+# Where md5sum/md5 EXIST (Linux/macOS) hide them via a full-PATH symlink mirror;
+# where they're already absent (Windows/Git Bash) run directly — do NOT mirror PATH
+# on MSYS, where `ln -s` copies files and cloning System32 hangs the job.
 begin_test "md5 fallback: repetition-detector still hashes with md5sum/md5 absent"
 setup_test_home
 HOOK="$REPO_DIR/hooks/repetition-detector.sh"
-SHADOW=$(mktemp -d)
-IFS=':' read -ra _pdirs <<< "$PATH"
-for d in "${_pdirs[@]}"; do
-  [ -d "$d" ] || continue
-  for f in "$d"/*; do
-    b=$(basename "$f" 2>/dev/null)
-    { [ "$b" = "md5sum" ] || [ "$b" = "md5" ]; } && continue
-    [ -e "$SHADOW/$b" ] || ln -sf "$f" "$SHADOW/$b" 2>/dev/null
-  done
-done
 INPUT='{"session_id":"md5sess","prompt":"do the thing again please"}'
-OUT=$(PATH="$SHADOW" bash "$HOOK" <<<"$INPUT" 2>&1)
-EXIT=$?
-rm -rf "$SHADOW"
+if command -v md5sum >/dev/null 2>&1 || command -v md5 >/dev/null 2>&1; then
+  SHADOW=$(mktemp -d)
+  IFS=':' read -ra _pdirs <<< "$PATH"
+  for d in "${_pdirs[@]}"; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*; do
+      b=$(basename "$f" 2>/dev/null)
+      { [ "$b" = "md5sum" ] || [ "$b" = "md5" ]; } && continue
+      [ -e "$SHADOW/$b" ] || ln -sf "$f" "$SHADOW/$b" 2>/dev/null
+    done
+  done
+  OUT=$(PATH="$SHADOW" bash "$HOOK" <<<"$INPUT" 2>&1)
+  EXIT=$?
+  rm -rf "$SHADOW"
+else
+  OUT=$(bash "$HOOK" <<<"$INPUT" 2>&1)
+  EXIT=$?
+fi
 teardown_test_home
 [ "$EXIT" -eq 0 ] && pass || fail "repetition-detector errored with md5 tools absent (exit $EXIT): $OUT"
 

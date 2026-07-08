@@ -232,6 +232,11 @@ echo "$OUTPUT" | grep -qi "usage" && pass || fail "no usage text"
 # Mirror PATH minus jq and force OSTYPE=msys so the Windows branch fires; the gate
 # exits 1 before touching the filesystem, so no test HOME is needed.
 begin_test "install: Windows prereq guidance when jq absent (G4)"
+# Skip on MSYS/Git Bash: hiding jq needs a full-PATH mirror, and there `ln -s`
+# copies files (cloning System32 hangs). The branch is verified on mac/Linux CI.
+case "${OSTYPE:-}" in
+  msys*|cygwin*) pass; teardown_test_home 2>/dev/null || true ;;
+  *)
 NOJQ=$(mktemp -d)
 IFS=':' read -ra _pdirs <<< "$PATH"
 for d in "${_pdirs[@]}"; do
@@ -247,5 +252,7 @@ EC=$?
 rm -rf "$NOJQ"
 if [ "$EC" -ne 0 ] && echo "$OUT" | grep -qi "winget install jqlang.jq"; then pass
 else fail "expected exit≠0 + winget guidance on Windows jq-absent; ec=$EC out=$(echo "$OUT" | tr '\n' '|')"; fi
+    ;;
+esac
 
 report

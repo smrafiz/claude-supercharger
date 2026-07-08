@@ -71,8 +71,10 @@ fi
 teardown_test_home
 
 # v2.9.3: Git Bash ships no flock — the trim must still happen (best-effort path).
-# Mirror the full PATH into a shadow dir MINUS flock, so `command -v flock` fails
-# even on Linux CI (where flock exists) and the else-branch is exercised everywhere.
+# On systems where flock EXISTS (Linux CI) we hide it via a full-PATH symlink mirror
+# to force the else-branch. On systems where it's already absent (macOS, Windows/Git
+# Bash) the else-branch is the natural path, so run the hook directly — crucially,
+# NOT mirroring PATH on MSYS, where `ln -s` copies files and cloning System32 hangs.
 begin_test "tool-history-tracker: trims with flock absent (Windows/Git Bash path)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
@@ -80,20 +82,24 @@ HISTORY="$HOME/.claude/supercharger/scope/.tool-history-sess1"
 for i in $(seq 1 25); do
   echo "{\"session_id\":\"sess1\",\"tool\":\"Read\",\"success\":true,\"ts\":$i}"
 done > "$HISTORY"
-FLOCKLESS=$(mktemp -d)
-IFS=':' read -ra _pdirs <<< "$PATH"
-for d in "${_pdirs[@]}"; do
-  [ -d "$d" ] || continue
-  for f in "$d"/*; do
-    b=$(basename "$f" 2>/dev/null)
-    [ "$b" = "flock" ] && continue
-    [ -e "$FLOCKLESS/$b" ] || ln -sf "$f" "$FLOCKLESS/$b" 2>/dev/null
-  done
-done
 INPUT='{"session_id":"sess1","tool_name":"Edit","tool_response":{}}'
-PATH="$FLOCKLESS" bash "$HOOK" <<<"$INPUT" >/dev/null 2>&1 || true
+if command -v flock >/dev/null 2>&1; then
+  FLOCKLESS=$(mktemp -d)
+  IFS=':' read -ra _pdirs <<< "$PATH"
+  for d in "${_pdirs[@]}"; do
+    [ -d "$d" ] || continue
+    for f in "$d"/*; do
+      b=$(basename "$f" 2>/dev/null)
+      [ "$b" = "flock" ] && continue
+      [ -e "$FLOCKLESS/$b" ] || ln -sf "$f" "$FLOCKLESS/$b" 2>/dev/null
+    done
+  done
+  PATH="$FLOCKLESS" bash "$HOOK" <<<"$INPUT" >/dev/null 2>&1 || true
+  rm -rf "$FLOCKLESS"
+else
+  bash "$HOOK" <<<"$INPUT" >/dev/null 2>&1 || true
+fi
 COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
-rm -rf "$FLOCKLESS"
 [ "$COUNT" -le 20 ] && pass || fail "expected ≤20 after flock-absent trim, got $COUNT"
 teardown_test_home
 
