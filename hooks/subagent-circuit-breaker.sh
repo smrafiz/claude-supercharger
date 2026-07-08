@@ -65,7 +65,7 @@ try:
     tmp = state_file + f'.{os.getpid()}.tmp'
     with open(tmp, 'w') as f:
         json.dump(spawns, f)
-    os.rename(tmp, state_file)
+    os.replace(tmp, state_file)  # v2.9.3: os.rename raises on Windows if target exists (not atomic-overwrite) → counter froze at ≤2 → breaker never tripped (fail-open). os.replace overwrites atomically on every platform.
 except Exception:
     pass
 

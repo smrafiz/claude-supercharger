@@ -279,7 +279,7 @@ try:
     tmp_jsonl = jsonl_file + f'.{os.getpid()}.tmp'
     with open(tmp_jsonl, 'w') as f:
         f.write('\n'.join(kept_lines) + '\n')
-    os.rename(tmp_jsonl, jsonl_file)
+    os.replace(tmp_jsonl, jsonl_file)  # v2.9.3: os.rename fails overwriting on Windows (F4); os.replace is atomic-overwrite everywhere
 except Exception:
     pass
 
@@ -294,7 +294,10 @@ cost_delta = max(0.0, turn_cost - prev_cost)
 # whole RMW. The atomic rename already prevented corruption; this prevents lost
 # updates.
 cost_file = os.path.join(scope_dir, '.session-cost')
-import fcntl
+try:
+    import fcntl  # v2.9.3: absent on native Windows Python — best-effort no-lock (flock site below is wrapped in except Exception → _lf=None; atomic rename still prevents corruption)
+except ImportError:
+    fcntl = None
 lock_file = cost_file + '.lock'
 _lf = None
 try:
@@ -335,7 +338,7 @@ try:
     try:
         with open(tmp_file, 'w') as f:
             json.dump(new_state, f)
-        os.rename(tmp_file, cost_file)
+        os.replace(tmp_file, cost_file)  # v2.9.3: os.rename fails overwriting on Windows (F4); os.replace is atomic-overwrite everywhere
     except Exception:
         pass
 finally:

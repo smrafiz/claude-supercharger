@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: this meta-test forks python to scan repo files; Windows Python defaults to cp1252 and chokes on UTF-8 bytes. No-op on mac/Linux.
 # Meta-test: every scope-file a slash COMMAND reads must match how the hooks/tools
 # actually WRITE it. This is the "stale scope-file path" class that silently broke
 # /sc-status, /why, /perf, /cache-stats — commands referencing names/suffixes that
