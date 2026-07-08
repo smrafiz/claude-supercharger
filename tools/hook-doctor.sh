@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Hook Doctor
 # Diagnoses broken hook installations by inspecting settings.json
 # and validating each registered hook script.
