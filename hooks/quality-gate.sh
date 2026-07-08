@@ -38,6 +38,7 @@ _qg_hash() {
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 QG_PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
+QG_PROJ_HASH="${QG_PROJ_HASH//$'\r'/}"  # v2.9.3: python is the PRIMARY hash here; strip Windows CRLF so the cache filename isn't ".quality-gate-cache-<hash>\r" (NTFS rejects \r → cache silently lost, re-lints every write)
 QG_CACHE="$SCOPE_DIR/.quality-gate-cache-${QG_PROJ_HASH}"
 QG_FILE_HASH=$(_qg_hash "$FILE_PATH")
 

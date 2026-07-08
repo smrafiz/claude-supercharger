@@ -29,6 +29,7 @@ try:
 except Exception:
     print('\x1f')
 " 2>/dev/null)
+EXTRACTED="${EXTRACTED//$'\r'/}"  # v2.9.3: Windows python print() emits CRLF; strip \r before the split so PROJECT_DIR isn't ".../cwd\r" (would break every lockfile [ -f ] test → pkg-manager enforcement silently no-ops)
 
 COMMAND="${EXTRACTED%%$'\x1f'*}"
 PROJECT_DIR="${EXTRACTED#*$'\x1f'}"

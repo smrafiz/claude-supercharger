@@ -104,6 +104,7 @@ degraded = 'yes' if len(last3) >= 3 and all(r < 50 for r in last3) else 'no'
 print(f'ok {cache_read} {cache_create} {hit_rate} {json.dumps(window)} {degraded}')
 PYEOF
 )
+RESULT="${RESULT//$'\r'/}"  # v2.9.3: Windows python print() emits CRLF; strip \r so DEGRADED (last field) isn't "yes\r" (would never match "yes" → degraded-cache warning never fires on Git Bash)
 
 case "$RESULT" in
   skip*) exit 0 ;;

@@ -14,6 +14,7 @@ import sys, json
 try: print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))
 except: print('')
 " 2>/dev/null || echo "")
+FILE_PATH="${FILE_PATH//$'\r'/}"  # v2.9.3: strip Windows python CRLF or the trailing \r breaks every [ -f "$FILE_PATH" ] test on Git Bash
 
 [ -z "$FILE_PATH" ] && exit 0
 [ ! -f "$FILE_PATH" ] && exit 0
