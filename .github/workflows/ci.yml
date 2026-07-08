@@ -59,10 +59,11 @@ jobs:
           fi
           echo "--- git check-attr ---"
           git check-attr text eol -- tests/test-tool-history-tracker.sh hooks/tool-history-tracker.sh || true
-          echo "--- replicate exact test flow (temp HOME) ---"
+          echo "--- replicate exact test flow (temp HOME) with -x trace ---"
           export HOME="$(mktemp -d)"; mkdir -p "$HOME/.claude/supercharger/scope"
-          printf '%s' '{"session_id":"sess1","tool_name":"Edit","tool_response":{}}' | bash hooks/tool-history-tracker.sh; echo "exit=$?"
-          echo "scope dir contents (od -c reveals any CR in filename):"
+          echo "HOME=$HOME"
+          printf '%s' '{"session_id":"sess1","tool_name":"Edit","tool_response":{}}' | bash -x hooks/tool-history-tracker.sh 2>&1 | tail -50; echo "exit=${PIPESTATUS[0]}"
+          echo "scope dir contents:"
           ls "$HOME/.claude/supercharger/scope/" | od -c | head
 
       - name: tool-history-tracker (G3 flock-absent trim)
