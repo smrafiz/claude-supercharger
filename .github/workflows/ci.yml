@@ -51,14 +51,19 @@ jobs:
 
       - name: tool-history diagnostic (temporary)
         run: |
-          echo "--- direct hook run ---"
-          printf '%s' '{"session_id":"diag","tool_name":"Edit","tool_response":{}}' | bash hooks/tool-history-tracker.sh; echo "hook exit=$?"
-          echo "--- scope dir ---"
-          ls -la "$HOME/.claude/supercharger/scope/" 2>&1 | head || true
-          echo "--- python json.load over pipe ---"
-          printf '%s' '{"session_id":"diag","tool_name":"Edit","tool_response":{}}' | python3 -c "import sys,json; d=json.load(sys.stdin); print('PARSED sid=', d.get('session_id'))" 2>&1 || echo "python json.load FAILED"
-          echo "--- hook stderr visible ---"
-          printf '%s' '{"session_id":"diag2","tool_name":"Edit","tool_response":{}}' | bash -x hooks/tool-history-tracker.sh 2>&1 | tail -25 || true
+          echo "--- line endings of checked-out .sh test files ---"
+          if grep -lU $'\r' tests/test-tool-history-tracker.sh hooks/tool-history-tracker.sh hooks/lib-suppress.sh >/dev/null 2>&1; then
+            echo "CRLF PRESENT in:"; grep -lU $'\r' tests/test-tool-history-tracker.sh hooks/tool-history-tracker.sh hooks/lib-suppress.sh
+          else
+            echo "LF ok (no CR in test/hook .sh)"
+          fi
+          echo "--- git check-attr ---"
+          git check-attr text eol -- tests/test-tool-history-tracker.sh hooks/tool-history-tracker.sh || true
+          echo "--- replicate exact test flow (temp HOME) ---"
+          export HOME="$(mktemp -d)"; mkdir -p "$HOME/.claude/supercharger/scope"
+          printf '%s' '{"session_id":"sess1","tool_name":"Edit","tool_response":{}}' | bash hooks/tool-history-tracker.sh; echo "exit=$?"
+          echo "scope dir contents (od -c reveals any CR in filename):"
+          ls "$HOME/.claude/supercharger/scope/" | od -c | head
 
       - name: tool-history-tracker (G3 flock-absent trim)
         run: timeout 180 bash tests/test-tool-history-tracker.sh
