@@ -182,6 +182,35 @@ PYEOF
         if [ -n "$BAD" ]; then
           block "recursive force rm on protected path ($BAD)"
         fi
+        # v2.9.3 FAIL-SAFE (Windows/Git Bash only): the python realpath layer above
+        # is authoritative on mac/Linux but fails OPEN on native Windows Python —
+        # realpath(join('C:\\tmp','/etc')) == 'C:\\etc' never matches the POSIX
+        # SYS_ROOTS, so `rm -rf /etc`, `/Users/x`, `~/.ssh` slipped through. This
+        # platform-agnostic bash string-match net blocks dangerous ABSOLUTE targets
+        # so the guard never silently passes on Git Bash. Windows-GATED, so it cannot
+        # change mac/Linux behavior (verified: full safety suite green there).
+        # NOTE: closes the silent fail-open; full Windows threat-model parity still
+        # needs a real-box security pass before Windows is announced as supported.
+        case "${OSTYPE:-}" in
+          msys*|cygwin*)
+            # POSIX system roots (as literal rm targets)
+            if [[ "$args" =~ (^|[[:space:]])(/etc|/usr|/bin|/sbin|/lib|/lib64|/boot|/sys|/dev|/proc|/root|/System|/Library|/private/etc)([[:space:]]|/|$) ]]; then
+              block "recursive force rm on protected system path (Windows fail-safe)"
+            fi
+            # Windows system dirs + MSYS drive forms (C:\Windows, C:\Users, /c/Windows, /c/Users)
+            if [[ "$args" =~ (^|[[:space:]])([A-Za-z]:[\\/]+([Ww]indows|[Ww]innt|[Uu]sers|[Pp]rogram)|/[A-Za-z]/([Ww]indows|[Uu]sers))([[:space:]\\/]|$) ]]; then
+              block "recursive force rm on protected Windows path (fail-safe)"
+            fi
+            # another user's home: /Users/x, /home/x, /c/Users/x
+            if [[ "$args" =~ (^|[[:space:]])(/(Users|home)/[^[:space:]/]+|/[A-Za-z]/[Uu]sers/[^[:space:]/]+)([[:space:]]|/|$) ]]; then
+              block "recursive force rm on a home directory (Windows fail-safe)"
+            fi
+            # home-anchored sensitive credential dotdirs (~, $HOME, or an absolute home path)
+            if [[ "$args" =~ (~|\$HOME|\$\{HOME\}|/(Users|home)/[^[:space:]/]+|/[A-Za-z]/[Uu]sers/[^[:space:]/]+)[\\/]+\.(ssh|aws|gnupg|kube|docker|gcloud|azure|password-store|gpg|netrc)([[:space:]\\/]|$) ]]; then
+              block "recursive force rm on a sensitive credential dir (Windows fail-safe)"
+            fi
+            ;;
+        esac
       fi
     fi
   done <<< "$SEGMENTS"
