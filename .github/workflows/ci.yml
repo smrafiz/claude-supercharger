@@ -46,21 +46,23 @@ jobs:
       # sweep; never fails the step so we see the full list). Triage → fix real
       # hook bugs / guard test-harness-only issues → then remove this step.
       - name: FULL SUITE sweep (temporary — enumerate all Windows failures)
+        shell: bash --noprofile --norc {0}   # NO -e/-o pipefail, so the sweep never dies mid-loop
         run: |
+          set +e
           fails=""
           for t in tests/test-*.sh; do
-            if timeout 90 bash "$t" >/tmp/o 2>&1; then
-              :
-            else
-              ec=$?
-              echo "##### FAIL/TIMEOUT (exit $ec): $t #####"
-              grep -aiE "FAIL|Error|error:|not found|No such|Traceback|command not found" /tmp/o | head -10
-              fails="$fails ${t##*/}"
+            timeout 90 bash "$t" >/tmp/o 2>&1
+            ec=$?
+            if [ "$ec" -ne 0 ]; then
+              echo "##### FAIL/TIMEOUT (exit $ec): ${t##*/} #####"
+              grep -aiE "FAIL|Error|error:|not found|No such|Traceback|command not found" /tmp/o 2>/dev/null | head -12
+              fails="$fails ${t##*/}(${ec})"
             fi
           done
           echo "=================================================="
           echo "FAILING FILES:${fails:- NONE}"
           echo "=================================================="
+          exit 0
 
       # Split per-suite with a hard timeout so a hang fails fast and the step
       # view pinpoints the culprit (rather than one opaque multi-suite step).
