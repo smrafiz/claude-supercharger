@@ -28,7 +28,17 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "standards-inject" && exit 0
 hook_profile_skip "standards-inject" && exit 0
 
-MSG=$(PROJECT_DIR="$PROJECT_DIR" LIB_DIR="$LIB_DIR" RULES_DIR="$RULES_DIR" python3 -c "
+# v2.9.3: hand python NATIVE Windows paths. sys.path.insert + detect_stack(proj) +
+# open(rules_dir/...) all do native-Python file I/O; a POSIX '/c/…' or '/tmp/…'
+# (even MSYS-auto-converted inconsistently) can miss. cygpath -w is authoritative;
+# no-op off Windows (cygpath absent).
+_LIBW="$LIB_DIR"; _RULESW="$RULES_DIR"; _PROJW="$PROJECT_DIR"
+if command -v cygpath >/dev/null 2>&1; then
+  _LIBW="$(cygpath -w "$LIB_DIR" 2>/dev/null || printf '%s' "$LIB_DIR")"
+  [ -n "$RULES_DIR" ] && _RULESW="$(cygpath -w "$RULES_DIR" 2>/dev/null || printf '%s' "$RULES_DIR")"
+  _PROJW="$(cygpath -w "$PROJECT_DIR" 2>/dev/null || printf '%s' "$PROJECT_DIR")"
+fi
+MSG=$(PROJECT_DIR="$_PROJW" LIB_DIR="$_LIBW" RULES_DIR="$_RULESW" python3 -c "
 import os, sys
 sys.path.insert(0, os.environ['LIB_DIR'])
 from detect_stack import detect_stack
