@@ -27,7 +27,7 @@ jobs:
   test-windows:
     name: Test suite (Windows / Git Bash)
     runs-on: windows-latest
-    timeout-minutes: 12
+    timeout-minutes: 25
     defaults:
       run:
         shell: bash
@@ -40,6 +40,27 @@ jobs:
           echo "bash:    $(bash --version | head -1)"
           echo "jq:      $(jq --version)"
           echo "python3: $(python3 --version 2>&1 || python --version)"
+
+      # TEMPORARY diagnostic: run the ENTIRE suite on Git Bash to surface every
+      # Windows-only failure at once (per-file timeout so a hang can't block the
+      # sweep; never fails the step so we see the full list). Triage → fix real
+      # hook bugs / guard test-harness-only issues → then remove this step.
+      - name: FULL SUITE sweep (temporary — enumerate all Windows failures)
+        run: |
+          fails=""
+          for t in tests/test-*.sh; do
+            if timeout 90 bash "$t" >/tmp/o 2>&1; then
+              :
+            else
+              ec=$?
+              echo "##### FAIL/TIMEOUT (exit $ec): $t #####"
+              grep -aiE "FAIL|Error|error:|not found|No such|Traceback|command not found" /tmp/o | head -10
+              fails="$fails ${t##*/}"
+            fi
+          done
+          echo "=================================================="
+          echo "FAILING FILES:${fails:- NONE}"
+          echo "=================================================="
 
       # Split per-suite with a hard timeout so a hang fails fast and the step
       # view pinpoints the culprit (rather than one opaque multi-suite step).
