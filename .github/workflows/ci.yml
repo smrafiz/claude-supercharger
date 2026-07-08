@@ -49,6 +49,17 @@ jobs:
       - name: md5 fallback (G2 python tier)
         run: timeout 180 bash tests/test-md5-fallback.sh
 
+      - name: tool-history diagnostic (temporary)
+        run: |
+          echo "--- direct hook run ---"
+          printf '%s' '{"session_id":"diag","tool_name":"Edit","tool_response":{}}' | bash hooks/tool-history-tracker.sh; echo "hook exit=$?"
+          echo "--- scope dir ---"
+          ls -la "$HOME/.claude/supercharger/scope/" 2>&1 | head || true
+          echo "--- python json.load over pipe ---"
+          printf '%s' '{"session_id":"diag","tool_name":"Edit","tool_response":{}}' | python3 -c "import sys,json; d=json.load(sys.stdin); print('PARSED sid=', d.get('session_id'))" 2>&1 || echo "python json.load FAILED"
+          echo "--- hook stderr visible ---"
+          printf '%s' '{"session_id":"diag2","tool_name":"Edit","tool_response":{}}' | bash -x hooks/tool-history-tracker.sh 2>&1 | tail -25 || true
+
       - name: tool-history-tracker (G3 flock-absent trim)
         run: timeout 180 bash tests/test-tool-history-tracker.sh
 
