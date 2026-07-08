@@ -108,4 +108,10 @@ case "${OSTYPE:-}" in
     ;;
 esac
 
+# v2.9.3: Windows Python's print() emits CRLF; the sid capture must strip \r or the
+# .tool-history-<sid> filename gets a trailing CR and desyncs from confidence-gate's
+# (python-derived, clean) reader. Guard the fix so it can't be silently removed.
+begin_test "tool-history-tracker: strips CRLF from python capture (Windows safety)"
+grep -q "tr -d '\\\\r'" "$HOOK" && pass || fail "python capture must pipe through tr -d '\\\\r' for Windows"
+
 report

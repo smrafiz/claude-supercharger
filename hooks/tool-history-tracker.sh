@@ -45,7 +45,10 @@ if isinstance(resp, dict):
         success = False
 print(sid)
 print(json.dumps({'session_id': sid, 'tool': tool, 'success': success, 'ts': int(time.time())}))
-" 2>/dev/null)
+" 2>/dev/null | tr -d '\r')
+# v2.9.3: strip \r — Windows Python's print() emits CRLF, and splitting RESULT on
+# \n below would otherwise leave a trailing \r on SESSION_ID, corrupting the
+# .tool-history-<sid> filename (and desyncing it from jq-derived readers).
 
 [ -z "$RESULT" ] && exit 0
 SESSION_ID=${RESULT%%$'\n'*}
