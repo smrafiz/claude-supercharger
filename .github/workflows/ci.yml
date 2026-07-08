@@ -52,6 +52,10 @@ jobs:
       - name: tool-history-tracker (G3 flock-absent trim)
         run: timeout 180 bash tests/test-tool-history-tracker.sh
 
+      # Regression + functional proof for all 7 python-CRLF fixes on real Git Bash.
+      - name: windows-crlf hardening (7 hooks)
+        run: timeout 180 bash tests/test-windows-crlf.sh
+
   version-check:
     name: Version consistency
     runs-on: ubuntu-latest
