@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.9.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1326%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.9.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1327%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -339,7 +339,12 @@ bash tools/hook-toggle.sh my-hook on
 Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 
 **Windows?**
-Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash.
+Supercharger runs on Windows through **Git Bash** or **WSL** — the bash hooks are preserved, there is no PowerShell port. Two paths:
+
+- **WSL 2** (recommended) — it's Linux, so everything works as-is. Install Supercharger inside your WSL distro.
+- **Native Windows + [Git for Windows](https://git-scm.com/download/win)** — Claude Code auto-routes hooks to Git Bash. Install [`jq`](https://jqlang.github.io/jq/) and Python 3 first (`winget install jqlang.jq` and `winget install Python.Python.3.12`, or `choco install jq python`), reopen Git Bash so they're on PATH, then run `install.sh`.
+
+Notes: Desktop notifications use a Windows toast (BurntToast module if present, else a balloon). The repo enforces LF line endings via `.gitattributes` so Git Bash can execute the `.sh` hooks. Native Windows **without** Git for Windows (PowerShell only) can't run `.sh` hooks — install Git for Windows or use WSL.
  
 ---
 
@@ -373,11 +378,11 @@ If you need shell-level enforcement of dangerous patterns regardless of source, 
 ## Requirements
 
 - [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI
-- Bash 3.2+ (macOS or Linux)
+- Bash 3.2+ (macOS or Linux; **Windows** via Git Bash or WSL — see [Windows?](#going-deeper) above)
 - Python 3.6+
-- `jq` (install with `brew install jq` or `apt-get install jq` — install.sh checks at start)
+- `jq` (install with `brew install jq`, `apt-get install jq`, or `winget install jqlang.jq` — install.sh checks at start)
 
-**Not supported:** Alpine Linux (ships `ash`, not `bash`). Run inside a Debian/Ubuntu/Fedora container instead, or install GNU bash on Alpine first.
+**Not supported:** Alpine Linux (ships `ash`, not `bash`). Run inside a Debian/Ubuntu/Fedora container instead, or install GNU bash on Alpine first. Native Windows without Git for Windows (PowerShell-only) can't execute `.sh` hooks — install Git for Windows or use WSL.
 ---
 
 ## Credits

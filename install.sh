@@ -2,6 +2,16 @@
 set -euo pipefail
 umask 077
 
+# --- Platform detection ---
+# v2.9.3: Windows support runs the bash hooks via Git Bash / MSYS / Cygwin (or WSL,
+# which is just Linux). Detect the Git-Bash family so prereq guidance points at the
+# right package manager. WSL is intentionally NOT flagged here — it's Linux.
+_IS_WINDOWS=0
+case "${OSTYPE:-}" in msys*|cygwin*|win32) _IS_WINDOWS=1 ;; esac
+if [ "$_IS_WINDOWS" = "0" ] && command -v uname >/dev/null 2>&1; then
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) _IS_WINDOWS=1 ;; esac
+fi
+
 # --- Prerequisite check ---
 # jq is used by ~60 hooks for parsing tool input JSON. Without it, hooks silently
 # degrade (empty values, malformed JSON output). Fail fast at install.
@@ -9,7 +19,10 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "ERROR: jq is required but not installed." >&2
   echo "" >&2
   echo "Install with:" >&2
-  if command -v brew >/dev/null 2>&1; then
+  if [ "$_IS_WINDOWS" = "1" ]; then
+    echo "  winget install jqlang.jq   (or: choco install jq / scoop install jq)" >&2
+    echo "  Then reopen Git Bash so jq is on PATH." >&2
+  elif command -v brew >/dev/null 2>&1; then
     echo "  brew install jq" >&2
   elif command -v apt-get >/dev/null 2>&1; then
     echo "  sudo apt-get install jq" >&2
@@ -24,6 +37,10 @@ if ! command -v jq >/dev/null 2>&1; then
 fi
 if ! command -v python3 >/dev/null 2>&1; then
   echo "ERROR: python3 is required but not installed." >&2
+  if [ "$_IS_WINDOWS" = "1" ]; then
+    echo "  winget install Python.Python.3.12   (or: choco install python)" >&2
+    echo "  Git Bash sees it as 'python3' once Python is on PATH; reopen Git Bash after install." >&2
+  fi
   exit 1
 fi
 

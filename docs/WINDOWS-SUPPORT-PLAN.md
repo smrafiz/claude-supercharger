@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **proposed** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-07-07
+Status: **in progress** — Phase 1 shipped on branch `feat/windows-support` (2.9.3); Phase 2 code landed (G4 install detection, `windows-latest` CI job, G6 verified-safe, docs), pending Windows-CI-green verification before the 3.0 merge · Target: **merge → 3.0** · Last updated: 2026-07-08
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -107,17 +107,27 @@ Exit criteria: full suite green on both CI OSes; notifications documented as wor
 
 ### Phase 2 — native Windows support + verification (3.0)
 
-1. **`install.sh` Windows detection (G4)** — detect Git Bash / MSYS, check `jq`/`python3`, print
-   `choco install jq` guidance; confirm the generated settings.json hook commands run under Git Bash.
-2. **Windows smoke test of hook registration** — verify `${hooks_dir}/*.sh` commands fire (path form OK).
-3. **Symlink test validation (G6)** — confirm `! -L` behaves on Git Bash; degrade safely if not.
-4. **Windows CI job** — GitHub Actions `windows-latest` + Git Bash running a Windows-relevant subset of the
-   suite. **This is the linchpin** — turns "probably works" into "verified" and prevents regression.
-5. **Docs** — a "Windows" section: Git for Windows requirement, `choco install jq`, LF note, WSL as the
-   recommended sandboxed path.
+1. **`install.sh` Windows detection (G4)** — ✅ DONE. Platform detection (`$OSTYPE` msys/cygwin + `uname`
+   MINGW/MSYS/CYGWIN); jq-missing and python3-missing gates now print `winget install jqlang.jq` /
+   `winget install Python.Python.3.12` (with choco/scoop alternates) on the Git-Bash family. WSL is not
+   flagged (it's Linux). Test: `test-install.sh` "Windows prereq guidance when jq absent (G4)".
+2. **Windows smoke test of hook registration** — PENDING (needs the CI job / a real box). Path form is
+   forward-slash under Git Bash (`$HOME`=`/c/Users/…`), so the generated settings.json commands should run;
+   the CI job exercises the hooks directly with crafted stdin, which is the meaningful unit-level check.
+3. **Symlink test validation (G6)** — ✅ VERIFIED-SAFE, no code change. `enforce-pkg-manager.sh`'s
+   `[ -f X ] && [ ! -L X ]` is a workflow nudge (npm→pnpm), not a security guard. MSYS `test -L` returns
+   false for regular files, so the worst case is *over*-enforcing on a rare symlinked lockfile — advisory
+   and non-destructive. Adding Windows branches would be complexity for no safety gain.
+4. **Windows CI job** — ✅ DONE (linchpin). `.github/workflows/ci.yml` `test-windows` job: `windows-latest`
+   with `shell: bash` (GitHub's bash on Windows IS Git Bash / MSYS2 — our target runtime). Ensures jq on
+   PATH, then runs the Phase 1 fallback suites (`test-notify-helper`, `test-md5-fallback`,
+   `test-tool-history-tracker`). The `.gitattributes` LF rule (G5) is exercised implicitly — a CRLF `.sh`
+   wouldn't execute. Self-verifies on push; **watch this job green before merging to 3.0.**
+5. **Docs** — ✅ DONE. README "Windows?" section expanded (WSL recommended; Git for Windows + winget/choco
+   prereqs; toast/LF notes; PowerShell-only unsupported) and Requirements updated.
 
-Exit criteria: Windows CI green on the subset; a real Windows/WSL manual pass; README "Not supported: Windows"
-line replaced with a real setup guide.
+Exit criteria: **Windows CI green** (the one remaining gate) → optional real Windows/WSL manual pass → merge
+to master as 3.0. README already replaced the bare "use WSL or Git Bash" line with a real setup guide.
 
 ---
 

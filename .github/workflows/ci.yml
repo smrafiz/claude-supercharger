@@ -19,6 +19,33 @@ jobs:
       - name: Run tests
         run: bash tests/run.sh
 
+  # v2.9.3: verify the cross-platform hardening (G1 notify, G2 md5, G3 flock)
+  # actually works on real Windows Git Bash — GitHub's `shell: bash` on
+  # windows-latest IS Git Bash (bundled MSYS2), the runtime Claude Code routes to.
+  # Scoped to the Phase 1 fallback suites (they need no Claude Code session); the
+  # .gitattributes LF rule (G5) is exercised implicitly — a CRLF .sh wouldn't run.
+  test-windows:
+    name: Test suite (Windows / Git Bash)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify prerequisites on PATH
+        run: |
+          command -v jq >/dev/null 2>&1 || choco install jq -y
+          echo "bash:    $(bash --version | head -1)"
+          echo "jq:      $(jq --version)"
+          echo "python3: $(python3 --version 2>&1 || python --version)"
+
+      - name: Run cross-platform hardening suites
+        run: |
+          bash tests/test-notify-helper.sh
+          bash tests/test-md5-fallback.sh
+          bash tests/test-tool-history-tracker.sh
+
   version-check:
     name: Version consistency
     runs-on: ubuntu-latest
