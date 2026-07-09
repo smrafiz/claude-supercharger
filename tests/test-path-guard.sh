@@ -197,4 +197,27 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "~/.ssh write must still be blocked"
 rm -rf "$PROJ"
 
+# v2.9.3: NotebookEdit (notebook_path) + MultiEdit are now covered — a notebook/
+# multi-edit write outside the project (or to a protected path) must be blocked.
+begin_test "path-guard: blocks NotebookEdit (notebook_path) outside project"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"NotebookEdit","tool_input":{"notebook_path":"/etc/evil.ipynb","new_source":"x"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "NotebookEdit outside project must be blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: blocks MultiEdit (file_path) outside project"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"MultiEdit","tool_input":{"file_path":"/etc/evil.txt"},"cwd":"%s"}' "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "MultiEdit outside project must be blocked"
+rm -rf "$PROJ"
+
+begin_test "path-guard: allows NotebookEdit inside the project"
+PROJ=$(mktemp -d)
+INPUT=$(printf '{"tool_name":"NotebookEdit","tool_input":{"notebook_path":"%s/analysis.ipynb","new_source":"x"},"cwd":"%s"}' "$PROJ" "$PROJ")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "in-project NotebookEdit must be allowed"
+rm -rf "$PROJ"
+
 report

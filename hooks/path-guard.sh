@@ -32,11 +32,11 @@ hook_profile_skip "path-guard" && exit 0
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 case "$TOOL_NAME" in
-  Edit|Write) ;;
+  Edit|Write|MultiEdit|NotebookEdit) ;;   # v2.9.3: cover NotebookEdit (notebook_path) + MultiEdit
   *) exit 0 ;;
 esac
 
-FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)  # v2.9.3: NotebookEdit uses notebook_path
 [ -z "$FILE_PATH" ] && exit 0
 
 # Disabled categories from .supercharger.json (project-level opt-out)
