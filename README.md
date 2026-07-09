@@ -344,7 +344,7 @@ Supercharger runs on Windows through **Git Bash** or **WSL** — the bash hooks 
 - **WSL 2** (recommended) — it's Linux, so everything works as-is. Install Supercharger inside your WSL distro.
 - **Native Windows + [Git for Windows](https://git-scm.com/download/win)** — Claude Code auto-routes hooks to Git Bash. Install [`jq`](https://jqlang.github.io/jq/) and Python 3 first (`winget install jqlang.jq` and `winget install Python.Python.3.12`, or `choco install jq python`), reopen Git Bash so they're on PATH, then run `install.sh`.
 
-Notes: Desktop notifications use a Windows toast (BurntToast module if present, else a balloon). The repo enforces LF line endings via `.gitattributes` so Git Bash can execute the `.sh` hooks. Native Windows **without** Git for Windows (PowerShell only) can't run `.sh` hooks — install Git for Windows or use WSL.
+Notes: Desktop notifications use a Windows toast (BurntToast module if present, else a balloon). The repo enforces LF line endings via `.gitattributes` so Git Bash can execute the `.sh` hooks. Native Windows **without** Git for Windows (PowerShell only) can't run `.sh` hooks — install Git for Windows or use WSL. **`python3` vs `python`:** the python.org installer provides `python.exe`, not `python3.exe` (which the hooks call) — `install.sh` auto-creates a `python3` shim when it can write to Python's folder; if that fails (an all-users install under `Program Files`), run Git Bash as Administrator, install the **Microsoft Store** Python build (it ships `python3.exe`), or disable the Store `python`/`python3` "App execution aliases" in Windows Settings if they shadow your real install.
  
 ---
 
