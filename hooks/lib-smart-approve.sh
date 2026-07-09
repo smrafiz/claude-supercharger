@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Shared smart-approve verdict
 # Single source of truth for "is this tool call known-safe to auto-approve?".
 # Used by smart-approve.sh (to approve) AND notify-permission.sh (to SKIP the

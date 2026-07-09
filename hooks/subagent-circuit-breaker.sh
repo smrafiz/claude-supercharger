@@ -65,7 +65,7 @@ try:
     tmp = state_file + f'.{os.getpid()}.tmp'
     with open(tmp, 'w') as f:
         json.dump(spawns, f)
-    os.rename(tmp, state_file)
+    os.replace(tmp, state_file)  # v2.9.3: os.rename raises on Windows if target exists (not atomic-overwrite) → counter froze at ≤2 → breaker never tripped (fail-open). os.replace overwrites atomically on every platform.
 except Exception:
     pass
 
@@ -94,6 +94,7 @@ PYEOF
 if [ -z "$RESULT" ]; then
   exit 0
 fi
+RESULT="${RESULT//$'\r'/}"  # v2.9.3: Windows python print() emits CRLF; strip \r or VERDICT="DENY\r" never equals "DENY" and the circuit breaker silently fails open on Git Bash
 
 VERDICT=$(printf '%s\n' "$RESULT" | sed -n '1p')
 MSG=$(printf '%s\n' "$RESULT" | sed -n '2,$p')

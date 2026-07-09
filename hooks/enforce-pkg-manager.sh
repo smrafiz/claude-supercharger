@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Package Manager Enforcement Hook
 # Event: PreToolUse | Matcher: Bash
 # Detects lockfiles and blocks the wrong package manager.
@@ -29,6 +30,7 @@ try:
 except Exception:
     print('\x1f')
 " 2>/dev/null)
+EXTRACTED="${EXTRACTED//$'\r'/}"  # v2.9.3: Windows python print() emits CRLF; strip \r before the split so PROJECT_DIR isn't ".../cwd\r" (would break every lockfile [ -f ] test → pkg-manager enforcement silently no-ops)
 
 COMMAND="${EXTRACTED%%$'\x1f'*}"
 PROJECT_DIR="${EXTRACTED#*$'\x1f'}"

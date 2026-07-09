@@ -19,6 +19,55 @@ jobs:
       - name: Run tests
         run: bash tests/run.sh
 
+  # v2.9.3: verify the cross-platform hardening (G1 notify, G2 md5, G3 flock)
+  # actually works on real Windows Git Bash — GitHub's `shell: bash` on
+  # windows-latest IS Git Bash (bundled MSYS2), the runtime Claude Code routes to.
+  # Scoped to the Phase 1 fallback suites (they need no Claude Code session); the
+  # .gitattributes LF rule (G5) is exercised implicitly — a CRLF .sh wouldn't run.
+  test-windows:
+    name: Test suite (Windows / Git Bash)
+    runs-on: windows-latest
+    timeout-minutes: 12
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Verify prerequisites on PATH
+        run: |
+          command -v jq >/dev/null 2>&1 || choco install jq -y
+          echo "bash:    $(bash --version | head -1)"
+          echo "jq:      $(jq --version)"
+          echo "python3: $(python3 --version 2>&1 || python --version)"
+
+      # Split per-suite with a hard timeout so a hang fails fast and the step
+      # view pinpoints the culprit (rather than one opaque multi-suite step).
+      - name: notify-helper (G1 Windows toast branch)
+        run: timeout 180 bash tests/test-notify-helper.sh
+
+      - name: md5 fallback (G2 python tier)
+        run: timeout 180 bash tests/test-md5-fallback.sh
+
+      - name: tool-history-tracker (G3 flock-absent trim)
+        run: timeout 180 bash tests/test-tool-history-tracker.sh
+
+      # Regression + functional proof for all 7 python-CRLF fixes on real Git Bash.
+      - name: windows-crlf hardening (7 hooks)
+        run: timeout 180 bash tests/test-windows-crlf.sh
+
+      # Newly-fixed suites confirmed green on Git Bash — verify the path/security
+      # fixes hold on real Windows: circuit-breaker os.replace (owasp-asi),
+      # Fact-A/jq (stop-verify), expanduser→HOME (rate-limit, mcp-guards),
+      # compound-env cygpath (session-analytics).
+      - name: windows-verified fixes (path/security classes)
+        run: |
+          timeout 120 bash tests/test-owasp-asi.sh
+          timeout 120 bash tests/test-stop-verify-detect.sh
+          timeout 120 bash tests/test-rate-limit-advisor.sh
+          timeout 120 bash tests/test-mcp-guards.sh
+          timeout 120 bash tests/test-session-analytics.sh
+
   version-check:
     name: Version consistency
     runs-on: ubuntu-latest

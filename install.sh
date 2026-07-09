@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 set -euo pipefail
 umask 077
+
+# --- Platform detection ---
+# v2.9.3: Windows support runs the bash hooks via Git Bash / MSYS / Cygwin (or WSL,
+# which is just Linux). Detect the Git-Bash family so prereq guidance points at the
+# right package manager. WSL is intentionally NOT flagged here — it's Linux.
+_IS_WINDOWS=0
+case "${OSTYPE:-}" in msys*|cygwin*|win32) _IS_WINDOWS=1 ;; esac
+if [ "$_IS_WINDOWS" = "0" ] && command -v uname >/dev/null 2>&1; then
+  case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*) _IS_WINDOWS=1 ;; esac
+fi
 
 # --- Prerequisite check ---
 # jq is used by ~60 hooks for parsing tool input JSON. Without it, hooks silently
@@ -9,7 +20,10 @@ if ! command -v jq >/dev/null 2>&1; then
   echo "ERROR: jq is required but not installed." >&2
   echo "" >&2
   echo "Install with:" >&2
-  if command -v brew >/dev/null 2>&1; then
+  if [ "$_IS_WINDOWS" = "1" ]; then
+    echo "  winget install jqlang.jq   (or: choco install jq / scoop install jq)" >&2
+    echo "  Then reopen Git Bash so jq is on PATH." >&2
+  elif command -v brew >/dev/null 2>&1; then
     echo "  brew install jq" >&2
   elif command -v apt-get >/dev/null 2>&1; then
     echo "  sudo apt-get install jq" >&2
@@ -23,7 +37,42 @@ if ! command -v jq >/dev/null 2>&1; then
   exit 1
 fi
 if ! command -v python3 >/dev/null 2>&1; then
+  # v2.9.3: the python.org Windows installer ships `python.exe`, NOT `python3.exe`,
+  # but every hook invokes `python3` as a separate process (a bash alias can't help).
+  # If a real Python 3.x is present as `python`/`py`, drop a `python3.exe` shim next
+  # to it (same dir is already on PATH) so the installer AND the hooks resolve it.
+  if [ "$_IS_WINDOWS" = "1" ]; then
+    _PY3=""
+    if command -v python >/dev/null 2>&1 && python --version 2>&1 | grep -q "Python 3"; then
+      _PY3="$(command -v python)"
+    elif command -v py >/dev/null 2>&1 && py -3 --version 2>&1 | grep -q "Python 3"; then
+      _PY3="$(py -3 -c 'import sys; print(sys.executable)' 2>/dev/null)"
+    fi
+    if [ -n "$_PY3" ]; then
+      _PYDIR="$(dirname "$_PY3")"
+      _SRC=""
+      [ -f "$_PYDIR/python.exe" ] && _SRC="$_PYDIR/python.exe"
+      [ -z "$_SRC" ] && [ -f "$_PY3" ] && _SRC="$_PY3"
+      [ -z "$_SRC" ] && [ -f "${_PY3}.exe" ] && _SRC="${_PY3}.exe"
+      if [ -n "$_SRC" ] && cp "$_SRC" "$_PYDIR/python3.exe" 2>/dev/null; then
+        hash -r 2>/dev/null || true
+        echo "NOTE: Windows ships 'python', not 'python3' — created a python3.exe shim next to it." >&2
+      fi
+    fi
+  fi
+fi
+if ! command -v python3 >/dev/null 2>&1; then
   echo "ERROR: python3 is required but not installed." >&2
+  if [ "$_IS_WINDOWS" = "1" ]; then
+    echo "  Install Python 3 (winget install Python.Python.3.12  /  choco install python)," >&2
+    echo "  OR the Microsoft Store build (which provides python3.exe directly)," >&2
+    echo "  then REOPEN Git Bash and re-run install.sh. Note: python.org ships 'python.exe'," >&2
+    echo "  not 'python3.exe' — the installer auto-creates a python3 shim when it can write" >&2
+    echo "  to Python's folder; if that failed (e.g. an all-users install under Program Files)," >&2
+    echo "  run Git Bash as Administrator, or: cp \"\$(dirname \$(which python))/python.exe\" python3.exe" >&2
+  else
+    echo "  Install python3 via your package manager." >&2
+  fi
   exit 1
 fi
 

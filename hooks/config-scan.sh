@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Config Injection Scanner Hook
 # Event: SessionStart | Matcher: (none)
 # Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns.
@@ -30,7 +31,7 @@ if not project_dir:
 home_dir = os.environ.get('HOME_DIR', '')
 
 warnings = []
-debug_on = (os.path.isfile(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks'))
+debug_on = (os.path.isfile(os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude/supercharger/scope/.debug-hooks'))
             or os.path.isfile('.supercharger-debug'))
 
 # --- Injection patterns in CLAUDE.md + .claude/*.md ---

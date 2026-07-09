@@ -38,6 +38,7 @@ _qg_hash() {
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 QG_PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
+QG_PROJ_HASH="${QG_PROJ_HASH//$'\r'/}"  # v2.9.3: python is the PRIMARY hash here; strip Windows CRLF so the cache filename isn't ".quality-gate-cache-<hash>\r" (NTFS rejects \r → cache silently lost, re-lints every write)
 QG_CACHE="$SCOPE_DIR/.quality-gate-cache-${QG_PROJ_HASH}"
 QG_FILE_HASH=$(_qg_hash "$FILE_PATH")
 
@@ -142,7 +143,7 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   fi
 
   # Compare with previous iteration — break if issues unchanged (fix can't resolve them)
-  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || echo "")
+  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || python3 -c 'import sys,hashlib; print(hashlib.md5(open(sys.argv[1],"rb").read()).hexdigest())' "$FILE_PATH" 2>/dev/null || echo "")
   if [ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$PREV_ISSUES" ]; then
     break
   fi

@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Enhanced Statusline
 # Registered via: settings.json → statusLine → { type: "command", command: "..." }
 # Reads JSON from stdin, outputs 2-line status bar.
@@ -121,7 +122,7 @@ try:
          try: _sig.append(str(int(os.path.getmtime(os.path.join(_gdir, _f)))))
          except Exception: pass
      _key = '|'.join(_sig) + '|' + str(int(_t.time()) // 3)
-     _cf = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope',
+     _cf = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope',
                         '.statusline-git-' + __import__('hashlib').md5((cwd or '.').encode()).hexdigest()[:8])
      _cached = None
      try:
@@ -175,7 +176,7 @@ try:
      import hashlib
      from detect_stack import detect_stack
      proj_hash = hashlib.md5(cwd.encode()).hexdigest()[:8] if cwd else 'default'
-     cache_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.stack-cache-{proj_hash}')
+     cache_path = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope', f'.stack-cache-{proj_hash}')
      if os.path.isfile(cache_path):
          with open(cache_path) as f:
              cached = f.read().strip()
@@ -196,7 +197,7 @@ try:
  # Active agent — prefer supercharger classification over native CC agent type
  agent = ''
  try:
-     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     scope = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
      agent_name = ''
      for fname in (f'.agent-dispatched-{session_id}', f'.agent-classified-{session_id}'):
          fpath = os.path.join(scope, fname)
@@ -217,7 +218,7 @@ try:
  # Active MCP server
  mcp = ''
  try:
-     mcp_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.active-mcp-{session_id}')
+     mcp_path = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope', f'.active-mcp-{session_id}')
      if os.path.isfile(mcp_path):
          mtime = os.path.getmtime(mcp_path)
          if time.time() - mtime < 60:
@@ -236,7 +237,7 @@ try:
  # Economy tier
  eco = ''
  try:
-     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     scope = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
      tier_file = os.path.join(scope, '.economy-tier')
      tier_file_fresh = os.path.isfile(tier_file) and (time.time() - os.path.getmtime(tier_file) < 604800)  # 7 days
      if os.path.isfile(tier_file):
@@ -246,7 +247,7 @@ try:
              eco = f' {DIM}|{RESET} {DIM}Eco: {tier.capitalize()}{RESET}'
      if not eco and not tier_file_fresh:
          # Fallback: scan economy.md — only if .economy-tier is missing or very stale
-         economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
+         economy_md = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'rules', 'economy.md')
          if os.path.isfile(economy_md):
              with open(economy_md) as f:
                  for ln in f:
@@ -262,7 +263,7 @@ try:
  # one that actually compacted.
  mem = ''
  try:
-     mem_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.memory-restored-{session_id}')
+     mem_file = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope', f'.memory-restored-{session_id}')
      if os.path.isfile(mem_file):
          if time.time() - os.path.getmtime(mem_file) < 300:
              mem = f' {DIM}|{RESET} {CYAN}Mem: Restored{RESET}'
@@ -272,7 +273,7 @@ try:
  # Scan alert indicator (shown 2 min after scanner fires)
  scan = ''
  try:
-     scan_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', f'.scan-alert-{session_id}')
+     scan_file = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope', f'.scan-alert-{session_id}')
      if os.path.isfile(scan_file):
          if time.time() - os.path.getmtime(scan_file) < 120:
              with open(scan_file) as f:
@@ -325,7 +326,7 @@ try:
  _sub_tok = 0
  _sub_cost = 0.0
  try:
-     _scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     _scope = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
      _mtf = os.path.join(_scope, f'.main-tokens-{session_id}')
      if os.path.isfile(_mtf):
          with open(_mtf) as _f:
@@ -368,7 +369,7 @@ try:
          # Burn rate projection
          burn_proj = ''
          try:
-             scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+             scope = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
              cost_file = os.path.join(scope, '.session-cost')
              if os.path.isfile(cost_file) and float(rl_5h_pct) > 0:
                  with open(cost_file) as f:
@@ -447,7 +448,7 @@ try:
  # Budget cap display (cost line)
  budget_str = ''
  try:
-     scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     scope = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope')
      cost_file = os.path.join(scope, '.session-cost')
      if os.path.isfile(cost_file):
          with open(cost_file) as f:

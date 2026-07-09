@@ -70,4 +70,48 @@ else
 fi
 teardown_test_home
 
+# v2.9.3: the trim must still happen when flock is absent (best-effort else-branch).
+# Where flock EXISTS (Linux CI) hide it via a full-PATH symlink mirror to force the
+# else-branch. Skip the mirror on MSYS: there `ln -s` COPIES files, so mirroring
+# $PATH clones C:\Windows\System32 and hangs the job. On Git Bash the natural trim
+# path (with or without flock) is covered by the "trims to 20" test above.
+begin_test "tool-history-tracker: trims with flock absent (Windows/Git Bash path)"
+case "${OSTYPE:-}" in
+  msys*|cygwin*) pass ;;
+  *)
+    setup_test_home
+    mkdir -p "$HOME/.claude/supercharger/scope"
+    HISTORY="$HOME/.claude/supercharger/scope/.tool-history-sess1"
+    for i in $(seq 1 25); do
+      echo "{\"session_id\":\"sess1\",\"tool\":\"Read\",\"success\":true,\"ts\":$i}"
+    done > "$HISTORY"
+    INPUT='{"session_id":"sess1","tool_name":"Edit","tool_response":{}}'
+    if command -v flock >/dev/null 2>&1; then
+      FLOCKLESS=$(mktemp -d)
+      IFS=':' read -ra _pdirs <<< "$PATH"
+      for d in "${_pdirs[@]}"; do
+        [ -d "$d" ] || continue
+        for f in "$d"/*; do
+          b=$(basename "$f" 2>/dev/null)
+          [ "$b" = "flock" ] && continue
+          [ -e "$FLOCKLESS/$b" ] || ln -sf "$f" "$FLOCKLESS/$b" 2>/dev/null
+        done
+      done
+      PATH="$FLOCKLESS" bash "$HOOK" <<<"$INPUT" >/dev/null 2>&1 || true
+      rm -rf "$FLOCKLESS"
+    else
+      bash "$HOOK" <<<"$INPUT" >/dev/null 2>&1 || true
+    fi
+    COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
+    [ "$COUNT" -le 20 ] && pass || fail "expected ≤20 after flock-absent trim, got $COUNT"
+    teardown_test_home
+    ;;
+esac
+
+# v2.9.3: Windows Python's print() emits CRLF; the sid capture must strip \r or the
+# .tool-history-<sid> filename gets a trailing CR and desyncs from confidence-gate's
+# (python-derived, clean) reader. Guard the fix so it can't be silently removed.
+begin_test "tool-history-tracker: strips CRLF from python capture (Windows safety)"
+grep -q "tr -d '\\\\r'" "$HOOK" && pass || fail "python capture must pipe through tr -d '\\\\r' for Windows"
+
 report

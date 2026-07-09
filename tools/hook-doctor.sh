@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Hook Doctor
 # Diagnoses broken hook installations by inspecting settings.json
 # and validating each registered hook script.
@@ -45,9 +46,9 @@ if [ ! -f "$SETTINGS" ]; then
   exit 1
 fi
 
-HOOK_COUNT=$(python3 -c "
-import json
-with open('$SETTINGS') as f:
+HOOK_COUNT=$(SC_SETTINGS="$SETTINGS" python3 -c "
+import json, os
+with open(os.environ['SC_SETTINGS']) as f:  # v2.9.3: env var (MSYS-converted), not an interpolated POSIX path — native Windows Python can't open '/tmp/...' baked into the -c string (Fact A)
     s = json.load(f)
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
@@ -67,10 +68,10 @@ fi
 # ── Extract and check each hook command ──────────────────────────────────────
 _HOOK_ISSUE_FILE=$(mktemp)
 
-python3 -c "
-import json, sys
+SC_SETTINGS="$SETTINGS" python3 -c "
+import json, sys, os
 
-with open('$SETTINGS') as f:
+with open(os.environ['SC_SETTINGS']) as f:  # v2.9.3: env var not interpolated POSIX path (Fact A)
     s = json.load(f)
 
 hooks = s.get('hooks', {})

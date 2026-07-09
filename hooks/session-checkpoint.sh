@@ -36,6 +36,15 @@ if not session_id:
     sys.exit(0)
 
 cwd = data.get('cwd') or os.getcwd()
+# v2.9.3: on Git Bash, cwd from the JSON is a POSIX path (/c/…, /tmp/…). Python's
+# subprocess spawns git.exe directly, bypassing MSYS argv path-conversion, so
+# `git -C /tmp/…` resolves to a nonexistent C:\tmp\… → branch/files come back empty.
+# Convert to native form via cygpath (Windows only; no-op elsewhere).
+if os.name == 'nt' and cwd.startswith('/'):
+    try:
+        cwd = subprocess.check_output(['cygpath', '-w', cwd], stderr=subprocess.DEVNULL).decode().strip() or cwd
+    except Exception:
+        pass
 
 # Git branch + modified files (one python process, three git child processes —
 # but no python cold-start tax between them).

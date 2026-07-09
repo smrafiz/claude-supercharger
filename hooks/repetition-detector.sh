@@ -49,7 +49,8 @@ case "$TOOL_NAME" in
 esac
 
 if [ -n "$FINGERPRINT" ]; then
-  HASH=$(printf '%s' "$FINGERPRINT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$FINGERPRINT" | md5 -q 2>/dev/null || echo "")
+  # v2.9.3: python3 hashlib is the final tier — Git Bash ships neither md5sum nor md5.
+  HASH=$(printf '%s' "$FINGERPRINT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$FINGERPRINT" | md5 -q 2>/dev/null || printf '%s' "$FINGERPRINT" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest())' 2>/dev/null || echo "")
   if [ -n "$HASH" ]; then
     # tail-then-awk; awk always emits the count, no shell-exit-status games
     COUNT=0

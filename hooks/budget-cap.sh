@@ -46,7 +46,11 @@ if [[ "$MODE" == "accumulate" ]]; then
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
   SESSION_ID="$SESSION_ID" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
-import json, os, fcntl, time
+import json, os, time
+try:
+    import fcntl  # v2.9.3: native Windows Python has no fcntl — degrade to best-effort no-lock (the atomic tmp+rename below still prevents corruption; the flock sites are already wrapped in try/except → _lf=None)
+except ImportError:
+    fcntl = None
 
 cost_file = os.environ['COST_INPUT']
 transcript = os.environ['TRANSCRIPT']
@@ -208,7 +212,7 @@ tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
 try:
     with open(tmp, 'w') as f:
         json.dump(result, f)
-    os.rename(tmp, cost_file)
+    os.replace(tmp, cost_file)  # v2.9.3: os.rename fails overwriting on Windows (F4); os.replace is atomic-overwrite everywhere
 except Exception:
     try: os.remove(tmp)
     except Exception: pass

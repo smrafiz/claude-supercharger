@@ -34,7 +34,7 @@ if not used_pct or float(used_pct) <= 0:
 used_pct = float(used_pct)
 
 # Read session start time from .session-cost
-scope = os.environ.get('SCOPE_DIR', os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope'))
+scope = os.environ.get('SCOPE_DIR', os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope'))
 cost_file = os.path.join(scope, '.session-cost')
 
 if not os.path.isfile(cost_file):

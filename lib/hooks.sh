@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Hook Assembly & settings.json Merge
 
 SUPERCHARGER_TAG="#supercharger"
@@ -298,7 +299,7 @@ for line in hooks_input.strip().split('\n'):
 
     settings['hooks'][event].append(hook_entry)
 
-statusline_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh')
+statusline_path = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'hooks', 'statusline.sh')
 if os.path.isfile(statusline_path):
     settings['statusLine'] = {
         'type': 'command',

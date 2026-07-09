@@ -11,6 +11,13 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
+# v2.9.3: force Python UTF-8 mode. Windows Python defaults to the locale codec
+# (cp1252), so any hook that reads/writes UTF-8 content (→, box chars, emoji) via
+# open() crashes with UnicodeEncode/DecodeError on Git Bash — the write never
+# happens and downstream reads FileNotFoundError. UTF-8 mode makes file+stdio I/O
+# default to utf-8; it's a no-op on mac/Linux (already utf-8). Set before any fork.
+export PYTHONUTF8=1
+
 # v2.9.0: global kill-switch (`/sc off`). When Supercharger is deactivated, every
 # hook that sources this lib exits IMMEDIATELY → default Claude Code behavior, no
 # reinstall needed. sc-toggle.sh exports SUPERCHARGER_TOGGLE to bypass this for its
@@ -182,7 +189,7 @@ hook_already_emitted() {
   local scope_dir="$HOME/.claude/supercharger/scope"
   local dedup_file="${scope_dir}/.dedup-${sid}-${hook_name}"
   local now hash
-  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf 'NOHASH')
+  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf '%s' "$msg" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:32])' 2>/dev/null || printf 'NOHASH')
 
   if [ -f "$dedup_file" ]; then
     now=$(date +%s)

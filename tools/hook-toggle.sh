@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Hook Toggle Tool
 # Usage: bash tools/hook-toggle.sh <hook-name> <on|off>
 # Temporarily enable/disable a supercharger hook without editing JSON.

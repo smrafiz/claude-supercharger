@@ -92,9 +92,39 @@ _send_notification() {
         osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
     fi
   elif command -v notify-send &>/dev/null; then
-    # Linux notify-send has no subtitle tier — fold it into the body (\n works here)
+    # Linux notify-send has no subtitle tier — fold it into the body (\n works here).
+    # Checked before the Windows branch so a WSL user with a working notify-send
+    # daemon keeps it; the PowerShell toast is only the fallback when it's absent.
     local ns_body="$safe_msg"; [ -n "$safe_sub" ] && ns_body="${safe_sub}"$'\n'"${safe_msg}"
     notify-send "$safe_title" "$ns_body" 2>/dev/null || true  # v2.6.77: use sanitized vars
+  elif [[ "$OSTYPE" == "msys" || "$OSTYPE" == "cygwin" ]] || grep -qiE '(microsoft|wsl)' /proc/version 2>/dev/null; then
+    # v2.9.3: Windows (Git Bash/MSYS/Cygwin) or WSL without notify-send — reach the
+    # Windows toast via PowerShell. On WSL this uses the powershell.exe interop
+    # bridge; on Git Bash it's the native shell. Layered fallback: BurntToast toast
+    # -> NotifyIcon balloon -> bell. Strings pass through env vars so branch/message
+    # content is never eval-interpolated by PowerShell (same defense as osascript).
+    local ps_exe=""
+    local c
+    for c in powershell.exe pwsh.exe pwsh powershell; do
+      command -v "$c" &>/dev/null && { ps_exe="$c"; break; }
+    done
+    if [ -n "$ps_exe" ]; then
+      local win_body="$safe_msg"; [ -n "$safe_sub" ] && win_body="${safe_sub} - ${safe_msg}"
+      SC_NOTIFY_TITLE="$safe_title" SC_NOTIFY_BODY="$win_body" "$ps_exe" -NoProfile -NonInteractive -Command '
+        $t = $env:SC_NOTIFY_TITLE; $b = $env:SC_NOTIFY_BODY
+        if (Get-Module -ListAvailable -Name BurntToast) {
+          Import-Module BurntToast; New-BurntToastNotification -Text $t, $b
+        } else {
+          Add-Type -AssemblyName System.Windows.Forms
+          $n = New-Object System.Windows.Forms.NotifyIcon
+          $n.Icon = [System.Drawing.SystemIcons]::Information
+          $n.Visible = $true
+          $n.ShowBalloonTip(5000, $t, $b, [System.Windows.Forms.ToolTipIcon]::Info)
+        }
+      ' 2>/dev/null || printf '\a'
+    else
+      printf '\a'
+    fi
   else
     printf '\a'
   fi

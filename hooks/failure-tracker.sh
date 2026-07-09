@@ -51,7 +51,7 @@ CMD_KEY=$(printf '%.100s' "$COMMAND" | sed 's/[0-9]\{4,\}//g')
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 # v2.7.15: key by project so a command that failed in repo A doesn't trip the
 # nudge in repo B months later, and cap the file so it can't grow unbounded.
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null | cut -c1-8 || echo global)
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null | cut -c1-8 || printf '%s' "$PROJECT_DIR" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])' 2>/dev/null || echo global)
 FAILURES_LOG="$SCOPE_DIR/.failed-commands-${PROJ_HASH}"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 

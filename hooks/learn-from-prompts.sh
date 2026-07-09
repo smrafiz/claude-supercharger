@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Learn from User Feedback
 # Event: UserPromptSubmit | Matcher: (none)
 # Detects correction AND reinforcement patterns in user prompts.
@@ -22,7 +23,7 @@ mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd // empty' 2>/dev/null || echo "")
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('workspace',{}).get('current_dir') or d.get('cwd',''))" 2>/dev/null || echo "")
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || printf '%s' "$PROJECT_DIR" | python3 -c 'import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest())' 2>/dev/null || echo "global")
 PROJ_HASH="${PROJ_HASH:0:8}"
 
 SNIPPET=$(printf '%.200s' "$PROMPT")

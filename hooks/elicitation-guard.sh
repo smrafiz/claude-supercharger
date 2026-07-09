@@ -135,7 +135,7 @@ try:
 except Exception:
     pass
 try:
-    with open(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger',
+    with open(os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger',
                            'scope', '.trusted-elicitation-servers')) as f:
         for line in f:
             s = _normkey(line)
@@ -149,7 +149,7 @@ is_trusted = bool(server_l) and server_l in trusted
 
 def audit(action):
     try:
-        d = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'audit')
+        d = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'audit')
         os.makedirs(d, exist_ok=True)
         rec = {
             'ts': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),

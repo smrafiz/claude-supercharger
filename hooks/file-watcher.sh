@@ -18,6 +18,7 @@ try:
 except Exception:
     print('')
 " 2>/dev/null || echo "")
+FILE_PATH="${FILE_PATH//$'\r'/}"  # v2.9.3: strip Windows python CRLF or the trailing \r breaks dirname/basename/[ -f ] on Git Bash
 
 [ -z "$FILE_PATH" ] && exit 0
 PROJECT_DIR=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || dirname "$FILE_PATH")

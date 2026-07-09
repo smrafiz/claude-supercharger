@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+export PYTHONUTF8=1  # v2.9.3: Windows Python defaults to cp1252; UTF-8 mode avoids UnicodeError on UTF-8 content (no-op on mac/Linux)
 # Claude Supercharger — Session Start Update Check
 # Event: SessionStart | Matcher: (none)
 # Checks for updates once per day and prints a banner if one is available.
