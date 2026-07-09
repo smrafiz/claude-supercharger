@@ -172,6 +172,7 @@ PRICING = {
     'opus':   (5.00, 6.25, 0.50, 25.00),
     'sonnet': (3.00, 3.75, 0.30, 15.00),
     'haiku':  (0.80, 1.00, 0.08,  4.00),
+    'fable':  (10.00, 12.50, 1.00, 50.00),  # v2.9.3: Fable/Mythos 5 = 2x Opus (else priced as sonnet, ~3x too low)
 }
 payload_model = (d.get('model') or transcript_model or '').lower()
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
@@ -179,6 +180,8 @@ if override in PRICING:
     tier = override
 elif 'opus' in payload_model:
     tier = 'opus'
+elif 'fable' in payload_model or 'mythos' in payload_model:
+    tier = 'fable'
 elif 'haiku' in payload_model:
     tier = 'haiku'
 else:

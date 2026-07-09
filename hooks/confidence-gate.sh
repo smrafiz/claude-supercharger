@@ -84,7 +84,7 @@ if tool == 'Bash':
         sys.exit(0)
 
 scope_dir = os.environ.get('SCOPE_DIR', '')
-target_file = tool_input.get('file_path') or ''
+target_file = tool_input.get('file_path') or tool_input.get('notebook_path') or ''  # v2.9.3: cover NotebookEdit
 
 # Repetition flag
 rep = int(os.path.isfile(os.path.join(scope_dir, f'.repetition-flag-{session_id}')))

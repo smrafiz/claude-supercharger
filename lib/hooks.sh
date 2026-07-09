@@ -22,15 +22,15 @@ get_hooks_for_mode() {
   # cannot match. Do not consolidate without expanding safety.sh's matcher.
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
-  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/path-guard.sh|")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
   # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.
   hooks+=("PreToolUse|Write,Edit|${hooks_dir}/memory-write-guard.sh|")
   hooks+=("PreToolUse|Bash|${hooks_dir}/tool-preferences.sh|")
-  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  hooks+=("PreToolUse|Write,Edit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
-  hooks+=("PostToolUse|Bash,PowerShell,Write,Edit|${hooks_dir}/audit-trail.sh|async")
+  hooks+=("PostToolUse|Bash,PowerShell,Write,Edit,NotebookEdit|${hooks_dir}/audit-trail.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/bash-output-compactor.sh|")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
@@ -60,7 +60,7 @@ get_hooks_for_mode() {
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")
-  hooks+=("PreToolUse|Edit,Write,Bash|${hooks_dir}/confidence-gate.sh|")
+  hooks+=("PreToolUse|Edit,Write,Bash,MultiEdit,NotebookEdit|${hooks_dir}/confidence-gate.sh|")
   hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──

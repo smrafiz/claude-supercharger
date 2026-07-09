@@ -56,6 +56,7 @@ PRICING = {
     'opus':   (5.00,  6.25, 0.50, 25.00),
     'sonnet': (3.00,  3.75, 0.30, 15.00),
     'haiku':  (0.80,  1.00, 0.08,  4.00),
+    'fable':  (10.00, 12.50, 1.00, 50.00),  # v2.9.3: Fable/Mythos 5 = 2x Opus; without this they'd fall to the sonnet fallback and be priced ~3x too LOW (budget cap overruns)
 }
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
 
@@ -162,6 +163,8 @@ try:
                 tier = override
             elif 'opus' in model:
                 tier = 'opus'
+            elif 'fable' in model or 'mythos' in model:
+                tier = 'fable'
             elif 'haiku' in model:
                 tier = 'haiku'
             else:

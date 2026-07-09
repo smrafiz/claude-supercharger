@@ -34,9 +34,10 @@ except Exception:
     sys.exit(0)
 
 ti = data.get('tool_input') or {}
-content = ti.get('content') or ti.get('new_string') or ''
+# v2.9.3: NotebookEdit uses new_source (cell code) + notebook_path — cover it too.
+content = ti.get('content') or ti.get('new_string') or ti.get('new_source') or ''
 tool_name = data.get('tool_name') or ''
-file_path = ti.get('file_path') or ''
+file_path = ti.get('file_path') or ti.get('notebook_path') or ''
 
 if not content or len(content) < 20:
     sys.exit(0)

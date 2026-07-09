@@ -14,7 +14,7 @@ SID=$(ls -t "$HOME/.claude/projects/$ENC"/*.jsonl 2>/dev/null | head -1 | xargs 
 ```bash
 python3 - "$HOME/.claude/projects/$ENC/$SID.jsonl" <<'PY'
 import json,sys
-P={'opus':(5.0,6.25,0.5,25.0),'sonnet':(3.0,3.75,0.3,15.0),'haiku':(0.8,1.0,0.08,4.0)}
+P={'opus':(5.0,6.25,0.5,25.0),'sonnet':(3.0,3.75,0.3,15.0),'haiku':(0.8,1.0,0.08,4.0),'fable':(10.0,12.5,1.0,50.0)}
 t=0.0
 try:
     for ln in open(sys.argv[1]):
@@ -24,7 +24,7 @@ try:
         u=(d.get('message') or {}).get('usage') or {}
         if not u: continue
         m=((d.get('message') or {}).get('model') or '').lower()
-        k='opus' if 'opus' in m else 'haiku' if 'haiku' in m else 'sonnet'
+        k='opus' if 'opus' in m else 'fable' if ('fable' in m or 'mythos' in m) else 'haiku' if 'haiku' in m else 'sonnet'
         ip,cw,cr,op=P[k]
         t+=(u.get('input_tokens',0)*ip+u.get('cache_creation_input_tokens',0)*cw+u.get('cache_read_input_tokens',0)*cr+u.get('output_tokens',0)*op)/1e6
 except Exception: pass
