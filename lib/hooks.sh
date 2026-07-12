@@ -381,6 +381,12 @@ count_installed_hooks() {
   local count
   # v2.6.42: awk emits exactly one number; `grep -c | || echo 0` doubled
   # output on zero matches and showed "0\n0 hooks installed" in install.sh.
-  count=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir" | awk 'NF{c++} END{print c+0}')
+  # v2.9.4: dedup by hook SCRIPT basename (tuple field 3), not registration
+  # count — one hook registered on N events is still ONE installed hook. The
+  # banner now matches the distinct-script count in docs/HOOKS.md instead of
+  # overstating (a hook on 3 events used to count 3×). Portable awk: no
+  # length(array) (BWK/macOS awk lacks it), count keys via a for-in loop.
+  count=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir" \
+    | awk -F'|' 'NF{ n=split($3,a,"/"); b=a[n]; if(b!="") seen[b]=1 } END{ c=0; for(k in seen) c++; print c+0 }')
   echo "$count"
 }

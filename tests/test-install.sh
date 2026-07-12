@@ -227,4 +227,16 @@ begin_test "install: --help prints usage and exits"
 OUTPUT=$(bash "$REPO_DIR/install.sh" --help 2>&1) || true
 echo "$OUTPUT" | grep -qi "usage" && pass || fail "no usage text"
 
+# --- Test: count_installed_hooks dedups by script (v2.9.4) ---
+# The install banner counts DISTINCT hook scripts, not event registrations —
+# a hook bound to N events is still one installed hook. Must be < raw tuple count.
+begin_test "install: count_installed_hooks dedups multi-registered hooks"
+DEDUP=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks full true)
+RAW=$(. "$REPO_DIR/lib/hooks.sh"; get_hooks_for_mode full true "$HOME/.claude/supercharger/hooks" | awk 'NF{c++} END{print c+0}')
+if [ "$DEDUP" -gt 0 ] && [ "$DEDUP" -lt "$RAW" ]; then
+  pass
+else
+  fail "expected 0 < deduped ($DEDUP) < raw registrations ($RAW)"
+fi
+
 report
