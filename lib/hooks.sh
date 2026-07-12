@@ -68,6 +68,12 @@ get_hooks_for_mode() {
     # v2.9.4: advisory concurrent-session write guard — warns (never denies) when a
     # peer live session holds a fresh lease on the same file. Fail-open, TTL-expiring.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/file-lease.sh|")
+    # v2.9.6: opt-in first-touch investigation gate (default OFF via SUPERCHARGER_FACT_GATE).
+    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/fact-gate.sh|")
+    # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
+    # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
+    hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
+    hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|async")
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")

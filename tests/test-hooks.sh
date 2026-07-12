@@ -87,6 +87,29 @@ _blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +
 begin_test "git-safety: +ref force-push to a feature branch still allowed (v2.8.8)"
 _ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +feature-x"},"cwd":"/tmp"}' && pass || fail "non-protected +feature wrongly blocked"
 
+# v2.9.6: block git hook-bypass (verification bypass). --no-verify/-n (commit),
+# --no-verify (push), and `-c core.hooksPath=` inline-config override.
+begin_test "git-safety: git commit --no-verify is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit --no-verify -m fix"},"cwd":"/tmp"}' && pass || fail "commit --no-verify not blocked"
+begin_test "git-safety: git commit -n shorthand is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit -n -m fix"},"cwd":"/tmp"}' && pass || fail "commit -n not blocked"
+begin_test "git-safety: git commit -nm bundled shorthand is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit -nm fix"},"cwd":"/tmp"}' && pass || fail "commit -nm not blocked"
+begin_test "git-safety: git push --no-verify is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push --no-verify origin main"},"cwd":"/tmp"}' && pass || fail "push --no-verify not blocked"
+begin_test "git-safety: git -c core.hooksPath override is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git -c core.hooksPath=/dev/null commit -m fix"},"cwd":"/tmp"}' && pass || fail "core.hooksPath bypass not blocked"
+begin_test "git-safety: core.hooksPath case-insensitive is blocked"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git -c core.hooksPath=/dev/null commit -m fix"},"cwd":"/tmp"}' && pass || fail "core.hooksPath casing not blocked"
+begin_test "git-safety: normal git commit -m still allowed"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit -m fix"},"cwd":"/tmp"}' && pass || fail "normal commit wrongly blocked"
+begin_test "git-safety: git commit -am still allowed (no n)"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit -am fix"},"cwd":"/tmp"}' && pass || fail "commit -am wrongly blocked"
+begin_test "git-safety: commit message mentioning --no-verify is not falsely blocked"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git commit -m \"document the --no-verify flag\""},"cwd":"/tmp"}' && pass || fail "message with --no-verify falsely blocked"
+begin_test "git-safety: git push -n (dry-run) still allowed"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push -n origin feature-x"},"cwd":"/tmp"}' && pass || fail "push -n dry-run wrongly blocked"
+
 begin_test "lib-suppress: SUPERCHARGER_PROFILE=minimal skips quality-gate"
 TMPDIR_PROF=$(mktemp -d)
 echo 'x = 1' > "$TMPDIR_PROF/test.py"

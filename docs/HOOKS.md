@@ -44,6 +44,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `enforce-pkg-manager` | PreToolUse | Bash | Detects lockfiles and blocks the wrong package manager. |
 | `env-file-guard` | PreToolUse | Bash, Read | Blocks reading/editing .env files (which typically contain credentials). |
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
+| `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
 | `file-watcher` | FileChanged | .env,.envrc,package.json,.claude/settings.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
@@ -54,6 +55,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |
 | `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
+| `mcp-circuit-breaker` | — | — | Events: PreToolUse | mcp__   (blocks calls to a server in cooldown) |
 | `mcp-github-write-gate` | PreToolUse | mcp__github__* | Blocks destructive autonomous writes via the GitHub MCP server. Real incident: |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-playwright-guard` | PreToolUse | mcp__playwright__*,mcp__puppeteer__* | Blocks browser-MCP shapes that exfiltrate or RCE. Real CVEs: |

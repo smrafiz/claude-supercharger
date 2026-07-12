@@ -88,6 +88,30 @@ rewrite() {
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
 
+  # v2.9.6: block git hook-bypass — an agent must not skip the repo's
+  # pre-commit/pre-push verification (lint/test/format). Two vectors:
+  #   (a) --no-verify / -n (commit) and --no-verify (push)
+  #   (b) `-c core.hooksPath=<x>` inline-config override that disables ALL git hooks
+  # Test flags on a quote-stripped copy so a commit MESSAGE mentioning "-n" or
+  # "--no-verify" (e.g. -m "document --no-verify") is not falsely blocked. NOTE:
+  # `git push -n` is --dry-run (harmless), so -n is blocked for commit only.
+  seg_flags=$(printf '%s' "$seg" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
+  if [[ "$seg" =~ ^git[[:space:]] ]]; then
+    seg_lc=$(printf '%s' "$seg_flags" | tr '[:upper:]' '[:lower:]')
+    if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+core\.hookspath[=[:space:]] ]]; then
+      block "git -c core.hooksPath= disables git hooks — verification bypass"
+    fi
+  fi
+  if [[ "$seg" =~ ^git\ commit([[:space:]]|$) ]] && \
+     { [[ "$seg_flags" =~ (^|[[:space:]])--no-verify([[:space:]]|$) ]] || \
+       [[ "$seg_flags" =~ (^|[[:space:]])-[a-zA-Z]*n[a-zA-Z]*([[:space:]]|$) ]]; }; then
+    block "git commit --no-verify/-n skips pre-commit hooks — verification bypass"
+  fi
+  if [[ "$seg" =~ ^git\ push([[:space:]]|$) ]] && \
+     [[ "$seg_flags" =~ (^|[[:space:]])--no-verify([[:space:]]|$) ]]; then
+    block "git push --no-verify skips pre-push hooks — verification bypass"
+  fi
+
   if [[ "$seg" =~ ^git\ push[[:space:]] ]]; then
     has_force=false
     has_protected=false
