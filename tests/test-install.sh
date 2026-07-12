@@ -133,6 +133,7 @@ assert_file_exists "$HOME/.claude/agents/planner.md" &&
 assert_file_exists "$HOME/.claude/agents/data-analyst.md" &&
 assert_file_exists "$HOME/.claude/agents/general.md" &&
 assert_file_exists "$HOME/.claude/agents/architect.md" &&
+assert_file_exists "$HOME/.claude/agents/explorer.md" &&
 pass
 teardown_test_home
 

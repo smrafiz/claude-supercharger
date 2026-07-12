@@ -120,4 +120,24 @@ if echo "$ROUTE" | grep -qi "Tony"; then pass
 else fail ".agent-classified-default wrong: $ROUTE (expected Tony Stark)"; fi
 teardown_test_home
 
+# Test 10: "where is X" routes to Ferdinand Magellan (code exploration)
+begin_test "agent-router: where-is prompt routes to Ferdinand Magellan"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+echo '{"prompt":"where is the rate-limiting logic in this codebase"}' | bash "$ROUTER" >/dev/null 2>&1
+ROUTE=$(cat "$HOME/.claude/supercharger/scope/.agent-classified-default" 2>/dev/null || echo "")
+if echo "$ROUTE" | grep -qi "Magellan"; then pass
+else fail ".agent-classified-default wrong: $ROUTE (expected Ferdinand Magellan)"; fi
+teardown_test_home
+
+# Test 11: "find every caller of" routes to Ferdinand Magellan (not the engineer catch-all)
+begin_test "agent-router: find-callers prompt routes to Ferdinand Magellan"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+echo '{"prompt":"find every caller of the legacy AuthClient"}' | bash "$ROUTER" >/dev/null 2>&1
+ROUTE=$(cat "$HOME/.claude/supercharger/scope/.agent-classified-default" 2>/dev/null || echo "")
+if echo "$ROUTE" | grep -qi "Magellan"; then pass
+else fail ".agent-classified-default wrong: $ROUTE (expected Ferdinand Magellan)"; fi
+teardown_test_home
+
 report

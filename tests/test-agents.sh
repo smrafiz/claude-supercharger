@@ -16,6 +16,7 @@ EXPECTED_AGENTS=(
   "data-analyst"
   "general"
   "architect"
+  "explorer"
 )
 
 for agent in "${EXPECTED_AGENTS[@]}"; do
@@ -53,7 +54,7 @@ for agent in architect debugger planner researcher reviewer; do
   grep -q "^model: claude-opus" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use opus (reasoning-critical)"
 done
 
-for agent in general code-helper writer data-analyst; do
+for agent in general code-helper writer data-analyst explorer; do
   begin_test "agents: $agent (execution) uses sonnet model"
   grep -q "^model: claude-sonnet" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use sonnet (throughput)"
 done

@@ -48,6 +48,8 @@ elif [[ "$PROMPT_LOWER" =~ (review|security\ issue|code\ smell|what\ do\ you\ th
   AGENT="Gordon Ramsay (Critic)"
 elif [[ "$PROMPT_LOWER" =~ (analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
   AGENT="Albert Einstein (Analyst)"
+elif [[ "$PROMPT_LOWER" =~ (where\ (is|are|does|do)|which\ file|locate\ |find\ (the|all|every|where)|call\ ?sites|callers\ of|who\ calls|what\ calls|trace\ (the|this|through)|(where|how)\ (is|are).*(defined|implemented|used|handled|located|wired)|explore\ the\ (code|repo|codebase)|search\ the\ (code|codebase)|grep\ for|map\ the\ (code|codebase)) ]]; then
+  AGENT="Ferdinand Magellan (Navigator)"
 elif [[ "$PROMPT_LOWER" =~ (write\ a\ function|write\ a\ test|write\ a\ class|write\ a\ script|write\ a\ method|write\ a\ module|write\ a\ component|write\ a\ hook|write\ a\ handler|write\ a\ parser) ]]; then
   AGENT="Tony Stark (Engineer)"
 elif [[ "$PROMPT_LOWER" =~ (write|draft|blog|readme|document|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
@@ -74,6 +76,7 @@ case "$AGENT" in
   "Leonardo da Vinci (Architect)") CATEGORY="architecture/design" ;;
   "Sun Tzu (Strategist)")          CATEGORY="planning/strategy" ;;
   "Marie Curie (Scientist)")       CATEGORY="research/investigation" ;;
+  "Ferdinand Magellan (Navigator)") CATEGORY="code exploration" ;;
   *)                               CATEGORY="general" ;;
 esac
 
@@ -87,6 +90,7 @@ case "$AGENT" in
   "Leonardo da Vinci (Architect)") AGENT_KEY="architect" ;;
   "Sun Tzu (Strategist)")          AGENT_KEY="strategist" ;;
   "Marie Curie (Scientist)")       AGENT_KEY="scientist" ;;
+  "Ferdinand Magellan (Navigator)") AGENT_KEY="navigator" ;;
   *)                               AGENT_KEY="generalist" ;;
 esac
 
