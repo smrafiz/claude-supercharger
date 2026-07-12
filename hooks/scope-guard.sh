@@ -241,6 +241,9 @@ if [[ "$MODE" == "clear" ]]; then
     -o -name '.contract-*' \
     -o -name '.tool-history-*' \
     -o -name '.router-cache-*' \) -mtime +7 -delete 2>/dev/null || true
+  # v2.9.4: file-lease.sh leases live in a subdir (skipped by the maxdepth-1
+  # scan above) and are only meaningful for ~15 min (TTL); prune day-old ones.
+  find "$SCOPE_DIR/.file-leases" -type f -mtime +1 -delete 2>/dev/null || true
   exit 0
 fi
 

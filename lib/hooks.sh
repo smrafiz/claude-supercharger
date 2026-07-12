@@ -65,6 +65,9 @@ get_hooks_for_mode() {
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
+    # v2.9.4: advisory concurrent-session write guard — warns (never denies) when a
+    # peer live session holds a fresh lease on the same file. Fail-open, TTL-expiring.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/file-lease.sh|")
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")

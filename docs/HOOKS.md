@@ -40,10 +40,12 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `elicitation-discovery` | Elicitation, ElicitationResult | * | Elicitation lets MCP servers solicit structured input from the user — a |
+| `elicitation-guard` | Elicitation | * | SYNC (blocking) | MCP servers can solicit structured input from the user via Elicitation forms — |
 | `enforce-pkg-manager` | PreToolUse | Bash | Detects lockfiles and blocks the wrong package manager. |
 | `env-file-guard` | PreToolUse | Bash, Read | Blocks reading/editing .env files (which typically contain credentials). |
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
+| `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
 | `file-watcher` | FileChanged | .env,.envrc,package.json,.claude/settings.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `git-safety` | PreToolUse | Bash (git *) | shellcheck source=hooks/lib-suppress.sh |
 | `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
@@ -52,10 +54,15 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |
 | `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
+| `mcp-github-write-gate` | PreToolUse | mcp__github__* | Blocks destructive autonomous writes via the GitHub MCP server. Real incident: |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
+| `mcp-playwright-guard` | PreToolUse | mcp__playwright__*,mcp__puppeteer__* | Blocks browser-MCP shapes that exfiltrate or RCE. Real CVEs: |
+| `mcp-provenance` | PostToolUse | mcp__ | Complements prompt-injection-scanner (which catches "ignore instructions"-style |
+| `mcp-sql-guard` | PreToolUse | mcp__postgres__*,mcp__supabase__* | Blocks destructive SQL via the Postgres / Supabase MCP servers. Real incident: |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
+| `memory-write-guard` | PreToolUse | Write,Edit | Blocks writes to persistent-memory files when the content carries instruction- |
 | `notify-permission` | PermissionRequest | (none) | Only fires for tools not auto-approved by smart-approve. |
-| `notify-stop` | Stop | * | Shows prompt + response summary with git branch. |
+| `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
@@ -76,6 +83,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `session-end` | SessionEnd | (none) | Logs session stats and cleans up transient scope files. |
 | `session-memory-inject` | SessionStart | * | Injects .claude/supercharger-memory.md into context if present. |
 | `session-memory-write` | Stop | * | Writes a compressed session summary to .claude/supercharger-memory.md |
+| `setup-check` | Setup | (none) | Fires when Claude Code runs `--init`, `--init-only`, or `--maintenance`. |
 | `shell-escape-advisor` | UserPromptSubmit | (none) | Claude Code's `! <cmd>` prompt prefix runs commands directly in the user's |
 | `skill-poisoning-scanner` | PreToolUse | Skill | Scans skill content for hidden shell commands, encoded payloads, |
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
@@ -85,8 +93,11 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `stop-failure` | StopFailure | (none) | Logs API errors (rate limits, auth failures) to errors.log for diagnosis. |
 | `stop-keep-going` | Stop | (none) | Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going |
 | `stop-verify` | Stop | * | Merged from verify-on-stop.sh + project-verify.sh |
+| `subagent-circuit-breaker` | SubagentStart | (none) | Tracks subagent spawns in a rolling time window per session. Warns when the |
 | `subagent-cost` | SubagentStart,SubagentStop | (none) | Modes: |
 | `subagent-discovery` | SubagentStart, SubagentStop | * | Subagent nesting now goes up to 5 levels deep (Claude Code v2.1.172). |
+| `subagent-report-fallback` | SubagentStop | * | async | Companion to subagent-safety.sh's report-pin instruction (v2.6.82). |
+| `subagent-report-notify` | SubagentStop | (none)  [BLOCKING — must inject into parent] | Closes the last gap in the report-recovery story. When a subagent's final |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
 | `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |
 | `thinking-budget` | UserPromptSubmit | (none) | Classifies prompt complexity and nudges Claude's reasoning depth. |
@@ -97,7 +108,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
-| `worktree-discovery` | PreToolUse | WorktreeCreate, WorktreeRemove | WorktreeCreate/WorktreeRemove are git-worktree tool types Claude Code added |
 
 ## Standalone tools
 
@@ -122,10 +132,13 @@ Run any of these manually:
 | `tools/notify-toggle.sh` | Claude Supercharger — Desktop Notification Toggle |
 | `tools/profile-switch.sh` | set -euo pipefail |
 | `tools/release.sh` | Claude Supercharger — Release Automation |
+| `tools/sc-toggle.sh` | Claude Supercharger — Activate / Deactivate toggle |
 | `tools/scope-cleanup.sh` | Claude Supercharger — Scope State Cleanup |
 | `tools/session-analytics.sh` | Claude Supercharger — Session Analytics |
+| `tools/subagent-report.sh` | Claude Supercharger — Subagent Report Reader |
 | `tools/supercharger.sh` | Claude Supercharger — Capability Overview |
 | `tools/token-report.sh` | Claude Supercharger — Session Token Report |
+| `tools/trust-mcp.sh` | Claude Supercharger — Trust an MCP server for Elicitation credential prompts |
 | `tools/update.sh` | Claude Supercharger — Smart Updater |
 | `tools/webhook-setup.sh` | set -eo pipefail |
 
