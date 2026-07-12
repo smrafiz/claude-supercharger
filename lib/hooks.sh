@@ -80,6 +80,10 @@ get_hooks_for_mode() {
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
+    # v2.9.8: block `git commit` when the staged diff introduces a secret —
+    # closes the gap between output-secrets-scanner (output) and code-security-
+    # scanner (Write/Edit content). Shares lib-secret-patterns.sh. Fail-open.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-secret-guard.sh|")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
