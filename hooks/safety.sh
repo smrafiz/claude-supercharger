@@ -219,6 +219,15 @@ DESTRUCT_PATTERNS=(
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
   '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?(shutdown|reboot|poweroff|halt)([[:space:]]|$)'
   '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?init[[:space:]]+[06]([[:space:]]|$)'
+  # v2.9.13: partition/disk-destruction — same irreversible class as mkfs/dd
+  # (covered above), but the partition-editor family was missing. Read-only forms
+  # are excluded: `fdisk -l`, `sfdisk -l`, `parted -l/print`, bare `wipefs` (all
+  # list, no /dev target right after the tool / no destructive subcommand).
+  # (from wintermeyer/heinzel guard-taboos.sh)
+  'wipefs[[:space:]]([^;&|]*[[:space:]])?(-a|--all)([[:space:]]|$)'
+  '(^|[[:space:]])(fdisk|gdisk)[[:space:]]+/dev/'
+  '(^|[[:space:]])sfdisk[[:space:]]+/dev/'
+  'parted[[:space:]][^;&|]*(mklabel|mkpart|resizepart|[[:space:]]rm[[:space:]])'
 )
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
