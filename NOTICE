@@ -6,3 +6,15 @@ This product includes software adapted from third-party sources:
 - Portions of the guardrails system are adapted from
   TheArchitectit/agent-guardrails-template, licensed under BSD-3-Clause.
   See https://github.com/TheArchitectit/agent-guardrails-template for details.
+
+- The security-hardening layer (v2.9-2.10) adapts enforcement patterns
+  (regexes / detection logic, independently re-implemented in bash/python)
+  from the following MIT-licensed projects:
+    * efij/secure-claude-code ("Stallion")     — https://github.com/efij/secure-claude-code
+    * dwarvesf/claude-guardrails               — https://github.com/dwarvesf/claude-guardrails
+    * wintermeyer/heinzel                      — https://github.com/wintermeyer/heinzel
+    * mafiaguy/claude-security-guardrails      — https://github.com/mafiaguy/claude-security-guardrails
+    * Chachamaru127/claude-code-harness        — https://github.com/Chachamaru127/claude-code-harness
+  Each is MIT-licensed; copyright remains with the respective authors.
+  The commit-attribution-gate concept was reimplemented from
+  domengabrovsek/claude (idea only; no code copied).
