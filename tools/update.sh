@@ -216,8 +216,8 @@ except Exception:
 
   # Detect current notify/commits settings
   DETECTED_NOTIFY="on"
-  [ -f "$HOME/.claude/supercharger/.notify-off" ] && DETECTED_NOTIFY="off"
-  [ -f "$HOME/.claude/supercharger/.notify-sound" ] && DETECTED_NOTIFY="sound"
+  [ -f "$HOME/.claude/supercharger/.no-desktop-notify" ] && DETECTED_NOTIFY="off"
+  [ -f "$HOME/.claude/supercharger/.sound-only-notify" ] && DETECTED_NOTIFY="sound"
   DETECTED_COMMITS="off"
   [ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
 
@@ -298,8 +298,8 @@ echo ""
 
 # Detect current notify/commits settings
 DETECTED_NOTIFY="on"
-[ -f "$HOME/.claude/supercharger/.notify-off" ] && DETECTED_NOTIFY="off"
-[ -f "$HOME/.claude/supercharger/.notify-sound" ] && DETECTED_NOTIFY="sound"
+[ -f "$HOME/.claude/supercharger/.no-desktop-notify" ] && DETECTED_NOTIFY="off"
+[ -f "$HOME/.claude/supercharger/.sound-only-notify" ] && DETECTED_NOTIFY="sound"
 DETECTED_COMMITS="off"
 [ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
 

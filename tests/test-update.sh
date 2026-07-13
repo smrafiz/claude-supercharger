@@ -67,4 +67,26 @@ if [ $EXIT_CODE -eq 1 ]; then pass
 else fail "expected exit 1 (no roles), got $EXIT_CODE"; fi
 teardown_test_home
 
+# v2.10.2 regression: update.sh must detect the notify state using the SAME flag
+# files that notify-toggle.sh / install.sh actually write (.no-desktop-notify /
+# .sound-only-notify). It previously checked stale names (.notify-off/.notify-sound)
+# that never matched, so every update silently passed --notify on and clobbered a
+# user's "off" setting.
+begin_test "update: notify detection uses the real flag filenames"
+if grep -q '\.no-desktop-notify' "$TOOL" && grep -q '\.sound-only-notify' "$TOOL" \
+   && ! grep -q '\.notify-off"' "$TOOL" && ! grep -q '\.notify-sound"' "$TOOL"; then
+  pass
+else
+  fail "update.sh notify-flag detection references wrong/stale filenames"
+fi
+
+# Cross-check: the flag names update.sh looks for are the ones notify-toggle writes
+begin_test "update: notify flags match notify-toggle's canonical names"
+TOGGLE="$REPO_DIR/tools/notify-toggle.sh"
+if grep -q '\.no-desktop-notify' "$TOGGLE" && grep -q '\.no-desktop-notify' "$TOOL"; then
+  pass
+else
+  fail "notify flag name drift between update.sh and notify-toggle.sh"
+fi
+
 report
