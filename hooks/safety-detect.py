@@ -242,6 +242,13 @@ _NETWORK_UPLOADS = [
     r"\bwget\b.*--post-file=",
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",
+    # v2.9.9: scp/rsync to a REMOTE host (host:path syntax). check_env_file
+    # already covers `scp .env host:`, but a sensitive NON-.env file (id_rsa,
+    # .pem, .aws/credentials) copied out slipped through — scp/rsync weren't an
+    # exfil channel. Gated on _SENSITIVE_PATHS below, so `scp README host:` is
+    # untouched. (from mafiaguy/claude-security-guardrails)
+    r"\bscp\b[^|;&]*\s\S+:",
+    r"\brsync\b[^|;&]*\s\S+:",
 ]
 
 

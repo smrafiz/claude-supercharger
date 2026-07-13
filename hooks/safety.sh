@@ -208,6 +208,17 @@ DESTRUCT_PATTERNS=(
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
   # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
   'find[[:space:]].*-delete([[:space:]]|$)' 'find[[:space:]].*-exec[[:space:]]+rm([[:space:]]|$)'
+  # v2.9.9: Docker data destruction — `docker volume rm/prune` and `system prune
+  # --volumes` delete named volumes (databases, uploads) irreversibly. Plain
+  # `system prune` (no --volumes) is left allowed — it only clears dangling
+  # images/stopped containers. (from mafiaguy/claude-security-guardrails)
+  'docker[[:space:]]+volume[[:space:]]+(rm|prune)([[:space:]]|$)'
+  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*--volumes'
+  # v2.9.9: system power/shutdown — an agent must not halt the user's machine
+  # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
+  # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
+  '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?(shutdown|reboot|poweroff|halt)([[:space:]]|$)'
+  '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?init[[:space:]]+[06]([[:space:]]|$)'
 )
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
