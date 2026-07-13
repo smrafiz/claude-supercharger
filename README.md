@@ -113,31 +113,32 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 ---
 
-## Recent highlights (v2.8)
+## Recent highlights (v2.10)
 
-The v2.7 → v2.8 line focused on making the runtime observable, hardening the guards, and cutting per-hook overhead — without changing how you use it.
+The v2.9 → v2.10 line is a **security-hardening milestone** — a large expansion of the enforcement surface, most of it distilled from auditing ~50 "guardrail/harness" projects against Supercharger's thesis and adopting only the self-contained, low-false-positive patterns (see [Credits](#credits)). Test suite grew 1319 → 1464 with zero regressions.
 
-### Sharper visibility
+### New enforcement hooks
 
-- **Unified token + cost line** — one statusline row shows main, subagent, and total tokens with their dollar cost side by side. Counts are **content tokens** (input + output), so cache traffic no longer inflates the number into the billions
-- **Real git diff in the statusline** — actual `+N / −M` for the working tree, cached per repo off `.git` mtime so it costs nothing on an unchanged tree
-- **Memory-restored badge** — a `Mem: Restored` marker after compaction, scoped to the session that actually compacted
+- **Commit-time secret guard** — blocks `git commit` when the **staged diff** introduces a secret (API keys, cloud creds, and Ethereum / BIP-32 / Bitcoin-WIF wallet keys) — closing the gap between output-scanning and Edit-scanning where a secret written via a shell redirect slips into history
+- **Git hook-bypass block** — refuses `git commit --no-verify` / `-n` and the `-c core.hooksPath=` override, so the repo's own pre-commit checks can't be skipped
+- **MCP circuit-breaker & egress guard** — trips a per-server breaker on `429`/`503` (stops burning turns on a down server), and classifies URLs in MCP tool arguments to block metadata-SSRF / webhook / paste-site egress
+- **File-lease** — advisory warning when two live Claude sessions edit the same file; **fact-gate** (opt-in) makes Claude recite a file's importers/rollback before its first edit; **commit-coauthor-guard** (opt-in) strips AI-attribution trailers from commits
 
-### Smarter notifications
+### Expanded attack surface (all opt-out by category)
 
-- **"Done" desktop notifications** — fire only after genuinely long tasks (duration-gated), use the correct `PermissionRequest` shape, and render cleanly (fixed the MacRoman mojibake in AppleScript-delivered titles)
+- **Cloud & container** — instance-metadata SSRF, `aws sts assume-role` / `iam create-access-key`, container escape (`--privileged` / host sockets / `nsenter`), `kubectl` cluster-admin + secret reads, `terraform destroy`
+- **Persistence & tamper** — `/etc/sudoers`, `authorized_keys` backdoors, launchd/systemd/schtasks/cron, `/etc/hosts` remaps, keychain dumps
+- **Exfil & tunnel** — `ngrok`/`cloudflared`/`ssh -R`, browser remote-debug cookie theft, fetch-then-exec droppers, DNS-exfil
+- **Disk destruction** — the partition-editor family (`wipefs -a`, `fdisk`/`parted`) on top of the existing `mkfs`/`dd` blocks
 
-### Hardened guards
+### New agent
 
-- **Closed 7 verified gate bypasses** — absolute-path `rm` targets, leading-`+` force-push refspecs (`git push origin +main`), symlink escapes on relative paths, SQL guards defeated by comment/whitespace obfuscation (plus a broadened server allowlist), GitHub writes with an omitted branch defaulting to `main`, and `find -delete` / `find -exec rm`
-- **Elicitation credential guard** — MCP servers that phish a token/password/API-key through a routine-looking input form are now declined unless the server is explicitly trusted in `.supercharger.json`
-- **Precision secret detection** — the output scanner no longer fires on the bare words "API key" / "access token" in comments or docs; it requires an actual assigned value (`api_key=<value>`), so it flags real leaks without the cry-wolf that trains you to ignore it
-- **Command-output correctness** — a sweep of the diagnostic commands (`/sc-status`, `/why`, `/perf`, `/cache-stats`) fixed scope-file paths that had silently drifted as hooks gained per-session/per-project suffixes; a meta-test now fails CI if any command references a path no hook writes
+- **Ferdinand Magellan (Navigator)** — a read-only code-exploration agent (Supercharger's analog of Claude Code's `Explore`): fans out, locates code, returns `file:line` conclusions rather than a pile of files
 
-### Lower overhead
+### Under the hood
 
-- **Per-hook fork reduction** — cheap bash pre-gates short-circuit the expensive `python3`/`jq` work in the PreToolUse, PostToolUse, and UserPromptSubmit chains; the agent router now spends ~3 fewer process spawns per prompt
-- **Zero-setup `/perf`** — on bash 5+, hooks slower than ~40ms are recorded automatically (zero-fork `EPOCHREALTIME` clock), so `/perf` surfaces slow hooks with no profiling flag to toggle
+- **Shared secret-pattern library** — one `lib-secret-patterns.sh` feeds both the output scanner and the commit guard, so a new pattern lands in both channels with no drift
+- **Hot-files resume** — session restore now leads with the files the last session most actively edited (recency-decayed from the audit log), not just a flat diff
 
 ### Correct under concurrency
 
