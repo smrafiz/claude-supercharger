@@ -106,6 +106,9 @@ _SENSITIVE_NAME_RE = re.compile(
     r"|[\w.*-]+\.(?:ppk|pem|key|crt|cer|p12|pfx)"
     r"|wallet\.dat|wallet\.json|[\w.*-]+\.wallet"
     r"|secrets?\.[a-zA-Z0-9_-]+|credentials\.[a-zA-Z0-9_-]+"
+    # v2.10.1: terraform var files (DB passwords / cloud creds / API keys) +
+    # token stores (from chuckreynolds/claude-secret-guardrails)
+    r"|[\w.*-]*\.tfvars|[\w.*-]*\.tokens\.json"
     r")"
 )
 

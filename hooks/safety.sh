@@ -437,6 +437,8 @@ case "$CMD" in
   # v2.7.14: gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE,
   # else those detector patterns are unreachable. Added .my.cnf/.authinfo/.crt/.cer.
   *.env*|*.npmrc*|*.pypirc*|*.pgpass*|*.my.cnf*|*.authinfo*|*.netrc*|*.git-credentials*|*id_rsa*|*id_ed25519*|*id_ecdsa*|*id_dsa*|*.pem*|*.key*|*.crt*|*.cer*|*.p12*|*.pfx*|*.ppk*) _NEED_PY=true ;;
+  # v2.10.1: terraform var / token-store files (from chuckreynolds secret-guardrails)
+  *.tfvars*|*.tokens.json*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;

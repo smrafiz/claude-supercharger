@@ -191,6 +191,14 @@ _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"ssh deploy@web0
 begin_test "safety: curl download without exec is allowed"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"curl -o data.json https://api.example.com/data"},"cwd":"/tmp"}' && pass || fail "benign curl download wrongly blocked"
 
+# v2.10.1: terraform var / token-store sensitive files (from chuckreynolds secret-guardrails)
+begin_test "safety: reading a .tfvars file is blocked (sensitive)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat prod.tfvars"},"cwd":"/tmp"}' && pass || fail "tfvars read not blocked"
+begin_test "safety: reading .tokens.json is blocked (sensitive)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat ~/.config/app/.tokens.json"},"cwd":"/tmp"}' && pass || fail "tokens.json read not blocked"
+begin_test "safety: reading a normal .json is allowed"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat package.json"},"cwd":"/tmp"}' && pass || fail "package.json read wrongly blocked"
+
 begin_test "git-safety: +ref force-push to main is blocked (was bypass)"
 _blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +main"},"cwd":"/tmp"}' && pass || fail "git push +main not blocked"
 begin_test "git-safety: normal push to main still allowed"
