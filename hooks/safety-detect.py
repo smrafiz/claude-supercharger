@@ -252,10 +252,20 @@ _NETWORK_UPLOADS = [
 ]
 
 
+# v2.9.16: DNS-as-channel via a normal resolver tool (dig/nslookup/host/drill) —
+# only when paired with an encoding/secret payload, so plain `dig example.com`
+# stays allowed. (from efij Stallion)
+_DNS_RESOLVER_TOOLS = r"(?:^|[\s;&|])(?:dig|nslookup|host|drill)\b"
+_DNS_EXFIL_PAYLOAD = r"(?:base64|base32|xxd|openssl\s+enc|\$\((?:cat|printenv|env|whoami|hostname)|\.env\b|id_rsa)"
+
+
 def check_exfiltration(c: str) -> str | None:
     for pat in _DNS_EXFIL_TOOLS:
         if re.search(pat, c):
             return "DNS tunneling tool detected — used for covert data exfiltration"
+
+    if re.search(_DNS_RESOLVER_TOOLS, c) and re.search(_DNS_EXFIL_PAYLOAD, c):
+        return "DNS resolver with an encoded/secret payload — possible DNS exfiltration"
 
     for upload_re, label in _CLOUD_UPLOADS:
         if not re.search(upload_re, c):

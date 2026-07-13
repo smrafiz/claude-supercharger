@@ -286,6 +286,18 @@ PERSIST_PATTERNS=(
   # /etc/hosts remap of a package/AI/registry domain (traffic hijack)
   '(github\.com|githubusercontent|anthropic|registry\.npmjs|pypi\.org|files\.pythonhosted|registry-1\.docker)[^;&|]*(>>?|tee)[^;&|]*/etc/hosts'
 )
+# v2.9.16: exfil/tunnel command patterns (category: network). (from efij Stallion, cluster 3)
+EXFIL_PATTERNS=(
+  # Chrome/Chromium remote-debug (CDP) — drives the LIVE browser to dump
+  # cookies/sessions over a socket; the browser category only guards on-disk paths.
+  '(--remote-debugging-(port|pipe))'
+  # Reverse tunnels / public exposure of a local port — post-compromise egress + C2
+  # that bypasses the no-outbound model. ssh -R (reverse) / -D (dynamic SOCKS).
+  '((^|[[:space:]])(ngrok|cloudflared|localtunnel|serveo|chisel|bore|pinggy)([[:space:]]|$)|tailscale[[:space:]]+funnel|(^|[[:space:]])ssh[[:space:]]+[^;&|]*-[RD]([[:space:]]|$))'
+  # Remote-script dropper (SPLIT form the `| sh` rule misses): fetch a script file,
+  # then chmod +x / interpret / ./ it in the same command chain.
+  '(curl|wget)[^;&|]*\.(sh|bash|ps1|py)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*(chmod[^;&|]*\+x|(^|[[:space:]])(bash|sh|python|node)[[:space:]]|\./)'
+)
 # v2.9.14: credential-store abuse commands (category: credentials).
 CRED_CMD_PATTERNS=(
   # enable plaintext git credential store (downgrades secure helper)
@@ -298,6 +310,7 @@ DANGEROUS_PATTERNS=()
 _cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
 _cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
+_cat_enabled "network" && DANGEROUS_PATTERNS+=("${EXFIL_PATTERNS[@]}")
 _cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
 _cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${PERSIST_PATTERNS[@]}")
 _cat_enabled "credentials" && DANGEROUS_PATTERNS+=("${CRED_CMD_PATTERNS[@]}")
@@ -427,6 +440,8 @@ case "$CMD" in
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
+  # v2.9.16: DNS resolver tools — the detector's dig/nslookup exfil arm needs these.
+  *dig\ *|*nslookup*|*drill\ *|*\ host\ *) _NEED_PY=true ;;
   *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
 esac
