@@ -271,12 +271,36 @@ CLOUD_PATTERNS=(
   # Secret material passed through a container build
   '--build-arg[=[:space:]][^[:space:]]*(TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_KEY|API_KEY)='
 )
+# v2.9.14: persistence tamper beyond the crontab/shell-profile/ssh-key blocks
+# already in the persistence category below (category: persistence). All gated
+# on a WRITE verb so reads/status stay allowed. (from efij Stallion, cluster 2)
+# NOTE ssh-config StrictHostKeyChecking=no / ProxyCommand deliberately NOT
+# blocked — too common in legit CI/jump-host automation (would cry-wolf).
+PERSIST_PATTERNS=(
+  # /etc/sudoers write, visudo, NOPASSWD grant
+  '((>>?|tee|sed[[:space:]]+-i|cp|mv)[^;&|]*/etc/sudoers|(^|[[:space:]])visudo([[:space:]]|$)|NOPASSWD:)'
+  # append/copy into an authorized_keys file (backdoor SSH access)
+  '((>>?|tee|cp|mv|sed[[:space:]]+-i)[^;&|]*authorized_keys|(^|[[:space:]])ssh-copy-id([[:space:]]|$))'
+  # scheduled-task persistence: launchd/systemd/cron writes, launchctl load, schtasks /create
+  '((>>?|tee|cp|mv)[^;&|]*(Library/(LaunchAgents|LaunchDaemons)|/etc/systemd/system|/\.config/systemd/user|/etc/cron)|launchctl[[:space:]]+(bootstrap|load)|schtasks[^;&|]*/create)'
+  # /etc/hosts remap of a package/AI/registry domain (traffic hijack)
+  '(github\.com|githubusercontent|anthropic|registry\.npmjs|pypi\.org|files\.pythonhosted|registry-1\.docker)[^;&|]*(>>?|tee)[^;&|]*/etc/hosts'
+)
+# v2.9.14: credential-store abuse commands (category: credentials).
+CRED_CMD_PATTERNS=(
+  # enable plaintext git credential store (downgrades secure helper)
+  'git[[:space:]]+config[^;&|]*credential\.helper[[:space:]]+store'
+  # dump the OS credential store
+  '(security[[:space:]]+dump-keychain|secret-tool[[:space:]]+lookup|(^|[[:space:]])cmdkey[[:space:]]+/list)'
+)
 
 DANGEROUS_PATTERNS=()
 _cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
 _cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
 _cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
+_cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${PERSIST_PATTERNS[@]}")
+_cat_enabled "credentials" && DANGEROUS_PATTERNS+=("${CRED_CMD_PATTERNS[@]}")
 
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
