@@ -58,6 +58,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `mcp-circuit-breaker` | — | — | Events: PreToolUse | mcp__   (blocks calls to a server in cooldown) |
+| `mcp-egress-guard` | PreToolUse | mcp__ | Classifies URLs/hosts in an MCP tool's arguments and blocks the dangerous |
 | `mcp-github-write-gate` | PreToolUse | mcp__github__* | Blocks destructive autonomous writes via the GitHub MCP server. Real incident: |
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-playwright-guard` | PreToolUse | mcp__playwright__*,mcp__puppeteer__* | Blocks browser-MCP shapes that exfiltrate or RCE. Real CVEs: |

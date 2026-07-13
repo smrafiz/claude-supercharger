@@ -54,7 +54,9 @@ get_hooks_for_mode() {
   # v2.7.2: structural provenance check on MCP results — forged tool-call/system
   # framing the prompt-injection-scanner's persuasion patterns don't cover (ASI04).
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-provenance.sh|asyncRewake")
-  hooks+=("PostToolUse|Bash,Read|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
+  # channel gap; a server can return a leaked credential). (from efij Stallion)
+  hooks+=("PostToolUse|Bash,Read,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
@@ -74,6 +76,9 @@ get_hooks_for_mode() {
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|async")
+    # v2.9.17: classify URLs in MCP tool args — block metadata-SSRF / webhook /
+    # paste-site egress, warn on private-network targets. (from efij Stallion)
+    hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-egress-guard.sh|")
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
     hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")

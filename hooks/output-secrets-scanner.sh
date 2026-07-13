@@ -18,7 +18,22 @@ init_hook_suppress "$PROJECT_DIR"
 # never scanned. Read both fields, prefer stdout (Bash) then output (Read tool).
 OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_response.output // empty' 2>/dev/null || true)
 if [ -z "$OUTPUT" ]; then
-  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; r=json.load(sys.stdin).get('tool_response',{}); print(r.get('stdout','') or r.get('output',''))" 2>/dev/null || echo "")
+  # v2.9.17: MCP responses carry text under content[]/other shapes, not stdout —
+  # for mcp__ tools, stringify the whole tool_response so secrets in an MCP reply
+  # are scanned too. Bash/Read behavior is unchanged (still stdout/output).
+  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+r = d.get('tool_response')
+tool = str(d.get('tool_name') or '')
+if isinstance(r, dict):
+    out = r.get('stdout') or r.get('output') or ''
+    if not out and tool.startswith('mcp__'):
+        out = json.dumps(r)
+    print(out)
+elif r is not None and tool.startswith('mcp__'):
+    print(json.dumps(r))
+" 2>/dev/null || echo "")
 fi
 
 [ -z "$OUTPUT" ] && exit 0
