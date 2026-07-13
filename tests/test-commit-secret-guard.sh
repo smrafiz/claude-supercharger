@@ -38,6 +38,18 @@ OUT=$(_run "$D" "git commit -m wallet")
 echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "expected block on eth key, got: $OUT"
 rm -rf "$D"
 
+begin_test "commit-secret-guard: staged BIP-32 xprv key is blocked (v2.9.10)"
+D=$(_newrepo); printf 'k=xprv9s21ZrQH143K3QTDL4LXw2F7HEK3wJUD2nW2nRk4stbPy6cq3jPPqjiChkVvvNKmPGJxWUtg6LnF5kejMRNNU3TGtRBeJgk33yuGBxrMPHi\n' > "$D/w.txt"; ( cd "$D" && git add w.txt )
+OUT=$(_run "$D" "git commit -m xprv")
+echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "expected block on xprv key, got: $OUT"
+rm -rf "$D"
+
+begin_test "commit-secret-guard: staged Bitcoin WIF key is blocked (v2.9.10)"
+D=$(_newrepo); printf 'wif=5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ1jvhTVqvbTLvyTJ\n' > "$D/w.txt"; ( cd "$D" && git add w.txt )
+OUT=$(_run "$D" "git commit -m wif")
+echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "expected block on WIF key, got: $OUT"
+rm -rf "$D"
+
 begin_test "commit-secret-guard: clean staged diff commits fine"
 D=$(_newrepo); printf 'export function add(a,b){return a+b}\n' > "$D/util.js"; ( cd "$D" && git add util.js )
 OUT=$(_run "$D" "git commit -m util")

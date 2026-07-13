@@ -52,4 +52,10 @@ SECRET_PATTERNS=(
   # v2.9.8: crypto wallet — Ethereum/EVM private key (0x + 64 hex). The 0x prefix
   # keeps it distinct from a bare 64-hex SHA-256 checksum (lockfiles), so low FP.
   '0x[a-fA-F0-9]{64}'
+  # v2.9.10: more wallet-key formats (from dwarvesf/claude-guardrails v0.4.0).
+  # BIP-32 extended private key — xprv/yprv/zprv (mainnet) + tprv/uprv/vprv
+  # (testnet), Base58, 107-108 chars. Prefix makes FP essentially nil.
+  '([xyz]prv|[tuv]prv)[1-9A-HJ-NP-Za-km-z]{107,108}'
+  # Bitcoin WIF private key (Base58, mainnet) — starts 5/K/L, 51-52 chars total.
+  '[5KL][1-9A-HJ-NP-Za-km-z]{50,51}'
 )
