@@ -41,6 +41,25 @@ done
 
 # Fetch latest version from GitHub contents API (no auth, no CDN cache)
 fetch_remote_version() {
+  # v2.10.3: prefer `git ls-remote --tags` — it uses the SAME github.com git
+  # channel as the clone that the actual update performs, so the version check
+  # succeeds exactly when the update would. The old path hit api.github.com (a
+  # different host + the 60-req/hr unauthenticated REST rate limit + no proxy
+  # inheritance), so it failed independently of `git clone` — reporting "could
+  # not reach GitHub" on shared/office IPs and behind proxies even though the
+  # update itself would have worked. The API is kept only as a fallback.
+  local v
+  v=$(git ls-remote --tags --refs "${REPO_URL}.git" 2>/dev/null \
+        | awk -F/ '{print $NF}' \
+        | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
+        | sed 's/^v//' \
+        | sort -t. -k1,1n -k2,2n -k3,3n \
+        | tail -1)
+  if [ -n "$v" ]; then
+    printf '%s\n' "$v"
+    return
+  fi
+  # Fallback: GitHub REST API (subject to the 60/hr unauthenticated limit).
   python3 -c "
 import urllib.request, json, base64
 try:

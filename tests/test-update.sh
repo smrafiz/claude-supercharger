@@ -89,4 +89,20 @@ else
   fail "notify flag name drift between update.sh and notify-toggle.sh"
 fi
 
+# v2.10.3 regression: version check must use git ls-remote (same github.com channel
+# as the clone), not ONLY api.github.com — which has a 60/hr unauthenticated rate
+# limit + no proxy inheritance, so it failed independently of `git clone`.
+begin_test "update: remote version check uses git ls-remote (not api-only)"
+if grep -q 'git ls-remote' "$TOOL"; then pass
+else fail "fetch_remote_version no longer uses git ls-remote — API-only regresses the rate-limit fix"; fi
+
+# The tag-parse pipeline must pick the highest semver NUMERICALLY (2.10.2 > 2.9.17,
+# which a string sort would get wrong).
+begin_test "update: version parse picks highest semver numerically"
+HIGHEST=$(printf '%s\n' \
+  "a	refs/tags/v2.9.8" "b	refs/tags/v2.9.17" "c	refs/tags/v2.10.0" "d	refs/tags/v2.10.2" "e	refs/tags/v1.0.0" \
+  | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' \
+  | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
+[ "$HIGHEST" = "2.10.2" ] && pass || fail "expected 2.10.2, got '$HIGHEST' (string sort would pick 2.9.17)"
+
 report
