@@ -91,6 +91,48 @@ else
     FAILURES=$(tail -10 "$FAILURE_LOG" 2>/dev/null | sort -u | tail -3 | tr '\n' ',' | sed 's/,$//')
     [ -n "$FAILURES" ] && ENRICHMENT="${ENRICHMENT} failures:${FAILURES}"
   fi
+  # v2.9.12: hot files — the files the last session most actively edited, ranked
+  # by recency-decayed edit frequency. Reuses audit-trail's Write/Edit entries
+  # (keys: tool, file, timestamp) — no new tracking. Gives resume a focus list
+  # (what we were working ON), not the flat modified-files diff. Idea adapted
+  # from thebrain's "file heat" — as a memory signal, not a guard.
+  HOT=$(PROJECT_ROOT="$PROJECT_ROOT" AUDIT_DIR="$HOME/.claude/supercharger/audit" python3 <<'PYEOF' 2>/dev/null || true
+import os, json, glob, datetime
+root = os.environ.get('PROJECT_ROOT', '')
+adir = os.environ.get('AUDIT_DIR', '')
+if not root or not os.path.isdir(adir):
+    raise SystemExit
+now = datetime.datetime.now(datetime.timezone.utc)
+scores = {}
+for fp in sorted(glob.glob(os.path.join(adir, '*.jsonl')))[-2:]:  # today + yesterday
+    try:
+        fh = open(fp)
+    except Exception:
+        continue
+    for ln in fh:
+        try:
+            d = json.loads(ln)
+        except Exception:
+            continue
+        if d.get('tool') not in ('Write', 'Edit'):
+            continue
+        path = d.get('file') or ''
+        if not path or not path.startswith(root):
+            continue
+        try:
+            t = datetime.datetime.fromisoformat((d.get('timestamp') or '').replace('Z', '+00:00'))
+            age_h = (now - t).total_seconds() / 3600
+        except Exception:
+            age_h = 24
+        if age_h > 48:
+            continue
+        scores[path] = scores.get(path, 0) + max(0.15, 1 - age_h / 48)  # linear decay
+if scores:
+    top = sorted(scores.items(), key=lambda kv: kv[1], reverse=True)[:4]
+    print(','.join(os.path.basename(p) for p, _ in top))
+PYEOF
+)
+  [ -n "$HOT" ] && ENRICHMENT="${ENRICHMENT} hot:${HOT}"
   MSG="[MEM] ${CONTENT}${ENRICHMENT}"
 fi
 

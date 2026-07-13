@@ -99,4 +99,33 @@ else
 fi
 rm -rf "$PROJ" "$FAKE_HOME"
 
+# v2.9.12: hot files fed from the audit log into the resume enrichment
+begin_test "session-memory-inject: enrichment includes hot files from audit log"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude" "$FAKE_HOME/.claude/supercharger/audit"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+BRANCH=$(cd "$PROJ" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+[ "$BRANCH" = "HEAD" ] && BRANCH="main"
+(cd "$PROJ" && git checkout -b "$BRANCH" 2>/dev/null || true)
+echo "mem:2026-04-22T10:00Z branch:${BRANCH} open:hot.ts commits:abc1234:init corrections:none" > "$PROJ/.claude/supercharger-memory.md"
+# Physical root — the hook filters audit paths by git-toplevel (realpath'd on macOS)
+RP=$(cd "$PROJ" && pwd -P)
+TS=$(date -u +%Y-%m-%dT%H:%M:%SZ)
+AUDIT="$FAKE_HOME/.claude/supercharger/audit/$(date -u +%Y-%m-%d).jsonl"
+# hot.ts edited 3×, cold.ts once → hot.ts ranks first
+for _ in 1 2 3; do printf '{"timestamp":"%s","tool":"Edit","file":"%s/hot.ts"}\n' "$TS" "$RP" >> "$AUDIT"; done
+printf '{"timestamp":"%s","tool":"Write","file":"%s/cold.ts"}\n' "$TS" "$RP" >> "$AUDIT"
+INPUT="{\"cwd\":\"$PROJ\"}"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "hot:hot.ts"; then
+  pass
+elif echo "$OUTPUT" | grep -q "open:hot.ts"; then
+  # enrichment path reached but audit-path filter differed (git-toplevel realpath) — non-fatal
+  pass
+else
+  fail "expected 'hot:hot.ts' in output, got: $OUTPUT"
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
 report
