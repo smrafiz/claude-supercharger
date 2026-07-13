@@ -5,7 +5,7 @@
 # Per-category toggles: disable specific security categories via
 #   ~/.claude/supercharger/scope/.disabled-security-categories
 # One category per line: filesystem, database, destructive, network,
-#   credentials, persistence, clipboard, browser, history, selfmod
+#   credentials, persistence, clipboard, browser, history, selfmod, cloud
 #
 # Or per-project via .supercharger.json:
 #   {"disableSecurityCategories": ["clipboard", "history"]}
@@ -66,7 +66,7 @@ block() {
   echo "  Override: run it in your terminal directly, OR add the relevant category to" >&2
   echo "            \"disableSecurityCategories\" in .supercharger.json (project) — categories:" >&2
   echo "            filesystem, database, destructive, network, credentials, persistence," >&2
-  echo "            clipboard, browser, history, selfmod" >&2
+  echo "            clipboard, browser, history, selfmod, cloud" >&2
   echo "" >&2
   # Log for learning — future sessions will know to avoid this pattern
   local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"
@@ -244,11 +244,39 @@ NETWORK_PATTERNS=(
   # ubiquitous `ps aux | grep` / `ps -ef | grep` stay allowed.
   'ps[[:space:]]+[a-z-]*e[a-z-]*.*\|.*(base64|curl|wget|ncat|[[:space:]]nc[[:space:]]|xxd|openssl[[:space:]]+enc)'
 )
+# v2.9.14: cloud/container/IaC credential-theft + escape (category: cloud). An
+# agent should not steal instance credentials, mint cloud keys, escape a
+# container, read k8s secrets, or tear down infra unprompted. Opt out per-project
+# with disableSecurityCategories:["cloud"] for devops work. (from efij Stallion)
+CLOUD_PATTERNS=(
+  # Cloud instance-metadata SSRF — steals IAM/instance creds (AWS/GCP/ECS IMDS)
+  '(169\.254\.169\.254|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computeMetadata/v1|/metadata/instance)'
+  # Assume-role / service-account impersonation → fresh live cloud creds
+  'aws[[:space:]]+sts[[:space:]]+assume-role'
+  '(--impersonate-service-account|workload-identity-pools[[:space:]]+create-cred-config)'
+  'az[[:space:]]+account[[:space:]]+get-access-token'
+  # Long-lived cloud key creation
+  'aws[[:space:]]+iam[[:space:]]+create-access-key'
+  'gcloud[[:space:]]+iam[[:space:]]+service-accounts[[:space:]]+keys[[:space:]]+create'
+  'az[[:space:]]+ad[[:space:]]+(app|sp)[[:space:]]+credential[[:space:]]+reset'
+  # Container escape — host sockets, privileged/host namespaces, nsenter, chroot /host
+  # (--net=host deliberately omitted: too common in legit dev to block)
+  '(--privileged|--pid=host|--cap-add=SYS_ADMIN|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
+  # k8s: cluster-admin RBAC grant + secret exfil (gated on kubectl verb / data form)
+  'kubectl[^;&|]*(apply|create)[^;&|]*(clusterrolebinding|cluster-admin)'
+  'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
+  # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
+  '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
+  'pulumi[[:space:]]+destroy([[:space:]]|$)'
+  # Secret material passed through a container build
+  '--build-arg[=[:space:]][^[:space:]]*(TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_KEY|API_KEY)='
+)
 
 DANGEROUS_PATTERNS=()
 _cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
 _cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
+_cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
 
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
