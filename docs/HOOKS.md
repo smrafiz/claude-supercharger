@@ -27,6 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `code-security-scanner` | PreToolUse | Write,Edit | Scans content Claude is about to write for common security vulnerabilities. |
 | `comment-replacement-check` | PostToolUse | Edit, MultiEdit | Detects when Claude replaces working code with comments. Advisory — injects |
 | `commit-check` | PreToolUse | Bash | Validates commit messages follow conventional commit format. |
+| `commit-coauthor-guard` | PreToolUse | Bash (git commit) | OPT-IN, default OFF. Blocks `git commit` when the message carries a |
 | `commit-secret-guard` | PreToolUse | Bash (git commit) | Blocks `git commit` when the STAGED diff introduces a secret. Closes the gap |
 | `compaction-backup` | PreCompact | (none) | Saves conversation transcript before context compaction. |
 | `confidence-gate` | PreToolUse | Edit,Write,Bash | Computes confidence score from recent tool history + signal flags; |

@@ -84,6 +84,9 @@ get_hooks_for_mode() {
     # closes the gap between output-secrets-scanner (output) and code-security-
     # scanner (Write/Edit content). Shares lib-secret-patterns.sh. Fail-open.
     hooks+=("PreToolUse|Bash|${hooks_dir}/commit-secret-guard.sh|")
+    # v2.9.11: opt-in (default OFF) — block committing a Co-Authored-By AI-attribution
+    # trailer. Enable: touch scope/.coauthor-guard  or  SUPERCHARGER_COAUTHOR_GUARD=1.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-coauthor-guard.sh|")
     if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
