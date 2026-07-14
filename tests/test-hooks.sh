@@ -447,6 +447,33 @@ begin_test "safety: DROP DATABASE is blocked"
 run_hook "$SAFETY_HOOK" "psql -c 'DROP DATABASE mydb'"
 assert_exit_code 2 $? && pass
 
+# v2.10.5: TRUNCATE + DELETE-without-WHERE (from claude-forge db-guard audit)
+begin_test "safety: TRUNCATE TABLE is blocked"
+run_hook "$SAFETY_HOOK" "psql -c 'TRUNCATE TABLE users'"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: TRUNCATE without TABLE keyword (postgres) is blocked"
+run_hook "$SAFETY_HOOK" "psql -c 'TRUNCATE users'"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: DELETE FROM without WHERE is blocked (double-quoted)"
+run_hook "$SAFETY_HOOK" 'psql -c "DELETE FROM users"'
+assert_exit_code 2 $? && pass
+
+begin_test "safety: DELETE FROM without WHERE is blocked (single-quoted)"
+run_hook "$SAFETY_HOOK" "mysql -e 'DELETE FROM logs'"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: DELETE FROM WITH WHERE is allowed (no false positive)"
+run_hook "$SAFETY_HOOK" "psql -c 'DELETE FROM users WHERE id=1'"
+assert_exit_code 0 $? && pass
+
+# `truncate -s 0` is independently blocked by DESTRUCT (zero-out = data loss); use a
+# grow form to prove the new SQL-TRUNCATE pattern doesn't collide with unix truncate.
+begin_test "safety: unix truncate -s 1M stays allowed (no SQL-TRUNCATE collision)"
+run_hook "$SAFETY_HOOK" "truncate -s 1M /tmp/big.log"
+assert_exit_code 0 $? && pass
+
 # v2.7.3: interpreter-wrapper hardening (CVE-2026-40933 class — an allowed
 # interpreter accepts a flag that turns it into an OS-command launcher).
 begin_test "safety: npx -c hiding rm -rf is blocked (v2.7.3)"

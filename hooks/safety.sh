@@ -200,7 +200,19 @@ DB_PATTERNS=(
   'typeorm[[:space:]]+schema:drop'
   'sequelize[[:space:]]+db:drop'
   'knex[[:space:]]+migrate:rollback[[:space:]]+([^&|;]*[[:space:]])?--all([[:space:]]|$)'
+  # v2.10.5: TRUNCATE (always destructive; Postgres allows the TABLE keyword to be
+  # omitted). The leading letter/quote after the space avoids colliding with the
+  # unix `truncate -s 0` command (already caught by DESTRUCT_PATTERNS), whose next
+  # char is `-`. From sangrokjung/claude-forge db-guard overlap audit.
+  'TRUNCATE[[:space:]]+(TABLE[[:space:]]+)?["`a-zA-Z_]'
+  # DELETE FROM <table> with NO WHERE clause — the mass-wipe footgun (agent means
+  # to filter but forgets). Gated: the table identifier must be immediately
+  # followed by a statement terminator (;, closing shell quote, backtick, pipe,
+  # &, ), or end-of-command), so `DELETE FROM t WHERE ...` (space+letter after the
+  # ident) never matches. POSIX ERE has no lookahead, so this is positive-shape.'
 )
+DELETE_NOWHERE='DELETE[[:space:]]+FROM[[:space:]]+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
+DB_PATTERNS+=("$DELETE_NOWHERE")
 DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+(-R[[:space:]]+)?777' 'mkfs\.' 'dd[[:space:]]+if='
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
