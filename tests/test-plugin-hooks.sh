@@ -71,4 +71,34 @@ if command -v claude >/dev/null 2>&1; then
   fi
 fi
 
+echo ""
+echo "=== Prompt-Layer Inject Tests (Phase 3) ==="
+
+INJECT="$REPO_DIR/hooks/prompt-layer-inject.sh"
+
+begin_test "prompt-layer-inject: plugin runtime emits additionalContext with the layer"
+DATA=$(mktemp -d)
+OUT=$(printf '{"session_id":"t","source":"startup"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN_DATA="$DATA" bash "$INJECT" 2>/dev/null)
+if printf '%s' "$OUT" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+c=d['hookSpecificOutput']['additionalContext']
+assert d['hookSpecificOutput']['hookEventName']=='SessionStart'
+assert 'Claude Supercharger' in c and 'Token Economy' in c
+assert '{{' not in c, 'unfilled placeholder'
+" 2>/dev/null; then pass; else fail "bad/empty additionalContext: $OUT"; fi
+rm -rf "$DATA"
+
+begin_test "prompt-layer-inject: installer runtime (no CLAUDE_PLUGIN_ROOT) is a no-op"
+OUT=$(printf '{"session_id":"t"}' | env -u CLAUDE_PLUGIN_ROOT -u CLAUDE_PLUGIN_DATA bash "$INJECT" 2>/dev/null || true)
+if [ -z "$OUT" ]; then pass; else fail "expected no output under installer, got: $OUT"; fi
+
+begin_test "prompt-layer-inject: SUPERCHARGER_TIER selects the tier snippet"
+DATA=$(mktemp -d)
+MARK=$(head -3 "$REPO_DIR/configs/economy/minimal.md" | tail -1)
+OUT=$(printf '{"session_id":"t"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN_DATA="$DATA" SUPERCHARGER_TIER=minimal bash "$INJECT" 2>/dev/null \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['hookSpecificOutput']['additionalContext'])" 2>/dev/null)
+if printf '%s' "$OUT" | grep -qF "$MARK"; then pass; else fail "minimal tier snippet not injected"; fi
+rm -rf "$DATA"
+
 report

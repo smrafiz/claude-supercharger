@@ -59,6 +59,10 @@ get_hooks_for_mode() {
   hooks+=("PostToolUse|Bash,Read,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
+  # Plugin-only prompt-layer delivery: emits configs/universal/*.md as SessionStart
+  # additionalContext when running under the plugin runtime (CLAUDE_PLUGIN_ROOT set).
+  # No-ops under the installer, where the same content is persistent files.
+  hooks+=("SessionStart||${hooks_dir}/prompt-layer-inject.sh|")
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")

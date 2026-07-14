@@ -184,11 +184,19 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
 - **`statusLine`/`env`/`attribution` deliberately omitted** — a plugin can't side-write settings.json
   (the §5 casualties).
 
-### Phase 3 — Prompt layer as SessionStart context (§4)
-- New hook `hooks/prompt-layer-inject.sh` (or extend an existing SessionStart hook) that emits the
-  `configs/universal/*.md` content as `additionalContext`.
-- Remove the bogus `"rules"` array from `plugin.json`.
-- Verify the injected block appears once per session and respects the active tier/role.
+### Phase 3 — Prompt layer as SessionStart context (§4) — ✅ **DONE** (2026-07-14)
+- New hook `hooks/prompt-layer-inject.sh` concatenates `configs/universal/*.md` (CLAUDE.md → guardrails →
+  supercharger → economy w/ active tier → anti-patterns), fills `{{ROLES}}/{{MODE}}/{{VERSION}}` +
+  `{{ACTIVE_TIER}}`, and emits it as SessionStart `additionalContext` (~12 KB). Role/mode/tier read from
+  `SUPERCHARGER_ROLE/_MODE/_TIER` env (defaults Developer/Full/standard) → the Phase 5 `userConfig` wiring
+  populates these.
+- **Plugin-gated:** no-ops under the installer (`CLAUDE_PLUGIN_ROOT` unset), where the same content is
+  already persistent files — so no duplication. Registered in `get_hooks_for_mode` (flows into hooks.json,
+  self-noops in settings.json).
+- **Removed the bogus `"rules"` array from `plugin.json`** → `claude plugin validate .claude-plugin/plugin.json`
+  now passes **clean, zero warnings**. (marketplace.json `id`/`homepage` warnings remain → Phase 5.)
+- Verified: emits under plugin / silent under installer / tier snippet + role/mode overrides honored / no
+  leftover placeholders. `tests/test-plugin-hooks.sh` grew 3 Phase-3 tests (10 total).
 
 ### Phase 4 — Commands & agents into plugin layout
 - Copy/symlink `configs/commands/*.md` → `commands/`, `configs/agents/*.md` → `agents/` at plugin root.

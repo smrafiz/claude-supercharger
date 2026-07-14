@@ -93,11 +93,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = 113 hooks total (v2.10.9 +prompt-secret-guard; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 113 ]; then
+# Full mode + developer = 114 hooks total (+prompt-layer-inject, plugin-only self-noop
+# under the installer but still registered; commit-check opt-in, not counted)
+if [ "$HOOK_COUNT" -eq 114 ]; then
   pass
 else
-  fail "expected 113 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 114 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -167,12 +168,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Safe mode = safety + smart-approve + audit-trail + trace-compactor +
-# injection-scanner + per-MCP guards + memory-guard + mcp-provenance + elicitation-guard (v2.7.49) = 25
-if [ "$HOOK_COUNT" -eq 25 ]; then
+# Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner
+# + per-MCP guards + memory-guard + mcp-provenance + elicitation-guard + prompt-layer-inject = 26
+if [ "$HOOK_COUNT" -eq 26 ]; then
   pass
 else
-  fail "expected 25 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 26 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -201,11 +202,11 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# standard maps to full = 113 hooks (v2.10.9 +prompt-secret-guard; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 113 ]; then
+# standard maps to full = 114 hooks (+prompt-layer-inject; with developer, commit-check opt-in)
+if [ "$HOOK_COUNT" -eq 114 ]; then
   pass
 else
-  fail "expected 113 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 114 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
