@@ -199,6 +199,14 @@ _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat ~/.config/
 begin_test "safety: reading a normal .json is allowed"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat package.json"},"cwd":"/tmp"}' && pass || fail "package.json read wrongly blocked"
 
+# v2.10.4: kubeconfig read parity — Bash channel (from claude-on-a-leash overlap audit)
+begin_test "safety: reading kubeconfig is blocked (cluster creds)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat ~/.kube/config"},"cwd":"/tmp"}' && pass || fail "kubeconfig read not blocked"
+begin_test "safety: reading bare kubeconfig is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"head kubeconfig"},"cwd":"/tmp"}' && pass || fail "bare kubeconfig read not blocked"
+begin_test "safety: reading kubeconfig.md doc is allowed (no false positive)"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat docs/kubeconfig.md"},"cwd":"/tmp"}' && pass || fail "kubeconfig.md wrongly blocked"
+
 begin_test "git-safety: +ref force-push to main is blocked (was bypass)"
 _blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +main"},"cwd":"/tmp"}' && pass || fail "git push +main not blocked"
 begin_test "git-safety: normal push to main still allowed"

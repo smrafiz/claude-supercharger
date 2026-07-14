@@ -92,10 +92,12 @@ if [ "$TOOL" = "Read" ]; then
       block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
     wallet.dat|wallet.json|*.wallet|credentials)
       block "Read of wallet/credentials file blocked ($base)" "$FILE_PATH" ;;
+    kubeconfig)
+      block "Read of kubeconfig blocked ($base) — cluster credentials" "$FILE_PATH" ;;
   esac
   # credential paths not distinguished by basename alone
   case "$FILE_PATH" in
-    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json)
+    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
   esac
   exit 0

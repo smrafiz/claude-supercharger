@@ -111,4 +111,18 @@ begin_test "env-guard: allows Read of a normal source file (no false positive, v
 run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/src/index.ts"}}'
 [ "$?" = "0" ] && pass || fail "normal source Read wrongly blocked"
 
+# v2.10.4: kubeconfig read parity — Bash channel blocked `cat kubeconfig` but the
+# Read tool bypassed it (from adityaarakeri/claude-on-a-leash overlap audit).
+begin_test "env-guard: blocks Read of ~/.kube/config (v2.10.4)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.kube/config"}}'
+[ "$?" = "2" ] && pass || fail "Read of .kube/config not blocked"
+
+begin_test "env-guard: blocks Read of bare kubeconfig (v2.10.4)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/kubeconfig"}}'
+[ "$?" = "2" ] && pass || fail "Read of bare kubeconfig not blocked"
+
+begin_test "env-guard: allows Read of kubeconfig.md doc (no false positive, v2.10.4)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/docs/kubeconfig.md"}}'
+[ "$?" = "0" ] && pass || fail "kubeconfig.md doc wrongly blocked"
+
 report

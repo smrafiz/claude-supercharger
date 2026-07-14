@@ -102,6 +102,8 @@ _SENSITIVE_NAME_RE = re.compile(
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
     r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|/)pip\.conf"
+    # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
+    r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
     r"|[\w.*-]+\.(?:ppk|pem|key|crt|cer|p12|pfx)"
     r"|wallet\.dat|wallet\.json|[\w.*-]+\.wallet"
