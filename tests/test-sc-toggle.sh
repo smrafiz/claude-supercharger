@@ -14,6 +14,7 @@ _setup() {
   mkdir -p "$HOME/.claude/supercharger/scope" "$HOME/.claude/supercharger/hooks" "$HOME/.claude/backups"
   cp "$REPO_DIR/hooks/lib-suppress.sh" "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
   cp "$REPO_DIR/hooks/lib-timing.sh"   "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
+  cp "$REPO_DIR/hooks/lib-paths.sh"    "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
   # merge-style CLAUDE.md: user content, then the Supercharger managed block
   printf '# My rules\nUse tabs.\n\n# --- Claude Supercharger\nManaged block line 1\nManaged block line 2\n' > "$HOME/.claude/CLAUDE.md"
 }
@@ -131,6 +132,7 @@ begin_test "sc-toggle: deploy-mode (whole-file CLAUDE.md, marker at line 1) blan
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope" "$HOME/.claude/supercharger/hooks"
 cp "$REPO_DIR/hooks/lib-suppress.sh" "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
+cp "$REPO_DIR/hooks/lib-paths.sh"    "$HOME/.claude/supercharger/hooks/" 2>/dev/null || true
 printf '# Claude Supercharger v9.9.9\n\n## rules\nbe terse\n' > "$HOME/.claude/CLAUDE.md"
 ORIG=$(cat "$HOME/.claude/CLAUDE.md")
 bash "$TOGGLE" off >/dev/null 2>&1

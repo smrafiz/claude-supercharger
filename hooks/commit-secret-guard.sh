@@ -62,11 +62,11 @@ if printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   REASON='The staged changes introduce a value matching a known secret/credential format (API key, token, private key, or wallet key). Blocking this commit to prevent leaking it into git history. Remove the secret from the staged files (use an env var or a secrets manager), re-stage, and commit again. If this is a false positive, run the commit yourself in the terminal.'
   RSN=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$REASON")
   # Log the block (never the value).
-  BLOG="$HOME/.claude/supercharger/scope/.blocked-commands"
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
   mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
   printf '[%s] secret in staged commit — blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
-  echo "secrets" > "$HOME/.claude/supercharger/scope/.scan-alert-${SID}" 2>/dev/null || true
+  echo "secrets" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
 fi

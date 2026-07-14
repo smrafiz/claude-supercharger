@@ -56,7 +56,7 @@ _typecheck_hash() {
   fi
 }
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
 TC_CACHE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"

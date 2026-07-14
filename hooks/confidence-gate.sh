@@ -41,7 +41,7 @@ hook_profile_skip "confidence-gate" && exit 0
 # + 1 python json wrap). ~60ms → ~40ms.
 TIER="${SUPERCHARGER_TIER:-standard}"
 RESULT=$(HOOK_INPUT="$_INPUT" \
-         SCOPE_DIR="$HOME/.claude/supercharger/scope" \
+         SCOPE_DIR="$SUPERCHARGER_STATE/scope" \
          TIER="$TIER" \
          HOOK_SUPPRESS="$HOOK_SUPPRESS" \
          python3 <<'PYEOF' 2>/dev/null || true

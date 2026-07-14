@@ -6,7 +6,12 @@
 
 set -euo pipefail
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
 _INPUT=$(cat)
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)

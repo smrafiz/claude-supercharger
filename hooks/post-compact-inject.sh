@@ -119,7 +119,7 @@ printf '%s\n' "$RESULT"
 # Signal statusline: memory was restored. v2.7.47: key by session_id so the
 # "Mem: Restored" indicator only lights up in the session that actually compacted
 # — a global flag leaked the badge into every concurrent session for 5 minutes.
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 _SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 date +%s > "$SCOPE_DIR/.memory-restored${_SID:+-$_SID}" 2>/dev/null || true

@@ -5,8 +5,13 @@
 
 set -euo pipefail
 
-SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+SUMMARIES_DIR="$SUPERCHARGER_STATE/summaries"
+SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 
 mkdir -p "$SUMMARIES_DIR" 2>/dev/null || true
 
@@ -89,7 +94,7 @@ PYEOF
 # so a concurrent session's Stop deleted OTHER live sessions' checkpoints. Scope
 # to this session_id (checkpoints are written as .checkpoint-<session_id>).
 _CK_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
-[ -n "$_CK_SID" ] && rm -f "$HOME/.claude/supercharger/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
+[ -n "$_CK_SID" ] && rm -f "$SUPERCHARGER_STATE/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
 
 # Send webhook notification if configured — uses shared webhook lib
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

@@ -25,9 +25,9 @@ check_hook_disabled "subagent-report-notify" && exit 0
 AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // .subagent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$AGENT_ID" ] && exit 0
 
-REPORT_DIR="$HOME/.claude/supercharger/scope/subagent-reports"
+REPORT_DIR="$SUPERCHARGER_STATE/scope/subagent-reports"
 REPORT_PATH="$REPORT_DIR/${AGENT_ID}.md"
-TOOL="$HOME/.claude/supercharger/tools/subagent-report.sh"
+TOOL="$SUPERCHARGER_HOME/tools/subagent-report.sh"
 
 # Is the final message a degraded/truncated stub? Only notify when the parent
 # actually lost the findings — a full final message needs no pointer.

@@ -14,7 +14,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 # Enablement: explicit env 0 disables; else on if env=1 or the flag file exists.
-_FLAG="$HOME/.claude/supercharger/scope/.coauthor-guard"
+_FLAG="$SUPERCHARGER_STATE/scope/.coauthor-guard"
 case "${SUPERCHARGER_COAUTHOR_GUARD:-}" in
   0) exit 0 ;;
   1) ;;

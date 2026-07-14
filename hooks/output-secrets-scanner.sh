@@ -52,7 +52,7 @@ if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
   printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
   # Signal statusline: scan alert (per-session, not global — v2.6.49)
-  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
   [ -z "$SID" ] && SID="default"
   mkdir -p "$SCOPE_DIR"

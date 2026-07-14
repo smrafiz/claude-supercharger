@@ -44,11 +44,11 @@ if printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is intentional (e.g. a revoked or test value), resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
   echo "$MSG" >&2
   # Log the block (never the value).
-  BLOG="$HOME/.claude/supercharger/scope/.blocked-commands"
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
   mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
   printf '[%s] secret in user prompt — blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
-  echo "secrets" > "$HOME/.claude/supercharger/scope/.scan-alert-${SID}" 2>/dev/null || true
+  echo "secrets" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
   exit 2
 fi
 

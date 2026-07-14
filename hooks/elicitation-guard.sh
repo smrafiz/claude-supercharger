@@ -190,7 +190,7 @@ if [ -n "$OUT" ]; then
   # desktop notification — respecting the user's off-switch — in the BACKGROUND so
   # it never delays the block, with stdout/stderr isolated so it can't pollute the
   # decline JSON CC is reading.
-  SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+  SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
   if [ ! -f "$SUPERCHARGER_DIR/.no-desktop-notify" ]; then
     SRV=$(printf '%s\n' "$_INPUT" | jq -r '.server_name // .mcp_server // .server // .source // empty' 2>/dev/null || true)
     [ -z "$SRV" ] && SRV="an MCP server"

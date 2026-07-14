@@ -8,7 +8,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 . "$HOOKS_DIR/lib-suppress.sh"
 check_hook_disabled "session-checkpoint" && exit 0
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
 _INPUT=$(cat)

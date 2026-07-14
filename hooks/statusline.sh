@@ -10,7 +10,12 @@ set -euo pipefail
 # command is re-run each turn, so this takes effect immediately; `/sc on` (removes
 # the flag) brings the statusline back on the next render. This is why the toggle
 # doesn't need to touch the settings.json statusLine key.
-[ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ] && exit 0
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+[ -f "$SUPERCHARGER_STATE/scope/.supercharger-disabled" ] && exit 0
 
 _INPUT=$(cat)
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"

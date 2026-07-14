@@ -23,7 +23,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_FACT_GATE:-0}" = "1" ] || exit 0
 
 _INPUT=$(cat)
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
 OUT=$(printf '%s\n' "$_INPUT" | SCOPE_DIR="$SCOPE_DIR" TTL="${SUPERCHARGER_FACT_GATE_TTL:-1800}" PYTHONUTF8=1 python3 -c "
 import sys, json, os, re, time, hashlib

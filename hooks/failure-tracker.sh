@@ -48,7 +48,7 @@ COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/
 # Normalize command for comparison (first 100 chars, strip args that change)
 CMD_KEY=$(printf '%.100s' "$COMMAND" | sed 's/[0-9]\{4,\}//g')
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 # v2.7.15: key by project so a command that failed in repo A doesn't trip the
 # nudge in repo B months later, and cap the file so it can't grow unbounded.
 PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null | cut -c1-8 || echo global)

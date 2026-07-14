@@ -142,7 +142,7 @@ hook_already_emitted "standards-inject" "$SESSION_ID" "$MSG" && exit 0
 # project, so re-injecting on every session start is pure token waste. Skip
 # if we've already emitted for this (project, message-hash) pair within the
 # last 24h. Saves ~425 tokens × N sessions/day per project (react+nextjs).
-TTL_DIR="$HOME/.claude/supercharger/scope"
+TTL_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$TTL_DIR" 2>/dev/null
 PROJECT_HASH=$(printf '%s' "$PROJECT_DIR" | shasum 2>/dev/null | cut -c1-12)
 if [ -n "$PROJECT_HASH" ]; then

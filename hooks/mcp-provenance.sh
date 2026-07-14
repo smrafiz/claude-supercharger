@@ -77,7 +77,7 @@ if [ -n "$RESULT" ]; then
   JSON_OUT=$(printf '%s\n' "$RESULT" | sed -n '2p')
   echo "[Supercharger] mcp-provenance: PROVENANCE VIOLATION in output from ${TOOL_NAME}" >&2
   printf '%s\n' "$JSON_OUT"
-  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
   [ -z "$SID" ] && SID="default"
   mkdir -p "$SCOPE_DIR"

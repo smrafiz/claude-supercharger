@@ -115,7 +115,7 @@ if [ -n "$RESULT" ]; then
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   echo "[Supercharger] memory-write-guard: BLOCKED memory poisoning attempt" >&2
   # Per-session alert breadcrumb (mirrors prompt-injection-scanner)
-  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
   [ -z "$SID" ] && SID="default"
   mkdir -p "$SCOPE_DIR"

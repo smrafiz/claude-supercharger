@@ -188,7 +188,7 @@ fi
 [ -z "$MATCH_REASON" ] && exit 0
 
 # ── Pending-file gate ─────────────────────────────────────────────────────────
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
 # Hash the command for a stable pending-file name

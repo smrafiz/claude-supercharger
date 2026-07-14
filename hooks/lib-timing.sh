@@ -11,16 +11,24 @@
 # zero-fork clock); full profiling via the .profiling sentinel (logs every fire,
 # and enables timing on bash 3.2 where the clock needs a python fork).
 
+# Resolve SUPERCHARGER_STATE (mutable state root) for both the installer and the
+# plugin runtime. Self-locates lib-paths.sh via its own path (sourced-file safe).
+# Inline ':=' is a resilience fallback — this lib gates security hooks, so the
+# kill-switch must resolve even if lib-paths.sh is absent (no-op when already set).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
 # v2.9.0: global kill-switch (`/sc off`). Security hooks (safety.sh, path-guard,
 # git-safety, env-file-guard) source THIS lib, so the check must live here too —
 # when deactivated they exit immediately (stock Claude). sc-toggle bypasses via
 # SUPERCHARGER_TOGGLE. (source-time exit terminates the sourcing hook.)
-if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ]; then
+if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$SUPERCHARGER_STATE/scope/.supercharger-disabled" ]; then
   exit 0
 fi
 
 _HOOK_PERF_FULL=0
-[ -f "$HOME/.claude/supercharger/scope/.profiling" ] && _HOOK_PERF_FULL=1
+[ -f "$SUPERCHARGER_STATE/scope/.profiling" ] && _HOOK_PERF_FULL=1
 if [ "$_HOOK_PERF_FULL" = 1 ] || [ -n "${EPOCHREALTIME:-}" ]; then
   # Skip if hook already has its own EXIT trap or already sourced lib-suppress.sh
   # (which provides the same instrumentation).
@@ -57,7 +65,7 @@ if [ "$_HOOK_PERF_FULL" = 1 ] || [ -n "${EPOCHREALTIME:-}" ]; then
       if [ "${_HOOK_PERF_FULL:-0}" != 1 ] && [ "$elapsed" -lt "${SUPERCHARGER_PERF_THRESHOLD_MS:-40}" ]; then
         return
       fi
-      local audit_dir="$HOME/.claude/supercharger/audit"
+      local audit_dir="$SUPERCHARGER_STATE/audit"
       mkdir -p "$audit_dir" 2>/dev/null || return
       local date_str
       date_str=$(date +%Y-%m-%d 2>/dev/null) || return

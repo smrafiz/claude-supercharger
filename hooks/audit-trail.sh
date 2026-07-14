@@ -8,7 +8,7 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
-AUDIT_DIR="$HOME/.claude/supercharger/audit"
+AUDIT_DIR="$SUPERCHARGER_STATE/audit"
 mkdir -p "$AUDIT_DIR"
 TODAY=$(date -u +"%Y-%m-%d")
 AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"

@@ -52,7 +52,7 @@ fi
 [ -z "$CAP" ] && exit 0
 
 # ── Session scoping ───────────────────────────────────────────────────────────
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
 # Use CLAUDE_SESSION_ID if available; fall back to calendar date (daily reset)

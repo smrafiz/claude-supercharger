@@ -13,7 +13,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 _INPUT=$(cat)
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
 RESULT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" \

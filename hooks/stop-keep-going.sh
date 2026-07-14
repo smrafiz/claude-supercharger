@@ -20,12 +20,12 @@ check_hook_disabled "stop-keep-going" && exit 0
 hook_profile_skip "stop-keep-going" && exit 0
 
 # Disabled by default — opt-in via .supercharger.json or env
-KEEP_GOING_FLAG="$HOME/.claude/supercharger/scope/.keep-going"
+KEEP_GOING_FLAG="$SUPERCHARGER_STATE/scope/.keep-going"
 [ ! -f "$KEEP_GOING_FLAG" ] && [ "${SUPERCHARGER_KEEP_GOING:-0}" != "1" ] && exit 0
 
 # Cap pokes per session to avoid loops
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "default")
-POKE_LOG="$HOME/.claude/supercharger/scope/.keep-going-${SESSION_ID}"
+POKE_LOG="$SUPERCHARGER_STATE/scope/.keep-going-${SESSION_ID}"
 POKE_COUNT=0
 [ -f "$POKE_LOG" ] && POKE_COUNT=$(wc -l < "$POKE_LOG" 2>/dev/null | tr -d ' ' || echo 0)
 [ "$POKE_COUNT" -ge 3 ] && exit 0

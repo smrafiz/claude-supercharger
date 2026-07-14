@@ -30,7 +30,7 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 # Forensic breadcrumb: every fire writes one line. Absence of an entry on a
 # missed block means the hook never fired (settings.json drift or CC didn't
 # match the event). Presence means it fired but didn't match a rule.
-_SAFETY_TRACE="$HOME/.claude/supercharger/scope/.safety-trace.log"
+_SAFETY_TRACE="$SUPERCHARGER_STATE/scope/.safety-trace.log"
 mkdir -p "$(dirname "$_SAFETY_TRACE")" 2>/dev/null || true
 printf '[%s] cwd=%s cmd=%.140s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "$PROJECT_DIR" "$COMMAND" >> "$_SAFETY_TRACE" 2>/dev/null || true
 # Cap at 1000 lines
@@ -48,7 +48,7 @@ SEGMENTS=$(split_segments "$CMD")
 
 # Load disabled security categories
 _DISABLED_CATS=""
-_DISABLED_CATS_FILE="$HOME/.claude/supercharger/scope/.disabled-security-categories"
+_DISABLED_CATS_FILE="$SUPERCHARGER_STATE/scope/.disabled-security-categories"
 [ -f "$_DISABLED_CATS_FILE" ] && _DISABLED_CATS=$(<"$_DISABLED_CATS_FILE")
 
 _cat_enabled() {
@@ -69,7 +69,7 @@ block() {
   echo "            clipboard, browser, history, selfmod, cloud" >&2
   echo "" >&2
   # Log for learning — future sessions will know to avoid this pattern
-  local blocks_log="$HOME/.claude/supercharger/scope/.blocked-commands"
+  local blocks_log="$SUPERCHARGER_STATE/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
   # Redact credentials before logging
   local safe_cmd
