@@ -433,10 +433,22 @@ fi
 # redirect. It had drifted narrow (only .claude/settings.json + CLAUDE.md), so
 # `echo '{"disableSecurityCategories":[...]}' > .supercharger.json` and appends
 # to the scope disable-files slipped through and could disable the guards.
-if _cat_enabled "selfmod" && [[ "$CMD" =~ (\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks) ]]; then
-  if [[ "$CMD" =~ (>|>>|sed|awk|tee|mv|cp|rm|cat.*>|python.*open|echo.*>) ]]; then
-    block "self-modification — agent should not directly edit its own guardrail config files"
-  fi
+# v2.10.6: only fire when a guardrail-config file is the TARGET of a WRITE. The
+# prior check ORed "mentions a config name" with "contains any >/verb substring",
+# so a READ-ONLY command like `cat scope/.disabled-hooks 2>/dev/null` tripped it
+# (the `2>` fd-redirect matched the bare `>`) — a false positive on introspection
+# commands like /sc-status. Now the redirect/verb must target the config file
+# itself; plain reads and unrelated fd-redirects are allowed through.
+_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks)'
+# (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
+_SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
+# (b) in-place edit / move / copy / remove / truncate whose argument is a config file
+_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|tee|mv|cp|rm|truncate|install|ln|dd[[:space:]]+of=)[^;&|]*$_SELFMOD_CFG"
+# (c) interpreter opening a config file in write/append mode
+_SELFMOD_PY="(python|perl|ruby)[^;&|]*open[^;&|]*${_SELFMOD_CFG}[^;&|]*,[[:space:]]*['\"][wa]"
+if _cat_enabled "selfmod" \
+   && { [[ "$CMD" =~ $_SELFMOD_REDIR ]] || [[ "$CMD" =~ $_SELFMOD_VERB ]] || [[ "$CMD" =~ $_SELFMOD_PY ]]; }; then
+  block "self-modification — agent should not directly edit its own guardrail config files"
 fi
 
 # --- Unified detector (shell-wrapper, env-file, exfiltration) ---

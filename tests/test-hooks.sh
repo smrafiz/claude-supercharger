@@ -811,6 +811,31 @@ begin_test "safety: reading .supercharger.json is allowed (no write verb, v2.8.6
 run_hook "$SAFETY_HOOK" "cat .supercharger.json"
 assert_exit_code 0 $? && pass
 
+# v2.10.6: reading a guardrail-config file WITH an fd-redirect (2>/dev/null) must
+# stay allowed. The prior check treated any `>` — including the `2>` stderr
+# redirect — as a write verb, so /sc-status's own `cat scope/.disabled-hooks
+# 2>/dev/null` reads were false-positive-blocked (reported from the field).
+begin_test "safety: reading .disabled-hooks with 2>/dev/null is allowed (v2.10.6 FP fix)"
+run_hook "$SAFETY_HOOK" "cat ~/.claude/supercharger/scope/.disabled-hooks 2>/dev/null"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: ls -t on .disabled-security-categories with 2>/dev/null is allowed (v2.10.6)"
+run_hook "$SAFETY_HOOK" "ls -t ~/.claude/supercharger/scope/.disabled-security-categories 2>/dev/null"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: reading config then redirecting elsewhere is allowed (v2.10.6)"
+run_hook "$SAFETY_HOOK" "cat .supercharger.json > /tmp/backup.txt"
+assert_exit_code 0 $? && pass
+
+# ...but writing stderr INTO a config file is still a write — stays blocked
+begin_test "safety: redirecting stderr into .supercharger.json is blocked (v2.10.6)"
+run_hook "$SAFETY_HOOK" "some_cmd 2>.supercharger.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: sed -i on .supercharger.json stays blocked (v2.10.6)"
+run_hook "$SAFETY_HOOK" "sed -i s/a/b/ .supercharger.json"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: regular echo to file is allowed"
 run_hook "$SAFETY_HOOK" "echo 'hello' > output.txt"
 assert_exit_code 0 $? && pass
