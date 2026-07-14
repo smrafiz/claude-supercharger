@@ -20,7 +20,10 @@ SECRET_PATTERNS=(
   'gh[opsu]_[A-Za-z0-9_]{36,}'
   # Generic key/secret/token — anchor on <keyword><:|=><16+ char value>
   '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+.-]{16,}'
-  'Bearer [A-Za-z0-9._-]+'
+  # v2.10.9: require a token-length value ({20,}) so conversational "Bearer
+  # authentication" / "Bearer token" don't false-positive (real bearer tokens are
+  # long). Matters most for the prompt channel (prompt-secret-guard).
+  'Bearer [A-Za-z0-9._-]{20,}'
   # Private keys
   'BEGIN.{0,10}PRIVATE KEY'
   # URLs with embedded credentials

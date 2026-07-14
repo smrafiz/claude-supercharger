@@ -154,6 +154,10 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
+    # v2.10.9: block a pasted LIVE credential in the prompt before it reaches the
+    # model + transcript. Shares lib-secret-patterns.sh. Override with
+    # SUPERCHARGER_ALLOW_PROMPT_SECRETS=1. From dwarvesf/claude-guardrails.
+    hooks+=("UserPromptSubmit||${hooks_dir}/prompt-secret-guard.sh|")
     hooks+=("Setup||${hooks_dir}/setup-check.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/reentry-detector.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/learn-from-prompts.sh|async")
