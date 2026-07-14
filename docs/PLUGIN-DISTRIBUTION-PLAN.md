@@ -167,13 +167,22 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
 - **Not touched (installer-side, must stay literal):** `lib/hooks.sh` install-destination refs (the
   plugin never runs the installer); `lib/roles.sh`, `lib/economy.sh`, `tools/*`, `configs/*` → Phase 3/4.
 
-### Phase 2 — `hooks/hooks.json` emitter
-- The tuple→JSON logic **already exists** in `lib/hooks.sh` (`merge_hooks_into_settings`). Factor it into
-  a generator that emits a standalone `hooks/hooks.json` using `${CLAUDE_PLUGIN_ROOT}/hooks/<name>.sh`
-  paths and the `async`/`asyncRewake`/`if` flags.
-- Decide mode handling: plugin ships **full mode**; gate optional/`developer`-only hooks via a runtime
-  check reading `userConfig`, not via emit-time selection.
-- Generator runs at build/release time (add to `bump-version.sh`), committing `hooks/hooks.json`.
+### Phase 2 — `hooks/hooks.json` emitter — ✅ **DONE** (2026-07-14)
+- `tools/gen-plugin-hooks.sh` reuses the single source of truth (`get_hooks_for_mode`) and emits
+  `hooks/hooks.json` in the documented plugin shape `{"hooks": {Event: [{matcher?, hooks:[...]}]}}` with
+  `"${CLAUDE_PLUGIN_ROOT}"/hooks/<name>.sh` paths (double-quoted per the plugins-reference shell-form
+  rule → space-safe). `async`/`asyncRewake`/`if` all carried through. **114 registrations, parity with
+  the installer tuple list verified.** No `plugin.json` field needed — `hooks/hooks.json` is
+  auto-discovered at plugin root (confirmed against docs + `claude plugin validate`).
+- **Mode handling:** plugin ships **full mode** via `SUPERCHARGER_EMIT_ALL=1` (forces the opt-in
+  `commit-check` into the set). `commit-check.sh` now **self-gates** on `$SUPERCHARGER_STATE/.conventional-commits`
+  at runtime, preserving opt-in semantics on both channels (installer behavior unchanged — the flag is
+  present whenever the hook was registered). Developer/role/tier gating via `userConfig` → Phase 5.
+- **Release wiring:** `bump-version.sh` regenerates `hooks/hooks.json` and stages it. `--check` mode +
+  `tests/test-plugin-hooks.sh` (7 tests) guard against drift; the emitter test also runs `claude plugin
+  validate` when the CLI is present.
+- **`statusLine`/`env`/`attribution` deliberately omitted** — a plugin can't side-write settings.json
+  (the §5 casualties).
 
 ### Phase 3 — Prompt layer as SessionStart context (§4)
 - New hook `hooks/prompt-layer-inject.sh` (or extend an existing SessionStart hook) that emits the

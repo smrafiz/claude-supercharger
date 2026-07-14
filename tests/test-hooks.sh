@@ -1790,6 +1790,13 @@ echo "=== Commit Check Tests ==="
 
 COMMIT_CHECK="$REPO_DIR/hooks/commit-check.sh"
 
+# commit-check is opt-in: it self-gates on the .conventional-commits flag (present
+# by default under the installer; force-emitted + runtime-gated under the plugin).
+# Establish the flag in a sandboxed HOME so the enforcement path is exercised.
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+touch "$HOME/.claude/supercharger/.conventional-commits"
+
 begin_test "commit-check: non-commit command passes through"
 run_hook "$COMMIT_CHECK" "git status"
 assert_exit_code 0 $? && pass
@@ -1817,6 +1824,12 @@ assert_exit_code 2 $? && pass
 begin_test "commit-check: compound valid commit passes"
 run_hook "$COMMIT_CHECK" "echo hi && git commit -m 'feat: add login'"
 assert_exit_code 0 $? && pass
+
+begin_test "commit-check: opt-out — invalid commit passes when flag absent"
+rm -f "$HOME/.claude/supercharger/.conventional-commits"
+run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'"
+assert_exit_code 0 $? && pass
+touch "$HOME/.claude/supercharger/.conventional-commits"
 
 echo ""
 echo "=== Stop Verify Tests ==="

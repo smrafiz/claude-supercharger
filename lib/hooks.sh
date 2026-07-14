@@ -92,7 +92,12 @@ get_hooks_for_mode() {
     # v2.9.11: opt-in (default OFF) — block committing a Co-Authored-By AI-attribution
     # trailer. Enable: touch scope/.coauthor-guard  or  SUPERCHARGER_COAUTHOR_GUARD=1.
     hooks+=("PreToolUse|Bash|${hooks_dir}/commit-coauthor-guard.sh|")
-    if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
+    # commit-check is opt-in via the .conventional-commits flag (install-time under
+    # the installer). SUPERCHARGER_EMIT_ALL=1 forces it into the emitted set for the
+    # plugin hooks.json; commit-check.sh self-gates on the same flag at runtime, so
+    # plugin users keep the opt-in semantics. Installer behavior is unchanged when
+    # the override is unset.
+    if [[ "${SUPERCHARGER_EMIT_ALL:-0}" == "1" || -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh|")
