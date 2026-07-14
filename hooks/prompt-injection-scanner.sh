@@ -40,6 +40,22 @@ if not output:
     sys.exit(0)
 
 _nfkc = unicodedata.normalize('NFKC', output)
+# v2.10.7: fold common Cyrillic/Greek homoglyphs to their Latin lookalikes BEFORE
+# matching. NFKC does not map visual confusables (Cyrillic а/е/о/р/с, Greek ο/ρ/α…),
+# so "іgnоre all previous instructions" (Cyrillic і/о) bypassed every pattern. The
+# fold only rewrites non-ASCII confusables to ASCII — base64/zero-width checks and
+# benign ASCII are untouched, and foreign-language text folds to gibberish that
+# won't spell a trigger phrase. (Homoglyph bypass — from lasso-security/claude-hooks.)
+_CONFUSABLES = str.maketrans({
+    'а':'a','е':'e','о':'o','р':'p','с':'c','у':'y','х':'x','і':'i','ѕ':'s','ј':'j',
+    'ԁ':'d','һ':'h','ԛ':'q','ԝ':'w','ё':'e','ԍ':'g','ո':'n','ս':'u',
+    'А':'A','Е':'E','О':'O','Р':'P','С':'C','У':'Y','Х':'X','І':'I','Ј':'J',
+    'В':'B','Н':'H','К':'K','М':'M','Т':'T',
+    'α':'a','ο':'o','ρ':'p','ε':'e','ι':'i','ν':'v','τ':'t','υ':'u','χ':'x','κ':'k',
+    'Α':'A','Ο':'O','Ρ':'P','Ε':'E','Ι':'I','Ν':'N','Τ':'T','Υ':'Y','Χ':'X','Κ':'K',
+    'Μ':'M','Η':'H','Β':'B','Ζ':'Z',
+})
+_nfkc = _nfkc.translate(_CONFUSABLES)
 # v2.8.2: collapse whitespace before matching. The canonical injection
 # "Ignore all previous instructions" is routinely embedded across newlines in
 # issue bodies / READMEs / web pages; the space-delimited patterns below missed
