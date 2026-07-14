@@ -716,6 +716,28 @@ begin_test "git: git checkout <ref> -- src/file.ts is allowed (specific file)"
 run_hook "$GIT_HOOK" "git checkout origin/main -- src/file.ts"
 assert_exit_code 0 $? && pass
 
+# v2.10.8: no-ref discard forms — pure local-work destruction (from kenryu42/cc-safety-net).
+# Distinct from the ref-grab above, which stays allowed.
+begin_test "git: git checkout -- <file> (no ref) is blocked (discards local changes)"
+run_hook "$GIT_HOOK" "git checkout -- src/file.ts"
+assert_exit_code 2 $? && pass
+
+begin_test "git: git restore <file> (no --source/--staged) is blocked"
+run_hook "$GIT_HOOK" "git restore src/file.ts"
+assert_exit_code 2 $? && pass
+
+begin_test "git: git restore --source=<ref> <file> is allowed (ref-grab, mirrors checkout)"
+run_hook "$GIT_HOOK" "git restore --source=HEAD~1 src/file.ts"
+assert_exit_code 0 $? && pass
+
+begin_test "git: git restore --staged <file> is allowed (unstage, worktree untouched)"
+run_hook "$GIT_HOOK" "git restore --staged src/file.ts"
+assert_exit_code 0 $? && pass
+
+begin_test "git: git checkout --patch is allowed (interactive, not a path discard)"
+run_hook "$GIT_HOOK" "git checkout --patch"
+assert_exit_code 0 $? && pass
+
 begin_test "git: git checkout -b feature is allowed (creates branch)"
 run_hook "$GIT_HOOK" "git checkout -b feature"
 assert_exit_code 0 $? && pass

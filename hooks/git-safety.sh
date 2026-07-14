@@ -167,9 +167,30 @@ while IFS= read -r seg; do
     block "git checkout <ref> -- . overwrites all working-tree files from <ref>, destroying unstaged work"
   fi
 
-  # git restore --source=<ref> .   → same destructive behavior via the modern restore syntax
+  # v2.10.8: git checkout -- <path>  (NO ref before `--`) → discards uncommitted
+  # changes to a specific file. This is pure local-work destruction with no
+  # constructive intent, unlike `git checkout <ref> -- <path>` (grab a file from
+  # another ref), which is deliberately left allowed above. The `--[[:space:]]`
+  # requirement stays clear of `--patch`/`--theirs` (no space after `--`) and of
+  # branch ops (`checkout -b`, `checkout <branch>`). From kenryu42/cc-safety-net.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+--[[:space:]]+[^[:space:]] ]]; then
+    block "git checkout -- <path> discards uncommitted changes to those files"
+  fi
+
+  # git restore --source=<ref> .   → overwrites the WHOLE working tree from <ref>
+  # (whole-tree form stays blocked; `--source=<ref> <file>` grab is allowed below).
   if [[ "$seg" =~ ^git\ restore[[:space:]] ]] && [[ "$seg" =~ --source[=[:space:]] ]] && [[ "$seg" =~ [[:space:]]\.([[:space:]]|$) ]]; then
     block "git restore --source=<ref> . overwrites working tree from <ref>, destroying unstaged work"
+  fi
+
+  # v2.10.8: git restore <path>  (no --source, no --staged) → the modern form of
+  # `checkout -- <path>`: discards working-tree changes. `--source=<ref>` (grab from
+  # a ref, mirrors the allowed checkout <ref> -- <path>) and `--staged` (unstage,
+  # worktree untouched) are both left allowed; whole-tree `.` forms are caught above.
+  if [[ "$seg" =~ ^git\ restore[[:space:]] ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])--staged([[:space:]]|$) ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])--source[=[:space:]] ]]; then
+    block "git restore <path> discards uncommitted working-tree changes"
   fi
 
   if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
