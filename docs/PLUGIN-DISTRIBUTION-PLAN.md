@@ -217,11 +217,24 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
   Phase 5). `bump-version.sh` regenerates `commands/` + stages it. `tests/test-plugin-commands.sh` (10 tests)
   guards transforms + drift. Full suite green.
 
-### Phase 5 — Packaging, config, CI
-- `userConfig` in `plugin.json`: `role`, `economy_tier`, `mcp_profile` (+ optional `notify` prefs).
-- Finalize `marketplace.json` (source `./`, explicit `version`).
-- CI: add `claude plugin validate --strict` + a plugin-runtime smoke test (env vars set) to the matrix
-  alongside the existing installer suite.
+### Phase 5 — Packaging, config, CI — ✅ **DONE** (2026-07-15)
+- **`userConfig`** in `plugin.json`: `role`, `economy_tier`, `mcp_profile` (string + default + description;
+  the schema has no enum, so valid values live in the description). Keys chosen so
+  `CLAUDE_PLUGIN_OPTION_<UPPER>` matches what the hooks read.
+- **First-run seeder** `hooks/plugin-config-seed.sh` (SessionStart, registered first) — the plugin analog of
+  the installer wizard: under the plugin runtime it writes `scope/.economy-tier|.mcp-profile|.roles` from
+  `CLAUDE_PLUGIN_OPTION_*`. **No-ops under the installer** (`CLAUDE_PLUGIN_ROOT` unset) and **never clobbers**
+  an existing file (a runtime switch — "eco minimal", `/profile`, `mcp-profile.sh` — always wins).
+- **Env bridge:** `prompt-layer-inject.sh` role/mode/tier now chain `SUPERCHARGER_* → CLAUDE_PLUGIN_OPTION_* →
+  default`.
+- **`marketplace.json` cleaned:** dropped the invalid `id` + `metadata.homepage` (moved homepage into the
+  plugin entry), refreshed the stale "instructional layer only" description → the full plugin.
+  **`claude plugin validate` now passes CLEAN — zero warnings, zero errors.**
+- **CI:** new `plugin-manifest` job — JSON validity + `gen-plugin-hooks.sh --check` + `gen-plugin-commands.sh
+  --check` (deterministic, no CLI dependency). Plugin-runtime smoke coverage lives in the test suite (hooks
+  run with `CLAUDE_PLUGIN_*` set).
+- `tests/test-plugin-config.sh` (8 tests): seeder (seed / no-clobber / installer no-op / defaults), userConfig
+  shape + key↔env parity, inject wiring, marketplace cleanliness. Full suite green.
 
 ### Phase 6 — Docs & release
 - README "Install as a plugin" section; casualty list from §5; migration note for existing installer

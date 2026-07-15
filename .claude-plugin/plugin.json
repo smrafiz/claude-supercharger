@@ -14,6 +14,26 @@
     "agent-routing",
     "security"
   ],
+  "userConfig": {
+    "role": {
+      "type": "string",
+      "title": "Default role",
+      "description": "Primary role guidelines to apply: developer, writer, student, data, pm, designer, devops, or researcher.",
+      "default": "developer"
+    },
+    "economy_tier": {
+      "type": "string",
+      "title": "Token economy tier",
+      "description": "Output verbosity/economy: standard, lean, or minimal. Switchable at runtime with 'eco lean' etc.",
+      "default": "standard"
+    },
+    "mcp_profile": {
+      "type": "string",
+      "title": "MCP profile",
+      "description": "Which MCP servers to surface: light, dev, research, or full.",
+      "default": "light"
+    }
+  },
   "commands": [
     "./commands/"
   ],

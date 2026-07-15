@@ -11,8 +11,9 @@
 # as persistent files (CLAUDE.md + rules/*.md), so re-emitting it would duplicate
 # the whole layer into every session. The CLAUDE_PLUGIN_ROOT gate enforces that.
 #
-# Role / mode / tier come from env (SUPERCHARGER_ROLE / _MODE / _TIER) — the plugin
-# userConfig wiring (Phase 5) populates these; until then they default sensibly.
+# Role / mode / tier: SUPERCHARGER_* env wins (runtime switches), then the plugin
+# userConfig values (exported as CLAUDE_PLUGIN_OPTION_* to hook processes), then a
+# sensible default. This is the Phase 5 userConfig wiring.
 set -euo pipefail
 HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-suppress.sh
@@ -25,9 +26,9 @@ UNIV="$SUPERCHARGER_HOME/configs/universal"
 ECON="$SUPERCHARGER_HOME/configs/economy"
 [ -d "$UNIV" ] || exit 0
 
-ROLE="${SUPERCHARGER_ROLE:-Developer}"
-MODE="${SUPERCHARGER_MODE:-Full}"
-TIER="${SUPERCHARGER_TIER:-standard}"
+ROLE="${SUPERCHARGER_ROLE:-${CLAUDE_PLUGIN_OPTION_ROLE:-Developer}}"
+MODE="${SUPERCHARGER_MODE:-${CLAUDE_PLUGIN_OPTION_MODE:-Full}}"
+TIER="${SUPERCHARGER_TIER:-${CLAUDE_PLUGIN_OPTION_ECONOMY_TIER:-standard}}"
 VERSION=$(grep -m1 '^VERSION=' "$SUPERCHARGER_HOME/lib/utils.sh" 2>/dev/null | cut -d'"' -f2 || true)
 [ -z "$VERSION" ] && VERSION=$(grep -m1 '"version"' "$SUPERCHARGER_HOME/.claude-plugin/plugin.json" 2>/dev/null | cut -d'"' -f4 || true)
 

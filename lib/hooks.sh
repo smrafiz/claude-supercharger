@@ -57,6 +57,11 @@ get_hooks_for_mode() {
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   hooks+=("PostToolUse|Bash,Read,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
+  # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
+  # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops
+  # under the installer (CLAUDE_PLUGIN_ROOT unset); never clobbers an existing file.
+  hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
   # Plugin-only prompt-layer delivery: emits configs/universal/*.md as SessionStart
