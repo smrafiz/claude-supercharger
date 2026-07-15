@@ -39,22 +39,19 @@ for _arg in "$@"; do
   esac
 done
 
-# Fetch latest version from GitHub contents API (no auth, no CDN cache)
+# Fetch the latest released version = the VERSION string in lib/utils.sh on master.
 fetch_remote_version() {
-  # v2.10.3: prefer `git ls-remote --tags` — it uses the SAME github.com git
-  # channel as the clone that the actual update performs, so the version check
-  # succeeds exactly when the update would. The old path hit api.github.com (a
-  # different host + the 60-req/hr unauthenticated REST rate limit + no proxy
-  # inheritance), so it failed independently of `git clone` — reporting "could
-  # not reach GitHub" on shared/office IPs and behind proxies even though the
-  # update itself would have worked. The API is kept only as a fallback.
+  # The single source of truth is VERSION in lib/utils.sh — NOT git tags. The repo
+  # carries orphaned tags from an earlier scheme (v3.6.x, 2026-04) that outrank the
+  # current 2.x file version, so a max-tag sort (the pre-2.11.1 approach) wrongly
+  # reported v3.6.35 as "latest" and every 2.x release looked perpetually stale.
+  # Primary: the raw file over HTTPS — no api.github.com 60/hr rate limit, and curl
+  # honours http(s)_proxy, so it stays reachable on the shared/office IPs and proxies
+  # that motivated the earlier git-channel switch. API kept as a fallback.
   local v
-  v=$(git ls-remote --tags --refs "${REPO_URL}.git" 2>/dev/null \
-        | awk -F/ '{print $NF}' \
-        | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' \
-        | sed 's/^v//' \
-        | sort -t. -k1,1n -k2,2n -k3,3n \
-        | tail -1)
+  v=$(curl -fsSL --max-time 6 \
+        "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null \
+        | grep -m1 '^VERSION=' | cut -d'"' -f2)
   if [ -n "$v" ]; then
     printf '%s\n' "$v"
     return
