@@ -45,10 +45,22 @@ fetch_remote_version() {
   # carries orphaned tags from an earlier scheme (v3.6.x, 2026-04) that outrank the
   # current 2.x file version, so a max-tag sort (the pre-2.11.1 approach) wrongly
   # reported v3.6.35 as "latest" and every 2.x release looked perpetually stale.
-  # Primary: the raw file over HTTPS — no api.github.com 60/hr rate limit, and curl
-  # honours http(s)_proxy, so it stays reachable on the shared/office IPs and proxies
-  # that motivated the earlier git-channel switch. API kept as a fallback.
+  #
+  # Primary: the GitHub contents API with a raw-accept header — served FRESH (no CDN
+  # cache), so a check run seconds after a release sees the new version. The 2.11.1
+  # fix used raw.githubusercontent.com as primary, but that host is CDN-cached and
+  # lags minutes behind a release, so /sc-update falsely reported "up to date" for a
+  # few minutes after every release. curl honours http(s)_proxy. Raw is kept as a
+  # fallback (no rate limit, but possibly stale); the python API path is the last resort.
   local v
+  v=$(curl -fsSL --max-time 6 -H 'Accept: application/vnd.github.raw' \
+        "https://api.github.com/repos/smrafiz/claude-supercharger/contents/lib/utils.sh?ref=master" 2>/dev/null \
+        | grep -m1 '^VERSION=' | cut -d'"' -f2)
+  if [ -n "$v" ]; then
+    printf '%s\n' "$v"
+    return
+  fi
+  # Fallback 1: raw file over HTTPS — no rate limit, but CDN-cached (may be stale).
   v=$(curl -fsSL --max-time 6 \
         "https://raw.githubusercontent.com/smrafiz/claude-supercharger/master/lib/utils.sh" 2>/dev/null \
         | grep -m1 '^VERSION=' | cut -d'"' -f2)
@@ -56,7 +68,7 @@ fetch_remote_version() {
     printf '%s\n' "$v"
     return
   fi
-  # Fallback: GitHub REST API (subject to the 60/hr unauthenticated limit).
+  # Fallback 2: GitHub REST API via python (for hosts without curl).
   python3 -c "
 import urllib.request, json, base64
 try:
