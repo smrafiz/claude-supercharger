@@ -89,20 +89,24 @@ else
   fail "notify flag name drift between update.sh and notify-toggle.sh"
 fi
 
-# v2.10.3 regression: version check must use git ls-remote (same github.com channel
-# as the clone), not ONLY api.github.com — which has a 60/hr unauthenticated rate
-# limit + no proxy inheritance, so it failed independently of `git clone`.
-begin_test "update: remote version check uses git ls-remote (not api-only)"
-if grep -q 'git ls-remote' "$TOOL"; then pass
-else fail "fetch_remote_version no longer uses git ls-remote — API-only regresses the rate-limit fix"; fi
+# v2.11.1: the latest version is the VERSION string in lib/utils.sh, NOT the max git
+# tag. The repo carries orphaned tags from an earlier scheme (v3.6.x, 2026-04) that a
+# max-tag sort wrongly picked as "latest", so every 2.x release looked perpetually
+# stale. fetch_remote_version must read the file, not tags.
+begin_test "update: remote version check reads VERSION from lib/utils.sh (not tags)"
+if grep -q 'raw.githubusercontent.com.*lib/utils.sh' "$TOOL" && grep -q 'VERSION=' "$TOOL"; then pass
+else fail "fetch_remote_version no longer reads lib/utils.sh — max-tag detection regresses the orphan-tag bug"; fi
 
-# The tag-parse pipeline must pick the highest semver NUMERICALLY (2.10.2 > 2.9.17,
-# which a string sort would get wrong).
-begin_test "update: version parse picks highest semver numerically"
-HIGHEST=$(printf '%s\n' \
-  "a	refs/tags/v2.9.8" "b	refs/tags/v2.9.17" "c	refs/tags/v2.10.0" "d	refs/tags/v2.10.2" "e	refs/tags/v1.0.0" \
-  | awk -F/ '{print $NF}' | grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | sed 's/^v//' \
-  | sort -t. -k1,1n -k2,2n -k3,3n | tail -1)
-[ "$HIGHEST" = "2.10.2" ] && pass || fail "expected 2.10.2, got '$HIGHEST' (string sort would pick 2.9.17)"
+# Regression guard: version detection must NOT max-sort git tags (that is the v3.6.35 bug).
+begin_test "update: version detection does NOT pick the max git tag (orphan-tag guard)"
+if grep -qE 'ls-remote --tags' "$TOOL"; then
+  fail "fetch_remote_version still max-sorts git tags — reintroduces the orphaned-tag mis-detection"
+else pass; fi
+
+# Reachability fallback: the GitHub contents API path must remain for hosts where raw
+# HTTPS is unavailable.
+begin_test "update: keeps a GitHub API fallback for the version file"
+if grep -q 'api.github.com/repos/smrafiz/claude-supercharger/contents/lib/utils.sh' "$TOOL"; then pass
+else fail "version-file API fallback removed"; fi
 
 report
