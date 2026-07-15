@@ -12,7 +12,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 MODE="${1:-start}"
 
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 mkdir -p "$SCOPE_DIR"
 

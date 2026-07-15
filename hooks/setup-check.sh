@@ -15,7 +15,7 @@ set -euo pipefail
 # prevent SIGPIPE on the parent if the payload field grows later).
 cat >/dev/null 2>&1 || true
 
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 HOOKS_DIR="$SUPERCHARGER_DIR/hooks"
 SETTINGS="$HOME/.claude/settings.json"
 UTILS="$SUPERCHARGER_DIR/lib/utils.sh"

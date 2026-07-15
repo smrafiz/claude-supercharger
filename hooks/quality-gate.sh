@@ -35,7 +35,7 @@ _qg_hash() {
   fi
 }
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 QG_PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
 QG_CACHE="$SCOPE_DIR/.quality-gate-cache-${QG_PROJ_HASH}"

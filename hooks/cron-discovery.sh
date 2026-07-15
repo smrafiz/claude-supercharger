@@ -22,7 +22,7 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "cron-discovery" && exit 0
 
-AUDIT_DIR="$HOME/.claude/supercharger/audit"
+AUDIT_DIR="$SUPERCHARGER_STATE/audit"
 mkdir -p "$AUDIT_DIR" 2>/dev/null || exit 0
 LOG_FILE="$AUDIT_DIR/cron-payloads.jsonl"
 

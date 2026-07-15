@@ -26,7 +26,7 @@ hook_profile_skip "mcp-tracker" && exit 0
 # aren't truncated at the first underscore.
 if [[ "$TOOL_NAME" =~ ^mcp__(.+)__ ]]; then
   MCP_NAME="${BASH_REMATCH[1]}"
-  SCOPE_DIR="$HOME/.claude/supercharger/scope"
+  SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   mkdir -p "$SCOPE_DIR" 2>/dev/null || true
   echo "$MCP_NAME" > "$SCOPE_DIR/.active-mcp-${SESSION_ID}"
 fi

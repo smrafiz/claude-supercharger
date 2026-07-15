@@ -13,7 +13,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_CONFIDENCE:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
 # v2.7.58: ONE python fork does both the session-id sanitize AND the entry build.

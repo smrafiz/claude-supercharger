@@ -39,6 +39,22 @@ jobs:
           fi
           echo "OK: all versions are $LIB"
 
+  plugin-manifest:
+    name: Plugin manifest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Manifests are valid JSON
+        run: |
+          python3 -c "import json; json.load(open('.claude-plugin/plugin.json'))"
+          python3 -c "import json; json.load(open('.claude-plugin/marketplace.json'))"
+
+      - name: Generated plugin artifacts are in lockstep with source
+        run: |
+          bash tools/gen-plugin-hooks.sh --check
+          bash tools/gen-plugin-commands.sh --check
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}

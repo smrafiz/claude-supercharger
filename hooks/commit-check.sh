@@ -14,6 +14,11 @@ _INPUT=$(cat)
 # vast majority of Bash calls that aren't commits. A false positive (arg text
 # mentioning "git commit") still gets the correct no-op via the segment check.
 case "$_INPUT" in *'git commit'*) ;; *) exit 0 ;; esac
+# Opt-in gate: only enforce Conventional Commits when the flag exists. Under the
+# installer this hook is registered ONLY when the flag is present; under the plugin
+# it is always registered (hooks.json is static), so this runtime check preserves the
+# opt-in semantics across both channels. Cheap: a single stat, only on real commits.
+[ -f "$SUPERCHARGER_STATE/.conventional-commits" ] || exit 0
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "commit-check" && exit 0

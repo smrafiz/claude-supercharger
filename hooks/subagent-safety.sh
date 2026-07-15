@@ -24,8 +24,8 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/n
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // .subagent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$AGENT_ID" ] && AGENT_ID="$SESSION_ID-$(date +%s)"
-SAFETY_FLAG="$HOME/.claude/supercharger/scope/.subagent-safety-injected-${SESSION_ID}"
-REPORT_DIR="$HOME/.claude/supercharger/scope/subagent-reports"
+SAFETY_FLAG="$SUPERCHARGER_STATE/scope/.subagent-safety-injected-${SESSION_ID}"
+REPORT_DIR="$SUPERCHARGER_STATE/scope/subagent-reports"
 REPORT_PATH="$REPORT_DIR/${AGENT_ID}.md"
 mkdir -p "$REPORT_DIR" 2>/dev/null || true
 

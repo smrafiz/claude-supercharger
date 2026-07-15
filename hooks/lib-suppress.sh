@@ -11,11 +11,21 @@
 #   ...read stdin, extract PROJECT_DIR...
 #   init_hook_suppress "$PROJECT_DIR"        # re-evaluate with actual project dir
 
+# Resolve SUPERCHARGER_STATE (mutable state root) so this lib — sourced by nearly
+# every hook — reads scope/audit from the right place under both the installer and
+# the plugin runtime. Self-locates lib-paths.sh via its own path (sourced-file safe).
+# The inline ':=' below is a resilience fallback: the kill-switch is security-critical
+# and must resolve even if lib-paths.sh is somehow absent. lib-paths.sh stays the
+# canonical definition; ':=' is a no-op when it already set the var.
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
 # v2.9.0: global kill-switch (`/sc off`). When Supercharger is deactivated, every
 # hook that sources this lib exits IMMEDIATELY → default Claude Code behavior, no
 # reinstall needed. sc-toggle.sh exports SUPERCHARGER_TOGGLE to bypass this for its
 # own bookkeeping. (exit at source-time terminates the sourcing hook process.)
-if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$HOME/.claude/supercharger/scope/.supercharger-disabled" ]; then
+if [ -z "${SUPERCHARGER_TOGGLE:-}" ] && [ -f "$SUPERCHARGER_STATE/scope/.supercharger-disabled" ]; then
   exit 0
 fi
 
@@ -24,7 +34,7 @@ _DISABLED_HOOKS_CONTENT=""
 
 _load_disabled_hooks() {
   _DISABLED_HOOKS_CONTENT=""
-  local disabled_file="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  local disabled_file="$SUPERCHARGER_STATE/scope/.disabled-hooks"
   [ ! -f "$disabled_file" ] && return
   _DISABLED_HOOKS_CONTENT=$(<"$disabled_file")
 }
@@ -49,7 +59,7 @@ _emit_hook_timing() {
   if [ "${_HOOK_PERF_FULL:-0}" != 1 ] && [ "$elapsed" -lt "${SUPERCHARGER_PERF_THRESHOLD_MS:-40}" ]; then
     return
   fi
-  local audit_dir="$HOME/.claude/supercharger/audit"
+  local audit_dir="$SUPERCHARGER_STATE/audit"
   mkdir -p "$audit_dir" 2>/dev/null || return
   local date_str
   date_str=$(date +%Y-%m-%d 2>/dev/null) || return
@@ -60,7 +70,7 @@ _emit_hook_timing() {
 init_hook_suppress() {
   local dir="${1:-}"
   HOOK_SUPPRESS=true
-  if [ -f "$HOME/.claude/supercharger/scope/.debug-hooks" ]; then
+  if [ -f "$SUPERCHARGER_STATE/scope/.debug-hooks" ]; then
     HOOK_SUPPRESS=false; return
   fi
   if [ -n "$dir" ] && [ -f "${dir}/.supercharger-debug" ]; then
@@ -77,7 +87,7 @@ init_hook_suppress() {
   HOOK_START_MS=0
   HOOK_NAME=""
   _HOOK_PERF_FULL=0
-  [ -f "$HOME/.claude/supercharger/scope/.profiling" ] && _HOOK_PERF_FULL=1
+  [ -f "$SUPERCHARGER_STATE/scope/.profiling" ] && _HOOK_PERF_FULL=1
   if [ "$_HOOK_PERF_FULL" = 1 ] || [ -n "${EPOCHREALTIME:-}" ]; then
     # $EPOCHREALTIME (bash 5+): "seconds.microseconds" — convert to ms, zero fork
     if [[ -n "${EPOCHREALTIME:-}" ]]; then
@@ -111,14 +121,14 @@ init_hook_suppress() {
 
   # Load project profile from scope file — set SUPERCHARGER_PROFILE if not already set by env
   if [ -z "${SUPERCHARGER_PROFILE:-}" ]; then
-    local profile_file="$HOME/.claude/supercharger/scope/.profile"
+    local profile_file="$SUPERCHARGER_STATE/scope/.profile"
     [ -f "$profile_file" ] && SUPERCHARGER_PROFILE=$(<"$profile_file") || true
   fi
 
   # Load economy tier (standard/lean/minimal) for tier-aware hook output.
   # Cached at SessionStart by project-config.sh into scope/.economy-tier.
   if [ -z "${SUPERCHARGER_TIER:-}" ]; then
-    local tier_file="$HOME/.claude/supercharger/scope/.economy-tier"
+    local tier_file="$SUPERCHARGER_STATE/scope/.economy-tier"
     if [ -f "$tier_file" ]; then
       SUPERCHARGER_TIER=$(<"$tier_file")
     else
@@ -179,7 +189,7 @@ hook_already_emitted() {
   # Test/CI escape hatch
   [ "${SUPERCHARGER_NO_DEDUP:-0}" = "1" ] && return 1
 
-  local scope_dir="$HOME/.claude/supercharger/scope"
+  local scope_dir="$SUPERCHARGER_STATE/scope"
   local dedup_file="${scope_dir}/.dedup-${sid}-${hook_name}"
   local now hash
   hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf 'NOHASH')

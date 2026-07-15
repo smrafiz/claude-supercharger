@@ -1,0 +1,37 @@
+Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
+
+If `$ARGUMENTS` is empty, examine the most recent hook activity. If `$ARGUMENTS` names a hook (e.g., `confidence-gate`), explain that hook's last firing specifically.
+
+**Sources to consult (read in order, stop at first match).** Scope files gained
+`-<session>`/`-<project-hash>` suffixes over time — these are the CURRENT names, so
+use the globs exactly as written (pick the most-recently-MODIFIED match, `ls -t … | head -1`):
+
+1. `${CLAUDE_PLUGIN_DATA}/scope/.scan-alert-*` (mtime + content; newest) — last scanner finding
+2. `${CLAUDE_PLUGIN_DATA}/scope/.blocked-commands` (last line — **single global file, NO suffix**) — last block reason
+3. `${CLAUDE_PLUGIN_DATA}/scope/.user-corrections*` (last line of newest) — last correction
+4. `${CLAUDE_PLUGIN_DATA}/scope/.failed-commands-*` (last line of newest — per-project hash) — last failure cluster
+5. `${CLAUDE_PLUGIN_DATA}/audit/$(date -u +%Y-%m-%d).jsonl` (last 5 entries **that have a `hook` field** — skip timing/field-less rows) — recent audit events
+6. `${CLAUDE_PLUGIN_DATA}/scope/.tool-history-*` (last line of newest — per-session) — last tool result
+
+For each source that matched, explain:
+
+- **What fired** — hook name + event (e.g., `confidence-gate.sh on PreToolUse:Edit`)
+- **Why** — the specific signal (e.g., "3 failures in last 5 tool calls + read-before-write violation on /tmp/foo.ts → score 0.50, warn tier")
+- **Where** — file:line if applicable
+- **What to do** — concrete next step (e.g., "Run `bash tools/hook-toggle.sh confidence-gate off` for this session, or read the file before editing")
+
+Output format (one block per source matched, max 3):
+
+```
+=== Why the last action fired ===
+
+[1] <hook-name> at <relative time>
+    Event:   <PreToolUse|PostToolUse|...>:<tool>
+    Reason:  <one sentence>
+    Detail:  <evidence snippet — file:line, score, threshold, etc.>
+    Fix:     <concrete next step>
+```
+
+If no hook activity is found in any source: print `No recent hook activity recorded.`
+
+Do not narrate the investigation. Lead with the answer.

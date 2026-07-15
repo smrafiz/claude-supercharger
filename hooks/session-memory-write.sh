@@ -15,7 +15,12 @@ set -euo pipefail
 _INPUT=$(cat 2>/dev/null || echo "")
 
 MEMORY_FILE=".claude/supercharger-memory.md"
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
 # --- Uncommitted changed files only (open work) ---
 # v2.6.19: one `git status --porcelain` replaces 3 separate git diff/ls-files
@@ -154,6 +159,6 @@ echo "[Supercharger] session-memory: wrote $MEMORY_FILE" >&2
 # v2.7.23: was a bare `.checkpoint-*` glob that deleted concurrent sessions'
 # live checkpoints too. Scope to this session_id.
 _CK_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
-[ -n "$_CK_SID" ] && rm -f "$HOME/.claude/supercharger/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
+[ -n "$_CK_SID" ] && rm -f "$SUPERCHARGER_STATE/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
 
 exit 0

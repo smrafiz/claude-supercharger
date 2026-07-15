@@ -19,7 +19,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_FILE_LEASE:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 LEASE_DIR="$SCOPE_DIR/.file-leases"
 mkdir -p "$LEASE_DIR" 2>/dev/null || true
 

@@ -2,7 +2,12 @@
 # Claude Supercharger — Shared Notification Helper
 # Sourced by notify.sh, notify-stop.sh, notify-permission.sh
 
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 
 # Get git branch for notification title

@@ -31,7 +31,7 @@ except Exception:
 
 [ -z "$PCT" ] && exit 0
 [ "$PCT" -lt 70 ] && {
-  rm -f "$HOME/.claude/supercharger/scope/.compact-last-band"
+  rm -f "$SUPERCHARGER_STATE/scope/.compact-last-band"
   exit 0
 }
 
@@ -42,13 +42,13 @@ else                          BAND=70
 fi
 
 # ── Debounce: skip if already warned at this band ────────────────────────────
-STATE_FILE="$HOME/.claude/supercharger/scope/.compact-last-band"
+STATE_FILE="$SUPERCHARGER_STATE/scope/.compact-last-band"
 LAST_BAND=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
 
 [ "$BAND" -le "$LAST_BAND" ] && exit 0
 
 # ── Write new band state ──────────────────────────────────────────────────────
-mkdir -p "$HOME/.claude/supercharger/scope"
+mkdir -p "$SUPERCHARGER_STATE/scope"
 printf '%s\n' "$BAND" > "$STATE_FILE"
 
 # ── Compose message ───────────────────────────────────────────────────────────

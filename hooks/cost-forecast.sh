@@ -10,7 +10,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
 
-SUPERCHARGER_DIR="$HOME/.claude/supercharger"
+SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
 COST_FILE="$SCOPE_DIR/.session-cost"
 

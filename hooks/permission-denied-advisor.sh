@@ -87,7 +87,7 @@ hook_profile_skip "permission-denied-advisor" && exit 0
 
 # Track denied tools for this session (so Claude can reference them)
 if [ -n "$SESSION_ID" ] && [ -n "$TOOL_NAME" ]; then
-  DENIED_FILE="$HOME/.claude/supercharger/scope/.denied-${SESSION_ID}"
+  DENIED_FILE="$SUPERCHARGER_STATE/scope/.denied-${SESSION_ID}"
   printf '%s\n' "$TOOL_NAME" >> "$DENIED_FILE" 2>/dev/null || true
 fi
 

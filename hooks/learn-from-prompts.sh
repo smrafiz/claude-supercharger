@@ -15,7 +15,12 @@ fi
 [ -z "$PROMPT" ] && exit 0
 
 PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+# Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
+. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+: "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
+
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
 # Project-scoped correction log

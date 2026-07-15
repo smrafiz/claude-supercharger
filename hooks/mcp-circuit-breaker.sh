@@ -17,7 +17,7 @@ HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 [ "${SUPERCHARGER_MCP_BREAKER:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
 OUT=$(printf '%s\n' "$_INPUT" | SCOPE_DIR="$SCOPE_DIR" COOLDOWN="${SUPERCHARGER_MCP_COOLDOWN:-30}" PYTHONUTF8=1 python3 -c "
 import sys, json, os, re, time

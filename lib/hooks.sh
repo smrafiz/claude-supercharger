@@ -57,8 +57,17 @@ get_hooks_for_mode() {
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   hooks+=("PostToolUse|Bash,Read,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
+  # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
+  # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops
+  # under the installer (CLAUDE_PLUGIN_ROOT unset); never clobbers an existing file.
+  hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
+  # Plugin-only prompt-layer delivery: emits configs/universal/*.md as SessionStart
+  # additionalContext when running under the plugin runtime (CLAUDE_PLUGIN_ROOT set).
+  # No-ops under the installer, where the same content is persistent files.
+  hooks+=("SessionStart||${hooks_dir}/prompt-layer-inject.sh|")
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")
@@ -92,7 +101,12 @@ get_hooks_for_mode() {
     # v2.9.11: opt-in (default OFF) — block committing a Co-Authored-By AI-attribution
     # trailer. Enable: touch scope/.coauthor-guard  or  SUPERCHARGER_COAUTHOR_GUARD=1.
     hooks+=("PreToolUse|Bash|${hooks_dir}/commit-coauthor-guard.sh|")
-    if [[ -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
+    # commit-check is opt-in via the .conventional-commits flag (install-time under
+    # the installer). SUPERCHARGER_EMIT_ALL=1 forces it into the emitted set for the
+    # plugin hooks.json; commit-check.sh self-gates on the same flag at runtime, so
+    # plugin users keep the opt-in semantics. Installer behavior is unchanged when
+    # the override is unset.
+    if [[ "${SUPERCHARGER_EMIT_ALL:-0}" == "1" || -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
       hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
     fi
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh|")

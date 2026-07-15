@@ -22,7 +22,7 @@ if [ ! -f "$MEMORY_FILE" ]; then
   # Check for crash checkpoint
   CKPT=""
   _NOW_TS=$(date +%s)
-  for f in "$HOME/.claude/supercharger/scope"/.checkpoint-*; do
+  for f in "$SUPERCHARGER_STATE/scope"/.checkpoint-*; do
     [ -f "$f" ] || continue
     # Only use if < 24h old. v2.7.8: bash stat replaces a python3 fork per file
     # (GNU-first, BSD fallback, numeric guard — identical <86400s logic).
@@ -70,7 +70,7 @@ else
   DIFF_STAT=$(git -C "$PROJECT_DIR" diff --stat HEAD 2>/dev/null | tail -1 | grep -o '[0-9]* file.*' || echo "")
   [ -n "$DIFF_STAT" ] && ENRICHMENT="${ENRICHMENT} diff:${DIFF_STAT}"
   # Last session cost
-  COST_FILE="$HOME/.claude/supercharger/scope/.session-cost"
+  COST_FILE="$SUPERCHARGER_STATE/scope/.session-cost"
   if [ -f "$COST_FILE" ]; then
     # v2.7.8: bash stat + jq replace a python3 fork — identical <86400s mtime
     # guard and total_usd read.
@@ -86,7 +86,7 @@ else
   PROJECT_ROOT=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_DIR")
   PROJ_HASH_ENR=$(printf '%s' "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "global")
   PROJ_HASH_ENR="${PROJ_HASH_ENR:0:8}"
-  FAILURE_LOG="$HOME/.claude/supercharger/scope/.failure-log-${PROJ_HASH_ENR}"
+  FAILURE_LOG="$SUPERCHARGER_STATE/scope/.failure-log-${PROJ_HASH_ENR}"
   if [ -f "$FAILURE_LOG" ]; then
     FAILURES=$(tail -10 "$FAILURE_LOG" 2>/dev/null | sort -u | tail -3 | tr '\n' ',' | sed 's/,$//')
     [ -n "$FAILURES" ] && ENRICHMENT="${ENRICHMENT} failures:${FAILURES}"
@@ -96,7 +96,7 @@ else
   # (keys: tool, file, timestamp) — no new tracking. Gives resume a focus list
   # (what we were working ON), not the flat modified-files diff. Idea adapted
   # from thebrain's "file heat" — as a memory signal, not a guard.
-  HOT=$(PROJECT_ROOT="$PROJECT_ROOT" AUDIT_DIR="$HOME/.claude/supercharger/audit" python3 <<'PYEOF' 2>/dev/null || true
+  HOT=$(PROJECT_ROOT="$PROJECT_ROOT" AUDIT_DIR="$SUPERCHARGER_STATE/audit" python3 <<'PYEOF' 2>/dev/null || true
 import os, json, glob, datetime
 root = os.environ.get('PROJECT_ROOT', '')
 adir = os.environ.get('AUDIT_DIR', '')

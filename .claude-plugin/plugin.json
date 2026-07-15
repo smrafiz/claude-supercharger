@@ -1,17 +1,52 @@
 {
   "name": "claude-supercharger",
   "description": "Shell-level guardrails for Claude Code. Command blocking, code security scanner, self-teaching, token economy, agent routing, MCP profiles, and session memory.",
-  "version": "2.10.9",
+  "version": "2.11.0",
   "author": {
     "name": "smrafiz"
   },
   "license": "MIT",
-  "keywords": ["guardrails", "safety", "hooks", "token-economy", "agent-routing", "security"],
-  "rules": [
-    "./configs/universal/CLAUDE.md",
-    "./configs/universal/guardrails.md",
-    "./configs/universal/supercharger.md",
-    "./configs/universal/economy.md",
-    "./configs/universal/anti-patterns.yml"
+  "keywords": [
+    "guardrails",
+    "safety",
+    "hooks",
+    "token-economy",
+    "agent-routing",
+    "security"
+  ],
+  "userConfig": {
+    "role": {
+      "type": "string",
+      "title": "Default role",
+      "description": "Primary role guidelines to apply: developer, writer, student, data, pm, designer, devops, or researcher.",
+      "default": "developer"
+    },
+    "economy_tier": {
+      "type": "string",
+      "title": "Token economy tier",
+      "description": "Output verbosity/economy: standard, lean, or minimal. Switchable at runtime with 'eco lean' etc.",
+      "default": "standard"
+    },
+    "mcp_profile": {
+      "type": "string",
+      "title": "MCP profile",
+      "description": "Which MCP servers to surface: light, dev, research, or full.",
+      "default": "light"
+    }
+  },
+  "commands": [
+    "./commands/"
+  ],
+  "agents": [
+    "./configs/agents/architect.md",
+    "./configs/agents/code-helper.md",
+    "./configs/agents/data-analyst.md",
+    "./configs/agents/debugger.md",
+    "./configs/agents/explorer.md",
+    "./configs/agents/general.md",
+    "./configs/agents/planner.md",
+    "./configs/agents/researcher.md",
+    "./configs/agents/reviewer.md",
+    "./configs/agents/writer.md"
   ]
 }

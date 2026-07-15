@@ -30,7 +30,7 @@ hook_profile_skip "repetition-detector" && exit 0
 
 [ -z "$TOOL_NAME" ] && exit 0
 
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
+SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
 MESSAGES=()
