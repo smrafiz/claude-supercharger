@@ -109,13 +109,22 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` force extended reasoning; `--no-think` suppresses it (useful on Opus 4.8 where extended thinking is on by default and burns output tokens on routine prompts)
 - **Per-subagent cost breakdown** — `/sc-status` aggregates cost across subagents (Scientist, Detective, Engineer, etc.) so you can see which one burned the budget. Mirrors Claude Code's `/usage` view
 - **On/off switch** — `/sc off` flips to plain default Claude Code (a global kill-switch every hook honors instantly; nothing uninstalled), `/sc on` restores everything. For when you want the vanilla experience for a task, or to A/B compare
-- **20+ slash commands** — `/think`, `/sc-status`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
+- **Autopilot** — `/sc-autopilot 30m` stops the yes/no permission prompts for a set time (also `2h`, `90s`; `off` / `status`). Unlike `/sc off` it keeps the **safety floor** — `rm -rf`, force-push, credential leaks, self-modification stay blocked; it only drops the approval friction. Auto-expires (2h hard cap), works across sessions, and shows a `⚡ Autopilot` statusline indicator while active
+- **20+ slash commands** — `/think`, `/sc-status`, `/sc-autopilot`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
 
 ---
 
-## Recent highlights (v2.10)
+## Recent highlights (v2.12)
 
-The v2.9 → v2.10 line is a **security-hardening milestone** — a large expansion of the enforcement surface, most of it distilled from auditing ~50 "guardrail/harness" projects against Supercharger's thesis and adopting only the self-contained, low-false-positive patterns (see [Credits](#credits)). Test suite grew 1319 → 1464 with zero regressions.
+### Distribution & control (v2.11–2.12)
+
+- **Install as a Claude Code plugin** — the full framework now ships through the native plugin system (`/plugin marketplace add smrafiz/claude-supercharger` → `/plugin install`), alongside the classic `install.sh`. One dual-runnable codebase: hooks resolve their code and state roots so the same scripts run under both the installer and `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PLUGIN_DATA}`; the guardrail/economy layer a plugin can't write as files is delivered at SessionStart instead. See [Install as a plugin](#install-as-a-plugin). *(v2.11.0)*
+- **Autopilot** — `/sc-autopilot <duration>` time-boxes away the permission prompts while keeping every safety guard active (details above). *(v2.12.0)*
+- **Reliable `/sc-update`** — version detection now reads the `VERSION` in `lib/utils.sh` via the fresh GitHub contents API, so it never mis-reports "up to date" from orphaned tags or a stale CDN. *(v2.11.1, v2.12.1)*
+
+### Security-hardening milestone (v2.9–v2.10)
+
+A large expansion of the enforcement surface, most of it distilled from auditing ~50 "guardrail/harness" projects against Supercharger's thesis and adopting only the self-contained, low-false-positive patterns (see [Credits](#credits)). Test suite grew 1319 → 1464 with zero regressions.
 
 ### New enforcement hooks
 
