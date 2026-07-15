@@ -198,11 +198,24 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
 - Verified: emits under plugin / silent under installer / tier snippet + role/mode overrides honored / no
   leftover placeholders. `tests/test-plugin-hooks.sh` grew 3 Phase-3 tests (10 total).
 
-### Phase 4 — Commands & agents into plugin layout
-- Copy/symlink `configs/commands/*.md` → `commands/`, `configs/agents/*.md` → `agents/` at plugin root.
-- Update any command/agent body that references `~/.claude/supercharger/...` paths to `${CLAUDE_PLUGIN_ROOT}`.
-- Reconcile meta-commands: retire `/sc-update`, remap `/sc` semantics to native enable/disable, keep
-  `/sc-status` (reads `SC_DATA`).
+### Phase 4 — Commands & agents into plugin layout — ✅ **DONE** (2026-07-15)
+- **Research settled two forks** (claude-code-guide agent + `claude plugin validate`): `commands` accepts a
+  **directory** path (`["./commands/"]`) — validates; `agents` accepts **only file paths** (a directory is
+  rejected: `agents: Invalid input`) → explicit 10-file list. `${CLAUDE_PLUGIN_ROOT}`/`${CLAUDE_PLUGIN_DATA}`
+  are substituted "anywhere the placeholder appears" in command markdown content (documented), so no
+  bash-env dependency.
+- **Agents** are path-free → `plugin.json "agents"` lists `./configs/agents/*.md` directly (no transform, no
+  duplication). A drift test asserts the array == `configs/agents/*.md`.
+- **Commands** need path rewrites → new `tools/gen-plugin-commands.sh` (mirrors the Phase 2 generator, incl.
+  `--check` drift mode) transforms `configs/commands/*.md` → a generated `commands/` dir: code paths
+  (`tools/`,`lib/`) → `${CLAUDE_PLUGIN_ROOT}`, state paths (`scope/`,`audit/`) → `${CLAUDE_PLUGIN_DATA}`, both
+  `~` and `$HOME` forms; **project-scoped `~/.claude/projects/...` left untouched**. Installer keeps using
+  `configs/commands/` verbatim → **zero installer regression**.
+- **Meta-commands with native equivalents dropped** from the plugin edition: `/sc` → `/plugin enable|disable`,
+  `/sc-update` → `/plugin update` (24 of 26 commands emitted). `/sc-status`, `/why`, `/perf`, etc. retained.
+- **`plugin.json` validates** (only the pre-existing marketplace.json `id`/`homepage` warnings remain →
+  Phase 5). `bump-version.sh` regenerates `commands/` + stages it. `tests/test-plugin-commands.sh` (10 tests)
+  guards transforms + drift. Full suite green.
 
 ### Phase 5 — Packaging, config, CI
 - `userConfig` in `plugin.json`: `role`, `economy_tier`, `mcp_profile` (+ optional `notify` prefs).

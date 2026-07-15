@@ -67,11 +67,18 @@ if [ -f "$REPO_DIR/tools/gen-plugin-hooks.sh" ]; then
   echo -e "  ${GREEN}✓${NC} hooks/hooks.json (regenerated)"
 fi
 
+# Regenerate the plugin commands/ dir from configs/commands/ (single source). Keeps
+# the plugin's slash commands in lockstep with the installer's ~/.claude/commands copy.
+if [ -f "$REPO_DIR/tools/gen-plugin-commands.sh" ]; then
+  bash "$REPO_DIR/tools/gen-plugin-commands.sh" >/dev/null
+  echo -e "  ${GREEN}✓${NC} commands/ (regenerated)"
+fi
+
 echo ""
 echo -e "${BOLD}CHANGELOG.md — add entry manually:${NC}"
 echo "  - [${NEW}] - $(date +%Y-%m-%d) — <description>"
 echo ""
 echo -e "${BOLD}Next steps:${NC}"
-echo "  git add lib/utils.sh tools/supercharger.sh README.md .claude-plugin/ hooks/hooks.json CHANGELOG.md"
+echo "  git add lib/utils.sh tools/supercharger.sh README.md .claude-plugin/ hooks/hooks.json commands/ CHANGELOG.md"
 echo "  git commit -m \"chore: bump version to $NEW\""
 echo "  git tag v$NEW && git push && git push --tags"

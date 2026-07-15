@@ -6,5 +6,27 @@
     "name": "smrafiz"
   },
   "license": "MIT",
-  "keywords": ["guardrails", "safety", "hooks", "token-economy", "agent-routing", "security"]
+  "keywords": [
+    "guardrails",
+    "safety",
+    "hooks",
+    "token-economy",
+    "agent-routing",
+    "security"
+  ],
+  "commands": [
+    "./commands/"
+  ],
+  "agents": [
+    "./configs/agents/architect.md",
+    "./configs/agents/code-helper.md",
+    "./configs/agents/data-analyst.md",
+    "./configs/agents/debugger.md",
+    "./configs/agents/explorer.md",
+    "./configs/agents/general.md",
+    "./configs/agents/planner.md",
+    "./configs/agents/researcher.md",
+    "./configs/agents/reviewer.md",
+    "./configs/agents/writer.md"
+  ]
 }
