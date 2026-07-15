@@ -163,6 +163,26 @@ The v2.9 → v2.10 line is a **security-hardening milestone** — a large expans
 
 Install writes hooks/agents/commands/rules to `~/.claude/`, registers them in `~/.claude/settings.json`, and appends a managed block to `~/.claude/CLAUDE.md`. It also sets two `settings.json` keys — `env.ENABLE_PROMPT_CACHING_1H=1` (1-hour prompt cache) and an `attribution` override. `./uninstall.sh` reverses all of these from the pre-install backup.
 
+### Install as a plugin
+
+Prefer Claude Code's native plugin system? Supercharger ships the **full** framework — the same safety hooks, code security scanner, token economy, agent routing, and session memory — as a plugin, with no shell script:
+
+```
+/plugin marketplace add smrafiz/claude-supercharger
+/plugin install claude-supercharger@claude-supercharger
+```
+
+At enable time you're prompted for **role**, **economy tier**, and **MCP profile**. Update with `/plugin update`, toggle with `/plugin enable|disable claude-supercharger` — no reinstall.
+
+A plugin can't write outside its own space, so a few things differ from `install.sh`:
+
+- **Slash commands are namespaced** — `/audit` becomes `/claude-supercharger:audit`, etc.
+- **`/sc-update` → `/plugin update`** and **`/sc on|off` → `/plugin enable|disable`** (native equivalents; those two commands aren't shipped in the plugin).
+- **No statusline** and **no `settings.json` tweaks** (`ENABLE_PROMPT_CACHING_1H`, attribution) — set those manually if you want them.
+- The instructional/guardrail layer is delivered as **SessionStart context** instead of a `CLAUDE.md` block — same rules, and uninstalling leaves zero residue.
+
+> **Pick one channel.** Don't run `install.sh` and the plugin at the same time — they'd double-fire hooks and split state across two directories. Uninstall one before adopting the other.
+
 ---
 
 <details>

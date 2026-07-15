@@ -236,10 +236,13 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
 - `tests/test-plugin-config.sh` (8 tests): seeder (seed / no-clobber / installer no-op / defaults), userConfig
   shape + key↔env parity, inject wiring, marketplace cleanliness. Full suite green.
 
-### Phase 6 — Docs & release
-- README "Install as a plugin" section; casualty list from §5; migration note for existing installer
-  users (don't run both against the same state dir).
-- `docs/DISTRIBUTION.md` update. Ship as a 2.x minor.
+### Phase 6 — Docs & release — 🟡 **docs DONE (2026-07-15); release gated on approval**
+- ✅ README **"Install as a plugin"** section added under *Install modes*: the two `/plugin` commands,
+  enable-time config (role/tier/mcp), the §5 casualties (command namespacing, `/sc*`→native, no statusline,
+  no settings.json tweaks, prompt layer via SessionStart), and the **"pick one channel"** migration warning.
+- ⏳ **Release NOT yet cut** — version bump (`2.10.9` → a 2.x minor), tag, and push are outward/irreversible
+  and await explicit user go. `bump-version.sh` will regenerate `hooks.json` + `commands/` and stamp
+  `plugin.json`/`marketplace.json` as part of the bump.
 
 ---
 
