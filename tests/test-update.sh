@@ -109,4 +109,18 @@ begin_test "update: keeps a GitHub API fallback for the version file"
 if grep -q 'api.github.com/repos/smrafiz/claude-supercharger/contents/lib/utils.sh' "$TOOL"; then pass
 else fail "version-file API fallback removed"; fi
 
+# v2.12.1: the FRESH GitHub contents API (raw-accept header) must be the PRIMARY source,
+# not raw.githubusercontent.com — the raw host is CDN-cached and lags minutes behind a
+# release, which made /sc-update falsely report "up to date" right after a release.
+begin_test "update: uses the fresh contents API (raw-accept header) as primary"
+if grep -q 'application/vnd.github.raw' "$TOOL"; then pass
+else fail "fresh raw-accept contents API not used — CDN-cached raw as primary re-introduces the stale check"; fi
+
+begin_test "update: fresh API is ordered BEFORE the CDN-cached raw fallback"
+# Match the actual URL usage (https://…), not the explanatory comment.
+API_LN=$(grep -n 'application/vnd.github.raw' "$TOOL" | head -1 | cut -d: -f1)
+RAW_LN=$(grep -n 'https://raw.githubusercontent.com' "$TOOL" | head -1 | cut -d: -f1)
+if [ -n "$API_LN" ] && [ -n "$RAW_LN" ] && [ "$API_LN" -lt "$RAW_LN" ]; then pass
+else fail "raw ($RAW_LN) is not after the fresh API ($API_LN) — primary/fallback order wrong"; fi
+
 report
