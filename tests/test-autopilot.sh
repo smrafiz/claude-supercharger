@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+# Suite for /sc-autopilot — time-boxed auto-approve.
+#   tools/autopilot.sh  (writer: on/off/status/cap/parse)
+#   hooks/lib-smart-approve.sh  (reader: approve-all while window active)
+# Plus the invariant that the PreToolUse safety floor stays active during autopilot.
+REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+
+TOOL="$REPO_DIR/tools/autopilot.sh"
+CMD="$REPO_DIR/configs/commands/sc-autopilot.md"
+
+new_state() { local d; d=$(mktemp -d); mkdir -p "$d/scope"; echo "$d"; }
+
+# ---- writer: tools/autopilot.sh ----
+begin_test "autopilot: <duration> writes a future expiry to scope/.autopilot-until"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 30m >/dev/null 2>&1
+UNTIL=$(cat "$D/scope/.autopilot-until" 2>/dev/null || echo 0)
+[ "$UNTIL" -gt "$(date +%s)" ] && pass || fail "expiry not in the future"
+rm -rf "$D"
+
+begin_test "autopilot: status reports ON while active"
+D=$(new_state); echo $(( $(date +%s) + 300 )) > "$D/scope/.autopilot-until"
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" status 2>&1 | grep -q 'ON' && pass || fail "status did not report ON"
+rm -rf "$D"
+
+begin_test "autopilot: off removes the flag and restores prompts"
+D=$(new_state); echo $(( $(date +%s) + 300 )) > "$D/scope/.autopilot-until"
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" off >/dev/null 2>&1
+[ ! -f "$D/scope/.autopilot-until" ] && pass || fail "off did not remove the flag"
+rm -rf "$D"
+
+begin_test "autopilot: caps duration at 2h"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 9h >/dev/null 2>&1
+UNTIL=$(cat "$D/scope/.autopilot-until"); DELTA=$((UNTIL - $(date +%s)))
+[ "$DELTA" -le 7205 ] && [ "$DELTA" -ge 7100 ] && pass || fail "not capped at 2h (delta=$DELTA)"
+rm -rf "$D"
+
+begin_test "autopilot: bare number is minutes"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 10 >/dev/null 2>&1
+DELTA=$(( $(cat "$D/scope/.autopilot-until") - $(date +%s) ))
+[ "$DELTA" -ge 595 ] && [ "$DELTA" -le 605 ] && pass || fail "bare '10' != 10min (delta=$DELTA)"
+rm -rf "$D"
+
+begin_test "autopilot: invalid duration exits non-zero and writes nothing"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" banana >/dev/null 2>&1; RC=$?
+[ "$RC" -ne 0 ] && [ ! -f "$D/scope/.autopilot-until" ] && pass || fail "invalid input not rejected (rc=$RC)"
+rm -rf "$D"
+
+# ---- reader: lib-smart-approve verdict ----
+DANGER='{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/somedir"}}'
+verdict() { SUPERCHARGER_STATE="$1" bash -c '. '"$REPO_DIR"'/hooks/lib-smart-approve.sh; smart_approve_verdict "$1" && echo APPROVE || echo DENY' _ "$2"; }
+
+begin_test "autopilot: active window auto-approves a normally-denied call"
+D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until"
+[ "$(verdict "$D" "$DANGER")" = "APPROVE" ] && pass || fail "active window did not approve"
+rm -rf "$D"
+
+begin_test "autopilot: expired window falls back to normal (deny)"
+D=$(new_state); echo $(( $(date +%s) - 10 )) > "$D/scope/.autopilot-until"
+[ "$(verdict "$D" "$DANGER")" = "DENY" ] && pass || fail "expired window still approved"
+rm -rf "$D"
+
+begin_test "autopilot: non-numeric flag is ignored (deny)"
+D=$(new_state); printf 'notanumber\n' > "$D/scope/.autopilot-until"
+[ "$(verdict "$D" "$DANGER")" = "DENY" ] && pass || fail "garbage flag approved"
+rm -rf "$D"
+
+# ---- safety floor: PreToolUse guards stay active during autopilot ----
+begin_test "autopilot: safety.sh still blocks a protected-path rm during the window"
+D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until"
+printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf %s/.ssh"}}' "$HOME" > "$D/rm.json"
+SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/safety.sh" < "$D/rm.json" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "safety.sh did not block under autopilot"
+rm -rf "$D"
+
+begin_test "autopilot: git-safety.sh still blocks force-push during the window"
+D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until"
+printf '{"tool_name":"Bash","tool_input":{"command":"git push --force origin master"}}' > "$D/push.json"
+SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/git-safety.sh" < "$D/push.json" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "git-safety.sh did not block under autopilot"
+rm -rf "$D"
+
+# ---- command wiring ----
+begin_test "autopilot: /sc-autopilot command exists and invokes autopilot.sh"
+[ -f "$CMD" ] && grep -q 'tools/autopilot.sh' "$CMD" && pass || fail "command missing or not wired"
+
+report

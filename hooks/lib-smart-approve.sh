@@ -13,6 +13,23 @@ smart_approve_verdict() {
   local input="$1"
   local tool_name project_dir file_path abs_path command agent_id
 
+  # Autopilot window (/sc-autopilot <duration>): while active, auto-approve EVERY
+  # request so the user isn't prompted. This only removes the yes/no friction — the
+  # PreToolUse safety hooks (safety.sh, path-guard, git-safety, credential/env
+  # guards) run independently and still block genuinely dangerous calls. Read-only;
+  # expiry is evaluated per request (no timer needed). Same SUPERCHARGER_STATE the
+  # writer (tools/autopilot.sh) uses, so installer and plugin runtimes agree.
+  local _ap_state _ap_file _ap_until _ap_now
+  _ap_state="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+  _ap_file="$_ap_state/scope/.autopilot-until"
+  if [ -f "$_ap_file" ]; then
+    _ap_until=$(cat "$_ap_file" 2>/dev/null || echo 0)
+    _ap_now=$(date +%s 2>/dev/null || echo 0)
+    if [ -n "$_ap_until" ] && printf '%s' "$_ap_until" | grep -qE '^[0-9]+$' && [ "$_ap_until" -gt "$_ap_now" ]; then
+      return 0
+    fi
+  fi
+
   tool_name=$(printf '%s\n' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)
   [ -z "$tool_name" ] && return 1
 

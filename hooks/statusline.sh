@@ -286,8 +286,22 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, branch, stack, eco, mem, scan, agent, mcp, lines
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{agent}{mcp}{lines}'
+ # Autopilot indicator — time-boxed auto-approve window (/sc-autopilot).
+ # Always shown while active so an open auto-approve window is never silent.
+ auto = ''
+ try:
+     ap_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.autopilot-until')
+     if os.path.isfile(ap_file):
+         with open(ap_file) as f:
+             ap_until = int((f.read().strip() or '0'))
+         ap_left = ap_until - int(time.time())
+         if ap_left > 0:
+             auto = f' {DIM}|{RESET} \033[33m⚡ Autopilot: {ap_left // 60}m{RESET}'
+ except Exception:
+     pass
+
+ # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):
