@@ -98,21 +98,13 @@ get_hooks_for_mode() {
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
-    # v2.9.8: block `git commit` when the staged diff introduces a secret —
-    # closes the gap between output-secrets-scanner (output) and code-security-
-    # scanner (Write/Edit content). Shares lib-secret-patterns.sh. Fail-open.
-    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-secret-guard.sh|")
-    # v2.9.11: opt-in (default OFF) — block committing a Co-Authored-By AI-attribution
-    # trailer. Enable: touch scope/.coauthor-guard  or  SUPERCHARGER_COAUTHOR_GUARD=1.
-    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-coauthor-guard.sh|")
-    # commit-check is opt-in via the .conventional-commits flag (install-time under
-    # the installer). SUPERCHARGER_EMIT_ALL=1 forces it into the emitted set for the
-    # plugin hooks.json; commit-check.sh self-gates on the same flag at runtime, so
-    # plugin users keep the opt-in semantics. Installer behavior is unchanged when
-    # the override is unset.
-    if [[ "${SUPERCHARGER_EMIT_ALL:-0}" == "1" || -f "$HOME/.claude/supercharger/.conventional-commits" ]]; then
-      hooks+=("PreToolUse|Bash|${hooks_dir}/commit-check.sh|")
-    fi
+    # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
+    # `git commit`: secret-in-staged-diff (default on), Co-Authored-By trailer (opt-in),
+    # and Conventional Commit format (opt-in via .conventional-commits). Merged from
+    # three separate hooks (commit-secret-guard/commit-coauthor-guard/commit-check) to
+    # drop 2 process forks from EVERY Bash call. Each check keeps its own runtime flag,
+    # so opt-in semantics are preserved on both channels — always registered, self-gating.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/commit-guard.sh|")
     hooks+=("PreToolUse|Bash|${hooks_dir}/enforce-pkg-manager.sh|")
     hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check|async")
     hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/comment-replacement-check.sh|async")

@@ -2,7 +2,7 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-HOOK="$REPO_DIR/hooks/commit-coauthor-guard.sh"
+HOOK="$REPO_DIR/hooks/commit-guard.sh"
 
 echo "=== commit-coauthor-guard Tests ==="
 export SUPERCHARGER_NO_DEDUP=1

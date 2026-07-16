@@ -1,0 +1,128 @@
+#!/usr/bin/env bash
+# Claude Supercharger — Commit Guard (consolidated)
+# Event: PreToolUse | Matcher: Bash
+#
+# ONE hook, three independent self-gating checks on `git commit`. Merged from the
+# former commit-coauthor-guard.sh + commit-check.sh + commit-secret-guard.sh to
+# remove 2 process forks from EVERY Bash call (they each fired + fast-exited).
+# Behavior is identical — each check keeps its own opt-in/disable flag and its own
+# block reason; any check can deny. Order: cheap → expensive (coauthor grep,
+# conventional-format parse, then the staged-diff secret scan which forks git).
+set -uo pipefail
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh"
+
+_INPUT=$(cat)
+
+# Shared fast-path: nothing here matters unless the command mentions a commit.
+case "$_INPUT" in *commit*) ;; *) exit 0 ;; esac
+
+# Extract the command once (jq, python fallback).
+CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+if [ -z "$CMD" ]; then
+  CMD=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
+fi
+[ -z "$CMD" ] && exit 0
+
+# Confirm a real `git commit` (word boundary — leaves commit-tree/commit-graph alone;
+# leading boundary handles chained commands like `... && git commit`).
+printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z0-9_-])git[[:space:]]+commit([[:space:]]|$)' || exit 0
+
+PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+init_hook_suppress "$PROJECT_DIR"
+
+_deny() {  # $1 = reason (plain text) → emit PreToolUse deny + exit 2
+  RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  exit 2
+}
+
+# ─── Check 1: co-author guard (opt-in, default OFF) ──────────────────────────
+# Enable per-machine: touch scope/.coauthor-guard ; per-session: SUPERCHARGER_COAUTHOR_GUARD=1 (0 disables).
+if ! check_hook_disabled "commit-coauthor-guard"; then
+  _ca_on=false
+  case "${SUPERCHARGER_COAUTHOR_GUARD:-}" in
+    0) _ca_on=false ;;
+    1) _ca_on=true ;;
+    *) [ -f "$SUPERCHARGER_STATE/scope/.coauthor-guard" ] && _ca_on=true ;;
+  esac
+  if $_ca_on; then
+    case "$CMD" in *"git commit --help"*|*"git commit -h"*) ;; *)
+      if printf '%s\n' "$CMD" | grep -qiE 'co-authored-by:'; then
+        echo "[Supercharger] commit-coauthor-guard: blocked AI attribution trailer" >&2
+        _deny 'This commit message contains a "Co-Authored-By:" trailer (AI attribution). The coauthor guard is enabled, which forbids AI attribution in commit history. Remove the Co-Authored-By line from the commit message and commit again. (Disable: SUPERCHARGER_COAUTHOR_GUARD=0, or rm ~/.claude/supercharger/scope/.coauthor-guard)'
+      fi
+    ;; esac
+  fi
+fi
+
+# ─── Check 2: Conventional Commit format (opt-in via .conventional-commits) ──
+if [ -f "$SUPERCHARGER_STATE/.conventional-commits" ] && ! check_hook_disabled "commit-check"; then
+  # shellcheck source=hooks/cmd-normalize.sh
+  source "$HOOKS_DIR/cmd-normalize.sh"
+  _CC_CMD=$(normalize_cmd "$CMD")
+
+  # Find the first `git commit` segment (handles `safe && git commit ...`).
+  _CC_SEGS=$(split_segments "$_CC_CMD"); [ -z "$_CC_SEGS" ] && _CC_SEGS="$_CC_CMD"
+  _CC_SEG=""
+  while IFS= read -r _seg; do
+    if printf '%s\n' "$_seg" | grep -qE '^git commit([[:space:]]|$)'; then _CC_SEG="$_seg"; break; fi
+  done <<< "$_CC_SEGS"
+
+  # Only validate when we found a real commit segment that isn't --amend.
+  if [ -n "$_CC_SEG" ] && ! printf '%s\n' "$_CC_SEG" | grep -qE '(^|[[:space:]])--amend([[:space:]]|$)'; then
+    # Heredoc segments are truncated by the line-based iterator — fall back to the full command.
+    if printf '%s\n' "$_CC_SEG" | grep -qE '<<-?'"'"'?EOF'"'"'?'; then _CC_TARGET="$CMD"; else _CC_TARGET="$_CC_SEG"; fi
+    MSG=$(COMMIT_CMD="$_CC_TARGET" python3 -c "
+import os, re
+cmd = os.environ['COMMIT_CMD']
+heredoc = re.search(r\"<<'?EOF'?\s*\n(.+?)\nEOF\b\", cmd, re.DOTALL)
+if heredoc:
+    lines = [l.strip() for l in heredoc.group(1).splitlines() if l.strip()]
+    print(lines[0] if lines else '')
+else:
+    m = re.search(r\"-m\s+[\\\"'](.+?)[\\\"']\", cmd)
+    print(m.group(1) if m else '')
+" 2>/dev/null || echo "")
+    if [ -n "$MSG" ] && ! printf '%s\n' "$MSG" | grep -qE '^Merge '; then
+      _CC_TYPES="feat|fix|chore|docs|style|refactor|test|perf|ci|build|revert"
+      if ! printf '%s\n' "$MSG" | grep -qE "^(${_CC_TYPES})(\([^)]+\))?!?: .+"; then
+        echo "" >&2
+        echo "Supercharger blocked this commit (conventional-commit format)." >&2
+        echo "  Command: $CMD" >&2
+        _deny "commit message does not follow conventional commit format.
+  Expected : type(scope): description  or  type: description  or  type!: description (breaking)
+  Valid types: feat, fix, chore, docs, style, refactor, test, perf, ci, build, revert
+  Examples  : feat(auth): add OAuth support
+              fix: resolve null pointer in parser
+              feat!: drop Node 16 support (breaking change)"
+      fi
+    fi
+  fi
+fi
+
+# ─── Check 3: secret in the staged diff (default ON) ─────────────────────────
+if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+  ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
+    git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+    DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
+    [ -z "$DIFF" ] && exit 0
+    ADDED=$(printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{next} /^\+/{sub(/^\+/,""); print}')
+    [ -z "$ADDED" ] && exit 0
+    # shellcheck source=hooks/lib-secret-patterns.sh
+    . "$HOOKS_DIR/lib-secret-patterns.sh"
+    _CP=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+    printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    exit 0 )
+  if [ "$?" -eq 42 ]; then
+    echo "[Supercharger] commit-secret-guard: SECRET in staged diff — blocking commit" >&2
+    BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"; mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+    printf '[%s] secret in staged commit — blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+    SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
+    echo "secrets" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
+    _deny 'The staged changes introduce a value matching a known secret/credential format (API key, token, private key, or wallet key). Blocking this commit to prevent leaking it into git history. Remove the secret from the staged files (use an env var or a secrets manager), re-stage, and commit again. If this is a false positive, run the commit yourself in the terminal.'
+  fi
+fi
+
+exit 0

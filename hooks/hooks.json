@@ -151,25 +151,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/commit-secret-guard.sh"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/commit-coauthor-guard.sh"
-          }
-        ],
-        "matcher": "Bash"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/commit-check.sh"
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/commit-guard.sh"
           }
         ],
         "matcher": "Bash"

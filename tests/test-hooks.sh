@@ -1805,7 +1805,7 @@ OUT=$(printf '%s' "$INPUT" | SUPERCHARGER_PROFILE=minimal bash "$DEP_VULN" 2>&1)
 echo ""
 echo "=== Commit Check Tests ==="
 
-COMMIT_CHECK="$REPO_DIR/hooks/commit-check.sh"
+COMMIT_CHECK="$REPO_DIR/hooks/commit-guard.sh"
 
 # commit-check is opt-in: it self-gates on the .conventional-commits flag (present
 # by default under the installer; force-emitted + runtime-gated under the plugin).

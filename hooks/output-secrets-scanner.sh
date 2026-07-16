@@ -40,7 +40,7 @@ fi
 [ "${#OUTPUT}" -lt 10 ] && exit 0
 
 # v2.9.8: SECRET_PATTERNS moved to lib-secret-patterns.sh — the single source of
-# truth shared with commit-secret-guard.sh (prevents cross-channel parity drift).
+# truth shared with commit-guard.sh (prevents cross-channel parity drift).
 # shellcheck source=hooks/lib-secret-patterns.sh
 . "$HOOKS_DIR/lib-secret-patterns.sh"
 
