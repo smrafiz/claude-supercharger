@@ -287,16 +287,25 @@ try:
      pass
 
  # Autopilot indicator — time-boxed auto-approve window (/sc-autopilot).
- # Always shown while active so an open auto-approve window is never silent.
+ # Shown while active (global or this-session flag) so an open window is never silent.
  auto = ''
  try:
-     ap_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.autopilot-until')
-     if os.path.isfile(ap_file):
-         with open(ap_file) as f:
-             ap_until = int((f.read().strip() or '0'))
-         ap_left = ap_until - int(time.time())
-         if ap_left > 0:
-             auto = f' {DIM}|{RESET} \033[33m⚡ Autopilot: {ap_left // 60}m{RESET}'
+     _ap_scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     _ap_files = [os.path.join(_ap_scope, '.autopilot-until')]
+     if session_id:
+         _ap_files.append(os.path.join(_ap_scope, f'.autopilot-until-{session_id}'))
+     _ap_now = int(time.time())
+     _ap_best = 0
+     for _apf in _ap_files:
+         try:
+             with open(_apf) as f:
+                 _u = int((f.read().strip() or '0'))
+         except Exception:
+             continue
+         if _u - _ap_now > _ap_best:
+             _ap_best = _u - _ap_now
+     if _ap_best > 0:
+         auto = f' {DIM}|{RESET} \033[33m⚡ Autopilot: {_ap_best // 60}m left{RESET}'
  except Exception:
      pass
 
