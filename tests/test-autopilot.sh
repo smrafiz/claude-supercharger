@@ -14,7 +14,7 @@ new_state() { local d; d=$(mktemp -d); mkdir -p "$d/scope"; echo "$d"; }
 # ---- writer: tools/autopilot.sh ----
 begin_test "autopilot: <duration> writes a future expiry to scope/.autopilot-until"
 D=$(new_state)
-CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 30m >/dev/null 2>&1
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 30m global >/dev/null 2>&1
 UNTIL=$(cat "$D/scope/.autopilot-until" 2>/dev/null || echo 0)
 [ "$UNTIL" -gt "$(date +%s)" ] && pass || fail "expiry not in the future"
 rm -rf "$D"
@@ -32,14 +32,14 @@ rm -rf "$D"
 
 begin_test "autopilot: caps duration at 2h"
 D=$(new_state)
-CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 9h >/dev/null 2>&1
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 9h global >/dev/null 2>&1
 UNTIL=$(cat "$D/scope/.autopilot-until"); DELTA=$((UNTIL - $(date +%s)))
 [ "$DELTA" -le 7205 ] && [ "$DELTA" -ge 7100 ] && pass || fail "not capped at 2h (delta=$DELTA)"
 rm -rf "$D"
 
 begin_test "autopilot: bare number is minutes"
 D=$(new_state)
-CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 10 >/dev/null 2>&1
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 10 global >/dev/null 2>&1
 DELTA=$(( $(cat "$D/scope/.autopilot-until") - $(date +%s) ))
 [ "$DELTA" -ge 595 ] && [ "$DELTA" -le 605 ] && pass || fail "bare '10' != 10min (delta=$DELTA)"
 rm -rf "$D"
@@ -82,6 +82,46 @@ D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until"
 printf '{"tool_name":"Bash","tool_input":{"command":"git push --force origin master"}}' > "$D/push.json"
 SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/git-safety.sh" < "$D/push.json" >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "git-safety.sh did not block under autopilot"
+rm -rf "$D"
+
+# ---- per-session scope (default) ----
+sess_verdict() { SUPERCHARGER_STATE="$1" bash -c '. '"$REPO_DIR"'/hooks/lib-smart-approve.sh; smart_approve_verdict "$1" && echo APPROVE || echo DENY' _ "$2"; }
+
+begin_test "autopilot: default scope writes a per-session flag (.autopilot-until-<sid>)"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" 30m >/dev/null 2>&1
+[ -f "$D/scope/.autopilot-until-sessA" ] && [ ! -f "$D/scope/.autopilot-until" ] && pass || fail "did not write a per-session flag"
+rm -rf "$D"
+
+begin_test "autopilot: per-session window approves the SAME session"
+D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until-sessA"
+[ "$(sess_verdict "$D" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"session_id":"sessA"}')" = "APPROVE" ] && pass || fail "same session not approved"
+rm -rf "$D"
+
+begin_test "autopilot: per-session window does NOT leak to a DIFFERENT session"
+D=$(new_state); echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until-sessA"
+[ "$(sess_verdict "$D" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"session_id":"sessB"}')" = "DENY" ] && pass || fail "leaked to another session"
+rm -rf "$D"
+
+begin_test "autopilot: global scope still approves ANY session"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" 30m global >/dev/null 2>&1
+[ -f "$D/scope/.autopilot-until" ] && \
+[ "$(sess_verdict "$D" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/x"},"session_id":"sessZ"}')" = "APPROVE" ] && pass || fail "global did not approve other session"
+rm -rf "$D"
+
+begin_test "autopilot: off clears BOTH the per-session and global flags"
+D=$(new_state); mkdir -p "$D/scope"
+echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until"
+echo $(( $(date +%s) + 600 )) > "$D/scope/.autopilot-until-sessA"
+CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" off >/dev/null 2>&1
+[ ! -f "$D/scope/.autopilot-until" ] && [ ! -f "$D/scope/.autopilot-until-sessA" ] && pass || fail "off left a flag behind"
+rm -rf "$D"
+
+begin_test "autopilot: no session id falls back to a global window"
+D=$(new_state)
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 30m >/dev/null 2>&1
+[ -f "$D/scope/.autopilot-until" ] && pass || fail "no-sid did not fall back to global"
 rm -rf "$D"
 
 # ---- command wiring ----
