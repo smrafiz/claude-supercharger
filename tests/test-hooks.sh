@@ -439,6 +439,23 @@ begin_test "safety: ls -la is allowed (safe command)"
 run_hook "$SAFETY_HOOK" "ls -la"
 assert_exit_code 0 $? && pass
 
+# --- Perf fast-path (v2.14.1): content-inert commands skip the full scan --------
+# These lock the fast-path allowlist: inert verbs pass fast, and — critically — a
+# command that reads file CONTENT (cat/head/grep/…) must NOT be added to the
+# allowlist (else it could leak a sensitive file; see the cat ~/.my.cnf test below).
+begin_test "safety(fast-path): git status is allowed"
+run_hook "$SAFETY_HOOK" "git status"
+assert_exit_code 0 $? && pass
+
+begin_test "safety(fast-path): echo is allowed"
+run_hook "$SAFETY_HOOK" "echo hello world"
+assert_exit_code 0 $? && pass
+
+begin_test "safety(fast-path): a chained inert command still gets the full scan (metachar → no fast-path)"
+# 'ls; rm -rf /' must NOT fast-path on the leading 'ls' — the ';' forces a full scan that blocks it.
+run_hook "$SAFETY_HOOK" "ls ; rm -rf /"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: DROP TABLE is blocked"
 run_hook "$SAFETY_HOOK" "psql -c 'DROP TABLE users'"
 assert_exit_code 2 $? && pass
