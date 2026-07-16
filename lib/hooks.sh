@@ -23,6 +23,10 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
+  # Read-only mode (/sc-readonly): time-boxed "look, don't touch". Near-zero overhead
+  # when off (fast-path exits before parsing). A PreToolUse deny → beats autopilot's
+  # auto-approve automatically (tighten > loosen).
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit,Bash|${hooks_dir}/readonly-guard.sh|")
   # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.

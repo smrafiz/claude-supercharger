@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.12.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1561%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.13.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1577%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -109,7 +109,9 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 - **Reasoning depth flags** — `--think`, `--think-hard`, `--ultrathink` force extended reasoning; `--no-think` suppresses it (useful on Opus 4.8 where extended thinking is on by default and burns output tokens on routine prompts)
 - **Per-subagent cost breakdown** — `/sc-status` aggregates cost across subagents (Scientist, Detective, Engineer, etc.) so you can see which one burned the budget. Mirrors Claude Code's `/usage` view
 - **On/off switch** — `/sc off` flips to plain default Claude Code (a global kill-switch every hook honors instantly; nothing uninstalled), `/sc on` restores everything. For when you want the vanilla experience for a task, or to A/B compare
-- **Autopilot** — `/sc-autopilot 30m` stops the yes/no permission prompts for a set time (also `2h`, `90s`; `off` / `status`). **Per-session by default** — only the session you enable it in auto-approves; add `global` to cover every session. Unlike `/sc off` it keeps the **safety floor** — `rm -rf`, force-push, credential leaks, self-modification stay blocked; it only drops the approval friction. Auto-expires (2h hard cap), shows a `⚡ Autopilot: Nm left` statusline indicator while active
+- **Time-boxed modes** — auto-expiring session controls, unique to Supercharger (per-session by default, `global` opt-in, 2h cap, statusline indicator):
+  - **`/sc-autopilot 30m`** *loosens* — stops the yes/no permission prompts for a set time. Keeps the **safety floor** (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction.
+  - **`/sc-readonly 20m`** *tightens* — the inverse: blocks all file edits **and** mutating shell commands (`rm`, `git commit`, `npm install`, `sed -i`, write-redirects…) while allowing reads, searches, and planning. "Look, don't touch" for exploring or reviewing safely. If both are on, read-only wins (tighten beats loosen).
 - **20+ slash commands** — `/think`, `/sc-status`, `/sc-autopilot`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
 
 ---
