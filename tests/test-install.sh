@@ -93,12 +93,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = 116 hooks total (+prompt-layer-inject +plugin-config-seed +readonly-guard;
+# Full mode + developer = 115 hooks total (commit-* trio consolidated into commit-guard; +prompt-layer-inject +plugin-config-seed +readonly-guard;
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 116 ]; then
+if [ "$HOOK_COUNT" -eq 115 ]; then
   pass
 else
-  fail "expected 116 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 115 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -204,10 +204,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 115 hooks (+prompt-layer-inject +plugin-config-seed; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 116 ]; then
+if [ "$HOOK_COUNT" -eq 115 ]; then
   pass
 else
-  fail "expected 116 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 115 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
