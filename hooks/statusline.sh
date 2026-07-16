@@ -331,8 +331,30 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, agent, mcp, lines
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{ro}{agent}{mcp}{lines}'
+ # Strict-mode indicator — time-boxed "ask me everything" window (/sc-strict).
+ st = ''
+ try:
+     _st_scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     _st_files = [os.path.join(_st_scope, '.strict-until')]
+     if session_id:
+         _st_files.append(os.path.join(_st_scope, f'.strict-until-{session_id}'))
+     _st_now = int(time.time())
+     _st_best = 0
+     for _stf in _st_files:
+         try:
+             with open(_stf) as f:
+                 _u = int((f.read().strip() or '0'))
+         except Exception:
+             continue
+         if _u - _st_now > _st_best:
+             _st_best = _u - _st_now
+     if _st_best > 0:
+         st = f' {DIM}|{RESET} \033[33m🛡 Strict: {_st_best // 60}m left{RESET}'
+ except Exception:
+     pass
+
+ # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, strict, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{ro}{st}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):

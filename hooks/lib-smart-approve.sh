@@ -13,24 +13,32 @@ smart_approve_verdict() {
   local input="$1"
   local tool_name project_dir file_path abs_path command agent_id
 
-  # Autopilot window (/sc-autopilot <duration>): while active, auto-approve EVERY
-  # request so the user isn't prompted. This only removes the yes/no friction — the
-  # PreToolUse safety hooks (safety.sh, path-guard, git-safety, credential/env
-  # guards) run independently and still block genuinely dangerous calls. Read-only;
-  # expiry is evaluated per request (no timer needed). Two scopes, either activates:
-  #   per-session  scope/.autopilot-until-<session-id>  (only this session)
-  #   global       scope/.autopilot-until               (every session)
-  # Same SUPERCHARGER_STATE the writer (tools/autopilot.sh) uses, so installer and
-  # plugin runtimes agree; session id comes from the request (matches the writer's
-  # CLAUDE_CODE_SESSION_ID).
-  local _ap_state _ap_sid _ap_now _ap_f _ap_until
-  _ap_state="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
-  _ap_sid=$(printf '%s\n' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
-  _ap_now=$(date +%s 2>/dev/null || echo 0)
-  for _ap_f in "$_ap_state/scope/.autopilot-until" ${_ap_sid:+"$_ap_state/scope/.autopilot-until-$_ap_sid"}; do
-    [ -f "$_ap_f" ] || continue
-    _ap_until=$(cat "$_ap_f" 2>/dev/null || echo 0)
-    if printf '%s' "$_ap_until" | grep -qE '^[0-9]+$' && [ "$_ap_until" -gt "$_ap_now" ]; then
+  # Time-boxed modes, evaluated before any allow-list — tighten beats loosen:
+  #   /sc-strict    → auto-approve NOTHING (return 1): every call falls through to the
+  #                   normal permission prompt. Checked FIRST so it overrides autopilot.
+  #   /sc-autopilot → auto-approve EVERYTHING (return 0): no prompts.
+  # (/sc-readonly tightens separately, as a PreToolUse deny, and beats both there.)
+  # The PreToolUse safety hooks run independently and still block dangerous calls
+  # regardless of mode. Each mode is time-boxed with per-request expiry (no timer),
+  # per-session (…-<session-id>) or global. Session id comes from the request (matches
+  # the writers' CLAUDE_CODE_SESSION_ID); same SUPERCHARGER_STATE the writers use.
+  local _md_state _md_sid _md_now _md_f _md_until
+  _md_state="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+  _md_sid=$(printf '%s\n' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
+  _md_now=$(date +%s 2>/dev/null || echo 0)
+  # Strict first — must override autopilot.
+  for _md_f in "$_md_state/scope/.strict-until" ${_md_sid:+"$_md_state/scope/.strict-until-$_md_sid"}; do
+    [ -f "$_md_f" ] || continue
+    _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
+    if printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ]; then
+      return 1
+    fi
+  done
+  # Autopilot next.
+  for _md_f in "$_md_state/scope/.autopilot-until" ${_md_sid:+"$_md_state/scope/.autopilot-until-$_md_sid"}; do
+    [ -f "$_md_f" ] || continue
+    _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
+    if printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ]; then
       return 0
     fi
   done
