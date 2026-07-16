@@ -113,16 +113,23 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no permission prompts for a set time. Keeps the **safety floor** (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction.
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands (`rm`, `git commit`, `npm install`, `sed -i`, write-redirects…) while allowing reads, searches, and planning. "Look, don't touch" for exploring or reviewing safely.
   - **`/sc-strict 30m`** *tightens* — auto-approves **nothing**; you confirm every call (near a deploy, on prod config). Overrides autopilot while active.
-- **20+ slash commands** — `/think`, `/sc-status`, `/sc-autopilot`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
+- **25+ slash commands** — `/think`, `/sc-status`, `/sc-autopilot`, `/sc-readonly`, `/sc-strict`, `/why`, `/learn`, `/estimate`, `/cleanup`, `/audit`, `/security`, `/stuck`, `/scope`, `/pr`, `/handoff`, `/multi-review`, `/trust-mcp`, and more
 
 ---
 
-## Recent highlights (v2.12)
+## Recent highlights (v2.14)
 
-### Distribution & control (v2.11–2.12)
+### Time-boxed modes (v2.12–v2.14)
+
+A family of auto-expiring session controls — unique to Supercharger (every competitor toggles modes manually or statically; the per-tool-call expiry with no daemon is the differentiator). One governing rule: **tighten beats loosen.** Per-session by default, `global` opt-in, 2h cap, statusline indicator.
+
+- **`/sc-autopilot`** *loosens* — skip the yes/no permission prompts for a set time; the safety floor stays active. *(v2.12.0, per-session default v2.12.2)*
+- **`/sc-readonly`** *tightens* — block all edits + mutating shell commands, allow reads/searches/planning. "Look, don't touch." *(v2.13.0)*
+- **`/sc-strict`** *tightens* — auto-approve nothing; confirm every call. Overrides autopilot. *(v2.14.0)*
+
+### Distribution & reliability (v2.11)
 
 - **Install as a Claude Code plugin** — the full framework now ships through the native plugin system (`/plugin marketplace add smrafiz/claude-supercharger` → `/plugin install`), alongside the classic `install.sh`. One dual-runnable codebase: hooks resolve their code and state roots so the same scripts run under both the installer and `${CLAUDE_PLUGIN_ROOT}` / `${CLAUDE_PLUGIN_DATA}`; the guardrail/economy layer a plugin can't write as files is delivered at SessionStart instead. See [Install as a plugin](#install-as-a-plugin). *(v2.11.0)*
-- **Autopilot** — `/sc-autopilot <duration>` time-boxes away the permission prompts while keeping every safety guard active (details above). *(v2.12.0)*
 - **Reliable `/sc-update`** — version detection now reads the `VERSION` in `lib/utils.sh` via the fresh GitHub contents API, so it never mis-reports "up to date" from orphaned tags or a stale CDN. *(v2.11.1, v2.12.1)*
 
 ### Security-hardening milestone (v2.9–v2.10)
