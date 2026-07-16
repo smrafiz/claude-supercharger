@@ -39,6 +39,7 @@ Claude Supercharger — Slash Commands
   Meta
     /sc             Activate / deactivate Supercharger (off | on | status) — flip to default Claude
     /sc-autopilot   Time-boxed auto-approve — skip permission prompts for a duration (safety hooks stay on)
+    /sc-readonly    Time-boxed read-only — block edits + mutating commands for a duration (look, don't touch)
     /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
     /supercharger   This screen
     /sc-update      Check for and apply Supercharger updates

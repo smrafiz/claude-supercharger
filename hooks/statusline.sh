@@ -309,8 +309,30 @@ try:
  except Exception:
      pass
 
- # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, agent, mcp, lines
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{agent}{mcp}{lines}'
+ # Read-only indicator — time-boxed "look, don't touch" window (/sc-readonly).
+ ro = ''
+ try:
+     _ro_scope = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+     _ro_files = [os.path.join(_ro_scope, '.readonly-until')]
+     if session_id:
+         _ro_files.append(os.path.join(_ro_scope, f'.readonly-until-{session_id}'))
+     _ro_now = int(time.time())
+     _ro_best = 0
+     for _rof in _ro_files:
+         try:
+             with open(_rof) as f:
+                 _u = int((f.read().strip() or '0'))
+         except Exception:
+             continue
+         if _u - _ro_now > _ro_best:
+             _ro_best = _u - _ro_now
+     if _ro_best > 0:
+         ro = f' {DIM}|{RESET} \033[33m🔒 Read-only: {_ro_best // 60}m left{RESET}'
+ except Exception:
+     pass
+
+ # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, agent, mcp, lines
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{ro}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):
