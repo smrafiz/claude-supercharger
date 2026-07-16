@@ -8,7 +8,7 @@ set -euo pipefail
 _INPUT=$(cat)
 
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 
@@ -78,7 +78,7 @@ if [ -f "$LOG_FILE" ]; then
 fi
 
 # Webhook if configured
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 if [ -f "$HOOKS_DIR/webhook-lib.sh" ]; then
   source "$HOOKS_DIR/webhook-lib.sh"
   webhook_enabled && send_webhook "[StopFailure] $REASON" || true

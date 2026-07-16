@@ -6,7 +6,7 @@
 # Disable: SUPERCHARGER_CONFIDENCE=0
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 [ "${SUPERCHARGER_CONFIDENCE:-1}" = "0" ] && exit 0
@@ -20,6 +20,22 @@ _INPUT=$(cat)
 case "$_INPUT" in
   *'"tool_name":"Edit"'*|*'"tool_name":"Write"'*|*'"tool_name":"Bash"'*) ;;
   *) exit 0 ;;
+esac
+
+# Perf fast-path (v2.14.2): confidence-gate only blocks DESTRUCTIVE Bash. An inert
+# Bash command is never gated, so skip the score computation (a ~100ms python fork)
+# for it. Metacharacter exclusion first — a chained command (`ls; rm -rf`) must NOT
+# skip. Anything not matched falls through to the full gate.
+case "$_INPUT" in
+  *'"tool_name":"Bash"'*)
+    _cg_cmd=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+    case "$_cg_cmd" in
+      *'|'*|*';'*|*'&'*|*'<'*|*'>'*|*'$'*|*'`'*|*'('*|*')'*|*'{'*|*'}'*|*$'\n'*) : ;;
+      ls|ls\ *|pwd|echo\ *|printf\ *|which|which\ *|type|type\ *|cat\ *|head\ *|tail\ *|wc\ *|\
+      grep\ *|rg\ *|find\ *|stat\ *|file\ *|git\ status*|git\ log*|git\ diff*|git\ show*)
+        exit 0 ;;
+    esac
+    ;;
 esac
 
 # Pre-resolve init_hook_suppress and disable checks. These need PROJECT_DIR

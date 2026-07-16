@@ -10,7 +10,7 @@
 # Or per-project via .supercharger.json:
 #   {"disableSecurityCategories": ["clipboard", "history"]}
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
 COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
@@ -61,7 +61,7 @@ if [ -f "$_SAFETY_TRACE" ] && [ "$(wc -l < "$_SAFETY_TRACE" 2>/dev/null || echo 
   tail -800 "$_SAFETY_TRACE" > "${_SAFETY_TRACE}.tmp" 2>/dev/null && mv "${_SAFETY_TRACE}.tmp" "$_SAFETY_TRACE" 2>/dev/null || true
 fi
 
-source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
+source "${BASH_SOURCE[0]%/*}/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
 # Per-segment view for ^-anchored checks (rm, mv) — protects against
@@ -502,7 +502,7 @@ if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then
   elif command -v timeout >/dev/null 2>&1; then _TIMEOUT="timeout 0.5"
   else _TIMEOUT=""
   fi
-  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "$(dirname "${BASH_SOURCE[0]}")/safety-detect.py" 2>/dev/null)
+  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null)
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi

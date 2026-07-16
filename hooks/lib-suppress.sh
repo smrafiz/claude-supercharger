@@ -17,7 +17,7 @@
 # The inline ':=' below is a resilience fallback: the kill-switch is security-critical
 # and must resolve even if lib-paths.sh is somehow absent. lib-paths.sh stays the
 # canonical definition; ':=' is a no-op when it already set the var.
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 

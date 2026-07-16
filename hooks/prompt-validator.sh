@@ -5,7 +5,7 @@
 # For soft guidance (why patterns are bad, what to ask instead), see rules/anti-patterns.yml.
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
 

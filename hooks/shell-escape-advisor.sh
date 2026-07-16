@@ -18,7 +18,7 @@
 # pre-2.1.186 behavior can set `respondToBashCommands: false` in settings.json.
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
 

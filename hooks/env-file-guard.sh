@@ -6,7 +6,7 @@
 # Inspired by pchalasani/claude-code-tools/safety-hooks (Apache-2.0).
 
 set -uo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 

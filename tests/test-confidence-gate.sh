@@ -12,6 +12,11 @@ export SUPERCHARGER_TIER=standard
 begin_test "confidence-gate: hook exists and is executable"
 [ -x "$HOOK" ] && pass || fail "hook missing or not executable"
 
+# v2.14.2 perf fast-path: inert Bash is never gated → skips the score computation.
+begin_test "confidence-gate(fast-path): inert Bash (ls) is allowed"
+printf '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "inert Bash was gated"
+
 begin_test "confidence-gate: high score (no failures) emits no output"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"

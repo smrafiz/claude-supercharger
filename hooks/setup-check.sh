@@ -9,7 +9,7 @@
 # `tools/config-health.sh`.
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 # Drain stdin (Setup payload is empty in current CC but always drain to
 # prevent SIGPIPE on the parent if the payload field grows later).

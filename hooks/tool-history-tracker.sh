@@ -7,7 +7,7 @@
 # Disable: SUPERCHARGER_CONFIDENCE=0
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 [ "${SUPERCHARGER_CONFIDENCE:-1}" = "0" ] && exit 0

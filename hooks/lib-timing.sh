@@ -15,7 +15,7 @@
 # plugin runtime. Self-locates lib-paths.sh via its own path (sourced-file safe).
 # Inline ':=' is a resilience fallback — this lib gates security hooks, so the
 # kill-switch must resolve even if lib-paths.sh is absent (no-op when already set).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 

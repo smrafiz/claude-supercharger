@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 
@@ -97,7 +97,7 @@ _CK_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | t
 [ -n "$_CK_SID" ] && rm -f "$SUPERCHARGER_STATE/scope/.checkpoint-${_CK_SID}" 2>/dev/null || true
 
 # Send webhook notification if configured — uses shared webhook lib
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 if [ -f "$HOOKS_DIR/webhook-lib.sh" ]; then
   source "$HOOKS_DIR/webhook-lib.sh"
   if webhook_enabled; then

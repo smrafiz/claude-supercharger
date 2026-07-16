@@ -13,7 +13,7 @@
 # Disable: SUPERCHARGER_SUBAGENT_DISCOVERY=0
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 [ "${SUPERCHARGER_SUBAGENT_DISCOVERY:-1}" = "0" ] && exit 0

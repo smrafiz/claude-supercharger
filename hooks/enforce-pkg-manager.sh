@@ -36,7 +36,7 @@ PROJECT_DIR="${EXTRACTED#*$'\x1f'}"
 [ -z "$COMMAND" ] && exit 0
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
-source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
+source "${BASH_SOURCE[0]%/*}/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
 # Per-segment view — protects against `safe && npm install` bypass.

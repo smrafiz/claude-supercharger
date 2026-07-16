@@ -8,7 +8,7 @@
 #   clear     — reset state at session end (Stop)
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 MODE="${1:-check}"
 SUPERCHARGER_DIR="$SUPERCHARGER_STATE"

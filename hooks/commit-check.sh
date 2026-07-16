@@ -4,7 +4,7 @@
 # Validates commit messages follow conventional commit format.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 
@@ -32,7 +32,7 @@ if [ -z "$COMMAND" ]; then
   exit 0
 fi
 
-source "$(dirname "${BASH_SOURCE[0]}")/cmd-normalize.sh"
+source "${BASH_SOURCE[0]%/*}/cmd-normalize.sh"
 CMD=$(normalize_cmd "$COMMAND")
 
 block() {

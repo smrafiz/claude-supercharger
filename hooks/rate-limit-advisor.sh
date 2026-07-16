@@ -2,7 +2,7 @@
 # Claude Supercharger — Rate Limit Burn Advisor
 # Event: UserPromptSubmit | Matcher: (none) | Flags: async
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 hook_profile_skip "rate-limit-advisor" && exit 0
 

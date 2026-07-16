@@ -18,7 +18,7 @@ if [ -z "$PROJECT_DIR" ]; then
 fi
 
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 
@@ -26,7 +26,7 @@ SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 WELCOME_FLAG="$SUPERCHARGER_DIR/.welcomed"
 mkdir -p "$SUPERCHARGER_DIR"
 
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"

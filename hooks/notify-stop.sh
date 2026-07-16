@@ -10,7 +10,7 @@
 
 set -euo pipefail
 
-source "$(dirname "${BASH_SOURCE[0]}")/notify-helper.sh"
+source "${BASH_SOURCE[0]%/*}/notify-helper.sh"
 
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
 

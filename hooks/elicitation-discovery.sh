@@ -20,7 +20,7 @@
 # ElicitationResult event — those are by definition sensitive.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 
 [ "${SUPERCHARGER_ELICITATION_DISCOVERY:-1}" = "0" ] && exit 0
