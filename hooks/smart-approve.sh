@@ -20,7 +20,7 @@
 # permissions the user never has to act on).
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-timing.sh"
 . "$HOOKS_DIR/lib-smart-approve.sh"
 

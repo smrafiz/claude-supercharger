@@ -3,7 +3,7 @@
 # Event: PostToolUse | Matcher: Write,Edit,Bash | Flags: async
 # Writes a lightweight checkpoint for crash recovery after every file change.
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 check_hook_disabled "session-checkpoint" && exit 0

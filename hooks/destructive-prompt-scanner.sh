@@ -12,7 +12,7 @@
 # safety.sh which actually blocks at the Bash tool channel.
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
 

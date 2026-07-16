@@ -11,14 +11,14 @@ set -euo pipefail
 # the flag) brings the statusline back on the next render. This is why the toggle
 # doesn't need to touch the settings.json statusLine key.
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 
 [ -f "$SUPERCHARGER_STATE/scope/.supercharger-disabled" ] && exit 0
 
 _INPUT=$(cat)
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 
 SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" python3 <<'PYEOF'

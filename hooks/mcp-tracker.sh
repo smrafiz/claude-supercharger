@@ -4,7 +4,7 @@
 # Writes the active MCP server name to a scope file for statusline display.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 check_hook_disabled "mcp-tracker" && exit 0

@@ -4,7 +4,7 @@
 # Re-runs stack detection when working directory changes, injects updated context.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"

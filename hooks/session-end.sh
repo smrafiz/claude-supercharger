@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-paths.sh" 2>/dev/null || true
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 
@@ -52,7 +52,7 @@ rm -f \
   2>/dev/null || true
 
 # Periodic global cleanup (TTL-based) — at most once per day
-TOOLS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../tools" 2>/dev/null && pwd)"
+TOOLS_DIR="$(cd "${BASH_SOURCE[0]%/*}/../tools" 2>/dev/null && pwd)"
 if [ -z "$TOOLS_DIR" ] || [ ! -x "$TOOLS_DIR/scope-cleanup.sh" ]; then
   TOOLS_DIR="$SUPERCHARGER_HOME/tools"
 fi

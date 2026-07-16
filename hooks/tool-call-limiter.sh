@@ -11,7 +11,7 @@
 # Session resets when CLAUDE_SESSION_ID changes or a new day begins.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh

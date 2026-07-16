@@ -9,7 +9,7 @@
 # this is the last gate before that fact is written to disk.
 
 set -euo pipefail
-. "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/lib-timing.sh"
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
 

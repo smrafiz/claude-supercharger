@@ -5,7 +5,7 @@
 
 set -euo pipefail
 
-HOOKS_DIR="$(dirname "${BASH_SOURCE[0]}")"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 source "$HOOKS_DIR/notify-helper.sh"
 source "$HOOKS_DIR/lib-smart-approve.sh"
 

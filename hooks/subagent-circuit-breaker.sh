@@ -8,7 +8,7 @@
 # multi-agent workflows pass untouched; tune with SC_SUBAGENT_WARN / SC_SUBAGENT_MAX.
 
 set -euo pipefail
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-timing.sh"
 
 _INPUT=$(cat)

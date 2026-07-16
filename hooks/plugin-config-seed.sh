@@ -18,7 +18,7 @@ set -uo pipefail
 # Only the plugin runtime seeds; the installer already wrote these.
 [ -z "${CLAUDE_PLUGIN_ROOT:-}" ] && exit 0
 
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-paths.sh
 . "$HOOKS_DIR/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"

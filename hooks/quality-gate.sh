@@ -17,7 +17,7 @@ if [ -z "$FILE_PATH" ] || [ ! -f "$FILE_PATH" ]; then
 fi
 
 PROJECT_ROOT=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev/null || dirname "$FILE_PATH")
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 init_hook_suppress "$PROJECT_ROOT"

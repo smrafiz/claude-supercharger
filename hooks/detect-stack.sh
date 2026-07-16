@@ -6,7 +6,7 @@
 
 set -euo pipefail
 
-HOOKS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 PROJECT_DIR="${1:-${CLAUDE_PROJECT_DIR:-$PWD}}"
 
