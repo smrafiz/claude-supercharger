@@ -23,6 +23,11 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
+  # Critical-infra write gate: forces a confirm before editing CI/CD, container,
+  # DB-migration, or auth files (guardrails.md's documented review triggers). Emits
+  # permissionDecision "ask" — not a hard block; asks once per file per session.
+  # Fast-path exits before sourcing libs on any non-critical path.
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/critical-infra-guard.sh|")
   # Read-only mode (/sc-readonly): time-boxed "look, don't touch". Near-zero overhead
   # when off (fast-path exits before parsing). A PreToolUse deny → beats autopilot's
   # auto-approve automatically (tighten > loosen).
