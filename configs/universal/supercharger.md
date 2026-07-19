@@ -36,6 +36,15 @@ When something fails:
 Never: retry blindly, give up silently, or blame the user
 If something breaks during multi-step work, fix it before moving on.
 
+## Subagent Report Recovery
+If you delegate to a subagent (Agent/Task tool) and its final message comes back
+empty, a bare acknowledgement ("Done", "Complete", "Standing by"), or a note
+*about* its report instead of the findings themselves — do NOT re-run the task.
+Its findings were auto-saved. Read the recovered report:
+`bash ~/.claude/supercharger/tools/subagent-report.sh <agent-id>` (or `--latest`),
+i.e. `~/.claude/supercharger/scope/subagent-reports/<agent-id>.md`. Only redo the
+work if no report exists there.
+
 ## Context Carry-Forward
 For multi-turn tasks (3+ related prompts):
 - Track: decisions made, constraints established, what failed
