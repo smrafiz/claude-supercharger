@@ -4,7 +4,9 @@
 # auto-approves every PermissionRequest, so the user isn't prompted. The PreToolUse
 # safety hooks still fire, so dangerous commands stay blocked — this only removes the
 # yes/no friction, not the safety floor. Expiry is evaluated per request; no timer.
-# Hard-capped at 2h so it can't be left on forever.
+# Ceiling defaults to 8h (a full workday) so it can't be left on forever; raise or
+# lower it with SUPERCHARGER_AUTOPILOT_MAX_HOURS. A request above the ceiling is
+# clamped with a loud notice (never silently), so the granted window is never a surprise.
 #
 # Scope (v2.12.2):
 #   per-session (DEFAULT) — only the session that enabled it auto-approves.
@@ -20,7 +22,10 @@ set -uo pipefail
 # CLAUDE_PLUGIN_DATA under the plugin runtime.
 SC_STATE="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}"
 SCOPE="$SC_STATE/scope"
-MAX_SECONDS=7200   # 2h hard cap
+# Ceiling: 8h default, overridable via SUPERCHARGER_AUTOPILOT_MAX_HOURS (positive int).
+MAX_HOURS="${SUPERCHARGER_AUTOPILOT_MAX_HOURS:-8}"
+printf '%s' "$MAX_HOURS" | grep -qE '^[0-9]+$' && [ "$((10#$MAX_HOURS))" -gt 0 ] || MAX_HOURS=8
+MAX_SECONDS=$(( 10#$MAX_HOURS * 3600 ))
 
 SID="${CLAUDE_CODE_SESSION_ID:-}"
 GLOBAL_FLAG="$SCOPE/.autopilot-until"
@@ -88,7 +93,11 @@ case "$ARG" in
     esac
 
     REQ=$((10#$N * U)); CAPPED=""
-    if [ "$REQ" -gt "$MAX_SECONDS" ]; then REQ="$MAX_SECONDS"; CAPPED=" (capped at 2h)"; fi
+    if [ "$REQ" -gt "$MAX_SECONDS" ]; then
+      # Loud, never silent: tell the user their request was clamped and how to lift it.
+      echo "Autopilot: requested $(fmt_dur "$REQ") exceeds the ${MAX_HOURS}h ceiling — granting ${MAX_HOURS}h. Raise it with SUPERCHARGER_AUTOPILOT_MAX_HOURS=<hours>." >&2
+      REQ="$MAX_SECONDS"; CAPPED=" (capped at ${MAX_HOURS}h ceiling)"
+    fi
     mkdir -p "$SCOPE" 2>/dev/null || true
     UNTIL=$(( $(date +%s) + REQ ))
     printf '%s\n' "$UNTIL" > "$TARGET"
