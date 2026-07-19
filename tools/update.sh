@@ -166,7 +166,7 @@ except Exception:
     pass
 " 2>/dev/null
     echo ""
-    echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh${NC}"
+    echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh --yes${NC}   (--yes applies it non-interactively)"
   fi
   exit 0
 fi

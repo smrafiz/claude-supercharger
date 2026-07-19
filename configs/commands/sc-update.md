@@ -10,11 +10,17 @@ If `--check` reports no update available, stop here and tell the user they're on
 
 **Step 2 — Apply update (if available)**
 
-If an update is available, confirm with the user before proceeding. Then run:
+If an update is available, apply it **non-interactively** with `--yes`. The plain
+`update.sh` prompts on stdin ("Update now?" / "Proceed?"), which a tool-invoked
+shell can't answer — it just hangs. `--yes` (a.k.a. `-y` / `--non-interactive`)
+skips both prompts so the update applies on the fly. Tell the user it's updating,
+then run:
 
 ```bash
-bash ~/.claude/supercharger/tools/update.sh 2>&1
+bash ~/.claude/supercharger/tools/update.sh --yes 2>&1
 ```
+
+(The update backs up existing config and preserves your settings before reinstalling.)
 
 **Step 3 — Report what changed**
 
