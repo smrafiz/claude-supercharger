@@ -96,6 +96,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/webfetch-egress-guard.sh"
+          }
+        ],
+        "matcher": "WebFetch,WebSearch"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/confidence-gate.sh"
           }
         ],
@@ -325,7 +334,7 @@
             "asyncRewake": true
           }
         ],
-        "matcher": "Bash,Read,mcp__"
+        "matcher": "Bash,Read,WebFetch,WebSearch,mcp__"
       },
       {
         "hooks": [

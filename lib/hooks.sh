@@ -58,9 +58,17 @@ get_hooks_for_mode() {
   # v2.7.2: structural provenance check on MCP results — forged tool-call/system
   # framing the prompt-injection-scanner's persuasion patterns don't cover (ASI04).
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-provenance.sh|asyncRewake")
+  # WebFetch egress guard: the native WebFetch/WebSearch tool is a network-egress
+  # channel with NO PreToolUse guard — an injection can steer it at cloud metadata
+  # (169.254.169.254 → cred theft) or an internal IP (SSRF). safety.sh:288 covers
+  # this on Bash and mcp-egress-guard on MCP; this is the un-mirrored WebFetch
+  # sibling (cross-channel parity). Only fires on WebFetch/WebSearch → ~zero hot-path
+  # cost. Fail-open. Disable: SUPERCHARGER_WEBFETCH_EGRESS=0.
+  hooks+=("PreToolUse|WebFetch,WebSearch|${hooks_dir}/webfetch-egress-guard.sh|")
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
-  hooks+=("PostToolUse|Bash,Read,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
+  hooks+=("PostToolUse|Bash,Read,WebFetch,WebSearch,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
   # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
   # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops
