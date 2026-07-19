@@ -93,12 +93,12 @@ count = sum(1 for event in hooks.values() for entry in event
             if '#supercharger' in h.get('command','') or '#supercharger' in h.get('prompt',''))
 print(count)
 ")
-# Full mode + developer = 116 hooks total (commit-* trio consolidated into commit-guard; +prompt-layer-inject +plugin-config-seed +readonly-guard +critical-infra-guard;
+# Full mode + developer = 117 hooks total (+critical-infra +webfetch-egress) (commit-* trio consolidated into commit-guard; +prompt-layer-inject +plugin-config-seed +readonly-guard +critical-infra-guard;
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 116 ]; then
+if [ "$HOOK_COUNT" -eq 117 ]; then
   pass
 else
-  fail "expected 116 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 117 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -170,11 +170,11 @@ print(count)
 ")
 # Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner
 # + per-MCP guards + memory-guard + mcp-provenance + elicitation-guard + prompt-layer-inject
-# + plugin-config-seed + readonly-guard + critical-infra-guard = 29
-if [ "$HOOK_COUNT" -eq 29 ]; then
+# + plugin-config-seed + readonly-guard + critical-infra-guard + webfetch-egress-guard = 30
+if [ "$HOOK_COUNT" -eq 30 ]; then
   pass
 else
-  fail "expected 29 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 30 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -204,10 +204,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 116 hooks (+prompt-layer-inject +plugin-config-seed +critical-infra-guard; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 116 ]; then
+if [ "$HOOK_COUNT" -eq 117 ]; then
   pass
 else
-  fail "expected 116 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 117 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 
