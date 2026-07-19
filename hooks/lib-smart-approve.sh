@@ -9,6 +9,11 @@
 # Usage: smart_approve_verdict "$_INPUT"  → returns 0 if auto-approvable, else 1.
 # Reads only stdin JSON fields; no side effects.
 
+# Shared critical-infra matcher — same source of truth as critical-infra-guard.sh,
+# so autopilot's auto-approve can never swallow a confirm the guard just forced.
+# shellcheck source=hooks/lib-critical-infra.sh
+. "${BASH_SOURCE[0]%/*}/lib-critical-infra.sh"
+
 smart_approve_verdict() {
   local input="$1"
   local tool_name project_dir file_path abs_path command agent_id
@@ -34,6 +39,21 @@ smart_approve_verdict() {
       return 1
     fi
   done
+  # Critical-infra edits (CI/CD, container, migrations, auth) are never auto-approved —
+  # not even under autopilot. critical-infra-guard emits permissionDecision "ask"; this
+  # return 1 (placed BEFORE the autopilot loop so autopilot's return 0 can't win first)
+  # keeps that mandatory confirm from being swallowed. Tighten beats loosen.
+  local _ci_tool _ci_path
+  _ci_tool=$(printf '%s\n' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)
+  case "$_ci_tool" in
+    Write|Edit|MultiEdit|NotebookEdit)
+      _ci_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+      if [ -n "$_ci_path" ] && is_critical_infra_path "$_ci_path" >/dev/null 2>&1; then
+        return 1
+      fi
+      ;;
+  esac
+
   # Autopilot next.
   for _md_f in "$_md_state/scope/.autopilot-until" ${_md_sid:+"$_md_state/scope/.autopilot-until-$_md_sid"}; do
     [ -f "$_md_f" ] || continue

@@ -32,6 +32,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/critical-infra-guard.sh"
+          }
+        ],
+        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/readonly-guard.sh"
           }
         ],
