@@ -1,6 +1,6 @@
 Time-boxed auto-approve — stop the yes/no prompts for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 
-While autopilot is on, Supercharger auto-approves **every** permission request so you're not prompted. It only removes the yes/no friction — the safety hooks still run, so dangerous commands (`rm -rf`, force-push, credential leaks, `curl|bash`, self-modification) stay blocked. It **auto-expires** after the duration and is hard-capped at **2 hours**.
+While autopilot is on, Supercharger auto-approves **every** permission request so you're not prompted. It only removes the yes/no friction — the safety hooks still run, so dangerous commands (`rm -rf`, force-push, credential leaks, `curl|bash`, self-modification) stay blocked. It **auto-expires** after the duration you give it, up to a **ceiling of 8 hours** (a full workday, so it can't be left on forever). Ask for more than the ceiling and it's clamped to the ceiling with a loud notice — never silently. Raise or lower the ceiling with `SUPERCHARGER_AUTOPILOT_MAX_HOURS=<hours>`.
 
 **Scope (default is per-session):**
 - **`session`** (default) — only **this** Claude session auto-approves; other sessions are unaffected.

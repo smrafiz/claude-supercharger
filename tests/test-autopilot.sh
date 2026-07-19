@@ -30,11 +30,38 @@ CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" off >/dev/null 2>&1
 [ ! -f "$D/scope/.autopilot-until" ] && pass || fail "off did not remove the flag"
 rm -rf "$D"
 
-begin_test "autopilot: caps duration at 2h"
+begin_test "autopilot: caps duration at the 8h default ceiling"
 D=$(new_state)
 env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 9h global >/dev/null 2>&1
 UNTIL=$(cat "$D/scope/.autopilot-until"); DELTA=$((UNTIL - $(date +%s)))
-[ "$DELTA" -le 7205 ] && [ "$DELTA" -ge 7100 ] && pass || fail "not capped at 2h (delta=$DELTA)"
+[ "$DELTA" -le 28805 ] && [ "$DELTA" -ge 28700 ] && pass || fail "not capped at 8h (delta=$DELTA)"
+rm -rf "$D"
+
+begin_test "autopilot: 6h runs the full 6h (under the 8h ceiling, not clamped)"
+D=$(new_state)
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 6h global >/dev/null 2>&1
+DELTA=$(( $(cat "$D/scope/.autopilot-until") - $(date +%s) ))
+[ "$DELTA" -le 21605 ] && [ "$DELTA" -ge 21500 ] && pass || fail "6h was clamped (delta=$DELTA, expected ~21600)"
+rm -rf "$D"
+
+begin_test "autopilot: SUPERCHARGER_AUTOPILOT_MAX_HOURS raises the ceiling"
+D=$(new_state)
+env -u CLAUDE_CODE_SESSION_ID SUPERCHARGER_AUTOPILOT_MAX_HOURS=12 CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 10h global >/dev/null 2>&1
+DELTA=$(( $(cat "$D/scope/.autopilot-until") - $(date +%s) ))
+[ "$DELTA" -le 36005 ] && [ "$DELTA" -ge 35900 ] && pass || fail "10h not honored under 12h ceiling (delta=$DELTA)"
+rm -rf "$D"
+
+begin_test "autopilot: over-ceiling request emits a loud clamp notice"
+D=$(new_state)
+OUT=$(env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 20h global 2>&1)
+printf '%s' "$OUT" | grep -qiE 'exceeds the 8h ceiling|capped at 8h' && pass || fail "no loud clamp notice: $OUT"
+rm -rf "$D"
+
+begin_test "autopilot: invalid SUPERCHARGER_AUTOPILOT_MAX_HOURS falls back to 8h"
+D=$(new_state)
+env -u CLAUDE_CODE_SESSION_ID SUPERCHARGER_AUTOPILOT_MAX_HOURS=abc CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 20h global >/dev/null 2>&1
+DELTA=$(( $(cat "$D/scope/.autopilot-until") - $(date +%s) ))
+[ "$DELTA" -le 28805 ] && [ "$DELTA" -ge 28700 ] && pass || fail "invalid ceiling did not fall back to 8h (delta=$DELTA)"
 rm -rf "$D"
 
 begin_test "autopilot: bare number is minutes"
