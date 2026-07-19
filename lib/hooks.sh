@@ -98,6 +98,11 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/file-lease.sh|")
     # v2.9.6: opt-in first-touch investigation gate (default OFF via SUPERCHARGER_FACT_GATE).
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/fact-gate.sh|")
+    # Lockfile integrity: ask before hand-editing a machine-generated dependency
+    # lockfile (package-lock/yarn.lock/Cargo.lock/go.sum/…) — regenerate via the
+    # package manager instead. Once per lockfile per session. Disable:
+    # SUPERCHARGER_LOCKFILE_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/lockfile-integrity-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
