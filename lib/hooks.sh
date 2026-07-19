@@ -111,6 +111,11 @@ get_hooks_for_mode() {
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
+    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —
+    # asks before pushing the whole repo to a non-origin host or hijacking origin's
+    # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
+    # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/git-remote-guard.sh||git *")
     # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
     # `git commit`: secret-in-staged-diff (default on), Co-Authored-By trailer (opt-in),
     # and Conventional Commit format (opt-in via .conventional-commits). Merged from
