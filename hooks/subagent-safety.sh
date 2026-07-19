@@ -29,17 +29,16 @@ REPORT_DIR="$SUPERCHARGER_STATE/scope/subagent-reports"
 REPORT_PATH="$REPORT_DIR/${AGENT_ID}.md"
 mkdir -p "$REPORT_DIR" 2>/dev/null || true
 
-# v2.6.82: report-pin instruction. Always injected (every spawn) to work
-# around CC v2.1.176+ return-channel degradation (anthropics/claude-code#69970).
-# Subagent's final reply may be reduced to "Ready." — but if it Write's the
-# full report to disk first, the parent can recover via this path even when
-# the return channel collapses. Cheaper than retrying an 80-tool agent.
-REPORT_PIN="[SUPERCHARGER RECOVERY] Before returning, write your full final report to:
-  ${REPORT_PATH}
-using the Write tool as your LAST tool call. This is a defense against the
-v2.1.176 subagent return-channel bug — your structured text may not reach
-the parent session otherwise. Include all findings, file paths, and code
-references. Plain markdown."
+# Report guidance. Injected every spawn. HISTORY: this used to instruct the
+# subagent to Write its report to disk as its LAST tool call (v2.6.82, working
+# around CC return-channel degradation #69970/#54323). That BACKFIRED — the
+# file-write (or the agent's refusal of it) consumed the final-message slot, so
+# the parent received a stub/meta-note instead of the findings, then redid the
+# work. Recovery no longer depends on the agent: subagent-report-fallback.sh
+# scrapes the transcript on SubagentStop regardless. So we now tell the agent the
+# OPPOSITE — return findings inline, don't write a file — which fixes the common
+# case; the scraper + subagent-report-notify.sh handle the degraded-channel case.
+REPORT_PIN="[SUPERCHARGER] Your FINAL text message is your deliverable to the parent — return your COMPLETE findings there (all results, file paths, code references, in plain markdown). Do NOT write a report file, and do NOT end with a bare acknowledgement like \"Done\", \"Complete\", or a note about report files — the parent reads only your final message. Supercharger auto-saves your transcript as a backup, so a report file is never needed."
 
 if [ -f "$SAFETY_FLAG" ]; then
   SAFETY_CONTEXT="[SUPERCHARGER SAFETY] Sub-agent rules already in scope (see prior injection).

@@ -2076,21 +2076,46 @@ INPUT=$(python3 -c "import json; print(json.dumps({'agent_type':'Tony Stark (Eng
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
 python3 -c "import json,sys; json.loads(sys.argv[1])" "$OUT" 2>/dev/null && pass || fail "expected valid JSON output, got: $OUT"
 
-begin_test "subagent-safety: injects report-pin path with agent-id (v2.6.82)"
+# The report guidance now tells the subagent to return findings INLINE as its
+# final message (the old "Write your report as your LAST tool call" pin hijacked
+# the final-message slot → parent got a stub/meta-note and redid the work).
+begin_test "subagent-safety: report guidance says the final message is the deliverable"
 INPUT=$(python3 -c "import json; print(json.dumps({'agent_id':'a-report-test-1','agent_type':'detective','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
-echo "$OUT" | grep -q "subagent-reports/a-report-test-1.md" && pass || fail "expected report-pin path with agent-id: $OUT"
+echo "$OUT" | grep -qi "final.*message\|deliverable\|return your complete findings" && pass || fail "expected inline-return guidance: $OUT"
 
-begin_test "subagent-safety: report-pin instruction mentions Write tool as LAST tool call (v2.6.82)"
+# Regression guard: must NOT instruct writing a report file as the last tool call.
+begin_test "subagent-safety: report guidance does NOT tell the agent to Write a report file"
 INPUT=$(python3 -c "import json; print(json.dumps({'agent_id':'a-pin-2','agent_type':'general-purpose','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
-echo "$OUT" | grep -qi "write tool" && echo "$OUT" | grep -qi "last tool call" && pass || fail "report-pin missing Write+LAST language: $OUT"
+if echo "$OUT" | grep -qi "using the write tool as your last tool call"; then
+  fail "still injecting the harmful write-as-last-tool-call pin: $OUT"
+else
+  echo "$OUT" | grep -qi "do not write a report file\|do NOT write a report" && pass || fail "expected explicit 'do not write a report file' guidance: $OUT"
+fi
 
-# v2.7.12: real CC SubagentStart shape — subagent_id/subagent_type (not agent_id)
-begin_test "subagent-safety: pins report path from subagent_id (real Start shape)"
+# v2.7.12: real CC SubagentStart shape — subagent_id/subagent_type (not agent_id).
+# Still valid JSON + safety context regardless of the id spelling.
+begin_test "subagent-safety: handles real Start shape (subagent_id) and stays valid JSON"
 INPUT=$(python3 -c "import json; print(json.dumps({'subagent_id':'a-real-start-id','subagent_type':'Marie Curie (Scientist)','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$SUBAGENT_SAFETY" 2>/dev/null)
-echo "$OUT" | grep -q "subagent-reports/a-real-start-id.md" && pass || fail "expected report-pin keyed by subagent_id, got: $OUT"
+python3 -c "import json,sys; json.loads(sys.argv[1])" "$OUT" 2>/dev/null && echo "$OUT" | grep -qi "supercharger" && pass || fail "expected valid JSON safety context for subagent_id shape, got: $OUT"
+
+# --- subagent-report-notify: point the parent to the recovered report when the
+#     subagent's final message is degraded OR a report-about-report meta-note. ---
+NOTIFY_HOOK="$REPO_DIR/hooks/subagent-report-notify.sh"
+# Fresh state dir per call — the hook dedups per (session,agent) via a persisted
+# marker, so a shared state dir would make the 2nd suite run flakily dedup.
+notify_fires() { local d; d=$(mktemp -d); printf '%s' "$1" | SUPERCHARGER_STATE="$d" SUPERCHARGER_HOME="$d" bash "$NOTIFY_HOOK" 2>/dev/null | grep -q 'SUBAGENT REPORT'; local r=$?; rm -rf "$d"; return $r; }
+
+begin_test "subagent-report-notify: fires on a classic degraded stub"
+notify_fires '{"agent_id":"n-stub","last_assistant_message":"Complete."}' && pass || fail "no pointer on stub"
+
+begin_test "subagent-report-notify: fires on a meta-note that evades the stub list"
+notify_fires '{"agent_id":"n-meta","last_assistant_message":"Findings delivered inline and complete; no further action."}' && pass || fail "meta-note evaded the pointer"
+
+begin_test "subagent-report-notify: STAYS SILENT on a real substantive final message"
+notify_fires '{"agent_id":"n-real","last_assistant_message":"# Ranked findings\n\n1. The guard blocks the endpoint on the shell channel; safety.sh has no coverage today. Real gap, low false-positive, ship first among the candidates evaluated."}' && fail "false pointer on real findings" || pass
 
 echo ""
 echo "=== Agent Handoff Gate Tests ==="

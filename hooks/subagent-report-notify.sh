@@ -54,6 +54,18 @@ stubs = [
 ]
 if any(re.match(p, low) for p in stubs):
     print('1'); sys.exit(0)
+# Meta-notes: the agent talks ABOUT its report/return channel instead of giving
+# findings (e.g. 'findings delivered inline', 'no further action', 'not writing
+# the recovery file'). These are short and evade the stub list, so the parent
+# silently loses the findings. Treat as degraded when short and substance-free.
+meta = [
+    'delivered inline', 'no further action', 'returning inline', 'not writing',
+    'already delivered', 'see my earlier', 'see above', 'nothing to retry',
+    'report .md', 'report file', 'findings above', 'findings below',
+    'inline and complete', 'intact', 'no recovery file',
+]
+if len(last) < 400 and any(p in low for p in meta):
+    print('1'); sys.exit(0)
 # Very short, no substance (no sentence/markdown/path) — likely truncated.
 if len(last) <= 24 and not re.search(r'[/.:]\w|\n', last):
     print('1'); sys.exit(0)
