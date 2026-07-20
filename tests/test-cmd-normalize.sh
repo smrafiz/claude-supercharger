@@ -100,4 +100,22 @@ begin_test "split_segments: empty input returns no segments"
 OUT=$(split_segments "")
 [ -z "$OUT" ] && pass || fail "got: $OUT"
 
+# Regression (2.17.1): the split_segments python was passed via `python3 -c "..."`
+# (double-quoted), and a comment held a literal-backtick example `...rm -rf /...`,
+# so the SHELL command-substituted it and ran `rm -rf /` on EVERY compound command.
+begin_test "split_segments: no shell command-substitution side effect (does not run rm)"
+ERR=$(split_segments 'echo a; echo b' 2>&1 >/dev/null)
+[ -z "$ERR" ] && pass || fail "split_segments produced stderr (cmd-subst side effect?): $ERR"
+
+begin_test "cmd-normalize: no UNESCAPED backtick inside the python3 -c \"...\" block"
+RAW=$(python3 -c "
+import re
+s=open('$REPO_DIR/hooks/cmd-normalize.sh').read()
+bad=0
+for b in re.findall(r'python3 -c \"(.*?)\"\s', s, re.S):
+    bad += sum(1 for i,ch in enumerate(b) if ch=='\`' and (i==0 or b[i-1]!='\\\\'))
+print(bad)
+" 2>/dev/null)
+[ "$RAW" = "0" ] && pass || fail "unescaped backtick(s) in a -c block: $RAW (shell will command-substitute them)"
+
 report
