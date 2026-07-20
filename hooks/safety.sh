@@ -66,7 +66,11 @@ CMD=$(normalize_cmd "$COMMAND")
 
 # Per-segment view for ^-anchored checks (rm, mv) — protects against
 # compound bypass like `safe && rm -rf /`. Falls back to CMD if split fails.
-SEGMENTS=$(split_segments "$CMD")
+# Hardened (2.17.2): swallow the lib's stderr and non-zero exit so a crash in
+# the sourced splitter can never propagate as a bare non-zero + empty stderr
+# (CC would render that as a phantom "hook error: No stderr output" deny).
+# Worst case the segment view collapses to the whole command — still scanned.
+SEGMENTS=$(split_segments "$CMD" 2>/dev/null) || SEGMENTS=""
 [ -z "$SEGMENTS" ] && SEGMENTS="$CMD"
 
 # Load disabled security categories
