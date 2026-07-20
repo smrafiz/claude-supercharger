@@ -101,7 +101,7 @@ segments.append(''.join(buf))
 prefixes = re.compile(r'^(sudo|command|env)\s+')
 # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
 # Same bypass class found in normalize_cmd — segments after a separator can
-# also start with FOO=bar (`echo x; FOO=bar rm -rf /` chains).
+# also start with FOO=bar (a chained segment after a separator).
 env_var = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=\S*\s+')
 for seg in segments:
     seg = seg.strip()
