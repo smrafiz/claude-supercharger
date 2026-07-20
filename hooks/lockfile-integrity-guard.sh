@@ -21,6 +21,8 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-lockfile.sh
+. "$HOOKS_DIR/lib-lockfile.sh"
 
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
@@ -31,12 +33,7 @@ FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_inpu
 [ -z "$FILE_PATH" ] && exit 0
 
 BASE="${FILE_PATH##*/}"
-case "$BASE" in
-  package-lock.json|npm-shrinkwrap.json|yarn.lock|pnpm-lock.yaml|bun.lockb|bun.lock|\
-  Cargo.lock|composer.lock|Gemfile.lock|poetry.lock|Pipfile.lock|go.sum|\
-  packages.lock.json|pubspec.lock|mix.lock|flake.lock|gradle.lockfile|deno.lock) ;;
-  *) exit 0 ;;
-esac
+is_lockfile_path "$FILE_PATH" || exit 0
 
 # Which package manager owns it (for the corrective hint).
 case "$BASE" in
