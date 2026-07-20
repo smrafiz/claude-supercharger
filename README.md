@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.16.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1589%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.17.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-1589%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -188,14 +188,14 @@ Prefer Claude Code's native plugin system? Supercharger ships the **full** frame
 
 ```
 /plugin marketplace add smrafiz/claude-supercharger
-/plugin install claude-supercharger@claude-supercharger
+/plugin install supercharger@claude-supercharger
 ```
 
 At enable time you're prompted for **role**, **economy tier**, and **MCP profile**. Update with `/plugin update`, toggle with `/plugin enable|disable claude-supercharger` — no reinstall.
 
 A plugin can't write outside its own space, so a few things differ from `install.sh`:
 
-- **Slash commands are namespaced** — `/audit` becomes `/claude-supercharger:audit`, etc.
+- **Slash commands are namespaced** — `/audit` becomes `/supercharger:audit`, etc.
 - **`/sc-update` → `/plugin update`** and **`/sc on|off` → `/plugin enable|disable`** (native equivalents; those two commands aren't shipped in the plugin).
 - **No statusline** and **no `settings.json` tweaks** (`ENABLE_PROMPT_CACHING_1H`, attribution) — set those manually if you want them.
 - The instructional/guardrail layer is delivered as **SessionStart context** instead of a `CLAUDE.md` block — same rules, and uninstalling leaves zero residue.

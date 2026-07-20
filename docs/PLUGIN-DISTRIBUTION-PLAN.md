@@ -16,7 +16,7 @@ prompt/instructional layer — via native plugin commands:
 
 ```
 /plugin marketplace add smrafiz/claude-supercharger
-/plugin install claude-supercharger@claude-supercharger
+/plugin install supercharger@claude-supercharger
 ```
 
 …and update via `/plugin update`, with no shell script and no manual `settings.json` edits.
@@ -123,10 +123,10 @@ Explicit, so it's a conscious tradeoff and documented for users:
 
 | Lost / changed | Why | Mitigation |
 |---|---|---|
-| **Statusline** | No `statusLine` manifest field; can't write settings.json | Ship a one-line copy-paste snippet in the plugin README; or a `/claude-supercharger:statusline` command that prints it |
+| **Statusline** | No `statusLine` manifest field; can't write settings.json | Ship a one-line copy-paste snippet in the plugin README; or a `/supercharger:statusline` command that prints it |
 | **`env.ENABLE_PROMPT_CACHING_1H`** | settings.json side-write | Document as a recommended manual setting |
 | **`attribution` (no co-author trailer)** | settings.json side-write | Our `commit-coauthor-guard` hook already covers the enforcement path; document the setting |
-| **Command names** | Plugin namespacing | `/audit` → `/claude-supercharger:audit`, etc. (26 commands). `/sc-update` → native `/plugin update`; `/sc on\|off` → native `/plugin enable\|disable` |
+| **Command names** | Plugin namespacing | `/audit` → `/supercharger:audit`, etc. (26 commands). `/sc-update` → native `/plugin update`; `/sc on\|off` → native `/plugin enable\|disable` |
 | **Interactive install wizard** | No lifecycle script | `userConfig` prompts at enable time (role/tier/MCP-profile) → `${CLAUDE_PLUGIN_OPTION_*}` env into hooks; lazy first-run init on SessionStart |
 | **`jq` / `python3` auto-check** | No install script | SessionStart preflight hook warns if missing (81 hooks use `jq`, 98 use `python3`) |
 
@@ -283,7 +283,7 @@ Both default to `~/.claude/supercharger` when the plugin vars are unset, preserv
 
 ## 9. Risks & open questions
 
-- **Command-name break is user-visible.** `/audit` → `/claude-supercharger:audit`. Acceptable (native
+- **Command-name break is user-visible.** `/audit` → `/supercharger:audit`. Acceptable (native
   plugin convention) but must be loud in docs. *Open:* is a shorter plugin `name` worth it for terser
   namespacing (e.g. `sc` → `/sc:audit`)? Trades discoverability for brevity.
 - **Running installer + plugin simultaneously** could double-fire hooks and split state across two dirs.

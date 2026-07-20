@@ -36,4 +36,16 @@ seed .economy-tier "${CLAUDE_PLUGIN_OPTION_ECONOMY_TIER:-standard}"
 seed .mcp-profile  "${CLAUDE_PLUGIN_OPTION_MCP_PROFILE:-light}"
 seed .roles        "${CLAUDE_PLUGIN_OPTION_ROLE:-developer}"
 
+# One-time nudge (SessionStart stderr reaches the user): the plugin edition can't
+# provide the status line — Claude Code plugins cannot write settings.json, and
+# statusLine lives only there. Point the user at the installer, which can. Shown
+# once per install; disable with SUPERCHARGER_PLUGIN_NUDGE=0.
+NUDGE_FLAG="$SUPERCHARGER_STATE/.statusline-nudge-shown"
+if [ "${SUPERCHARGER_PLUGIN_NUDGE:-1}" != "0" ] && [ ! -f "$NUDGE_FLAG" ]; then
+  : > "$NUDGE_FLAG" 2>/dev/null || true
+  echo "[Supercharger] Plugin edition — the status line isn't available here (Claude Code plugins can't set statusLine)." >&2
+  echo "  Want it (plus always-on rule files)? Use the installer: https://github.com/smrafiz/claude-supercharger#install" >&2
+  echo "  Everything else — guards, modes, economy, agents, commands — works under the plugin as-is." >&2
+fi
+
 exit 0

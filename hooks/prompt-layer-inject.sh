@@ -35,7 +35,7 @@ VERSION=$(grep -m1 '^VERSION=' "$SUPERCHARGER_HOME/lib/utils.sh" 2>/dev/null | c
 TIER_FILE="$ECON/${TIER}.md"
 [ -f "$TIER_FILE" ] || TIER_FILE="$ECON/lean.md"
 
-CONTEXT_JSON=$(UNIV="$UNIV" TIER_FILE="$TIER_FILE" ROLE="$ROLE" MODE="$MODE" VERSION="v$VERSION" python3 <<'PYEOF' 2>/dev/null || true
+CONTEXT_JSON=$(UNIV="$UNIV" ROLES_DIR="$SUPERCHARGER_HOME/configs/roles" TIER_FILE="$TIER_FILE" ROLE="$ROLE" MODE="$MODE" VERSION="v$VERSION" python3 <<'PYEOF' 2>/dev/null || true
 import os, json
 
 univ = os.environ['UNIV']
@@ -61,11 +61,26 @@ def fill(text):
 # economy.md carries a {{ACTIVE_TIER}} placeholder -> the selected tier snippet.
 economy = read(os.path.join(univ, 'economy.md')).replace('{{ACTIVE_TIER}}', read(tier_file))
 
-# Order mirrors the installer: CLAUDE.md, then rules/*, then economy, then anti-patterns.
+# Role-specific rules (configs/roles/<role>.md). The installer deploys these to
+# ~/.claude/rules/<role>.md; without this the plugin delivered only the role NAME
+# (via {{ROLES}}) and none of its actual behavior. Supports a comma-separated ROLE.
+roles_dir = os.environ.get('ROLES_DIR', '')
+role_blocks = []
+for r in os.environ.get('ROLE', '').split(','):
+    r = r.strip().lower()
+    if not r:
+        continue
+    rt = read(os.path.join(roles_dir, r + '.md'))
+    if rt.strip():
+        role_blocks.append(rt)
+
+# Order mirrors the installer: CLAUDE.md, then rules/* (guardrails, supercharger,
+# role), then economy, then anti-patterns.
 parts = [
     fill(read(os.path.join(univ, 'CLAUDE.md'))),
     read(os.path.join(univ, 'guardrails.md')),
     read(os.path.join(univ, 'supercharger.md')),
+    *role_blocks,
     fill(economy),
     read(os.path.join(univ, 'anti-patterns.yml')),
 ]

@@ -101,4 +101,14 @@ OUT=$(printf '{"session_id":"t"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN
 if printf '%s' "$OUT" | grep -qF "$MARK"; then pass; else fail "minimal tier snippet not injected"; fi
 rm -rf "$DATA"
 
+# Regression: the active role's rules file must be injected, not just the role NAME
+# (bug fixed 2.17: prompt-layer-inject only filled {{ROLES}} and never read configs/roles/<role>.md).
+begin_test "prompt-layer-inject: injects the active role's rules (configs/roles/<role>.md)"
+DATA=$(mktemp -d)
+OUT=$(printf '{"session_id":"t"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN_DATA="$DATA" CLAUDE_PLUGIN_OPTION_ROLE=writer bash "$INJECT" 2>/dev/null \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['hookSpecificOutput']['additionalContext'])" 2>/dev/null)
+# "## Communication Style" is a stable, ASCII-only heading unique to configs/roles/writer.md.
+if printf '%s' "$OUT" | grep -qF "## Communication Style"; then pass; else fail "writer role rules not injected (only the name?)"; fi
+rm -rf "$DATA"
+
 report

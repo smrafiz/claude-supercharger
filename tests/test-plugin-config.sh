@@ -71,4 +71,18 @@ print(','.join(bad))
 " 2>/dev/null)
 [ -z "$BAD" ] && pass || fail "invalid marketplace fields present: $BAD"
 
+# 2.17: installer-promotion nudge (plugin edition can't set the status line) fires
+# ONCE and never under the installer.
+SEED="$REPO_DIR/hooks/plugin-config-seed.sh"
+begin_test "plugin-config-seed: statusline nudge shows once, silent thereafter"
+ND=$(mktemp -d)
+n1=$(printf '{"session_id":"x"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN_DATA="$ND" bash "$SEED" 2>&1 | grep -c "status line isn't available")
+n2=$(printf '{"session_id":"x"}' | CLAUDE_PLUGIN_ROOT="$REPO_DIR" CLAUDE_PLUGIN_DATA="$ND" bash "$SEED" 2>&1 | grep -c "status line isn't available")
+[ "$n1" = "1" ] && [ "$n2" = "0" ] && pass || fail "nudge once-behavior wrong (1st=$n1 2nd=$n2)"
+rm -rf "$ND"
+
+begin_test "plugin-config-seed: no nudge under the installer runtime"
+n=$(printf '{"session_id":"x"}' | env -u CLAUDE_PLUGIN_ROOT -u CLAUDE_PLUGIN_DATA bash "$SEED" 2>&1 | grep -c "status line")
+[ "$n" = "0" ] && pass || fail "nudge leaked into installer runtime"
+
 report

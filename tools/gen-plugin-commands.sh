@@ -65,7 +65,11 @@ count=0
 for src in "$SRC_DIR"/*.md; do
   name="$(basename "$src" .md)"
   case " $SKIP " in *" $name "*) continue ;; esac
-  SRC_FILE="$src" transform "$src" > "$TMP/$name.md"
+  # 2.17: the plugin namespace is `supercharger` (plugin.json name), so the `sc-`
+  # prefix is redundant under it — drop it. /sc-status -> /supercharger:status,
+  # /sc-autopilot -> /supercharger:autopilot, etc. Non-sc names are unchanged.
+  out="${name#sc-}"
+  SRC_FILE="$src" transform "$src" > "$TMP/$out.md"
   count=$((count + 1))
 done
 
