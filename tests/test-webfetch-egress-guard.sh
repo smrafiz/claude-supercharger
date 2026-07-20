@@ -38,10 +38,18 @@ out_for_url 'http://127.0.0.1:8080/internal' | grep -q 'WEBFETCH-EGRESS' && pass
 begin_test "webfetch-egress: normal public URL is silent (no output, exit 0)"
 [ -z "$(out_for_url 'https://example.com/docs/api')" ] && [ "$(rc_for_url 'https://example.com/docs/api')" = "0" ] && pass || fail "false positive on normal URL"
 
-# --- WebSearch channel also guarded ---
-begin_test "webfetch-egress: WebSearch with a metadata URL is denied"
+# --- D1: WebSearch queries are topic text, NOT fetch targets — never blocked ---
+begin_test "webfetch-egress: WebSearch query mentioning a metadata host is NOT denied (D1)"
 printf '{"tool_name":"WebSearch","tool_input":{"query":"fetch http://169.254.169.254/latest/meta-data/"}}' | bash "$GUARD" >/dev/null 2>&1
-[ "$?" = "2" ] && pass || fail "WebSearch metadata not blocked"
+[ "$?" = "0" ] && pass || fail "WebSearch query wrongly blocked (should not treat a search as a fetch)"
+
+begin_test "webfetch-egress: WebSearch query mentioning a webhook/paste host is NOT denied (D1)"
+printf '{"tool_name":"WebSearch","tool_input":{"query":"how to configure discord.com/api/webhooks in python"}}' | bash "$GUARD" >/dev/null 2>&1
+[ "$?" = "0" ] && pass || fail "WebSearch webhook-topic query wrongly blocked"
+
+begin_test "webfetch-egress: metadata host in a WebFetch PROMPT (not url) is NOT denied"
+printf '{"tool_name":"WebFetch","tool_input":{"url":"https://example.com","prompt":"summarize 169.254.169.254 behaviour"}}' | bash "$GUARD" >/dev/null 2>&1
+[ "$?" = "0" ] && pass || fail "prompt text wrongly treated as a fetch target"
 
 # --- Non-WebFetch tool is ignored ---
 begin_test "webfetch-egress: ignores non-WebFetch tools"

@@ -30,17 +30,13 @@ tool = str(d.get('tool_name') or '')
 if tool not in ('WebFetch', 'WebSearch'):
     sys.exit(0)
 
-# Flatten all string values in tool_input (url/prompt/query) into one blob.
-parts = []
-def walk(x):
-    if isinstance(x, str):
-        parts.append(x)
-    elif isinstance(x, dict):
-        for v in x.values(): walk(v)
-    elif isinstance(x, list):
-        for v in x: walk(v)
-walk(d.get('tool_input'))
-blob = ' '.join(parts)
+# Scan the FETCH TARGET only: WebFetch url. A WebSearch query is topic text routed
+# through a mediated search, not a URL this tool fetches, so it must never be treated
+# as an egress target (else a legit search mentioning a webhook/paste/metadata host is
+# wrongly blocked). WebFetch prompt is processing instructions, not a target. WebSearch
+# has no fetch target here, so it is a no-op.
+ti = d.get('tool_input') or {}
+blob = str(ti.get('url') or '') if (tool == 'WebFetch' and isinstance(ti, dict)) else ''
 if not blob:
     sys.exit(0)
 low = blob.lower()

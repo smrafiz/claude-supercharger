@@ -9,10 +9,15 @@
 # Usage: smart_approve_verdict "$_INPUT"  → returns 0 if auto-approvable, else 1.
 # Reads only stdin JSON fields; no side effects.
 
-# Shared critical-infra matcher — same source of truth as critical-infra-guard.sh,
-# so autopilot's auto-approve can never swallow a confirm the guard just forced.
+# Shared matchers — same sources of truth the guards use, so autopilot's (and the
+# in-project Write allow-list's) auto-approve can never swallow a confirm a guard
+# forced: critical-infra + lockfile edits, and foreign-host git pushes.
 # shellcheck source=hooks/lib-critical-infra.sh
 . "${BASH_SOURCE[0]%/*}/lib-critical-infra.sh"
+# shellcheck source=hooks/lib-lockfile.sh
+. "${BASH_SOURCE[0]%/*}/lib-lockfile.sh"
+# shellcheck source=hooks/lib-git-remote.sh
+. "${BASH_SOURCE[0]%/*}/lib-git-remote.sh"
 
 smart_approve_verdict() {
   local input="$1"
@@ -48,8 +53,13 @@ smart_approve_verdict() {
   case "$_ci_tool" in
     Write|Edit|MultiEdit|NotebookEdit)
       _ci_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
-      if [ -n "$_ci_path" ] && is_critical_infra_path "$_ci_path" >/dev/null 2>&1; then
-        return 1
+      if [ -n "$_ci_path" ]; then
+        # Both critical-infra AND lockfile edits carry a mandatory PreToolUse "ask".
+        # The in-project Write allow-list below returns 0 for any project path, and
+        # autopilot returns 0 for everything — so without these two declines the ask
+        # is silently swallowed. Same shared matchers the guards themselves use.
+        is_critical_infra_path "$_ci_path" >/dev/null 2>&1 && return 1
+        is_lockfile_path "$_ci_path" && return 1
       fi
       ;;
   esac
@@ -59,6 +69,22 @@ smart_approve_verdict() {
     [ -f "$_md_f" ] || continue
     _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
     if printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ]; then
+      # Autopilot auto-approves everything EXCEPT a foreign-host push / origin hijack:
+      # git-remote-guard emits an "ask" for those, and the normal allow-list never
+      # auto-approves `git push` anyway, so THIS is the only place autopilot could
+      # swallow it. Fork git only when autopilot is active AND the command looks like
+      # a push/set-url (the common case pays nothing extra).
+      if [ "$_ci_tool" = "Bash" ]; then
+        local _ap_cmd _ap_pdir
+        _ap_cmd=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+        case "$_ap_cmd" in
+          *push*|*set-url*)
+            _ap_pdir=$(printf '%s\n' "$input" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+            [ -z "$_ap_pdir" ] && _ap_pdir="$PWD"
+            [ -n "$(git_remote_exfil_reason "$_ap_cmd" "$_ap_pdir")" ] && return 1
+            ;;
+        esac
+      fi
       return 0
     fi
   done

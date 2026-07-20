@@ -22,12 +22,22 @@ set -uo pipefail
 _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+_INPUT=$(cat)
+# Fast-path: bail with ZERO forks unless the payload could reference a critical-infra
+# file. Broad-substring superset of lib-critical-infra's matcher — false positives
+# fall through to the precise is_critical_infra_path check below (e.g. "author.js"
+# hits *auth* here but is correctly rejected there).
+case "$_INPUT" in
+  *workflows*|*gitlab-ci*|*circleci*|*pipelines*|*travis*|*drone*|*Jenkinsfile*|*jenkinsfile*|\
+  *Dockerfile*|*dockerfile*|*Containerfile*|*compose*|*.tf*|*migrat*|*alembic*|*prisma*|\
+  *auth*|*passport*|*.strategy*) ;;
+  *) exit 0 ;;
+esac
+
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-critical-infra.sh
 . "$HOOKS_DIR/lib-critical-infra.sh"
-
-_INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "critical-infra-guard" && exit 0

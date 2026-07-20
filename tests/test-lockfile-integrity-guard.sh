@@ -48,4 +48,24 @@ out=$(printf '{"tool_name":"Edit","cwd":"/proj","session_id":"sK","tool_input":{
 begin_test "lockfile-guard: corrective hint names the right package manager"
 run_guard "pnpm-lock.yaml" | grep -q "pnpm install" && pass || fail "hint did not name pnpm"
 
+# --- S1 regression: autopilot / the in-project Write allow-list must NOT
+#     auto-approve a lockfile edit (else the PreToolUse "ask" is swallowed) ---
+. "$REPO_DIR/hooks/lib-smart-approve.sh"
+AST=$(mktemp -d); mkdir -p "$AST/scope"; printf '%s' "$(( $(date +%s)+9999 ))" > "$AST/scope/.autopilot-until"
+
+begin_test "lockfile-guard: autopilot does NOT auto-approve a lockfile edit (S1)"
+SUPERCHARGER_STATE="$AST" smart_approve_verdict '{"session_id":"s","tool_name":"Edit","cwd":"/proj","tool_input":{"file_path":"/proj/yarn.lock"}}' \
+  && fail "autopilot auto-approved a lockfile edit (S1 hole)" || pass
+
+begin_test "lockfile-guard: in-project Write allow-list does NOT auto-approve a lockfile (no autopilot)"
+NST=$(mktemp -d); mkdir -p "$NST/scope"
+SUPERCHARGER_STATE="$NST" smart_approve_verdict '{"session_id":"s","tool_name":"Write","cwd":"/proj","tool_input":{"file_path":"/proj/package-lock.json"}}' \
+  && fail "allow-list auto-approved a lockfile write" || pass
+rm -rf "$NST"
+
+begin_test "lockfile-guard: autopilot STILL auto-approves a normal in-project edit"
+SUPERCHARGER_STATE="$AST" smart_approve_verdict '{"session_id":"s","tool_name":"Edit","cwd":"/proj","tool_input":{"file_path":"/proj/src/app.ts"}}' \
+  && pass || fail "autopilot wrongly declined a normal edit"
+rm -rf "$AST"
+
 report
