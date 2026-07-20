@@ -330,6 +330,16 @@ begin_test "safety: rm -rf ./* is blocked (deletes CWD contents)"
 run_hook "$SAFETY_HOOK" "rm -rf ./*"
 assert_exit_code 2 $? && pass
 
+# Regression (2.17.2): a benign compound command carrying a literal backtick
+# must ALLOW cleanly — no non-zero exit, no leaked stderr. The cmd-normalize
+# backtick bug made safety.sh crash here with empty stderr, which CC rendered
+# as a phantom "hook error: No stderr output" deny. Guards the hardened
+# SEGMENTS=$(split_segments ... 2>/dev/null) || SEGMENTS="" fallback.
+begin_test "safety: benign compound+backtick allows with no phantom deny (2.17.2)"
+_PD_ERR=$(printf '{"tool_input":{"command":"echo a `date` b && echo c ; echo d"}}' | bash "$SAFETY_HOOK" 2>&1 >/dev/null)
+_PD_RC=$?
+{ [ "$_PD_RC" = "0" ] && [ -z "$_PD_ERR" ]; } && pass || fail "expected clean allow, got rc=$_PD_RC stderr=[$_PD_ERR]"
+
 begin_test "safety: rm -rf <PROJECT_DIR-absolute> is blocked"
 TMPDIR_RM=$(mktemp -d)
 INPUT=$(printf '{"tool_input":{"command":"rm -rf %s"},"cwd":"%s"}' "$TMPDIR_RM" "$TMPDIR_RM")
