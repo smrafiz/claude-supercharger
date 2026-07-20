@@ -12,7 +12,7 @@ Everything else (hook policies, generators) is covered by `tests/run.sh`. Run th
 announcing the plugin, and after any change to `plugin.json`, `gen-plugin-commands.sh`,
 `prompt-layer-inject.sh`, or `plugin-config-seed.sh`.
 
-Type the `/plugin …` and `/claude-supercharger:…` lines **in Claude Code**; the `!`-prefixed
+Type the `/plugin …` and `/supercharger:…` lines **in Claude Code**; the `!`-prefixed
 lines run in your shell.
 
 ---
@@ -36,7 +36,7 @@ Make sure the branch you want to test is checked out (`master` for the released 
 
 ```
 /plugin marketplace add /Users/radiustheme/GithubRepos/claude-supercharger
-/plugin install claude-supercharger@claude-supercharger
+/plugin install supercharger@claude-supercharger
 ```
 
 - [ ] At enable time you're **prompted for `role`, `economy_tier`, `mcp_profile`**. Pick
@@ -49,8 +49,8 @@ Then restart Claude Code (or `/reload-plugins`).
 ## 2. Commands load (namespacing)
 
 - [ ] Type `/` and confirm the plugin commands appear, **namespaced**:
-      `/claude-supercharger:sc-status`, `:audit`, `:sc-autopilot`, `:sc-readonly`, `:sc-strict`, …
-- [ ] `/claude-supercharger:sc` and `:sc-update` are **absent** (dropped in favor of native
+      `/supercharger:status`, `:audit`, `:autopilot`, `:readonly`, `:strict`, …
+- [ ] `/supercharger:sc-update` and the `/sc` toggle are **absent** (dropped in favor of native
       `/plugin` verbs).
 
 ## 3. ⭐ `${CLAUDE_PLUGIN_ROOT}` substitution in command bodies
@@ -58,7 +58,7 @@ Then restart Claude Code (or `/reload-plugins`).
 The make-or-break check for the tool-invoking commands.
 
 ```
-/claude-supercharger:perf
+/supercharger:perf
 ```
 
 - [ ] **PASS** — it runs `hook-perf.sh` and prints a timing report or "no timing data found".
@@ -92,8 +92,8 @@ After one full session (so `SessionStart` fired), check the plugin's data dir:
       ! echo "SECRET=x" > /tmp/sctest.env
       ```
       Then ask Claude to `Read /tmp/sctest.env` — `env-file-guard` should **deny** it.
-- [ ] **A mode works.** `/claude-supercharger:sc-readonly 5m`, then ask Claude to edit any file —
-      it should be **blocked**; `/claude-supercharger:sc-readonly off` to clear.
+- [ ] **A mode works.** `/supercharger:readonly 5m`, then ask Claude to edit any file —
+      it should be **blocked**; `/supercharger:readonly off` to clear.
 
 ## 6. Cleanup
 
@@ -119,3 +119,41 @@ Then restore your normal copy if you uninstalled it:
 **All green → the plugin release is verified; announce it.**
 **3 or 4 red → contained fix + a patch release before announcing.** Both are documented-but-untested
 Claude Code behaviors, so a failure is a Supercharger-side wiring change, not a dead end.
+
+---
+
+## Result — VERIFIED 2026-07-20 (v2.16.2)
+
+Ran end-to-end on macOS against a real `/plugin install` from the local marketplace, confirmed
+in a post-restart session. **All 5 checks green** — both ⭐ blockers (#3 `${CLAUDE_PLUGIN_ROOT}`
+substitution, #4 `CLAUDE_PLUGIN_OPTION_*` → seeder) pass. `.economy-tier=minimal` and
+`.mcp-profile=full` seeded correctly (non-defaults), the plugin's `safety.sh` blocked and logged a
+command to `CLAUDE_PLUGIN_DATA`, and `prompt-layer-inject` fired at SessionStart. The two behaviors
+that shipped unverified since v2.11.0 are now confirmed working.
+
+## Known plugin-edition limitations (vs the installer)
+
+These are inherent to Claude Code's plugin sandbox (plugins cannot write `~/.claude/settings.json`,
+`CLAUDE.md`, or `rules/*.md`) — surfaced by the smoke test:
+
+1. **No main status line.** The status line is set via `statusLine` in user `settings.json`; CC only
+   honours the `agent` / `subagentStatusLine` keys from a plugin's bundled settings.json, so a plugin
+   **cannot** install the main status bar. `statusline.sh` ships but nothing can wire it.
+   *Workaround (power user):* add it to your own `settings.json` with `CLAUDE_PLUGIN_DATA` pinned —
+   CC does NOT set that var for a user-settings statusLine command, so it must be hard-coded:
+   ```json
+   "statusLine": { "type": "command",
+     "command": "CLAUDE_PLUGIN_DATA=~/.claude/plugins/data/claude-supercharger-supercharger ~/.claude/plugins/<…>/hooks/statusline.sh" }
+   ```
+   *Recommended:* if you want the status line, use the **installer edition** (`./install.sh`).
+
+2. **Role-specific rules — FIXED in v2.17.0.** (Was a bug: the plugin injected only the role *name*
+   via `{{ROLES}}`, never the role's rules file, so role behavior was a label with no substance.)
+   `prompt-layer-inject.sh` now reads `configs/roles/<active-role>.md` (from `.roles` /
+   `CLAUDE_PLUGIN_OPTION_ROLE`) and injects it — plugin role behavior matches the installer.
+
+3. **`claude-check` diagnostic** is installer-only (the plugin has `claude plugin validate` + the
+   test suite). Minor.
+
+`/sc` and `/sc-update` are intentionally dropped in the plugin edition (native `/plugin` verbs
+replace them) — not a limitation.

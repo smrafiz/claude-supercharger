@@ -28,18 +28,20 @@ begin_test "commands/: tool invocations use \${CLAUDE_PLUGIN_ROOT}/tools"
 if grep -qE '\$\{CLAUDE_PLUGIN_ROOT\}/tools/hook-perf\.sh' "$OUT_DIR/perf.md"; then pass; else fail "perf.md tool path not rewritten to CLAUDE_PLUGIN_ROOT"; fi
 
 begin_test "commands/: state reads use \${CLAUDE_PLUGIN_DATA}/scope"
-if grep -qE '\$\{CLAUDE_PLUGIN_DATA\}/scope' "$OUT_DIR/sc-status.md"; then pass; else fail "sc-status.md scope path not rewritten to CLAUDE_PLUGIN_DATA"; fi
+if grep -qE '\$\{CLAUDE_PLUGIN_DATA\}/scope' "$OUT_DIR/status.md"; then pass; else fail "status.md scope path not rewritten to CLAUDE_PLUGIN_DATA"; fi
 
 begin_test "commands/: project-memory refs (~/.claude/projects) are preserved, NOT rewritten"
 # sc-status reads Claude file-memory under ~/.claude/projects — must stay literal
-if grep -qE '~/\.claude/projects|\$HOME/\.claude/projects' "$OUT_DIR/sc-status.md"; then pass; else fail "project-memory ref was clobbered"; fi
+if grep -qE '~/\.claude/projects|\$HOME/\.claude/projects' "$OUT_DIR/status.md"; then pass; else fail "project-memory ref was clobbered"; fi
 
 begin_test "commands/: every non-skipped source command has a generated counterpart"
 MISSING=""
 for src in "$SRC_DIR"/*.md; do
   name="$(basename "$src" .md)"
   case " sc sc-update " in *" $name "*) continue ;; esac
-  [ -f "$OUT_DIR/$name.md" ] || MISSING="$MISSING $name"
+  # 2.17: the plugin namespace is `supercharger`, so the generator drops the `sc-`
+  # prefix (sc-status -> status). Check the stripped name.
+  [ -f "$OUT_DIR/${name#sc-}.md" ] || MISSING="$MISSING $name"
 done
 [ -z "$MISSING" ] && pass || fail "missing generated commands:$MISSING"
 
