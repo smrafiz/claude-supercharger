@@ -19,12 +19,20 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 [ "${SUPERCHARGER_LOCKFILE_GUARD:-1}" = "0" ] && exit 0
 
+_INPUT=$(cat)
+# Fast-path: bail with ZERO forks unless the payload could reference a lockfile.
+# This is a superset of lib-lockfile's basename list (every lock name contains
+# "lock", "shrinkwrap", or ".sum") — false positives just fall through to the
+# precise is_lockfile_path check below; no real lockfile name is missed.
+case "$_INPUT" in
+  *lock*|*shrinkwrap*|*.sum*) ;;
+  *) exit 0 ;;
+esac
+
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-lockfile.sh
 . "$HOOKS_DIR/lib-lockfile.sh"
-
-_INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "lockfile-integrity-guard" && exit 0
