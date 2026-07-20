@@ -50,20 +50,16 @@ HOST=$(printf '%s' "$VERDICT" | awk -F'\t' '{print $2}')
 REASON=$(printf '%s' "$VERDICT" | awk -F'\t' '{print $3}')
 [ -z "$REASON" ] && exit 0
 
-# Ask at most once per destination host per session (avoid nagging on a fork
-# you've already okayed). Record at ask time (same convention as critical-infra).
-SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
-ASK_FILE="$SUPERCHARGER_STATE/scope/.git-remote-asked-${SID:-nosession}"
-if [ -f "$ASK_FILE" ] && grep -qxF "$HOST" "$ASK_FILE" 2>/dev/null; then
-  exit 0
-fi
-mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
-printf '%s\n' "$HOST" >> "$ASK_FILE" 2>/dev/null || true
-
+# C2: ALWAYS ask — no once-per-session dedup. A PreToolUse hook can't see the
+# user's answer, so recording an ack at ask-time would let a DENIED push suppress
+# the next prompt (a rejected exfil could be retried silently). For a whole-repo
+# exfil gate that trade is wrong, so we re-ask every foreign-host push. (The
+# footgun asks — critical-infra/lockfile — keep their dedup; worst case there is
+# a corrupted file, not exfiltration.)
 echo "" >&2
 echo "Supercharger: this git command sends the repository to '$HOST'." >&2
 echo "  $REASON" >&2
-echo "  (Asked once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0)" >&2
+echo "  (Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0)" >&2
 echo "" >&2
 
 RSN=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"git remote exfil — confirm destination"')

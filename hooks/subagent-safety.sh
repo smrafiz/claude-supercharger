@@ -22,12 +22,11 @@ AGENT_TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.agent_type // .subagent_type // e
 
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
-AGENT_ID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // .subagent_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
-[ -z "$AGENT_ID" ] && AGENT_ID="$SESSION_ID-$(date +%s)"
+# D2: agent-id / report-path were only used by the old "write your report to disk"
+# pin, which was removed (the final message is the deliverable; the transcript
+# scraper is the backup). Dropping them saves 2 jq + tr + a date fork per spawn.
+# The reports dir is created by subagent-report-fallback.sh itself when it recovers.
 SAFETY_FLAG="$SUPERCHARGER_STATE/scope/.subagent-safety-injected-${SESSION_ID}"
-REPORT_DIR="$SUPERCHARGER_STATE/scope/subagent-reports"
-REPORT_PATH="$REPORT_DIR/${AGENT_ID}.md"
-mkdir -p "$REPORT_DIR" 2>/dev/null || true
 
 # Report guidance. Injected every spawn. HISTORY: this used to instruct the
 # subagent to Write its report to disk as its LAST tool call (v2.6.82, working
