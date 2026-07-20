@@ -56,6 +56,17 @@ begin_test "webfetch-egress: ignores non-WebFetch tools"
 printf '{"tool_name":"Bash","tool_input":{"command":"curl http://169.254.169.254/"}}' | bash "$GUARD" >/dev/null 2>&1
 [ "$?" = "0" ] && pass || fail "should not act on Bash (safety.sh owns that channel)"
 
+# --- S2: versioned Discord API webhook path ---
+begin_test "webfetch-egress: DENY versioned Discord webhook (/api/v10/webhooks) (S2)"
+[ "$(rc_for_url 'https://discord.com/api/v10/webhooks/123/abc')" = "2" ] && pass || fail "versioned discord webhook not blocked"
+
+# --- S3: alternate metadata-IP encodings + userinfo private-net ---
+begin_test "webfetch-egress: DENY decimal-encoded metadata IP (S3)"
+[ "$(rc_for_url 'http://2852039166/latest/meta-data/')" = "2" ] && pass || fail "decimal metadata IP not blocked"
+
+begin_test "webfetch-egress: WARN on userinfo-prefixed private IP (http://user@10.0.0.5) (S3)"
+out_for_url 'http://user@10.0.0.5/admin' | grep -q 'WEBFETCH-EGRESS' && pass || fail "userinfo private-net not warned"
+
 # --- Kill switch ---
 begin_test "webfetch-egress: SUPERCHARGER_WEBFETCH_EGRESS=0 disables it"
 RC=$(printf '{"tool_name":"WebFetch","tool_input":{"url":"http://169.254.169.254/"}}' | SUPERCHARGER_WEBFETCH_EGRESS=0 bash "$GUARD" >/dev/null 2>&1; echo $?)

@@ -20,6 +20,9 @@ set -uo pipefail
 
 # Fast-path: resolve state inline, no fork/source needed to bail on a non-critical path.
 _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+# D2: dedicated kill-switch, for parity with its sibling guards
+# (SUPERCHARGER_GIT_REMOTE_GUARD / _LOCKFILE_GUARD / _WEBFETCH_EGRESS).
+[ "${SUPERCHARGER_CRITICAL_INFRA_GUARD:-1}" = "0" ] && exit 0
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)

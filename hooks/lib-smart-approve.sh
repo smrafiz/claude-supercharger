@@ -35,10 +35,12 @@ smart_approve_verdict() {
   local _md_state _md_sid _md_now _md_f _md_until
   _md_state="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
   _md_sid=$(printf '%s\n' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
-  _md_now=$(date +%s 2>/dev/null || echo 0)
+  _md_now=""   # P2: computed lazily on the first existing mode file — avoids a
+               # `date` fork on every permission request in the common no-mode path.
   # Strict first — must override autopilot.
   for _md_f in "$_md_state/scope/.strict-until" ${_md_sid:+"$_md_state/scope/.strict-until-$_md_sid"}; do
     [ -f "$_md_f" ] || continue
+    [ -z "$_md_now" ] && _md_now=$(date +%s 2>/dev/null || echo 0)
     _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
     if printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ]; then
       return 1
@@ -67,6 +69,7 @@ smart_approve_verdict() {
   # Autopilot next.
   for _md_f in "$_md_state/scope/.autopilot-until" ${_md_sid:+"$_md_state/scope/.autopilot-until-$_md_sid"}; do
     [ -f "$_md_f" ] || continue
+    [ -z "$_md_now" ] && _md_now=$(date +%s 2>/dev/null || echo 0)
     _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
     if printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ]; then
       # Autopilot auto-approves everything EXCEPT a foreign-host push / origin hijack:
@@ -89,7 +92,7 @@ smart_approve_verdict() {
     fi
   done
 
-  tool_name=$(printf '%s\n' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)
+  tool_name="$_ci_tool"   # P2: reuse the tool_name already parsed above (was a 2nd jq)
   [ -z "$tool_name" ] && return 1
 
   project_dir=$(printf '%s\n' "$input" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
