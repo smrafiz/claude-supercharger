@@ -25,13 +25,13 @@ else:
 
 profiles = {
     "standard": ("all hooks active", []),
-    "fast":     ("skips 8 analytics hooks, keeps code-quality checks",
-                 ["adaptive-economy", "thinking-budget", "rate-limit-advisor",
+    "fast":     ("skips 7 analytics hooks, keeps code-quality checks",
+                 ["adaptive-economy", "rate-limit-advisor",
                   "mcp-tracker", "failure-tracker", "session-checkpoint",
                   "repetition-detector", "context-advisor"]),
-    "minimal":  ("skips 11 hooks — all non-security",
+    "minimal":  ("skips 10 hooks — all non-security",
                  ["quality-gate", "typecheck", "dep-vuln-scanner",
-                  "adaptive-economy", "thinking-budget", "rate-limit-advisor",
+                  "adaptive-economy", "rate-limit-advisor",
                   "mcp-tracker", "failure-tracker", "session-checkpoint",
                   "repetition-detector", "context-advisor"]),
 }

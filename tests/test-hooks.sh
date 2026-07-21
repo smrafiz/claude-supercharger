@@ -1700,33 +1700,6 @@ rm -f "$SCOPE_DIR_BC/.main-tokens-bcsess"
 [ "$EXIT" -eq 2 ] && pass || fail "expected exit 2 (block) when over budget, got exit=$EXIT out=$OUT"
 
 echo ""
-echo "=== Thinking Budget Tests ==="
-
-THINKING_BUDGET="$REPO_DIR/hooks/thinking-budget.sh"
-
-begin_test "thinking-budget: simple one-word prompt gets minimal hint"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':'test1','cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
-EXIT=$?
-[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on simple prompt, got exit=$EXIT out=$OUT"
-
-begin_test "thinking-budget: complex prompt gets deep reasoning hint"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'Design and architect a distributed event sourcing system with CQRS pattern for our microservices migration. Analyze trade-offs.','session_id':'test2','cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
-EXIT=$?
-[ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on complex prompt, got exit=$EXIT"
-
-begin_test "thinking-budget: opt-out flag skips hook"
-SCOPE_DIR_TB="$HOME/.claude/supercharger/scope"
-mkdir -p "$SCOPE_DIR_TB"
-touch "$SCOPE_DIR_TB/.no-thinking-control"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'design the architecture','session_id':'test3','cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$THINKING_BUDGET" 2>&1)
-EXIT=$?
-rm -f "$SCOPE_DIR_TB/.no-thinking-control"
-[ -z "$OUT" ] && pass || fail "expected silent skip when opt-out flag set, got: $OUT"
-
-echo ""
 echo "=== Adaptive Economy Tests ==="
 
 ADAPTIVE_ECONOMY="$REPO_DIR/hooks/adaptive-economy.sh"

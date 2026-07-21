@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — End-to-End Integration Test
-# Tests: crash recovery, adaptive economy, thinking budget, rate-limit advisor, normal cleanup
+# Tests: crash recovery, adaptive economy, rate-limit advisor, normal cleanup
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
@@ -155,92 +155,10 @@ fi
 
 rm -rf "$FAKE_HOME2"
 
-# ─── SECTION 3: Thinking Budget Classification ───────────────────────────────
+
+# ─── SECTION 3: Rate-Limit Advisor ──────────────────────────────────────────
 hr
-echo -e "${BOLD}3. Thinking Budget Classification${NC}"
-
-FAKE_HOME3=$(mktemp -d)
-mkdir -p "$FAKE_HOME3/.claude/supercharger/scope"
-
-# Use indexed arrays (bash 3 compatible)
-PROMPTS=(
-  "yes"
-  "show me the file"
-  "run the tests"
-  "add a loading spinner to the button component"
-  "fix the null pointer in auth.ts line 42"
-  "design a microservices architecture for our payment system with event sourcing"
-  "investigate why the CI pipeline is failing intermittently"
-  "refactor the entire authentication module to use OAuth2"
-)
-# v2.8.13: "yes" (bare ack) and "run the tests" ('run' is ambiguous) no longer
-# classify low — they get no hint (medium). "show me the file" stays low (read-only verb).
-EXPECTATIONS=(
-  "medium"
-  "low"
-  "medium"
-  "medium"
-  "medium_or_high"
-  "high"
-  "high"
-  "high"
-)
-
-for i in 0 1 2 3 4 5 6 7; do
-  PROMPT="${PROMPTS[$i]}"
-  EXPECTED="${EXPECTATIONS[$i]}"
-  # Escape prompt for JSON
-  PROMPT_ESCAPED=$(python3 -c "import json,sys; print(json.dumps(sys.argv[1]))" "$PROMPT" 2>/dev/null | tr -d '"')
-  # v2.7.9: unique session per prompt — this block verifies per-prompt
-  # CLASSIFICATION, not the new level-dedup (which would suppress repeat levels).
-  INPUT="{\"prompt\":\"$PROMPT_ESCAPED\",\"session_id\":\"think-test-$i\"}"
-  OUTPUT=$(export HOME="$FAKE_HOME3"; printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/thinking-budget.sh" 2>/dev/null)
-
-  HAS_THINK=false; IS_LOW=false; IS_HIGH=false; IS_MEDIUM_NO_OUTPUT=false
-  echo "$OUTPUT" | grep -qi "THINK" && HAS_THINK=true
-  echo "$OUTPUT" | grep -qiE "trivial|minimal|directly" && IS_LOW=true
-  echo "$OUTPUT" | grep -qiE "complex|thorough" && IS_HIGH=true
-  [ -z "$OUTPUT" ] && IS_MEDIUM_NO_OUTPUT=true
-
-  LABEL="'${PROMPT}' → expected:${EXPECTED}"
-
-  case "$EXPECTED" in
-    low)
-      if $HAS_THINK && $IS_LOW; then
-        result "$LABEL" PASS
-      else
-        result "$LABEL" FAIL "got: ${OUTPUT:-empty}"
-      fi
-      ;;
-    high)
-      if $HAS_THINK && $IS_HIGH; then
-        result "$LABEL" PASS
-      else
-        result "$LABEL" FAIL "got: ${OUTPUT:-empty}"
-      fi
-      ;;
-    medium)
-      if $IS_MEDIUM_NO_OUTPUT; then
-        result "$LABEL" PASS
-      else
-        result "$LABEL" FAIL "expected no output (medium), got: ${OUTPUT:-empty}"
-      fi
-      ;;
-    medium_or_high)
-      if $IS_MEDIUM_NO_OUTPUT || ($HAS_THINK && $IS_HIGH); then
-        result "$LABEL" PASS
-      else
-        result "$LABEL" FAIL "got: ${OUTPUT:-empty}"
-      fi
-      ;;
-  esac
-done
-
-rm -rf "$FAKE_HOME3"
-
-# ─── SECTION 4: Rate-Limit Advisor ──────────────────────────────────────────
-hr
-echo -e "${BOLD}4. Rate-Limit Advisor Simulation${NC}"
+echo -e "${BOLD}3. Rate-Limit Advisor Simulation${NC}"
 
 FAKE_HOME4=$(mktemp -d)
 SCOPE4="$FAKE_HOME4/.claude/supercharger/scope"
@@ -286,9 +204,9 @@ fi
 
 rm -rf "$FAKE_HOME4" "$FAKE_HOME4B"
 
-# ─── SECTION 5: Normal Session End Cleanup ──────────────────────────────────
+# ─── SECTION 4: Normal Session End Cleanup ──────────────────────────────────
 hr
-echo -e "${BOLD}5. Normal Session End Cleanup${NC}"
+echo -e "${BOLD}4. Normal Session End Cleanup${NC}"
 
 PROJ5=$(mktemp -d)
 FAKE_HOME5=$(mktemp -d)
