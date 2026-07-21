@@ -18,6 +18,9 @@ _INPUT=$(cat)
 # @tsv instead of two separate forks; split with fork-free parameter expansion.
 # The multi-line prompt is read in its own jq so a newline in it can't corrupt the
 # tab split. $PWD is unreliable in hook context, so project_dir comes from the JSON.
+# session_id + cwd feed file paths (statusline / scope-guard), so parse them with jq
+# for robustness — one fork extracts both flat fields via @tsv (fork-free bash parsing
+# of these was too fragile against spaced JSON and quoted key-names in prompts).
 _META=$(printf '%s\n' "$_INPUT" | jq -r '[(.session_id // ""), (.workspace.current_dir // .cwd // "")] | @tsv' 2>/dev/null || printf '\t')
 SESSION_ID=${_META%%$'\t'*}
 PROJECT_DIR=${_META#*$'\t'}
@@ -166,18 +169,20 @@ fi
 # #1: Dedup — if identical to last injection AND seen within TTL, skip entirely.
 # Without TTL, sessions that idle for hours never re-inject context. 30s window
 # refreshes the hint after a meaningful pause.
-HASH=$(printf '%s' "$CONTEXT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$CONTEXT" | md5 -q 2>/dev/null || echo "")
+# v2.18.3: dedup on the CONTEXT string DIRECTLY (short, single-line) — no md5sum fork.
+# The string IS the key: identical content ⇒ identical string. (scope-guard only
+# cleans up .router-hash, never parses it, so storing the string is safe.)
 HASH_FILE="$SCOPE_DIR/.router-hash-${SESSION_ID}"
-LAST_HASH=$(cat "$HASH_FILE" 2>/dev/null || echo "")
+LAST_CONTEXT=""; [ -f "$HASH_FILE" ] && IFS= read -r LAST_CONTEXT < "$HASH_FILE" 2>/dev/null || true
 LAST_MTIME=0
 if [ -f "$HASH_FILE" ]; then
   LAST_MTIME=$(stat -c '%Y' "$HASH_FILE" 2>/dev/null || stat -f '%m' "$HASH_FILE" 2>/dev/null || echo "")
   case "$LAST_MTIME" in ''|*[!0-9]*) LAST_MTIME=0 ;; esac
 fi
 NOW_TS=$(date +%s)
-echo "$HASH" > "$HASH_FILE"
+printf '%s\n' "$CONTEXT" > "$HASH_FILE"
 
-if [ -n "$HASH" ] && [ "$HASH" = "$LAST_HASH" ] && [ "$LAST_MTIME" -gt 0 ] && [ $((NOW_TS - LAST_MTIME)) -lt 30 ]; then
+if [ -n "$CONTEXT" ] && [ "$CONTEXT" = "$LAST_CONTEXT" ] && [ "$LAST_MTIME" -gt 0 ] && [ $((NOW_TS - LAST_MTIME)) -lt 30 ]; then
   exit 0  # Context unchanged within 30s TTL — skip injection
 fi
 
@@ -194,9 +199,17 @@ fi
 # v2.6.77: try jq first (consistent with context-advisor.sh), python3 second,
 # bare printf as last resort. The printf branch was emitting malformed JSON if
 # CONTEXT contained any character not stripped by `tr -d '"\\'`.
-CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null \
-  || printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null \
-  || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
+# v2.18.3: the [CTX] string is built from fixed enums (category + agent_key) and the
+# tier, so it never contains JSON-special chars (" \ newline) — wrap it as a JSON
+# string fork-free, skipping a jq fork. Fall back to jq/python only when a project-agent
+# roster (arbitrary filenames) is present in CONTEXT.
+if [ -z "$PROJECT_AGENTS_LIST" ]; then
+  CONTEXT_JSON="\"$CONTEXT\""
+else
+  CONTEXT_JSON=$(printf '%s' "$CONTEXT" | jq -Rs '.' 2>/dev/null \
+    || printf '%s' "$CONTEXT" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read().rstrip()))" 2>/dev/null \
+    || printf '"%s"' "$(printf '%s' "$CONTEXT" | tr -d '"\\' | tr '\n' ' ')")
+fi
 if [ "$HOOK_SUPPRESS" = "false" ]; then
   printf '{"systemMessage":%s,"suppressOutput":false}\n' "$CONTEXT_JSON"
 else

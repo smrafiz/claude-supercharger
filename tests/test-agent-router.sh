@@ -97,6 +97,25 @@ else
 fi
 teardown_test_home
 
+# 2.18.3: the fork-free output JSON (edit 3) must be valid parseable JSON.
+begin_test "agent-router: fork-free output JSON parses (2.18.3)"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+OUTPUT=$(echo '{"prompt":"design the auth system","session_id":"j1"}' | bash "$ROUTER" 2>/dev/null)
+if printf '%s' "$OUTPUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); assert "[CTX]" in d["hookSpecificOutput"]["additionalContext"]' 2>/dev/null; then pass
+else fail "fork-free JSON not parseable / missing [CTX]: $OUTPUT"; fi
+teardown_test_home
+
+# 2.18.3: string-compare dedup (edit 2) — identical prompt twice in a session, 2nd is silent.
+begin_test "agent-router: dedup skips identical injection within TTL (2.18.3)"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger/scope"
+PAY='{"prompt":"fix the bug","session_id":"jd"}'
+A=$(printf '%s' "$PAY" | bash "$ROUTER" 2>/dev/null)
+B=$(printf '%s' "$PAY" | bash "$ROUTER" 2>/dev/null)
+{ [ -n "$A" ] && [ -z "$B" ]; } && pass || fail "dedup broken: first=[${A:+set}] second=[${B:+set}] (want set,empty)"
+teardown_test_home
+
 # Test 8: .agent-classified-default contains exact agent name with no extra whitespace
 begin_test "agent-router: .agent-classified-default contains exact agent name"
 setup_test_home
