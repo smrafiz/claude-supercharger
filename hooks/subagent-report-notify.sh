@@ -76,7 +76,22 @@ print('0')
 
 AGENT_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.agent_name // .agent_type // "subagent"' 2>/dev/null || echo "subagent")
 
-MSG="[SUBAGENT REPORT] ${AGENT_NAME} (agent ${AGENT_ID}) returned a truncated/degraded final message — CC return-channel bug #54323, so its actual findings did NOT come back inline. The full report was recovered to disk. Read it before continuing: bash ${TOOL} ${AGENT_ID}  (or: bash ${TOOL} --latest). Path: ${REPORT_PATH} — if it is not there yet, the async recovery is still writing; retry the command once."
+# v2.19.1: if the async fallback (subagent-report-fallback.sh) has already written
+# the report, INLINE its tail — the findings are the agent's last substantive block,
+# so the tail carries the deliverable — and the parent gets them WITHOUT running a
+# recovery command. If the report isn't on disk yet (the async scraper races this
+# blocking hook), fall back to the pointer + retry hint. The inline is capped so a
+# large fan-out can't flood context; the full report is always one command away.
+_INLINE_CAP="${SUPERCHARGER_SUBAGENT_INLINE_CAP:-2000}"
+if [ -s "$REPORT_PATH" ]; then
+  _FINDINGS=$(tail -c "$_INLINE_CAP" "$REPORT_PATH" 2>/dev/null || true)
+  MSG="[SUBAGENT REPORT] ${AGENT_NAME} (agent ${AGENT_ID}) returned a degraded final message (CC return-channel bug #54323) — its findings did NOT come back inline. Recovered from the transcript below (tail, last ${_INLINE_CAP} chars; full report: bash ${TOOL} ${AGENT_ID}):
+────────
+${_FINDINGS}
+────────"
+else
+  MSG="[SUBAGENT REPORT] ${AGENT_NAME} (agent ${AGENT_ID}) returned a truncated/degraded final message — CC return-channel bug #54323, so its actual findings did NOT come back inline. The full report was recovered to disk. Read it before continuing: bash ${TOOL} ${AGENT_ID}  (or: bash ${TOOL} --latest). Path: ${REPORT_PATH} — if it is not there yet, the async recovery is still writing; retry the command once."
+fi
 
 # Dedup: don't re-inject the same pointer twice in a session.
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
