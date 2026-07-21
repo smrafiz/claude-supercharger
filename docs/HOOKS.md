@@ -105,7 +105,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `subagent-report-notify` | SubagentStop | (none)  [BLOCKING — must inject into parent] | Closes the last gap in the report-recovery story. When a subagent's final |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
 | `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |
-| `thinking-budget` | UserPromptSubmit | (none) | Classifies prompt complexity and nudges Claude's reasoning depth. |
 | `tool-call-limiter` | PreToolUse | (none) | Counts tool calls per session. Warns at 80%, blocks at cap. |
 | `tool-failure-advisor` | PostToolUseFailure | (none) | Injects failure context + tool-specific hints back to Claude when any tool errors. |
 | `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>. |

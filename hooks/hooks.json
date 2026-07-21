@@ -788,14 +788,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/thinking-budget.sh"
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/rate-limit-advisor.sh",
             "async": true
           }

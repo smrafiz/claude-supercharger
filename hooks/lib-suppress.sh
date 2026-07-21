@@ -158,7 +158,7 @@ hook_profile_skip() {
 
   if [ "$profile" = "fast" ]; then
     case "$hook_name" in
-      adaptive-economy|thinking-budget|rate-limit-advisor|\
+      adaptive-economy|rate-limit-advisor|\
       mcp-tracker|failure-tracker|session-checkpoint|\
       repetition-detector|context-advisor)
         return 0 ;;
@@ -169,7 +169,7 @@ hook_profile_skip() {
     case "$hook_name" in
       quality-gate|typecheck|repetition-detector|dep-vuln-scanner|\
       mcp-tracker|failure-tracker|session-checkpoint|context-advisor|\
-      rate-limit-advisor|thinking-budget|adaptive-economy)
+      rate-limit-advisor|adaptive-economy)
         return 0 ;;
     esac
   fi

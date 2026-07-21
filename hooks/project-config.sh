@@ -145,17 +145,6 @@ if config_file and os.path.isfile(config_file):
         if auto_economy is False:
             cfg_parts.append('Auto-economy: off')
 
-        thinking_control = config.get('thinkingControl', True)
-        if thinking_control is False:
-            tc_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.no-thinking-control')
-            with open(tc_file, 'w') as f:
-                f.write('1')
-            cfg_parts.append('Thinking control: off')
-        else:
-            tc_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.no-thinking-control')
-            if os.path.isfile(tc_file):
-                os.remove(tc_file)
-
         forecast_turns = config.get('forecastTurnsPerAgent', '')
         if forecast_turns:
             try:
