@@ -2053,6 +2053,23 @@ INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'next','session_id':
 OUT=$(printf '%s' "$INPUT" | bash "$CTX_ADVISOR" 2>&1)
 [ -n "$OUT" ] && pass || fail "expected context advice at 78%, got empty"
 
+# 2.18.2: bucket-keyed dedup — warn ONCE per band (70/80/90), re-warn only on a
+# higher band, and reset when context drops <70 (post-/compact) so a later climb warns.
+# Hermetic: isolated SUPERCHARGER_STATE so a real peak file can't taint the sequence.
+begin_test "context-advisor: bucket dedup — once per band, escalates, resets below 70 (2.18.2)"
+CA_STATE=$(mktemp -d); mkdir -p "$CA_STATE/scope"
+CA_SID="ca-dedup"
+mk_ca() { python3 -c "import json,sys; print(json.dumps({'prompt':'x','session_id':sys.argv[1],'cwd':'/tmp','context_window':{'used_percentage':int(sys.argv[2])}}))" "$1" "$2"; }
+ca_run() { printf '%s' "$(mk_ca "$CA_SID" "$1")" | SUPERCHARGER_STATE="$CA_STATE" bash "$CTX_ADVISOR" 2>/dev/null; }
+O1=$(ca_run 74)   # band 70 -> emit
+O2=$(ca_run 78)   # same band -> silent
+O3=$(ca_run 85)   # band 80 -> emit
+O4=$(ca_run 60)   # <70 -> reset, silent
+O5=$(ca_run 74)   # band 70 again -> re-warn
+rm -rf "$CA_STATE"
+{ [ -n "$O1" ] && [ -z "$O2" ] && [ -n "$O3" ] && [ -z "$O4" ] && [ -n "$O5" ]; } && pass \
+  || fail "bucket dedup wrong (want emit,silent,emit,silent,emit): [${O1:+1}${O1:-0}][${O2:+1}${O2:-0}][${O3:+1}${O3:-0}][${O4:+1}${O4:-0}][${O5:+1}${O5:-0}]"
+
 echo ""
 echo "=== Subagent Safety Tests ==="
 

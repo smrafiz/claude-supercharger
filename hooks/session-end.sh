@@ -48,6 +48,7 @@ rm -f \
   "$SCOPE_DIR/.active-mcp-${SESSION_ID}" \
   "$SCOPE_DIR/.denied-${SESSION_ID}" \
   "$SCOPE_DIR/.keep-going-${SESSION_ID}" \
+  "$SCOPE_DIR/.ctx-advisor-peak-${SESSION_ID}" \
   "$SCOPE_DIR"/.dedup-${SESSION_ID}-* \
   2>/dev/null || true
 
