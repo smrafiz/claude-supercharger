@@ -1352,6 +1352,25 @@ rm -rf "$TMPDIR_TC"
 [ -z "$OUT" ] && pass || fail "expected empty output on cache hit, got: $OUT"
 teardown_test_home
 
+# v2.20.1: slow-typecheck discoverability nudge — fires ONCE per repo (stderr only)
+# when tsc runs slow, pointing at the opt-out. Uses a fake tsc so CI needs no toolchain.
+begin_test "typecheck: slow run emits a one-time opt-out nudge; repeats are silent"
+setup_test_home
+_TN_R=$(mktemp -d); mkdir -p "$_TN_R/node_modules/.bin"
+echo '{"compilerOptions":{"noEmit":true}}' > "$_TN_R/tsconfig.json"
+echo 'export const a: number = 1;' > "$_TN_R/app.ts"
+printf '#!/bin/sh\nsleep 1\nexit 0\n' > "$_TN_R/node_modules/.bin/tsc"; chmod +x "$_TN_R/node_modules/.bin/tsc"
+_tn_run() { printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/app.ts"},"cwd":"%s","session_id":"tn"}' "$_TN_R" "$_TN_R" \
+  | SUPERCHARGER_TYPECHECK_SLOW_S=0 bash "$REPO_DIR/hooks/typecheck.sh" 2>&1 >/dev/null; }
+_TN_A=$(_tn_run)                                   # threshold 0 → nudge
+echo 'export const b: number = 2;' > "$_TN_R/app.ts"  # change → cache miss → tsc reruns
+_TN_B=$(_tn_run)                                   # nudge flag set → silent
+rm -rf "$_TN_R"
+{ echo "$_TN_A" | grep -q 'typecheck ran' && echo "$_TN_A" | grep -q 'supercharger-no-typecheck' \
+  && ! echo "$_TN_B" | grep -q 'typecheck ran'; } && pass \
+  || fail "nudge wrong (first=[$_TN_A] second=[$_TN_B])"
+teardown_test_home
+
 begin_test "quality-gate: skips lint when file hash unchanged and no prior issues"
 setup_test_home  # v2.7.72: isolate HOME (see typecheck test above) so the hook's
                  # cache write can't leak .quality-gate-cache-* into the real scope.
