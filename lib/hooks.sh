@@ -121,6 +121,12 @@ get_hooks_for_mode() {
     # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
     # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-remote-guard.sh||git *")
+    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash
+    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
+    # bypasses ALL of it. Asks (not deny) ONLY when the target is git-tracked, once
+    # per file per session. Fork-free fast-path; parser in redirect-clobber-detect.py.
+    # Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/redirect-clobber-guard.sh|")
     # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
     # `git commit`: secret-in-staged-diff (default on), Co-Authored-By trailer (opt-in),
     # and Conventional Commit format (opt-in via .conventional-commits). Merged from
