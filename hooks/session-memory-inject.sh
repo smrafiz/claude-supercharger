@@ -15,6 +15,34 @@ _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
+# --- memory-prune nudge (v2.19.0) ---------------------------------------------
+# At most once per week (deduped by a flag's mtime — the weekly gate is checked
+# FIRST so the common path is a single stat, no scan), remind (stderr only, zero
+# context tokens) if any file-memory entries are marked status: resolved/superseded
+# and are still loading their index line every session. Never prunes — just points
+# at /memory-prune. Self-contained; cannot affect the memory injection below.
+_MP_FLAG="$SUPERCHARGER_STATE/scope/.mem-prune-nudge"
+_mp_due=1
+if [ -f "$_MP_FLAG" ]; then
+  _mp_mt=$(stat -c '%Y' "$_MP_FLAG" 2>/dev/null || stat -f '%m' "$_MP_FLAG" 2>/dev/null || echo 0)
+  case "$_mp_mt" in ''|*[!0-9]*) _mp_mt=0 ;; esac
+  [ $(( $(date +%s) - _mp_mt )) -lt 604800 ] && _mp_due=0
+fi
+if [ "$_mp_due" = 1 ]; then
+  _mp_enc="-$(printf '%s' "$PROJECT_DIR" | sed 's|/|-|g; s|^-||')"
+  _mp_dir="$HOME/.claude/projects/$_mp_enc/memory"
+  if [ -d "$_mp_dir" ]; then
+    _mp_n=$(grep -lE '^[[:space:]]*status:[[:space:]]*(resolved|superseded)' "$_mp_dir"/*.md 2>/dev/null | grep -vc 'MEMORY.md' || echo 0)
+    case "$_mp_n" in ''|*[!0-9]*) _mp_n=0 ;; esac
+    if [ "$_mp_n" -gt 0 ]; then
+      _mp_word="entries"; [ "$_mp_n" = 1 ] && _mp_word="entry"
+      echo "[MEM] $_mp_n resolved memory $_mp_word still loading each session — run /memory-prune to archive." >&2
+    fi
+    touch "$_MP_FLAG" 2>/dev/null || true
+  fi
+fi
+# ------------------------------------------------------------------------------
+
 MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 
 # Checkpoint recovery fallback

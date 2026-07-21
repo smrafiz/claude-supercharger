@@ -35,6 +35,7 @@ Claude Supercharger — Slash Commands
 
   Memory
     /learn          Record an explicit project rule (surfaces on future prompts)
+    /memory-prune   Archive resolved memory entries so they stop loading every session
 
   Meta
     /sc             Activate / deactivate Supercharger (off | on | status) — flip to default Claude
