@@ -104,8 +104,24 @@ else
   TIMEOUT_CMD=""
 fi
 
-# Run type check
+# Run type check (timed — feeds the slow-typecheck nudge below)
+_TC_T0=$(date +%s 2>/dev/null || echo 0)
 ERRORS=$(cd "$PROJECT_ROOT" && $TIMEOUT_CMD $TSC --noEmit --pretty false 2>&1 | grep -v '^$' | head -20 || true)
+_TC_T1=$(date +%s 2>/dev/null || echo 0)
+
+# v2.20.1: slow-typecheck discoverability nudge. tsc on a large repo is the one real
+# per-edit cost, and the opt-out already exists but is undiscoverable — so a user on a
+# big monorepo just feels "Supercharger is slow" and may uninstall. If tsc ran slow HERE,
+# tell them ONCE per repo (stderr only → zero context tokens, never blocks) where the
+# off-switch is. Threshold: SUPERCHARGER_TYPECHECK_SLOW_S (default 3s).
+_TC_ELAPSED=$(( ${_TC_T1:-0} - ${_TC_T0:-0} ))
+if [ "$_TC_ELAPSED" -ge "${SUPERCHARGER_TYPECHECK_SLOW_S:-3}" ] 2>/dev/null; then
+  _TC_NUDGE="$SCOPE_DIR/.typecheck-slow-nudge-${PROJ_HASH}"
+  if [ ! -f "$_TC_NUDGE" ]; then
+    touch "$_TC_NUDGE" 2>/dev/null || true
+    echo "[Supercharger] typecheck ran ${_TC_ELAPSED}s on this repo. To skip it here: create '.supercharger-no-typecheck' in the repo root (or use /profile minimal). Shown once per repo." >&2
+  fi
+fi
 
 if [ -z "$ERRORS" ]; then
   # Update cache: file was clean, store hash for next run
