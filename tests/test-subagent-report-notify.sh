@@ -58,4 +58,33 @@ rm -f "$HOME/.claude/supercharger/scope/.dedup-sDUP-subagent-report-notify"
 export SUPERCHARGER_NO_DEDUP=1
 [ "$first" -ge 1 ] && [ "$second" -eq 0 ] && pass || fail "expected first=emit second=suppressed (got $first/$second)"
 
+# v2.19.1: when the recovered report is already on disk, INLINE its tail (the
+# findings) into the pointer so the parent gets them without a recovery command.
+begin_test "notify: inlines recovered findings when the report is on disk"
+_NST=$(mktemp -d); mkdir -p "$_NST/scope/subagent-reports"
+printf '## Block 1\nscratch\n\n## Block N\nUNIQUE_FINDINGS_MARKER: agent-router KILL, context-advisor OPTIMIZE\n' > "$_NST/scope/subagent-reports/inl1.md"
+_OUT=$(echo '{"agent_id":"inl1","agent_name":"Critic","last_assistant_message":"Complete.","session_id":"zi1"}' \
+  | SUPERCHARGER_STATE="$_NST" SUPERCHARGER_HOME="$REPO_DIR" bash "$H" 2>/dev/null)
+_CTX=$(printf '%s' "$_OUT" | python3 -c 'import sys,json; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])' 2>/dev/null || echo "")
+echo "$_CTX" | grep -q 'UNIQUE_FINDINGS_MARKER' && pass || fail "findings not inlined: ${_CTX:0:80}"
+rm -rf "$_NST"
+
+begin_test "notify: falls back to a pointer when the report is not on disk yet"
+_NST=$(mktemp -d); mkdir -p "$_NST/scope/subagent-reports"
+_OUT=$(echo '{"agent_id":"inl2","agent_name":"x","last_assistant_message":"Done.","session_id":"zi2"}' \
+  | SUPERCHARGER_STATE="$_NST" SUPERCHARGER_HOME="$REPO_DIR" bash "$H" 2>/dev/null)
+{ echo "$_OUT" | grep -q 'SUBAGENT REPORT' && echo "$_OUT" | grep -q 'retry the command once'; } && pass \
+  || fail "expected pointer+retry fallback when report absent"
+rm -rf "$_NST"
+
+begin_test "notify: inline respects the cap (large report → bounded, tail kept)"
+_NST=$(mktemp -d); mkdir -p "$_NST/scope/subagent-reports"
+python3 -c 'print("PAD "*400 + "TAILMARK_END")' > "$_NST/scope/subagent-reports/inl3.md"
+_OUT=$(echo '{"agent_id":"inl3","last_assistant_message":"Complete.","session_id":"zi3"}' \
+  | SUPERCHARGER_STATE="$_NST" SUPERCHARGER_HOME="$REPO_DIR" SUPERCHARGER_SUBAGENT_INLINE_CAP=300 bash "$H" 2>/dev/null)
+_CTX=$(printf '%s' "$_OUT" | python3 -c 'import sys,json; print(json.load(sys.stdin)["hookSpecificOutput"]["additionalContext"])' 2>/dev/null || echo "")
+{ echo "$_CTX" | grep -q 'TAILMARK_END' && [ "$(printf '%s' "$_CTX" | wc -c)" -lt 900 ]; } && pass \
+  || fail "cap not respected or tail missed (len=$(printf '%s' "$_CTX" | wc -c))"
+rm -rf "$_NST"
+
 report
