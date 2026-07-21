@@ -138,6 +138,20 @@ assert_file_exists "$HOME/.claude/agents/explorer.md" &&
 pass
 teardown_test_home
 
+# --- Test: python deep-scanners deployed on install (2.17.3 regression) ---
+# hooks/*.py were previously never copied (only hooks/*.sh), so safety.sh and
+# env-file-guard.sh invoked a missing python file → python exits 2 → set -e →
+# phantom "No stderr output" deny on every deep-scan-gated command.
+begin_test "install: python deep-scanners deployed to hooks dir"
+setup_test_home
+
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+
+assert_file_exists "$HOME/.claude/supercharger/hooks/safety-detect.py" &&
+assert_file_exists "$HOME/.claude/supercharger/hooks/env-file-detect.py" &&
+pass
+teardown_test_home
+
 # --- Test: commands deployed on install ---
 begin_test "install: commands deployed to ~/.claude/commands/"
 setup_test_home
