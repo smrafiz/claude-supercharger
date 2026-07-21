@@ -213,8 +213,26 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   echo ""
   TMP=$(mktemp -d)
 
-  # Fetch expected HEAD commit SHA from GitHub API before cloning
-  EXPECTED_SHA=$(python3 -c "
+  # Fetch expected HEAD commit SHA to verify the clone below. The unauthenticated
+  # GitHub API is capped at 60 req/hr per IP, so a single anonymous call here used
+  # to 403 on shared IPs / NAT / CI and ABORT the whole update (users behind a
+  # rate-limited IP found /sc-update permanently dead). Resolve resiliently:
+  #   1. authenticated `gh` (5000/hr) — most users on a GitHub repo have it;
+  #   2. curl with the .sha media type; 3. python urllib (both anonymous).
+  # If ALL are unavailable (rate limit / offline), PROCEED WITH A WARNING rather
+  # than abort — the clone is a TLS-authenticated github.com fetch either way, so
+  # the SHA compare is a best-effort freshness check, not the sole trust anchor.
+  # A SUCCESSFULLY-fetched SHA that MISMATCHES the clone still aborts (fail-closed).
+  EXPECTED_SHA=""
+  if command -v gh >/dev/null 2>&1; then
+    EXPECTED_SHA=$(gh api "repos/smrafiz/claude-supercharger/commits/master" --jq '.sha' 2>/dev/null || echo "")
+  fi
+  if [ -z "$EXPECTED_SHA" ] && command -v curl >/dev/null 2>&1; then
+    EXPECTED_SHA=$(curl -fsSL --max-time 6 -H 'Accept: application/vnd.github.sha' \
+      "https://api.github.com/repos/smrafiz/claude-supercharger/commits/master" 2>/dev/null | tr -d '[:space:]')
+  fi
+  if [ -z "$EXPECTED_SHA" ]; then
+    EXPECTED_SHA=$(python3 -c "
 import urllib.request, json
 try:
     url = 'https://api.github.com/repos/smrafiz/claude-supercharger/commits/master'
@@ -225,18 +243,16 @@ try:
 except Exception:
     print('')
 " 2>/dev/null)
-
-  if [ -z "$EXPECTED_SHA" ]; then
-    echo -e "${RED}  ✗ Could not fetch expected commit SHA from GitHub API. Aborting.${NC}" >&2
-    rm -rf "$TMP"
-    exit 1
   fi
 
   git clone "${REPO_URL}.git" "$TMP/cs" --quiet
 
   ACTUAL_SHA=$(git -C "$TMP/cs" rev-parse HEAD 2>/dev/null || echo "")
 
-  if [ -z "$ACTUAL_SHA" ] || [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
+  if [ -z "$EXPECTED_SHA" ]; then
+    echo -e "${YELLOW}  ⚠ Could not fetch expected commit SHA (GitHub API unavailable or rate-limited).${NC}" >&2
+    echo -e "${YELLOW}    Proceeding with the TLS-authenticated clone without the extra freshness check.${NC}" >&2
+  elif [ -z "$ACTUAL_SHA" ] || [ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]; then
     echo -e "${RED}  ✗ Integrity check failed: cloned commit ($ACTUAL_SHA) does not match expected ($EXPECTED_SHA). Aborting.${NC}" >&2
     rm -rf "$TMP"
     exit 1
