@@ -340,6 +340,20 @@ _PD_ERR=$(printf '{"tool_input":{"command":"echo a `date` b && echo c ; echo d"}
 _PD_RC=$?
 { [ "$_PD_RC" = "0" ] && [ -z "$_PD_ERR" ]; } && pass || fail "expected clean allow, got rc=$_PD_RC stderr=[$_PD_ERR]"
 
+# Regression (2.17.3): if safety-detect.py is missing/crashes, `python3 <file>`
+# exits non-zero (2 = can't-open). Under `set -e` the `PY_REASON=$(...)` line used
+# to kill safety.sh with empty stderr → phantom "No stderr output" deny on every
+# deep-scan-gated command. `|| PY_REASON=""` must fail OPEN to the regex verdict.
+begin_test "safety: deep-scan-gated cmd fails OPEN when detector missing (2.17.3)"
+_SD_DIR=$(dirname "$SAFETY_HOOK")
+_SD_PY="$_SD_DIR/safety-detect.py"
+if [ -f "$_SD_PY" ]; then mv "$_SD_PY" "$_SD_PY.testbak"; fi
+# a benign command that trips _NEED_PY (mentions python -c) — must NOT phantom-deny
+_SD_ERR=$(printf '{"tool_input":{"command":"echo test with python -c snippet"}}' | bash "$SAFETY_HOOK" 2>&1 >/dev/null)
+_SD_RC=$?
+[ -f "$_SD_PY.testbak" ] && mv "$_SD_PY.testbak" "$_SD_PY"
+{ [ "$_SD_RC" = "0" ] && [ -z "$_SD_ERR" ]; } && pass || fail "missing detector must fail-open (rc0, no stderr); got rc=$_SD_RC stderr=[$_SD_ERR]"
+
 begin_test "safety: rm -rf <PROJECT_DIR-absolute> is blocked"
 TMPDIR_RM=$(mktemp -d)
 INPUT=$(printf '{"tool_input":{"command":"rm -rf %s"},"cwd":"%s"}' "$TMPDIR_RM" "$TMPDIR_RM")

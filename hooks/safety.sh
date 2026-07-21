@@ -506,7 +506,12 @@ if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then
   elif command -v timeout >/dev/null 2>&1; then _TIMEOUT="timeout 0.5"
   else _TIMEOUT=""
   fi
-  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null)
+  # `|| PY_REASON=""` (2.17.3): the deep scanner is defense-in-depth ON TOP of the
+  # regex checks already run above. If it exits non-zero for ANY reason — missing
+  # file (python exits 2), crash, or the 0.5s timeout — `set -e` would otherwise
+  # kill this hook with empty stderr, which CC renders as a phantom
+  # "hook error: No stderr output" deny. Fail OPEN to the regex verdict instead.
+  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi

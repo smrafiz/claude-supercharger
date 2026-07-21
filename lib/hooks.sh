@@ -257,6 +257,14 @@ deploy_hook_scripts() {
   cp "$source_dir/hooks/"*.sh "$target_dir/"
   cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
   chmod 700 "$target_dir/"*.sh
+  # Python deep-scanners invoked by hooks (safety-detect.py, env-file-detect.py).
+  # These live in hooks/ but were previously never deployed (only *.sh was copied),
+  # so safety.sh/env-file-guard.sh ran `python3 <missing-file>` → python exits 2 →
+  # under `set -e` the hook died with empty stderr → CC rendered a phantom
+  # "hook error: No stderr output" deny on every command that tripped the deep-scan
+  # gate (python -c, curl, find, .env, secret, aws, …). Deploy them here.
+  cp "$source_dir/hooks/"*.py "$target_dir/" 2>/dev/null || true
+  chmod 700 "$target_dir/"*.py 2>/dev/null || true
 
   # Deploy tools so they're available after one-liner installs (no local repo)
   local tools_dir="$HOME/.claude/supercharger/tools"
