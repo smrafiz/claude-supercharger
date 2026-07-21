@@ -123,4 +123,21 @@ RAW_LN=$(grep -n 'https://raw.githubusercontent.com' "$TOOL" | head -1 | cut -d:
 if [ -n "$API_LN" ] && [ -n "$RAW_LN" ] && [ "$API_LN" -lt "$RAW_LN" ]; then pass
 else fail "raw ($RAW_LN) is not after the fresh API ($API_LN) — primary/fallback order wrong"; fi
 
+# v2.18.1: the integrity SHA fetch must try AUTHENTICATED gh first (5000/hr) so the
+# 60/hr anonymous limit doesn't 403 and dead-end /sc-update on shared IPs / NAT / CI.
+begin_test "update: SHA integrity check tries authenticated gh before anonymous API"
+if grep -q 'gh api "repos/smrafiz/claude-supercharger/commits/master"' "$TOOL"; then pass
+else fail "no authenticated gh path for the expected-SHA fetch — anonymous 403 will abort updates"; fi
+
+# The unfetchable-SHA case must FAIL OPEN (warn + proceed on the TLS clone), NOT abort.
+begin_test "update: unfetchable SHA fails open (warns, does not abort)"
+if grep -q 'Proceeding with the TLS-authenticated clone' "$TOOL" \
+   && ! grep -q 'Could not fetch expected commit SHA from GitHub API. Aborting' "$TOOL"; then pass
+else fail "SHA-fetch failure still aborts the update instead of proceeding with a warning"; fi
+
+# But a SUCCESSFULLY-fetched SHA that MISMATCHES the clone must still fail closed.
+begin_test "update: SHA mismatch still fails closed (integrity retained)"
+if grep -q 'does not match expected' "$TOOL"; then pass
+else fail "mismatch abort removed — a wrong clone would be installed silently"; fi
+
 report
