@@ -225,8 +225,8 @@ Drop `.supercharger.json` in your repo root. Commit it so your whole team gets t
 | Profile | Behavior |
 |--|--|
 | `standard` | All hooks active (default) |
-| `fast` | Skips 8 analytics hooks; keeps code quality and security |
-| `minimal` | Skips 11 hooks; security-only |
+| `fast` | Skips 7 analytics hooks; keeps code quality and security |
+| `minimal` | Skips 10 hooks; security-only |
 
 Security hooks always run regardless of profile.
 
@@ -263,6 +263,22 @@ Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to
 Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
 
 Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
+
+### Speed & tokens
+
+Most felt slowness is **not** the hooks (~50–80ms total) — it's per-command permission prompts and long-running foreground commands. Biggest levers, in order of impact:
+
+**Faster**
+- **`/sc-autopilot 2h`** — stop the per-command yes/no prompts for a while (the safety hooks still run). This is the single biggest latency win; permission waits dwarf hook overhead.
+- **Background long commands** — run `tsc`, builds, tests, and dev servers in the background so they don't block the turn. On a large repo, Supercharger nudges you here when type-checking runs slow.
+- **`/profile fast`** (skips 7 analytics hooks) or **`/profile minimal`** (skips 10; security-only).
+- **`.supercharger-no-typecheck`** in a repo root — skip type-checking on just that repo (the one real per-edit cost on big projects).
+- **Thinking a long time on a *simple* request?** That's native Claude reasoning (effort level), not Supercharger — use **`/effort low`** or **`/effort medium`**. (Supercharger no longer touches reasoning time as of v2.18.0.)
+
+**Fewer tokens**
+- **`/compact`** when context is high; **`/clear`** when switching to unrelated work.
+- **`/memory-prune`** — archive resolved memory entries so they stop loading into context every session.
+- Supercharger's own footprint is small — the rule files are path-scoped (load only when relevant) and per-prompt injections are a few tokens — so the dominant token cost is **conversation length**, not the hooks.
 
 ### Project verify hook
 
