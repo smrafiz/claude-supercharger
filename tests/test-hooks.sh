@@ -1906,7 +1906,7 @@ REP_DETECTOR="$REPO_DIR/hooks/repetition-detector.sh"
 begin_test "repetition-detector: first occurrence passes silently"
 SCOPE_DIR_RD="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_RD"
-rm -f "$SCOPE_DIR_RD/.loop-history"
+rm -f "$SCOPE_DIR_RD/.loop-history-default"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_input':{'command':'git status'},'tool_response':{'output':'clean'},'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$REP_DETECTOR" 2>&1)
 [ -z "$OUT" ] && pass || fail "expected silent pass on first occurrence, got: $OUT"
@@ -1916,15 +1916,15 @@ SCOPE_DIR_RD="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_RD"
 CMD="git status --porcelain"
 HASH=$(printf '%s' "Bash:${CMD}" | md5 -q 2>/dev/null || printf '%s' "Bash:${CMD}" | md5sum | cut -d' ' -f1)
-rm -f "$SCOPE_DIR_RD/.loop-history"
-printf '%s\n%s\n%s\n' "$HASH" "$HASH" "$HASH" > "$SCOPE_DIR_RD/.loop-history"
+rm -f "$SCOPE_DIR_RD/.loop-history-default"
+printf '%s\n%s\n%s\n' "$HASH" "$HASH" "$HASH" > "$SCOPE_DIR_RD/.loop-history-default"
 INPUT=$(python3 - << PYEOF
 import json
 print(json.dumps({'tool_name':'Bash','tool_input':{'command':'${CMD}'},'tool_response':{'output':''},'cwd':'/tmp'}))
 PYEOF
 )
 OUT=$(printf '%s' "$INPUT" | bash "$REP_DETECTOR" 2>&1)
-rm -f "$SCOPE_DIR_RD/.loop-history"
+rm -f "$SCOPE_DIR_RD/.loop-history-default"
 [ -n "$OUT" ] && pass || fail "expected loop warning on repeated command, got: $OUT"
 
 begin_test "repetition-detector: non-Bash/Read tool exits cleanly"
@@ -2401,7 +2401,7 @@ CACHE_HEALTH="$REPO_DIR/hooks/cache-health.sh"
 begin_test "cache-health: exits silently on non-5th call (counter)"
 SCOPE_DIR_CH="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_CH"
-echo "1" > "$SCOPE_DIR_CH/.cache-health-counter"
+echo "1" > "$SCOPE_DIR_CH/.cache-health-counter-default"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{},'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$CACHE_HEALTH" 2>&1)
 [ -z "$OUT" ] && pass || fail "expected silent skip on non-5th call, got: $OUT"
@@ -2409,10 +2409,10 @@ OUT=$(printf '%s' "$INPUT" | bash "$CACHE_HEALTH" 2>&1)
 begin_test "cache-health: increments counter file"
 SCOPE_DIR_CH="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_CH"
-echo "3" > "$SCOPE_DIR_CH/.cache-health-counter"
+echo "3" > "$SCOPE_DIR_CH/.cache-health-counter-default"
 INPUT=$(python3 -c "import json; print(json.dumps({'tool_name':'Bash','tool_response':{},'cwd':'/tmp'}))")
 printf '%s' "$INPUT" | bash "$CACHE_HEALTH" 2>/dev/null
-NEW_COUNT=$(cat "$SCOPE_DIR_CH/.cache-health-counter" 2>/dev/null || echo "0")
+NEW_COUNT=$(cat "$SCOPE_DIR_CH/.cache-health-counter-default" 2>/dev/null || echo "0")
 [ "$NEW_COUNT" -eq 4 ] && pass || fail "expected counter=4, got: $NEW_COUNT"
 
 echo ""

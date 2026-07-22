@@ -71,7 +71,8 @@ patterns_max_age=(
   ".quality-gate-cache-*:$SECS_WEEK"
   ".typecheck-cache-*:$SECS_WEEK"
   ".notify-ts-*:$SECS_DAY"
-  ".cache-health-counter:$SECS_DAY"
+  ".cache-health-*:$SECS_DAY"
+  ".compact-last-band-*:$SECS_DAY"
   ".eco-reinforce-acked:$SECS_WEEK"
   ".eco-reinforce-acked-*:$SECS_WEEK"
   ".eco-last-*:$SECS_WEEK"
@@ -82,7 +83,7 @@ patterns_max_age=(
   ".scan-alert-*:$SECS_DAY"
   ".standards-inject-*:$SECS_MONTH"
   ".repetition-flag-*:$SECS_DAY"
-  ".loop-history:$SECS_WEEK"
+  ".loop-history-*:$SECS_WEEK"
   ".read-history*:$SECS_WEEK"
 )
 

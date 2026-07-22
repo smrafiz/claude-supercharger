@@ -17,6 +17,11 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 check_hook_disabled "auto-compact" && exit 0
 
 _INPUT=$(cat)
+# 2.21.12: session-scope the compaction debounce band. The context window is
+# per-session, but .compact-last-band was global — one session at 85% wrote
+# band 80 and suppressed another session's 70/80 warning, and dropping below 70
+# removed the shared file, resetting the other's debounce.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
 
 # ── Read context percentage ───────────────────────────────────────────────────
 PCT=$(printf '%s\n' "$_INPUT" | python3 -c "
@@ -31,7 +36,7 @@ except Exception:
 
 [ -z "$PCT" ] && exit 0
 [ "$PCT" -lt 70 ] && {
-  rm -f "$SUPERCHARGER_STATE/scope/.compact-last-band"
+  rm -f "$SUPERCHARGER_STATE/scope/.compact-last-band-${SID}"
   exit 0
 }
 
@@ -42,7 +47,7 @@ else                          BAND=70
 fi
 
 # ── Debounce: skip if already warned at this band ────────────────────────────
-STATE_FILE="$SUPERCHARGER_STATE/scope/.compact-last-band"
+STATE_FILE="$SUPERCHARGER_STATE/scope/.compact-last-band-${SID}"
 LAST_BAND=$(cat "$STATE_FILE" 2>/dev/null || echo "0")
 
 [ "$BAND" -le "$LAST_BAND" ] && exit 0
