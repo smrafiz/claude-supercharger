@@ -20,7 +20,10 @@ get_hooks_for_mode() {
   # env-file-guard.sh stays separate because safety.sh's matcher is Bash,PowerShell
   # only — env-file-guard catches direct .env reads (PreToolUse|Read), which safety.sh
   # cannot match. Do not consolidate without expanding safety.sh's matcher.
-  hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/safety.sh|")
+  # 2.22.12: also route shell-exec MCP servers through safety.sh — they run
+  # arbitrary OS commands (execute_command / run / exec) that never reached the
+  # Bash channel, so rm -rf / curl|bash / DB-drop / persistence were unguarded.
+  hooks+=("PreToolUse|Bash,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
   # Critical-infra write gate: forces a confirm before editing CI/CD, container,

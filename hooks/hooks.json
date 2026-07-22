@@ -8,7 +8,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/safety.sh"
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__"
       },
       {
         "hooks": [
