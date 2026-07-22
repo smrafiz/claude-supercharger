@@ -105,6 +105,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-destructive-guard.sh"
+          }
+        ],
+        "matcher": "mcp__filesystem__,mcp__aws__,mcp__kubernetes__,mcp__k8s__,mcp__docker__,mcp__gcloud__,mcp__gcp__,mcp__azure__,mcp__git__,mcp__terraform__"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/webfetch-egress-guard.sh"
           }
         ],
