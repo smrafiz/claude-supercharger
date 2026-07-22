@@ -15,11 +15,15 @@ _get_branch() {
   git branch --show-current 2>/dev/null || echo ""
 }
 
-# Configurable cooldown (default 15s)
+# Configurable cooldown (default 15s). Optional 3rd arg = session id: when given,
+# the cooldown stamp is per-session (2.21.15) so one session's notification
+# doesn't suppress another's within the window. Omitted (e.g. the machine-wide
+# idle ping) keeps the shared global stamp — backward compatible.
 _cooldown_ok() {
   local key="$1"
   local cooldown="${2:-15}"
-  local stamp="$SCOPE_DIR/.notify-ts-${key}"
+  local sid="${3:-}"
+  local stamp="$SCOPE_DIR/.notify-ts-${key}${sid:+-$sid}"
   if [ -f "$stamp" ]; then
     local last_ts
     last_ts=$(cat "$stamp" 2>/dev/null || echo "0")

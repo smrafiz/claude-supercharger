@@ -37,6 +37,13 @@ server = parts[1] if len(parts) >= 2 and parts[1] else ''
 if not server:
     sys.exit(0)
 server_key = re.sub(r'[^a-zA-Z0-9_.-]', '', server)[:64] or 'unknown'
+# 2.21.15: session-scope the breaker. The escalating cooldown counter is driven
+# by ONE session's usage; keyed on the server alone, one session tripping a 429
+# denied every OTHER concurrent session's calls to that server (and reset their
+# state). Key the health file by (server, session) so each session backs off on
+# its own signal.
+_sid = re.sub(r'[^a-zA-Z0-9_.-]', '', str(d.get('session_id') or 'default'))[:64] or 'default'
+server_key = server_key + '__' + _sid
 
 scope_dir = os.environ['SCOPE_DIR']
 try:

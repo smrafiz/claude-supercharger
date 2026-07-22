@@ -95,4 +95,23 @@ OUT=$(printf 'not json' | HOME="$H" bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected fail-open, got: $OUT"
 rm -rf "$H"
 
+# ---- 2.21.15: breaker is per-session (server health keyed by session id) ----
+_post_sid() { # <home> <tool> <response-json> <sid>
+  printf '{"hook_event_name":"PostToolUse","tool_name":"%s","session_id":"%s","tool_response":%s}' "$2" "$4" "$3" \
+    | HOME="$1" bash "$HOOK" 2>/dev/null
+}
+_pre_sid() { # <home> <tool> <sid>
+  printf '{"hook_event_name":"PreToolUse","tool_name":"%s","session_id":"%s","tool_input":{}}' "$2" "$3" \
+    | HOME="$1" bash "$HOOK" 2>/dev/null
+}
+
+begin_test "mcp-breaker: per-session — session B not blocked by session A's 429"
+H=$(mktemp -d)
+_post_sid "$H" "mcp__github__create_issue" '{"isError":true,"content":"HTTP 429 Too Many Requests"}' "sessA" >/dev/null
+OUTA=$(_pre_sid "$H" "mcp__github__create_issue" "sessA")
+OUTB=$(_pre_sid "$H" "mcp__github__create_issue" "sessB")
+if echo "$OUTA" | grep -q 'deny' && [ -z "$OUTB" ]; then pass
+else fail "expected session A blocked, session B allowed. A=[$OUTA] B=[$OUTB]"; fi
+rm -rf "$H"
+
 report

@@ -22,7 +22,8 @@ _is_subagent "$_INPUT" && exit 0
 smart_approve_verdict "$_INPUT" && exit 0
 
 # Cooldown (7s — permission requests can cluster)
-_cooldown_ok "permission" 7 || exit 0
+_NP_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+_cooldown_ok "permission" 7 "$_NP_SID" || exit 0
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "unknown"' 2>/dev/null || true)
 

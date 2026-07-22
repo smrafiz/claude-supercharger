@@ -24,7 +24,8 @@ STOP_ACTIVE=$(printf '%s\n' "$_INPUT" | jq -r '.stop_hook_active // false' 2>/de
 _is_subagent "$_INPUT" && exit 0
 
 # Cooldown (12s — task complete notifications)
-_cooldown_ok "stop" 12 || exit 0
+_NS_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+_cooldown_ok "stop" 12 "$_NS_SID" || exit 0
 
 # v2.7.34: duration gate — only notify for turns past the threshold so quick
 # replies stay silent. Override seconds via scope/.notify-min-seconds.
