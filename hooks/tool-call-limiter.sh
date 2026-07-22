@@ -31,10 +31,13 @@ else
   SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")
   for _ in 1 2 3 4 5; do
     if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-      CAP=$(python3 -c "
-import json
+      # 2.21.13: pass the path via env, not string-interpolation. A project dir
+      # containing a single quote (e.g. o'malley) broke the python string literal
+      # → SyntaxError → CAP empty → the limiter silently disabled itself.
+      CAP=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
+import json, os
 try:
-    with open('$SEARCH_DIR/.supercharger.json') as f:
+    with open(os.environ['SC_CFG']) as f:
         d = json.load(f)
     v = d.get('maxToolCalls', '')
     print(str(int(v)) if v else '')

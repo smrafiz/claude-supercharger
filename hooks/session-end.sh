@@ -56,6 +56,7 @@ rm -f \
   "$SCOPE_DIR/.cache-health-${SESSION_ID}" \
   "$SCOPE_DIR/.cache-health-counter-${SESSION_ID}" \
   "$SCOPE_DIR/.cache-health-dedup-${SESSION_ID}" \
+  "$SCOPE_DIR/.rate-limit-last-warn-${SESSION_ID}" \
   2>/dev/null || true
 
 # Periodic global cleanup (TTL-based) — at most once per day

@@ -13,7 +13,10 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
-HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 - <<'PYEOF'
+# 2.21.13: export SCOPE_DIR — the python reads os.environ['SCOPE_DIR'] but bash
+# never set it, so under the plugin runtime (state in CLAUDE_PLUGIN_DATA) it fell
+# back to ~/.claude and never found .session-cost → the advisor never fired.
+HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope" python3 - <<'PYEOF'
 import json, sys, os, time
 
 suppress = os.environ.get('HOOK_SUPPRESS', 'true').lower() in ('true', '1', 'yes')
@@ -64,8 +67,10 @@ time_to_exhaust = (100 - used_pct) / burn_rate
 if time_to_exhaust >= 30:
     sys.exit(0)
 
-# Dedup by 10-minute band
-warn_file = os.path.join(scope, '.rate-limit-last-warn')
+# Dedup by 10-minute band — session-scoped so one session's warn doesn't
+# suppress another's within the same band (2.21.13).
+_sid = ''.join(c for c in (data.get('session_id') or 'default') if c.isalnum() or c in '_-')[:64] or 'default'
+warn_file = os.path.join(scope, '.rate-limit-last-warn-' + _sid)
 band = int(time.time()) // 600
 try:
     if os.path.isfile(warn_file):
