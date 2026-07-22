@@ -14,20 +14,27 @@ SECRET_PATTERNS=(
   # AWS access-key IDs
   'AKIA[0-9A-Z]{16}'
   'ASIA[0-9A-Z]{16}'
-  # AWS SECRET access-key VALUE — label + exact 40-char base64 value
-  'AWS_SECRET_ACCESS_KEY.{0,6}[A-Za-z0-9/+]{40}'
-  # GitHub
-  'gh[opsu]_[A-Za-z0-9_]{36,}'
+  # AWS SECRET access-key VALUE — label + exact 40-char base64 value.
+  # v2.22.0: case-insensitive label — the canonical ~/.aws/credentials + boto form
+  # is lowercase `aws_secret_access_key`, which the upper-only pattern missed.
+  '[Aa][Ww][Ss]_[Ss][Ee][Cc][Rr][Ee][Tt]_[Aa][Cc][Cc][Ee][Ss][Ss]_[Kk][Ee][Yy].{0,6}[A-Za-z0-9/+]{40}'
+  # GitHub — classic ghp_/gho_/ghs_/ghu_ + refresh ghr_ (v2.22.0)
+  'gh[oprsu]_[A-Za-z0-9_]{36,}'
+  # GitHub fine-grained PAT (v2.22.0) — github_pat_<...>, 60+ tail
+  'github_pat_[A-Za-z0-9_]{60,}'
   # Generic key/secret/token — anchor on <keyword><:|=><16+ char value>
-  '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+.-]{16,}'
+  '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+.-]{16,}'
   # v2.10.9: require a token-length value ({20,}) so conversational "Bearer
   # authentication" / "Bearer token" don't false-positive (real bearer tokens are
   # long). Matters most for the prompt channel (prompt-secret-guard).
   'Bearer [A-Za-z0-9._-]{20,}'
   # Private keys
   'BEGIN.{0,10}PRIVATE KEY'
-  # URLs with embedded credentials
-  '://[^:@/\s]+:[^@/\s]+@'
+  # URLs with embedded credentials. v2.22.0: use [[:space:]], not \s — inside a
+  # bracket \s is the literal chars \ and s (POSIX/BSD/GNU alike), which excluded
+  # the letter 's' from userinfo, so `postgres://user:pass@` (any 's' in the
+  # creds) evaded detection entirely.
+  '://[^:@/[:space:]]+:[^@/[:space:]]+@'
   # Stripe
   'sk_live_[0-9a-zA-Z]{24}'
   'rk_live_[0-9a-zA-Z]{24}'
@@ -36,14 +43,18 @@ SECRET_PATTERNS=(
   'npm_[A-Za-z0-9]{36}'
   # JWTs
   'eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}'
-  # OpenAI
+  # OpenAI — legacy sk-<alnum> + modern hyphenated project/service/admin keys
+  # (v2.22.0: the {20,} run broke on the hyphen after sk-proj-/sk-svcacct-).
   'sk-[A-Za-z0-9]{20,}'
-  # Slack
-  'xox[baprs]-[0-9A-Za-z-]{10,}'
+  'sk-(proj|svcacct|admin)-[A-Za-z0-9_-]{20,}'
+  # Anthropic API keys (v2.22.0) — sk-ant-...
+  'sk-ant-[A-Za-z0-9_-]{20,}'
+  # Slack — bot/user/legacy xox* + app-level xapp- (v2.22.0)
+  'x(ox[baprs]|app)-[0-9A-Za-z-]{10,}'
   # HuggingFace
   'hf_[A-Za-z0-9]{30,}'
   # GCP service account JSON
-  '"private_key":\s*"-----BEGIN'
+  '"private_key":[[:space:]]*"-----BEGIN'
   # GCP API key (Maps, Firebase, Translate, YouTube)
   'AIza[0-9A-Za-z_-]{35}'
   # Azure storage
