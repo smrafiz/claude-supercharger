@@ -142,7 +142,11 @@ while IFS= read -r seg; do
     # Previously this bare-name check was main|master only, so a `--force`/`-f`
     # push to production/prod/release slipped through (de-forced, but the parity
     # gap meant the deliberate-block intent didn't fire).
-    if [[ "$seg" =~ (^|[[:space:]])(main|master|production|prod|release)([[:space:]]|$) ]]; then
+    # 2.22.3: also treat a `:`-prefixed target as protected — `git push --force
+    # origin HEAD:main` put `main` after a colon, so the space-anchored check
+    # missed it and the (single-command-only) de-force rewrite let the compound
+    # `git fetch && git push --force origin HEAD:main` through unmodified.
+    if [[ "$seg" =~ (^|[[:space:]]|:)(main|master|production|prod|release)([[:space:]]|$) ]]; then
       has_protected=true
     fi
 

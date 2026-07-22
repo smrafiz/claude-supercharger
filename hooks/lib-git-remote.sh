@@ -129,6 +129,32 @@ for inv in invs:
 
 known = dict(name_host); known.update(local_added)
 
+# 2.22.3: inline `git -c url.<REPLACEMENT>.insteadOf=<MATCH>` (and pushInsteadOf)
+# rewrites the push URL at transport time, so a push to a trusted `origin` is
+# silently redirected to <REPLACEMENT>'s host — a whole-repo exfil that the
+# remote-name check can't see (the -c value is skipped by GLOBAL_VAL). Inspect
+# the -c config here: if a push exists and an inline insteadOf points at a
+# foreign host, ASK on that host.
+import re as _re
+_instead_hosts = []
+for inv in invs:
+    k = 1
+    while k < len(inv):
+        t = inv[k]
+        if t in ('-c', '--config-env') and k + 1 < len(inv):
+            m = _re.match(r'url\.(.+)\.(insteadOf|pushInsteadOf)=', inv[k + 1])
+            if m:
+                h = host_of(m.group(1))
+                if h:
+                    _instead_hosts.append(h)
+            k += 2; continue
+        k += 1
+if _instead_hosts and any(subcommand_and_args(iv)[0] == 'push' for iv in invs):
+    for _h in _instead_hosts:
+        if origin_host is None or _h != origin_host:
+            print(f"ASK\t{_h}\tGit inline config (-c url.*.insteadOf) rewrites the push URL to host '{_h}' at transport time — this silently redirects even a push to 'origin' to a different host (whole-repo exfil). Confirm '{_h}' is trusted.")
+            raise SystemExit(0)
+
 for inv in invs:
     sub, args = subcommand_and_args(inv)
 
