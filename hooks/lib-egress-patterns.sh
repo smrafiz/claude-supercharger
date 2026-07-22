@@ -13,14 +13,21 @@
 # Cloud instance-metadata (credential-theft SSRF). Dotted-quad + decimal + hex +
 # IPv6 encodings of 169.254.169.254, plus the ECS/GCP/Azure metadata path tokens
 # (which catch the realistic GET forms regardless of how the host is written).
-EGRESS_METADATA_RE='169\.254\.169\.254|2852039166|0xa9fea9fe|\[?fd00:ec2::254\]?|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computemetadata/v1|/metadata/instance'
+# v2.22.5: added Alibaba IMDS (100.100.100.200), the IPv6 hextet spelling of
+# 169.254.169.254 (a9fe:a9fe), and octal/hex-dotted + octal-dword encodings that
+# curl/libcurl/browsers resolve to the IMDS v4 address. (Guards percent-decode
+# the blob first — 2.22.5 — so encoded path tokens like /latest/%6d… are caught.)
+EGRESS_METADATA_RE='169\.254\.169\.254|2852039166|0xa9fea9fe|a9fe:a9fe|100\.100\.100\.200|025177724776|0251\.0376\.0251\.0376|0xa9\.0xfe\.0xa9\.0xfe|\[?fd00:ec2::254\]?|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computemetadata/v1|/metadata/instance'
 
 # Chat webhooks (exfil channels). Discord supports a versioned path
 # (/api/v10/webhooks/…) as well as the bare /api/webhooks/… form.
-EGRESS_WEBHOOK_RE='discord(app)?\.com/api/(v[0-9]+/)?webhooks|hooks\.slack\.com/services|outlook\.office\.com/webhook|webhook\.office\.com'
+# v2.22.5: Slack Workflow-Builder inbound webhooks use /triggers/ and /workflows/
+# (not just /services); plus Telegram Bot API and webhook.site/requestbin/pipedream
+# — all one-request exfil channels.
+EGRESS_WEBHOOK_RE='discord(app)?\.com/api/(v[0-9]+/)?webhooks|hooks\.slack\.com/(services|triggers|workflows)|outlook\.office\.com/webhook|webhook\.office\.com|api\.telegram\.org/bot[0-9]|webhook\.site|requestbin\.|\.pipedream\.net'
 
 # Paste / anonymous-transfer sites (exfil endpoints).
-EGRESS_PASTE_RE='\b(pastebin\.com|paste\.rs|hastebin\.com|dpaste\.|ix\.io|0x0\.st|transfer\.sh|file\.io|termbin\.com|gofile\.io|anonfiles)'
+EGRESS_PASTE_RE='\b(pastebin\.com|paste\.rs|paste\.ee|hastebin\.com|dpaste\.|ix\.io|0x0\.st|transfer\.sh|file\.io|termbin\.com|gofile\.io|anonfiles|catbox\.moe|rentry\.co|controlc\.com|bashupload\.com|tmpfiles\.org)'
 
 # Private-network / loopback (SSRF into internal services) — advisory WARN. Allows
 # an optional userinfo (user@host) prefix so `http://user@10.0.0.5/…` is still caught.
