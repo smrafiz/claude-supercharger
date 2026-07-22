@@ -92,28 +92,29 @@ if 'path-traversal' not in disabled:
               'opt out via disableSecurityCategories: ["path-traversal"]')
         sys.exit(0)
 
-# --- 3.2 Symlink: resolve and check under project root ---
+# --- 3.2 Symlink: resolve the FULL realpath and block symlink-redirected writes ---
+# v2.22.1: resolve the BASENAME too. Previously the absolute branch joined the
+# basename literally, so an in-repo symlinked file (`innocent.json -> ~/.ssh/…`)
+# escaped, and a dir-alias (`g -> .git`) reached git internals while the lexical
+# string matcher saw no `.git`. We only act when realpath actually differs from
+# the lexical path (a symlink was followed) — plain absolute-outside paths keep
+# deferring to abs-path (with its safe-list + memory-store allowance); `..` paths
+# already exited in the path-traversal category above.
 if 'symlink' not in disabled and proj:
     try:
         proj_real = os.path.realpath(proj)
-        # Use the directory of the target if file doesn't exist yet
-        target_dir = os.path.dirname(p) if not os.path.exists(p) else p
-        target_real = os.path.realpath(target_dir) if target_dir else proj_real
-        if os.path.isabs(p):
-            tail = os.path.basename(p) if not os.path.exists(p) else ''
-            full = os.path.join(target_real, tail) if tail else target_real
-        else:
-            full = os.path.realpath(os.path.join(proj_real, p))
-        if not (full == proj_real or full.startswith(proj_real + os.sep)):
-            # v2.7.41: a RELATIVE path whose realpath escapes the project root via
-            # an in-repo SYMLINK (repo ships `escape -> /etc`, agent writes
-            # `escape/x`). Previously fell through unblocked (abs-path only checks
-            # os.path.isabs). Restricted to the symlink case — a `..` in the path
-            # is the path-traversal category's job (separately disableable), and
-            # absolute paths defer to abs-path (it has a safe-list).
-            if not os.path.isabs(p) and '..' not in p.replace('\\', '/').split('/'):
-                print('relative path resolves outside the project root ('
-                      + full + ') — via an in-repo symlink, out-of-project write; '
+        cand = p if os.path.isabs(p) else os.path.join(proj_real, p)
+        full = os.path.realpath(cand)
+        lexical = os.path.normpath(cand)
+        if full != lexical:  # a symlink changed the resolution
+            if re.search(r'(^|/)\.git/(hooks|refs|objects|config)(/|$)', full):
+                print('write resolves via a symlink into git internals ('
+                      + full[:120] + ') — repo integrity risk; '
+                      'opt out via disableSecurityCategories: ["symlink"]')
+                sys.exit(0)
+            if not (full == proj_real or full.startswith(proj_real + os.sep)):
+                print('path resolves outside the project root via a symlink ('
+                      + full[:120] + ') — out-of-project write; '
                       'opt out via disableSecurityCategories: ["symlink"]')
                 sys.exit(0)
     except Exception:
@@ -129,7 +130,10 @@ if 'git-internals' not in disabled:
         r'(^|/)\.git/config\b',
     ]
     for pat in git_patterns:
-        if re.search(pat, p):
+        # v2.22.1: IGNORECASE — a case-insensitive FS (macOS APFS default) resolves
+        # `.GIT/config` / `.Git/hooks/` to the real `.git`, but the case-sensitive
+        # regex missed them (proven: `.GIT/config` clobbered the real `.git/config`).
+        if re.search(pat, p, re.IGNORECASE):
             print('write to git internals (' + pat + ') — repo integrity risk; opt out via disableSecurityCategories: ["git-internals"]')
             sys.exit(0)
     home = os.path.expanduser('~')
@@ -167,9 +171,13 @@ if 'selfmod' not in disabled:
     # top-level write (file_path ".supercharger.json" / ".mcp.json" /
     # ".claude/settings.json") bypassed selfmod entirely — the exact guardrail
     # this defends. basename covers the single-file configs at any location.
+    # v2.22.1: case-fold — on a case-insensitive FS `.SUPERCHARGER.json` /
+    # `.CLAUDE/settings.json` resolve to the real guardrail config but the
+    # case-sensitive checks missed them (proven bypass → could disable every
+    # security category via `.SUPERCHARGER.json`).
     _norm = p.replace('\\', '/')
-    if (os.path.basename(p) in ('.supercharger.json', '.mcp.json')
-            or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', _norm)):
+    if (os.path.basename(p).lower() in ('.supercharger.json', '.mcp.json')
+            or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', _norm, re.IGNORECASE)):
         print('self-modification — agent should not edit project guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
 
@@ -223,7 +231,7 @@ if 'build-artifacts' not in disabled:
         r'(^|/)\.output/',
     ]
     for pat in artifact_patterns:
-        if re.search(pat, p):
+        if re.search(pat, p, re.IGNORECASE):  # v2.22.1: case-insensitive FS (.NEXT/, NODE_MODULES/.BIN)
             print('write to build artifact dir (' + pat + ') — dependency trojaning risk; opt out via disableSecurityCategories: ["build-artifacts"]')
             sys.exit(0)
 PYEOF
