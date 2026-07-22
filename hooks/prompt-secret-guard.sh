@@ -37,8 +37,14 @@ fi
 [ -z "$PROMPT" ] && exit 0
 
 # shellcheck source=hooks/lib-secret-patterns.sh
-. "$HOOKS_DIR/lib-secret-patterns.sh"
-COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+# 2.21.5: fail OPEN if the pattern lib can't be sourced or yields no patterns.
+# Without this, a broken/missing lib left COMBINED_PATTERN empty (SECRET_PATTERNS
+# unset under set -u empties the subshell), and `grep -qE ""` matches EVERY
+# prompt → exit 2 blocked every prompt — the opposite of this guard's documented
+# fail-open contract. Never block a prompt just because the lib is unavailable.
+. "$HOOKS_DIR/lib-secret-patterns.sh" 2>/dev/null || exit 0
+COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]:-}")
+[ -z "$COMBINED_PATTERN" ] && exit 0
 
 if printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is intentional (e.g. a revoked or test value), resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
