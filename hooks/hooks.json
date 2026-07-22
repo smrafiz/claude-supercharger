@@ -90,7 +90,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-playwright-guard.sh"
           }
         ],
-        "matcher": "mcp__playwright__,mcp__puppeteer__"
+        "matcher": "mcp__playwright__,mcp__puppeteer__,mcp__browserbase__,mcp__browser-use__,mcp__browsermcp__,mcp__chrome-devtools__,mcp__stagehand__"
       },
       {
         "hooks": [
