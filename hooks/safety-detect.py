@@ -65,6 +65,11 @@ _WRAPPER_SHELLOUT = [
     r"\b(?:exec|spawn|execFile)(?:Sync)?\s*\(",
     r"\bos\.system\b",
     r"\bos\.popen\b",
+    # v2.22.8: catch aliased / indirect os shellout — `import os as o; o.system(`,
+    # `__import__('os').system(`, `getattr(os,'system')(`. The `\bos\.system\b`
+    # and the bare-`system(` patterns missed a dot-prefixed alias.
+    r"\.(?:system|popen)\s*\(",
+    r"getattr\s*\([^)]*['\"](?:system|popen|call|run|Popen|check_output)['\"]",
     r"\bsubprocess\.(?:Popen|run|call|check_output|check_call|getoutput)\b",
     r"\bDeno\.(?:run|Command)\b",
     r"(?:^|[^\w.])system\s*\(",
