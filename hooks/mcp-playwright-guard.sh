@@ -26,7 +26,8 @@ check_hook_disabled "mcp-playwright-guard" && exit 0
 
 TOOL=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 case "$TOOL" in
-  mcp__playwright__*|mcp__puppeteer__*) ;;
+  # 2.22.13: cover other browser-automation MCPs with the same SSRF/eval surface.
+  mcp__playwright__*|mcp__puppeteer__*|mcp__browserbase__*|mcp__browser-use__*|mcp__browsermcp__*|mcp__chrome-devtools__*|mcp__stagehand__*) ;;
   *) exit 0 ;;
 esac
 
@@ -50,14 +51,16 @@ deny() {
 # the plain `browser_run_code` tool — the exact #1495 RCE this hook documents.
 # The broader glob still catches the `_unsafe` variant (it contains the prefix).
 case "$TOOL" in
-  *browser_run_code*|*puppeteer_evaluate*|*evaluate_handle*)
+  # 2.22.13: broadened for other browser MCPs (browserbase/browser-use/
+  # chrome-devtools/stagehand) whose eval/navigate tools use different names.
+  *run_code*|*evaluate*|*_eval*|*execute_script*|*execute_javascript*|*run_js*)
     deny "$TOOL blocked — arbitrary in-browser JS eval (CVE-2025-9611 / GH #1495 class)"
     ;;
 esac
 
 # Navigation — block SSRF / internal / file:// targets
 case "$TOOL" in
-  *browser_navigate*|*puppeteer_navigate*|*goto*)
+  *navigate*|*goto*|*open_url*|*load_url*|*_open*url*)
     URL=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.url // empty' 2>/dev/null || true)
     if [ -n "$URL" ]; then
       URL_LC=$(printf '%s' "$URL" | tr '[:upper:]' '[:lower:]')

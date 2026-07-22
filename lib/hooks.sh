@@ -51,7 +51,7 @@ get_hooks_for_mode() {
   # playwright guard → CVE-2025-9611 + GH #1495 / #1651;
   # sql guard → Supabase 2025 service-role injection.
   hooks+=("PreToolUse|mcp__github__|${hooks_dir}/mcp-github-write-gate.sh|")
-  hooks+=("PreToolUse|mcp__playwright__,mcp__puppeteer__|${hooks_dir}/mcp-playwright-guard.sh|")
+  hooks+=("PreToolUse|mcp__playwright__,mcp__puppeteer__,mcp__browserbase__,mcp__browser-use__,mcp__browsermcp__,mcp__chrome-devtools__,mcp__stagehand__|${hooks_dir}/mcp-playwright-guard.sh|")
   hooks+=("PreToolUse|mcp__postgres__,mcp__supabase__,mcp__mysql__,mcp__sqlite__,mcp__neon__,mcp__mssql__,mcp__sqlserver__,mcp__mariadb__,mcp__bigquery__,mcp__snowflake__,mcp__clickhouse__,mcp__planetscale__,mcp__cockroach__,mcp__cockroachdb__,mcp__redshift__,mcp__oracle__,mcp__duckdb__,mcp__motherduck__,mcp__turso__,mcp__libsql__,mcp__timescale__,mcp__singlestore__|${hooks_dir}/mcp-sql-guard.sh|")
   # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
