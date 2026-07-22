@@ -19,19 +19,20 @@ _INPUT=$(cat)
 # the perf-sweep @tsv consolidation dropped (CC 2.1.176+ may send CWD only in
 # workspace.current_dir; without it, empty PROJECT_DIR → wrong suppress scope).
 FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "", .tool_name // "", .tool_input.command // "", .tool_input.file_path // "", .session_id // "default"] | @tsv' 2>/dev/null || true)
-# v2.7.44 perf: split the jq @tsv line ONCE with a bash read (IFS=tab) instead of
-# 4 separate awk forks. This hook fires on every Bash AND Read (hottest hook).
-IFS=$'\t' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH _ <<EOF_FIELDS
-$FIELDS
+# v2.7.44 perf: split the jq @tsv line ONCE with a bash read instead of 4 awk
+# forks. This hook fires on every Bash AND Read (hottest hook).
+# 2.21.14: convert the tab delimiters to unit-separator (\037) BEFORE read.
+# `read` with IFS=tab COLLAPSES empty columns (tab is IFS-whitespace) — so for a
+# Read tool (empty command column) it shifted file_path→F_CMD and
+# session_id→F_FPATH, and the Read fingerprint below keyed on the SESSION ID,
+# making any 3 reads look like a loop (the bogus `[LOOP] 'Read:<sid>'`). \037 is
+# non-whitespace so empty columns survive; @tsv already escaped any literal
+# tab/newline in the values, so this is lossless. session_id (field 5) now
+# reads correctly, so no separate awk extraction is needed.
+IFS=$'\037' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH SID_RAW <<EOF_FIELDS
+$(printf '%s' "$FIELDS" | tr '\t' '\037')
 EOF_FIELDS
-# 2.21.12: session-scope the loop history + flag so one session's fingerprints
-# don't mix into another's tail-20 window (which caused cross-session false-loop
-# warnings). session_id can't be taken from the `read` above — with IFS=tab
-# (tab is IFS-whitespace) an empty file_path field collapses and shifts the
-# columns — so extract field 5 with awk (no field collapse), the same approach
-# the old per-flag code used, now done once and reused for both files below.
-SID=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $5}')
-SID="${SID//[^a-zA-Z0-9_-]/}"; SID="${SID:0:64}"; [ -z "$SID" ] && SID="default"
+SID="${SID_RAW//[^a-zA-Z0-9_-]/}"; SID="${SID:0:64}"; [ -z "$SID" ] && SID="default"
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "repetition-detector" && exit 0
