@@ -53,7 +53,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/memory-write-guard.sh"
           }
         ],
-        "matcher": "Write,Edit"
+        "matcher": "Write,Edit,MultiEdit"
       },
       {
         "hooks": [
@@ -72,7 +72,7 @@
             "asyncRewake": true
           }
         ],
-        "matcher": "Write,Edit,NotebookEdit"
+        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
       },
       {
         "hooks": [

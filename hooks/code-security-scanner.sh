@@ -36,6 +36,8 @@ except Exception:
 ti = data.get('tool_input') or {}
 # v2.9.3: NotebookEdit uses new_source (cell code) + notebook_path — cover it too.
 content = ti.get('content') or ti.get('new_string') or ti.get('new_source') or ''
+if not content and isinstance(ti.get('edits'), list):  # v2.22.6: MultiEdit edits[]
+    content = '\n'.join(str(e.get('new_string', '')) for e in ti['edits'] if isinstance(e, dict))
 tool_name = data.get('tool_name') or ''
 file_path = ti.get('file_path') or ti.get('notebook_path') or ''
 

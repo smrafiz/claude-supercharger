@@ -48,8 +48,12 @@ is_memory = (
 if not is_memory:
     sys.exit(0)
 
-# Content being written: Write uses .content; Edit uses .new_string.
+# Content being written: Write uses .content; Edit uses .new_string; MultiEdit
+# uses .edits[].new_string (v2.22.6 — MultiEdit was not scanned, a memory-poison
+# bypass since memory is auto-loaded every session).
 content = ti.get('content') or ti.get('new_string') or ''
+if not content and isinstance(ti.get('edits'), list):
+    content = '\n'.join(str(e.get('new_string', '')) for e in ti['edits'] if isinstance(e, dict))
 if not content:
     sys.exit(0)
 

@@ -35,9 +35,9 @@ get_hooks_for_mode() {
   # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.
-  hooks+=("PreToolUse|Write,Edit|${hooks_dir}/memory-write-guard.sh|")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|")
   hooks+=("PreToolUse|Bash|${hooks_dir}/tool-preferences.sh|")
-  hooks+=("PreToolUse|Write,Edit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit,NotebookEdit|${hooks_dir}/audit-trail.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
