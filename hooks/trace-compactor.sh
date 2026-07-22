@@ -22,7 +22,7 @@ fi
 # Skip python startup cost for short outputs
 [ "${#OUTPUT}" -lt 2000 ] && exit 0
 
-TC_OUTPUT="$OUTPUT" TC_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF'
+TC_OUTPUT="$OUTPUT" TC_SUPPRESS="$HOOK_SUPPRESS" TC_GENERIC="${SUPERCHARGER_TRACE_COMPACT_GENERIC:-}" python3 <<'PYEOF'
 import os, json, re
 
 output = os.environ.get('TC_OUTPUT', '')
@@ -82,26 +82,38 @@ elif re.search(r'\bat (?:Object\.|async |new |Module\.)', output):
         error_msg = error_msg[:117] + '...'
     summary = f'[NODE STACK COMPACTED: {error_msg} | top frames: {top_frames}]'
 
-# --- Generic large output truncation ---
+# --- Generic large output (opt-in only) ---
 else:
-    first = output[:2000]
-    last = output[-500:]
-    omitted = original_len - 2500
-    summary = first + f'\n[... {omitted} chars omitted ...]\n' + last
+    # 2.21.11: do NOT silently rewrite arbitrary large output by default. This
+    # hook's scope is Python/Node tracebacks (see header); the old unconditional
+    # else-branch truncated ANY >=2000-char output to first-2000 + last-500 and
+    # substituted it via updatedToolOutput, so Claude saw a `cat bigfile` / long
+    # log with its MIDDLE silently removed and acted on it as if complete.
+    # bash-output-compactor handles the specific verbose commands worth
+    # compacting; general truncation is now opt-in via
+    # SUPERCHARGER_TRACE_COMPACT_GENERIC=1.
+    if os.environ.get('TC_GENERIC'):
+        first = output[:2000]
+        last = output[-500:]
+        omitted = original_len - 2500
+        summary = first + f'\n[... {omitted} chars omitted ...]\n' + last
+    else:
+        summary = None
 
-new_len = len(summary)
-# v2.6.2: replace Claude's view of the tool output with the compacted summary
-# via hookSpecificOutput.updatedToolOutput. Previously this hook emitted a
-# systemMessage which added the summary AS WELL as Claude seeing the full
-# traceback — defeating the purpose. updatedToolOutput cleanly substitutes.
-print(json.dumps({
-    'hookSpecificOutput': {
-        'hookEventName': 'PostToolUse',
-        'updatedToolOutput': summary,
-    }
-}))
-import sys
-sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
+if summary is not None:
+    new_len = len(summary)
+    # v2.6.2: replace Claude's view of the tool output with the compacted summary
+    # via hookSpecificOutput.updatedToolOutput. Previously this hook emitted a
+    # systemMessage which added the summary AS WELL as Claude seeing the full
+    # traceback — defeating the purpose. updatedToolOutput cleanly substitutes.
+    print(json.dumps({
+        'hookSpecificOutput': {
+            'hookEventName': 'PostToolUse',
+            'updatedToolOutput': summary,
+        }
+    }))
+    import sys
+    sys.stderr.write(f'[Supercharger] trace-compactor: compacted {original_len} → {new_len} chars\n')
 PYEOF
 
 exit 0
