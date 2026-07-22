@@ -112,6 +112,14 @@ smart_approve_verdict() {
         /*) abs_path="$file_path" ;;
         *)  abs_path="${project_dir}/${file_path}" ;;
       esac
+      # v2.21: reject path traversal. abs_path is string-concatenated, NOT
+      # normalized, so a relative `../../../../etc/crontab` yields
+      # `$project_dir/../../../../etc/crontab`, which still glob-matches
+      # `$project_dir/*` below and would auto-approve an out-of-project write.
+      # Refuse any `..` path component before the in-project prefix test.
+      case "$abs_path" in
+        *"/../"*|*"/..") return 1 ;;
+      esac
       case "$abs_path" in
         "${project_dir}"/*) return 0 ;;
       esac
@@ -140,6 +148,16 @@ smart_approve_verdict() {
     # (${VAR} plain expansion is fine — only $(...) and backticks are gated.)
     case "$command" in
       *'$('*|*'`'*) return 1 ;;
+    esac
+
+    # v2.21: never auto-approve a compound command or one using redirection.
+    # The allow-list below matches only the LEADING token, so a chained
+    # `grep x . && rm -rf ~`, `cat f > ~/.bashrc`, or `ls | xargs rm` would
+    # otherwise be auto-approved on the strength of its first read-only word.
+    # Any control operator (; & | ), redirection (< >) or newline defers to the
+    # user's manual confirmation — a genuinely read-only command needs none.
+    case "$command" in
+      *';'*|*'&'*|*'|'*|*'<'*|*'>'*|*$'\n'*) return 1 ;;
     esac
 
     # --help / --version
