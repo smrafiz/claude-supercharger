@@ -16,9 +16,9 @@ _INPUT=$(cat)
 # 2.22.11: also read PowerShell's field. safety.sh matches Bash AND PowerShell,
 # but the PowerShell tool may carry the body in .script/.code rather than
 # .command — without this the body would be empty and every check skipped.
-COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // .tool_input.code // empty' 2>/dev/null || true)
+COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // .tool_input.code // .tool_input.cmd // empty' 2>/dev/null || true)
 if [ -z "$COMMAND" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; ti=json.load(sys.stdin).get('tool_input',{}); print(ti.get('command') or ti.get('script') or ti.get('code') or '')" 2>/dev/null || echo "")
+  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; ti=json.load(sys.stdin).get('tool_input',{}); print(ti.get('command') or ti.get('script') or ti.get('code') or ti.get('cmd') or '')" 2>/dev/null || echo "")
 fi
 
 if [ -z "$COMMAND" ]; then
