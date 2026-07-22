@@ -75,18 +75,21 @@ case "$TOOL" in
       AUTH=${HOST%%/*}
       AUTH=${AUTH#*@}
       case "$URL_LC" in
-        file://*)
-          deny "navigate to file:// blocked (local file disclosure, GH #1651)"
+        file:*)   # 2.22.5: any file scheme (single-slash `file:/etc/passwd` normalizes to file:///)
+          deny "navigate to file: blocked (local file disclosure, GH #1651)"
           ;;
       esac
       case "$AUTH" in
-        localhost*|127.*|0.0.0.0*|\[::1\]*|\[::ffff:127.*)
+        # 2.22.5: also numeric loopback (2130706433=127.0.0.1, bare 0=0.0.0.0),
+        # the unspecified [::], and the fully-expanded IPv6 loopback.
+        localhost*|127.*|0.0.0.0*|0|0:*|2130706433*|\[::1\]*|\[::\]*|\[0:0:0:0:0:0:0:1\]*|\[::ffff:127.*)
           deny "navigate to localhost blocked (SSRF to local services)"
           ;;
         10.*|192.168.*|172.1[6-9].*|172.2[0-9].*|172.3[01].*)
           deny "navigate to RFC1918 private network blocked (SSRF)"
           ;;
-        169.254.*|*metadata.google.internal*|*169.254.169.254*)
+        # 2.22.5: numeric/encoded IMDS (decimal/hex dword, Alibaba, IPv6 hextet)
+        169.254.*|*metadata.google.internal*|*169.254.169.254*|*2852039166*|*0xa9fea9fe*|*a9fe:a9fe*|100.100.100.200*)
           deny "navigate to cloud metadata endpoint blocked (credential exfil)"
           ;;
       esac

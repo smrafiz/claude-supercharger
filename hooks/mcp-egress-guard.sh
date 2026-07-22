@@ -22,7 +22,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)
 
 OUT=$(printf '%s\n' "$_INPUT" | PYTHONUTF8=1 python3 -c "
-import os, sys, json, re
+import os, sys, json, re, urllib.parse
 
 try:
     d = json.load(sys.stdin)
@@ -47,7 +47,11 @@ walk(ti)
 blob = ' '.join(parts)
 if not blob:
     sys.exit(0)
-low = blob.lower()
+# v2.22.5: percent-decode before matching (see webfetch-egress-guard) — 2 rounds.
+_dec = blob
+for _ in range(2):
+    _dec = urllib.parse.unquote(_dec)
+low = _dec.lower()
 
 # Shared patterns (lib-egress-patterns.sh, inherited via env) — same source as
 # webfetch-egress-guard, so the two can't drift. Empty (lib not sourced) → inert.

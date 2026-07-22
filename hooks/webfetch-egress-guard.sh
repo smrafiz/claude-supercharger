@@ -21,7 +21,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)
 
 OUT=$(printf '%s\n' "$_INPUT" | PYTHONUTF8=1 python3 -c "
-import os, sys, json, re
+import os, sys, json, re, urllib.parse
 
 try:
     d = json.load(sys.stdin)
@@ -41,7 +41,13 @@ ti = d.get('tool_input') or {}
 blob = str(ti.get('url') or '') if (tool == 'WebFetch' and isinstance(ti, dict)) else ''
 if not blob:
     sys.exit(0)
-low = blob.lower()
+# v2.22.5: percent-decode before matching — the tool decodes %XX before the
+# request, so `%31%36%39.254…` / `/latest/%6d%65%74%61-data/` defeated every
+# host/path token. Two rounds catches double-encoding.
+_dec = blob
+for _ in range(2):
+    _dec = urllib.parse.unquote(_dec)
+low = _dec.lower()
 
 # Shared patterns (lib-egress-patterns.sh, inherited via env) — same source as
 # mcp-egress-guard, so the two can't drift. Empty (lib not sourced) → inert, not
