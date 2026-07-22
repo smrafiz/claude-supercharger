@@ -108,7 +108,9 @@ reason = (
 )
 print(reason)
 PYEOF
-)
+) || RESULT=""
+# ^ 2.21.1: fail open, never phantom-deny (2.17.3 class). 2>/dev/null hides
+# stderr but the non-zero exit still trips set -e without this guard.
 
 if [ -n "$RESULT" ]; then
   RSN=$(printf '%s' "$RESULT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$RESULT")

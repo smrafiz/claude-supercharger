@@ -25,7 +25,7 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 # v2.6.36: PROJECT_DIR stays as the actual CWD (used as boundary for symlink/
 # abs-path checks — writes within the linked worktree must be allowed).
 # CONFIG_ROOT is the worktree-aware location for .supercharger.json.
-CONFIG_ROOT=$(_resolve_project_root "$PROJECT_DIR")
+CONFIG_ROOT=$(_resolve_project_root "$PROJECT_DIR" 2>/dev/null) || CONFIG_ROOT="$PROJECT_DIR"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "path-guard" && exit 0
 hook_profile_skip "path-guard" && exit 0
@@ -227,7 +227,11 @@ if 'build-artifacts' not in disabled:
             print('write to build artifact dir (' + pat + ') — dependency trojaning risk; opt out via disableSecurityCategories: ["build-artifacts"]')
             sys.exit(0)
 PYEOF
-)
+) || REASON=""
+# ^ 2.21.1: fail open, never phantom-deny. Under set -e an unguarded
+# VAR=$(python3 …) that exits non-zero (python absent / crash) aborts the hook
+# with empty stderr → CC renders a bogus "No stderr output" deny on EVERY
+# Write/Edit. Same regression class as the 2.17.3 safety.sh fix.
 
 if [ -n "$REASON" ]; then
   RSN=$(printf '%s' "$REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")

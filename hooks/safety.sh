@@ -62,7 +62,10 @@ if [ -f "$_SAFETY_TRACE" ] && [ "$(wc -l < "$_SAFETY_TRACE" 2>/dev/null || echo 
 fi
 
 source "${BASH_SOURCE[0]%/*}/cmd-normalize.sh"
-CMD=$(normalize_cmd "$COMMAND")
+# Hardened (2.21.1): same phantom-deny guard as SEGMENTS below — a non-zero from
+# the sourced normalizer under set -e would exit with empty stderr, which CC
+# renders as a bogus "No stderr output" deny. Fall back to the raw command.
+CMD=$(normalize_cmd "$COMMAND" 2>/dev/null) || CMD="$COMMAND"
 
 # Per-segment view for ^-anchored checks (rm, mv) — protects against
 # compound bypass like `safe && rm -rf /`. Falls back to CMD if split fails.
