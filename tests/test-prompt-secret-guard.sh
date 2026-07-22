@@ -53,4 +53,12 @@ begin_test "prompt-secret-guard: malformed JSON exits cleanly"
 printf 'not json {' | bash "$H" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "malformed input did not exit 0"
 
+# ---- 2.21.5: fail OPEN when the pattern lib is unavailable (not fail-closed) ----
+begin_test "prompt-secret-guard: missing pattern lib → fails OPEN (exit 0), never blocks every prompt"
+TMPH=$(mktemp -d)
+cp "$H" "$TMPH/prompt-secret-guard.sh"   # copy hook WITHOUT its lib-secret-patterns.sh sibling
+printf '{"prompt":"hello world","session_id":"t"}' | bash "$TMPH/prompt-secret-guard.sh" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "missing lib blocked the prompt (fail-closed regression)"
+rm -rf "$TMPH"
+
 report
