@@ -140,4 +140,15 @@ begin_test "update: SHA mismatch still fails closed (integrity retained)"
 if grep -q 'does not match expected' "$TOOL"; then pass
 else fail "mismatch abort removed — a wrong clone would be installed silently"; fi
 
+# v2.21.9: install.sh defaults the MCP profile to "light" and unconditionally
+# overwrites scope/.mcp-profile, so update.sh must DETECT the current profile and
+# re-pass --mcp-profile, or every update silently resets dev/research/full to light.
+begin_test "update: both install invocations pass --mcp-profile"
+if [ "$(grep -c -- '--mcp-profile' "$TOOL")" -ge 2 ]; then pass
+else fail "an install.sh invocation in update.sh omits --mcp-profile (mcp-profile reset on update)"; fi
+
+begin_test "update: detects the current profile from scope/.mcp-profile"
+if grep -q 'scope/.mcp-profile' "$TOOL" && grep -q 'DETECTED_MCP_PROFILE' "$TOOL"; then pass
+else fail "update.sh does not read the existing .mcp-profile before re-installing"; fi
+
 report
