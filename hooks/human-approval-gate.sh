@@ -135,11 +135,22 @@ if ! printf ',%s,' "$SKIP_CATS" | grep -q ',sql,'; then
   fi
 fi
 
+# Migration reset — prisma/drizzle. v2.22.4: these are named in the default-enable
+# list (line ~102) but had NO precise matcher, so the gate turned ON and then
+# every category missed → the flagship "unrecoverable" commands were never
+# actually blocked. Unanchored so a leading prefix can't dodge it.
+if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',migration,'; then
+  if printf '%s\n' "$CMD_NORM" | grep -qE '(prisma[[:space:]]+migrate[[:space:]]+reset|prisma[[:space:]]+db[[:space:]]+push[[:space:]][^&|;]*--force-reset|drizzle-kit[[:space:]]+push[[:space:]][^&|;]*--force)'; then
+    MATCH_REASON="destructive database migration reset"
+    MATCH_CAT="migration"
+  fi
+fi
+
 # Git — reset --hard, branch -D, tag -d, reflog delete
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',git,'; then
   # Git flags are case-sensitive (-d safe vs -D force); match against original
   # COMMAND not lowercased CMD_NORM.
-  if printf '%s\n' "$COMMAND" | grep -qE '^[[:space:]]*git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
+  if printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]&|;])git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
     MATCH_REASON="destructive git operation"
     MATCH_CAT="git"
   fi
@@ -147,7 +158,7 @@ fi
 
 # Infra — kubectl delete, terraform destroy, helm uninstall
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',infra,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '^(kubectl[[:space:]]+delete|terraform[[:space:]]+destroy|helm[[:space:]]+(uninstall|delete))'; then
+  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(kubectl[[:space:]]+delete|terraform[[:space:]]+destroy|helm[[:space:]]+(uninstall|delete))'; then
     MATCH_REASON="infrastructure destructive operation"
     MATCH_CAT="infra"
   fi
@@ -155,7 +166,7 @@ fi
 
 # Publish — npm publish, pip upload, cargo publish, docker push to prod
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',publish,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '^(npm[[:space:]]+publish|twine[[:space:]]+upload|cargo[[:space:]]+publish|gem[[:space:]]+push)'; then
+  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(npm[[:space:]]+publish|twine[[:space:]]+upload|cargo[[:space:]]+publish|gem[[:space:]]+push)'; then
     MATCH_REASON="package registry publish"
     MATCH_CAT="publish"
   fi
@@ -171,7 +182,7 @@ fi
 
 # Docker — system prune, rm all containers, volume rm
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',docker,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '^docker[[:space:]]+(system[[:space:]]+prune|volume[[:space:]]+(rm|prune)|rm[[:space:]]+-f)'; then
+  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])docker[[:space:]]+(system[[:space:]]+prune|volume[[:space:]]+(rm|prune)|rm[[:space:]]+-f)'; then
     MATCH_REASON="Docker destructive operation"
     MATCH_CAT="docker"
   fi
@@ -179,7 +190,7 @@ fi
 
 # Disk — dd, mkfs, fdisk, parted
 if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',disk,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '^(dd[[:space:]]+if=|mkfs\.|fdisk[[:space:]]|parted[[:space:]]|diskutil[[:space:]]+(erase|format|partition))'; then
+  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(dd[[:space:]]+if=|mkfs\.|fdisk[[:space:]]|parted[[:space:]]|diskutil[[:space:]]+(erase|format|partition))'; then
     MATCH_REASON="disk operation"
     MATCH_CAT="disk"
   fi
