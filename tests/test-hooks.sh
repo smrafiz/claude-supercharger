@@ -221,6 +221,17 @@ _blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +
 begin_test "git-safety: +ref force-push to a feature branch still allowed (v2.8.8)"
 _ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin +feature-x"},"cwd":"/tmp"}' && pass || fail "non-protected +feature wrongly blocked"
 
+# v2.21.10: --force/-f path had main|master only, so --force to production/prod/
+# release slipped through while +production was blocked. Align the two paths.
+begin_test "git-safety: --force push to production is blocked (v2.21.10 parity)"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push --force origin production"},"cwd":"/tmp"}' && pass || fail "git push --force production not blocked"
+begin_test "git-safety: -f push to release is blocked (v2.21.10 parity)"
+_blk "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push -f origin release"},"cwd":"/tmp"}' && pass || fail "git push -f release not blocked"
+begin_test "git-safety: --force push to a feature branch still allowed (v2.21.10)"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push --force origin feature-x"},"cwd":"/tmp"}' && pass || fail "non-protected --force feature wrongly blocked"
+begin_test "git-safety: normal push to production still allowed (no force)"
+_ok "$GIT_HOOK" '{"tool_name":"Bash","tool_input":{"command":"git push origin production"},"cwd":"/tmp"}' && pass || fail "non-force push to production wrongly blocked"
+
 # v2.9.6: block git hook-bypass (verification bypass). --no-verify/-n (commit),
 # --no-verify (push), and `-c core.hooksPath=` inline-config override.
 begin_test "git-safety: git commit --no-verify is blocked"

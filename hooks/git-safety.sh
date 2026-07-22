@@ -137,7 +137,12 @@ while IFS= read -r seg; do
       fi
     fi
 
-    if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
+    # 2.21.10: match the SAME protected set as the leading-`+` refspec path above,
+    # so `git push --force origin production` is blocked, not just `+production`.
+    # Previously this bare-name check was main|master only, so a `--force`/`-f`
+    # push to production/prod/release slipped through (de-forced, but the parity
+    # gap meant the deliberate-block intent didn't fire).
+    if [[ "$seg" =~ (^|[[:space:]])(main|master|production|prod|release)([[:space:]]|$) ]]; then
       has_protected=true
     fi
 
