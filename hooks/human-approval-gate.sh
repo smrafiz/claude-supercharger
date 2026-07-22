@@ -193,7 +193,15 @@ mkdir -p "$SCOPE_DIR"
 
 # Hash the command for a stable pending-file name
 CMD_HASH=$(printf '%s' "$COMMAND" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null || printf '%s' "$COMMAND" | cksum | cut -d' ' -f1)
-PENDING_FILE="$SCOPE_DIR/.gate-pending-${CMD_HASH}"
+# 2.21.4: scope the pending-approval marker to THIS session. Keyed on the
+# command hash alone, a second concurrent session (or another project) running
+# the same high-risk command found session A's "already asked" marker, consumed
+# it, and was let through WITHOUT its own user ever being prompted — a silent
+# bypass of the approval gate. Suffix with the session id so each session must
+# clear its own gate.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+[ -z "$SID" ] && SID="nosession"
+PENDING_FILE="$SCOPE_DIR/.gate-pending-${SID}-${CMD_HASH}"
 
 if [ -f "$PENDING_FILE" ]; then
   # Check TTL — pending files older than 1 hour are stale (session ended without retry)
