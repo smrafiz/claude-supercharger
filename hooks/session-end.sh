@@ -50,6 +50,7 @@ rm -f \
   "$SCOPE_DIR/.keep-going-${SESSION_ID}" \
   "$SCOPE_DIR/.ctx-advisor-peak-${SESSION_ID}" \
   "$SCOPE_DIR"/.dedup-${SESSION_ID}-* \
+  "$SCOPE_DIR"/.gate-pending-${SESSION_ID}-* \
   2>/dev/null || true
 
 # Periodic global cleanup (TTL-based) — at most once per day
