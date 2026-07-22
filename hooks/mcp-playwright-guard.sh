@@ -37,7 +37,10 @@ deny() {
   echo "  Tool   : $TOOL" >&2
   echo "  Reason : $reason" >&2
   echo "" >&2
-  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  # 2.21.2: fail CLOSED on the deny path (see mcp-github-write-gate). A python
+  # failure must not abort before the deny JSON + exit 2, or the browser call
+  # would be allowed. Reason is already on stderr above.
+  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || RSN='"blocked (see stderr for detail)"'
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
 }
