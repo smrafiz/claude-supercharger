@@ -38,7 +38,12 @@ deny() {
   echo "  Reason : $reason" >&2
   echo "  Manual review required for high-impact GitHub operations." >&2
   echo "" >&2
-  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  # 2.21.2: fail CLOSED on the deny path. Under set -euo pipefail an unguarded
+  # RSN=$(python3 …) that fails would abort the function BEFORE the deny JSON and
+  # exit 2 — CC would then treat the call as non-blocking and ALLOW the
+  # destructive op. The full reason is already on stderr above; fall back to a
+  # constant so the deny + exit 2 always fire.
+  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || RSN='"blocked (see stderr for detail)"'
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
 }
