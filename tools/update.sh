@@ -264,6 +264,11 @@ except Exception:
   [ -f "$HOME/.claude/supercharger/.sound-only-notify" ] && DETECTED_NOTIFY="sound"
   DETECTED_COMMITS="off"
   [ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
+  # 2.21.9: preserve the MCP profile. install.sh defaults it to "light" and
+  # unconditionally overwrites scope/.mcp-profile, so without re-passing it every
+  # update silently reset a user's dev/research/full profile back to light.
+  DETECTED_MCP_PROFILE=$(tr -d '[:space:]' < "$HOME/.claude/supercharger/scope/.mcp-profile" 2>/dev/null || echo "")
+  [ -z "$DETECTED_MCP_PROFILE" ] && DETECTED_MCP_PROFILE="light"
 
   bash "$TMP/cs/install.sh" \
     --mode "$DETECTED_MODE" \
@@ -271,6 +276,7 @@ except Exception:
     --economy "$DETECTED_ECONOMY" \
     --notify "$DETECTED_NOTIFY" \
     --commits "$DETECTED_COMMITS" \
+    --mcp-profile "$DETECTED_MCP_PROFILE" \
     --config merge \
     --settings merge
   rm -rf "$TMP"
@@ -346,6 +352,9 @@ DETECTED_NOTIFY="on"
 [ -f "$HOME/.claude/supercharger/.sound-only-notify" ] && DETECTED_NOTIFY="sound"
 DETECTED_COMMITS="off"
 [ -f "$HOME/.claude/supercharger/.conventional-commits" ] && DETECTED_COMMITS="on"
+# 2.21.9: preserve the MCP profile across updates (see the --check path above).
+DETECTED_MCP_PROFILE=$(tr -d '[:space:]' < "$HOME/.claude/supercharger/scope/.mcp-profile" 2>/dev/null || echo "")
+[ -z "$DETECTED_MCP_PROFILE" ] && DETECTED_MCP_PROFILE="light"
 
 bash "$REPO_DIR/install.sh" \
   --mode "$DETECTED_MODE" \
@@ -353,6 +362,7 @@ bash "$REPO_DIR/install.sh" \
   --economy "$DETECTED_ECONOMY" \
   --notify "$DETECTED_NOTIFY" \
   --commits "$DETECTED_COMMITS" \
+  --mcp-profile "$DETECTED_MCP_PROFILE" \
   --config merge \
   --settings merge
 
