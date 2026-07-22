@@ -66,12 +66,20 @@ case "$TOOL" in
       # RFC1918 entries were http-only (https://172.16.x bypassed), and
       # `172.2*.*` over-matched public 172.200-255. Bracket ranges fix both.
       HOST=${URL_LC#*://}
+      # v2.21.3: match the AUTHORITY with userinfo stripped, closing the
+      # `http://user@10.0.0.5/` SSRF bypass. The private/localhost host globs
+      # below are start-anchored, so a leading `user@` made `user@10.0.0.5` miss
+      # `10.*`. Isolate the authority first (everything up to the first `/`, so a
+      # `/@x` in the PATH can't be mistaken for userinfo) then drop `user:pass@`.
+      # Same userinfo-@ class lib-egress-patterns.sh was already hardened for.
+      AUTH=${HOST%%/*}
+      AUTH=${AUTH#*@}
       case "$URL_LC" in
         file://*)
           deny "navigate to file:// blocked (local file disclosure, GH #1651)"
           ;;
       esac
-      case "$HOST" in
+      case "$AUTH" in
         localhost*|127.*|0.0.0.0*|\[::1\]*|\[::ffff:127.*)
           deny "navigate to localhost blocked (SSRF to local services)"
           ;;
