@@ -82,4 +82,14 @@ else
 fi
 teardown_test_home
 
+# v2.21.13: the python reads os.environ['SCOPE_DIR'] but bash never set it, so
+# under the plugin runtime it fell back to ~/.claude and never found the
+# session-cost file (advisor silently never fired). And the dedup file was
+# global, so one session's warn suppressed another's within the same band.
+begin_test "rate-limit-advisor: bash exports SCOPE_DIR to the python"
+grep -q 'SCOPE_DIR="\${SUPERCHARGER_STATE' "$HOOK" && pass || fail "SCOPE_DIR not exported to python (plugin-runtime path bug)"
+
+begin_test "rate-limit-advisor: warn-dedup file is session-scoped"
+grep -q "rate-limit-last-warn-' + _sid" "$HOOK" && pass || fail "warn file not session-scoped (cross-session dedup leak)"
+
 report
