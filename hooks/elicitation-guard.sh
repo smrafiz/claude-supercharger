@@ -109,8 +109,26 @@ for k in keys:
     if STRONG.search(n) or DELIM.search(n):
         cred_fields.append(k)
 
-# Message-text phishing signal (independent of field names).
-msg_trigger = bool(MSG_CRED.search(message))
+# v2.22.8+: also scan the string VALUES of description/title (and examples) — a
+# server can use a benign field NAME ("value") and put the credential ask in the
+# field's description ("Paste your production database password here"), which
+# collect_keys/SCHEMA_META skipped, so neither cred_fields nor the top-level
+# message caught it.
+def collect_desc_text(o, acc):
+    if isinstance(o, dict):
+        for k, v in o.items():
+            if str(k).lower() in ('description', 'title', 'examples') and isinstance(v, str):
+                acc.append(v)
+            collect_desc_text(v, acc)
+    elif isinstance(o, list):
+        for x in o:
+            collect_desc_text(x, acc)
+
+_desc_texts = []
+collect_desc_text(schema, _desc_texts)
+
+# Message-text phishing signal (independent of field names), incl. schema descriptions.
+msg_trigger = bool(MSG_CRED.search(message)) or any(MSG_CRED.search(t) for t in _desc_texts)
 
 # Trusted-server allowlist. Two sources, unioned:
 #   1. .supercharger.json trustedElicitationServers (project-level, versioned)
