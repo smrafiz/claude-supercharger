@@ -58,8 +58,13 @@ fi
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
-# Use CLAUDE_SESSION_ID if available; fall back to calendar date (daily reset)
-SESSION_KEY="${CLAUDE_SESSION_ID:-$(date +%Y%m%d)}"
+# 2.22.7: prefer the session id from the PAYLOAD (like every sibling hook). CC
+# delivers session_id in the hook JSON, not as an env var, so CLAUDE_SESSION_ID
+# was almost always empty and SESSION_KEY fell back to the calendar date — making
+# the "per-session" cap a per-DAY, machine-GLOBAL counter shared by every
+# concurrent session (cross-session DoS + a limit that resets at midnight).
+SESSION_KEY=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+[ -z "$SESSION_KEY" ] && SESSION_KEY="${CLAUDE_SESSION_ID:-$(date +%Y%m%d)}"
 COUNTER_FILE="$SCOPE_DIR/.tool-calls-${SESSION_KEY}"
 
 # ── Increment counter (atomic) ────────────────────────────────────────────────

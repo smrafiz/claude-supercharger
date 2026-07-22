@@ -41,9 +41,9 @@ ti = d.get('tool_input') or {}
 blob = str(ti.get('url') or '') if (tool == 'WebFetch' and isinstance(ti, dict)) else ''
 if not blob:
     sys.exit(0)
-# v2.22.5: percent-decode before matching — the tool decodes %XX before the
-# request, so `%31%36%39.254…` / `/latest/%6d%65%74%61-data/` defeated every
-# host/path token. Two rounds catches double-encoding.
+# v2.22.5: percent-decode before matching. The tool decodes the URL before the
+# request, so a percent-encoded host or path defeated every host/path token.
+# Two rounds catches double-encoding.
 _dec = blob
 for _ in range(2):
     _dec = urllib.parse.unquote(_dec)
