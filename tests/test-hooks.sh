@@ -2908,7 +2908,8 @@ begin_test "human-approval-gate: allows retry after first block (pending file)"
 CMD='kubectl delete namespace production'
 HASH=$(printf '%s' "$CMD" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
 mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
-PENDING="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-${HASH}"
+# 2.21.4: pending file is session-scoped; input has no session_id → "nosession"
+PENDING="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-nosession-${HASH}"
 # Simulate first block having written the pending file (current timestamp so TTL check passes)
 printf 'infra\n%s\n' "$(date -u +%s)" > "$PENDING"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD" \
@@ -2920,7 +2921,7 @@ begin_test "human-approval-gate: creates pending file on first block"
 CMD2='DROP TABLE orders'
 HASH2=$(printf '%s' "$CMD2" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
 mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
-PENDING2="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-${HASH2}"
+PENDING2="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-nosession-${HASH2}"
 rm -f "$PENDING2"
 printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD2" \
   | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" >/dev/null 2>&1 || true
