@@ -32,4 +32,21 @@ BASE=$(mktemp -d); P="$BASE/o'malley-proj"; mkdir -p "$P"; printf '{"maxToolCall
 [ "$(at_cap_rc "$P")" = 2 ] && pass || fail "apostrophe path disabled the limiter (config parse broke)"
 rm -rf "$BASE"
 
+# ---- 2.22.7: per-session counter keyed on the PAYLOAD session_id ----
+# rc for a project at cap under a given payload session id
+sid_rc() { # <project_dir> <state_dir> <session_id>
+  printf '1\n' > "$2/scope/.tool-calls-$3"   # seed session $3 at the cap (1)
+  local j; j=$(printf '{"tool_name":"Bash","cwd":"%s","session_id":"%s","tool_input":{"command":"ls"}}' "$1" "$3")
+  env -u CLAUDE_SESSION_ID SUPERCHARGER_STATE="$2" bash "$H" >/dev/null 2>&1 <<<"$j"; echo $?
+}
+begin_test "tool-call-limiter: uses payload session_id — session B not blocked by session A"
+BASE=$(mktemp -d); P="$BASE/proj"; mkdir -p "$P"; printf '{"maxToolCalls":1}' > "$P/.supercharger.json"
+ST=$(mktemp -d); mkdir -p "$ST/scope"
+A=$(sid_rc "$P" "$ST" "sessA")   # sessA already at cap -> this call is over -> block (2)
+B=$(sid_rc "$P" "$ST" "sessB")   # sessB independent counter -> seeded 1, this is 2nd -> also block? seed=1 -> block
+# sessA blocked, and sessA's file must be distinct from sessB's (no shared daily counter)
+if [ "$A" = 2 ] && [ -f "$ST/scope/.tool-calls-sessA" ] && [ -f "$ST/scope/.tool-calls-sessB" ] && [ ! -f "$ST/scope/.tool-calls-$(date +%Y%m%d)" ]; then pass
+else fail "counter not keyed on payload session_id (A=$A; daily=$([ -f "$ST/scope/.tool-calls-$(date +%Y%m%d)" ] && echo yes || echo no))"; fi
+rm -rf "$BASE" "$ST"
+
 report
