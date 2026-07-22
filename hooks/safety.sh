@@ -13,9 +13,12 @@ set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
 
 _INPUT=$(cat)
-COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+# 2.22.11: also read PowerShell's field. safety.sh matches Bash AND PowerShell,
+# but the PowerShell tool may carry the body in .script/.code rather than
+# .command — without this the body would be empty and every check skipped.
+COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // .tool_input.code // empty' 2>/dev/null || true)
 if [ -z "$COMMAND" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('command',''))" 2>/dev/null || echo "")
+  COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; ti=json.load(sys.stdin).get('tool_input',{}); print(ti.get('command') or ti.get('script') or ti.get('code') or '')" 2>/dev/null || echo "")
 fi
 
 if [ -z "$COMMAND" ]; then
@@ -350,8 +353,26 @@ CRED_CMD_PATTERNS=(
   '(security[[:space:]]+dump-keychain|secret-tool[[:space:]]+lookup|(^|[[:space:]])cmdkey[[:space:]]+/list)'
 )
 
+# 2.22.11: PowerShell-native destructive / code-exec / remote-fetch-to-exec /
+# policy-bypass patterns. safety.sh matches the PowerShell tool but every other
+# pattern here is unix-only, so these were the whole PowerShell surface. Matched
+# case-insensitively (PS is case-insensitive) and specific enough not to fire on
+# Bash. Gated under the destructive/network categories.
+POWERSHELL_PATTERNS=(
+  'Remove-Item[^;&|]*-(Recurse|Force|r[[:space:]]|fo)'
+  'Remove-Item[^;&|]*-(Recurse|Force)'
+  '(^|[^A-Za-z])(Invoke-Expression|iex)([[:space:]]|\()'
+  '(Invoke-WebRequest|Invoke-RestMethod|iwr|irm|New-Object[[:space:]]+Net\.WebClient)[^;&|]*(DownloadString|DownloadFile|OutFile)'
+  '(DownloadString|DownloadData)[[:space:]]*\('
+  '(Invoke-WebRequest|Invoke-RestMethod|iwr|irm)[^;&|]*\|[[:space:]]*(iex|Invoke-Expression)'
+  '(Set-ExecutionPolicy|-ExecutionPolicy)[[:space:]]+(Bypass|Unrestricted)'
+  '(powershell|pwsh)[^;&|]*[[:space:]]-e(nc|ncodedcommand)?[[:space:]]'
+  '(powershell|pwsh)[^;&|]*-(nop|NoProfile)[^;&|]*-(w|WindowStyle)[[:space:]]*Hidden'
+)
+
 DANGEROUS_PATTERNS=()
 _cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
+if _cat_enabled "destructive" || _cat_enabled "network"; then DANGEROUS_PATTERNS+=("${POWERSHELL_PATTERNS[@]}"); fi
 _cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${EXFIL_PATTERNS[@]}")
