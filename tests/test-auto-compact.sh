@@ -88,14 +88,14 @@ teardown_scope
 begin_test "auto-compact: debounce — state file written on first trigger"
 setup_scope
 input_pct 75 | HOME="$SCOPE_DIR" bash "$HOOK" >/dev/null 2>&1
-[ -f "$SCOPE_DIR/.claude/supercharger/scope/.compact-last-band" ] && pass || fail "state file not created"
+[ -f "$SCOPE_DIR/.claude/supercharger/scope/.compact-last-band-default" ] && pass || fail "state file not created"
 teardown_scope
 
 begin_test "auto-compact: debounce — state file cleared below 70%"
 setup_scope
 input_pct 75 | HOME="$SCOPE_DIR" bash "$HOOK" >/dev/null 2>&1
 input_pct 60 | HOME="$SCOPE_DIR" bash "$HOOK" >/dev/null 2>&1
-[ ! -f "$SCOPE_DIR/.claude/supercharger/scope/.compact-last-band" ] && pass || fail "state file should be cleared"
+[ ! -f "$SCOPE_DIR/.claude/supercharger/scope/.compact-last-band-default" ] && pass || fail "state file should be cleared"
 teardown_scope
 
 # ── output format ─────────────────────────────────────────────────────────────

@@ -14,9 +14,13 @@ mkdir -p "$SCOPE_DIR"
 _INPUT=$(cat)
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
+# 2.21.12: session-scope the counter / rolling-window / dedup files. They were
+# global, so concurrent sessions shared the every-5th counter and mixed their
+# hit-rate windows → false "degraded" warnings or masked real degradation.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
 
 # ── Step 1: Counter — only proceed every 5th call ───────────────────────────
-COUNTER_FILE="$SCOPE_DIR/.cache-health-counter"
+COUNTER_FILE="$SCOPE_DIR/.cache-health-counter-${SID}"
 COUNT=0
 if [ -f "$COUNTER_FILE" ]; then
   COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo "0")
@@ -30,7 +34,7 @@ printf '%s\n' "$COUNT" > "$COUNTER_FILE"
 # Single python3 fork: parse stdin once, extract both cache fields, compute
 # hit rate, update rolling window file, and decide degraded state. Replaces
 # the previous 4 sequential python3 forks (~50-70ms × 4 cold-starts each).
-HEALTH_FILE="$SCOPE_DIR/.cache-health"
+HEALTH_FILE="$SCOPE_DIR/.cache-health-${SID}"
 RESULT=$(HEALTH_FILE="$HEALTH_FILE" HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null || echo "skip 0 0 [] no"
 import json, os, sys
 
@@ -123,7 +127,7 @@ esac
 [ "$DEGRADED" != "yes" ] && exit 0
 
 # ── Step 7: Dedup by 10% bucket ─────────────────────────────────────────────
-DEDUP_FILE="$SCOPE_DIR/.cache-health-dedup"
+DEDUP_FILE="$SCOPE_DIR/.cache-health-dedup-${SID}"
 BUCKET=$(( (HIT_RATE / 10) * 10 ))
 PREV_BUCKET=""
 if [ -f "$DEDUP_FILE" ]; then

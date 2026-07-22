@@ -24,6 +24,14 @@ FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "",
 IFS=$'\t' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH _ <<EOF_FIELDS
 $FIELDS
 EOF_FIELDS
+# 2.21.12: session-scope the loop history + flag so one session's fingerprints
+# don't mix into another's tail-20 window (which caused cross-session false-loop
+# warnings). session_id can't be taken from the `read` above — with IFS=tab
+# (tab is IFS-whitespace) an empty file_path field collapses and shifts the
+# columns — so extract field 5 with awk (no field collapse), the same approach
+# the old per-flag code used, now done once and reused for both files below.
+SID=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $5}')
+SID="${SID//[^a-zA-Z0-9_-]/}"; SID="${SID:0:64}"; [ -z "$SID" ] && SID="default"
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "repetition-detector" && exit 0
@@ -36,7 +44,7 @@ mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 MESSAGES=()
 
 # ── Loop detection (Bash + Read) ──
-LOOP_FILE="$SCOPE_DIR/.loop-history"
+LOOP_FILE="$SCOPE_DIR/.loop-history-${SID}"
 
 FINGERPRINT=""
 case "$TOOL_NAME" in
@@ -71,10 +79,8 @@ if [ -n "$FINGERPRINT" ]; then
       SHORT=$(printf '%.60s' "$FINGERPRINT" | sed 's/["\]//g')
       MESSAGES+=("[LOOP] '${SHORT}' repeated ${COUNT}x — try different approach")
       echo "[Supercharger] repetition-detector: loop '${SHORT}' repeated ${COUNT}x" >&2
-      # session_id was already extracted into FIELDS — no extra fork
-      SESSION_ID_REP=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $5}' | tr -cd 'a-zA-Z0-9_-' | head -c 64)
-      [ -z "$SESSION_ID_REP" ] && SESSION_ID_REP="default"
-      touch "$SCOPE_DIR/.repetition-flag-${SESSION_ID_REP}" 2>/dev/null || true
+      # 2.21.12: reuse SID parsed above (fork-free) instead of re-extracting.
+      touch "$SCOPE_DIR/.repetition-flag-${SID}" 2>/dev/null || true
     fi
   fi
 fi

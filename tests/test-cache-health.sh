@@ -14,7 +14,7 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 
 # Seed counter so next call is the 5th (counter will become 5 → 5%5==0)
-printf '4\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter-default"
 
 # 90% hit rate: cache_read=900, cache_creation=100
 PAYLOAD='{"tool_name":"Read","tool_response":{"usage":{"cache_read_input_tokens":900,"cache_creation_input_tokens":100}}}'
@@ -39,15 +39,15 @@ mkdir -p "$SCOPE_DIR"
 BAD_PAYLOAD='{"tool_name":"Read","tool_response":{"usage":{"cache_read_input_tokens":30,"cache_creation_input_tokens":70}}}'
 
 # Round 1: seed counter to 4, send 1 call → becomes 5th call
-printf '4\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter-default"
 echo "$BAD_PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 
 # Round 2: seed counter to 9, send 1 call → becomes 10th call
-printf '9\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '9\n' > "$SCOPE_DIR/.cache-health-counter-default"
 echo "$BAD_PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 
 # Round 3: seed counter to 14, send 1 call → becomes 15th call (should warn)
-printf '14\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '14\n' > "$SCOPE_DIR/.cache-health-counter-default"
 OUTPUT=$(echo "$BAD_PAYLOAD" | bash "$HOOK" 2>/dev/null)
 EXIT=$?
 
@@ -66,7 +66,7 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 
 # Counter at 4 so it will process on next call
-printf '4\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter-default"
 
 PAYLOAD='{"tool_name":"Read","tool_response":{}}'
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
@@ -86,7 +86,7 @@ setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 
-printf '4\n' > "$SCOPE_DIR/.cache-health-counter"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter-default"
 
 PAYLOAD='{"tool_name":"Write","tool_response":{"usage":{"cache_read_input_tokens":0,"cache_creation_input_tokens":0}}}'
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
@@ -108,8 +108,8 @@ TR="$SCOPE_DIR/t.jsonl"
 # latest assistant turn: 100 read / 900 create = 10% hit (degraded)
 printf '%s\n' '{"type":"assistant","message":{"usage":{"cache_read_input_tokens":100,"cache_creation_input_tokens":900}}}' > "$TR"
 # pre-seed window with two prior degraded readings so this 3rd trips the warn
-printf '[10,10]\n' > "$SCOPE_DIR/.cache-health"
-printf '4\n' > "$SCOPE_DIR/.cache-health-counter"   # +1 = 5th call -> sampled
+printf '[10,10]\n' > "$SCOPE_DIR/.cache-health-default"
+printf '4\n' > "$SCOPE_DIR/.cache-health-counter-default"   # +1 = 5th call -> sampled
 PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 OUTPUT=$(echo "$PAYLOAD" | bash "$HOOK" 2>/dev/null)
 echo "$OUTPUT" | grep -qi "CACHE" && pass || fail "expected degraded-cache warning from transcript stats, got: $OUTPUT"
