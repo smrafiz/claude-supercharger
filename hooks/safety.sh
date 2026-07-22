@@ -223,7 +223,9 @@ fi
 # Agent picks --force specifically to bypass the interactive confirmation
 # stdin prompt — nothing else catches it because no `rm` is invoked.
 DB_PATTERNS=(
-  'DROP[[:space:]]+TABLE' 'DROP[[:space:]]+DATABASE'
+  # 2.22.2: allow a /*…*/ SQL comment as an inter-keyword separator, not just
+  # whitespace — `DROP/**/TABLE` is valid SQL that the plain [[:space:]]+ missed.
+  'DROP([[:space:]]|/\*[^/]*\*/)+TABLE' 'DROP([[:space:]]|/\*[^/]*\*/)+DATABASE'
   'drizzle-kit[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force([[:space:]]|$)'
   'prisma[[:space:]]+db[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force-reset([[:space:]]|$)'
   'prisma[[:space:]]+migrate[[:space:]]+reset'
@@ -234,14 +236,14 @@ DB_PATTERNS=(
   # omitted). The leading letter/quote after the space avoids colliding with the
   # unix `truncate -s 0` command (already caught by DESTRUCT_PATTERNS), whose next
   # char is `-`. From sangrokjung/claude-forge db-guard overlap audit.
-  'TRUNCATE[[:space:]]+(TABLE[[:space:]]+)?["`a-zA-Z_]'
+  'TRUNCATE([[:space:]]|/\*[^/]*\*/)+(TABLE([[:space:]]|/\*[^/]*\*/)+)?["`a-zA-Z_]'
   # DELETE FROM <table> with NO WHERE clause — the mass-wipe footgun (agent means
   # to filter but forgets). Gated: the table identifier must be immediately
   # followed by a statement terminator (;, closing shell quote, backtick, pipe,
   # &, ), or end-of-command), so `DELETE FROM t WHERE ...` (space+letter after the
   # ident) never matches. POSIX ERE has no lookahead, so this is positive-shape.'
 )
-DELETE_NOWHERE='DELETE[[:space:]]+FROM[[:space:]]+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
+DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
 DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+(-R[[:space:]]+)?777' 'mkfs\.' 'dd[[:space:]]+if='
@@ -274,9 +276,9 @@ DESTRUCT_PATTERNS=(
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
   '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
-  '(^|;|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
-  '(^|;|&&|\|\|)[[:space:]]*eval[[:space:]]+'
-  '(^|;|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
+  '(^|;|&|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
+  '(^|;|&|&&|\|\|)[[:space:]]*eval[[:space:]]+'
+  '(^|;|&|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
   'base64.*\|.*(bash|sh|zsh)([[:space:]]|$)' '<<<.*\|.*(bash|sh|zsh)([[:space:]]|$)'
   # v2.7.5: `ps` env-dump piped to an encoder/exfil channel. Real incident:
   # "Comment and Control" (CVSS 9.4, Apr 2026) — PR-title injection ran
@@ -421,7 +423,13 @@ if _cat_enabled "persistence"; then
     block "cron job modification — agent should not create persistent scheduled tasks"
   fi
 
-  if [[ "$CMD" =~ (>>?[[:space:]]*(~|\$HOME)?/?\.(bashrc|zshrc|profile|bash_profile|zprofile)) ]]; then
+  # 2.22.2: permissive target (a quote between `$HOME`/`~`/`/`/`.bashrc` broke the
+  # old contiguous regex — `>> "$HOME/.bashrc"`, `>> ~/'.bashrc'`) + copy verbs
+  # (cp/mv/install/rsync/dd overwriting a profile evaded the redirect-only check).
+  _PROF_FILE='\.(bashrc|zshrc|profile|bash_profile|zprofile)([[:space:]"'\''`;&|)]|$)'
+  _PROF_REDIR=">>?[[:space:]]*[^|;&<>()]*${_PROF_FILE}"
+  _PROF_COPY="(^|[[:space:];&|])(cp|mv|install|rsync|dd)[[:space:]][^|;&]*${_PROF_FILE}"
+  if [[ "$CMD" =~ $_PROF_REDIR ]] || [[ "$CMD" =~ $_PROF_COPY ]]; then
     block "shell profile modification — agent should not modify shell startup files"
   fi
 
@@ -473,7 +481,7 @@ _SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.j
 # (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
-_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|tee|mv|cp|rm|truncate|install|ln|dd[[:space:]]+of=)[^;&|]*$_SELFMOD_CFG"
+_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|tee|mv|cp|rm|truncate|install|ln|rsync|dd[[:space:]]+of=)[^;&|]*$_SELFMOD_CFG"
 # (c) interpreter opening a config file in write/append mode
 _SELFMOD_PY="(python|perl|ruby)[^;&|]*open[^;&|]*${_SELFMOD_CFG}[^;&|]*,[[:space:]]*['\"][wa]"
 if _cat_enabled "selfmod" \
