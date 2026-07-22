@@ -39,10 +39,14 @@ if printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm ad
   # npm/yarn/pnpm audit
   if command -v npm >/dev/null 2>&1; then
     AUDIT=$(cd "$PROJECT_DIR" && npm audit --json 2>/dev/null || echo "{}")
-    FINDINGS=$(python3 -c "
+    # 2.21.8: feed the audit JSON via STDIN, not argv. A large project's audit
+    # output easily exceeds ARG_MAX → "Argument list too long" → python never
+    # runs → 2>/dev/null||echo"" → findings silently empty exactly where vulns
+    # are most likely. stdin has no such limit.
+    FINDINGS=$(printf '%s' "$AUDIT" | python3 -c "
 import json, sys
 try:
-    d = json.loads(sys.argv[1])
+    d = json.loads(sys.stdin.read())
     vulns = d.get('vulnerabilities', {})
     critical = sum(1 for v in vulns.values() if v.get('severity') == 'critical')
     high = sum(1 for v in vulns.values() if v.get('severity') == 'high')
@@ -51,22 +55,23 @@ try:
         print(f'{critical} critical, {high} high vulnerabilities found in: {chr(44).join(names)}')
 except Exception:
     pass
-" "$AUDIT" 2>/dev/null || echo "")
+" 2>/dev/null || echo "")
   fi
 elif printf '%s\n' "$COMMAND" | grep -qE '^\s*(pip install|pip3 install|poetry add|uv add)'; then
   # pip audit (requires pip-audit)
   if command -v pip-audit >/dev/null 2>&1; then
     AUDIT=$(cd "$PROJECT_DIR" && pip-audit --format json 2>/dev/null || echo "[]")
-    FINDINGS=$(python3 -c "
+    # 2.21.8: STDIN, not argv (see npm branch — ARG_MAX overflow on large output).
+    FINDINGS=$(printf '%s' "$AUDIT" | python3 -c "
 import json, sys
 try:
-    vulns = json.loads(sys.argv[1])
+    vulns = json.loads(sys.stdin.read())
     if isinstance(vulns, list) and len(vulns) > 0:
         names = [v.get('name','?') for v in vulns[:5]]
         print(f'{len(vulns)} vulnerable package(s): {chr(44).join(names)}')
 except Exception:
     pass
-" "$AUDIT" 2>/dev/null || echo "")
+" 2>/dev/null || echo "")
   fi
 fi
 

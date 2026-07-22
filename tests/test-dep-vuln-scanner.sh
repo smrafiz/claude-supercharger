@@ -63,4 +63,21 @@ else
   fail "output present but not valid JSON"
 fi
 
+# ---- 2.21.8: audit JSON fed via stdin, not argv (ARG_MAX resilience) ----
+# A large `npm audit --json` would overflow argv ("Argument list too long"),
+# so python never ran and findings were silently empty. Fake npm emits a >1MB
+# audit with a critical vuln; the finding must still surface.
+begin_test "dep-vuln-scanner: large audit (>1MB) still parsed via stdin, finds critical"
+FAKEBIN=$(mktemp -d)
+cat > "$FAKEBIN/npm" <<'NPM'
+#!/bin/sh
+pad=$(head -c 1200000 /dev/zero | tr '\0' x)
+printf '{"vulnerabilities":{"lodash":{"severity":"critical","_pad":"%s"}}}' "$pad"
+NPM
+chmod +x "$FAKEBIN/npm"
+PROJ=$(mktemp -d)
+OUT=$(printf '{"tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PROJ" | PATH="$FAKEBIN:$PATH" bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "critical" && pass || fail "large audit not parsed (ARG_MAX regression): ${OUT:0:120}"
+rm -rf "$FAKEBIN" "$PROJ"
+
 report
