@@ -42,7 +42,11 @@ def segments(c):
 cands = []
 
 # 1) stdout truncating redirect: `>` not `>>`, not `2>`/`1>`, not `&>`/`>&`.
-for m in re.finditer(r"""(?<![>&0-9])>(?!>|&)\s*("[^"]+"|'[^']+'|[^\s;&|<>()]+)""", cmd):
+# v2.22.10: also catch an fd-qualified truncate (`1> f`) and clobber-force (`>| f`).
+# `(?![>&])` still excludes append `>>` and fd-dup `>&`/`2>&1`; `\|?` consumes the
+# clobber-force pipe. (Only tracked files are ever surfaced, so `2> untracked.log`
+# stays silent.)
+for m in re.finditer(r"""(?<![>&])>(?![>&])\|?\s*("[^"]+"|'[^']+'|[^\s;&|<>()]+)""", cmd):
     cands.append(m.group(1))
 
 # 2) sed -i / --in-place: file args are the trailing non-flag tokens (the FIRST

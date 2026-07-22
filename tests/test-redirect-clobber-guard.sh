@@ -39,6 +39,11 @@ check 'echo x > /tmp/scratch.txt'     "outside-repo path"                       
 check 'echo x > dist/bundle.js'       "tracked but generated dir (excluded)"    ALLOW
 check 'grep foo app.ts > /tmp/out'    "redirect to untracked target"            ALLOW
 check 'ls -la app.ts'                 "no clobber op"                            ALLOW
+# v2.22.10: fd-qualified truncate + clobber-force
+check 'echo x 1> app.ts'              "fd-qualified truncate 1>"                 ASK
+check 'echo x >| app.ts'              "clobber-force >|"                         ASK
+check 'echo x >> app.ts'              "append >> (not a truncate)"               ALLOW
+check 'make 2>&1 | tee build.log'     "2>&1 fd-dup (not a truncate of app.ts)"   ALLOW
 
 # once-per-file dedup: same file twice (no reset) → 2nd silent
 begin_test "redirect-clobber: asks once per file per session"
