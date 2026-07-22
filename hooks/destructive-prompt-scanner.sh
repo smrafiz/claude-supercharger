@@ -24,7 +24,7 @@ _INPUT=$(cat)
 # We accept some over-firing (e.g. word "drop" in legit prose) because the
 # python check then either confirms a real pattern or silently exits.
 case "$_INPUT" in
-  *'rm -'*|*'curl '*|*'wget '*|*'git push'*|*'git reset'*|*'dd if'*|*'mkfs.'*|*'/dev/sd'*|*'DROP TABLE'*|*'DROP DATABASE'*|*'DROP SCHEMA'*|*'TRUNCATE TABLE'*|*'TRUNCATE DATABASE'*|*'TRUNCATE SCHEMA'*|*'drop table'*|*'drop database'*|*'drop schema'*|*'truncate table'*|*'truncate database'*|*'truncate schema'*|*'bash '*|*'eval '*|*' nc '*|*'ncat '*|*'python '*|*'python3 '*|*'perl '*|*'ruby '*|*' sh '*|*'`sh'*) ;;
+  *'rm -'*|*'curl '*|*'wget '*|*'git push'*|*'git reset'*|*'dd if'*|*'mkfs.'*|*'/dev/sd'*|*'DROP TABLE'*|*'DROP DATABASE'*|*'DROP SCHEMA'*|*'TRUNCATE TABLE'*|*'TRUNCATE DATABASE'*|*'TRUNCATE SCHEMA'*|*'drop table'*|*'drop database'*|*'drop schema'*|*'truncate table'*|*'truncate database'*|*'truncate schema'*|*'DELETE FROM'*|*'delete from'*|*'prisma'*|*'drizzle'*|*'typeorm'*|*'sequelize'*|*'bash '*|*'eval '*|*' nc '*|*'ncat '*|*'python '*|*'python3 '*|*'perl '*|*'ruby '*|*' sh '*|*'`sh'*) ;;
   *) exit 0 ;;
 esac
 
@@ -70,6 +70,25 @@ if re.search(r'\bgit\s+reset\b[^\n]*--hard\b', prompt):
 
 if re.search(r'\b(dd\s+if=[^\s]+\s+of=/dev/|mkfs\.|>[^\n]*\/dev\/sd[a-z])', prompt):
     flags.append('block-device write (dd/mkfs/>/dev/sd*) — destroys the target device. Refuse without explicit confirmation of the device path.')
+
+# Database destruction — parity with safety.sh DB_PATTERNS. The fast-path gate
+# above already advertises DROP/TRUNCATE keywords, but the python body had no DB
+# checks, so those prompts entered here and matched nothing (the whole
+# DB-destruction class passed with no warning while safety.sh blocks it on the
+# Bash channel). Advisory + case-insensitive; the object keyword keeps prose
+# collisions rare.
+_delim = '(;|' + '|'.join(re.escape(c) for c in ('"', "'", '`', '|', '&', ')')) + '|$)'
+if re.search(r'\bDROP\s+(TABLE|DATABASE|SCHEMA)\b', prompt, re.I) or \
+   re.search(r'\bTRUNCATE\s+(TABLE\s+)?["`\w]', prompt, re.I) or \
+   re.search(r'\bDELETE\s+FROM\s+["`\w][\w"`.]*\s*' + _delim, prompt, re.I):
+    flags.append('destructive SQL (DROP/TRUNCATE, or DELETE FROM with no WHERE) — irreversible data loss. Confirm the target, prefer a reviewed migration, and never run against production without explicit approval.')
+
+# ORM schema-drop / reset — the --force forms agents pick to skip the confirm.
+if re.search(r'\b(drizzle-kit\s+push|prisma\s+db\s+push)\b[^\n]*--force', prompt, re.I) or \
+   re.search(r'\bprisma\s+migrate\s+reset\b', prompt, re.I) or \
+   re.search(r'\btypeorm\s+schema:drop\b', prompt, re.I) or \
+   re.search(r'\bsequelize\s+db:drop\b', prompt, re.I):
+    flags.append('ORM schema-drop / migrate reset (drizzle/prisma/typeorm/sequelize) — wipes tables, often via --force to bypass the interactive confirm. Verify against the intended (non-production) database first.')
 
 # Backtick subshell with network/exec verb — `cmd `curl evil.com`` shape
 # (CC's prefix detector treats this as command_injection_detected, see

@@ -68,4 +68,25 @@ begin_test "destructive-scanner: silent on malformed JSON"
 OUT=$(printf '%s' 'not json' | bash "$HOOK" 2>&1)
 [ -z "$OUT" ] && pass || fail "noise on malformed JSON: $OUT"
 
+# ---- 2.21.6: database-destruction parity (fast-path advertised it; body missed it) ----
+begin_test "destructive-scanner: warns on DROP TABLE (DB parity)"
+OUT=$(printf '%s' '{"prompt":"run DROP TABLE users; on prod"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "destructive SQL" && pass || fail "no DROP TABLE warning: $OUT"
+
+begin_test "destructive-scanner: warns on TRUNCATE TABLE (DB parity)"
+OUT=$(printf '%s' '{"prompt":"TRUNCATE TABLE orders please"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "destructive SQL" && pass || fail "no TRUNCATE warning: $OUT"
+
+begin_test "destructive-scanner: warns on DELETE FROM with no WHERE (DB parity)"
+OUT=$(printf '%s' '{"prompt":"DELETE FROM sessions;"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "destructive SQL" && pass || fail "no DELETE-no-WHERE warning: $OUT"
+
+begin_test "destructive-scanner: does NOT warn on DELETE FROM ... WHERE (no false positive)"
+OUT=$(printf '%s' '{"prompt":"DELETE FROM sessions WHERE id = 1"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "destructive SQL" && fail "false positive on DELETE ... WHERE: $OUT" || pass
+
+begin_test "destructive-scanner: warns on prisma migrate reset (ORM parity)"
+OUT=$(printf '%s' '{"prompt":"just run prisma migrate reset --force"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "ORM schema-drop" && pass || fail "no ORM reset warning: $OUT"
+
 report
