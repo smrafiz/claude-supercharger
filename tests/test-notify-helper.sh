@@ -133,4 +133,31 @@ EXIT=$(HOME="$TMPHOME" bash -c "
 rm -rf "$TMPHOME"
 [ "$EXIT" = "1" ] && pass || fail "expected 1 on second call within window, got $EXIT"
 
+# ---- 2.21.15: per-session cooldown so one session doesn't suppress another ----
+begin_test "notify-helper: _cooldown_ok is per-session — session B not blocked by session A"
+TMPHOME=$(mktemp -d)
+EXIT=$(HOME="$TMPHOME" bash -c "
+  SUPERCHARGER_DIR=\"\$HOME/.claude/supercharger\" SCOPE_DIR=\"\$SUPERCHARGER_DIR/scope\"
+  mkdir -p \"\$SCOPE_DIR\"
+  . '$HELPER'
+  _cooldown_ok stop 60 sessA >/dev/null
+  _cooldown_ok stop 60 sessB
+  echo \$?
+")
+rm -rf "$TMPHOME"
+[ "$EXIT" = "0" ] && pass || fail "expected session B allowed (0), got $EXIT"
+
+begin_test "notify-helper: session id writes a per-session stamp, not the global one"
+TMPHOME=$(mktemp -d)
+HOME="$TMPHOME" bash -c "
+  SUPERCHARGER_DIR=\"\$HOME/.claude/supercharger\" SCOPE_DIR=\"\$SUPERCHARGER_DIR/scope\"
+  mkdir -p \"\$SCOPE_DIR\"
+  . '$HELPER'
+  _cooldown_ok stop 60 sessA >/dev/null
+"
+SD="$TMPHOME/.claude/supercharger/scope"
+if [ -f "$SD/.notify-ts-stop-sessA" ] && [ ! -f "$SD/.notify-ts-stop" ]; then pass
+else fail "expected per-session stamp .notify-ts-stop-sessA (global=$([ -f "$SD/.notify-ts-stop" ] && echo yes || echo no))"; fi
+rm -rf "$TMPHOME"
+
 report
