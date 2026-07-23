@@ -200,4 +200,54 @@ else
 fi
 rm -rf "$PROJ" "$FAKE_HOME"
 
+# --- Handoff discoverability nudge on PreCompact (v2.23.1) ---------------------
+BACKUPHOOK="$REPO_DIR/hooks/compaction-backup.sh"
+
+# Test: nudges once when no handoff exists, then stays silent (once per project)
+begin_test "compaction-backup: nudges to /handoff once, then dedups"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+INPUT='{"session_id":"nudge-t"}'
+OUT1=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
+OUT2=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
+if echo "$OUT1" | grep -q "Tip: run /handoff" && ! echo "$OUT2" | grep -q "Tip: run /handoff"; then
+  pass
+else
+  fail "expected nudge on run 1 only; run1=[$OUT1] run2=[$OUT2]"
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+# Test: no nudge when a fresh handoff already exists (user knows the feature)
+begin_test "compaction-backup: no nudge when fresh handoff exists"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+printf 'brief\n' > "$PROJ/.claude/handoff.md"
+INPUT='{"session_id":"nudge-t"}'
+OUT=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
+if echo "$OUT" | grep -q "Tip: run /handoff"; then
+  fail "should not nudge when fresh handoff exists, got: $OUT"
+else
+  pass
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+# Test: kill switch suppresses the nudge
+begin_test "compaction-backup: SUPERCHARGER_HANDOFF_NUDGE=0 suppresses nudge"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+INPUT='{"session_id":"nudge-t"}'
+OUT=$(cd "$PROJ" && export HOME="$FAKE_HOME" SUPERCHARGER_HANDOFF_NUDGE=0; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
+if echo "$OUT" | grep -q "Tip: run /handoff"; then
+  fail "kill switch should suppress nudge, got: $OUT"
+else
+  pass
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
 report
