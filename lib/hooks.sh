@@ -125,6 +125,11 @@ get_hooks_for_mode() {
     # package manager instead. Once per lockfile per session. Disable:
     # SUPERCHARGER_LOCKFILE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/lockfile-integrity-guard.sh|")
+    # v2.23.9: supply-chain sibling of the lockfile guard — ASK when a manifest edit
+    # adds/changes an install-time lifecycle script (package.json postinstall/prepare/…
+    # or setup.py install-time exec), esp. one that reaches the network or evals code.
+    # Runs on the next install → persistence vector. Disable: SUPERCHARGER_INSTALL_SCRIPT_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/install-script-guard.sh|")
     # v2.23.4: test-integrity guard — ASK before an edit to a test file removes
     # assertions or adds skip/only markers (it.skip, @pytest.mark.skip, @Ignore,
     # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
