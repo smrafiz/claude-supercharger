@@ -38,6 +38,30 @@ if (( NOW - LAST_ROTATION > 86400 )); then
   echo "$NOW" > "$ROTATION_CHECK"
 fi
 
+# --- Handoff discoverability nudge (v2.23.1) ----------------------------------
+# Users know /compact; most don't know /handoff. Compaction is the exact moment a
+# richer resume brief pays off, so emit a ONE-TIME (per project) stderr hint —
+# zero context tokens. Skipped when memory is disabled, when a fresh handoff
+# already exists (they know the feature), or via SUPERCHARGER_HANDOFF_NUDGE=0.
+if [ "${SUPERCHARGER_NO_MEMORY:-0}" != "1" ] && [ "${SUPERCHARGER_HANDOFF_NUDGE:-1}" != "0" ]; then
+  _HN_SCOPE="$SUPERCHARGER_STATE/scope"
+  _HN_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
+  _HN_HASH=$(printf '%s' "$_HN_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$_HN_ROOT" | md5 -q 2>/dev/null || echo "global")
+  _HN_FLAG="$_HN_SCOPE/.handoff-nudge-${_HN_HASH:0:8}"
+  _HN_HANDOFF="$_HN_ROOT/.claude/handoff.md"
+  _HN_FRESH=0
+  if [ -f "$_HN_HANDOFF" ]; then
+    _HN_MT=$(stat -c '%Y' "$_HN_HANDOFF" 2>/dev/null || stat -f '%m' "$_HN_HANDOFF" 2>/dev/null || echo 0)
+    case "$_HN_MT" in ''|*[!0-9]*) _HN_MT=0 ;; esac
+    [ "$_HN_MT" -gt 0 ] && [ $(( NOW - _HN_MT )) -lt 604800 ] && _HN_FRESH=1
+  fi
+  if [ "$_HN_FRESH" = 0 ] && [ ! -f "$_HN_FLAG" ]; then
+    mkdir -p "$_HN_SCOPE" 2>/dev/null || true
+    touch "$_HN_FLAG" 2>/dev/null || true
+    echo "[Supercharger] Tip: run /handoff before you stop — it writes a fuller resume brief that auto-loads after this compaction and in your next session. (silence: SUPERCHARGER_HANDOFF_NUDGE=0)" >&2
+  fi
+fi
+
 # v2.6.34: parallelize the two inline child hooks (session-memory-write and
 # lesson-record). Both read transcript / scope files independently; running
 # them concurrently overlaps the IO + python cold-starts. wait blocks until
