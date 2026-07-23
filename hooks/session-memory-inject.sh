@@ -45,6 +45,23 @@ fi
 
 MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 
+# --- Handoff brief (v2.23.0) ---------------------------------------------------
+# The rich /handoff narrative (Done/Decisions/What-failed/Resume-with), loaded at
+# session start so a shifted session resumes without re-explaining. Freshness-gated
+# to 7 days so a stale brief doesn't flood context forever. Injected in EVERY path
+# below (including the no-memory-file and stub paths) — it's the top resume signal.
+# post-compact-inject.sh mirrors this at the compaction boundary (no gate there —
+# always the same session).
+HANDOFF_FILE="${PROJECT_DIR}/.claude/handoff.md"
+HANDOFF_BLOCK=""
+if [ -f "$HANDOFF_FILE" ]; then
+  _HO_MT=$(stat -c '%Y' "$HANDOFF_FILE" 2>/dev/null || stat -f '%m' "$HANDOFF_FILE" 2>/dev/null || echo 0)
+  case "$_HO_MT" in ''|*[!0-9]*) _HO_MT=0 ;; esac
+  if [ "$_HO_MT" -gt 0 ] && [ $(( $(date +%s) - _HO_MT )) -lt 604800 ]; then
+    HANDOFF_BLOCK=$(head -c 2500 "$HANDOFF_FILE" 2>/dev/null || echo "")
+  fi
+fi
+
 # Checkpoint recovery fallback
 if [ ! -f "$MEMORY_FILE" ]; then
   # Check for crash checkpoint
@@ -63,14 +80,22 @@ if [ ! -f "$MEMORY_FILE" ]; then
       rm -f "$f" 2>/dev/null
     fi
   done
-  if [ -n "$CKPT" ]; then
-    MSG="[RECOVERY] Restored from mid-session checkpoint: $CKPT"
+  # No mechanical memory doc — still surface a checkpoint and/or the rich handoff.
+  if [ -n "$CKPT" ] || [ -n "$HANDOFF_BLOCK" ]; then
+    MSG=""
+    [ -n "$CKPT" ] && MSG="[RECOVERY] Restored from mid-session checkpoint: $CKPT"
+    if [ -n "$HANDOFF_BLOCK" ]; then
+      [ -n "$MSG" ] && MSG="$MSG
+"
+      MSG="${MSG}[HANDOFF] Resume brief from last session:
+$HANDOFF_BLOCK"
+    fi
     CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")
     # v2.7.31: inject into Claude's context (SessionStart supports
     # hookSpecificOutput.additionalContext). systemMessage only reached the USER,
     # so the project memory / checkpoint recovery never entered Claude's context.
     printf '{"hookSpecificOutput":{"hookEventName":"SessionStart","additionalContext":%s}}\n' "$CONTEXT_JSON"
-    echo "[Supercharger] session-memory: recovered from checkpoint" >&2
+    echo "[Supercharger] session-memory: injected resume brief" >&2
   fi
   exit 0
 fi
@@ -184,6 +209,15 @@ if recent:
     print(' | '.join(compressed))
 " "$OBS_FILE" 2>/dev/null || echo "")
   [ -n "$OBS" ] && MSG="${MSG} obs:${OBS}"
+fi
+
+# v2.23.0: append the rich handoff brief (fresh, gated above) after the mechanical
+# memory line — even on the branch-changed / no-open-work stub paths, since it's
+# the highest-value resume signal.
+if [ -n "$HANDOFF_BLOCK" ]; then
+  MSG="${MSG}
+[HANDOFF] Resume brief from last session:
+$HANDOFF_BLOCK"
 fi
 
 CONTEXT_JSON=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$(printf '%s' "$MSG" | tr -d '"\\' | tr '\n' ' ')")

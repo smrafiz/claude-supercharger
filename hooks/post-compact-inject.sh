@@ -67,6 +67,20 @@ try:
 except Exception:
     pass
 
+# v2.23.0: rich /handoff narrative (Done/Decisions/What-failed/Resume-with).
+# Model-authored, so it carries what the mechanical memory doc can't. No
+# freshness gate — compaction is same-session, a present handoff is relevant.
+# session-memory-inject.sh does the mirror at the SessionStart boundary.
+handoff_path = os.path.join(project_dir, '.claude/handoff.md')
+if os.path.isfile(handoff_path):
+    try:
+        with open(handoff_path) as f:
+            hb = f.read(2500)
+        if hb:
+            lines.append('Handoff brief:\n' + hb)
+    except Exception:
+        pass
+
 # Memory body (full when dirty or large; stub otherwise)
 if os.path.isfile(mem_path):
     if dirty or mem_bytes > 500:
