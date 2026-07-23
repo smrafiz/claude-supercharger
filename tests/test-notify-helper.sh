@@ -6,6 +6,9 @@ HELPER="$REPO_DIR/hooks/notify-helper.sh"
 
 echo "=== Notify Helper Tests (v2.6.72 RCE fix coverage) ==="
 
+# This file asserts on the real send path (osascript/notify-send are mocked), so
+# the suite-wide SUPERCHARGER_NO_NOTIFY=1 must not short-circuit it here.
+unset SUPERCHARGER_NO_NOTIFY
 export SUPERCHARGER_NO_DEDUP=1
 
 # Helper: stub osascript and notify-send to capture args, source notify-helper,
@@ -159,5 +162,22 @@ SD="$TMPHOME/.claude/supercharger/scope"
 if [ -f "$SD/.notify-ts-stop-sessA" ] && [ ! -f "$SD/.notify-ts-stop" ]; then pass
 else fail "expected per-session stamp .notify-ts-stop-sessA (global=$([ -f "$SD/.notify-ts-stop" ] && echo yes || echo no))"; fi
 rm -rf "$TMPHOME"
+
+# --- v2.23.8: SUPERCHARGER_NO_NOTIFY suppresses the real send path ---
+begin_test "notify-helper: SUPERCHARGER_NO_NOTIFY=1 suppresses (no send)"
+_NNTMP=$(mktemp -d)
+bash -c "
+  set +e
+  osascript() { printf 'OSA\n' >> '$_NNTMP/captured'; }
+  notify-send() { printf 'NS\n' >> '$_NNTMP/captured'; }
+  export -f osascript notify-send 2>/dev/null
+  SUPERCHARGER_DIR='$_NNTMP/sc' SCOPE_DIR='$_NNTMP/sc/scope'; export HOME='$_NNTMP/home'
+  mkdir -p \"\$HOME\" \"\$SUPERCHARGER_DIR\" \"\$SCOPE_DIR\"
+  export SUPERCHARGER_NO_NOTIFY=1
+  . '$HELPER'
+  _send_notification 'T' 'M' >/dev/null 2>&1
+"
+if [ -s "$_NNTMP/captured" ]; then fail "notification fired despite NO_NOTIFY (captured: $(cat "$_NNTMP/captured"))"; else pass; fi
+rm -rf "$_NNTMP"
 
 report
