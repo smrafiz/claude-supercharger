@@ -41,6 +41,11 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|")
   hooks+=("PreToolUse|Bash|${hooks_dir}/tool-preferences.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  # v2.23.5: a Jupyter cell shells out through the kernel (!cmd, %%bash, %pip,
+  # os.system, subprocess) and never hits the Bash matcher — safety.sh never sees
+  # it. Route the cell's shell content through safety.sh (parity, no drift) and ask
+  # on package installs. Security floor → safe mode. Disable: SUPERCHARGER_NOTEBOOK_EXEC_GUARD=0.
+  hooks+=("PreToolUse|NotebookEdit|${hooks_dir}/notebook-exec-guard.sh|")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit,NotebookEdit|${hooks_dir}/audit-trail.sh|async")
   hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
