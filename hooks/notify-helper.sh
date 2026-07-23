@@ -49,6 +49,12 @@ _is_subagent() {
 
 # Send notification with click-to-focus
 _send_notification() {
+  # v2.23.8: never emit a REAL desktop notification during test/CI runs. Hook
+  # tests that exercise a block path (e.g. elicitation-guard) would otherwise pop
+  # a live macOS/Linux notification on the developer's screen. The suite exports
+  # SUPERCHARGER_NO_NOTIFY=1; the notify-helper's own tests, which assert on the
+  # send path, mock osascript/notify-send and unset this var.
+  [ -n "${SUPERCHARGER_NO_NOTIFY:-}" ] && return 0
   local title="$1"
   local msg="$2"
   local subtitle="${3:-}"   # v2.7.34: optional middle tier (title/subtitle/body)

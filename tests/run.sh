@@ -4,6 +4,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 
+# v2.23.8: keep the whole suite from popping REAL desktop notifications. Hooks
+# that notify on a block (elicitation-guard, notify-*) honor this; the two notify
+# test files unset it so they can still exercise the (mocked) send path.
+export SUPERCHARGER_NO_NOTIFY=1
+
 TOTAL_PASSED=0
 TOTAL_FAILED=0
 

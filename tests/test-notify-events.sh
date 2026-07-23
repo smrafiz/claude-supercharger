@@ -9,6 +9,10 @@ NS="$REPO_DIR/hooks/notify-stop.sh"
 
 echo "=== Notify Event Hook Tests ==="
 
+# These tests mock osascript/notify-send (or force sound-only) to assert on the
+# send path, so the suite-wide SUPERCHARGER_NO_NOTIFY=1 must not short-circuit it.
+unset SUPERCHARGER_NO_NOTIFY
+
 # Force sound-only mode to avoid spawning real notifications during tests.
 _setup() {
   setup_test_home
