@@ -1,0 +1,61 @@
+#!/usr/bin/env bash
+# Claude Supercharger — Cloud CLI Destructive Guard
+# Event: PreToolUse | Matcher: Bash
+#
+# Cross-channel parity with mcp-destructive-guard: that hook ASKS before a
+# destructive infra op on an MCP provider server (mcp__aws__/gcloud/azure/k8s/…);
+# the same operations run through the NATIVE CLI (`aws`, `gcloud`, `az`, `kubectl`,
+# `helm`, `gsutil`, `doctl`, `flyctl`) hit the Bash channel instead, where safety.sh
+# only covers cloud CREDENTIAL-theft / container-escape / RBAC — NOT bulk deletes.
+# So `aws ec2 terminate-instances`, `aws rds delete-db-instance`, `az group delete`,
+# `kubectl delete namespace`, `helm uninstall`, `gsutil rm -r`, `gcloud … delete`
+# slipped through. This ASKS (user confirms) on those — matching the MCP channel.
+# (terraform/tofu destroy is already blocked by safety.sh, so it is not covered here.)
+# Advisory + fail-open; disable with SUPERCHARGER_CLOUD_CLI_GUARD=0.
+set -uo pipefail
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh" 2>/dev/null || true
+
+[ "${SUPERCHARGER_CLOUD_CLI_GUARD:-1}" = "0" ] && exit 0
+
+_INPUT=$(cat)
+
+# Fast-path: no cloud CLI mentioned → nothing to do. Superset of every provider
+# matched below, so this can never skip a real match.
+case "$_INPUT" in
+  *aws*|*gcloud*|*gsutil*|*kubectl*|*helm*|*doctl*|*flyctl*|*eksctl*|*'az '*|*'az\"'*|*azure*) : ;;
+  *) exit 0 ;;
+esac
+
+check_hook_disabled "cloud-cli-destructive-guard" 2>/dev/null && exit 0
+
+CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // empty' 2>/dev/null || true)
+if [ -z "$CMD" ]; then
+  CMD=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json;ti=json.load(sys.stdin).get('tool_input',{});print(ti.get('command') or ti.get('script') or '')" 2>/dev/null || echo "")
+fi
+[ -z "$CMD" ] && exit 0
+
+# Destructive bulk-delete operations per provider. Each pattern targets an
+# irreversible resource teardown; ordinary reads/list/describe do not match.
+op=""
+if   printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*s3[[:space:]]+(rm[^;&|]*--recursive|rb[^;&|]*--force)';                      then op="aws s3 bulk delete (rm --recursive / rb --force)"
+elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*ec2[[:space:]]+terminate-instances';                                        then op="aws ec2 terminate-instances"
+elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*rds[[:space:]]+delete-db-(instance|cluster)';                               then op="aws rds delete-db-instance/cluster"
+elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*(dynamodb[[:space:]]+delete-table|cloudformation[[:space:]]+delete-stack|eks[[:space:]]+delete-cluster|ecr[[:space:]]+delete-repository|lambda[[:space:]]+delete-function|elasticache[[:space:]]+delete)'; then op="aws bulk resource delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*projects[[:space:]]+delete';                                             then op="gcloud projects delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*(compute|sql|container|storage|functions|run|redis|spanner)[^;&|]*[[:space:]]delete([[:space:]]|$)'; then op="gcloud resource delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'gsutil[[:space:]]+(rm[[:space:]]+-[rR]|rb)';                                          then op="gsutil bucket/recursive delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])az[[:space:]]+(group|vm|aks|sql|webapp|storage)[^;&|]*[[:space:]]delete([[:space:]]|$)'; then op="az resource delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*delete[^;&|]*(namespace|deployment|statefulset|daemonset|pvc|persistentvolume|--all([[:space:]]|$))'; then op="kubectl delete (namespace/workload/--all)"
+elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete)[[:space:]]';                                       then op="helm uninstall/delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(doctl|flyctl|fly)[^;&|]*(delete|destroy)([[:space:]]|$)';          then op="doctl/flyctl delete/destroy"
+fi
+
+[ -z "$op" ] && exit 0
+
+reason="destructive cloud operation via the native CLI: ${op}. This tears down cloud infrastructure/data and is typically irreversible — the same op is confirmed on the MCP channel (mcp-destructive-guard), so it is confirmed here too. Verify the target account/project/cluster and that this is intended."
+RSN=$(printf '%s' "$reason" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$reason")
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+echo "[Supercharger] cloud-cli-destructive-guard: ASK on ${op}" >&2
+exit 0

@@ -67,6 +67,11 @@ get_hooks_for_mode() {
   # 2.22.14: destructive ops on infra/filesystem/git MCP servers (structured
   # tool calls that never hit the shell-channel guards) — ASK to confirm.
   hooks+=("PreToolUse|mcp__filesystem__,mcp__aws__,mcp__kubernetes__,mcp__k8s__,mcp__docker__,mcp__gcloud__,mcp__gcp__,mcp__azure__,mcp__git__,mcp__terraform__|${hooks_dir}/mcp-destructive-guard.sh|")
+  # v2.23.7: Bash-channel parity for the above — the same destructive infra ops run
+  # through the native CLI (aws/gcloud/az/kubectl/helm/gsutil/doctl/flyctl) where
+  # safety.sh only guards cloud credential-theft/escape, not bulk deletes. ASK on
+  # terminate/delete/uninstall/rm-r. Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0.
+  hooks+=("PreToolUse|Bash|${hooks_dir}/cloud-cli-destructive-guard.sh|")
   # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in
