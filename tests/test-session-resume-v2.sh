@@ -128,4 +128,76 @@ else
 fi
 rm -rf "$PROJ" "$FAKE_HOME"
 
+# --- Handoff brief injection (v2.23.0) ----------------------------------------
+POSTCOMPACT="$REPO_DIR/hooks/post-compact-inject.sh"
+
+# Test: session-memory-inject injects a fresh handoff when no memory file exists
+begin_test "session-memory-inject: injects fresh handoff brief (no memory file)"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+printf '## Handoff\n### Resume With\nPick up from the widget refactor.\n' > "$PROJ/.claude/handoff.md"
+INPUT="{\"cwd\":\"$PROJ\"}"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "HANDOFF" && echo "$OUTPUT" | grep -q "widget refactor"; then
+  pass
+else
+  fail "expected handoff brief in output, got: $OUTPUT"
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+# Test: stale handoff (>7d) is NOT injected
+begin_test "session-memory-inject: does not inject stale handoff (>7d)"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+HO="$PROJ/.claude/handoff.md"
+printf '## Handoff\n### Resume With\nStale brief.\n' > "$HO"
+touch -d '8 days ago' "$HO" 2>/dev/null || touch -t "$(date -v-8d +%Y%m%d%H%M)" "$HO"
+INPUT="{\"cwd\":\"$PROJ\"}"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "HANDOFF"; then
+  fail "stale handoff should not be injected, got: $OUTPUT"
+else
+  pass
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+# Test: handoff is injected alongside an existing memory file
+begin_test "session-memory-inject: handoff coexists with memory file"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+BRANCH=$(cd "$PROJ" && git rev-parse --abbrev-ref HEAD 2>/dev/null || echo main)
+[ "$BRANCH" = "HEAD" ] && BRANCH="main"
+echo "mem:2026-04-22T10:00Z branch:${BRANCH} open:none commits:abc1234:init corrections:none" > "$PROJ/.claude/supercharger-memory.md"
+printf '## Handoff\n### Resume With\nContinue the parser work.\n' > "$PROJ/.claude/handoff.md"
+INPUT="{\"cwd\":\"$PROJ\"}"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "MEM" && echo "$OUTPUT" | grep -q "parser work"; then
+  pass
+else
+  fail "expected both memory line and handoff, got: $OUTPUT"
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+# Test: post-compact-inject injects the handoff across the compaction boundary
+begin_test "post-compact-inject: injects handoff brief on compaction"
+PROJ=$(mktemp -d)
+FAKE_HOME=$(mktemp -d)
+mkdir -p "$PROJ/.claude"
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+printf '## Handoff\n### Resume With\nFinish the migration.\n' > "$PROJ/.claude/handoff.md"
+INPUT="{\"cwd\":\"$PROJ\",\"compact_summary\":\"summary text\"}"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$POSTCOMPACT" 2>/dev/null)
+if echo "$OUTPUT" | grep -q "Handoff brief" && echo "$OUTPUT" | grep -q "Finish the migration"; then
+  pass
+else
+  fail "expected handoff brief in post-compact output, got: $OUTPUT"
+fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
 report
