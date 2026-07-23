@@ -4,6 +4,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 HOOK="$REPO_DIR/hooks/budget-cap.sh"
 
+# v2.23.2: the accumulate path now debounces the transcript walk (default 4s).
+# These accounting tests fire the hook repeatedly within that window to verify
+# incremental math, so pin the debounce OFF for exact per-call accumulation. The
+# debounce behavior itself is covered by its own section at the end of this file.
+export SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0
+
 echo "=== Budget Cap Tests ==="
 
 # ── Accumulator Tests ──────────────────────────────────────────────────────────
@@ -305,6 +311,68 @@ if [ "$ELAPSED" -lt 5 ] && [ -f "$SCOPE_DIR/.session-cost" ]; then
 else
   fail "hook hung on held lock: elapsed=${ELAPSED}s (want <5), cost-file=$([ -f "$SCOPE_DIR/.session-cost" ] && echo yes || echo no)"
 fi
+teardown_test_home
+
+# ── Debounce Tests (v2.23.2) ────────────────────────────────────────────────────
+# The accumulate walk is incremental + additive, so it can be debounced to cut the
+# python cold-start on the majority of PostToolUse calls WITHOUT losing tokens —
+# a deferred walk is picked up (from the persisted offset) by the next walk.
+
+begin_test "debounce: second call within window skips the walk (no double work, no loss)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/dtr.jsonl"
+asst_msg 1000 0 0 500 > "$TR"
+P=$(printf '{"tool_name":"Write","session_id":"dsess","transcript_path":"%s"}' "$TR")
+# 4s window (default). Call 1 walks; append a turn; call 2 immediately → debounced.
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+T1=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+asst_msg 2000 0 0 1000 >> "$TR"
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+T2=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+if [ "$T1" = "1" ] && [ "$T2" = "1" ]; then pass; else fail "expected turn_count 1 then 1 (debounced), got $T1 then $T2"; fi
+teardown_test_home
+
+begin_test "debounce: deferred tokens are not lost — a later walk picks them up"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/dtr2.jsonl"
+asst_msg 1000 0 0 500 > "$TR"
+P=$(printf '{"tool_name":"Write","session_id":"dsess2","transcript_path":"%s"}' "$TR")
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1  # walk turn 1
+asst_msg 2000 0 0 1000 >> "$TR"
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1  # debounced — turn 2 deferred
+# expire the window (marker is keyed by transcript basename) → next call walks
+rm -f "$SCOPE_DIR"/.budget-walk-* 2>/dev/null
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+T=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+[ "$T" = "2" ] && pass || fail "deferred turn lost: expected turn_count=2 after window expiry, got $T"
+teardown_test_home
+
+begin_test "debounce: DEBOUNCE_SECS=0 disables debounce (every call walks)"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/dtr3.jsonl"
+asst_msg 1000 0 0 500 > "$TR"
+P=$(printf '{"tool_name":"Write","session_id":"dsess3","transcript_path":"%s"}' "$TR")
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash "$HOOK" >/dev/null 2>&1
+asst_msg 2000 0 0 1000 >> "$TR"
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash "$HOOK" >/dev/null 2>&1
+T=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+[ "$T" = "2" ] && pass || fail "DEBOUNCE=0 should walk every call: expected turn_count=2, got $T"
+teardown_test_home
+
+begin_test "debounce: no marker cross-contamination between concurrent sessions"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TA="$SCOPE_DIR/dsa.jsonl"; TB="$SCOPE_DIR/dsb.jsonl"
+asst_msg 1000 0 0 500 > "$TA"; asst_msg 1000 0 0 500 > "$TB"
+PA=$(printf '{"tool_name":"Write","session_id":"dsa","transcript_path":"%s"}' "$TA")
+PB=$(printf '{"tool_name":"Write","session_id":"dsb","transcript_path":"%s"}' "$TB")
+# A walks (writes A's marker). B must still walk — its own marker is absent.
+echo "$PA" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+echo "$PB" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+if [ -f "$SCOPE_DIR/.main-tokens-dsa" ] && [ -f "$SCOPE_DIR/.main-tokens-dsb" ]; then pass; else fail "B was wrongly debounced by A's marker"; fi
 teardown_test_home
 
 report

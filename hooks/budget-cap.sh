@@ -34,23 +34,65 @@ if [[ "$MODE" == "accumulate" ]]; then
   # the running total — keyed separately from subagent cost so neither clobbers
   # the other (each adds its own delta; the invariant total_usd == main_total +
   # subagent_total holds).
-  TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+  # v2.23.2: fork-free transcript_path extraction (was a jq fork). Falls back to
+  # jq only if the fast parse misses (e.g. non-compact JSON) — so the common
+  # compact-payload case pays no fork, without regressing correctness.
+  _TP_AFTER="${_INPUT#*\"transcript_path\":\"}"
+  if [ "$_TP_AFTER" = "$_INPUT" ]; then
+    # fast parse missed (non-compact JSON) — fall back to jq for correctness.
+    TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+  else
+    TRANSCRIPT="${_TP_AFTER%%\"*}"
+  fi
   if [ -z "$TRANSCRIPT" ] || [ ! -f "$TRANSCRIPT" ]; then
     exit 0
   fi
-  # v2.7.36: per-session parent token total is keyed by session_id.
-  SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
 
-  NOW=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
-  COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" NOW="$NOW" \
+  # v2.23.2: debounce the transcript walk — the single largest hook cost in
+  # profiling (~65s/session; ~237ms/call from the python cold-start). The walk
+  # resumes from a persisted PER-TRANSCRIPT byte offset (incremental + additive),
+  # so deferring it loses NO tokens — only statusline/cap freshness within the
+  # window. Skipping the majority of PostToolUse calls removes the python fork
+  # entirely on those calls. Default 4s; set SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0
+  # for exact per-call accounting (e.g. a tight cap where <window overshoot
+  # matters). Cost of the gate itself: one `date +%s` fork; the marker read/write
+  # are bash builtins (no fork). Marker is keyed per-transcript so concurrent
+  # sessions never debounce each other's walk.
+  _DEBOUNCE="${SUPERCHARGER_BUDGET_DEBOUNCE_SECS:-4}"
+  case "$_DEBOUNCE" in ''|*[!0-9]*) _DEBOUNCE=4 ;; esac
+  if [ "$_DEBOUNCE" -gt 0 ]; then
+    _NOW_EPOCH=$(date +%s 2>/dev/null || echo 0)
+    _TKEY="${TRANSCRIPT##*/}"; _TKEY="${_TKEY%.jsonl}"
+    case "$_TKEY" in ''|*[!A-Za-z0-9._-]*) _TKEY="global" ;; esac
+    _WALK_TS="$SCOPE_DIR/.budget-walk-$_TKEY"
+    _LAST_WALK=0
+    if [ -f "$_WALK_TS" ]; then read -r _LAST_WALK < "$_WALK_TS" 2>/dev/null || true; fi
+    case "$_LAST_WALK" in ''|*[!0-9]*) _LAST_WALK=0 ;; esac
+    if [ "$_NOW_EPOCH" -gt 0 ] && [ "$_LAST_WALK" -gt 0 ] \
+       && [ $(( _NOW_EPOCH - _LAST_WALK )) -lt "$_DEBOUNCE" ]; then
+      exit 0
+    fi
+    [ "$_NOW_EPOCH" -gt 0 ] && printf '%s\n' "$_NOW_EPOCH" > "$_WALK_TS" 2>/dev/null || true
+  fi
+
+  # v2.23.2: session_id passed RAW (sanitized in python) — was a jq+tr+head fork
+  # chain; `now` is computed in python — was a `date -u` fork. Same fast-parse +
+  # jq-fallback shape as transcript_path above.
+  _SID_AFTER="${_INPUT#*\"session_id\":\"}"
+  if [ "$_SID_AFTER" = "$_INPUT" ]; then
+    SESSION_ID_RAW=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  else
+    SESSION_ID_RAW="${_SID_AFTER%%\"*}"
+  fi
+  COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" \
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
-  SESSION_ID="$SESSION_ID" SCOPE_DIR="$SCOPE_DIR" \
+  SESSION_ID_RAW="$SESSION_ID_RAW" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
-import json, os, fcntl, time
+import json, os, fcntl, time, datetime, re
 
 cost_file = os.environ['COST_INPUT']
 transcript = os.environ['TRANSCRIPT']
-now = os.environ['NOW']
+now = datetime.datetime.now(datetime.timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
 
 PRICING = {
     'opus':   (5.00,  6.25, 0.50, 25.00),
@@ -225,7 +267,7 @@ finally:
 # statusline's combined session-token metric. Keyed by session_id, separate from
 # the machine-global cost file. `reset` mirrors the cost re-derive above so a
 # transcript rotation re-derives instead of double-counting.
-sid = os.environ.get('SESSION_ID', '')
+sid = re.sub(r'[^a-zA-Z0-9_-]', '', os.environ.get('SESSION_ID_RAW', ''))[:64]
 if sid:
     tf = os.path.join(os.environ.get('SCOPE_DIR') or os.path.dirname(cost_file), '.main-tokens-' + sid)
     prev_tok = 0
