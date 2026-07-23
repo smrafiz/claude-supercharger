@@ -25,6 +25,12 @@ get_hooks_for_mode() {
   # Bash channel, so rm -rf / curl|bash / DB-drop / persistence were unguarded.
   hooks+=("PreToolUse|Bash,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__|${hooks_dir}/safety.sh|")
   hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
+  # v2.23.6: Bash-channel self-defense. path-guard covers the Write/Edit channel and
+  # safety.sh's selfmod blocks Bash edits to the config FILES; this closes the two
+  # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
+  # rm/mv/chmod-x/truncate/touch of the hook SCRIPTS, install dir, or kill-switch.
+  # Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
+  hooks+=("PreToolUse|Bash|${hooks_dir}/harness-tamper-guard.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
   # Critical-infra write gate: forces a confirm before editing CI/CD, container,
   # DB-migration, or auth files (guardrails.md's documented review triggers). Emits
