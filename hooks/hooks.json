@@ -159,6 +159,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/test-integrity-guard.sh"
+          }
+        ],
+        "matcher": "Edit,MultiEdit,Write"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-circuit-breaker.sh"
           }
         ],
