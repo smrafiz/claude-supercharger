@@ -78,6 +78,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notebook-exec-guard.sh"
+          }
+        ],
+        "matcher": "NotebookEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-github-write-gate.sh"
           }
         ],
