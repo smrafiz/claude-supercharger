@@ -15,6 +15,35 @@ _INPUT=$(cat)
 
 hook_profile_skip "session-checkpoint" && exit 0
 
+# v2.23.3: debounce the checkpoint write. This hook fires on every Write/Edit/Bash
+# and spends ~100ms mostly in 3 git child processes — the top reducible hook cost
+# in real-session timing. The checkpoint is a FULL idempotent crash-recovery
+# snapshot (not incremental), so skipping a call within the window loses nothing:
+# the next write captures fresh state, and git itself still holds the true
+# modified-file list. Default 10s window; SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=0
+# disables. Gate cost: one `date +%s` fork; marker read/write are bash builtins.
+_CKPT_DEBOUNCE="${SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS:-10}"
+case "$_CKPT_DEBOUNCE" in ''|*[!0-9]*) _CKPT_DEBOUNCE=10 ;; esac
+if [ "$_CKPT_DEBOUNCE" -gt 0 ]; then
+  _SID_AFTER="${_INPUT#*\"session_id\":\"}"
+  if [ "$_SID_AFTER" != "$_INPUT" ]; then
+    _CKPT_SID="${_SID_AFTER%%\"*}"
+    case "$_CKPT_SID" in ''|*[!A-Za-z0-9._-]*) _CKPT_SID="" ;; esac
+    if [ -n "$_CKPT_SID" ]; then
+      _NOW_EPOCH=$(date +%s 2>/dev/null || echo 0)
+      _CKPT_TS="$SCOPE_DIR/.checkpoint-walk-$_CKPT_SID"
+      _LAST=0
+      if [ -f "$_CKPT_TS" ]; then read -r _LAST < "$_CKPT_TS" 2>/dev/null || true; fi
+      case "$_LAST" in ''|*[!0-9]*) _LAST=0 ;; esac
+      if [ "$_NOW_EPOCH" -gt 0 ] && [ "$_LAST" -gt 0 ] \
+         && [ $(( _NOW_EPOCH - _LAST )) -lt "$_CKPT_DEBOUNCE" ]; then
+        exit 0
+      fi
+      [ "$_NOW_EPOCH" -gt 0 ] && printf '%s\n' "$_NOW_EPOCH" > "$_CKPT_TS" 2>/dev/null || true
+    fi
+  fi
+fi
+
 # v2.6.17: one python3 fork does parse + git-files + cost + checkpoint write.
 # Was: 5 forks (2 python3 stdin-parse, 1 python3 git, 1 python3 cost, 1 git
 # rev-parse). New: 1 python3 fork (3 internal git subprocesses unchanged —

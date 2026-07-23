@@ -96,4 +96,44 @@ printf '{"session_id":"sessA","cwd":"%s"}' "$PROJ" | HOME="$FAKE_HOME" bash "$RE
 [ -f "$SD/.checkpoint-sessB" ] && pass || fail "other session's checkpoint was deleted (cross-session glob bug)"
 rm -rf "$PROJ" "$FAKE_HOME"
 
+# ── Debounce Tests (v2.23.3) ─────────────────────────────────────────────────────
+# The checkpoint is a full idempotent snapshot, so a debounced (skipped) write
+# loses nothing — the next write captures fresh state and git holds the true files.
+
+begin_test "session-checkpoint: debounced within window (no rewrite)"
+PROJ=$(mktemp -d); FAKE_HOME=$(mktemp -d)
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+INPUT="{\"session_id\":\"dck\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/a.ts\"},\"cwd\":\"$PROJ\"}"
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=10; printf '%s' "$INPUT" | bash "$HOOK") 2>/dev/null
+BEFORE=$(cat "$SCOPE_DIR/.checkpoint-dck" 2>/dev/null)
+echo "SENTINEL" > "$SCOPE_DIR/.checkpoint-dck"   # if the 2nd call walks, it overwrites this
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=10; printf '%s' "$INPUT" | bash "$HOOK") 2>/dev/null
+AFTER=$(cat "$SCOPE_DIR/.checkpoint-dck" 2>/dev/null)
+if [ -n "$BEFORE" ] && [ "$AFTER" = "SENTINEL" ]; then pass; else fail "2nd call was not debounced (checkpoint rewritten): '$AFTER'"; fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
+begin_test "session-checkpoint: DEBOUNCE_SECS=0 writes every call"
+PROJ=$(mktemp -d); FAKE_HOME=$(mktemp -d)
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+INPUT="{\"session_id\":\"dck0\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/a.ts\"},\"cwd\":\"$PROJ\"}"
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=0; printf '%s' "$INPUT" | bash "$HOOK") 2>/dev/null
+echo "SENTINEL" > "$SCOPE_DIR/.checkpoint-dck0"
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=0; printf '%s' "$INPUT" | bash "$HOOK") 2>/dev/null
+AFTER=$(cat "$SCOPE_DIR/.checkpoint-dck0" 2>/dev/null)
+echo "$AFTER" | grep -q "^ckpt:" && pass || fail "DEBOUNCE=0 should rewrite every call, got: $AFTER"
+rm -rf "$PROJ" "$FAKE_HOME"
+
+begin_test "session-checkpoint: debounce marker is per-session (no cross-suppress)"
+PROJ=$(mktemp -d); FAKE_HOME=$(mktemp -d)
+(cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
+SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+IA="{\"session_id\":\"dcA\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/a.ts\"},\"cwd\":\"$PROJ\"}"
+IB="{\"session_id\":\"dcB\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/a.ts\"},\"cwd\":\"$PROJ\"}"
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=10; printf '%s' "$IA" | bash "$HOOK") 2>/dev/null
+(export HOME="$FAKE_HOME" SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS=10; printf '%s' "$IB" | bash "$HOOK") 2>/dev/null
+if [ -f "$SCOPE_DIR/.checkpoint-dcA" ] && [ -f "$SCOPE_DIR/.checkpoint-dcB" ]; then pass; else fail "session B wrongly debounced by A's marker"; fi
+rm -rf "$PROJ" "$FAKE_HOME"
+
 report
