@@ -109,6 +109,11 @@ get_hooks_for_mode() {
     # package manager instead. Once per lockfile per session. Disable:
     # SUPERCHARGER_LOCKFILE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/lockfile-integrity-guard.sh|")
+    # v2.23.4: test-integrity guard — ASK before an edit to a test file removes
+    # assertions or adds skip/only markers (it.skip, @pytest.mark.skip, @Ignore,
+    # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
+    # agent gaming the tests to go green. Disable: SUPERCHARGER_TEST_INTEGRITY_GUARD=0.
+    hooks+=("PreToolUse|Edit,MultiEdit,Write|${hooks_dir}/test-integrity-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
