@@ -25,7 +25,7 @@ _INPUT=$(cat)
 # Fast-path: needs an archive tool, a cloud-sync verb, or a remote-copy tool.
 # Superset of every pattern below, so it can never skip a real match.
 case "$_INPUT" in
-  *tar*|*zip*|*gzip*|*pigz*|*bzip2*|*xz*|*zstd*|*7z*|*cpio*|*pax*|*rclone*|*rsync*|*gsutil*|*" s3 "*|*'s3\t'*|*scp*) : ;;
+  *tar*|*zip*|*gzip*|*pigz*|*bzip2*|*xz*|*zstd*|*7z*|*cpio*|*pax*|*rclone*|*rsync*|*gsutil*|*" s3 "*|*'s3\t'*|*scp*|*Compress-Archive*|*Invoke-WebRequest*|*Invoke-RestMethod*) : ;;
   *) exit 0 ;;
 esac
 
@@ -46,6 +46,15 @@ REASON=""
 # handles curl|bash download-exec; this is the reverse (upload) direction.
 if printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z])(tar|zip|gzip|pigz|bzip2|xz|zstd|7z|7za|cpio|pax)\b[^|]*\|[^|]*(curl|wget|nc[[:space:]]|ncat|/dev/tcp)'; then
   REASON="an archive/stream is piped into a network sink (curl/wget/nc) — this can bulk-exfiltrate local files with no filename appearing in the command"
+fi
+# v2.23.22: PowerShell parity (matcher now Bash,PowerShell). Compress-Archive piped
+# to Invoke-WebRequest, or an Invoke-WebRequest/-RestMethod upload (-Method Put/Post
+# with -InFile/-Body/-Form), is the PowerShell archive-to-network exfil shape.
+if [ -z "$REASON" ]; then
+  if printf '%s\n' "$CMD" | grep -qiE 'Compress-Archive[^|]*\|[^|]*Invoke-(WebRequest|RestMethod)' \
+     || printf '%s\n' "$CMD" | grep -qiE 'Invoke-(WebRequest|RestMethod)[^|;&]*-Method[[:space:]]+(Put|Post)[^|;&]*-(InFile|Body|Form)'; then
+    REASON="a PowerShell archive/upload is streamed to a remote endpoint (Invoke-WebRequest/-RestMethod) — possible bulk exfiltration of local files"
+  fi
 fi
 
 # --- B. Cloud bulk sync/upload of a WHOLE directory to remote storage --------
