@@ -1603,6 +1603,67 @@ INPUT=$(python3 -c "import json; c = 'import os\npassword = os.environ[\"DB_PASS
 OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
 echo "$OUT" | grep -qi "hardcoded password" && fail "false positive on env read: $OUT" || pass
 
+# v2.23.15: patterns adopted from Anthropic's Security Guidance taxonomy.
+# Helper: build a Write payload with content taken from $C (no inline-quote pain).
+css_json() { C="$1" python3 -c "import os,json;print(json.dumps({'tool_name':'Write','tool_input':{'file_path':os.environ.get('CSSFP','/tmp/x.js'),'content':os.environ['C']}}))"; }
+
+begin_test "code-security-scanner: warns on Node child_process execSync (v2.23.15)"
+OUT=$(css_json "const cp = require('child_process');
+cp.execSync(userInput);
+lineA
+lineB" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "command injection" && pass || fail "execSync not flagged: $OUT"
+
+begin_test "code-security-scanner: warns on shell:true (v2.23.15)"
+OUT=$(css_json "spawn(cmd, args, { shell: true });
+lineA
+lineB
+lineC" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "shell: true\|command injection" && pass || fail "shell:true not flagged: $OUT"
+
+begin_test "code-security-scanner: warns on os.popen (v2.23.15)"
+OUT=$(CSSFP=/tmp/x.py css_json "import os
+out = os.popen(cmd).read()
+lineA
+lineB" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "os.popen\|shell injection" && pass || fail "os.popen not flagged: $OUT"
+
+begin_test "code-security-scanner: warns on yaml.load (v2.23.15)"
+OUT=$(CSSFP=/tmp/x.py css_json "import yaml
+cfg = yaml.load(open(path))
+lineA
+lineB" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "yaml.load\|deserialization" && pass || fail "yaml.load not flagged: $OUT"
+
+begin_test "code-security-scanner: no false positive on yaml.safe_load (v2.23.15)"
+OUT=$(CSSFP=/tmp/x.py css_json "import yaml
+cfg = yaml.safe_load(open(path))
+lineA
+lineB
+lineC" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "yaml.load\|deserialization" && fail "safe_load wrongly flagged: $OUT" || pass
+
+begin_test "code-security-scanner: warns on PHP unserialize (v2.23.15)"
+OUT=$(CSSFP=/tmp/x.php css_json "<?php
+\$o = unserialize(\$_GET['d']);
+lineA
+lineB" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "unserialize\|object-injection" && pass || fail "unserialize not flagged: $OUT"
+
+begin_test "code-security-scanner: warns on Math.random near a token (v2.23.15)"
+OUT=$(css_json "const token = Math.random().toString(36).slice(2);
+lineA
+lineB
+lineC" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "not cryptographically secure\|randomBytes" && pass || fail "insecure RNG not flagged: $OUT"
+
+begin_test "code-security-scanner: no false positive on Math.random for non-secret (v2.23.15)"
+OUT=$(css_json "const jitter = Math.random() * 100;
+const delay = base + jitter;
+lineA
+lineB" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -qi "cryptographically secure" && fail "benign Math.random wrongly flagged: $OUT" || pass
+
 echo ""
 echo "=== Scope Guard Tests ==="
 
