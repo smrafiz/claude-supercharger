@@ -141,6 +141,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/bulk-exfil-guard.sh"
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/webfetch-egress-guard.sh"
           }
         ],
