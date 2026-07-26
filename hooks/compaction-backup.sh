@@ -48,13 +48,13 @@ if [ "${SUPERCHARGER_NO_MEMORY:-0}" != "1" ] && [ "${SUPERCHARGER_HANDOFF_NUDGE:
   _HN_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
   _HN_HASH=$(printf '%s' "$_HN_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$_HN_ROOT" | md5 -q 2>/dev/null || echo "global")
   _HN_FLAG="$_HN_SCOPE/.handoff-nudge-${_HN_HASH:0:8}"
-  _HN_HANDOFF="$_HN_ROOT/.claude/handoff.md"
+  # v2.23.12: handoff is session-scoped; skip the nudge if any recent brief exists
+  # (own-SID preferred, else newest, else legacy). Shared selector = no drift.
+  . "${BASH_SOURCE[0]%/*}/lib-handoff.sh"
+  _HN_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  [ -z "$_HN_SID" ] && _HN_SID="${CLAUDE_CODE_SESSION_ID:-}"
   _HN_FRESH=0
-  if [ -f "$_HN_HANDOFF" ]; then
-    _HN_MT=$(stat -c '%Y' "$_HN_HANDOFF" 2>/dev/null || stat -f '%m' "$_HN_HANDOFF" 2>/dev/null || echo 0)
-    case "$_HN_MT" in ''|*[!0-9]*) _HN_MT=0 ;; esac
-    [ "$_HN_MT" -gt 0 ] && [ $(( NOW - _HN_MT )) -lt 604800 ] && _HN_FRESH=1
-  fi
+  [ -n "$(select_handoff_file "$_HN_ROOT" "$_HN_SID" 604800)" ] && _HN_FRESH=1
   if [ "$_HN_FRESH" = 0 ] && [ ! -f "$_HN_FLAG" ]; then
     mkdir -p "$_HN_SCOPE" 2>/dev/null || true
     touch "$_HN_FLAG" 2>/dev/null || true
