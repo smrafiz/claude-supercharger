@@ -86,6 +86,13 @@ get_hooks_for_mode() {
   # value-shape gated so credential.helper=store/core.pager=less pass. /profile-gated.
   # Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0.
   hooks+=("PreToolUse|Bash|${hooks_dir}/git-config-exec-guard.sh|")
+  # v2.23.24: code-injecting env var (LD_PRELOAD, DYLD_INSERT_LIBRARIES, BASH_ENV,
+  # NODE_OPTIONS --require, PYTHONSTARTUP, GIT_SSH_COMMAND, PERL5OPT/RUBYOPT, …) →
+  # exec on the NEXT process spawn, sidestepping command-pattern guards. safety.sh
+  # doesn't cover the env-preload class. ASK, value-shape gated (NODE_OPTIONS=
+  # --max-old-space-size / LD_LIBRARY_PATH=/usr/local/lib pass). /profile-gated.
+  # Disable: SUPERCHARGER_ENV_EXEC_GUARD=0.
+  hooks+=("PreToolUse|Bash|${hooks_dir}/env-exec-guard.sh|")
   # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in
