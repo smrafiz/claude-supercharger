@@ -136,6 +136,13 @@ get_hooks_for_mode() {
     # or setup.py install-time exec), esp. one that reaches the network or evals code.
     # Runs on the next install → persistence vector. Disable: SUPERCHARGER_INSTALL_SCRIPT_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/install-script-guard.sh|")
+    # v2.23.14: supply-chain sibling — ASK when a manifest edit adds/changes a dep
+    # from a NON-REGISTRY source (tarball/wheel URL, git+/github: shorthand, file:/
+    # local path, or a registry-override index → dependency confusion). install-script
+    # guards lifecycle scripts, lockfile guards the hash, dep-vuln audits known CVEs;
+    # the dep ORIGIN was unguarded and runs before any CVE scan. Asks once per source
+    # per session. Disable: SUPERCHARGER_PACKAGE_SOURCE_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/package-source-guard.sh|")
     # v2.23.4: test-integrity guard — ASK before an edit to a test file removes
     # assertions or adds skip/only markers (it.skip, @pytest.mark.skip, @Ignore,
     # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
