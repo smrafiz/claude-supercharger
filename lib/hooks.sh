@@ -82,6 +82,12 @@ get_hooks_for_mode() {
   # the agent followed instructions embedded in a Read file (e.g. GitHub issue
   # title prompt-injecting `npm publish` with a stolen token).
   hooks+=("PostToolUse|mcp__,WebFetch,WebSearch,Read|${hooks_dir}/prompt-injection-scanner.sh|asyncRewake")
+  # v2.23.11: the sibling above never sees Bash output, but agents pull untrusted
+  # text through Bash (gh issue view, git log, raw curl, cat cloned README) far more
+  # than through the gated WebFetch tool. Same override payloads, unscanned channel
+  # (cross-channel-parity-drift). WARN-only; a cheap grep seed-gate keeps it off the
+  # hot path (one grep, python only on a hit). Fail-open. Disable: SUPERCHARGER_BASH_INJECTION_SCANNER=0.
+  hooks+=("PostToolUse|Bash|${hooks_dir}/bash-injection-scanner.sh|asyncRewake")
   # v2.7.2: structural provenance check on MCP results — forged tool-call/system
   # framing the prompt-injection-scanner's persuasion patterns don't cover (ASI04).
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-provenance.sh|asyncRewake")
