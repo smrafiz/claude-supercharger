@@ -65,6 +65,37 @@ disabled = set(c.strip() for c in os.environ.get('DISABLED', '').split(',') if c
 if not p:
     sys.exit(0)
 
+# v2.23.13: the "project boundary" is the session's cwd, but Claude Code is often
+# launched from a SUBDIRECTORY of the repo. Files at the repo ROOT (vercel.json,
+# package.json, tsconfig.json …) then sit ABOVE cwd and were wrongly flagged
+# "outside project root". Widen the boundary to the enclosing git repo root — but
+# LAZILY: resolved only when a write would otherwise be blocked, so the common
+# path (writing under cwd) stays fork-free. No repo / no git → boundary stays cwd.
+_repo_root_cache = [None]
+def _repo_root(start):
+    if _repo_root_cache[0] is not None:
+        return _repo_root_cache[0]
+    rr = ''
+    try:
+        import subprocess
+        r = subprocess.run(['git', '-C', start, 'rev-parse', '--show-toplevel'],
+                           stdout=subprocess.PIPE, stderr=subprocess.DEVNULL,
+                           timeout=2)
+        out = r.stdout.decode('utf-8', 'replace').strip()
+        if r.returncode == 0 and out:
+            rr = os.path.realpath(out)
+    except Exception:
+        rr = ''
+    _repo_root_cache[0] = rr
+    return rr
+
+def _within_project(target_real, proj_real):
+    # inside cwd, or inside the enclosing git repo root (subdir-launch case)
+    if target_real == proj_real or target_real.startswith(proj_real + os.sep):
+        return True
+    rr = _repo_root(proj_real)
+    return bool(rr) and (target_real == rr or target_real.startswith(rr + os.sep))
+
 # --- 3.1 Path traversal: decode and normalize ---
 if 'path-traversal' not in disabled:
     raw = p
@@ -112,7 +143,7 @@ if 'symlink' not in disabled and proj:
                       + full[:120] + ') — repo integrity risk; '
                       'opt out via disableSecurityCategories: ["symlink"]')
                 sys.exit(0)
-            if not (full == proj_real or full.startswith(proj_real + os.sep)):
+            if not _within_project(full, proj_real):
                 print('path resolves outside the project root via a symlink ('
                       + full[:120] + ') — out-of-project write; '
                       'opt out via disableSecurityCategories: ["symlink"]')
@@ -214,7 +245,7 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
         proj_real = os.path.realpath(proj)
         target_dir = os.path.dirname(p) or '/'
         target_real = os.path.realpath(target_dir)
-        if not (target_real == proj_real or target_real.startswith(proj_real + os.sep)):
+        if not _within_project(target_real, proj_real):
             print('absolute path outside project root: ' + p[:100] + '; opt out via disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
     except Exception:

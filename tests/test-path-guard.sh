@@ -220,4 +220,36 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "in-project NotebookEdit must be allowed"
 rm -rf "$PROJ"
 
+# v2.23.13: subdirectory-launch false positive. When Claude is launched from a
+# subdir of the repo, a file at the REPO ROOT sits above cwd and was wrongly
+# blocked as "outside project root". The boundary now widens to the enclosing
+# git repo root (lazily), so in-repo writes at any level are allowed — while
+# truly-outside paths and sibling repos still block.
+REPO=$(mktemp -d)/repo; mkdir -p "$REPO/app"; ( cd "$REPO" && git init -q )
+: > "$REPO/vercel.json"
+
+begin_test "path-guard: allows repo-root file when cwd is a subdirectory (git repo)"
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/vercel.json"},"cwd":"%s/app"}' "$REPO" "$REPO")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "repo-root file from subdir cwd must be allowed"
+
+begin_test "path-guard: still allows a file inside the subdir cwd"
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/app/page.tsx"},"cwd":"%s/app"}' "$REPO" "$REPO")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 0 ] && pass || fail "in-subdir file must be allowed"
+
+begin_test "path-guard: still blocks ~/.ssh from a subdir cwd (widening is repo-bounded)"
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.ssh/config"},"cwd":"%s/app"}' "$HOME" "$REPO")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "~/.ssh must still be blocked"
+
+begin_test "path-guard: non-git subdir keeps cwd boundary (parent file blocked)"
+NG=$(mktemp -d); mkdir -p "$NG/sub"; : > "$NG/root.txt"   # NOT a git repo
+INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/root.txt"},"cwd":"%s/sub"}' "$NG" "$NG")
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
+[ "$?" -eq 2 ] && pass || fail "no-git: parent file above cwd must stay blocked"
+rm -rf "$NG"
+
+rm -rf "$REPO"
+
 report
