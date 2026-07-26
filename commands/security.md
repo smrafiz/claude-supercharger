@@ -2,7 +2,20 @@ Run a structured security review of: $ARGUMENTS
 
 Anchor to OWASP Top 10. Be specific — file paths, line numbers, evidence. No generic advice.
 
-**Before starting:** read the files in scope. Do not review code you haven't read.
+**Step 0 — Resolve scope from $ARGUMENTS** (diff-scoped review, mirrors `/security-review`). Pick the first that matches:
+
+| $ARGUMENTS | Scope | How to get the diff |
+|---|---|---|
+| *(empty)* | **uncommitted changes** (default) | `git diff HEAD` plus staged (`git diff --cached`); if the tree is clean, fall back to the last commit `git show HEAD` |
+| `staged` | staged changes only | `git diff --cached` |
+| `branch` / `main..` / a base ref | **branch diff** vs the base | `git merge-base` then `git diff <base>...HEAD` |
+| `pr <N>` / `#<N>` | **pull-request diff** | `gh pr diff <N>` (read-only; if `gh` is absent, say so and stop) |
+| `commit <sha>` / a 7–40 hex sha | **single commit** | `git show <sha>` |
+| file/dir paths | those files (whole-file review) | read the files directly |
+
+For a diff scope, review **only the changed/added lines and the functions that contain them** — not the whole repo. State the resolved scope in the output header. If `$ARGUMENTS` is ambiguous, ask once, then proceed.
+
+**Before starting:** read the files (or diff hunks) in scope. Do not review code you haven't read. All git/`gh` commands here are read-only — never modify the tree, stage, or commit.
 
 **Dimensions to check (in order):**
 
@@ -26,9 +39,9 @@ Anchor to OWASP Top 10. Be specific — file paths, line numbers, evidence. No g
 
 **Output format:**
 ```
-SECURITY REVIEW: [scope]
+SECURITY REVIEW: [scope — e.g. "uncommitted changes", "branch feat/x vs main", "PR #42", "commit a1b2c3d", or file list]
 Date: [date]
-Files reviewed: [count]
+Reviewed: [N files / N changed hunks]
 
 FINDINGS:
 [findings grouped by severity, highest first]
