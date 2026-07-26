@@ -18,7 +18,7 @@ init_hook_suppress "$PROJECT_DIR"
 # Was: jq cwd, jq content + python3 fallback, python3 tool_name, wc, jq
 # file_path + python3 fallback, then ~22 separate `grep -qE` for each pattern,
 # plus a final python3 to JSON-wrap the message. Now: 1 python3 heredoc
-# parses stdin, compiles all 22 regex patterns once, walks them against the
+# parses stdin, compiles the regex patterns once, walks them against the
 # content + file_path, and emits the final JSON. Median 80ms → ~30ms.
 # asyncRewake hook — runs in background, doesn't block Claude, but volume
 # matters: fires on every Write/Edit.
@@ -58,14 +58,30 @@ js_checks = (
     (r'dangerouslySetInnerHTML',                'dangerouslySetInnerHTML — React XSS risk; sanitize input before use'),
     (r'document\.write\(',                      'document.write() — XSS risk'),
     (r'new Function\(',                         'new Function() — code injection risk'),
+    # v2.23.15: Node command injection (mirrors the Python subprocess check) —
+    # child_process.exec/execSync run through a shell; shell:true on spawn/exec
+    # does the same. .execSync( is unambiguous (only child_process has it).
+    (r'child_process\.exec\(|\.execSync\(',     'child_process.exec()/execSync() — command injection risk; use execFile/spawn with an args array'),
+    (r'shell[ \t]*:[ \t]*true',                 'shell: true in a child_process call — command injection risk; pass args as an array, no shell'),
+    (r'\.insertAdjacentHTML\(',                 'insertAdjacentHTML — XSS risk; sanitize input or use textContent'),
+    (r'\.outerHTML[ \t]*=',                     '.outerHTML = — XSS risk; use textContent or a sanitizer'),
+    (r'crypto\.createCipher\(',                 'crypto.createCipher() — deprecated & insecure (no IV); use createCipheriv with a random IV'),
 )
 # --- Python ---
 py_checks = (
     (r'pickle\.loads?\(',                                   'pickle.load(s)() — unsafe deserialization; never unpickle untrusted data'),
     (r'(?:^|[^a-zA-Z_])(?:exec|compile)\(',                 'exec()/compile() — arbitrary code execution risk'),
     (r'os\.system\(',                                       'os.system() — shell injection risk; prefer subprocess with a list of args'),
+    (r'os\.popen\(',                                        'os.popen() — shell injection risk; prefer subprocess with a list of args'),  # v2.23.15
     (r'subprocess\.(?:call|run|Popen).*shell[ \t]*=[ \t]*True', 'subprocess with shell=True — shell injection risk; pass args as a list instead'),
+    (r'yaml\.load\(',                                       'yaml.load() — unsafe deserialization; use yaml.safe_load()'),  # v2.23.15
     (r'__import__\(',                                       '__import__() — dynamic import injection risk'),
+)
+# --- Cross-language unsafe deserialization (v2.23.15) ---
+deser_checks = (
+    (r'(?:^|[^a-zA-Z_])unserialize\(',  'unserialize() — PHP object-injection risk; never unserialize untrusted data'),
+    (r'Marshal\.load\(',                'Marshal.load() — Ruby unsafe deserialization; never load untrusted data'),
+    (r'ObjectInputStream',              'ObjectInputStream — Java unsafe deserialization; validate/avoid on untrusted data'),
 )
 # --- SQL injection ---
 sql_checks = (
@@ -92,9 +108,19 @@ obf_checks = (
     (r'atob\(|btoa\(|base64[._-]?decode|b64decode',  'base64 decode in code — check for obfuscated prompt injection or payload'),
 )
 
-for pat, msg in js_checks + py_checks + sql_checks + hash_checks + obf_checks:
+for pat, msg in js_checks + py_checks + deser_checks + sql_checks + hash_checks + obf_checks:
     if re.search(pat, content):
         warnings.append(msg)
+
+# --- Insecure randomness for secrets (v2.23.15) ---
+# Math.random()/the `random` module are fine for non-security use, so gate on a
+# security context word nearby to keep false positives low (a blind Math.random(
+# match would be far too noisy).
+_SECCTX = re.compile(r'token|secret|password|passwd|nonce|salt|otp|api[_-]?key|session[_-]?id|csrf|reset', re.I)
+if re.search(r'Math\.random\(', content) and _SECCTX.search(content):
+    warnings.append('Math.random() used near a token/secret — not cryptographically secure; use crypto.getRandomValues() / crypto.randomBytes()')
+if re.search(r'(?:^|[^a-zA-Z_])random\.(?:random|randint|choice|randrange|getrandbits)\(', content) and _SECCTX.search(content):
+    warnings.append('random module used near a token/secret — not cryptographically secure; use the secrets module')
 
 # secret_checks are case-insensitive — run with IGNORECASE
 for pat, msg in secret_checks:
