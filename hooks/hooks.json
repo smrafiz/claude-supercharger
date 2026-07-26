@@ -26,7 +26,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/harness-tamper-guard.sh"
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash,PowerShell"
       },
       {
         "hooks": [
@@ -135,7 +135,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cloud-cli-destructive-guard.sh"
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash,PowerShell"
       },
       {
         "hooks": [
@@ -144,7 +144,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/bulk-exfil-guard.sh"
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash,PowerShell"
       },
       {
         "hooks": [

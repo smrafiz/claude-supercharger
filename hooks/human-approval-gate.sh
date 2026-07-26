@@ -95,7 +95,10 @@ if [ -z "$GATE_ENABLED" ] && [ "${SUPERCHARGER_NO_HUMAN_GATE_DEFAULT:-0}" != "1"
   COMMAND_PEEK=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
-    print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))
+    ti = json.load(sys.stdin).get('tool_input', {})
+    # v2.23.22: PowerShell payloads carry the body in .script/.code, not .command —
+    # reading only .command made this gate a silent no-op on the PowerShell channel.
+    print(ti.get('command') or ti.get('script') or ti.get('code') or '')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
@@ -110,8 +113,8 @@ fi
 COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
-    d = json.load(sys.stdin)
-    cmd = d.get('tool_input', {}).get('command', '')
+    ti = json.load(sys.stdin).get('tool_input', {})
+    cmd = ti.get('command') or ti.get('script') or ti.get('code') or ''  # v2.23.22: PowerShell parity
     print(cmd)
 except Exception:
     print('')

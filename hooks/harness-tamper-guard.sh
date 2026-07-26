@@ -63,7 +63,10 @@ if [ -z "$REASON" ]; then
   # Scoped to installed locations (.claude / …/supercharger/…) so a repo-relative
   # `chmod +x hooks/foo.sh` during development does NOT match.
   _HT_TARGET='(\.claude/supercharger/hooks/|/supercharger/hooks/|\.claude/hooks/|\.claude/plugins/[^;&|]*/hooks/|\.claude/supercharger([/[:space:]]|$)|\.supercharger-disabled)'
-  _HT_VERB='(^|[[:space:];&|(])(rm|unlink|mv|truncate|shred|chmod|chattr|touch|ln|sed[[:space:]]+-i|tee|dd[[:space:]]+of=|:[[:space:]]*>|>>?)[[:space:]]'
+  # v2.23.22: PowerShell cmdlet verbs added for cross-channel parity (matcher now
+  # Bash,PowerShell) — Remove-Item/Move-Item/Rename-Item/Clear-Content/Set-Content/
+  # Out-File are the PowerShell equivalents of rm/mv/truncate/redirect over the hooks.
+  _HT_VERB='(^|[[:space:];&|(])(rm|unlink|mv|truncate|shred|chmod|chattr|touch|ln|sed[[:space:]]+-i|tee|dd[[:space:]]+of=|:[[:space:]]*>|>>?|Remove-Item|Move-Item|Rename-Item|Clear-Content|Set-Content|Add-Content|Out-File)([[:space:]]|>)'
   if printf '%s' "$CMD" | grep -Eq -- "$_HT_VERB" && printf '%s' "$CMD" | grep -Eq -- "$_HT_TARGET"; then
     REASON="removes, disables, or overwrites Supercharger hook scripts / install dir / kill-switch — this tears down the guardrail layer. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
   fi

