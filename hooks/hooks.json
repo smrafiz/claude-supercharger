@@ -195,6 +195,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-source-guard.sh"
+          }
+        ],
+        "matcher": "Write,Edit,MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/test-integrity-guard.sh"
           }
         ],
