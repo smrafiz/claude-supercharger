@@ -157,6 +157,12 @@ get_hooks_for_mode() {
     # or setup.py install-time exec), esp. one that reaches the network or evals code.
     # Runs on the next install → persistence vector. Disable: SUPERCHARGER_INSTALL_SCRIPT_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/install-script-guard.sh|")
+    # v2.23.25: `.pth` persistence — CPython exec's any `import`-prefixed line in a
+    # .pth on interpreter startup (survives uninstall). DENY a .pth import line with
+    # a shell/network primitive (os.system/subprocess/socket/urllib), ASK on softer
+    # exec/eval/__import__. Bare-path + sys.path-finder .pth pass. install-script-guard
+    # covers package.json/setup.py only. Disable: SUPERCHARGER_PTH_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/pth-persistence-guard.sh|")
     # v2.23.14: supply-chain sibling — ASK when a manifest edit adds/changes a dep
     # from a NON-REGISTRY source (tarball/wheel URL, git+/github: shorthand, file:/
     # local path, or a registry-override index → dependency confusion). install-script
