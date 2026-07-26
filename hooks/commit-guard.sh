@@ -125,4 +125,44 @@ if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
   fi
 fi
 
+# ─── Check 4: code-vulnerability patterns in the staged diff (default ON) ─────
+# The write-time code-security-scanner only sees each single Write/Edit Claude
+# makes; it misses vulns that emerge across several edits, in human edits, or in
+# code that predates the hook. This is the commit-boundary backstop, reusing the
+# SAME patterns (lib_code_patterns.py) so the two enforcement points can't drift.
+# ASKS (not deny) — like the write-time scanner it may be intentional in a test or
+# security tool. Disable: SUPERCHARGER_COMMIT_CODE_SCAN=0.
+if [ "${SUPERCHARGER_COMMIT_CODE_SCAN:-1}" != "0" ]; then
+  _CV_TMP=$(mktemp 2>/dev/null) || _CV_TMP="${TMPDIR:-/tmp}/commit-codescan.$$"
+  ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
+    git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+    DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
+    [ -z "$DIFF" ] && exit 0
+    ADDED=$(printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{next} /^\+/{sub(/^\+/,""); print}')
+    [ -z "$ADDED" ] && exit 0
+    ADDED_CODE="$ADDED" HOOKS_DIR="$HOOKS_DIR" python3 > "$_CV_TMP" 2>/dev/null <<'PYEOF'
+import os, sys
+sys.path.insert(0, os.environ.get('HOOKS_DIR', ''))
+try:
+    import lib_code_patterns
+except Exception:
+    sys.exit(0)
+hits = lib_code_patterns.scan_content(os.environ.get('ADDED_CODE', ''))
+if hits:
+    print(' | '.join(hits[:3]))
+PYEOF
+  )
+  _CV=$(cat "$_CV_TMP" 2>/dev/null); rm -f "$_CV_TMP" 2>/dev/null
+  if [ -n "$_CV" ]; then
+    SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
+    mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
+    echo "code" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
+    echo "[Supercharger] commit-guard: code-vuln pattern in staged diff — ask" >&2
+    _MSG="The staged changes introduce potentially insecure code pattern(s): ${_CV}. These may be intentional (test fixtures, a security tool) — if so, confirm and commit. Otherwise review before it lands in git history. (Disable: SUPERCHARGER_COMMIT_CODE_SCAN=0)"
+    RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+    exit 0
+  fi
+fi
+
 exit 0
