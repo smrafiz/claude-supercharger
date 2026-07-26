@@ -24,9 +24,14 @@ _INPUT=$(cat)
 
 # Fast-path: only the commands that could plausibly tamper carry one of these
 # tokens. Everything else exits before the (cheap) parse. Fail-safe: the tokens
-# are a superset of every pattern matched below.
+# are a superset of every target pattern matched below.
+# v2.23.10: use the SPECIFIC install-path forms, not a bare `*supercharger*` —
+# that matched the "supercharger" substring in the cwd field for anyone working
+# in this repo or the install dir (~/.claude/supercharger), defeating the early
+# exit (~6ms tax on every Bash call there). These forms still cover every
+# _HT_TARGET pattern below but no longer match a plain `claude-supercharger` cwd.
 case "$_INPUT" in
-  *dangerously-skip-permissions*|*permission-mode*|*supercharger*|*.claude/hooks*|*.claude/plugins*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*) : ;;
   *) exit 0 ;;
 esac
 
