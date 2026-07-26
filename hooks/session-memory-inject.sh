@@ -52,15 +52,15 @@ MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 # below (including the no-memory-file and stub paths) — it's the top resume signal.
 # post-compact-inject.sh mirrors this at the compaction boundary (no gate there —
 # always the same session).
-HANDOFF_FILE="${PROJECT_DIR}/.claude/handoff.md"
+# v2.23.12: handoff is session-scoped (.claude/handoff-<sid>.md). Prefer THIS
+# session's own brief, else the newest recent one, else the legacy unsuffixed
+# file — all 7-day gated. Shared selector so this and post-compact-inject can't drift.
+. "$HOOKS_DIR/lib-handoff.sh"
+_HO_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+[ -z "$_HO_SID" ] && _HO_SID="${CLAUDE_CODE_SESSION_ID:-}"
+HANDOFF_FILE=$(select_handoff_file "$PROJECT_DIR" "$_HO_SID" 604800)
 HANDOFF_BLOCK=""
-if [ -f "$HANDOFF_FILE" ]; then
-  _HO_MT=$(stat -c '%Y' "$HANDOFF_FILE" 2>/dev/null || stat -f '%m' "$HANDOFF_FILE" 2>/dev/null || echo 0)
-  case "$_HO_MT" in ''|*[!0-9]*) _HO_MT=0 ;; esac
-  if [ "$_HO_MT" -gt 0 ] && [ $(( $(date +%s) - _HO_MT )) -lt 604800 ]; then
-    HANDOFF_BLOCK=$(head -c 2500 "$HANDOFF_FILE" 2>/dev/null || echo "")
-  fi
-fi
+[ -n "$HANDOFF_FILE" ] && HANDOFF_BLOCK=$(head -c 2500 "$HANDOFF_FILE" 2>/dev/null || echo "")
 
 # Checkpoint recovery fallback
 if [ ! -f "$MEMORY_FILE" ]; then

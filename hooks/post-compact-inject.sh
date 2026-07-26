@@ -22,12 +22,20 @@ init_hook_suppress "$PROJECT_DIR"
 # memory file (intentionally isolated per worktree).
 CONFIG_ROOT=$(_resolve_project_root "$PROJECT_DIR")
 
+# v2.23.12: handoff is session-scoped. Compaction is same-session, so prefer THIS
+# session's own brief (no age gate); shared selector keeps parity with the
+# SessionStart reader. Path chosen in bash, read by the python below.
+. "$HOOKS_DIR/lib-handoff.sh"
+_PC_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+[ -z "$_PC_SID" ] && _PC_SID="${CLAUDE_CODE_SESSION_ID:-}"
+HANDOFF_FILE=$(select_handoff_file "$PROJECT_DIR" "$_PC_SID" 0)
+
 # v2.6.26: one python3 fork does compact-summary parse + memory-file read +
 # project-config parse + git status/branch + message build + JSON wrap.
 # Was: 1 jq + 1 git rev-parse-git-dir + 1 git status + 1 wc + 3 python3 forks
 # (compact_summary, hints, JSON wrap) + 1 git rev-parse-branch = 8 forks.
 # Now: 1 python3 fork that runs the 2 git subprocesses itself. ~190ms → ~70ms.
-RESULT=$(HOOK_INPUT="$_INPUT" PROJECT_DIR="$PROJECT_DIR" CONFIG_ROOT="$CONFIG_ROOT" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
+RESULT=$(HOOK_INPUT="$_INPUT" PROJECT_DIR="$PROJECT_DIR" CONFIG_ROOT="$CONFIG_ROOT" HANDOFF_FILE="$HANDOFF_FILE" HOOK_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
 import json, os, subprocess, sys
 
 raw = os.environ.get('HOOK_INPUT', '')
@@ -71,8 +79,8 @@ except Exception:
 # Model-authored, so it carries what the mechanical memory doc can't. No
 # freshness gate — compaction is same-session, a present handoff is relevant.
 # session-memory-inject.sh does the mirror at the SessionStart boundary.
-handoff_path = os.path.join(project_dir, '.claude/handoff.md')
-if os.path.isfile(handoff_path):
+handoff_path = os.environ.get('HANDOFF_FILE', '')
+if handoff_path and os.path.isfile(handoff_path):
     try:
         with open(handoff_path) as f:
             hb = f.read(2500)
