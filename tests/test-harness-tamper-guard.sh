@@ -60,5 +60,13 @@ printf 'not json' > "$TMP/bad.json"
 OUT=$(bash "$HOOK" < "$TMP/bad.json" 2>/dev/null); RC=$?
 [ -z "$OUT" ] && [ "$RC" -eq 0 ] && pass || fail "should fail-open silently (rc=$RC)"
 
+# v2.23.10: a benign command whose CWD merely contains "supercharger" (this repo,
+# the install dir) must stay silent — the fast-path token was tightened off the
+# bare substring so it no longer over-processes there.
+begin_test "benign command in a supercharger-named cwd stays silent"
+printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"/Users/x/claude-supercharger"}' > "$TMP/scwd.json"
+OUT=$(bash "$HOOK" < "$TMP/scwd.json" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "benign cmd in supercharger cwd wrongly flagged: $OUT"
+
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 report
