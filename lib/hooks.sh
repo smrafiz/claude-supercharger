@@ -154,6 +154,12 @@ get_hooks_for_mode() {
     # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
     # agent gaming the tests to go green. Disable: SUPERCHARGER_TEST_INTEGRITY_GUARD=0.
     hooks+=("PreToolUse|Edit,MultiEdit,Write|${hooks_dir}/test-integrity-guard.sh|")
+    # v2.23.20: test-mask guard — the Bash-channel sibling of test-integrity-guard.
+    # ASK when a verification runner's EXIT status is masked (`pytest || true`,
+    # `npm test || echo ok`, `make test; exit 0`) so a failing check reports green.
+    # test-integrity guards test-FILE edits; this guards the command exit-mask that
+    # defeats the same Verification Gate. Disable: SUPERCHARGER_TEST_MASK_GUARD=0.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/test-mask-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
