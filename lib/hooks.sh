@@ -78,6 +78,14 @@ get_hooks_for_mode() {
   # (archive-to-network-sink, or whole cwd/root/home sync to remote). Anchored so local
   # archives + build-dir deploys pass. /profile-gated. Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0.
   hooks+=("PreToolUse|Bash|${hooks_dir}/bulk-exfil-guard.sh|")
+  # v2.23.21: `git config`/`git -c` setting an EXEC-CAPABLE key (core.fsmonitor,
+  # sshCommand, credential.helper, pager/editor, alias '!sh', filter clean/smudge,
+  # diff/difftool/mergetool cmd, persistent hooksPath) → RCE on the next git op
+  # (CVE-2026-55607 + credential-helper cluster). git-safety blocks only the inline
+  # `-c core.hooksPath=` form. ASK (DENY fsmonitor + command-valued sshCommand);
+  # value-shape gated so credential.helper=store/core.pager=less pass. /profile-gated.
+  # Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0.
+  hooks+=("PreToolUse|Bash|${hooks_dir}/git-config-exec-guard.sh|")
   # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in
