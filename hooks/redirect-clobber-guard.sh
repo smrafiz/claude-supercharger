@@ -11,8 +11,9 @@
 # temp / generated file is fine), once per file per session.
 #
 # Scope is deliberately narrow to keep false positives near zero: truncating `>` (not
-# `>>`/`2>`/`>&`), `sed -i`, `tee` (no -a), `dd of=`, `truncate` — targeting tracked source.
-# Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0
+# `>>`/`2>`/`>&`), `sed -i`, `tee` (no -a), `dd of=`, `truncate`, and `cp`/`mv` overwriting
+# a tracked destination (recursive dir copies skipped; a rename to a NEW path stays
+# silent) — targeting tracked source. Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0
 set -uo pipefail
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -23,7 +24,7 @@ _INPUT=$(cat)
 # Fast-path: bail with ZERO forks unless the payload could contain a clobber op.
 # Superset match on the raw stdin — precise parsing happens only past this gate.
 case "$_INPUT" in
-  *'>'*|*'sed '*|*'sed\t'*|*'tee '*|*'dd '*|*'truncate '*) ;;
+  *'>'*|*'sed '*|*'sed\t'*|*'tee '*|*'dd '*|*'truncate '*|*'cp '*|*'mv '*) ;;
   *) exit 0 ;;
 esac
 
@@ -57,12 +58,12 @@ printf '%s\n' "$TARGET" >> "$ACK_FILE" 2>/dev/null || true
 
 BASE="${TARGET##*/}"
 echo "" >&2
-echo "Supercharger: this Bash command overwrites the tracked file '$BASE' via a redirect/in-place edit." >&2
+echo "Supercharger: this Bash command overwrites the tracked file '$BASE' via a redirect / in-place edit / move-copy." >&2
 echo "  That bypasses the Edit/Write review path (path-guard, confidence-gate, scope-guard) — no read-before-write, no path check." >&2
 echo "  Prefer Edit/Write for source changes. Confirm only if this overwrite is intended. (Asked once per file per session.)" >&2
 echo "" >&2
 
-RSN=$(printf "Bash overwrites tracked source '%s' via a redirect/in-place edit (>, sed -i, tee, dd, truncate) — this bypasses the Edit/Write guards (read-before-write, path-guard). Prefer Edit/Write; confirm only if the overwrite is intended." "$TARGET" \
+RSN=$(printf "Bash overwrites tracked source '%s' via a redirect/in-place edit/move (>, sed -i, tee, dd, truncate, cp, mv) — this bypasses the Edit/Write guards (read-before-write, path-guard). Prefer Edit/Write; confirm only if the overwrite is intended." "$TARGET" \
   | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"Bash redirect overwrites tracked source — prefer Edit/Write"')
 printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
 exit 0

@@ -86,6 +86,59 @@ for seg in segments(cmd):
         if files:
             cands.append(files[-1])
 
+# 6) cp / mv clobbering a tracked destination. safety.sh guards cp/mv only for
+#    security targets (sudoers/authorized_keys/…); a plain `mv build/app.js
+#    src/app.js` or `cp tpl.ts config.ts` over a tracked source silently bypasses
+#    every write guard — the redirect-clobber sibling verbs drifted. Dest = the
+#    trailing operand (or the `-t DIR` target). Recursive/archive dir copies are
+#    skipped (dir semantics, high parse ambiguity). A pure rename to a NEW path
+#    stays silent — only a git-TRACKED dest is ever surfaced downstream.
+for seg in segments(cmd):
+    mm = re.search(r"(?:^|\s)(cp|mv)(?:\s|$)", seg)
+    if not mm:
+        continue
+    try:
+        toks = shlex.split(seg)
+    except Exception:
+        toks = seg.split()
+    verb = mm.group(1)
+    if verb not in toks:
+        continue
+    rest = toks[toks.index(verb) + 1:]
+    # skip recursive/archive copies (dir semantics, parse-ambiguous, low signal)
+    if any(t in ("-r", "-R", "--recursive", "-a", "--archive") or
+           (re.match(r"^-[A-Za-z]+$", t) and re.search(r"[rRa]", t[1:]))
+           for t in rest):
+        continue
+    tdir = None
+    ops = []
+    i = 0
+    while i < len(rest):
+        t = rest[i]
+        if t in ("-t", "--target-directory") and i + 1 < len(rest):
+            tdir = rest[i + 1]; i += 2; continue
+        if t.startswith("--target-directory="):
+            tdir = t.split("=", 1)[1]; i += 1; continue
+        if t in ("-S", "--suffix") and i + 1 < len(rest):
+            i += 2; continue                      # value-flag: skip its value
+        if t.startswith("-") and t != "-":
+            i += 1; continue                      # any other flag
+        ops.append(t); i += 1
+    if tdir is not None:
+        for s in ops:
+            cands.append(os.path.join(tdir, os.path.basename(s)))
+        continue
+    if len(ops) < 2:
+        continue
+    dest = ops[-1]
+    sources = ops[:-1]
+    dpath = dest if os.path.isabs(dest) else os.path.join(proj, dest)
+    if os.path.isdir(dpath):
+        for s in sources:
+            cands.append(os.path.join(dest, os.path.basename(s)))
+    elif dest not in sources:
+        cands.append(dest)
+
 seen = set()
 for raw in cands:
     p = raw.strip().strip('"').strip("'")

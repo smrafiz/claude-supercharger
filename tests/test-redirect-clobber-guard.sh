@@ -14,6 +14,7 @@ _RCG_R=$(mktemp -d)
 git -C "$_RCG_R" init -q
 git -C "$_RCG_R" config user.email t@t.co; git -C "$_RCG_R" config user.name t
 echo "code" > "$_RCG_R/app.ts"; mkdir -p "$_RCG_R/dist"; echo "gen" > "$_RCG_R/dist/bundle.js"
+mkdir -p "$_RCG_R/lib"; echo "core" > "$_RCG_R/lib/core.ts"
 git -C "$_RCG_R" add -A; git -C "$_RCG_R" commit -qm init 2>/dev/null
 
 # run the hook on CMD in the temp repo; echo ASK or ALLOW. Resets the per-file ack
@@ -44,6 +45,18 @@ check 'echo x 1> app.ts'              "fd-qualified truncate 1>"                
 check 'echo x >| app.ts'              "clobber-force >|"                         ASK
 check 'echo x >> app.ts'              "append >> (not a truncate)"               ALLOW
 check 'make 2>&1 | tee build.log'     "2>&1 fd-dup (not a truncate of app.ts)"   ALLOW
+
+# v2.23.30: cp/mv clobbering a tracked destination
+check 'mv build/app.js app.ts'        "mv over tracked source"                  ASK
+check 'cp template.ts app.ts'         "cp over tracked source"                  ASK
+check 'cp core.ts lib'                 "cp into dir → dir/basename tracked"      ASK
+check 'mv -t . build/app.ts'          "mv -t DIR target over tracked"           ASK
+check 'mv app.ts app2.ts'             "rename to NEW path (untracked dest)"     ALLOW
+check 'cp app.ts /tmp/x.ts'           "cp to outside-repo path"                 ALLOW
+check 'mv app.ts dist/app.ts'         "mv into generated dir (excluded)"        ALLOW
+check 'mv notes.md notes2.md'         "rename untracked→untracked"              ALLOW
+check 'cp -r somedir app.ts'          "recursive copy skipped"                  ALLOW
+check 'scp app.ts host:/p'            "scp is not cp/mv (no false-fire)"        ALLOW
 
 # once-per-file dedup: same file twice (no reset) → 2nd silent
 begin_test "redirect-clobber: asks once per file per session"
