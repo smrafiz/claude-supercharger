@@ -193,6 +193,10 @@ get_hooks_for_mode() {
     # .vscode|.cursor/mcp.json + .gemini/settings.json stdio server) — the .claude
     # hook-injection primitive ported to neighbours. ASK. Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/editor-config-guard.sh|")
+    # v2.23.32: git merge-conflict marker left in a written file (`<<<<<<< `/`>>>>>>> `,
+    # line-anchored) — WARN post-write before it fails to compile. Docs/patches skipped.
+    # Disable: SUPERCHARGER_CONFLICT_MARKER_GUARD=0.
+    hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/conflict-marker-guard.sh|async")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")

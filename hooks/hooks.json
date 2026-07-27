@@ -541,6 +541,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/conflict-marker-guard.sh",
+            "async": true
+          }
+        ],
+        "matcher": "Write,Edit,MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-circuit-breaker.sh",
             "async": true
           }
