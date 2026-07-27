@@ -197,6 +197,10 @@ get_hooks_for_mode() {
     # line-anchored) — WARN post-write before it fails to compile. Docs/patches skipped.
     # Disable: SUPERCHARGER_CONFLICT_MARKER_GUARD=0.
     hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/conflict-marker-guard.sh|async")
+    # v2.23.33: a written .json/.yaml/.toml that no longer parses — WARN post-write
+    # before npm/tsc/CI chokes on it. JSONC-tolerant; YAML/TOML checked if importable.
+    # Disable: SUPERCHARGER_CONFIG_VALIDITY_GUARD=0.
+    hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/config-validity-guard.sh|async")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
