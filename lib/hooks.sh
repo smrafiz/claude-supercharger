@@ -201,6 +201,10 @@ get_hooks_for_mode() {
     # before npm/tsc/CI chokes on it. JSONC-tolerant; YAML/TOML checked if importable.
     # Disable: SUPERCHARGER_CONFIG_VALIDITY_GUARD=0.
     hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/config-validity-guard.sh|async")
+    # v2.23.34: raw ANSI content-hiding escape (ESC[8m conceal / ESC]8;; OSC-8) written
+    # into a file — ASK. Hidden-instruction / output-spoof trap. Fixtures/docs skipped.
+    # Disable: SUPERCHARGER_ANSI_ESCAPE_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/ansi-escape-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
