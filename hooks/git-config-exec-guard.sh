@@ -14,6 +14,11 @@
 # aliases) — DENYs only the always-malicious subset (fsmonitor, command-valued
 # sshCommand). Asks once per key per session. Advisory + fail-open; disable with
 # SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0.
+#
+# Also DENYs the `ext::`/`fd::` remote-helper TRANSPORT (git runs a shell command at
+# clone/fetch/remote time — no config key, no hooks) and `protocol.ext.allow=always`
+# which re-enables it. Never legitimate in agent-driven work; near-zero FP.
+# (simple-git CVE-2026-28292 CVSS 9.8, n8n CVE-2026-25053.)
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
@@ -23,9 +28,9 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 _INPUT=$(cat)
 
-# Fast-path: needs git AND a config-setting form. Superset of the patterns below.
+# Fast-path: needs git AND a config-setting OR transport-helper form. Superset.
 case "$_INPUT" in *git*) : ;; *) exit 0 ;; esac
-case "$_INPUT" in *config*|*"-c "*|*"-c\\\""*) : ;; *) exit 0 ;; esac
+case "$_INPUT" in *config*|*"-c "*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*) : ;; *) exit 0 ;; esac
 
 check_hook_disabled "git-config-exec-guard" 2>/dev/null && exit 0
 hook_profile_skip "git-config-exec-guard" 2>/dev/null && exit 0
@@ -82,6 +87,15 @@ def emit(v):
     print("%s|%s" % (verdict, label))
     raise SystemExit
 
+# Transport helpers: `ext::`/`fd::` run a shell command at clone/fetch/remote time.
+# Match only when the token STARTS a URL argument (preceded by start/space/quote/=),
+# so paths like `.../ext::x` or `context::y` don't false-fire. Gated on a git cmd.
+if re.search(r'\bgit\b', cmd):
+    if re.search(r'''(?:^|[\s"'=])(?:ext|fd)::''', cmd):
+        emit(("DENY", "ext::/fd:: transport (runs a shell command at clone/fetch)"))
+    if re.search(r'protocol\.(?:ext|file)\.allow\s*=\s*always', cmd, re.I):
+        emit(("DENY", "protocol.*.allow=always (re-enables the ext:: transport)"))
+
 # Form 1: git config [--flags] <key> <value...>   (value runs to end / ; / && / |)
 for m in re.finditer(r'git\s+config\s+((?:--\S+\s+)*)([\w][\w.-]*)\s+(.+)', cmd):
     key = m.group(2)
@@ -112,10 +126,10 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_VERDICT:$_LABEL" >> "$_SEEN" 2>/dev/null || true
 
 if [ "$_VERDICT" = "DENY" ]; then
-  _MSG="Blocked: this sets the git config key ${_LABEL} to a shell command — git will execute it on the next ordinary git operation (arbitrary code execution / CVE-2026-55607 class). If you truly need this, run it yourself in the terminal. (Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0)"
+  _MSG="Blocked: ${_LABEL} — git would run a shell command at a git operation (arbitrary code execution; CVE-2026-55607 fsmonitor / CVE-2026-28292 ext:: transport class). If you truly need this, run it yourself in the terminal. (Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0)"
   RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
-  echo "[Supercharger] git-config-exec-guard: DENY exec-capable git config (${_LABEL})" >&2
+  echo "[Supercharger] git-config-exec-guard: DENY exec-capable git (${_LABEL})" >&2
   exit 2
 fi
 
