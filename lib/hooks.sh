@@ -181,6 +181,10 @@ get_hooks_for_mode() {
     # test-integrity guards test-FILE edits; this guards the command exit-mask that
     # defeats the same Verification Gate. Disable: SUPERCHARGER_TEST_MASK_GUARD=0.
     hooks+=("PreToolUse|Bash|${hooks_dir}/test-mask-guard.sh|")
+    # v2.23.27: editing a GENERATED file (dist/build/__generated__, *_pb2.py, *.pb.go,
+    # *.min.js, or a @generated/DO NOT EDIT header) is wasted work — wiped on the next
+    # codegen/build. ASK to redirect the edit to the source. Disable: SUPERCHARGER_GENERATED_FILE_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/generated-file-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
