@@ -258,6 +258,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/generated-file-guard.sh"
+          }
+        ],
+        "matcher": "Write,Edit,MultiEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-circuit-breaker.sh"
           }
         ],
