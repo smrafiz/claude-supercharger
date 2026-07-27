@@ -42,6 +42,13 @@ _CHECKS = [
     (re.compile(r"crypto\.createHash\(['\"](?:md5|sha1)['\"]|hashlib\.(?:md5|sha1)\("), 'MD5/SHA-1 hashing — cryptographically broken; use SHA-256 or bcrypt for passwords'),
     # --- Obfuscated payload ---
     (re.compile(r'atob\(|btoa\(|base64[._-]?decode|b64decode'), 'base64 decode in code — check for obfuscated prompt injection or payload'),
+    # --- v2.23.26: insecure transport (TLS cert validation disabled → MITM) ---
+    (re.compile(r'rejectUnauthorized\s*:\s*false', re.I),                'rejectUnauthorized: false — disables TLS certificate validation (MITM risk); do not ship'),
+    (re.compile(r'NODE_TLS_REJECT_UNAUTHORIZED\s*[=:]\s*["\']?0'),       'NODE_TLS_REJECT_UNAUTHORIZED=0 — disables TLS validation process-wide'),
+    (re.compile(r'\bverify\s*=\s*False\b'),                              'verify=False — disables TLS certificate validation (requests/httpx)'),
+    (re.compile(r'InsecureSkipVerify\s*:\s*true', re.I),                 'InsecureSkipVerify: true — disables TLS certificate validation (Go)'),
+    (re.compile(r'CURLOPT_SSL_VERIFY(?:PEER|HOST)\s*,\s*(?:0|false)', re.I), 'CURLOPT_SSL_VERIFYPEER/HOST disabled — no TLS validation (PHP/libcurl)'),
+    (re.compile(r'_create_unverified_context|ssl\.CERT_NONE'),          'unverified SSL context / CERT_NONE — disables TLS certificate validation (Python)'),
 ]
 
 # Insecure randomness is gated on a security-context word nearby — a blind

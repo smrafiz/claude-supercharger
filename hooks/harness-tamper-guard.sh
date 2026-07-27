@@ -31,7 +31,7 @@ _INPUT=$(cat)
 # exit (~6ms tax on every Bash call there). These forms still cover every
 # _HT_TARGET pattern below but no longer match a plain `claude-supercharger` cwd.
 case "$_INPUT" in
-  *dangerously-skip-permissions*|*permission-mode*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*) : ;;
   *) exit 0 ;;
 esac
 
@@ -45,15 +45,24 @@ fi
 
 REASON=""
 
-# (1) Launching an unguarded Claude instance.
+# (1) Launching an unguarded / reconfigured Claude instance.
 case "$CMD" in
-  *--dangerously-skip-permissions*)
-    REASON="launches Claude with --dangerously-skip-permissions, which spawns an instance with NO permission prompts and NO guardrails. An agent must not start an unguarded sub-instance." ;;
+  *--dangerously-skip-permissions*|*--allow-dangerously-skip-permissions*)  # v2.23.26: +allow- variant
+    REASON="launches Claude with a dangerously-skip-permissions flag, which spawns an instance with NO permission prompts and NO guardrails. An agent must not start an unguarded sub-instance." ;;
 esac
 if [ -z "$REASON" ]; then
   # --permission-mode bypassPermissions (flag + value, any spacing/quoting)
   if printf '%s' "$CMD" | grep -Eq -- '--permission-mode[[:space:]=]+["'\'']?bypassPermissions'; then
     REASON="sets --permission-mode bypassPermissions — spawns an unguarded Claude instance. An agent must not disable its own permission layer."
+  fi
+fi
+if [ -z "$REASON" ]; then
+  # v2.23.26: inline --settings/--mcp-config JSON to `claude` DEFINES hooks / MCP
+  # servers (code execution) WITHOUT writing a file — bypassing path-guard's
+  # settings.json/.mcp.json write guards. The value being inline JSON (starts with
+  # `{`) is the smuggling signal; a plain `--settings ./file.json` is left alone.
+  if printf '%s' "$CMD" | grep -Eq -- 'claude\b[^|;&]*--(settings|mcp-config)[[:space:]=]+["'\'']?\{'; then
+    REASON="passes inline --settings/--mcp-config JSON to claude — this defines hooks or MCP servers (arbitrary code execution) on a sub-instance without writing a file, bypassing the file-write guardrails. Use a reviewed settings/config FILE, not inline JSON."
   fi
 fi
 

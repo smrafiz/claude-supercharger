@@ -22,6 +22,13 @@ check("results de-duplicated", len(L.scan_content("eval(a)\neval(b)\neval(c)")) 
 check("Math.random gated: benign non-secret", L.scan_content("const j = Math.random()*100;") == [])
 check("Math.random gated: near token -> flagged", any("cryptographically" in h for h in L.scan_content("const token = Math.random();")))
 check("python random gated: near secret -> flagged", any("secrets module" in h for h in L.scan_content("otp = random.randint(0,9)")))
+# v2.23.26 insecure-transport (TLS disabled)
+check("node rejectUnauthorized:false flagged", any("rejectUnauthorized" in h for h in L.scan_content("{ rejectUnauthorized: false }")))
+check("py verify=False flagged", any("verify=False" in h for h in L.scan_content("requests.get(u, verify=False)")))
+check("go InsecureSkipVerify flagged", any("InsecureSkipVerify" in h for h in L.scan_content("tls.Config{InsecureSkipVerify: true}")))
+check("php CURLOPT verifypeer 0 flagged", any("CURLOPT" in h for h in L.scan_content("curl_setopt($c, CURLOPT_SSL_VERIFYPEER, 0);")))
+check("py unverified ssl ctx flagged", any("unverified" in h for h in L.scan_content("ssl._create_unverified_context()")))
+check("TLS: no FP on verify=True", not any("TLS" in h for h in L.scan_content("requests.get(u, verify=True)")))
 PY
 )
 while IFS= read -r line; do

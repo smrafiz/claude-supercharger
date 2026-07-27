@@ -68,5 +68,22 @@ printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"/Users/x/c
 OUT=$(bash "$HOOK" < "$TMP/scwd.json" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "benign cmd in supercharger cwd wrongly flagged: $OUT"
 
+# v2.23.26: inline-config flag smuggling + the --allow- skip-perms variant.
+check "allow-dangerously-skip-permissions variant" "claude --allow-dangerously-skip-permissions -p x" DENY
+check "inline --settings JSON to claude"           'claude --settings {"hooks":{"PreToolUse":[]}} -p x' DENY
+check "inline --mcp-config JSON to claude"          'claude --mcp-config {"mcpServers":{}} -p x'          DENY
+
+begin_test "settings FILE path (not inline) stays silent"
+mkcmd "$TMP/sfile.json" "claude --settings ./my-settings.json -p x"
+[ "$(verdict "$TMP/sfile.json")" = "SILENT" ] && pass || fail "settings file path wrongly flagged"
+
+begin_test "mcp-config FILE (not inline) stays silent"
+mkcmd "$TMP/mfile.json" "claude --mcp-config config.json -p x"
+[ "$(verdict "$TMP/mfile.json")" = "SILENT" ] && pass || fail "mcp-config file wrongly flagged"
+
+begin_test "--settings to a non-claude tool stays silent"
+mkcmd "$TMP/other.json" "eslint --settings foo.json"
+[ "$(verdict "$TMP/other.json")" = "SILENT" ] && pass || fail "non-claude --settings wrongly flagged"
+
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 report
