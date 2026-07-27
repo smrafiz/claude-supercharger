@@ -47,6 +47,17 @@ check "push.default"             "git config --global push.default simple"      
 check "editor code --wait"       "git config core.editor 'code --wait'"           ALLOW
 check "not a git config"         "echo git config core.pager"                     ALLOW
 
+# --- DENY: ext::/fd:: transport helpers + protocol.*.allow=always (RCE) ---
+check "clone ext:: transport"    "git clone 'ext::/tmp/x' repo"                   DENY
+check "remote add ext::"         "git remote add origin 'ext::helper arg'"        DENY
+check "fetch fd:: transport"     "git fetch 'fd::7/data'"                         DENY
+check "-c protocol.ext.allow"    "git -c protocol.ext.allow=always clone 'ext::x' r" DENY
+check "protocol.file.allow only" "git -c protocol.file.allow=always submodule update --init" DENY
+
+# --- ALLOW: ext:: embedded in a path/URL (not a transport arg) is not a helper ---
+check "ext:: inside https url"   "git clone https://ex.com/ext::weird repo"       ALLOW
+check "context:: not ext::"      "git log context::main"                          ALLOW
+
 # --- dedup, kill switch, fail-open ---
 SS=$(mktemp -d); mkin "$TMP/dd.json" "git config core.pager '!/tmp/x.sh'" 98
 begin_test "asks first, silent on repeat key (dedup)"
