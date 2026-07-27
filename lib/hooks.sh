@@ -205,6 +205,10 @@ get_hooks_for_mode() {
     # into a file — ASK. Hidden-instruction / output-spoof trap. Fixtures/docs skipped.
     # Disable: SUPERCHARGER_ANSI_ESCAPE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/ansi-escape-guard.sh|")
+    # v2.23.35: shebang script written at 0644 (Write tool default) — WARN with the
+    # exact `chmod +x` so `./script` doesn't fail with permission-denied a step later.
+    # Disable: SUPERCHARGER_SHEBANG_EXEC_GUARD=0.
+    hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/shebang-exec-guard.sh|async")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
