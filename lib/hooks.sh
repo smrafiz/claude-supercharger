@@ -189,6 +189,10 @@ get_hooks_for_mode() {
     # is mailer.ts) — WARN post-write, before it fails at compile/run. Only `./`+`../`
     # specs, only when NO candidate resolves. Disable: SUPERCHARGER_PHANTOM_IMPORT_GUARD=0.
     hooks+=("PostToolUse|Write,Edit,MultiEdit|${hooks_dir}/phantom-import-guard.sh|async")
+    # v2.23.31: auto-RUN sibling editor config write (.vscode/tasks.json folderOpen,
+    # .vscode|.cursor/mcp.json + .gemini/settings.json stdio server) — the .claude
+    # hook-injection primitive ported to neighbours. ASK. Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/editor-config-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
