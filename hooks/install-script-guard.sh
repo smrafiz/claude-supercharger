@@ -42,6 +42,8 @@ if base in ("package.json",):
     KIND = "npm"
 elif base in ("setup.py",):
     KIND = "pysetup"
+elif base == "binding.gyp" or base.endswith((".gyp", ".gypi")):
+    KIND = "gyp"   # v2.23.26: node-gyp runs binding.gyp actions during `npm install`
 if KIND is None:
     sys.exit(0)
 
@@ -103,6 +105,19 @@ elif KIND == "pysetup":
     if PY_EXEC.search(new) and not PY_EXEC.search(old):
         m = PY_EXEC.search(new)
         hits.append("setup.py adds install-time code execution (%s…)" % new[m.start():m.start()+40].replace("\n", " "))
+
+elif KIND == "gyp":
+    # v2.23.26: node-gyp executes a binding.gyp during `npm install` (config/gyp
+    # phase — before pre/postinstall). A weaponized "action" or a `<!(cmd)`
+    # command-expansion runs arbitrary shell then. Flag added exec, not the whole
+    # (benign compile) file: an added `"action"` block, a `<!(…)`/`<!@(…)` command
+    # expansion, or a shell-out token inside the diff.
+    GYP_EXEC = re.compile(r'"action"\s*:|<!@?\(|"/bin/sh"|"cmd"|"powershell"|'
+                          r'curl|wget|node\s+-e|python3?\s+-c|base64|\beval\b|/dev/tcp')
+    if GYP_EXEC.search(new) and not GYP_EXEC.search(old):
+        m = GYP_EXEC.search(new)
+        hits.append("binding.gyp adds an install-time action/command-expansion (%s…)"
+                    % new[m.start():m.start()+40].replace("\n", " "))
 
 if not hits:
     sys.exit(0)

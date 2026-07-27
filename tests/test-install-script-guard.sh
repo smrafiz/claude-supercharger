@@ -73,5 +73,26 @@ printf 'not json' > "$TMP/10.json"
 OUT=$(bash "$HOOK" < "$TMP/10.json" 2>/dev/null); RC=$?
 [ -z "$OUT" ] && [ "$RC" -eq 0 ] && pass || fail "should fail-open silently (rc=$RC)"
 
+# v2.23.26: binding.gyp / node-gyp install-time action execution.
+begin_test "binding.gyp with an exec action asks"
+writef "$TMP/g1.json" "/p/binding.gyp" '{"targets":[{"actions":[{"action":["node","-e","x"]}]}]}'
+[ "$(verdict "$TMP/g1.json")" = "ASK" ] && pass || fail "expected ASK on gyp action"
+
+begin_test "binding.gyp with a <!(cmd) command-expansion asks"
+writef "$TMP/g2.json" "/p/binding.gyp" '{"sources":["<!(node -e evil)"]}'
+[ "$(verdict "$TMP/g2.json")" = "ASK" ] && pass || fail "expected ASK on gyp command-expansion"
+
+begin_test "binding.gyp network action asks"
+writef "$TMP/g3.json" "/p/binding.gyp" "{\"actions\":[{\"action\":[\"$CURLPIPE\"]}]}"
+[ "$(verdict "$TMP/g3.json")" = "ASK" ] && pass || fail "expected ASK on gyp curl action"
+
+begin_test "benign binding.gyp (plain compile) stays silent"
+writef "$TMP/g4.json" "/p/binding.gyp" '{"targets":[{"target_name":"addon","sources":["addon.cc"]}]}'
+[ "$(verdict "$TMP/g4.json")" = "SILENT" ] && pass || fail "benign gyp compile wrongly flagged"
+
+begin_test "benign common.gypi stays silent"
+writef "$TMP/g5.json" "/p/common.gypi" '{"cflags":["-O2","-Wall"]}'
+[ "$(verdict "$TMP/g5.json")" = "SILENT" ] && pass || fail "benign gypi wrongly flagged"
+
 rm -rf "$TMP"
 report
