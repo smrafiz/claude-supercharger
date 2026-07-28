@@ -550,27 +550,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/conflict-marker-guard.sh",
-            "async": true
-          }
-        ],
-        "matcher": "Write,Edit,MultiEdit"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/config-validity-guard.sh",
-            "async": true
-          }
-        ],
-        "matcher": "Write,Edit,MultiEdit"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/shebang-exec-guard.sh",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/post-write-advisor.sh",
             "async": true
           }
         ],
