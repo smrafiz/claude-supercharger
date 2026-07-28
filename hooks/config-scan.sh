@@ -8,6 +8,13 @@ set -euo pipefail
 
 _INPUT=$(cat)
 
+# Honor the global kill-switch (/sc off). lib-suppress exits 0 when the disable-flag
+# is present, so a disabled Supercharger emits no SessionStart context. (Was missing
+# — config-scan still scanned + could warn with sc off.)
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh" 2>/dev/null || true
+
 # v2.6.38: one python3 fork replaces 1 jq cwd + 1 python3 fallback + N grep
 # pattern matches + 1 python3 hook scan + N grep ANTHROPIC_* + 1 python3
 # per settings file (up to 3) + 1 python3 JSON wrap. Now: parse stdin, walk

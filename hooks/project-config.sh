@@ -8,6 +8,13 @@
 set -euo pipefail
 
 _INPUT=$(cat)
+
+# Honor the global kill-switch (/sc off) — don't inject project rules/role context
+# when Supercharger is disabled. lib-suppress exits 0 when the flag is present.
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+# shellcheck source=hooks/lib-suppress.sh
+. "$HOOKS_DIR/lib-suppress.sh" 2>/dev/null || true
+
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
 if [ -z "$PROJECT_DIR" ]; then
   PROJECT_DIR=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cwd',''))" 2>/dev/null || echo "")

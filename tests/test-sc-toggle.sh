@@ -141,4 +141,40 @@ bash "$TOGGLE" on >/dev/null 2>&1
 if [ "$BLANK_OK" = 1 ] && [ "$(cat "$HOME/.claude/CLAUDE.md")" = "$ORIG" ]; then pass; else fail "deploy-mode blank/restore failed (blank_ok=$BLANK_OK)"; fi
 teardown_test_home
 
+# --- v2.23.37: plugin-install path parity. The flag must land where PLUGIN hooks
+# read it ($CLAUDE_PLUGIN_DATA/scope), not only the classic path — else /sc off is a
+# silent no-op on plugin installs (rules kept loading). ---
+PDATA_REL=".claude/plugins/data/claude-supercharger-claude-supercharger"
+
+begin_test "sc-toggle: off writes the flag to the PLUGIN scope dir too"
+_setup
+mkdir -p "$HOME/$PDATA_REL/scope"
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/$PDATA_REL/scope/.supercharger-disabled" ] && pass || fail "plugin-scope flag not written (the reported bug)"
+teardown_test_home
+
+begin_test "sc-toggle: a PLUGIN-context hook (CLAUDE_PLUGIN_DATA set) early-exits when off"
+_setup
+mkdir -p "$HOME/$PDATA_REL/scope"
+bash "$TOGGLE" off >/dev/null 2>&1
+OUT=$(HOME="$HOME" CLAUDE_PLUGIN_DATA="$HOME/$PDATA_REL" bash -c '. "$HOME/.claude/supercharger/hooks/lib-suppress.sh"; echo REACHED' 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "plugin hook did NOT early-exit when off (got: $OUT)"
+teardown_test_home
+
+begin_test "sc-toggle: on clears the flag from the PLUGIN scope dir too"
+_setup
+mkdir -p "$HOME/$PDATA_REL/scope"
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+[ ! -f "$HOME/$PDATA_REL/scope/.supercharger-disabled" ] && pass || fail "plugin-scope flag not cleared by on"
+teardown_test_home
+
+begin_test "sc-toggle: status reports DISABLED when only the plugin flag exists"
+_setup
+mkdir -p "$HOME/$PDATA_REL/scope"
+# simulate a flag that somehow only exists at the plugin path
+printf 'disabled_at test\n' > "$HOME/$PDATA_REL/scope/.supercharger-disabled"
+bash "$TOGGLE" status 2>/dev/null | grep -qi "DISABLED" && pass || fail "status missed the plugin-only flag"
+teardown_test_home
+
 report

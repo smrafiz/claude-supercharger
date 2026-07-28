@@ -27,6 +27,31 @@ STATE_DIR="$SC_DIR/.deactivated"
 CLAUDE_MD="$HOME/.claude/CLAUDE.md"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
+# Every scope dir a hook might read the kill-switch from. Hooks resolve it as
+# ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope (lib-suppress.sh), so a PLUGIN
+# install reads $CLAUDE_PLUGIN_DATA/scope — but this tool is launched by the /sc skill
+# OUTSIDE any hook, so CLAUDE_PLUGIN_DATA is usually absent from its env. We therefore
+# glob the plugin data dirs directly and write/clear the flag in ALL of them; writing
+# to only the classic path made /sc off a silent no-op on plugin installs.
+_flag_dirs() {
+  printf '%s\n' "$SCOPE_DIR"
+  [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
+  local pd
+  for pd in "$HOME/.claude/plugins/data/"*supercharger*; do
+    [ -d "$pd" ] && printf '%s\n' "$pd/scope"
+  done
+}
+# True if the disable-flag exists in ANY scope dir.
+_any_flag() {
+  local d
+  while IFS= read -r d; do
+    [ -f "$d/.supercharger-disabled" ] && return 0
+  done <<EOF
+$(_flag_dirs)
+EOF
+  return 1
+}
+
 # First line of the Supercharger managed block, either marker form.
 _marker_line() {
   [ -f "$CLAUDE_MD" ] || { echo ""; return; }
@@ -45,7 +70,7 @@ _backup() {
 
 case "${1:-status}" in
   off)
-    if [ -f "$FLAG" ]; then echo "Supercharger is already OFF (run 'sc-toggle.sh on' to re-enable)."; exit 0; fi
+    if _any_flag; then echo "Supercharger is already OFF (run 'sc-toggle.sh on' to re-enable)."; exit 0; fi
     BDIR=$(_backup)
     mkdir -p "$STATE_DIR" 2>/dev/null || true
 
@@ -69,8 +94,15 @@ case "${1:-status}" in
       fi
     fi
 
-    # Kill-switch — every hook exits immediately from here on.
-    printf 'disabled_at %s\nbackup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo now)" "$BDIR" > "$FLAG"
+    # Kill-switch — write to EVERY scope dir a hook might read (classic + plugin),
+    # else the flag lands where the running hooks never look and off is a no-op.
+    _FLAG_BODY=$(printf 'disabled_at %s\nbackup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo now)" "$BDIR")
+    while IFS= read -r _d; do
+      mkdir -p "$_d" 2>/dev/null || true
+      printf '%s\n' "$_FLAG_BODY" > "$_d/.supercharger-disabled" 2>/dev/null || true
+    done <<EOF
+$(_flag_dirs)
+EOF
 
     echo ""
     echo "  Supercharger is now OFF — default Claude Code behavior."
@@ -87,12 +119,17 @@ case "${1:-status}" in
     ;;
 
   on)
-    if [ ! -f "$FLAG" ]; then echo "Supercharger is already ON."; exit 0; fi
+    if ! _any_flag; then echo "Supercharger is already ON."; exit 0; fi
     # Restore the exact CLAUDE.md we saved at off-time.
     if [ -f "$STATE_DIR/claude-md.txt" ]; then
       cp "$STATE_DIR/claude-md.txt" "$CLAUDE_MD" 2>/dev/null || true
     fi
-    rm -f "$FLAG" 2>/dev/null || true
+    # Clear the flag from EVERY scope dir it may have been written to.
+    while IFS= read -r _d; do
+      rm -f "$_d/.supercharger-disabled" 2>/dev/null || true
+    done <<EOF
+$(_flag_dirs)
+EOF
     rm -rf "$STATE_DIR" 2>/dev/null || true
     echo ""
     echo "  Supercharger is now ON — hooks active again, guards restored."
@@ -100,9 +137,9 @@ case "${1:-status}" in
     ;;
 
   status)
-    if [ -f "$FLAG" ]; then
+    if _any_flag; then
       echo "Supercharger: DISABLED (default Claude behavior)"
-      sed 's/^/  /' "$FLAG" 2>/dev/null || true
+      { [ -f "$FLAG" ] && sed 's/^/  /' "$FLAG"; } 2>/dev/null || true
       echo "  Re-enable with: /sc on"
     else
       echo "Supercharger: ACTIVE"
