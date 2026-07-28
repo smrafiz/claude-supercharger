@@ -204,6 +204,11 @@ get_hooks_for_mode() {
     # into a file — ASK. Hidden-instruction / output-spoof trap. Fixtures/docs skipped.
     # Disable: SUPERCHARGER_ANSI_ESCAPE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/ansi-escape-guard.sh|")
+    # v2.23.41: GitHub Actions "pwn request" — a pull_request_target/workflow_run workflow
+    # that checks out the untrusted PR head runs fork code with the repo's secrets. DENY
+    # the allow-unsafe-pr-checkout:true opt-out, ASK the trigger+PR-head-checkout combo.
+    # Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/workflow-pwn-guard.sh|")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
