@@ -52,7 +52,7 @@ for _ in 1 2 3 4 5; do
   SEARCH_DIR="$PARENT"
 done
 
-RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" python3 << 'PYEOF'
+RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" SUPERCHARGER_STATE="$SUPERCHARGER_STATE" python3 << 'PYEOF'
 import json, os, sys, re
 sys.path.insert(0, os.environ['LIB_DIR'])
 from detect_stack import detect_stack
@@ -60,6 +60,14 @@ from detect_stack import detect_stack
 project_dir = os.environ['PROJECT_DIR']
 config_file = os.environ.get('CONFIG_FILE', '')
 welcome_flag = os.environ['WELCOME_FLAG']
+
+# Resolve the scope dir the SAME way the reader hooks do (lib-suppress/safety use
+# ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}). Writing to the hardcoded classic path
+# made per-project disableHooks / disableSecurityCategories / profile / budget silently
+# no-op on plugin installs (readers looked at $CLAUDE_PLUGIN_DATA/scope).
+_SCOPE = os.path.join(
+    os.environ.get('SUPERCHARGER_STATE') or os.path.join(os.path.expanduser('~'), '.claude', 'supercharger'),
+    'scope')
 
 parts = []
 
@@ -93,7 +101,7 @@ except Exception:
 
 if stack_parts:
     import hashlib
-    cache_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+    cache_dir = _SCOPE
     proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
     cache_path = os.path.join(cache_dir, f'.stack-cache-{proj_hash}')
     already_known = os.path.isfile(cache_path)
@@ -141,7 +149,7 @@ if config_file and os.path.isfile(config_file):
             try:
                 budget = float(budget)
                 if budget > 0:
-                    budget_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.budget-cap')
+                    budget_file = os.path.join(_SCOPE, '.budget-cap')
                     with open(budget_file, 'w') as f:
                         f.write(str(budget))
                     cfg_parts.append(f'Budget: ${budget:.2f}')
@@ -165,7 +173,7 @@ if config_file and os.path.isfile(config_file):
         # .disabled-hooks alone — written by another project) from key-present-
         # but-empty (clear). Conflating these caused cross-project state bleed.
         disable_hooks = config.get('disableHooks', None)
-        disabled_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.disabled-hooks')
+        disabled_file = os.path.join(_SCOPE, '.disabled-hooks')
         if isinstance(disable_hooks, list) and disable_hooks:
             valid = [h.strip() for h in disable_hooks if isinstance(h, str) and h.strip()]
             if valid:
@@ -181,7 +189,7 @@ if config_file and os.path.isfile(config_file):
 
         # Per-project performance profile
         profile = config.get('profile', '').strip().lower()
-        profile_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.profile')
+        profile_file = os.path.join(_SCOPE, '.profile')
         if profile in ('minimal', 'fast', 'standard'):
             os.makedirs(os.path.dirname(profile_file), exist_ok=True)
             with open(profile_file, 'w') as f:
@@ -194,7 +202,7 @@ if config_file and os.path.isfile(config_file):
 
         # Per-project security category toggles
         disabled_cats = config.get('disableSecurityCategories', [])
-        cats_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope', '.disabled-security-categories')
+        cats_file = os.path.join(_SCOPE, '.disabled-security-categories')
         valid_cats = {'filesystem', 'database', 'destructive', 'network', 'credentials', 'persistence', 'clipboard', 'browser', 'history', 'selfmod'}
         filtered = [c.strip().lower() for c in disabled_cats if c.strip().lower() in valid_cats]
         if filtered:
@@ -213,7 +221,7 @@ if config_file and os.path.isfile(config_file):
 
 # --- Cache economy tier to scope file (avoids repeated grep in UserPromptSubmit hooks) ---
 try:
-    scope_dir = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'scope')
+    scope_dir = _SCOPE
     tier_file = os.path.join(scope_dir, '.economy-tier')
     if not os.path.isfile(tier_file):
         economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')

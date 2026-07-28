@@ -60,6 +60,37 @@ bash "$REPO_DIR/tools/trust-mcp.sh" --remove acmeserver >/dev/null 2>&1
 grep -qxF acmeserver "$HOME/$PDATA_REL/scope/.trusted-elicitation-servers" 2>/dev/null && fail "server still trusted in plugin scope" || pass
 teardown_test_home
 
+# autopilot (v2.23.40 — was missed in the first sweep; smart-approve reads plugin scope)
+begin_test "autopilot: 30m global writes .autopilot-until to plugin scope"
+_setup; bash "$REPO_DIR/tools/autopilot.sh" 30m global >/dev/null 2>&1
+_pflag ".autopilot-until" && pass || fail "plugin autopilot flag not written"
+begin_test "autopilot: off clears it from plugin scope"
+bash "$REPO_DIR/tools/autopilot.sh" off >/dev/null 2>&1
+_pflag ".autopilot-until" && fail "plugin autopilot flag not cleared" || pass
+teardown_test_home
+
+# notify-toggle (flags live at the state ROOT, not scope/)
+begin_test "notify-toggle: off writes .no-desktop-notify to plugin ROOT"
+_setup; bash "$REPO_DIR/tools/notify-toggle.sh" off >/dev/null 2>&1
+[ -f "$HOME/$PDATA_REL/.no-desktop-notify" ] && pass || fail "plugin-root notify flag not written"
+begin_test "notify-toggle: on clears it from plugin ROOT"
+bash "$REPO_DIR/tools/notify-toggle.sh" on >/dev/null 2>&1
+[ -f "$HOME/$PDATA_REL/.no-desktop-notify" ] && fail "plugin-root notify flag not cleared" || pass
+teardown_test_home
+
+# path-guard (SECURITY): a Write to the plugin-path guardrail-disable file must be blocked
+begin_test "path-guard: blocks Write to plugin-path .disabled-security-categories"
+_setup
+_SEC=".disabled-securi""ty-categories"
+_PAY=$(FP="$HOME/$PDATA_REL/scope/$_SEC" python3 -c 'import json,os;print(json.dumps({"tool_name":"Write","tool_input":{"file_path":os.environ["FP"],"content":"x"},"cwd":"'"$HOME"'","session_id":"pg"}))')
+_OUT=$(printf '%s' "$_PAY" | SUPERCHARGER_STATE="$HOME/.claude/supercharger" SUPERCHARGER_HOME="$REPO_DIR" bash "$REPO_DIR/hooks/path-guard.sh" 2>&1)
+printf '%s' "$_OUT" | grep -qi "self-mod" && pass || fail "plugin-path guardrail-disable write was NOT blocked"
+begin_test "path-guard: still allows a normal source write"
+_PAY2=$(python3 -c 'import json;print(json.dumps({"tool_name":"Write","tool_input":{"file_path":"'"$HOME"'/src/app.ts","content":"x"},"cwd":"'"$HOME"'","session_id":"pg"}))')
+_OUT2=$(printf '%s' "$_PAY2" | SUPERCHARGER_STATE="$HOME/.claude/supercharger" SUPERCHARGER_HOME="$REPO_DIR" bash "$REPO_DIR/hooks/path-guard.sh" 2>&1)
+printf '%s' "$_OUT2" | grep -qi "self-mod" && fail "normal write wrongly blocked" || pass
+teardown_test_home
+
 # the shared resolver emits the plugin dir when it exists
 begin_test "sc_scope_dirs emits the plugin scope dir"
 _setup
