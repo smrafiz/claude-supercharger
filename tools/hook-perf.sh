@@ -169,3 +169,16 @@ print(SEP)
 print(f"Total hook overhead: {total_s}s across {total_calls} calls (avg {avg_per_call}ms/call)")
 print()
 PYEOF
+
+# On bash < 5 there is no cheap EPOCHREALTIME clock, so the profiler forks python once
+# per hook fire to read the time — and that fork's OWN cost lands inside the measured
+# avg_ms. The inflation is not uniform: some hooks over-report by 10-60x (observed:
+# typecheck 3737ms in the table vs ~63ms measured independently). So on bash 3.2 the
+# avg_ms / Total columns can point you at entirely the wrong target.
+if [ "$JSON" = "0" ] && [ "${BASH_VERSINFO:-0}" -lt 5 ]; then
+  echo "⚠  bash ${BASH_VERSINFO:-?}.x: avg_ms / Total are UNRELIABLE — the profiler's own"
+  echo "   per-fire fork is counted, inflating some hooks 10-60x (not a uniform factor)."
+  echo "   Rank by the Calls column; measure a specific hook independently before you"
+  echo "   optimize it. (bash 5+ uses a fork-free clock and reports accurately.)"
+  echo ""
+fi
