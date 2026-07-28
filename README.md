@@ -2,7 +2,7 @@
 
 Shell-level enforcement for Claude Code. Safety hooks that run **outside Claude's process** — before commands execute, invisible to the model, impossible to prompt-engineer around. Zero context-window cost: rules live in the shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.23.42-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2348%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.23.42-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2374%20passing-brightgreen)
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +156/-23
@@ -116,7 +116,28 @@ This is the line between Supercharger and prompt-only frameworks. SuperClaude, a
 
 ---
 
-## Recent highlights (v2.14)
+## Recent highlights
+
+### Security & DX enforcement expansion (v2.15–v2.23, July 2026)
+
+The enforcement surface roughly doubled — driven by repeated multi-agent research sweeps against fresh 2026 attack disclosures, each new guard shipped one release at a time, fully tested and deployed. Test suite grew **1464 → 2374** with zero regressions; the registered-hook count reached **138**.
+
+**Supply-chain & RCE at the command/write boundary**
+
+- **git RCE vectors** — exec-capable `git config` keys (`core.fsmonitor`/`hooksPath`/`sshCommand`/`credential.helper`/…, [CVE-2026-55607](https://nvd.nist.gov/vuln/detail/CVE-2026-55607) class) and the `ext::`/`fd::` remote-helper transport + `protocol.*.allow=always` ([CVE-2026-28292](https://www.codeant.ai/security-research/simple-git-remote-code-execution-cve-2026-28292))
+- **install & startup persistence** — `binding.gyp`/`package.json`/`setup.py` install-script exec, Python `.pth` startup-exec, env-preload exec (`LD_PRELOAD` / `NODE_OPTIONS --require` / `BASH_ENV` / …), and non-registry dependency sources
+- **GitHub Actions "pwn request"** — denies the `allow-unsafe-pr-checkout` opt-out and asks on a `pull_request_target` / `workflow_run` workflow that checks out the untrusted fork-PR head — the [2026 AsyncAPI npm-compromise](https://www.microsoft.com/en-us/security/blog/2026/07/15/unpacking-asyncapi-npm-supply-chain-compromise-import-time-payload-delivery/) vector
+- **egress** — public IPFS-gateway fetches, on top of the existing metadata-SSRF / webhook / paste-site / DNS-exfil / tunnel coverage
+
+**Poisoning, exfil & hidden payloads**
+
+- **rules & memory poisoning** — a write-time guard on `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, and persistent-memory files
+- **editor auto-run configs** — `.vscode/tasks.json` `folderOpen`, `.vscode`/`.cursor` `mcp.json`, and `.gemini/settings.json` stdio servers
+- **hidden-payload writes** — raw-ESC ANSI conceal / OSC-8 escapes, bulk archive-to-network exfil, and TLS-verification-disable code patterns
+
+**Developer-experience guards** — catch a mistake before it costs a round-trip: merge-conflict markers left in a file, unparseable `.json`/`.yaml`/`.toml`, edits to generated files, hallucinated relative imports, a shebang script left non-executable, `cp`/`mv` (and shell redirects) clobbering a tracked file, and a verification runner whose exit code is masked (`pytest || true`).
+
+**Under the hood** — a **Post:Write advisory dispatcher** folds several per-write checks into one process (one file read instead of N); shared pattern engines (`lib_code_patterns.py`, `lib-egress-patterns.sh`, `lib-secret-patterns.sh`) keep every channel drift-free; and a run of **plugin-install robustness fixes** ensures every control (`/sc off`, `/profile`, autopilot, `/sc-readonly` / `/sc-strict`) and the self-modification guard resolve their state correctly under `${CLAUDE_PLUGIN_DATA}` — closing a Write-channel path where an agent could otherwise disable its own guardrails on a plugin install.
 
 ### Time-boxed modes (v2.12–v2.14)
 
