@@ -29,8 +29,14 @@ EGRESS_WEBHOOK_RE='discord(app)?\.com/api/(v[0-9]+/)?webhooks|hooks\.slack\.com/
 # Paste / anonymous-transfer sites (exfil endpoints).
 EGRESS_PASTE_RE='\b(pastebin\.com|paste\.rs|paste\.ee|hastebin\.com|dpaste\.|ix\.io|0x0\.st|transfer\.sh|file\.io|termbin\.com|gofile\.io|anonfiles|catbox\.moe|rentry\.co|controlc\.com|bashupload\.com|tmpfiles\.org)'
 
+# Public IPFS gateways + the /ipfs/<CID> path shape — a content-addressed, anonymous
+# fetch/exfil channel (curl|bash-equivalent) that dodges domain reputation because the
+# host is a neutral gateway. The Miasma-RAT loader (AsyncAPI npm compromise, 2026)
+# pulled its next stage from a public IPFS gateway. Matched lowercased.
+EGRESS_IPFS_RE='(ipfs\.io|dweb\.link|w3s\.link|nftstorage\.link|cf-ipfs\.com|cloudflare-ipfs\.com|gateway\.pinata\.cloud|4everland\.io|fleek\.co)|/ipfs/(qm|baf)[a-z0-9]{20,}'
+
 # Private-network / loopback (SSRF into internal services) — advisory WARN. Allows
 # an optional userinfo (user@host) prefix so `http://user@10.0.0.5/…` is still caught.
 EGRESS_PRIVATE_RE='https?://([^/@ ]*@)?(127\.[0-9]+\.[0-9]+\.[0-9]+|localhost|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|\[::1\]|0\.0\.0\.0)'
 
-export EGRESS_METADATA_RE EGRESS_WEBHOOK_RE EGRESS_PASTE_RE EGRESS_PRIVATE_RE
+export EGRESS_METADATA_RE EGRESS_WEBHOOK_RE EGRESS_PASTE_RE EGRESS_IPFS_RE EGRESS_PRIVATE_RE

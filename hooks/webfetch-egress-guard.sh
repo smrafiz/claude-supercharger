@@ -55,6 +55,7 @@ low = _dec.lower()
 META = os.environ.get('EGRESS_METADATA_RE', '')
 WEBHOOK = os.environ.get('EGRESS_WEBHOOK_RE', '')
 PASTE = os.environ.get('EGRESS_PASTE_RE', '')
+IPFS = os.environ.get('EGRESS_IPFS_RE', '')
 PRIVATE = os.environ.get('EGRESS_PRIVATE_RE', '')
 
 # BLOCK classes — first match wins (mirrors mcp-egress-guard).
@@ -66,6 +67,9 @@ elif WEBHOOK and re.search(WEBHOOK, low):
     block = True
 elif PASTE and re.search(PASTE, low):
     reason = 'This WebFetch targets a paste / anonymous-transfer site (pastebin/transfer.sh/…) — a common exfiltration endpoint. Blocked.'
+    block = True
+elif IPFS and re.search(IPFS, low):
+    reason = 'This WebFetch targets a public IPFS gateway (ipfs.io/dweb.link/…) or an /ipfs/<CID> path — a content-addressed, anonymous fetch/exfil channel (Miasma-RAT payload class). Blocked.'
     block = True
 else:
     block = False
