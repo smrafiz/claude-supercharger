@@ -18,38 +18,56 @@
 #        autopilot.sh off | status
 set -uo pipefail
 
-# Same state root the reader (lib-smart-approve.sh) resolves — installer default,
-# CLAUDE_PLUGIN_DATA under the plugin runtime.
-SC_STATE="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}"
-SCOPE="$SC_STATE/scope"
+# The flag is read by lib-smart-approve at ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/
+# scope; this tool runs outside any hook (CLAUDE_PLUGIN_DATA unset), so write/clear/read
+# by BASENAME across EVERY scope dir (classic + plugin) — else autopilot is a SILENT
+# no-op on plugin installs (prompts keep appearing). Mirrors readonly.sh/strict.sh.
+_AP_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/utils.sh
+source "$(dirname "$_AP_SCRIPT_DIR")/lib/utils.sh"
+
 # Ceiling: 8h default, overridable via SUPERCHARGER_AUTOPILOT_MAX_HOURS (positive int).
 MAX_HOURS="${SUPERCHARGER_AUTOPILOT_MAX_HOURS:-8}"
 printf '%s' "$MAX_HOURS" | grep -qE '^[0-9]+$' && [ "$((10#$MAX_HOURS))" -gt 0 ] || MAX_HOURS=8
 MAX_SECONDS=$(( 10#$MAX_HOURS * 3600 ))
 
 SID="${CLAUDE_CODE_SESSION_ID:-}"
-GLOBAL_FLAG="$SCOPE/.autopilot-until"
-SESS_FLAG=""
-[ -n "$SID" ] && SESS_FLAG="$SCOPE/.autopilot-until-$SID"
+GLOBAL_BASE=".autopilot-until"
+SESS_BASE=""
+[ -n "$SID" ] && SESS_BASE=".autopilot-until-$SID"
 
 # Portable epoch -> HH:MM (BSD/macOS `date -r`, GNU/Linux `date -d @`).
 fmt_time() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || echo '?'; }
 fmt_dur()  { local s="$1" h m; h=$((s/3600)); m=$(((s%3600)/60));
   if [ "$h" -gt 0 ]; then echo "${h}h ${m}m"; else echo "${m}m $((s%60))s"; fi; }
 
-# echo remaining seconds for a flag file if it's a future epoch, else nothing.
-remaining_of() {
-  local f="$1" v now
-  [ -n "$f" ] && [ -f "$f" ] || return 0
-  v=$(cat "$f" 2>/dev/null || echo 0); now=$(date +%s)
-  printf '%s' "$v" | grep -qE '^[0-9]+$' || return 0
-  [ "$v" -gt "$now" ] && echo $((v - now))
+_write_all() { local base="$1" val="$2" d; [ -n "$base" ] || return 0
+  while IFS= read -r d; do [ -n "$d" ] || continue; mkdir -p "$d" 2>/dev/null || true
+    printf '%s\n' "$val" > "$d/$base" 2>/dev/null || true
+  done <<EOF
+$(sc_scope_dirs)
+EOF
 }
+_rm_all() { local base="$1" d; [ -n "$base" ] || return 0
+  while IFS= read -r d; do [ -n "$d" ] || continue; rm -f "$d/$base" 2>/dev/null || true
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+}
+# max remaining seconds for <basename> across all scope dirs (empty if none/expired).
+remaining_of() { local base="$1" d f v now best=0; [ -n "$base" ] || return 0; now=$(date +%s)
+  while IFS= read -r d; do f="$d/$base"; [ -f "$f" ] || continue
+    v=$(cat "$f" 2>/dev/null || echo 0); printf '%s' "$v" | grep -qE '^[0-9]+$' || continue
+    [ "$v" -gt "$now" ] && [ $((v - now)) -gt "$best" ] && best=$((v - now))
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+  [ "$best" -gt 0 ] && echo "$best"; }
 
 status() {
   local g s any=""
-  g=$(remaining_of "$GLOBAL_FLAG")
-  s=$(remaining_of "$SESS_FLAG")
+  g=$(remaining_of "$GLOBAL_BASE")
+  s=$(remaining_of "$SESS_BASE")
   if [ -n "$s" ]; then echo "Autopilot (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
   if [ -n "$g" ]; then echo "Autopilot (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
   [ -z "$any" ] && echo "Autopilot: OFF"
@@ -62,8 +80,8 @@ case "$ARG" in
   status|"") status ;;
   off)
     # Turn off decisively — clear both this session's window and the global one.
-    rm -f "$GLOBAL_FLAG" 2>/dev/null || true
-    [ -n "$SESS_FLAG" ] && rm -f "$SESS_FLAG" 2>/dev/null || true
+    _rm_all "$GLOBAL_BASE"
+    [ -n "$SESS_BASE" ] && _rm_all "$SESS_BASE"
     echo "Autopilot: OFF — normal permission prompts restored."
     ;;
   *)
@@ -80,13 +98,13 @@ case "$ARG" in
 
     # Resolve scope.
     local_scope_desc="this session only"
-    TARGET="$SESS_FLAG"
+    TARGET_BASE="$SESS_BASE"
     case "$MODE" in
-      global|all|machine) TARGET="$GLOBAL_FLAG"; local_scope_desc="ALL sessions on this machine" ;;
+      global|all|machine) TARGET_BASE="$GLOBAL_BASE"; local_scope_desc="ALL sessions on this machine" ;;
       session|"")
         if [ -z "$SID" ]; then
           # No session id available (e.g. older Claude Code) — fall back to global.
-          TARGET="$GLOBAL_FLAG"; local_scope_desc="ALL sessions (no session id available for per-session)"
+          TARGET_BASE="$GLOBAL_BASE"; local_scope_desc="ALL sessions (no session id available for per-session)"
         fi
         ;;
       *) echo "Autopilot: unknown scope '$MODE'. Use 'session' (default) or 'global'." >&2; exit 1 ;;
@@ -98,9 +116,8 @@ case "$ARG" in
       echo "Autopilot: requested $(fmt_dur "$REQ") exceeds the ${MAX_HOURS}h ceiling — granting ${MAX_HOURS}h. Raise it with SUPERCHARGER_AUTOPILOT_MAX_HOURS=<hours>." >&2
       REQ="$MAX_SECONDS"; CAPPED=" (capped at ${MAX_HOURS}h ceiling)"
     fi
-    mkdir -p "$SCOPE" 2>/dev/null || true
     UNTIL=$(( $(date +%s) + REQ ))
-    printf '%s\n' "$UNTIL" > "$TARGET"
+    _write_all "$TARGET_BASE" "$UNTIL"
     echo "Autopilot: ON for $(fmt_dur "$REQ")${CAPPED} — auto-approving all prompts for ${local_scope_desc} until $(fmt_time "$UNTIL")."
     echo "Safety hooks stay active: rm -rf, force-push, credential leaks, curl|bash and the like are still blocked."
     echo "Turn off early: /sc-autopilot off"

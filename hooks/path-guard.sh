@@ -191,7 +191,12 @@ if 'selfmod' not in disabled:
         os.path.join(home, '.mcp.json'),
         os.path.join(home, '.claude.json'),
     ]
-    if any(p == t for t in selfmod_targets):
+    # The two scope control-files are matched by BASENAME (path-agnostic), like
+    # safety.sh's Bash-channel _SELFMOD_CFG — otherwise a plugin install (whose hooks
+    # read them at $CLAUDE_PLUGIN_DATA/scope, not the classic path) lets a Write to the
+    # plugin-path copy slip past this exact-match list and disable the guardrails.
+    _selfmod_basenames = {'.disabled-security-categories', '.disabled-hooks'}
+    if os.path.basename(p) in _selfmod_basenames or any(p == t for t in selfmod_targets):
         print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
     # Project-level: .supercharger.json (any depth — could be repo root or nested),
