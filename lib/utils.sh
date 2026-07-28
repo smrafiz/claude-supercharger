@@ -1,7 +1,24 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Utility Functions
 
-VERSION="2.23.37"
+VERSION="2.23.38"
+
+# Every scope dir a HOOK might read state from — classic install + any plugin install.
+# Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
+# skill/CLI-invoked TOOLS run OUTSIDE any hook, so CLAUDE_PLUGIN_DATA is usually unset
+# for them — trusting it silently falls back to the classic path and control flags
+# (profile / readonly / strict / disabled-hooks / …) never reach the plugin's hooks.
+# So glob the plugin data dirs directly and act on ALL of them. See memory
+# sc-toggle-plugin-path-divergence. Usage: `while read -r d; do …; done < <(sc_scope_dirs)`
+# (or a heredoc loop for bash 3.2 process-substitution safety).
+sc_scope_dirs() {
+  printf '%s\n' "$HOME/.claude/supercharger/scope"
+  [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
+  local _pd
+  for _pd in "$HOME/.claude/plugins/data/"*supercharger*; do
+    [ -d "$_pd" ] && printf '%s\n' "$_pd/scope"
+  done
+}
 
 # Color codes — declared here, used across tools/* via `source lib/utils.sh`.
 # shellcheck disable=SC2034

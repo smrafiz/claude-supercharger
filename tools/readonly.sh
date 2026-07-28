@@ -15,31 +15,51 @@
 #        readonly.sh off | status
 set -uo pipefail
 
-SC_STATE="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}"
-SCOPE="$SC_STATE/scope"
-MAX_SECONDS=7200   # 2h hard cap
+# Flags are read by hooks at ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
+# this tool runs outside any hook (CLAUDE_PLUGIN_DATA unset) — so write/clear/read the
+# flag by BASENAME across EVERY scope dir (classic + plugin). Relying on the env var
+# fallback alone made readonly a silent no-op on plugin installs.
+_RO_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/utils.sh
+source "$(dirname "$_RO_SCRIPT_DIR")/lib/utils.sh"
 
+MAX_SECONDS=7200   # 2h hard cap
 SID="${CLAUDE_CODE_SESSION_ID:-}"
-GLOBAL_FLAG="$SCOPE/.readonly-until"
-SESS_FLAG=""
-[ -n "$SID" ] && SESS_FLAG="$SCOPE/.readonly-until-$SID"
+GLOBAL_BASE=".readonly-until"
+SESS_BASE=""
+[ -n "$SID" ] && SESS_BASE=".readonly-until-$SID"
 
 fmt_time() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || echo '?'; }
 fmt_dur()  { local s="$1" h m; h=$((s/3600)); m=$(((s%3600)/60));
   if [ "$h" -gt 0 ]; then echo "${h}h ${m}m"; else echo "${m}m $((s%60))s"; fi; }
 
-remaining_of() {
-  local f="$1" v now
-  [ -n "$f" ] && [ -f "$f" ] || return 0
-  v=$(cat "$f" 2>/dev/null || echo 0); now=$(date +%s)
-  printf '%s' "$v" | grep -qE '^[0-9]+$' || return 0
-  [ "$v" -gt "$now" ] && echo $((v - now))
+_write_all() { local base="$1" val="$2" d; [ -n "$base" ] || return 0
+  while IFS= read -r d; do [ -n "$d" ] || continue; mkdir -p "$d" 2>/dev/null || true
+    printf '%s\n' "$val" > "$d/$base" 2>/dev/null || true
+  done <<EOF
+$(sc_scope_dirs)
+EOF
 }
+_rm_all() { local base="$1" d; [ -n "$base" ] || return 0
+  while IFS= read -r d; do [ -n "$d" ] || continue; rm -f "$d/$base" 2>/dev/null || true
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+}
+# max remaining seconds for <basename> across all scope dirs (empty if none/expired).
+remaining_of() { local base="$1" d f v now best=0; [ -n "$base" ] || return 0; now=$(date +%s)
+  while IFS= read -r d; do f="$d/$base"; [ -f "$f" ] || continue
+    v=$(cat "$f" 2>/dev/null || echo 0); printf '%s' "$v" | grep -qE '^[0-9]+$' || continue
+    [ "$v" -gt "$now" ] && [ $((v - now)) -gt "$best" ] && best=$((v - now))
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+  [ "$best" -gt 0 ] && echo "$best"; }
 
 status() {
   local g s any=""
-  g=$(remaining_of "$GLOBAL_FLAG")
-  s=$(remaining_of "$SESS_FLAG")
+  g=$(remaining_of "$GLOBAL_BASE")
+  s=$(remaining_of "$SESS_BASE")
   if [ -n "$s" ]; then echo "Read-only (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
   if [ -n "$g" ]; then echo "Read-only (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
   [ -z "$any" ] && echo "Read-only: OFF"
@@ -51,8 +71,8 @@ MODE="${2:-session}"
 case "$ARG" in
   status|"") status ;;
   off)
-    rm -f "$GLOBAL_FLAG" 2>/dev/null || true
-    [ -n "$SESS_FLAG" ] && rm -f "$SESS_FLAG" 2>/dev/null || true
+    _rm_all "$GLOBAL_BASE"
+    [ -n "$SESS_BASE" ] && _rm_all "$SESS_BASE"
     echo "Read-only: OFF — writes and mutating commands are allowed again."
     ;;
   *)
@@ -68,12 +88,12 @@ case "$ARG" in
     fi
 
     scope_desc="this session only"
-    TARGET="$SESS_FLAG"
+    TARGET_BASE="$SESS_BASE"
     case "$MODE" in
-      global|all|machine) TARGET="$GLOBAL_FLAG"; scope_desc="ALL sessions on this machine" ;;
+      global|all|machine) TARGET_BASE="$GLOBAL_BASE"; scope_desc="ALL sessions on this machine" ;;
       session|"")
         if [ -z "$SID" ]; then
-          TARGET="$GLOBAL_FLAG"; scope_desc="ALL sessions (no session id available for per-session)"
+          TARGET_BASE="$GLOBAL_BASE"; scope_desc="ALL sessions (no session id available for per-session)"
         fi
         ;;
       *) echo "Read-only: unknown scope '$MODE'. Use 'session' (default) or 'global'." >&2; exit 1 ;;
@@ -81,9 +101,8 @@ case "$ARG" in
 
     REQ=$((10#$N * U)); CAPPED=""
     if [ "$REQ" -gt "$MAX_SECONDS" ]; then REQ="$MAX_SECONDS"; CAPPED=" (capped at 2h)"; fi
-    mkdir -p "$SCOPE" 2>/dev/null || true
     UNTIL=$(( $(date +%s) + REQ ))
-    printf '%s\n' "$UNTIL" > "$TARGET"
+    _write_all "$TARGET_BASE" "$UNTIL"
     echo "Read-only: ON for $(fmt_dur "$REQ")${CAPPED} — blocking file edits and mutating commands for ${scope_desc} until $(fmt_time "$UNTIL")."
     echo "Reads, searches, and planning stay allowed. The safety hooks stay active too."
     echo "Turn off early: /sc-readonly off"

@@ -25,12 +25,13 @@ if [ -z "$PROFILE" ]; then
   echo "  research — light + memory + sequential-thinking"
   echo "  full     — everything"
   echo ""
-  PROFILE_STAMP="$HOME/.claude/supercharger/scope/.mcp-profile"
-  if [ -f "$PROFILE_STAMP" ]; then
-    echo "Current profile: $(cat "$PROFILE_STAMP")"
-  else
-    echo "Current profile: light (default)"
-  fi
+  _CUR=""
+  while IFS= read -r _sd; do
+    if [ -f "$_sd/.mcp-profile" ]; then _CUR="$(cat "$_sd/.mcp-profile")"; break; fi
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+  echo "Current profile: ${_CUR:-light (default)}"
   exit 0
 fi
 
@@ -60,8 +61,13 @@ echo "Switching to MCP profile: $PROFILE..."
 
 if merge_mcp_into_settings "$ROLES" "$INTERNAL_PROFILE"; then
   COUNT=$(count_mcp_servers "$ROLES" "$INTERNAL_PROFILE")
-  mkdir -p "$HOME/.claude/supercharger/scope"
-  echo "$PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
+  # Stamp the profile in EVERY scope dir a hook reads (classic + plugin).
+  while IFS= read -r _sd; do
+    [ -n "$_sd" ] || continue; mkdir -p "$_sd" 2>/dev/null || true
+    echo "$PROFILE" > "$_sd/.mcp-profile" 2>/dev/null || true
+  done <<EOF
+$(sc_scope_dirs)
+EOF
   echo "Done. $COUNT MCP server(s) configured. Restart Claude Code to apply."
 else
   echo "Error: failed to write MCP config."

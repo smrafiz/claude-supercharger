@@ -15,16 +15,52 @@
 # hand-editing config.
 
 set -euo pipefail
-SCOPE_DIR="$HOME/.claude/supercharger/scope"
-TRUST_FILE="$SCOPE_DIR/.trusted-elicitation-servers"
-mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+
+# elicitation-guard reads the trust list at ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/
+# scope; this tool runs outside any hook (env var unset), so add/remove/list across
+# EVERY scope dir (classic + plugin) — else trusting a server never reaches the guard
+# on plugin installs (perpetual credential-prompt declines).
+_TM_SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/utils.sh
+source "$(dirname "$_TM_SCRIPT_DIR")/lib/utils.sh"
+TRUST_BASE=".trusted-elicitation-servers"
 
 _norm() { printf '%s' "${1:-}" | tr '[:upper:]' '[:lower:]' | tr -cd 'a-z0-9_.-'; }
 
+# union of trusted servers across all scope dirs
+_all_trusted() {
+  local d
+  while IFS= read -r d; do
+    [ -f "$d/$TRUST_BASE" ] && cat "$d/$TRUST_BASE" 2>/dev/null
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+}
+_trust_add() { local srv="$1" d
+  while IFS= read -r d; do [ -n "$d" ] || continue; mkdir -p "$d" 2>/dev/null || true
+    grep -qxF "$srv" "$d/$TRUST_BASE" 2>/dev/null || printf '%s\n' "$srv" >> "$d/$TRUST_BASE"
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+}
+_trust_rm() { local srv="$1" d f
+  while IFS= read -r d; do f="$d/$TRUST_BASE"; [ -f "$f" ] || continue
+    grep -vxF "$srv" "$f" > "$f.tmp" 2>/dev/null || true
+    mv "$f.tmp" "$f" 2>/dev/null || rm -f "$f.tmp"
+  done <<EOF
+$(sc_scope_dirs)
+EOF
+}
+# NB: no `grep -q` here — under `set -o pipefail`, grep -q closes the pipe on first
+# match and SIGPIPEs the upstream `cat`, making the pipeline return non-zero even on a
+# hit. Reading to EOF (-> /dev/null) avoids that.
+_is_trusted() { _all_trusted | grep -xF -- "$1" >/dev/null 2>&1; }
+
 _list() {
-  if [ -s "$TRUST_FILE" ]; then
+  local u; u=$(_all_trusted | sort -u | grep -v '^$' || true)
+  if [ -n "$u" ]; then
     echo "Trusted MCP servers for Elicitation credential prompts:"
-    sed 's/^/  - /' "$TRUST_FILE"
+    printf '%s\n' "$u" | sed 's/^/  - /'
   else
     echo "No trusted MCP servers yet. Trust one with: /trust-mcp <server>"
   fi
@@ -42,9 +78,8 @@ case "${1:-}" in
   --remove|-r)
     srv=$(_norm "${2:-}")
     [ -z "$srv" ] && { echo "Usage: trust-mcp --remove <server>" >&2; exit 1; }
-    if [ -f "$TRUST_FILE" ] && grep -qxF "$srv" "$TRUST_FILE" 2>/dev/null; then
-      grep -vxF "$srv" "$TRUST_FILE" > "$TRUST_FILE.tmp" 2>/dev/null || true
-      mv "$TRUST_FILE.tmp" "$TRUST_FILE" 2>/dev/null || rm -f "$TRUST_FILE.tmp"
+    if _is_trusted "$srv"; then
+      _trust_rm "$srv"
       echo "Removed '$srv' from trusted MCP servers."
     else
       echo "'$srv' was not in the trusted list."
@@ -53,10 +88,10 @@ case "${1:-}" in
   *)
     srv=$(_norm "$1")
     [ -z "$srv" ] && { echo "Usage: trust-mcp <server>" >&2; exit 1; }
-    if [ -f "$TRUST_FILE" ] && grep -qxF "$srv" "$TRUST_FILE" 2>/dev/null; then
+    if _is_trusted "$srv"; then
       echo "'$srv' is already trusted."
     else
-      printf '%s\n' "$srv" >> "$TRUST_FILE"
+      _trust_add "$srv"
       echo "Trusted '$srv' for Elicitation credential prompts."
       echo "It can now request password/token/API-key fields without being declined."
       echo "Undo with: /trust-mcp --remove $srv"
