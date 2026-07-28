@@ -26,6 +26,16 @@ begin_test "webfetch-egress: DENY Discord webhook"
 begin_test "webfetch-egress: DENY pastebin"
 [ "$(rc_for_url 'https://pastebin.com/raw/deadbeef')" = "2" ] && pass || fail "pastebin not blocked"
 
+# --- DENY: public IPFS gateway / /ipfs/<CID> path (v2.23.42) ---
+begin_test "webfetch-egress: DENY IPFS gateway host (ipfs.io)"
+[ "$(rc_for_url 'https://ipfs.io/ipfs/QmYwAPJzv5short')" = "2" ] && pass || fail "ipfs.io gateway not blocked"
+begin_test "webfetch-egress: DENY dweb.link IPFS gateway"
+[ "$(rc_for_url 'https://dweb.link/ipfs/QmAbc')" = "2" ] && pass || fail "dweb.link not blocked"
+begin_test "webfetch-egress: DENY /ipfs/<CID> path on a self-hosted gateway"
+[ "$(rc_for_url 'https://gw.example.com/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi')" = "2" ] && pass || fail "ipfs CID path not blocked"
+begin_test "webfetch-egress: a docs URL mentioning ipfs (no gateway/CID) is NOT blocked"
+[ "$(rc_for_url 'https://docs.example.com/guides/about-ipfs')" != "2" ] && pass || fail "false-positive on non-gateway ipfs mention"
+
 # --- WARN: private-network / loopback (advisory, exit 0) ---
 begin_test "webfetch-egress: WARN on private-network target (exit 0 + advisory)"
 RC=$(rc_for_url 'http://10.0.0.5/admin')

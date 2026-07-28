@@ -27,6 +27,14 @@ begin_test "mcp-egress: pastebin exfil target is blocked"
 OUT=$(_run "mcp__fetch__post" '{"url":"https://transfer.sh/upload"}')
 echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "paste site not blocked: $OUT"
 
+begin_test "mcp-egress: public IPFS gateway is blocked (v2.23.42)"
+OUT=$(_run "mcp__fetch__get" '{"url":"https://dweb.link/ipfs/QmYwAPJzv5short"}')
+echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "ipfs gateway not blocked: $OUT"
+
+begin_test "mcp-egress: /ipfs/<CID> path on a self-hosted gateway is blocked"
+OUT=$(_run "mcp__fetch__get" '{"url":"https://gw.example.com/ipfs/bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"}')
+echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "ipfs CID path not blocked: $OUT"
+
 begin_test "mcp-egress: nested arg (list/dict) is still scanned"
 OUT=$(_run "mcp__x__y" '{"opts":{"targets":["ok","http://169.254.169.254/x"]}}')
 echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "nested metadata not blocked: $OUT"
