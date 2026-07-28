@@ -25,19 +25,11 @@ jobs:
     steps:
       - uses: actions/checkout@v5
 
+      # Single source of truth for the parity rules: tests/test-version-parity.sh.
+      # It also runs inside the full suite; this job just surfaces it as a fast,
+      # independently-named signal without waiting on all 2374 tests.
       - name: Check version strings match
-        run: |
-          LIB=$(grep -m1 '^VERSION=' lib/utils.sh | tr -d '"' | cut -d= -f2)
-          TOOL=$(grep -m1 '^VERSION=' tools/supercharger.sh | tr -d '"' | cut -d= -f2)
-          README=$(grep -oE 'version-[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1 | sed 's/^version-//')
-          echo "lib/utils.sh:          $LIB"
-          echo "tools/supercharger.sh: $TOOL"
-          echo "README.md:             $README"
-          if [ "$LIB" != "$TOOL" ] || [ "$LIB" != "$README" ]; then
-            echo "ERROR: Version mismatch — all three must match."
-            exit 1
-          fi
-          echo "OK: all versions are $LIB"
+        run: bash tests/test-version-parity.sh
 
   plugin-manifest:
     name: Plugin manifest
