@@ -14,11 +14,15 @@ PROFILE_FILE="$SCOPE_DIR/.profile"
 ENV_VAR="${SUPERCHARGER_PROFILE:-}"
 
 show_current() {
-  local current="standard (default)"
+  local current="standard (default)" _sd
   if [ -n "$ENV_VAR" ]; then
     current="$ENV_VAR (env var — overrides file)"
-  elif [ -f "$PROFILE_FILE" ]; then
-    current="$(cat "$PROFILE_FILE")"
+  else
+    while IFS= read -r _sd; do
+      if [ -f "$_sd/.profile" ]; then current="$(cat "$_sd/.profile")"; break; fi
+    done <<EOF
+$(sc_scope_dirs)
+EOF
   fi
   echo ""
   echo -e "  Current profile: ${GREEN}${current}${NC}"
@@ -48,13 +52,23 @@ case "$PROFILE" in
     ;;
 esac
 
-mkdir -p "$SCOPE_DIR"
+# Write/clear .profile in EVERY scope dir a hook reads (classic + plugin), else the
+# switch is a no-op on plugin installs (hooks read $CLAUDE_PLUGIN_DATA/scope).
+while IFS= read -r _sd; do
+  [ -n "$_sd" ] || continue
+  mkdir -p "$_sd" 2>/dev/null || true
+  if [ "$PROFILE" = "standard" ]; then
+    rm -f "$_sd/.profile" 2>/dev/null || true
+  else
+    echo "$PROFILE" > "$_sd/.profile" 2>/dev/null || true
+  fi
+done <<EOF
+$(sc_scope_dirs)
+EOF
 
 if [ "$PROFILE" = "standard" ]; then
-  rm -f "$PROFILE_FILE"
   success "Profile reset to standard (default)"
 else
-  echo "$PROFILE" > "$PROFILE_FILE"
   success "Profile switched to $PROFILE"
 fi
 
