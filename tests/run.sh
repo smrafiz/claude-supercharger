@@ -17,19 +17,84 @@ echo "Claude Supercharger — Test Suite"
 echo "================================"
 echo ""
 
-for test_file in "$SCRIPT_DIR"/test-*.sh; do
-  if [ ! -f "$test_file" ]; then
-    continue
-  fi
+# Parallel execution in waves of $TEST_JOBS.
+#
+# The suite is ~2500 assertions and each one forks a hook (which forks python3
+# or jq), so wall time was ~7 minutes of almost entirely serial fork overhead —
+# no single slow file, just a long tail. Test files are independent, so they run
+# concurrently and their output is replayed in glob order afterwards, keeping
+# the report byte-comparable to the serial version.
+#
+# Waves (batch, wait, batch) rather than a work queue: bash 3.2 has no `wait -n`,
+# and xargs -P would need `bash -c` plus an exported function. A wave is gated by
+# its slowest file, which is good enough here and far easier to reason about.
+#
+# TEST_JOBS=1 restores fully serial execution for debugging an ordering-sensitive
+# failure.
+if [ -z "${TEST_JOBS:-}" ]; then
+  TEST_JOBS=$(sysctl -n hw.ncpu 2>/dev/null || nproc 2>/dev/null || echo 4)
+fi
 
+RESULT_DIR=$(mktemp -d)
+trap 'rm -rf "$RESULT_DIR"' EXIT
+
+# Each file runs under its own HOME.
+#
+# Without this, hooks under test write to the real ~/.claude/supercharger:
+# .blocked-commands (which feeds the [BLOCKS] summary injected into every
+# session, so test fixtures were being counted as real security events),
+# .safety-trace.log and .scan-alert-*. Only 40 of the ~152 files call
+# setup_test_home, so the other 112 inherited the developer's real HOME.
+# It is also what makes parallel execution safe — two files appending to one
+# .blocked-commands would interleave.
+#
+# HOME rather than SUPERCHARGER_STATE, deliberately: the tests read state back
+# through "$HOME/.claude/supercharger/scope/..." literals while the hooks resolve
+# it via lib-paths.sh. Overriding only STATE splits those two apart — the hook
+# writes to the temp dir and the assertion looks in the real one — which fails
+# ~160 assertions. Overriding HOME keeps both sides resolving to the same place.
+#
+# SUPERCHARGER_HOME is deliberately NOT set: it is the read-only code root and
+# still resolves off the real HOME to the installed copy. Pointing it at this
+# repo breaks asset lookups, since install.sh flattens configs/economy and
+# configs/roles to the top level.
+run_one() {
+  local tf="$1" name home
+  name=$(basename "$tf" .sh)
+  home=$(mktemp -d)
+  # Canonicalise: on macOS `mktemp -d` yields /var/folders/... and /var is a
+  # symlink to /private/var. path-guard realpaths paths to stop an in-path
+  # symlink abusing its memory-store allowance, so a symlinked HOME trips that
+  # check and wrongly denies a write the test expects to be allowed. Real homes
+  # (/Users/x, /home/x) are already canonical, so this only removes an artefact
+  # of the temp dir rather than weakening the guard.
+  home=$(cd "$home" && pwd -P)
+  mkdir -p "$home/.claude"
+  HOME="$home" bash "$tf" "$REPO_DIR" > "$RESULT_DIR/$name.out" 2>&1 || true
+  rm -rf "$home"
+}
+
+running=0
+for test_file in "$SCRIPT_DIR"/test-*.sh; do
+  [ -f "$test_file" ] || continue
+  run_one "$test_file" &
+  running=$((running + 1))
+  if [ "$running" -ge "$TEST_JOBS" ]; then
+    wait
+    running=0
+  fi
+done
+wait
+
+# Replay in glob order so the report is deterministic regardless of finish order.
+for test_file in "$SCRIPT_DIR"/test-*.sh; do
+  [ -f "$test_file" ] || continue
   test_name=$(basename "$test_file" .sh)
   echo "--- $test_name ---"
 
-  # Run test in subshell so HOME changes don't leak
-  output=$(bash "$test_file" "$REPO_DIR" 2>&1) || true
+  output=$(cat "$RESULT_DIR/$test_name.out" 2>/dev/null || true)
   echo "$output"
 
-  # Extract pass/fail counts from last line
   passed=$(echo "$output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' || echo "0")
   failed=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
 

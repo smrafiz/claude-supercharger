@@ -36,7 +36,7 @@ run.sh	the runner itself
 helpers.sh	shared assertions, sourced by every test
 perf-chain.sh	latency harness, invoked by test-perf-chain.sh
 eval-agents.sh	opt-in agent evals, gated behind RUN_EVAL=true (costs real API tokens)
-fuzz-safety.sh	NOT COLLECTED - see HOOK-LATENCY-PLAN; wire in once the runner is parallel
+fuzz-safety.sh	deliberately manual - slow + non-deterministic (~1000 mutations); see its own header
 "
 
 allow_reason() { printf '%s' "$1" | awk -F'\t' -v f="$2" '$1==f {print $2; found=1} END {exit !found}'; }
