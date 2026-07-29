@@ -1,0 +1,59 @@
+{
+  "event": "PreToolUse",
+  "tool": "Bash",
+  "hooks": 18,
+  "iterations": 5,
+  "payloads": {
+    "fast-pathed": {
+      "chain_sum_ms": 157.6,
+      "slowest_hook": "budget-cap.sh",
+      "slowest_ms": 21.6,
+      "per_hook_ms": {
+        "budget-cap.sh": 21.6,
+        "tool-call-limiter.sh": 20.0,
+        "human-approval-gate.sh": 19.4,
+        "safety.sh": 12.6,
+        "tool-preferences.sh": 11.2,
+        "harness-tamper-guard.sh": 7.2,
+        "git-config-exec-guard.sh": 6.4,
+        "bulk-exfil-guard.sh": 6.4,
+        "env-exec-guard.sh": 6.2,
+        "cloud-cli-destructive-guard.sh": 6.2,
+        "test-mask-guard.sh": 5.6,
+        "commit-guard.sh": 5.6,
+        "confidence-gate.sh": 5.4,
+        "git-safety.sh": 5.4,
+        "git-remote-guard.sh": 5.2,
+        "redirect-clobber-guard.sh": 4.8,
+        "enforce-pkg-manager.sh": 4.6,
+        "readonly-guard.sh": 3.8
+      }
+    },
+    "non-fast-pathed": {
+      "chain_sum_ms": 182.0,
+      "slowest_hook": "enforce-pkg-manager.sh",
+      "slowest_ms": 34.8,
+      "per_hook_ms": {
+        "enforce-pkg-manager.sh": 34.8,
+        "safety.sh": 32.4,
+        "budget-cap.sh": 21.8,
+        "tool-call-limiter.sh": 17.8,
+        "tool-preferences.sh": 9.6,
+        "human-approval-gate.sh": 7.6,
+        "harness-tamper-guard.sh": 5.4,
+        "cloud-cli-destructive-guard.sh": 5.4,
+        "bulk-exfil-guard.sh": 5.2,
+        "git-config-exec-guard.sh": 5.2,
+        "env-exec-guard.sh": 5.2,
+        "confidence-gate.sh": 5.2,
+        "test-mask-guard.sh": 5.0,
+        "git-safety.sh": 5.0,
+        "commit-guard.sh": 5.0,
+        "redirect-clobber-guard.sh": 4.4,
+        "git-remote-guard.sh": 4.2,
+        "readonly-guard.sh": 2.8
+      }
+    }
+  },
+  "_note": "Regenerate deliberately: bash tests/perf-chain.sh --write-baseline"
+}
