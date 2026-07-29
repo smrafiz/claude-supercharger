@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.23.47-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2398%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.23.48-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2407%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -361,6 +361,17 @@ Supercharger tags its entries `#supercharger` and never touches your existing se
 ```bash
 bash tools/mcp-profile.sh [profile]
 ```
+
+**Your own MCP servers.** Adding a server is Claude Code's job — `claude mcp add <name> -- <cmd>`, or `--transport http <name> <url>` — and Supercharger doesn't reimplement it. What it adds is *profile awareness*: register a server you already added, pick which profiles it belongs to, and it's configured only while one of those is active (and moved aside by `/sc off`).
+
+```bash
+claude mcp add my-thing -- npx -y my-mcp-server     # Claude Code adds it
+bash tools/mcp-custom.sh adopt my-thing dev,full    # only loaded in dev + full
+bash tools/mcp-custom.sh list
+bash tools/mcp-custom.sh remove my-thing            # hands it back, untagged
+```
+
+Adopting takes ownership: the entry moves into a Supercharger registry (so a profile switch can add/remove it) and is restored to you untouched on `remove`. Servers you don't adopt are never modified.
 
 </details>
 

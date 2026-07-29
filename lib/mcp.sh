@@ -86,13 +86,24 @@ count_role_servers() {
   get_role_servers "$roles" | wc -l | tr -d ' '
 }
 
+# Registry of USER-REGISTERED custom MCP servers that Supercharger manages.
+# Claude Code already owns *adding* a server (`claude mcp add`, any transport), so
+# we don't reimplement that — we let a server you added participate in Supercharger's
+# context-cost profiles, which is the thing Claude Code has no notion of.
+# Shape: { "<name>": { "profiles": "all" | "dev,full", "entry": {<raw CC entry>} } }
+# The raw entry is stored verbatim, so http/sse/url/headers work as well as stdio.
+# Read by tools only (never a hook), so the classic tool-config root is correct.
+SUPERCHARGER_MCP_CUSTOM="${SUPERCHARGER_MCP_CUSTOM:-$HOME/.claude/supercharger/mcp-custom.json}"
+
 # Write MCP entries to a single config file
 _write_mcp_to_file() {
   local settings_file="$1"
   local tag="$2"
   local server_list="$3"
+  local profile="${4:-light}"
 
-  SETTINGS_FILE="$settings_file" MCP_TAG="$tag" SERVERS_INPUT="$server_list" python3 -c "
+  SETTINGS_FILE="$settings_file" MCP_TAG="$tag" SERVERS_INPUT="$server_list" \
+  MCP_PROFILE="$profile" MCP_CUSTOM_FILE="$SUPERCHARGER_MCP_CUSTOM" python3 -c "
 import json, os, sys
 
 settings_file = os.environ['SETTINGS_FILE']
@@ -137,6 +148,29 @@ for line in servers_input.strip().split('\n'):
             pass
     settings['mcpServers'][key] = entry
 
+# Re-add user-registered custom servers eligible for THIS profile. Without this the
+# wipe above would delete a registered server on every profile switch; the registry
+# is the source of truth, so a server excluded by the current profile is dropped from
+# the config but never lost — switching back restores it.
+custom_file = os.environ.get('MCP_CUSTOM_FILE', '')
+profile = os.environ.get('MCP_PROFILE', 'light')
+if custom_file and os.path.exists(custom_file):
+    try:
+        with open(custom_file) as f:
+            registry = json.load(f)
+    except Exception:
+        registry = {}
+    for name, spec in (registry or {}).items():
+        if not isinstance(spec, dict):
+            continue
+        entry = spec.get('entry')
+        if not isinstance(entry, dict):
+            continue
+        wanted = str(spec.get('profiles', 'all')).strip().lower()
+        allowed = wanted in ('', 'all') or profile in [p.strip() for p in wanted.split(',')]
+        if allowed:
+            settings['mcpServers'][name + ' ' + tag] = entry
+
 with open(settings_file, 'w') as f:
     json.dump(settings, f, indent=2)
 " 2>&1
@@ -151,10 +185,10 @@ merge_mcp_into_settings() {
   server_list=$(build_server_list "$roles" "$profile")
 
   # ~/.claude.json — Claude Code current (User MCPs shown in /mcp)
-  _write_mcp_to_file "$HOME/.claude.json" "$tag" "$server_list" || return 1
+  _write_mcp_to_file "$HOME/.claude.json" "$tag" "$server_list" "$profile" || return 1
 
   # ~/.claude/settings.json — Claude Code legacy fallback
-  _write_mcp_to_file "$HOME/.claude/settings.json" "$tag" "$server_list" || return 1
+  _write_mcp_to_file "$HOME/.claude/settings.json" "$tag" "$server_list" "$profile" || return 1
 
   return 0
 }
