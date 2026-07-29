@@ -38,7 +38,7 @@ Everything else is optional. These five are what you'll actually use day to day.
 | **`/sc-autopilot 2h`** | Stops the yes/no permission prompts for two hours. The safety floor stays on. This is the single biggest speed win. |
 | **`/sc-status`** | What's active right now — session cost, economy tier, disabled hooks, per-subagent spend. |
 | **`/why`** | Something got blocked and you don't know why? This explains the last hook firing and how to get past it. |
-| **`/sc off`** | Flips you back to plain, stock Claude Code. Nothing is uninstalled. `/sc on` brings it back. |
+| **`/sc off`** | Flips you back to plain, stock Claude Code — every hook, the statusline, the prompt rules, and Supercharger's own MCP servers all stand down. Nothing is uninstalled; `/sc on` restores it. |
 
 Two things worth setting once, per project, in a `.supercharger.json` at your repo root:
 
@@ -248,7 +248,11 @@ Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `
 
 ### Speed & tokens
 
-Run **`/perf`** to see what the hooks actually cost on your machine — it reports per-hook averages and flags anything over 200ms. Don't guess from a number in a README; measure your own setup.
+Measured, not estimated: **Claude Code runs same-event hooks concurrently** (observed ~11 at a time), so a tool call's *felt* cost is the slowest wave, not the sum of every hook — around **20–40 ms** for the PreToolUse chain on a 2020 Intel Mac (bash 3.2, the slow case). The statusline used to be the largest recurring cost at ~45 ms per render; it now caches its output for a second and costs ~8 ms.
+
+Reproduce it on your own machine with `bash tests/perf-chain.sh` (from a clone) — it reports the felt estimate, the sequential sum (CPU/fork pressure, which is a battery story rather than a latency one), and the slowest single hook.
+
+**A caveat on `/perf`:** on bash 3.2 — the macOS default — its `avg_ms` column is inflated, sometimes 10–60×, because the profiler forks `python` per hook fire to read the clock and that fork lands inside the measurement. `/perf` prints a warning to this effect; rank by its **Calls** column and measure a specific hook independently before optimising it. On bash 5+ the clock is fork-free and the numbers are accurate.
 
 That said, most felt slowness is not the hooks. Biggest levers, in order of impact:
 
@@ -302,7 +306,7 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 | `/sc-autopilot 2h` | Stop the yes/no permission prompts for a set time — the safety floor stays on. The single biggest speed win |
 | `/sc-readonly 20m` | "Look, don't touch" — blocks all edits **and** mutating shell commands, allows reads / searches / planning |
 | `/sc-strict 30m` | Confirm **every** call — auto-approves nothing. Overrides autopilot while active |
-| `/sc off\|on\|status` | Flip to plain Claude Code and back — guards/memory/statusline off, no uninstall |
+| `/sc off\|on\|status` | Flip to plain Claude Code and back — guards, statusline, prompt rules and Supercharger's MCP servers all stand down; no uninstall |
 | `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
 | `/profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
 | `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
@@ -406,7 +410,7 @@ No. The installer backs up everything before touching it. `./uninstall.sh` resto
 Run `/why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
 
 **Can I temporarily switch back to plain Claude Code?**
-Yes — `/sc off` deactivates Supercharger globally (a kill-switch every hook honors instantly: no guards, no injection, no statusline) and `/sc on` restores it. Nothing is uninstalled; files stay dormant, `settings.json` is never touched, and a backup is written first. Two caveats: hooks go off immediately but the `CLAUDE.md` prompt rules clear on your **next** session, and **while off, the security guards are off too** — you're on stock Claude with no safety net until you `/sc on`.
+Yes — `/sc off` deactivates Supercharger globally (a kill-switch every hook honors instantly: no guards, no injection, no statusline) and `/sc on` restores it. Nothing is uninstalled; the files stay dormant and a timestamped backup is written first. It also moves **Supercharger's own** MCP servers aside so they stop loading and stop costing you context — MCP servers you added yourself are left alone. Two caveats: hooks stop immediately, but the `CLAUDE.md` prompt rules and the MCP change take effect on your **next** session; and **while off, the security guards are off too** — you're on stock Claude with no safety net until you `/sc on`.
 
 **How does this compare to SuperClaude, agent-os, or BMad?**
 Those are markdown files Claude reads and chooses to follow, and every rule costs context tokens that compound over a session. Supercharger's enforcement is a separate process with an exit code — no context cost, and no way for the model to opt out. The prompt-based layer here (roles, economy tiers) works the same way theirs does; the hook layer is what's different. See [What this does and doesn't guarantee](#what-this-does-and-doesnt-guarantee) for the limits.
