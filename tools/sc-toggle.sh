@@ -34,8 +34,13 @@ mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 # glob the plugin data dirs directly and write/clear the flag in ALL of them; writing
 # to only the classic path made /sc off a silent no-op on plugin installs.
 _flag_dirs() {
+  # Explicit root wins over discovery — mirrors sc_scope_dirs in lib/utils.sh, and
+  # keeps a test that sandboxes via CLAUDE_PLUGIN_DATA from reaching the real $HOME.
+  if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
+    return 0
+  fi
   printf '%s\n' "$SCOPE_DIR"
-  [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
   local pd
   for pd in "$HOME/.claude/plugins/data/"*supercharger*; do
     [ -d "$pd" ] && printf '%s\n' "$pd/scope"

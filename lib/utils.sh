@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Utility Functions
 
-VERSION="2.24.2"
+VERSION="2.24.3"
 
 # Every scope dir a HOOK might read state from — classic install + any plugin install.
 # Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
@@ -12,8 +12,21 @@ VERSION="2.24.2"
 # sc-toggle-plugin-path-divergence. Usage: `while read -r d; do …; done < <(sc_scope_dirs)`
 # (or a heredoc loop for bash 3.2 process-substitution safety).
 sc_scope_dirs() {
+  # If CLAUDE_PLUGIN_DATA is explicitly set, that IS the state root — use only it.
+  # Two reasons this is right, not a special case:
+  #   1. Semantics: an explicit location beats discovery. Nothing should be writing
+  #      outside a root the caller named.
+  #   2. Isolation: the tests sandbox by setting this var (they do NOT override HOME).
+  #      v2.23.40 made this function glob $HOME unconditionally, so `autopilot.sh off`
+  #      inside a test deleted the developer's REAL autopilot/readonly/strict flags —
+  #      a live session would silently lose its window minutes after granting it.
+  # Tools invoked from a skill run outside any hook, where the var is unset, so they
+  # still discover every scope dir — which is what the plugin-path fix needed.
+  if [ -n "${CLAUDE_PLUGIN_DATA:-}" ]; then
+    printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
+    return 0
+  fi
   printf '%s\n' "$HOME/.claude/supercharger/scope"
-  [ -n "${CLAUDE_PLUGIN_DATA:-}" ] && printf '%s\n' "$CLAUDE_PLUGIN_DATA/scope"
   local _pd
   for _pd in "$HOME/.claude/plugins/data/"*supercharger*; do
     [ -d "$_pd" ] && printf '%s\n' "$_pd/scope"
