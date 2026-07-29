@@ -155,4 +155,15 @@ rm -rf "$D"
 begin_test "autopilot: /sc-autopilot command exists and invokes autopilot.sh"
 [ -f "$CMD" ] && grep -q 'tools/autopilot.sh' "$CMD" && pass || fail "command missing or not wired"
 
+# v2.24.4: `status` answers a query — it is not a predicate, so it must exit 0 in both
+# states. A trailing `[ -z "$any" ] && echo …` made it return 1 whenever a window was
+# ON, so any caller checking $? read a healthy window as a failure.
+begin_test "autopilot: status exits 0 whether ON or OFF"
+_SR=$(mktemp -d); mkdir -p "$_SR/scope"
+CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" status >/dev/null 2>&1; _off=$?
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" 30m global >/dev/null 2>&1
+CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" status >/dev/null 2>&1; _on=$?
+rm -rf "$_SR"
+{ [ "$_off" = 0 ] && [ "$_on" = 0 ]; } && pass || fail "status rc OFF=$_off ON=$_on (both must be 0)"
+
 report

@@ -65,7 +65,9 @@ status() {
   s=$(remaining_of "$SESS_BASE")
   if [ -n "$s" ]; then echo "Strict (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
   if [ -n "$g" ]; then echo "Strict (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
+  # v2.24.4: see autopilot.sh — a trailing `[ -z … ] &&` made status() exit 1 while ON.
   [ -z "$any" ] && echo "Strict: OFF"
+  return 0
 }
 
 ARG="${1:-status}"

@@ -62,7 +62,9 @@ status() {
   s=$(remaining_of "$SESS_BASE")
   if [ -n "$s" ]; then echo "Read-only (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
   if [ -n "$g" ]; then echo "Read-only (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
+  # v2.24.4: see autopilot.sh — a trailing `[ -z … ] &&` made status() exit 1 while ON.
   [ -z "$any" ] && echo "Read-only: OFF"
+  return 0
 }
 
 ARG="${1:-status}"
