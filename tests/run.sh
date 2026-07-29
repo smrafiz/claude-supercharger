@@ -42,6 +42,32 @@ echo "================================"
 echo "Total: $TOTAL_PASSED passed, $TOTAL_FAILED failed"
 echo ""
 
+# --- README tests-badge parity ------------------------------------------------
+# TOTAL_PASSED is the only place the true count exists, so the check lives here
+# rather than in test-version-parity.sh — that test would have to run the whole
+# suite to know the number, or duplicate it into a second file that can itself
+# drift. (test-version-parity.sh covers the *version* badge; nothing covered this
+# one, and it drifted 2430 vs 2436 by 2.24.5.)
+#
+# tools/release.sh already rewrites the badge on every release, so the normal
+# path never trips this. What it catches is a hand-commit that adds tests without
+# going through release.sh.
+#
+# Warn locally, fail in CI: a stale doc badge should not turn someone's suite red
+# mid-edit, but it must not reach master either. GitHub Actions sets CI=true.
+BADGE_DRIFT=0
+# sed, not a second grep: '%20' contains digits, so grep -oE '[0-9]+' would
+# yield both the count and 20. Same extraction shape as test-version-parity.sh:37.
+BADGE=$(grep -oE 'tests-[0-9]+%20passing' "$REPO_DIR/README.md" 2>/dev/null | head -1 | sed 's/tests-\([0-9]*\)%20passing/\1/' || true)
+if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_PASSED" ]; then
+  echo "WARNING: README tests badge says ${BADGE}, suite has ${TOTAL_PASSED}."
+  echo "         Bump it to ${TOTAL_PASSED} (tools/release.sh does this automatically on release)."
+  echo ""
+  if [ -n "${CI:-}" ]; then
+    BADGE_DRIFT=1
+  fi
+fi
+
 # --- Agent Eval (opt-in: costs real API tokens) ---
 if [[ "${RUN_EVAL:-false}" == "true" ]]; then
   echo ""
@@ -50,6 +76,10 @@ if [[ "${RUN_EVAL:-false}" == "true" ]]; then
 fi
 
 if [ "$TOTAL_FAILED" -gt 0 ]; then
+  exit 1
+fi
+if [ "$BADGE_DRIFT" -ne 0 ]; then
+  echo "FAIL: README tests badge is stale (see warning above)."
   exit 1
 fi
 exit 0
