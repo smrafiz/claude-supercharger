@@ -141,6 +141,43 @@ bash "$TOGGLE" on >/dev/null 2>&1
 if [ "$BLANK_OK" = 1 ] && [ "$(cat "$HOME/.claude/CLAUDE.md")" = "$ORIG" ]; then pass; else fail "deploy-mode blank/restore failed (blank_ok=$BLANK_OK)"; fi
 teardown_test_home
 
+# --- v2.23.46: `off` must also drop Supercharger's OWN MCP servers (they load at
+# session start and cost context), while never touching the user's own. ---
+_mcp_setup() {
+  _setup
+  python3 -c '
+import json,sys
+json.dump({"model":"opus","mcpServers":{
+  "context7 #supercharger":{"command":"npx"},
+  "magic-ui #supercharger":{"command":"npx"},
+  "my-own-server":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude/settings.json"
+}
+_mcp_keys() { python3 -c '
+import json,sys
+print(",".join(sorted(json.load(open(sys.argv[1])).get("mcpServers",{}))))' "$HOME/.claude/settings.json" 2>/dev/null; }
+
+begin_test "sc-toggle: off removes Supercharger-tagged MCP servers"
+_mcp_setup; bash "$TOGGLE" off >/dev/null 2>&1
+[ "$(_mcp_keys)" = "my-own-server" ] && pass || fail "expected only the user's server, got: $(_mcp_keys)"
+
+begin_test "sc-toggle: off leaves the user's own MCP server alone"
+printf '%s' "$(_mcp_keys)" | grep -q "my-own-server" && pass || fail "user's MCP server was removed"
+
+begin_test "sc-toggle: off stashes them and settings.json stays valid JSON"
+{ [ -f "$HOME/.claude/supercharger/.deactivated/mcp-servers.json" ] \
+  && python3 -c 'import json,sys;json.load(open(sys.argv[1]))' "$HOME/.claude/settings.json"; } 2>/dev/null \
+  && pass || fail "stash missing or settings.json invalid"
+
+begin_test "sc-toggle: on restores the MCP servers exactly"
+bash "$TOGGLE" on >/dev/null 2>&1
+[ "$(_mcp_keys)" = "context7 #supercharger,magic-ui #supercharger,my-own-server" ] && pass || fail "round-trip lost servers: $(_mcp_keys)"
+teardown_test_home
+
+begin_test "sc-toggle: settings.json with no mcpServers key still toggles cleanly"
+_setup; printf '{"model":"opus"}\n' > "$HOME/.claude/settings.json"
+{ bash "$TOGGLE" off >/dev/null 2>&1 && bash "$TOGGLE" on >/dev/null 2>&1; } && pass || fail "toggle failed without mcpServers"
+teardown_test_home
+
 # --- v2.23.37: plugin-install path parity. The flag must land where PLUGIN hooks
 # read it ($CLAUDE_PLUGIN_DATA/scope), not only the classic path — else /sc off is a
 # silent no-op on plugin installs (rules kept loading). ---

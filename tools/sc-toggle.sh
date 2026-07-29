@@ -58,6 +58,62 @@ _marker_line() {
   grep -nE '^# --- Claude Supercharger|^# Claude Supercharger v' "$CLAUDE_MD" 2>/dev/null | head -1 | cut -d: -f1
 }
 
+# --- MCP servers -----------------------------------------------------------
+# Supercharger registers its MCP servers under settings.json > mcpServers, tagged
+# "<name> #supercharger". Those load at session start and cost context (tool
+# schemas, ~300-3500 tokens by profile) — so leaving them registered meant `off`
+# was not total. We move ONLY the tagged entries aside and restore them verbatim
+# on `on`; a user's own MCP servers are never touched. Writes temp-then-mv, and a
+# full settings.json copy already sits in the timestamped backup dir.
+SETTINGS_JSON="$HOME/.claude/settings.json"
+MCP_STASH="$STATE_DIR/mcp-servers.json"
+
+_mcp_off() {   # extract tagged servers -> stash, remove from settings.json
+  [ -f "$SETTINGS_JSON" ] || return 0
+  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
+import json, os, sys
+p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
+try:
+    with open(p) as f: s = json.load(f)
+except Exception:
+    sys.exit(0)
+m = s.get("mcpServers") or {}
+tagged = {k: v for k, v in m.items() if "supercharger" in k.lower()}
+if not tagged:
+    sys.exit(0)
+for k in tagged: del m[k]
+if m: s["mcpServers"] = m
+else: s.pop("mcpServers", None)
+os.makedirs(os.path.dirname(stash), exist_ok=True)
+with open(stash, "w") as f: json.dump(tagged, f, indent=2)
+tmp = p + ".sctmp"
+with open(tmp, "w") as f: json.dump(s, f, indent=2)
+os.replace(tmp, p)
+print(len(tagged))
+PY
+}
+
+_mcp_on() {    # restore stashed servers (never clobber a re-added key)
+  [ -f "$MCP_STASH" ] && [ -f "$SETTINGS_JSON" ] || return 0
+  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
+import json, os, sys
+p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
+try:
+    with open(p) as f: s = json.load(f)
+    with open(stash) as f: tagged = json.load(f)
+except Exception:
+    sys.exit(0)
+m = s.get("mcpServers") or {}
+for k, v in tagged.items():
+    m.setdefault(k, v)
+s["mcpServers"] = m
+tmp = p + ".sctmp"
+with open(tmp, "w") as f: json.dump(s, f, indent=2)
+os.replace(tmp, p)
+print(len(tagged))
+PY
+}
+
 _backup() {
   local ts bdir
   ts=$(date '+%Y%m%d-%H%M%S' 2>/dev/null || echo "manual")
@@ -94,6 +150,10 @@ case "${1:-status}" in
       fi
     fi
 
+    # Move Supercharger's own MCP servers aside so `off` also drops their context
+    # cost. Runs before the flag write; failure here must not abort the toggle.
+    _MCP_MOVED=$(_mcp_off || true)
+
     # Kill-switch — write to EVERY scope dir a hook might read (classic + plugin),
     # else the flag lands where the running hooks never look and off is a no-op.
     _FLAG_BODY=$(printf 'disabled_at %s\nbackup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo now)" "$BDIR")
@@ -113,6 +173,10 @@ EOF
     echo ""
     echo "  • Hooks: off immediately (next tool call)."
     echo "  • Prompt rules: the CLAUDE.md block was removed; takes effect next session."
+    if [ -n "${_MCP_MOVED:-}" ] && [ "${_MCP_MOVED:-0}" != "0" ]; then
+      echo "  • MCP servers: ${_MCP_MOVED} Supercharger-registered server(s) moved aside, so they"
+      echo "    stop loading (and stop costing context) — restored by /sc on. Next session."
+    fi
     echo "  • Nothing was deleted. Backup: $BDIR"
     echo ""
     echo "  Re-enable any time:  /sc on   (or  bash $SC_DIR/tools/sc-toggle.sh on )"
@@ -130,10 +194,15 @@ EOF
     done <<EOF
 $(_flag_dirs)
 EOF
+    # Restore the MCP servers we moved aside (before STATE_DIR, which holds them).
+    _MCP_BACK=$(_mcp_on || true)
     rm -rf "$STATE_DIR" 2>/dev/null || true
     echo ""
     echo "  Supercharger is now ON — hooks active again, guards restored."
     echo "  CLAUDE.md rules restored; they re-enter context on your next session."
+    if [ -n "${_MCP_BACK:-}" ] && [ "${_MCP_BACK:-0}" != "0" ]; then
+      echo "  ${_MCP_BACK} MCP server(s) restored; they load again next session."
+    fi
     ;;
 
   status)
