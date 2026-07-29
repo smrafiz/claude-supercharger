@@ -143,7 +143,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
-- **25+ slash commands** — [full list below](#slash-commands)
+- **30+ slash commands** — [full list below](#slash-commands)
 
 Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
@@ -295,27 +295,53 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 <details id="slash-commands">
 <summary><strong>Slash commands</strong></summary>
 
+**Control & modes** — the everyday levers, several unique to Supercharger:
+
+| Command | Purpose |
+|--|--|
+| `/sc-autopilot 2h` | Stop the yes/no permission prompts for a set time — the safety floor stays on. The single biggest speed win |
+| `/sc-readonly 20m` | "Look, don't touch" — blocks all edits **and** mutating shell commands, allows reads / searches / planning |
+| `/sc-strict 30m` | Confirm **every** call — auto-approves nothing. Overrides autopilot while active |
+| `/sc off\|on\|status` | Flip to plain Claude Code and back — guards/memory/statusline off, no uninstall |
+| `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
+| `/profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
+| `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
+
+**Workflow:**
+
+| Command | Purpose |
+|--|--|
+| `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
+| `/pr [description]` | Prepare and create a pull request |
+| `/scope [task]` | Pre-flight check — files to touch, risks, blast radius |
+| `/estimate [task]` | Time + complexity report. Halts before code starts |
+| `/interview [topic]` | Structured requirements gathering, one question at a time |
+| `/multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
+| `/security [scope]` | OWASP-anchored review with severity-ranked findings |
+| `/audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
+| `/cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
+
+**Reasoning & debugging:**
+
 | Command | Purpose |
 |--|--|
 | `/think [problem]` | Structured reasoning for ambiguous problems |
 | `/challenge [decision]` | Adversarial stress-test — assumptions, failure modes, strongest alternative |
-| `/audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
-| `/security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/stuck [symptom]` | Breaks debug loops with fresh hypotheses |
-| `/scope [task]` | Pre-flight check — files to touch, risks, blast radius |
-| `/estimate [task]` | Time + complexity report. Halts before code starts |
-| `/cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
-| `/pr [description]` | Prepare and create a pull request |
-| `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
-| `/multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
-| `/reflect` | Score session quality, write to `.claude/session-observations.md` |
-| `/devlog [entry]` | Append decision to `DEV-LOG.md` |
-| `/design [brand]` | Generate `DESIGN.md` — tokens, typography, components |
-| `/sc-status` | Current session state (cost, lessons, disabled hooks) |
 | `/why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
+
+**Insight, memory & housekeeping:**
+
+| Command | Purpose |
+|--|--|
 | `/learn <rule>` | Record an explicit project rule. Surfaces on future prompts |
+| `/memory-prune` | Archive resolved memory entries so they stop loading into context |
 | `/perf [--slow]` | Hook timing report |
-| `/sc off\|on\|status` | Deactivate/reactivate Supercharger, no uninstall |
+| `/cache-stats` · `/cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
+| `/trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) |
+| `/reflect` | Score session quality, write to `.claude/session-observations.md` |
+| `/devlog [entry]` | Append a decision to `DEV-LOG.md` |
+| `/design [brand]` | Generate `DESIGN.md` — tokens, typography, components |
 | `/supercharger` | List all slash commands |
 
 </details>
