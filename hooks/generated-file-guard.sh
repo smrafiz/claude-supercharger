@@ -24,7 +24,7 @@ check_hook_disabled "generated-file-guard" 2>/dev/null && exit 0
 hook_profile_skip "generated-file-guard" 2>/dev/null && exit 0
 
 _GF_OUT=$(mktemp 2>/dev/null) || _GF_OUT="${TMPDIR:-/tmp}/genfile.$$"
-HOOK_INPUT="$_INPUT" python3 > "$_GF_OUT" 2>/dev/null <<'PYEOF'
+HOOK_INPUT="$_INPUT" python3 -S > "$_GF_OUT" 2>/dev/null <<'PYEOF'
 import os, re, sys, json
 
 try:

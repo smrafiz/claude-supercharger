@@ -23,6 +23,19 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)
 check_hook_disabled "package-source-guard" 2>/dev/null && exit 0
 
+# v2.24.2: fork-free gate. This hook only cares about seven dependency manifests, but
+# it was starting a ~28ms python3 for EVERY Write/Edit — including source files it can
+# never match — which made it the slowest hook in the 20-wide Write wave. The patterns
+# below are a deliberate SUPERSET of the python's basename test (they match anywhere in
+# the payload, and cover the case variants python gets via .lower()), so a gate miss
+# can never skip a file the guard would have flagged; a spurious match just falls
+# through to the unchanged python.
+case "$_INPUT" in
+  *package.json*|*[Pp]yproject.toml*|*[Pp]ipfile*|*[Pp]ipFile*|*requirements*|*[Rr]equirements*|\
+  *[Gg]emfile*|*go.mod*|*[Cc]argo.toml*|*[Cc]argo.TOML*) : ;;
+  *) exit 0 ;;
+esac
+
 _SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -z "$_SID" ] && _SID="${CLAUDE_CODE_SESSION_ID:-default}"
 _SEEN_FILE="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope/.pkgsrc-seen-${_SID}"

@@ -22,6 +22,15 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)
 check_hook_disabled "install-script-guard" 2>/dev/null && exit 0
 
+# v2.24.2: fork-free gate — see package-source-guard for the rationale. This hook
+# only inspects package.json / setup.py / binding.gyp / *.gyp / *.gypi, but was
+# forking python3 (~28ms) on every Write/Edit. Superset match on the raw payload:
+# a miss can't skip a real target, a spurious hit just runs the unchanged python.
+case "$_INPUT" in
+  *package.json*|*setup.py*|*.gyp*|*[Ss]etup.PY*) : ;;
+  *) exit 0 ;;
+esac
+
 REASON=$(HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
 import os, sys, json, re
 
