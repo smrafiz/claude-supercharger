@@ -132,8 +132,21 @@ for label in labels:
     ranked = sorted(means.items(), key=lambda kv: kv[1], reverse=True)
     chain_sum = sum(means.values())
     slowest = ranked[0] if ranked else ("-", 0.0)
+    # Claude Code runs same-event hooks CONCURRENTLY, measured width ~11 (see
+    # docs/HOOK-LATENCY-PLAN.md §3b). Model the felt cost as list-scheduling over
+    # WIDTH workers: assign each hook (longest first) to the earliest-free worker;
+    # the makespan is the estimate. Falls back to the true lower bound (the slowest
+    # single hook) when the chain fits in one wave.
+    width = int(os.environ.get("SUPERCHARGER_HOOK_CONCURRENCY", "11"))
+    workers = [0.0] * max(1, width)
+    for _, v in ranked:                     # already longest-first
+        i = workers.index(min(workers))
+        workers[i] += v
+    makespan = max(workers) if workers else 0.0
     report["payloads"][label] = {
         "chain_sum_ms": round(chain_sum, 1),
+        "parallel_est_ms": round(makespan, 1),
+        "parallel_width": width,
         "slowest_hook": slowest[0], "slowest_ms": round(slowest[1], 1),
         "per_hook_ms": {h: round(v, 1) for h, v in ranked},
     }
@@ -145,15 +158,20 @@ else:
         report["event"], report["tool"], nh, iters))
     for label in labels:
         p = report["payloads"][label]
-        print("\n[%s]  chain sum = %.1f ms  (fork-pressure/CPU)   slowest = %s @ %.1f ms  (parallel floor)" % (
-            label, p["chain_sum_ms"], p["slowest_hook"], p["slowest_ms"]))
+        print("\n[%s]  FELT ~%.1f ms  (parallel, width %d)   |   chain sum %.1f ms (CPU/fork)   slowest %s @ %.1f ms" % (
+            label, p["parallel_est_ms"], p["parallel_width"],
+            p["chain_sum_ms"], p["slowest_hook"], p["slowest_ms"]))
         print("  %-32s %8s" % ("hook", "mean ms"))
         for h, v in list(p["per_hook_ms"].items())[:8]:
             print("  %-32s %8.1f" % (h, v))
         rest = len(p["per_hook_ms"]) - 8
         if rest > 0: print("  … %d more" % rest)
-    print("\nchain sum = sequential total (CPU/fork pressure per tool call).")
-    print("slowest   = felt wall-clock floor IF Claude Code runs these in parallel.")
+    print("\nFELT      = list-scheduling estimate over %s concurrent workers — Claude Code runs" % (
+        os.environ.get("SUPERCHARGER_HOOK_CONCURRENCY", "11")))
+    print("            same-event hooks in PARALLEL (measured; plan §3b). This is the number")
+    print("            a user perceives. Override the width with SUPERCHARGER_HOOK_CONCURRENCY.")
+    print("chain sum = sequential total: CPU / fork pressure per tool call (battery, load), not felt latency.")
+    print("slowest   = hard lower bound — no amount of parallelism beats the single slowest hook.")
 
 if os.environ["WRITE_BASELINE"] == "1":
     import datetime  # noqa (date is fine here, not in a workflow script)
