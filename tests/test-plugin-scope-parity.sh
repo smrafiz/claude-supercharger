@@ -91,7 +91,25 @@ _OUT2=$(printf '%s' "$_PAY2" | SUPERCHARGER_STATE="$HOME/.claude/supercharger" S
 printf '%s' "$_OUT2" | grep -qi "self-mod" && fail "normal write wrongly blocked" || pass
 teardown_test_home
 
-# the shared resolver emits the plugin dir when it exists
+# v2.24.3: an explicit CLAUDE_PLUGIN_DATA must be the ONLY root. Isolation depends on
+# this: the tool suites sandbox by setting that var (not by overriding HOME), so when
+# v2.23.40 made the resolver glob $HOME unconditionally, `autopilot.sh off` inside a
+# test deleted the developer's REAL autopilot/readonly/strict flags mid-session.
+begin_test "sc_scope_dirs returns ONLY \$CLAUDE_PLUGIN_DATA when it is set"
+OUT=$(CLAUDE_PLUGIN_DATA=/tmp/sc-explicit-root bash -c ". '$REPO_DIR/lib/utils.sh'; sc_scope_dirs")
+{ [ "$OUT" = "/tmp/sc-explicit-root/scope" ]; } && pass || fail "expected only the explicit root, got: $OUT"
+
+begin_test "a sandboxed tool run does not touch the real HOME scope dir"
+_setup
+REALFLAG="$HOME/.claude/supercharger/scope/.autopilot-until-sentinel"
+printf '%s\n' "$(( $(date +%s) + 3600 ))" > "$REALFLAG"
+SANDBOX=$(mktemp -d); mkdir -p "$SANDBOX/scope"
+CLAUDE_PLUGIN_DATA="$SANDBOX" bash "$REPO_DIR/tools/autopilot.sh" off >/dev/null 2>&1
+[ -f "$REALFLAG" ] && pass || fail "a CLAUDE_PLUGIN_DATA-sandboxed 'off' deleted a flag outside the sandbox"
+rm -rf "$SANDBOX"
+teardown_test_home
+
+# the shared resolver emits the plugin scope dir when discovering (var unset)
 begin_test "sc_scope_dirs emits the plugin scope dir"
 _setup
 OUT=$(source "$REPO_DIR/lib/utils.sh"; sc_scope_dirs)
