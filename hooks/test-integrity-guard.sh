@@ -20,6 +20,16 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _INPUT=$(cat)
 check_hook_disabled "test-integrity-guard" 2>/dev/null && exit 0
 
+# v2.24.2: fork-free gate — see package-source-guard for the rationale. Every branch
+# of the python's is_test check requires the literal "test" or "spec" somewhere in the
+# path (.test. / _spec. / test_*.py / __tests__/ / …), so requiring one of those in the
+# raw payload is a strict superset: a gate miss cannot skip a real test file, and a
+# spurious hit just runs the unchanged python.
+case "$_INPUT" in
+  *test*|*Test*|*TEST*|*spec*|*Spec*|*SPEC*) : ;;
+  *) exit 0 ;;
+esac
+
 REASON=$(printf '%s\n' "$_INPUT" | python3 -c '
 import sys, os, json, re
 

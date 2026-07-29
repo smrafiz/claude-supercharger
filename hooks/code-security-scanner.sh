@@ -22,7 +22,11 @@ init_hook_suppress "$PROJECT_DIR"
 # content + file_path, and emits the final JSON. Median 80ms → ~30ms.
 # asyncRewake hook — runs in background, doesn't block Claude, but volume
 # matters: fires on every Write/Edit.
-OUT=$(HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" HOOKS_DIR="$HOOKS_DIR" python3 <<'PYEOF'
+# v2.24.2: `-S` skips the `site` module (~12ms of interpreter startup on macOS). Safe
+# here: this scanner imports only stdlib plus the local lib_code_patterns via sys.path,
+# which -S does not affect. NOT applied to hooks needing site-packages (lib_postwrite
+# imports yaml — see its comment).
+OUT=$(HOOK_INPUT="$_INPUT" HOOK_SUPPRESS="$HOOK_SUPPRESS" HOOKS_DIR="$HOOKS_DIR" python3 -S <<'PYEOF'
 import json, os, re, sys
 
 # Shared code-vuln patterns (also used by commit-guard.sh at commit time) — single

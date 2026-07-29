@@ -26,7 +26,7 @@ mkdir -p "$LEASE_DIR" 2>/dev/null || true
 # One python fork: parse payload, resolve abspath, read/refresh the lease, and
 # emit the warning envelope only on a live peer conflict. All failure paths
 # fail-open (exit 0, no output): missing session_id/file_path, malformed JSON, IO.
-OUT=$(printf '%s\n' "$_INPUT" | LEASE_DIR="$LEASE_DIR" TTL="${SUPERCHARGER_FILE_LEASE_TTL:-900}" PYTHONUTF8=1 python3 -c "
+OUT=$(printf '%s\n' "$_INPUT" | LEASE_DIR="$LEASE_DIR" TTL="${SUPERCHARGER_FILE_LEASE_TTL:-900}" PYTHONUTF8=1 python3 -S -c "
 import sys, json, os, re, time, hashlib
 
 try:
