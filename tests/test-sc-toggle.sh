@@ -143,34 +143,53 @@ teardown_test_home
 
 # --- v2.23.46: `off` must also drop Supercharger's OWN MCP servers (they load at
 # session start and cost context), while never touching the user's own. ---
+# Servers can live in ~/.claude.json (mcp-setup's PRIMARY target) and/or the legacy
+# ~/.claude/settings.json — both must be handled, each restoring to its own file.
 _mcp_setup() {
   _setup
   python3 -c '
 import json,sys
-json.dump({"model":"opus","mcpServers":{
+json.dump({"mcpServers":{
   "context7 #supercharger":{"command":"npx"},
   "magic-ui #supercharger":{"command":"npx"},
-  "my-own-server":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude/settings.json"
-}
-_mcp_keys() { python3 -c '
+  "my-own-primary":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude.json"
+  python3 -c '
 import json,sys
-print(",".join(sorted(json.load(open(sys.argv[1])).get("mcpServers",{}))))' "$HOME/.claude/settings.json" 2>/dev/null; }
+json.dump({"model":"opus","mcpServers":{
+  "context7 #supercharger":{"command":"npx"},
+  "my-own-legacy":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude/settings.json"
+}
+_keys_of() { python3 -c '
+import json,sys
+try: m=json.load(open(sys.argv[1])).get("mcpServers",{})
+except Exception: m={}
+print(",".join(sorted(m)))' "$1" 2>/dev/null; }
+_mcp_keys() { _keys_of "$HOME/.claude/settings.json"; }
 
-begin_test "sc-toggle: off removes Supercharger-tagged MCP servers"
+begin_test "sc-toggle: off removes tagged MCP servers from the LEGACY settings.json"
 _mcp_setup; bash "$TOGGLE" off >/dev/null 2>&1
-[ "$(_mcp_keys)" = "my-own-server" ] && pass || fail "expected only the user's server, got: $(_mcp_keys)"
+[ "$(_mcp_keys)" = "my-own-legacy" ] && pass || fail "expected only the user's server, got: $(_mcp_keys)"
 
-begin_test "sc-toggle: off leaves the user's own MCP server alone"
-printf '%s' "$(_mcp_keys)" | grep -q "my-own-server" && pass || fail "user's MCP server was removed"
+begin_test "sc-toggle: off removes tagged MCP servers from ~/.claude.json (primary)"
+[ "$(_keys_of "$HOME/.claude.json")" = "my-own-primary" ] && pass || fail "primary file not cleaned: $(_keys_of "$HOME/.claude.json")"
+
+begin_test "sc-toggle: off leaves the user's own MCP servers alone (both files)"
+{ printf '%s' "$(_mcp_keys)" | grep -q "my-own-legacy" \
+  && printf '%s' "$(_keys_of "$HOME/.claude.json")" | grep -q "my-own-primary"; } && pass || fail "a user MCP server was removed"
+
+begin_test "sc-toggle: off backs up ~/.claude.json (it is now edited)"
+ls "$HOME/.claude/backups/"*/claude.json >/dev/null 2>&1 && pass || fail "no claude.json in the backup dir"
 
 begin_test "sc-toggle: off stashes them and settings.json stays valid JSON"
 { [ -f "$HOME/.claude/supercharger/.deactivated/mcp-servers.json" ] \
   && python3 -c 'import json,sys;json.load(open(sys.argv[1]))' "$HOME/.claude/settings.json"; } 2>/dev/null \
   && pass || fail "stash missing or settings.json invalid"
 
-begin_test "sc-toggle: on restores the MCP servers exactly"
+begin_test "sc-toggle: on restores each MCP server to the file it came from"
 bash "$TOGGLE" on >/dev/null 2>&1
-[ "$(_mcp_keys)" = "context7 #supercharger,magic-ui #supercharger,my-own-server" ] && pass || fail "round-trip lost servers: $(_mcp_keys)"
+{ [ "$(_keys_of "$HOME/.claude.json")" = "context7 #supercharger,magic-ui #supercharger,my-own-primary" ] \
+  && [ "$(_mcp_keys)" = "context7 #supercharger,my-own-legacy" ]; } && pass \
+  || fail "round-trip wrong — primary:[$(_keys_of "$HOME/.claude.json")] legacy:[$(_mcp_keys)]"
 teardown_test_home
 
 begin_test "sc-toggle: settings.json with no mcpServers key still toggles cleanly"
