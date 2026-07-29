@@ -86,6 +86,51 @@ the chain, not the hook.
 
 ---
 
+## 3b. SETTLED — Claude Code runs same-event hooks in PARALLEL (measured 2026-07-29)
+
+The open question behind this whole plan — is the chain **sum** or the **slowest hook** the
+number users feel? — is now answered empirically, not from docs.
+
+**Method:** enable full profiling (`.profiling`), fire one Bash tool call, then reconstruct
+each hook's `[start, end]` interval from the audit log (`start = ts - elapsed_ms`) and test
+for overlap. No hook was modified; this uses the shipped instrumentation.
+
+**Result — unambiguously parallel:**
+
+| Measure | Value |
+|---|---|
+| Hooks in the chain | 29 |
+| Overlapping interval pairs | **152 / 406** |
+| Wall-clock span (first start → last end) | 1597 ms |
+| Sum of elapsed (what sequential would cost) | 5059 ms |
+| **Max concurrency (parallel width)** | **11** |
+| Speedup vs serial | **3.2×** |
+
+Eleven hooks started within 54 ms of each other, then a second wave — so parallelism is real
+but **bounded** (width ≈ 11), not unlimited.
+
+> Absolute ms above are inflated: profiling forks python twice per hook to timestamp. The
+> *structure* — parallel, width ≈ 11 — is the finding; the ms are not a latency claim.
+
+**What this changes:**
+
+- **Felt latency ≈ the span, not the sum.** With ~18 Bash hooks and width ≈ 11, a tool call is
+  ~2 waves — so felt cost is closer to `2 × (mean hook)` than to `18 × (mean hook)`.
+- **The chain sum is still a real cost — just a different one.** It is fork-pressure: CPU and
+  battery, and contention on a loaded machine. Worth tracking, worth not inflating; but it is
+  not the number a user perceives as "Claude feels slow."
+- **§3's framing needs this qualifier.** "47 fast hooks = 376 ms per tool call" is the
+  *sequential* reading. Under width-11 parallelism the perceived figure is several times
+  lower. The instrument is still blind to accumulation (the <40 ms threshold finding stands) —
+  but what it is blind to is CPU pressure, not primarily wall-clock latency.
+- **Phase 3 should gate on the span** (and report the sum as a secondary CPU metric), since the
+  span is what regresses user experience.
+- **Phase 4 re-prioritises:** shaving one 100 ms hook that runs *concurrently* with ten others
+  buys nothing perceptible. The wins are (a) reducing hooks in the widest wave, (b) cutting the
+  *slowest* hook in each wave, (c) reducing total forks for CPU/battery.
+
+---
+
 ## 4. Phase 1 — Aggregate measurement harness (P0)
 
 Ship `tests/perf-chain.sh`: run the full registered chain for one event against a synthetic
