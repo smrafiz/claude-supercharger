@@ -65,52 +65,79 @@ _marker_line() {
 # was not total. We move ONLY the tagged entries aside and restore them verbatim
 # on `on`; a user's own MCP servers are never touched. Writes temp-then-mv, and a
 # full settings.json copy already sits in the timestamped backup dir.
-SETTINGS_JSON="$HOME/.claude/settings.json"
+# BOTH files matter: mcp-setup.sh writes ~/.claude.json (primary) and treats
+# ~/.claude/settings.json as legacy — a real install can have tagged servers in
+# either or both, so handling only one leaves them loading. The stash is keyed by
+# file so `on` restores each entry to the file it came from.
+MCP_FILES="$HOME/.claude.json
+$HOME/.claude/settings.json"
 MCP_STASH="$STATE_DIR/mcp-servers.json"
 
-_mcp_off() {   # extract tagged servers -> stash, remove from settings.json
-  [ -f "$SETTINGS_JSON" ] || return 0
-  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
+_mcp_off() {   # extract tagged servers from every settings file -> stash
+  SC_FILES="$MCP_FILES" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
 import json, os, sys
-p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
-try:
-    with open(p) as f: s = json.load(f)
-except Exception:
-    sys.exit(0)
-m = s.get("mcpServers") or {}
-tagged = {k: v for k, v in m.items() if "supercharger" in k.lower()}
-if not tagged:
-    sys.exit(0)
-for k in tagged: del m[k]
-if m: s["mcpServers"] = m
-else: s.pop("mcpServers", None)
-os.makedirs(os.path.dirname(stash), exist_ok=True)
-with open(stash, "w") as f: json.dump(tagged, f, indent=2)
-tmp = p + ".sctmp"
-with open(tmp, "w") as f: json.dump(s, f, indent=2)
-os.replace(tmp, p)
-print(len(tagged))
+stash = os.environ["SC_STASH"]
+saved, moved = {}, 0
+for p in [x for x in os.environ["SC_FILES"].split("\n") if x.strip()]:
+    if not os.path.isfile(p):
+        continue
+    try:
+        with open(p) as f: s = json.load(f)
+    except Exception:
+        continue
+    m = s.get("mcpServers") or {}
+    tagged = {k: v for k, v in m.items() if "supercharger" in k.lower()}
+    if not tagged:
+        continue
+    for k in tagged: del m[k]
+    if m: s["mcpServers"] = m
+    else: s.pop("mcpServers", None)
+    tmp = p + ".sctmp"
+    try:
+        with open(tmp, "w") as f: json.dump(s, f, indent=2)
+        os.replace(tmp, p)
+    except Exception:
+        try: os.unlink(tmp)
+        except Exception: pass
+        continue
+    saved[p] = tagged
+    moved += len(tagged)
+if saved:
+    os.makedirs(os.path.dirname(stash), exist_ok=True)
+    with open(stash, "w") as f: json.dump(saved, f, indent=2)
+    print(moved)
 PY
 }
 
-_mcp_on() {    # restore stashed servers (never clobber a re-added key)
-  [ -f "$MCP_STASH" ] && [ -f "$SETTINGS_JSON" ] || return 0
-  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
+_mcp_on() {    # restore each stashed server to the file it came from
+  [ -f "$MCP_STASH" ] || return 0
+  SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
 import json, os, sys
-p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
 try:
-    with open(p) as f: s = json.load(f)
-    with open(stash) as f: tagged = json.load(f)
+    with open(os.environ["SC_STASH"]) as f: saved = json.load(f)
 except Exception:
     sys.exit(0)
-m = s.get("mcpServers") or {}
-for k, v in tagged.items():
-    m.setdefault(k, v)
-s["mcpServers"] = m
-tmp = p + ".sctmp"
-with open(tmp, "w") as f: json.dump(s, f, indent=2)
-os.replace(tmp, p)
-print(len(tagged))
+back = 0
+for p, tagged in saved.items():
+    if not os.path.isfile(p):
+        continue
+    try:
+        with open(p) as f: s = json.load(f)
+    except Exception:
+        continue
+    m = s.get("mcpServers") or {}
+    for k, v in tagged.items():
+        m.setdefault(k, v)          # never clobber a hand-re-added key
+    s["mcpServers"] = m
+    tmp = p + ".sctmp"
+    try:
+        with open(tmp, "w") as f: json.dump(s, f, indent=2)
+        os.replace(tmp, p)
+        back += len(tagged)
+    except Exception:
+        try: os.unlink(tmp)
+        except Exception: pass
+if back: print(back)
 PY
 }
 
@@ -120,6 +147,9 @@ _backup() {
   bdir="$HOME/.claude/backups/deactivate-$ts"
   mkdir -p "$bdir" 2>/dev/null || true
   [ -f "$HOME/.claude/settings.json" ] && cp "$HOME/.claude/settings.json" "$bdir/" 2>/dev/null || true
+  # ~/.claude.json also holds mcpServers (mcp-setup.sh's primary target) and `off`
+  # now edits it — so it belongs in the backup too.
+  [ -f "$HOME/.claude.json" ] && cp "$HOME/.claude.json" "$bdir/claude.json" 2>/dev/null || true
   [ -f "$CLAUDE_MD" ] && cp "$CLAUDE_MD" "$bdir/" 2>/dev/null || true
   printf '%s' "$bdir"
 }
