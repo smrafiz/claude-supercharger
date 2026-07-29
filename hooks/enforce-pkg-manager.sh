@@ -5,6 +5,14 @@
 
 set -euo pipefail
 
+# v2.x (HOOK-LATENCY-PLAN Phase 2): the only uninstrumented hot-path hook. Sourcing
+# lib-timing installs the /perf EXIT-trap timing AND makes this advisory hook honor
+# the /sc-off kill-switch (it exits at source time when disabled — previously it ran
+# even with Supercharger off). No other behavior change.
+HOOKS_DIR="${BASH_SOURCE[0]%/*}"
+# shellcheck source=hooks/lib-timing.sh
+. "$HOOKS_DIR/lib-timing.sh" 2>/dev/null || true
+
 _INPUT=$(cat)
 
 # v2.6.16: bash fast-path before python3 fork. Most Bash commands don't touch
