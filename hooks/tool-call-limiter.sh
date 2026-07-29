@@ -16,6 +16,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh" 2>/dev/null || true
 check_hook_disabled "tool-call-limiter" && exit 0
 
 _INPUT=$(cat)
@@ -25,12 +27,28 @@ CAP=""
 if [ -n "${SESSION_MAX_TOOL_CALLS:-}" ]; then
   CAP="$SESSION_MAX_TOOL_CALLS"
 else
-  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+  # v2.24.0: fork-free `cwd` read (this hook has an empty matcher — it fires on every
+  # tool call), with the original jq kept as the fallback for anything ambiguous.
+  PROJECT_DIR=""
+  if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
+    PROJECT_DIR="$_JSON_FAST_VAL"
+  else
+    PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+  fi
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   # v2.6.36: walk from main worktree root if PROJECT_DIR is a linked worktree
   SEARCH_DIR=$(_resolve_project_root "$PROJECT_DIR")
   for _ in 1 2 3 4 5; do
     if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
+      # v2.24.0: only fork python if the key is actually present. Most projects have a
+      # .supercharger.json without `maxToolCalls`, and this was paying ~30ms to learn
+      # that. Reading the file is a builtin redirect; the substring test is fork-free.
+      # Same terminal state as before when absent (empty CAP -> no limit).
+      _TCL_CFG_BODY=$(<"$SEARCH_DIR/.supercharger.json")
+      case "$_TCL_CFG_BODY" in
+        *maxToolCalls*) ;;
+        *) break ;;
+      esac
       # 2.21.13: pass the path via env, not string-interpolation. A project dir
       # containing a single quote (e.g. o'malley) broke the python string literal
       # → SyntaxError → CAP empty → the limiter silently disabled itself.
@@ -46,7 +64,9 @@ except Exception:
 " 2>/dev/null || echo "")
       break
     fi
-    PARENT=$(dirname "$SEARCH_DIR")
+    # v2.24.0: parameter expansion instead of a dirname fork (up to 5 per fire).
+    PARENT="${SEARCH_DIR%/*}"
+    [ -z "$PARENT" ] && PARENT="/"
     [ "$PARENT" = "$SEARCH_DIR" ] && break
     SEARCH_DIR="$PARENT"
   done

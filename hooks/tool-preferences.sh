@@ -14,11 +14,20 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh" 2>/dev/null || true
 
 [ "${SUPERCHARGER_TOOL_PREFS:-1}" = "0" ] && exit 0
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.24.0: fork-free `cwd` first — this jq ran on every Bash call, before the
+# "is there even a config?" exit below. jq stays as the fallback.
+if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
+  PROJECT_DIR="$_JSON_FAST_VAL"
+else
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+fi
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "tool-preferences" && exit 0
 hook_profile_skip "tool-preferences" && exit 0
@@ -26,6 +35,15 @@ hook_profile_skip "tool-preferences" && exit 0
 # v2.6.36: read .supercharger.json from main worktree root if in a linked worktree
 CONFIG="$(_resolve_project_root "$PROJECT_DIR")/.supercharger.json"
 [ ! -f "$CONFIG" ] && exit 0
+
+# v2.24.0: a config exists, but most don't define toolPreferences — and finding that
+# out used to cost two more jq forks plus a ~30ms python3. Reading the file is a
+# builtin redirect and the test is fork-free; same terminal state (no prefs -> exit 0).
+_TP_CFG_BODY=$(<"$CONFIG")
+case "$_TP_CFG_BODY" in
+  *toolPreferences*) ;;
+  *) exit 0 ;;
+esac
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 [ "$TOOL_NAME" != "Bash" ] && exit 0
