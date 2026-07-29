@@ -21,7 +21,48 @@ _INPUT=$(cat)
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 
-SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" python3 <<'PYEOF'
+# --- v2.23.45: whole-line render cache -------------------------------------
+# Measured: a render costs ~45ms, and it is almost entirely INTERPRETER STARTUP
+# (bash + one python3) — not work; the expensive git lookups are already cached
+# ~3s inside the python. Claude Code re-runs the statusLine on a 300ms debounce,
+# so a burst pays that startup 3-4x/second for a line that barely changes.
+# Serve a cached line within the same wall-clock second: repeat renders skip
+# python entirely (~45ms -> ~10ms). Worst-case staleness is <1s on a status
+# display whose git data is already 3s-stale by design.
+# Everything here is a bash builtin — no fork on the cache-hit path, or the
+# cache would cost as much as it saves. Fail-open: any problem renders normally.
+# Extract "key": "value" tolerating any whitespace after the colon (json.dumps
+# emits `"k": "v"`, compact encoders emit `"k":"v"` — must handle both). All
+# parameter expansion: no subshell, since $(...) would fork and defeat the point.
+_SL_SID=""; _SL_CWD=""
+_SL_R="${_INPUT#*\"session_id\"}"
+if [ "$_SL_R" != "$_INPUT" ]; then
+  _SL_R="${_SL_R#*:}"; _SL_R="${_SL_R#"${_SL_R%%[![:space:]]*}"}"
+  case "$_SL_R" in \"*) _SL_R="${_SL_R#\"}"; _SL_SID="${_SL_R%%\"*}" ;; esac
+fi
+_SL_R="${_INPUT#*\"cwd\"}"
+if [ "$_SL_R" != "$_INPUT" ]; then
+  _SL_R="${_SL_R#*:}"; _SL_R="${_SL_R#"${_SL_R%%[![:space:]]*}"}"
+  case "$_SL_R" in \"*) _SL_R="${_SL_R#\"}"; _SL_CWD="${_SL_R%%\"*}" ;; esac
+fi
+# $EPOCHSECONDS is fork-free (bash 5+); `date` is one cheap fork on bash 3.2.
+_SL_NOW="${EPOCHSECONDS:-}"; [ -z "$_SL_NOW" ] && _SL_NOW=$(date +%s 2>/dev/null || echo 0)
+_SL_STAMP="${_SL_NOW}|${_SL_CWD}"
+_SL_CACHE=""
+case "$_SL_SID" in
+  ''|*[!A-Za-z0-9._-]*) : ;;                       # no/unsafe session id -> no cache
+  *) _SL_CACHE="$SUPERCHARGER_STATE/scope/.statusline-cache-$_SL_SID" ;;
+esac
+if [ -n "$_SL_CACHE" ] && [ -r "$_SL_CACHE" ]; then
+  _SL_ALL=""
+  IFS= read -r -d '' _SL_ALL < "$_SL_CACHE" 2>/dev/null || true
+  if [ -n "$_SL_ALL" ] && [ "${_SL_ALL%%$'\n'*}" = "$_SL_STAMP" ]; then
+    printf '%s' "${_SL_ALL#*$'\n'}"
+    exit 0
+  fi
+fi
+
+_SL_OUT=$(SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" python3 <<'PYEOF' || true
 import json, subprocess, os, sys, time
 sys.path.insert(0, os.environ.get('SL_LIB_DIR', ''))
 
@@ -560,3 +601,12 @@ except Exception as e:
  print('')
  print('')
 PYEOF
+)
+[ -n "$_SL_OUT" ] || exit 0
+printf '%s\n' "$_SL_OUT"
+# Store for the rest of this wall-clock second. Write to a temp then mv, so a
+# concurrent render never reads a half-written line. Failures are ignored.
+if [ -n "$_SL_CACHE" ]; then
+  { printf '%s\n%s\n' "$_SL_STAMP" "$_SL_OUT" > "$_SL_CACHE.$$" && mv -f "$_SL_CACHE.$$" "$_SL_CACHE"; } 2>/dev/null \
+    || rm -f "$_SL_CACHE.$$" 2>/dev/null || true
+fi
