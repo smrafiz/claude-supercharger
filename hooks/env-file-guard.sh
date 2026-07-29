@@ -9,9 +9,29 @@ set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh" 2>/dev/null || true
+
+# v2.24.1: fork-free field reads (jq retained as fallback). Only three hooks fire on
+# PreToolUse:Read — so with hooks running concurrently this one IS the felt latency
+# there, and Read is the most-used tool. It was spending three jq forks (~6ms each)
+# to decide it usually has nothing to do.
+_efg_field() {   # $1=key -> echoes value ('' if unknown)
+  if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str "$1" "$_INPUT"; then
+    printf '%s' "$_JSON_FAST_VAL"; return 0
+  fi
+  printf '%s\n' "$_INPUT" | jq -r --arg k "$1" '.[$k] // .tool_input[$k] // empty' 2>/dev/null || true
+}
 
 _INPUT=$(cat)
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# NB: the jq form also falls back to .workspace.current_dir, so only take the fast
+# path when it actually finds `cwd`; otherwise run the original expression verbatim.
+if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
+  PROJECT_DIR="$_JSON_FAST_VAL"
+else
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+fi
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "env-file-guard" && exit 0
 
@@ -28,11 +48,11 @@ block() {
   exit 2
 }
 
-TOOL=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
+TOOL=$(_efg_field tool_name)
 
 # Bash: check command for .env reads/edits
 if [ "$TOOL" = "Bash" ]; then
-  COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+  COMMAND=$(_efg_field command)
   [ -z "$COMMAND" ] && exit 0
 
   # Fast-path: if the command can't possibly reference a real .env file, skip.
@@ -56,7 +76,7 @@ fi
 
 # Read tool: block reading .env files + /proc and /sys (process env exfil)
 if [ "$TOOL" = "Read" ]; then
-  FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+  FILE_PATH=$(_efg_field file_path)
   [ -z "$FILE_PATH" ] && exit 0
 
   # v2.6.83: block /proc/<pid>/environ and /sys reads. Real incident: GitHub
