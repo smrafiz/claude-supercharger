@@ -17,4 +17,4 @@ Then report the tool's output verbatim.
 Notes to surface to the user:
 - Hooks deactivate **immediately** (next tool call). The CLAUDE.md prompt layer changes take effect **next session** (it's loaded once at session start).
 - `off` writes a timestamped backup under `~/.claude/backups/` before changing anything.
-- `off` also moves Supercharger's **own** MCP servers (the `#supercharger`-tagged entries in `settings.json`) aside, so they stop loading and stop costing context; `on` restores them verbatim. Your own MCP servers are never touched. MCP loads at session start, so this takes effect next session.
+- `off` also moves Supercharger's **own** MCP servers aside — the `#supercharger`-tagged entries in both `~/.claude.json` and `~/.claude/settings.json` — so they stop loading and stop costing context; `on` restores each one to the file it came from. Your own MCP servers are never touched. MCP loads at session start, so this takes effect next session.
