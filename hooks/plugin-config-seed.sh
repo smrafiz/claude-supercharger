@@ -15,6 +15,13 @@
 #     /profile, mcp-profile.sh) always wins over the enable-time default.
 set -uo pipefail
 
+# v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing
+# lib-timing exits at source time when the disable flag is set (and adds /perf timing).
+# No bootstrap trap: this only seeds config VALUES, never the flag itself, and
+# sc-toggle creates its own scope dir + sets SUPERCHARGER_TOGGLE to bypass on `sc on`.
+# shellcheck source=hooks/lib-timing.sh
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh" 2>/dev/null || true
+
 # Only the plugin runtime seeds; the installer already wrote these.
 [ -z "${CLAUDE_PLUGIN_ROOT:-}" ] && exit 0
 
