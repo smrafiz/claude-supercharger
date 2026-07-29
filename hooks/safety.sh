@@ -11,12 +11,27 @@
 #   {"disableSecurityCategories": ["clipboard", "history"]}
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
 _INPUT=$(cat)
 # 2.22.11: also read PowerShell's field. safety.sh matches Bash AND PowerShell,
 # but the PowerShell tool may carry the body in .script/.code rather than
 # .command — without this the body would be empty and every check skipped.
-COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // .tool_input.code // .tool_input.cmd // empty' 2>/dev/null || true)
+# v2.24.1: try a fork-free read before jq. This jq ran on EVERY Bash call — including
+# the trivially-safe ones that exit at the fast-path below — so the guard paid a fork
+# just to decide it had nothing to do. lib-json-fast refuses anything ambiguous or
+# escaped, so the jq/python chain below still runs verbatim whenever it can't be sure.
+# Order matches the jq alternation exactly: command, script, code, cmd.
+COMMAND=""
+if command -v _json_fast_str >/dev/null 2>&1; then
+  for _sf_key in command script code cmd; do
+    if _json_fast_str "$_sf_key" "$_INPUT"; then COMMAND="$_JSON_FAST_VAL"; break; fi
+  done
+fi
+if [ -z "$COMMAND" ]; then
+  COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // .tool_input.script // .tool_input.code // .tool_input.cmd // empty' 2>/dev/null || true)
+fi
 if [ -z "$COMMAND" ]; then
   COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; ti=json.load(sys.stdin).get('tool_input',{}); print(ti.get('command') or ti.get('script') or ti.get('code') or ti.get('cmd') or '')" 2>/dev/null || echo "")
 fi
@@ -50,14 +65,21 @@ esac
 
 # cwd from hook payload, used by the rm guard to detect rm targets that resolve
 # to the project root or its ancestors. Optional — fallback paths still apply.
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+PROJECT_DIR=""
+if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
+  PROJECT_DIR="$_JSON_FAST_VAL"
+else
+  PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+fi
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 
 # Forensic breadcrumb: every fire writes one line. Absence of an entry on a
 # missed block means the hook never fired (settings.json drift or CC didn't
 # match the event). Presence means it fired but didn't match a rule.
 _SAFETY_TRACE="$SUPERCHARGER_STATE/scope/.safety-trace.log"
-mkdir -p "$(dirname "$_SAFETY_TRACE")" 2>/dev/null || true
+# v2.24.1: the directory is statically known and normally exists — test before forking
+# (this was `mkdir -p "$(dirname …)"`, i.e. two forks on every single fire).
+[ -d "$SUPERCHARGER_STATE/scope" ] || mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
 printf '[%s] cwd=%s cmd=%.140s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "$PROJECT_DIR" "$COMMAND" >> "$_SAFETY_TRACE" 2>/dev/null || true
 # Cap at 1000 lines
 if [ -f "$_SAFETY_TRACE" ] && [ "$(wc -l < "$_SAFETY_TRACE" 2>/dev/null || echo 0)" -gt 1000 ]; then
