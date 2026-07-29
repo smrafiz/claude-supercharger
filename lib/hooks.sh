@@ -420,6 +420,30 @@ settings_file = os.environ['SETTINGS_FILE']
 tag = os.environ['SUPERCHARGER_TAG']
 hooks_input = os.environ['HOOKS_INPUT']
 
+
+# v2.24.5 - MCP matchers must be regex, not exact.
+#
+# Claude Code picks the matcher mode from the matcher's own characters: one made
+# only of [A-Za-z0-9_,| -] is an EXACT match (optionally a comma/pipe list);
+# anything else is an unanchored regex. So 'mcp__' asked for a tool *named*
+# literally 'mcp__' - which no server exposes - and every hook registered that
+# way was silently inert (an unmatched matcher never fires, with no error).
+# Real tool names are mcp__<server>__<tool>, so each prefix needs '.*'.
+#
+# Runs AFTER the record is split on '|' - regex alternation is also '|', so
+# rewriting inside the pipe-delimited tuple would corrupt the record. Matchers
+# with no mcp__ token are returned untouched: a plain list like 'Bash,PowerShell'
+# must STAY exact, since regex mode would let it match substrings (BashOutput).
+#
+# Kept in sync with the copy in tools/gen-plugin-hooks.sh; a test asserts the two
+# emitters agree. NO double quotes in this block - it lives inside python3 -c '...'
+# built as a double-quoted shell string, so a triple-quoted docstring would end it.
+def normalize_mcp_matcher(m):
+    if 'mcp__' not in m:
+        return m
+    toks = [t for t in m.split(',') if t]
+    return '|'.join(t + '.*' if t.startswith('mcp__') else t for t in toks)
+
 if os.path.exists(settings_file):
     with open(settings_file, 'r') as f:
         try:
@@ -448,7 +472,7 @@ for line in hooks_input.strip().split('\n'):
         continue
     parts = line.split('|', 4)
     event = parts[0]
-    matcher = parts[1] if len(parts) > 1 else ''
+    matcher = normalize_mcp_matcher(parts[1] if len(parts) > 1 else '')
     command = parts[2] if len(parts) > 2 else ''
     flags = parts[3] if len(parts) > 3 else ''
     if_pattern = parts[4] if len(parts) > 4 else ''

@@ -37,12 +37,32 @@ import json, os, sys
 hooks_input = os.environ['HOOKS_INPUT']
 events = {}
 
+
+def normalize_mcp_matcher(m):
+    """v2.24.5 — MCP matchers must be regex, not exact.
+
+    A matcher of only [A-Za-z0-9_,| -] is an EXACT match (optionally a list);
+    anything else is an unanchored regex. "mcp__" therefore matched a tool named
+    literally "mcp__" and never fired, silently disabling every MCP-matched hook.
+    Real tool names are mcp__<server>__<tool>, so each prefix needs ".*".
+
+    Runs AFTER the '|' split — alternation is also '|'. Non-mcp matchers are
+    returned untouched so plain lists stay exact-match.
+
+    Byte-identical to the copy in lib/hooks.sh; tests assert the emitters agree.
+    """
+    if 'mcp__' not in m:
+        return m
+    toks = [t for t in m.split(',') if t]
+    return '|'.join(t + '.*' if t.startswith('mcp__') else t for t in toks)
+
+
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
     parts = line.split('|', 4)
     event = parts[0]
-    matcher = parts[1] if len(parts) > 1 else ''
+    matcher = normalize_mcp_matcher(parts[1] if len(parts) > 1 else '')
     command = parts[2] if len(parts) > 2 else ''
     flags = parts[3] if len(parts) > 3 else ''
     if_pattern = parts[4] if len(parts) > 4 else ''
