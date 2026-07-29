@@ -25,9 +25,29 @@ case "$_INPUT" in
   *) exit 0 ;;
 esac
 
-# Single python3 fork extracting both fields — replaces 2 jq + 2 python3 fallbacks.
+# v2.24.0: try a fork-free read first. Everything past the gate above used to pay a
+# ~30ms python3 fork just to pull two strings, which made this the slowest hook in the
+# PreToolUse:Bash wave (and with hooks running concurrently, the slowest hook sets the
+# felt latency). lib-json-fast refuses anything ambiguous or escaped, so the python
+# block below still runs verbatim whenever it can't be certain.
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh" 2>/dev/null || true
+
+COMMAND=""; PROJECT_DIR=""; _FAST_OK=0
+if command -v _json_fast_str >/dev/null 2>&1; then
+  if _json_fast_str command "$_INPUT"; then
+    COMMAND="$_JSON_FAST_VAL"
+    if _json_fast_str cwd "$_INPUT"; then PROJECT_DIR="$_JSON_FAST_VAL"; fi
+    _FAST_OK=1
+  fi
+fi
+
+# Fallback: single python3 fork extracting both fields — replaces 2 jq + 2 python3.
 # Output format: <command>\x1F<cwd>  (US separator, never appears in shell input)
-EXTRACTED=$(printf '%s\n' "$_INPUT" | python3 -c "
+# NB: `[ … ] || EXTRACTED=…` (not `&&`) — under `set -e` an `&&` whose test is false
+# would make this the last command and exit 0 early.
+if [ "$_FAST_OK" -eq 0 ]; then
+  EXTRACTED=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
@@ -37,9 +57,9 @@ try:
 except Exception:
     print('\x1f')
 " 2>/dev/null)
-
-COMMAND="${EXTRACTED%%$'\x1f'*}"
-PROJECT_DIR="${EXTRACTED#*$'\x1f'}"
+  COMMAND="${EXTRACTED%%$'\x1f'*}"
+  PROJECT_DIR="${EXTRACTED#*$'\x1f'}"
+fi
 
 [ -z "$COMMAND" ] && exit 0
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"

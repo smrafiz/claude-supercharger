@@ -11,12 +11,30 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh" 2>/dev/null || true
+
+# v2.24.0: read `cwd` without a fork. This hook has an EMPTY matcher, so it fires on
+# every tool call (Bash, Read, Grep, Edit…) and the old 4-fork pipeline
+# (printf|grep -oE|head|sed -E) was paid every time. lib-json-fast refuses anything
+# ambiguous/escaped, so the original pipeline stays as the fallback.
+_bc_cwd() {   # -> echoes cwd (payload value, else $PWD)
+  if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
+    printf '%s' "$_JSON_FAST_VAL"; return 0
+  fi
+  local v
+  v=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+  [ -z "$v" ] && v="$PWD"
+  printf '%s' "$v"
+}
 
 MODE="${1:-accumulate}"
 
 SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 SCOPE_DIR="$SUPERCHARGER_DIR/scope"
-mkdir -p "$SCOPE_DIR"
+# v2.24.0: `mkdir -p` forks on every fire even though the dir almost always exists,
+# and check-mode never creates anything. Test first — the fork is the expensive part.
+[ -d "$SCOPE_DIR" ] || mkdir -p "$SCOPE_DIR"
 
 COST_FILE="$SCOPE_DIR/.session-cost"
 COST_TMP="$SCOPE_DIR/.session-cost.$$.tmp"
@@ -310,8 +328,7 @@ if [[ "$MODE" == "check" ]]; then
   # 5 levels for .supercharger.json and greps for a "budget" key. ~5ms vs the
   # ~70ms python3 cold-start it replaces.
   if [ -z "${SESSION_BUDGET_CAP:-}" ]; then
-    # || true: pipefail must not abort when cwd field is absent
-    _SEARCH_DIR=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+    _SEARCH_DIR=$(_bc_cwd)
     [ -z "$_SEARCH_DIR" ] && _SEARCH_DIR="$PWD"
     # v2.6.36: if we're in a linked worktree, .supercharger.json lives in the
     # main repo. Resolve to that before walking.
@@ -324,7 +341,10 @@ if [[ "$MODE" == "check" ]]; then
         fi
         break
       fi
-      _PARENT=$(dirname "$_SEARCH_DIR")
+      # v2.24.0: ${v%/*} instead of $(dirname) — up to 5 forks saved per fire. The
+      # payload cwd is absolute and unslashed, where the two agree; guard the root case.
+      _PARENT="${_SEARCH_DIR%/*}"
+      [ -z "$_PARENT" ] && _PARENT="/"
       [ "$_PARENT" = "$_SEARCH_DIR" ] && break
       _SEARCH_DIR="$_PARENT"
     done
@@ -335,7 +355,7 @@ if [[ "$MODE" == "check" ]]; then
   # .session-cost, evaluate threshold.
   # v2.6.36: pre-resolved worktree-aware root passed via env; python uses it as
   # walk start instead of the raw cwd from the payload.
-  _CWD_FROM_PAYLOAD=$( (printf '%s\n' "$_INPUT" | grep -oE '"cwd"[[:space:]]*:[[:space:]]*"[^"]*"' | head -1 | sed -E 's/.*"([^"]*)"$/\1/') 2>/dev/null || true)
+  _CWD_FROM_PAYLOAD=$(_bc_cwd)
   [ -z "$_CWD_FROM_PAYLOAD" ] && _CWD_FROM_PAYLOAD="$PWD"
   PROJECT_ROOT=$(_resolve_project_root "$_CWD_FROM_PAYLOAD")
   DECISION=$(SESSION_BUDGET_CAP="${SESSION_BUDGET_CAP:-}" COST_FILE="$COST_FILE" SCOPE_DIR="$SCOPE_DIR" HOOK_INPUT="$_INPUT" PROJECT_ROOT="$PROJECT_ROOT" python3 <<'PYEOF'
