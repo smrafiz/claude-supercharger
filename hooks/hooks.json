@@ -8,7 +8,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/safety.sh"
           }
         ],
-        "matcher": "Bash,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__"
+        "matcher": "Bash|PowerShell|mcp__desktop-commander__.*|mcp__mcp-server-commands__.*|mcp__iterm__.*|mcp__iterm-mcp__.*|mcp__ssh__.*|mcp__shell__.*|mcp__terminal__.*|mcp__windows-cli__.*|mcp__cli-mcp-server__.*"
       },
       {
         "hooks": [
@@ -99,7 +99,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-github-write-gate.sh"
           }
         ],
-        "matcher": "mcp__github__"
+        "matcher": "mcp__github__.*"
       },
       {
         "hooks": [
@@ -108,7 +108,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-playwright-guard.sh"
           }
         ],
-        "matcher": "mcp__playwright__,mcp__puppeteer__,mcp__browserbase__,mcp__browser-use__,mcp__browsermcp__,mcp__chrome-devtools__,mcp__stagehand__"
+        "matcher": "mcp__playwright__.*|mcp__puppeteer__.*|mcp__browserbase__.*|mcp__browser-use__.*|mcp__browsermcp__.*|mcp__chrome-devtools__.*|mcp__stagehand__.*"
       },
       {
         "hooks": [
@@ -117,7 +117,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-sql-guard.sh"
           }
         ],
-        "matcher": "mcp__postgres__,mcp__supabase__,mcp__mysql__,mcp__sqlite__,mcp__neon__,mcp__mssql__,mcp__sqlserver__,mcp__mariadb__,mcp__bigquery__,mcp__snowflake__,mcp__clickhouse__,mcp__planetscale__,mcp__cockroach__,mcp__cockroachdb__,mcp__redshift__,mcp__oracle__,mcp__duckdb__,mcp__motherduck__,mcp__turso__,mcp__libsql__,mcp__timescale__,mcp__singlestore__"
+        "matcher": "mcp__postgres__.*|mcp__supabase__.*|mcp__mysql__.*|mcp__sqlite__.*|mcp__neon__.*|mcp__mssql__.*|mcp__sqlserver__.*|mcp__mariadb__.*|mcp__bigquery__.*|mcp__snowflake__.*|mcp__clickhouse__.*|mcp__planetscale__.*|mcp__cockroach__.*|mcp__cockroachdb__.*|mcp__redshift__.*|mcp__oracle__.*|mcp__duckdb__.*|mcp__motherduck__.*|mcp__turso__.*|mcp__libsql__.*|mcp__timescale__.*|mcp__singlestore__.*"
       },
       {
         "hooks": [
@@ -126,7 +126,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-destructive-guard.sh"
           }
         ],
-        "matcher": "mcp__filesystem__,mcp__aws__,mcp__kubernetes__,mcp__k8s__,mcp__docker__,mcp__gcloud__,mcp__gcp__,mcp__azure__,mcp__git__,mcp__terraform__"
+        "matcher": "mcp__filesystem__.*|mcp__aws__.*|mcp__kubernetes__.*|mcp__k8s__.*|mcp__docker__.*|mcp__gcloud__.*|mcp__gcp__.*|mcp__azure__.*|mcp__git__.*|mcp__terraform__.*"
       },
       {
         "hooks": [
@@ -297,7 +297,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-circuit-breaker.sh"
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
@@ -306,7 +306,7 @@
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-egress-guard.sh"
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
@@ -485,7 +485,7 @@
             "async": true
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
@@ -495,7 +495,7 @@
             "asyncRewake": true
           }
         ],
-        "matcher": "mcp__,WebFetch,WebSearch,Read"
+        "matcher": "mcp__.*|WebFetch|WebSearch|Read"
       },
       {
         "hooks": [
@@ -515,7 +515,7 @@
             "asyncRewake": true
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
@@ -525,7 +525,7 @@
             "asyncRewake": true
           }
         ],
-        "matcher": "Bash,Read,WebFetch,WebSearch,mcp__"
+        "matcher": "Bash|Read|WebFetch|WebSearch|mcp__.*"
       },
       {
         "hooks": [
@@ -573,7 +573,7 @@
             "async": true
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
@@ -622,7 +622,7 @@
             "async": true
           }
         ],
-        "matcher": "mcp__"
+        "matcher": "mcp__.*"
       },
       {
         "hooks": [
