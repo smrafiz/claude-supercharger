@@ -83,8 +83,22 @@ if $DRY_RUN; then
   exit 0
 fi
 
-# Get current test count (skipped in dry-run)
-TEST_COUNT=$(bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1 | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")
+# ── Run tests (once) ──────────────────────────────────────────────────────────
+# One run serves both purposes: it gates the release AND supplies TEST_COUNT for
+# the CHANGELOG line. This used to be two full runs — one for the count, one to
+# gate — which turned a ~7-minute suite into a ~14-minute release and was a large
+# part of why this script went unused in favour of hand-rolled commits.
+echo ""
+echo -e "${BOLD}Running tests...${NC}"
+if ! TEST_OUTPUT=$(bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1); then
+  printf '%s\n' "$TEST_OUTPUT" | tail -5
+  echo -e "${RED}Tests failed. Aborting release.${NC}"
+  exit 1
+fi
+printf '%s\n' "$TEST_OUTPUT" | tail -3
+
+# Last '<n> passed' in the output is the grand total (per-file totals precede it).
+TEST_COUNT=$(printf '%s\n' "$TEST_OUTPUT" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")
 CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. ${TEST_COUNT} tests passing."
 
 echo ""
@@ -92,17 +106,11 @@ echo -e "${BOLD}CHANGELOG entry:${NC}"
 echo "  $CHANGELOG_LINE"
 echo ""
 
+# Confirm AFTER the gate: never ask someone to approve a release whose tests
+# have not run yet.
 echo -n "Proceed? [y/N] "
 read -r CONFIRM
 [ "$CONFIRM" != "y" ] && [ "$CONFIRM" != "Y" ] && { echo "Aborted."; exit 0; }
-
-# ── Run tests ─────────────────────────────────────────────────────────────────
-echo ""
-echo -e "${BOLD}Running tests...${NC}"
-if ! bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1 | tail -3; then
-  echo -e "${RED}Tests failed. Aborting release.${NC}"
-  exit 1
-fi
 echo ""
 
 # ── Bump version ──────────────────────────────────────────────────────────────
@@ -158,12 +166,35 @@ fi
 echo -e "  ${GREEN}✓${NC} CHANGELOG.md"
 
 # ── Commit, tag, push ─────────────────────────────────────────────────────────
+# Stage everything, not a fixed list. The old fixed list (lib/utils.sh,
+# tools/supercharger.sh, README.md, CHANGELOG.md, .claude-plugin/*) meant a
+# release commit could contain the version bump and *not the change it was
+# releasing* — v2.24.6 would have shipped bumped badges with tests/run.sh left
+# behind in the working tree. Any release touching a hook, lib, tool or test hit
+# this, which is why releases have been hand-rolled instead.
+#
+# 'git add -A' honours .gitignore, but it is broader than the old behaviour, so
+# the staged set is printed and confirmed below — that preview is what keeps a
+# stray file out of a tagged, pushed commit.
 echo ""
-echo -e "${BOLD}Committing...${NC}"
-git -C "$REPO_DIR" add \
-  lib/utils.sh tools/supercharger.sh README.md CHANGELOG.md \
-  .claude-plugin/plugin.json .claude-plugin/marketplace.json 2>/dev/null || true
-git -C "$REPO_DIR" add lib/utils.sh tools/supercharger.sh README.md CHANGELOG.md
+echo -e "${BOLD}Staging all changes...${NC}"
+git -C "$REPO_DIR" add -A
+
+STAGED=$(git -C "$REPO_DIR" diff --cached --name-only)
+if [ -z "$STAGED" ]; then
+  echo -e "${RED}Error:${NC} nothing staged — no changes to release."
+  exit 1
+fi
+
+STAGED_COUNT=$(printf '%s\n' "$STAGED" | wc -l | tr -d ' ')
+printf '%s\n' "$STAGED" | sed 's/^/  /'
+echo ""
+echo -n "Commit these ${STAGED_COUNT} file(s) as v${NEW}? [y/N] "
+read -r CONFIRM_FILES
+if [ "$CONFIRM_FILES" != "y" ] && [ "$CONFIRM_FILES" != "Y" ]; then
+  echo "Aborted — changes left staged; 'git reset' to unstage."
+  exit 0
+fi
 
 git -C "$REPO_DIR" commit -m "chore: release v${NEW}"
 echo -e "  ${GREEN}✓${NC} Committed"
