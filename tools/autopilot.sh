@@ -70,7 +70,11 @@ status() {
   s=$(remaining_of "$SESS_BASE")
   if [ -n "$s" ]; then echo "Autopilot (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
   if [ -n "$g" ]; then echo "Autopilot (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
+  # v2.24.4: `[ -z "$any" ] && …` as the LAST statement made status() return 1 whenever
+  # autopilot was ON (the test is false), so `autopilot.sh status; echo $?` reported
+  # failure for a perfectly healthy window. Explicit return keeps 0 = "query answered".
   [ -z "$any" ] && echo "Autopilot: OFF"
+  return 0
 }
 
 ARG="${1:-status}"

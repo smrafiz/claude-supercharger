@@ -74,4 +74,14 @@ rm -rf "$D"
 begin_test "strict: /sc-strict command exists and invokes strict.sh"
 [ -f "$CMD" ] && grep -q 'tools/strict.sh' "$CMD" && pass || fail "command missing or not wired"
 
+# v2.24.4: `status` answers a query, not a predicate — it must exit 0 in both states.
+# A trailing `[ -z "$any" ] && echo …` made it return 1 whenever a window was ON.
+begin_test "strict: status exits 0 whether ON or OFF"
+_SR=$(mktemp -d); mkdir -p "$_SR/scope"
+CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" status >/dev/null 2>&1; _off=$?
+env -u CLAUDE_CODE_SESSION_ID CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" 30m global >/dev/null 2>&1
+CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" status >/dev/null 2>&1; _on=$?
+rm -rf "$_SR"
+{ [ "$_off" = 0 ] && [ "$_on" = 0 ]; } && pass || fail "status rc OFF=$_off ON=$_on (both must be 0)"
+
 report
