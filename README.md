@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.25.3-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2724%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.26.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2759%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -174,14 +174,17 @@ Supercharger ships the **full** framework through Claude Code's native plugin sy
 
 At enable time you're prompted for role, economy tier, and MCP profile. Update with `/plugin update`, toggle with `/plugin enable|disable`.
 
-A plugin can't write outside its own space, so a few things differ:
+**Every guard runs identically on both channels.** What differs is packaging:
 
 - **Slash commands are namespaced** — `/audit` becomes `/supercharger:audit`
 - **`/sc-update` → `/plugin update`** and **`/sc on|off` → `/plugin enable|disable`** (those two aren't shipped in the plugin)
-- **No statusline** and **no `settings.json` tweaks** — set those manually if you want them
 - The guardrail layer is delivered as **SessionStart context** instead of a `CLAUDE.md` block — same rules, and uninstalling leaves zero residue
+- **Statusline, 1h prompt cache and attribution** need three `settings.json` keys a plugin cannot declare (its manifest supports only `agent` and `subagentStatusLine`). Answer **yes** to *"Write statusline + prompt-cache settings"* when enabling and they're written for you on first run — backed up first, never overwriting a statusline you already set, and undoable with `tools/plugin-setup.sh --revert`. Answer **no** to keep the plugin strictly inside its own space; you can run that script yourself later instead.
+- **MCP profile filtering doesn't apply.** The plugin ships its MCP servers through the manifest, so Claude Code's per-server approval is what selects them — the `light`/`dev`/`research`/`full` profiles only work when Supercharger writes `~/.claude.json` itself.
+- Hooks keep the portable `#!/usr/bin/env bash` shebang, so they're **~1.8 ms/exec slower** than a classic install, which rewrites them to an absolute interpreter path.
 
-> **Pick one channel.** Don't run `install.sh` and the plugin at the same time — they'd double-fire hooks and split state across two directories.
+> **Pick one channel.** Don't run `install.sh` and the plugin at the same time — they'd double-fire hooks and split state across two directories. The plugin's setup detects a classic install and stands down rather than repointing your working statusline.
+
 
 ---
 

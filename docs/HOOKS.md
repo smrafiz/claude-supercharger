@@ -40,6 +40,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `cron-discovery` | PreToolUse | CronCreate, CronDelete, CronList | CronCreate/CronDelete/CronList are scheduled-task tool types Claude Code |
 | `cwd-changed` | CwdChanged | (none) | Re-runs stack detection when working directory changes, injects updated context. |
 | `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
+| `dependency-preflight` | SessionStart | — | install.sh refuses to proceed without `jq` and `python3` (install.sh:8, :25). A |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
@@ -88,6 +89,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `permission-denied-advisor` | PermissionDenied | (none) | Injects context when user denies a permission, so Claude stops retrying |
 | `phantom-import-guard` | PostToolUse | Write, Edit, MultiEdit | Catches a hallucinated LOCAL relative import (`./services/email` when the file is |
 | `plugin-config-seed` | SessionStart | # Event: SessionStart | The installer has an interactive wizard that writes role / economy-tier / |
+| `plugin-settings-seed` | SessionStart | — | Closes the last automatic gap between the plugin and the classic install. |
 | `post-compact-inject` | PostCompact | (none) | After context compaction, re-injects session constraints so Claude |
 | `post-write-advisor` | PostToolUse | Write, Edit, MultiEdit | Folds three advisory checks that each used to be a separate PostToolUse hook — |
 | `precompact-priorities` | PreCompact | (none) | Augments the default compact prompt with fidelity rules so the |
@@ -165,6 +167,7 @@ Run any of these manually:
 | `tools/mcp-setup.sh` | set -eo pipefail |
 | `tools/memory-prune.sh` | Claude Supercharger — Memory Auto-Pruner (v2.19.0) |
 | `tools/notify-toggle.sh` | Claude Supercharger — Desktop Notification Toggle |
+| `tools/plugin-setup.sh` | Claude Supercharger — Plugin parity setup (run by a HUMAN, in a terminal) |
 | `tools/profile-switch.sh` | set -euo pipefail |
 | `tools/readonly.sh` | Claude Supercharger — Read-only mode (time-boxed "look, don't touch") |
 | `tools/release.sh` | Claude Supercharger — Release Automation |
