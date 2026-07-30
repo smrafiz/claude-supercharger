@@ -2,6 +2,20 @@
 
 ## Contents
 
+- [2.24.12] - 2026-07-30 — fix(guards)+feat(tests): **the injection scanner fired on the test suite's own attack fixtures, and nothing stopped the CI outage from recurring.** Both were open items from 2.24.11.
+
+  **`bash-injection-scanner` flagged this repo's own green test runs.** A security suite necessarily prints its attack fixtures as result labels — `PASS scanner: blocks ignore all previous instructions` — and each one matched, so a clean suite ended with a blocking `INJECTION DETECTED` warning on stderr. Now exempt when the command is a test runner (`bash tests/…`, `./tests/…`, `npm|pnpm|yarn|bun test`, `pytest`, `tox`, `bats`, `jest`, `vitest`, `rspec`, `phpunit`, `cargo|go|dotnet|mvn|gradle test`, `make test|check`).
+
+  The exemption rests on what running a suite already implies: to reach that output the agent **executed the project's test code**, so arbitrary code execution was granted before any warning about the text could matter. It keys on the COMMAND, not on the text — `cat tests/fixture.txt`, `echo test`, `gh pr view; echo tests/run.sh` and `curl … # npm test` all stay flagged (+16 tests pinning both halves).
+
+  **Deliberately NOT mirrored into `prompt-injection-scanner.sh`**, which is a divergence from this repo's usual cross-channel-parity rule and is meant to stay: that hook covers Read/WebFetch/MCP, where the argument does not hold. Reading a file executes nothing, so a poisoned fixture or README pulled in through Read must still be flagged. Exempt the channel that implies execution, not the channel that doesn't.
+
+  **New `test-suite-count-invariance.sh` closes the hole 2.24.11 left open.** 2.24.11 made the suite total platform-invariant but added nothing to keep it that way, while `release.sh` still writes the badge from whichever machine releases — so one more gated assertion would have re-broken the matrix. The rule enforced: an availability gate may skip the WORK, but it must still report the assertion, i.e. a gated block that emits assertions needs an `else`. Verified against the real regression — run on the `v2.24.10` tree it flags `test-plugin-hooks.sh:64` and `test-post-write-advisor.sh:68`, the exact two gates that caused six red releases.
+
+  Three things the checker gets right that a naive version does not: it ignores gates that only select an expected VALUE (`test-mcp.sh`'s `HAS_GH`, which an earlier heuristic of mine false-positived on); it skips **heredoc bodies**, since test files embed shell fixtures as data (it flagged itself before this); and it does not compare assertion COUNTS, because helpers like `check` emit assertions with no literal `begin_test`. It also self-tests — four cases assert it still catches both regression shapes and still accepts both legitimate ones, so it cannot decay into decoration.
+
+  Full suite **2630/0** (+21). Also: the `\x27`/`\x22` hex escapes in that checker are not stylistic — an unbalanced literal quote inside a `$(cat <<'PY' … )` body breaks bash 3.2's parser, which is how it first failed.
+
 - [2.24.11] - 2026-07-30 — fix(ci): **CI had been red since 2.24.6 — the suite total is environment-dependent, and the README tests-badge check compares it exactly, so the matrix could never be green on both runners at once.** Six consecutive runs failed (2.24.6 → 2.24.10) with `FAIL: README tests badge is stale`. Last green was 2.24.5. The badge check itself is sound — it caught real drift — but it rests on an assumption that does not hold: that the suite emits the same number of assertions everywhere.
 
   It does not, and the cause is **installed tooling, not the OS**. Two tests put `begin_test` *inside* an availability gate, so where the tool is missing the assertion does not run — it ceases to exist:

@@ -43,6 +43,35 @@ except Exception:
 if (d.get('tool_name') or '') != 'Bash':
     sys.exit(0)
 
+# v2.24.12: a TEST RUNNER's output is not an untrusted channel. A security test
+# suite necessarily prints its own attack fixtures as result labels — running this
+# repo's suite emits lines like 'PASS scanner: blocks ignore all previous
+# instructions' — and every one of them tripped this scanner, surfacing a blocking
+# stderr warning at the end of an ordinary green run.
+#
+# Safe because of what running a test suite already implies: to reach this output
+# the agent executed the project's test code, i.e. arbitrary code execution was
+# already granted. A warning that the printed text might be instructions is
+# strictly less significant than the execution that produced it.
+#
+# Deliberately NOT mirrored into prompt-injection-scanner.sh, despite the usual
+# cross-channel-parity rule: that hook covers Read/WebFetch/MCP, where the
+# argument above does NOT hold. Reading a file executes nothing, so a poisoned
+# fixture or README pulled in via Read must still be flagged. The asymmetry is the
+# point — exempt the channel that implies execution, not the channel that doesn't.
+_cmd = ((d.get('tool_input') or {}).get('command') or '')
+_TEST_RUNNER = re.compile(
+    r'(^|[;&|]|\&\&|\|\|)\s*'
+    r'(bash|sh|zsh)\s+\S*tests?/'                 # bash tests/run.sh
+    r'|(^|[;&|])\s*\./tests?/'                    # ./tests/run.sh
+    r'|(^|[;&|])\s*(npm|pnpm|yarn|bun)\s+(run\s+)?test'
+    r'|(^|[;&|])\s*(pytest|tox|bats|jest|vitest|rspec|phpunit)\b'
+    r'|(^|[;&|])\s*(cargo|go|dotnet|mvn|gradle)\s+test\b'
+    r'|(^|[;&|])\s*make\s+(test|check)\b'
+)
+if _TEST_RUNNER.search(_cmd):
+    sys.exit(0)
+
 resp = d.get('tool_response') or {}
 # Bash responses carry stdout/stderr; scan both. Coerce non-str (structured) forms.
 parts = []
