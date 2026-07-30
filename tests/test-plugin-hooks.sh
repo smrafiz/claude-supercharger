@@ -60,15 +60,24 @@ assert any(h.get('asyncRewake') for h in flat), 'no asyncRewake'
 assert any(h.get('if') for h in flat), 'no if'
 " 2>/dev/null; then pass; else fail "a flag class was dropped in emit"; fi
 
-# Only run the real CLI validator when it's installed (skips cleanly in minimal CI).
+# The real CLI validator only runs where it is installed — but the ASSERTION is
+# always emitted. v2.24.11: `begin_test` used to live inside the `if`, so on a
+# machine without the CLI this test silently did not exist. That made the suite
+# TOTAL environment-dependent (present on a dev mac, absent on the CI runner),
+# and the README tests-badge check compares that total exactly — so CI could not
+# be green on both platforms at once. Reporting the skip keeps the count stable
+# and keeps the skip visible, which is the point of test-orphan-registration.
+begin_test "claude plugin validate: hooks.json passes schema (warnings OK)"
 if command -v claude >/dev/null 2>&1; then
-  begin_test "claude plugin validate: hooks.json passes schema (warnings OK)"
   OUT=$(claude plugin validate "$REPO_DIR" 2>&1)
   if echo "$OUT" | grep -qiE 'hooks\.json.*(error|invalid)'; then
     fail "validator flagged hooks.json: $OUT"
   else
     pass
   fi
+else
+  echo "    (skipped: claude CLI not installed — schema not validated here)"
+  pass
 fi
 
 echo ""

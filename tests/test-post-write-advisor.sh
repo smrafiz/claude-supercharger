@@ -64,10 +64,20 @@ out=$(SUPERCHARGER_CONFLICT_MARKER_GUARD=0 SUPERCHARGER_STATE="$(mktemp -d)" bas
 begin_test "malformed json fails open"
 out=$(printf '%s' 'not json {' | bash "$HOOK" 2>/dev/null); [ -z "$out" ] && pass || fail "expected fail-open silence"
 
-# --- TOML (only where tomllib present) ---
+# --- TOML (validated only where tomllib is present; always REPORTED) ---
+# v2.24.11: these two used to vanish entirely without tomllib (Python < 3.11),
+# so the suite total differed by platform — and the README tests-badge check
+# compares that total exactly, which meant CI could never be green on both
+# ubuntu and macos at once. Emit the assertions either way.
 if [ "$HAS_TOML" = 1 ]; then
   check "broken toml"          WARN   .toml 644 $'x = "unterminated'
   check "valid toml"           SILENT .toml 644 $'x = 1\n[t]\ny = 2'
+else
+  for t in "broken toml" "valid toml"; do
+    begin_test "$t"
+    echo "    (skipped: python3 tomllib unavailable — TOML parsing not exercised here)"
+    pass
+  done
 fi
 
 rm -rf "$TMP"
