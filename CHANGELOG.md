@@ -2,6 +2,29 @@
 
 ## Contents
 
+- [2.24.13] - 2026-07-30 — fix(security): **the fuzzer's 300 false negatives had never been triaged, and 225 of them were two real unguarded attacks.** The figure had been reported at the end of every `fuzz-safety.sh` run for releases, treated as known background noise. It was not noise: **macOS Keychain credential reads and synthetic keystroke injection were both allowed**, and both were already listed as *dangerous* in the fuzzer's own corpus with **no pattern implementing them** — coverage asserted but never built, and the uninterpretable total hid it.
+
+  Triaging 300 entries down to distinct shapes gave **4**, each then re-tested in pristine (unmutated) form:
+
+  | shape | pristine verdict | entries |
+  |---|---|---|
+  | `osascript … keystroke` | **ALLOWED** — real | 125 |
+  | `security find-generic-password` | **ALLOWED** — real | 100 |
+  | `ssh-keygen -t rsa` | denied | 25 (artifact) |
+  | `echo "sk-…" > /tmp/x` | denied | 25 (artifact) |
+
+  **`security find-generic-password -s github -w`** returns one credential straight to stdout and needs no GUI confirmation. `security dump-keychain` had been guarded since 2.9.14; the *targeted* read — the form actually used, because it is quieter — was not. Now blocked with its siblings: `find-internet-password`, `export` (bulk key material), and `find-certificate -p` (PEM, private keys where permitted). Category: `credentials`.
+
+  **`osascript -e 'tell app "System Events" to keystroke …'`** types into whatever window has focus, so it can drive a GUI app, a password prompt, or a terminal the agent is not permitted to use — an authorization bypass that never passes through a guarded tool. Now blocked along with `key code` (same primitive by keycode), `System Events … click`, and `cliclick`. Anchored on the input-synthesis verbs, so ordinary automation still passes: `display notification`, app queries, `security --help`, and the word "keystroke" in a commit message or a grep. Category: `clipboard`, since it is the same "drive the user's desktop" surface. +17 tests, including per-category opt-out on both new arms and a check that an *unrelated* opt-out does not disable them.
+
+  **Two defects in the fuzzer itself, both of which had been quietly costing coverage:**
+  - `${cmd// / }` replaced a single space with a single space — a **no-op mislabelled "double space"**. The double-space evasion had therefore never been tested, and one of every base's five whitespace mutants was a duplicate of the base. Now genuinely doubles separators. (It surfaced no new gaps, so `safety.sh` was already tolerant — but that is now a measured fact rather than an assumption.)
+  - `${cmd//-/  -}` spaced out **every** hyphen, including inside command names and tokens: `ssh-keygen` → `ssh  -keygen`, `sk-AAA…` → `sk -AAA…`. Those mutants are not runnable commands, so they cannot be evasions, yet they counted as false negatives — the 75 artifacts above, and the reason the FN total could not distinguish a real hole from a mangled fixture. Now only spaces hyphens that already begin a flag, which is what the mutation was for.
+
+  **The number is now meaningful: false negatives 300 → 0, false positives 0.** Any nonzero FN from here is a real finding, which is the property the metric lacked. Also added `FUZZ_FN_LIMIT` (`=0` prints all) — the hard `head -50` is what made the total uninvestigable in the first place. Full suite **2647/0** (+17).
+
+  Correction to this session's earlier note: the no-op mutation was described as "inflating Total runs". It did not — the mutation count per base is fixed, so `Total` was unchanged at 5,705. The cost was a wasted duplicate run and an untested evasion, not an inflated figure.
+
 - [2.24.12] - 2026-07-30 — fix(guards)+feat(tests): **the injection scanner fired on the test suite's own attack fixtures, and nothing stopped the CI outage from recurring.** Both were open items from 2.24.11.
 
   **`bash-injection-scanner` flagged this repo's own green test runs.** A security suite necessarily prints its attack fixtures as result labels — `PASS scanner: blocks ignore all previous instructions` — and each one matched, so a clean suite ended with a blocking `INJECTION DETECTED` warning on stderr. Now exempt when the command is a test runner (`bash tests/…`, `./tests/…`, `npm|pnpm|yarn|bun test`, `pytest`, `tox`, `bats`, `jest`, `vitest`, `rspec`, `phpunit`, `cargo|go|dotnet|mvn|gradle test`, `make test|check`).

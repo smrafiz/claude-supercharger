@@ -106,8 +106,19 @@ mutate_case() {
 mutate_whitespace() {
   local cmd="$1"
   printf '%s\n' "$cmd"
-  printf '%s\n' "${cmd// / }"          # double space
-  printf '%s\n' "${cmd//-/  -}"        # extra space before flags
+  # v2.24.13: this was ${cmd// / } — a single space replaced by a single space, i.e.
+  # a NO-OP mislabelled as "double space". So the double-space evasion was never
+  # actually tested, and every base silently produced a duplicate run that inflated
+  # Total. Now genuinely doubles the separators.
+  printf '%s\n' "${cmd// /  }"         # double space
+  # v2.24.13: was ${cmd//-/  -}, which rewrote EVERY hyphen — including those inside
+  # command names and tokens. `ssh-keygen` became `ssh  -keygen`, `sk-AAA…` became
+  # `sk -AAA…`: not runnable commands, so they cannot be evasions, yet they counted
+  # as false negatives. That was 75 of the 300 reported bypasses, and it made the FN
+  # total uninterpretable — the figure could not distinguish a real hole from a
+  # mangled fixture. Now only spaces out hyphens that already begin a FLAG (preceded
+  # by whitespace), which is what "extra space before flags" was meant to test.
+  printf '%s\n' "${cmd// -/   -}"      # extra space before flags
   printf '   %s   \n' "$cmd"           # leading/trailing space
   printf '\t%s\n' "$cmd"               # leading tab
 }
@@ -219,7 +230,15 @@ echo "False pos (benign → BLOCKED):     $FP_COUNT"
 if [ "$FN_COUNT" -gt 0 ]; then
   echo ""
   echo "── BYPASSES (dangerous patterns that slipped through) ──"
-  printf '  %s\n' "${FN_CMDS[@]}" | head -50
+  # v2.24.13: cap is configurable. It was a hard `head -50`, which is fine for a
+  # glance but makes the total uninvestigable — you cannot tell whether "300 false
+  # negatives" means 300 evasions or a handful of shapes multiplied by the mutation
+  # cross-product. FUZZ_FN_LIMIT=0 prints all of them.
+  if [ "${FUZZ_FN_LIMIT:-50}" = "0" ]; then
+    printf '  %s\n' "${FN_CMDS[@]}"
+  else
+    printf '  %s\n' "${FN_CMDS[@]}" | head -"${FUZZ_FN_LIMIT:-50}"
+  fi
 fi
 
 if [ "$FP_COUNT" -gt 0 ]; then
