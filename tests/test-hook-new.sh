@@ -2,8 +2,23 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-TOOL="$REPO_DIR/tools/hook-new.sh"
-HOOKS_DIR="$REPO_DIR/hooks"
+# Scaffold into a SANDBOX copy of the tool, never the live tree. hook-new.sh
+# writes to <its own dir>/../hooks, so running it from $REPO_DIR meant every
+# scaffold below created and then deleted a file inside the repo's real hooks/
+# while the rest of the suite ran in parallel. install.sh does
+# `cp "$source_dir/hooks/"*.sh` — the glob would pick up a fixture that
+# cleanup_hook removed a moment later, cp failed, the hook deploy aborted, and
+# settings.json was never written. That was the intermittent test-install
+# failure (~1 run in 3, always 2 tests short of the badge count).
+# hook-new.sh reads nothing else from the repo, so one file plus an empty
+# hooks/ is a complete sandbox.
+SANDBOX=$(mktemp -d)
+mkdir -p "$SANDBOX/tools" "$SANDBOX/hooks"
+cp "$REPO_DIR/tools/hook-new.sh" "$SANDBOX/tools/hook-new.sh"
+trap 'rm -rf "$SANDBOX"' EXIT
+
+TOOL="$SANDBOX/tools/hook-new.sh"
+HOOKS_DIR="$SANDBOX/hooks"
 
 echo "=== Hook New Scaffolder Tests ==="
 

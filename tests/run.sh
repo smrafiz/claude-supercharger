@@ -124,9 +124,14 @@ BADGE_DRIFT=0
 # sed, not a second grep: '%20' contains digits, so grep -oE '[0-9]+' would
 # yield both the count and 20. Same extraction shape as test-version-parity.sh:37.
 BADGE=$(grep -oE 'tests-[0-9]+%20passing' "$REPO_DIR/README.md" 2>/dev/null | head -1 | sed 's/tests-\([0-9]*\)%20passing/\1/' || true)
-if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_PASSED" ]; then
-  echo "WARNING: README tests badge says ${BADGE}, suite has ${TOTAL_PASSED}."
-  echo "         Bump it to ${TOTAL_PASSED} (tools/release.sh does this automatically on release)."
+# Compared against passed+failed, not passed alone: a failing test still exists,
+# so a red run would otherwise report the badge as stale on top of the real
+# failure and send the reader after the wrong bug. (It did — a flaky
+# test-install.sh made the badge check cry drift for two releases.)
+TOTAL_RUN=$((TOTAL_PASSED + TOTAL_FAILED))
+if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_RUN" ]; then
+  echo "WARNING: README tests badge says ${BADGE}, suite has ${TOTAL_RUN}."
+  echo "         Bump it to ${TOTAL_RUN} (tools/release.sh does this automatically on release)."
   echo ""
   if [ -n "${CI:-}" ]; then
     BADGE_DRIFT=1

@@ -6,9 +6,15 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 begin_test "install: non-interactive fresh install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+# Keep the installer's output: this assertion has failed intermittently under a
+# parallel suite run, and discarding the output of the thing under test made the
+# failure undiagnosable. BOTH streams, not just stderr — error() writes to stdout,
+# and merge_hooks_into_settings folds python3's stderr into stdout with `2>&1`,
+# so a failure there leaves stderr empty. Echoed only when an assertion fails.
+INSTALL_ERR="$HOME/.install-output"
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >"$INSTALL_ERR" 2>&1
 
-assert_file_exists "$HOME/.claude/CLAUDE.md" &&
+{ assert_file_exists "$HOME/.claude/CLAUDE.md" &&
 assert_file_exists "$HOME/.claude/rules/supercharger.md" &&
 assert_file_exists "$HOME/.claude/rules/guardrails.md" &&
 assert_file_exists "$HOME/.claude/rules/developer.md" &&
@@ -17,7 +23,7 @@ assert_file_not_exists "$HOME/.claude/rules/writer.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/writer.md" &&
 assert_file_exists "$HOME/.claude/settings.json" &&
 assert_file_exists "$HOME/.claude/rules/economy.md" &&
-pass
+pass ; } || { echo "    install.sh output:"; sed 's/^/      /' "$INSTALL_ERR" | tail -25; }
 teardown_test_home
 
 # --- Test: Quick install fork applies defaults with minimal prompts ---

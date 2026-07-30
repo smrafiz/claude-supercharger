@@ -2,6 +2,14 @@
 
 ## Contents
 
+- [2.26.2] - 2026-07-30 — fix(tests): **a test wrote fixtures into the live `hooks/` directory, and the parallel suite raced it.** `tests/test-hook-new.sh` scaffolded into `$REPO_DIR/hooks/` and deleted each file straight after. Meanwhile `install.sh` runs `cp "$source_dir/hooks/"*.sh` — so when `test-install.sh` happened to expand that glob while a fixture existed and copy it after `cleanup_hook` removed it, `cp` failed, the hook deploy aborted, and `settings.json` was never written. Measured at **3 failures in 11 full runs (~27%)**; 6/6 green after the fix. The tool needs nothing from the repo but an empty `hooks/`, so it now runs from a `mktemp -d` sandbox holding one copied script.
+
+  This is the same class as the 2.24.8 `HOME` isolation work and the gap that release left: `HOME` was isolated per test file, but the repo tree itself is shared mutable state and nothing covered it. `test-hook-new.sh` is the only test that wrote there — the other repo-path references are reads.
+
+  Two things kept it hidden for six releases. `test-install.sh` sent the installer's output to `/dev/null`, and `error()` writes to **stdout** while `merge_hooks_into_settings` folds python3's stderr into stdout with `2>&1` — so the one message naming the cause was discarded, and stderr was empty. The installer's output is now kept and printed on failure. And the badge check compared the README against **passed** alone, so every flaky run also announced "README tests badge is stale" — an invented second bug pointing away from the real one. It now compares passed+failed: a failing test still exists.
+
+  Suite total is unchanged at 2771, and it was never drifting. CI was green throughout, on both runners; only local parallel runs lost the race.
+
 - [2.26.1] - 2026-07-30 — fix(security): **the agent could switch Supercharger off, and nothing asked.** `sc-toggle.sh off` writes the kill-switch, after which every hook exits 0 — so one command retires every other guard at once. Measured before writing the fix: the toggle passed `harness-tamper-guard`, `safety.sh` **and** `path-guard`, and with the flag set both `safety.sh` and `path-guard` then permitted a `settings.json` write they otherwise deny. Disable → act → re-enable worked end to end.
 
   That is the first step a prompt injection would want, and it partially undercut a claim in the README, which says path-guard closes *"the pattern where agents disable their own guardrails."* Direct writes to `settings.json` and `.disabled-security-categories` **are** blocked — verified — but the toggle tool was an unguarded side door to the same outcome.
