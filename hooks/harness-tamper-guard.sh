@@ -31,7 +31,10 @@ _INPUT=$(cat)
 # exit (~6ms tax on every Bash call there). These forms still cover every
 # _HT_TARGET pattern below but no longer match a plain `claude-supercharger` cwd.
 case "$_INPUT" in
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*) : ;;
+# v2.26.1: +sc-toggle — the disable confirm below must be reachable for the relative
+# and ${CLAUDE_PLUGIN_ROOT} forms too; those carry none of the other tokens and were
+# exiting at this gate before it could fire.
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*) : ;;
   *) exit 0 ;;
 esac
 
@@ -163,6 +166,30 @@ if [ -z "$REASON" ]; then
   if [ "$_HT_HIT" = "1" ]; then
     REASON="removes, disables, or overwrites Supercharger hook scripts / install dir / kill-switch — this tears down the guardrail layer. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
   fi
+fi
+
+# (3) v2.26.1: disabling Supercharger is a CONFIRM, not a silent pass.
+#
+# `sc-toggle.sh off` writes the kill-switch, after which every hook exits 0 — so this
+# one command retires every other guard at once. That makes it the highest-value step
+# for a prompt injection: disable, act, re-enable. Verified before adding this: the
+# toggle passed all three guards, and with the flag set both safety.sh and path-guard
+# allowed a settings.json write they otherwise deny.
+#
+# ASK, not DENY, because it is a documented user control — `/sc off` must keep working.
+# What changes is that it can no longer happen unseen. lib-smart-approve declines to
+# auto-approve it before the autopilot loop, so an active autopilot window cannot
+# swallow the confirm (that is exactly when it would be least likely to be noticed).
+# Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
+if [ -z "$REASON" ]; then
+  case "$CMD" in
+    *sc-toggle*off*|*sc-toggle*disable*)
+      _HT_ASK="Supercharger is about to be switched OFF. While off, every guard is inactive — destructive-command blocking, path-guard, credential and env-file guards, git-safety. Approve only if you asked for this; an injected instruction reaching the model would want exactly this step first."
+      _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+      exit 0
+      ;;
+  esac
 fi
 
 [ -z "$REASON" ] && exit 0
