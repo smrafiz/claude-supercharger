@@ -44,4 +44,28 @@ OUT=$(bash "$TOOL" 2>/dev/null)
 COUNT=$(echo "$OUT" | grep -cE '^\| `[a-z-]+` \|')
 [ "$COUNT" -ge 50 ] && pass || fail "expected >= 50 hook rows, got $COUNT"
 
+# v2.24.16: every test above exercises the GENERATOR; none checked the committed
+# DOC. docs/HOOKS.md advertises itself as auto-generated, and had not been
+# regenerated — harness-tamper-guard, bash-injection-scanner and test-mask-guard
+# were missing from the catalog users actually read. Same silent-staleness shape as
+# the README badge and hooks.json, both of which already have a --check.
+begin_test "list-hooks: committed docs/HOOKS.md is current (not stale)"
+if bash "$TOOL" --check >/dev/null 2>&1; then
+  pass
+else
+  fail "docs/HOOKS.md is stale — regenerate: bash tools/list-hooks.sh > docs/HOOKS.md"
+fi
+
+begin_test "list-hooks: --check fails when the doc drifts"
+TD=$(mktemp -d); mkdir -p "$TD/docs" "$TD/hooks" "$TD/tools"
+cp "$TOOL" "$TD/tools/list-hooks.sh"
+cp "$REPO_DIR"/hooks/*.sh "$TD/hooks/" 2>/dev/null
+printf '# stale\n' > "$TD/docs/HOOKS.md"
+if bash "$TD/tools/list-hooks.sh" --check >/dev/null 2>&1; then
+  fail "--check passed on a deliberately stale doc"
+else
+  pass
+fi
+rm -rf "$TD"
+
 report
