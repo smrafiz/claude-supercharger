@@ -2,6 +2,12 @@
 
 ## Contents
 
+- [2.24.16] - 2026-07-30 — fix(docs): **`docs/HOOKS.md` advertises itself as auto-generated, and nothing ever checked that it had been regenerated. It hadn't.** The catalog users read to learn what is enforced was missing `harness-tamper-guard`, `bash-injection-scanner` and `test-mask-guard` — 151 lines committed against 184 generated. `tests/test-list-hooks.sh` exercised the *generator* thoroughly and never once compared its output to the committed file.
+
+  Same silent-staleness shape the repo already guards elsewhere: `gen-plugin-hooks.sh --check` protects `hooks.json`, and `run.sh` protects the README tests badge. The hook catalog had no equivalent, so it rotted quietly while every test stayed green. `tools/list-hooks.sh --check` now mirrors that pattern (generation moved into a `generate()` function so the print and check paths cannot drift), with two tests: the committed doc must be current, and `--check` must actually fail on a deliberately stale file.
+
+  Catalog regenerated. Also added an FAQ entry for the **2.24.14 behavior change**, which is the one thing in that release a user can trip over without reading the CHANGELOG: a script that `cp`s a file into `~/.claude/supercharger/hooks/` is now denied, because writing over an installed hook is how the guardrail layer gets torn down. `install.sh` / `update.sh` are unaffected — the guard sees `bash install.sh`, not the copies inside it — and reading or copying *out* still works. Full suite **2678/0**.
+
 - [2.24.15] - 2026-07-30 — feat(tests): **nothing asserted that a matcher can match anything, so a registered, working, completely inert hook passed every check.** Two suites already cover neighbouring properties and both pass while a guard is dead: `test-orphan-registration` asserts a hook **is registered**, `test-hook-liveness` asserts it **responds when invoked directly**. Neither asks whether its matcher **selects any real tool** — which is precisely how v2.24.5 happened, with `mcp-egress-guard` registered, working, and never once running.
 
   Two rules, deliberately of different strength:

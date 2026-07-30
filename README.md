@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.24.15-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2676%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.24.16-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2678%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -408,6 +408,9 @@ No. The installer backs up everything before touching it. `./uninstall.sh` resto
 
 **A hook blocked something I actually need.**
 Run `/why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
+
+**My script copies a file into `~/.claude/supercharger/hooks/` and is now denied.**
+Expected as of 2.24.14. Writing over an installed hook is how the guardrail layer gets torn down, so `cp`/`install`/`rsync`/`curl -o`/`wget -O` aimed **into** the install dir are blocked alongside `rm` and `>`. Use `./install.sh` or `tools/update.sh`, which the guard does not intercept. Reading and copying **out** (`cp <hook> /tmp/`) still work.
 
 **Can I temporarily switch back to plain Claude Code?**
 Yes — `/sc off` deactivates Supercharger globally (a kill-switch every hook honors instantly: no guards, no injection, no statusline) and `/sc on` restores it. Nothing is uninstalled; the files stay dormant and a timestamped backup is written first. It also moves **Supercharger's own** MCP servers aside so they stop loading and stop costing you context — MCP servers you added yourself are left alone. Two caveats: hooks stop immediately, but the `CLAUDE.md` prompt rules and the MCP change take effect on your **next** session; and **while off, the security guards are off too** — you're on stock Claude with no safety net until you `/sc on`.
