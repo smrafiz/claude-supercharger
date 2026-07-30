@@ -75,8 +75,25 @@ if [ -z "$REASON" ]; then
   # v2.23.22: PowerShell cmdlet verbs added for cross-channel parity (matcher now
   # Bash,PowerShell) — Remove-Item/Move-Item/Rename-Item/Clear-Content/Set-Content/
   # Out-File are the PowerShell equivalents of rm/mv/truncate/redirect over the hooks.
-  _HT_VERB='(^|[[:space:];&|(])(rm|unlink|mv|truncate|shred|chmod|chattr|touch|ln|sed[[:space:]]+-i|tee|dd[[:space:]]+of=|:[[:space:]]*>|>>?|Remove-Item|Move-Item|Rename-Item|Clear-Content|Set-Content|Add-Content|Out-File)([[:space:]]|>)'
-  if printf '%s' "$CMD" | grep -Eq -- "$_HT_VERB" && printf '%s' "$CMD" | grep -Eq -- "$_HT_TARGET"; then
+  # v2.24.6: `ln` required a following `-flag` or a `/`-bearing path. As a bare
+  # two-letter alternation it matched the extremely common loop variable in an
+  # inlined script (`for ln in open(f):`), and since the verb and target tests are
+  # independent — either may match on ANY line — a purely READ-ONLY command that
+  # merely mentioned the install dir was denied. Same class as the `cat
+  # scope/.disabled-hooks` false positive already fixed in safety.sh's selfmod.
+  _HT_VERB='(^|[[:space:];&|(])(rm|unlink|mv|truncate|shred|chmod|chattr|touch|sed[[:space:]]+-i|tee|dd[[:space:]]+of=|:[[:space:]]*>|>>?|Remove-Item|Move-Item|Rename-Item|Clear-Content|Set-Content|Add-Content|Out-File)([[:space:]]|>)|(^|[[:space:];&|(])ln[[:space:]]+(-|[^[:space:]]*/)'
+  # v2.24.6: writing a scope SENTINEL is normal, documented operation — /perf tells
+  # users to `touch …/scope/.profiling`, and autopilot/readonly/strict/profile write
+  # flags there constantly. Those paths live under the install dir, so the target
+  # pattern matched them and this guard blocked its own documented controls. Strip
+  # scope-FILE references before the target test.
+  # Deliberately still blocked: the kill-switch also lives in scope/, so it is
+  # re-tested against the ORIGINAL command — creating .supercharger-disabled is a
+  # teardown. `rm -rf …/scope` (the directory, no filename) is not stripped either.
+  # .disabled-hooks / .disabled-security-categories stay covered by safety.sh's
+  # selfmod category, which is independent of this guard.
+  _CMD_SCAN=$(printf '%s' "$CMD" | sed -E 's#[^[:space:];&|"'"'"']*/scope/\.[A-Za-z0-9_.-]+##g')
+  if printf '%s' "$CMD" | grep -Eq -- "$_HT_VERB" && { printf '%s' "$_CMD_SCAN" | grep -Eq -- "$_HT_TARGET" || printf '%s' "$CMD" | grep -Eq -- '\.supercharger-disabled'; }; then
     REASON="removes, disables, or overwrites Supercharger hook scripts / install dir / kill-switch — this tears down the guardrail layer. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
   fi
 fi

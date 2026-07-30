@@ -305,7 +305,24 @@ DESTRUCT_PATTERNS=(
 )
 NETWORK_PATTERNS=(
   'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
-  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
+  # v2.24.6: this was a blanket "any pipe into a shell". It also caught
+  # `printf '{...}' | bash ./hooks/statusline.sh`, where the piped bytes are the
+  # script's stdin DATA and the code being run is a named local file — the pipe
+  # adds no capability (anyone who can write that file can already run it).
+  # Narrowed to the forms where the PIPED BYTES ARE THE CODE:
+  #   (a) no script operand at all  — `… | bash`, `… | sh -s`
+  #   (b) an explicit -c            — `… | bash -c '…'`
+  #   (c) an explicit stdin operand — `… | bash -`, `… | bash /dev/stdin`
+  # curl/wget piped to a shell keep their own dedicated patterns above, so the
+  # download-and-execute case stays covered twice over.
+  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]*([;&|)]|$)'
+  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)[[:space:]]+-[[:alnum:]]*c([[:space:]]|[;&|)]|$)'
+  # The trailing class MUST accept a command separator, not just space-or-end:
+  # `… | bash -; echo done` and `… | bash /dev/stdin; echo done` slipped through
+  # while it was `([[:space:]]|$)`, because `;` is neither. The old blanket pattern
+  # caught these, so narrowing had silently reopened them — found by the
+  # pipe-to-shell bases added to fuzz-safety.sh, which is why they were added.
+  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
   '(^|;|&|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
   '(^|;|&|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
