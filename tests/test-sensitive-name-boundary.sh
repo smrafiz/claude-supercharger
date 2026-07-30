@@ -53,4 +53,34 @@ expect_clean "allows process.environ in JS"          'grep -rn "process.environ"
 expect_clean "allows a .environment identifier"      'grep -rn settings.environment src/'
 expect_clean "allows an .environment_notes file"     'cat notes/.environment_notes'
 
+# --- v2.25.3: the SAME unbounded-token flaw on every OTHER alternative ---
+# 2.25.2 bounded only the .env arm and checked the other .env SITES rather than the
+# other ALTERNATIVES, leaving twelve in place. `.keys()` is the worst of them: it is
+# ubiquitous in Python and JavaScript, and it read as a private-key file.
+expect_clean "allows Object.keys(cfg)"               'grep -rn "Object.keys(cfg)" src/'
+expect_clean "allows obj.keys() in python"           'grep -rn "for k in obj.keys():" src/'
+expect_clean "allows sorted(d.keys())"               'cat app.py; grep -n "sorted(d.keys())" app.py'
+expect_clean "allows a .keyword field"               'grep -rn row.keyword src/'
+expect_clean "allows .certificate identifier"        'grep -rn cfg.certificate src/'
+expect_clean "allows a name ending pemberton"        'grep -rn x.pemberton src/'
+expect_clean "allows .walletsize identifier"         'grep -rn data.walletsize src/'
+expect_clean "allows .tokens.jsonl (not .json)"      'cat s.tokens.jsonl'
+
+# Real key/cert material must still be caught after the boundary change.
+expect_flag "still blocks: cat server.key"           'cat server.key'
+expect_flag "still blocks: cat cert.pem"             'cat cert.pem'
+expect_flag "still blocks: cat cert.pem.bak"         'cat cert.pem.bak'
+expect_flag "still blocks: cat client.crt"           'cat client.crt'
+expect_flag "still blocks: cat store.p12"            'cat store.p12'
+expect_flag "still blocks: cat key.pfx"              'cat key.pfx'
+expect_flag "still blocks: cat id_ed25519"           'cat ~/.ssh/id_ed25519'
+expect_flag "still blocks: cat ~/.npmrc"             'cat ~/.npmrc'
+expect_flag "still blocks: cat ~/.netrc"             'cat ~/.netrc'
+expect_flag "still blocks: cat .git-credentials"     'cat ~/.git-credentials'
+expect_flag "still blocks: cat wallet.dat"           'cat wallet.dat'
+expect_flag "still blocks: cat main.tfvars"          'cat main.tfvars'
+expect_flag "still blocks: cat a.tokens.json"        'cat a.tokens.json'
+expect_flag "still blocks: cat ~/.kube/config"       'cat ~/.kube/config'
+expect_flag "still blocks: cat ~/.docker/config.json" 'cat ~/.docker/config.json'
+
 report
