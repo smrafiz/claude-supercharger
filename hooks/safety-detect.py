@@ -103,16 +103,10 @@ _SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 # Extended sensitive file/dir patterns (claudekit-inspired)
 _SENSITIVE_NAME_RE = re.compile(
     r"(?i)(?:"
-    # v2.25.2: the token had no terminator, so it matched `.env` INSIDE longer
-    # identifiers — `os.environ`, `process.environ`, `.environment` — and any reader
-    # command whose arguments happened to contain one was denied as "sensitive file
-    # access". `(?!\w)` requires the token to end at a non-word character.
-    # `(?:rc)?` is not decoration: `.envrc` (direnv, holds secrets) was previously
-    # matched only because the pattern was unbounded, so terminating it without this
-    # would silently DROP that file from the sensitive set. A hyphen still terminates,
-    # keeping `.env-local`. Every other `.env` site in this file already uses `\b` or
-    # a lookahead — this was the only unbounded one.
-    r"\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?(?!\w)"
+    # `(?:rc)?` is not decoration: `.envrc` (direnv, holds secrets) only ever matched
+    # because the pattern was unbounded, so adding the terminator below without this
+    # would silently DROP that file from the sensitive set.
+    r"\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
     r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|/)pip\.conf"
@@ -125,7 +119,22 @@ _SENSITIVE_NAME_RE = re.compile(
     # v2.10.1: terraform var files (DB passwords / cloud creds / API keys) +
     # token stores (from chuckreynolds/claude-secret-guardrails)
     r"|[\w.*-]*\.tfvars|[\w.*-]*\.tokens\.json"
-    r")"
+    # v2.25.3: ONE terminator for the whole group. Nearly every alternative here was
+    # unbounded, so each matched inside a longer identifier and any reader command
+    # (cat/grep/head/sed/awk) whose arguments contained one was denied as "sensitive
+    # file access". Measured: 13 of 13 realistic samples wrongly matched —
+    #   Object.keys(cfg) -> Object.key    obj.keys()      -> obj.key
+    #   cfg.certificate  -> cfg.cer       x.pemberton     -> x.pem
+    #   row.keyword      -> row.key       data.walletsize -> data.wallet
+    # `.keys()` alone is ubiquitous in Python and JavaScript.
+    #
+    # v2.25.2 fixed only the `.env` arm and checked the other `.env` SITES, not the
+    # other ALTERNATIVES — so it left twelve of these in place. Applying the boundary
+    # to the group instead of arm-by-arm is what makes that mistake unrepeatable.
+    #
+    # A non-word char still terminates, so real names survive: `cert.pem.bak` (dot),
+    # `.env-local` (hyphen), `server.key"` (quote), `id_ed25519` (end).
+    r")(?!\w)"
 )
 
 

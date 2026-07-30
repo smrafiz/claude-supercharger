@@ -2,6 +2,22 @@
 
 ## Contents
 
+- [2.25.3] - 2026-07-30 — fix(guards): **`Object.keys(cfg)` read as a private-key file. 2.25.2 fixed one arm of this bug and left twelve.** The unbounded-token flaw was not specific to `.env` — nearly every alternative in `_SENSITIVE_NAME_RE` lacked a terminator, so each matched inside a longer identifier and any reader command (`cat`, `grep`, `head`, `sed`, `awk`) whose arguments contained one was denied as "sensitive file access". Measured against realistic samples, **13 of 13 wrongly matched**:
+
+  | text | matched as | | text | matched as |
+  |---|---|---|---|---|
+  | `Object.keys(cfg)` | `Object.key` | | `cfg.certificate` | `cfg.cer` |
+  | `obj.keys()` | `obj.key` | | `x.pemberton` | `x.pem` |
+  | `row.keyword` | `row.key` | | `data.walletsize` | `data.wallet` |
+
+  `.keys()` alone is ubiquitous in Python and JavaScript, so this fired constantly on ordinary source-reading.
+
+  **Why 2.25.2 missed it, recorded because the reasoning error is the reusable part.** That release asked "does this flaw appear at the other `.env` **sites**?" — it did not, every other `.env` site already had `\b` or a lookahead, and the fix shipped looking complete. The right question was "does this flaw appear in the other **alternatives** of the same regex?" — where the answer was twelve more. Checking the sibling *instances* of a token while never checking the sibling *branches* is a narrow-scope audit dressed as a thorough one. It surfaced the way the previous ones did: the guard blocked me reading its own definition.
+
+  Fixed with **one terminator on the whole group** rather than arm-by-arm — the arm-by-arm approach is precisely what produced a partial fix, and a group-level boundary cannot be partially applied. A non-word character still terminates, so real names survive: `cert.pem.bak` (dot), `.env-local` (hyphen), `server.key"` (quote), `id_ed25519` (end).
+
+  +23 tests covering the whole family in both directions — every false positive above must stop, and `server.key`, `cert.pem`, `cert.pem.bak`, `client.crt`, `store.p12`, `key.pfx`, `id_ed25519`, `.npmrc`, `.netrc`, `.git-credentials`, `wallet.dat`, `main.tfvars`, `a.tokens.json`, `~/.kube/config` and `~/.docker/config.json` must all still be caught. Verified to fail against the 2.25.2 pattern (8 of them). Security suites unchanged: env-file-guard 27, aliasing 6, bash-evasions 14, secret-patterns 15, owasp-asi 31. Fuzz differential unchanged at 5,705 runs / 0 false negatives / 0 false positives. Full suite **2724/0**.
+
 - [2.25.2] - 2026-07-30 — fix(guards): **`.env` was matched as a substring, so `os.environ` in a command read as "sensitive file access".** `safety-detect.py`'s `_SENSITIVE_NAME_RE` carried `\.env(?:\.[a-zA-Z0-9_-]+)?` with **no terminator**, so the token matched inside ordinary identifiers — `os.environ`, `process.environ`, `.environment`, `.environment_notes`. Any reader command (`cat`, `grep`, `head`, `sed`, `awk`) whose arguments happened to contain one was denied. Hit repeatedly while inspecting the guards themselves, which is how it surfaced: the guard blocked reading the file that defines it.
 
   **The trap in fixing it, which is the part worth recording.** The obvious terminator — `\b`, or `(?!\w)` alone — silently drops **`.envrc`**. direnv keeps secrets there, and it had only ever matched *because* the pattern was unbounded. Terminating the token without carrying `(?:rc)?` would have removed a real file from the sensitive set while every existing test stayed green: a guard that stops over-blocking by quietly under-blocking, which is worse than the false positive it fixes. The shipped pattern is `\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?(?!\w)`, and a hyphen still terminates so `.env-local` is unaffected.
