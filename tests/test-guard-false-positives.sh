@@ -69,6 +69,30 @@ expect "$HT" ALLOW "harness-tamper: writing an autopilot flag" \
 'echo 1799999999 > ~/.claude/supercharger/scope/.autopilot-until'
 
 # Still blocked: teardown of the layer itself.
+# The audit LOGS are data, not the guardrail layer. This exact shape was denied
+# live: the log path on one line, a touch/rm on another, matched independently.
+expect "$HT" ALLOW "harness-tamper: read an audit log in a command that also touches a sentinel" \
+'LOG="$HOME/.claude/supercharger/audit/2026-07-30.jsonl"
+python3 - "$LOG" <<PY
+for ln in open(sys.argv[1]):
+    pass
+PY
+touch "$HOME/.claude/supercharger/scope/.profiling"
+rm -f "$HOME/.claude/supercharger/scope/.profiling"'
+
+expect "$HT" ALLOW "harness-tamper: rotating an audit log file" \
+'mv ~/.claude/supercharger/audit/2026-07-29.jsonl /tmp/old.jsonl'
+
+# Still blocked: the CODE directories, per file.
+expect "$HT" DENY "harness-tamper: STILL blocks overwriting lib/utils.sh" \
+'echo x > ~/.claude/supercharger/lib/utils.sh'
+
+expect "$HT" DENY "harness-tamper: STILL blocks rm of a tools/ script" \
+'rm ~/.claude/supercharger/tools/autopilot.sh'
+
+expect "$HT" DENY "harness-tamper: STILL blocks rm -rf of the audit directory" \
+'rm -rf ~/.claude/supercharger/audit'
+
 expect "$HT" DENY "harness-tamper: STILL blocks creating the kill-switch" \
 'touch ~/.claude/supercharger/scope/.supercharger-disabled'
 

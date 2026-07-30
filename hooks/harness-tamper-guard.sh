@@ -71,7 +71,16 @@ if [ -z "$REASON" ]; then
   # Target: the installed hook scripts / supercharger dir / plugin hooks / kill switch.
   # Scoped to installed locations (.claude / …/supercharger/…) so a repo-relative
   # `chmod +x hooks/foo.sh` during development does NOT match.
-  _HT_TARGET='(\.claude/supercharger/hooks/|/supercharger/hooks/|\.claude/hooks/|\.claude/plugins/[^;&|]*/hooks/|\.claude/supercharger([/[:space:]]|$)|\.supercharger-disabled)'
+  # v2.24.9: the install-dir arm was `\.claude/supercharger([/[:space:]]|$)`, i.e.
+  # ANY path beneath the install dir — including the audit LOGS and the scope
+  # SENTINELS, neither of which is part of the guardrail layer. Combined with the
+  # verb/target tests matching independently (and on different LINES of a compound
+  # command), reading an audit log in the same command as any `touch`/`rm` was
+  # denied. Now: the CODE dirs (hooks/lib/tools) match per-file, the install dir and
+  # the data dirs match only as whole DIRECTORIES, and the kill-switch keeps its own
+  # arm. So `rm -rf …/supercharger`, `rm -rf …/scope` and overwriting a hook are all
+  # still blocked, while reading …/audit/<log> and writing …/scope/<sentinel> pass.
+  _HT_TARGET='(\.claude/supercharger/(hooks|lib|tools)/|/supercharger/(hooks|lib|tools)/|\.claude/hooks/|\.claude/plugins/[^;&|]*/hooks/|\.claude/supercharger/?([[:space:]]|$)|\.claude/supercharger/(scope|audit)/?([[:space:]]|$)|\.supercharger-disabled)'
   # v2.23.22: PowerShell cmdlet verbs added for cross-channel parity (matcher now
   # Bash,PowerShell) — Remove-Item/Move-Item/Rename-Item/Clear-Content/Set-Content/
   # Out-File are the PowerShell equivalents of rm/mv/truncate/redirect over the hooks.
@@ -82,18 +91,13 @@ if [ -z "$REASON" ]; then
   # merely mentioned the install dir was denied. Same class as the `cat
   # scope/.disabled-hooks` false positive already fixed in safety.sh's selfmod.
   _HT_VERB='(^|[[:space:];&|(])(rm|unlink|mv|truncate|shred|chmod|chattr|touch|sed[[:space:]]+-i|tee|dd[[:space:]]+of=|:[[:space:]]*>|>>?|Remove-Item|Move-Item|Rename-Item|Clear-Content|Set-Content|Add-Content|Out-File)([[:space:]]|>)|(^|[[:space:];&|(])ln[[:space:]]+(-|[^[:space:]]*/)'
-  # v2.24.6: writing a scope SENTINEL is normal, documented operation — /perf tells
-  # users to `touch …/scope/.profiling`, and autopilot/readonly/strict/profile write
-  # flags there constantly. Those paths live under the install dir, so the target
-  # pattern matched them and this guard blocked its own documented controls. Strip
-  # scope-FILE references before the target test.
-  # Deliberately still blocked: the kill-switch also lives in scope/, so it is
-  # re-tested against the ORIGINAL command — creating .supercharger-disabled is a
-  # teardown. `rm -rf …/scope` (the directory, no filename) is not stripped either.
+  # Writing a scope SENTINEL is normal, documented operation — /perf tells users to
+  # `touch …/scope/.profiling`, and autopilot/readonly/strict/profile write flags
+  # there constantly. That is handled by _HT_TARGET above matching scope/ only as a
+  # whole directory, so no separate stripping pass is needed.
   # .disabled-hooks / .disabled-security-categories stay covered by safety.sh's
   # selfmod category, which is independent of this guard.
-  _CMD_SCAN=$(printf '%s' "$CMD" | sed -E 's#[^[:space:];&|"'"'"']*/scope/\.[A-Za-z0-9_.-]+##g')
-  if printf '%s' "$CMD" | grep -Eq -- "$_HT_VERB" && { printf '%s' "$_CMD_SCAN" | grep -Eq -- "$_HT_TARGET" || printf '%s' "$CMD" | grep -Eq -- '\.supercharger-disabled'; }; then
+  if printf '%s' "$CMD" | grep -Eq -- "$_HT_VERB" && printf '%s' "$CMD" | grep -Eq -- "$_HT_TARGET"; then
     REASON="removes, disables, or overwrites Supercharger hook scripts / install dir / kill-switch — this tears down the guardrail layer. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
   fi
 fi

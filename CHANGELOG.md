@@ -2,6 +2,14 @@
 
 ## Contents
 
+- [2.24.10] - 2026-07-30 — fix(guards): **2.24.9's `harness-tamper-guard` fix was incomplete — the false positive survived it, and only showed up when tested against the DEPLOYED copy with real literal paths.** 2.24.9 stripped scope-*file* references before the target test, which fixed `touch …/scope/.profiling` in isolation. It did not fix the actual reported case, because the install-dir arm was still `\.claude/supercharger([/[:space:]]|$)` — **any** path beneath the install dir, including the audit **logs**. Since the verb and target tests match independently, and on *different lines* of a compound command, reading an audit log in the same command as any `touch`/`rm` was still denied. It passed 2.24.9's tests only because those tests used single-purpose commands.
+
+  Fixed at the target instead of by stripping, which also let the stripping pass be deleted rather than leaving two overlapping mechanisms: the **code** directories (`hooks/`, `lib/`, `tools/`) match per-file; the install dir and the **data** directories (`scope/`, `audit/`) match only as whole **directories**; the kill-switch keeps its own arm. So `rm -rf …/supercharger`, `rm -rf …/scope`, `rm -rf …/audit`, `rm …/tools/autopilot.sh` and overwriting `lib/utils.sh` or a hook are all still denied, while **reading** `…/audit/<log>` and **writing** `…/scope/<sentinel>` now pass.
+
+  Verified the way 2.24.9 should have been: against the deployed hook, with fully literal `$HOME/.claude/supercharger/...` paths in one compound command — audit read (69 lines), sentinel create, sentinel remove, all three now succeed. +5 tests, including the exact multi-line shape that survived 2.24.9. Full suite **2607/0**.
+
+  **Method note:** the earlier verification used a string-concatenation trick (`"$HOME/.claude/superch""arger"`) to route around the guard while working. That habit hid the bug — the concatenated path never matched the target pattern, so the false positive looked fixed. A guard fix has to be exercised with the literal input a user would type.
+
 - [2.24.9] - 2026-07-30 — fix(guards): **three guards were blocking legitimate work, two of them read-only commands — and narrowing one of them exposed a detection gap the old pattern had.** All three were hit while verifying the v2.24.5 MCP fix: the guards blocked the very steps needed to read the audit log and enable the documented profiling sentinel.
 
   **`harness-tamper-guard`, false positive 1 — a Python loop variable.** `ln` sat in the verb alternation as a bare two-letter token, so `for ln in open(f):` inside an inlined script read as the symlink command. The verb and target tests are *independent* — either may match on any line — so a purely **read-only** command that merely mentioned the install dir was denied. `ln` now requires a following `-flag` or a `/`-bearing path. Same class as the `cat scope/.disabled-hooks` false positive already fixed in safety.sh's selfmod.
