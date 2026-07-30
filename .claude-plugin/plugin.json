@@ -1,7 +1,7 @@
 {
   "name": "supercharger",
   "description": "Shell-level guardrails for Claude Code. Command blocking, code security scanner, self-teaching, token economy, agent routing, MCP profiles, and session memory.",
-  "version": "2.25.3",
+  "version": "2.26.0",
   "author": {
     "name": "smrafiz"
   },
@@ -32,6 +32,12 @@
       "title": "MCP profile",
       "description": "Which MCP servers to surface: light, dev, research, or full.",
       "default": "light"
+    },
+    "write_settings": {
+      "type": "string",
+      "title": "Write statusline + prompt-cache settings",
+      "description": "A plugin cannot declare statusLine, env or attribution, so these are written to ~/.claude/settings.json on first run if you say yes. Backed up first; undo with tools/plugin-setup.sh --revert. Answer 'no' to keep the plugin entirely within its own space.",
+      "default": "no"
     }
   },
   "commands": [
@@ -48,5 +54,6 @@
     "./configs/agents/researcher.md",
     "./configs/agents/reviewer.md",
     "./configs/agents/writer.md"
-  ]
+  ],
+  "mcpServers": "./configs/mcp-servers.json"
 }

@@ -127,7 +127,18 @@ get_hooks_for_mode() {
   # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
   # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops
   # under the installer (CLAUDE_PLUGIN_ROOT unset); never clobbers an existing file.
+  # v2.26.0: install.sh refuses without jq/python3, but a PLUGIN install has no
+  # install step and nothing ever checked — 103 of 138 hooks use jq, 122 use
+  # python3. Missing, the guards degrade silently. Warns once per missing-set,
+  # on both channels (a classic install can lose a dependency later too).
+  hooks+=("SessionStart||${hooks_dir}/dependency-preflight.sh|")
   hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
+  # v2.26.0: writes the three settings.json keys a plugin cannot declare (statusLine,
+  # env.ENABLE_PROMPT_CACHING_1H, attribution). A hook can do this because hooks are
+  # not tool calls — no guard is involved and, unlike the toggle-the-kill-switch
+  # approach, none is ever disabled. Opt-in via the `write_settings` userConfig, and a
+  # no-op entirely under the installer runtime.
+  hooks+=("SessionStart||${hooks_dir}/plugin-settings-seed.sh|")
   hooks+=("SessionStart||${hooks_dir}/config-scan.sh|")
   hooks+=("SessionStart||${hooks_dir}/standards-inject.sh|")
   # Plugin-only prompt-layer delivery: emits configs/universal/*.md as SessionStart
