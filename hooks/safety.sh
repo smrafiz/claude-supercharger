@@ -395,6 +395,30 @@ CRED_CMD_PATTERNS=(
   'git[[:space:]]+config[^;&|]*credential\.helper[[:space:]]+store'
   # dump the OS credential store
   '(security[[:space:]]+dump-keychain|secret-tool[[:space:]]+lookup|(^|[[:space:]])cmdkey[[:space:]]+/list)'
+  # v2.24.13: targeted Keychain READS. `dump-keychain` was covered, but the
+  # single-item lookups were not — and they are the form actually used, since they
+  # need no GUI confirmation and return one credential straight to stdout:
+  #   security find-generic-password -s github -w     (token/password by service)
+  #   security find-internet-password -s github.com -w
+  # `-w` prints the secret alone. Also `export` (bulk key material out of a keychain)
+  # and `find-certificate -p` (PEM incl. private keys where permitted).
+  # This shape was already listed as dangerous in tests/fuzz-safety.sh but no pattern
+  # implemented it, so it sat in the false-negative count as 100 of 300 entries.
+  '(^|[[:space:]])security[[:space:]]+(find-(generic|internet)-password|export|find-certificate)([[:space:]]|$)'
+)
+# v2.24.13: synthetic input injection (category: clipboard — same "drive the user's
+# desktop" surface). `osascript -e 'tell app "System Events" to keystroke ...'` types
+# into whatever window has focus, so it can drive a GUI app, a password prompt, or a
+# terminal the agent is not supposed to touch — an authorization bypass that never
+# goes through a guarded tool. `key code` is the same primitive by keycode, and
+# cliclick is the third-party equivalent. Like the Keychain reads above, this was
+# declared dangerous by the fuzzer (125 of the 300 false negatives) with no pattern
+# behind it. Anchored on the keystroke/click verbs so ordinary osascript automation
+# (notifications, `display dialog`, app queries) still passes.
+INPUT_INJECT_PATTERNS=(
+  'osascript[^;&|]*(keystroke|key[[:space:]]+code)'
+  '(^|[[:space:]])cliclick([[:space:]]|$)'
+  'osascript[^;&|]*System[[:space:]]+Events[^;&|]*(click|perform[[:space:]]+action)'
 )
 
 # 2.22.11: PowerShell-native destructive / code-exec / remote-fetch-to-exec /
@@ -423,6 +447,7 @@ _cat_enabled "network" && DANGEROUS_PATTERNS+=("${EXFIL_PATTERNS[@]}")
 _cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
 _cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${PERSIST_PATTERNS[@]}")
 _cat_enabled "credentials" && DANGEROUS_PATTERNS+=("${CRED_CMD_PATTERNS[@]}")
+_cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
