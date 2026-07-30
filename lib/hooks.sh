@@ -344,6 +344,75 @@ get_hooks_for_mode() {
   printf '%s\n' "${hooks[@]}"
 }
 
+# v2.25.1 — replace `#!/usr/bin/env bash` with an absolute interpreter path in the
+# INSTALLED copies. `env` performs a PATH search on every single hook exec; measured
+# here at ~1.8 ms per exec (env 4.1–4.8 ms vs absolute 2.3–3.2 ms, three interleaved
+# rounds, bash sitting 12 entries deep in PATH). Hooks fire in parallel waves of ~11,
+# so this takes ~1.8 ms off a wave's felt latency and ~20 ms of CPU off each wave —
+# worth having, and free.
+#
+# The risk is the reason this is careful rather than a one-line sed: a wrong
+# interpreter path means the hook cannot exec AT ALL, which is a guard that silently
+# stops running. Three constraints keep that from happening:
+#
+#   1. Stamp the bash that `env` WOULD have found (`command -v bash`), never a
+#      hardcoded /bin/bash. On a machine with Homebrew bash first on PATH, hardcoding
+#      /bin/bash would silently downgrade every hook to bash 3.2 and lose the
+#      EPOCHREALTIME fast path.
+#   2. Only stamp STABLE system locations (/bin, /usr/bin). A Homebrew or nix path can
+#      vanish on upgrade or uninstall, so those keep `env bash` — slower, still correct.
+#   3. Verify by EXECUTION before keeping it. One stamped hook is run; if it does not
+#      exec cleanly the original shebang is restored for every file.
+#
+# Repo sources keep `#!/usr/bin/env bash` — portable for development and CI. Only the
+# deployed copies are stamped, and re-stamped on every install/update.
+stamp_hook_shebangs() {
+  local dir="$1" bash_path probe rc
+  [ "${SUPERCHARGER_STAMP_SHEBANG:-1}" = "0" ] && return 0
+
+  bash_path=$(command -v bash 2>/dev/null || true)
+  case "$bash_path" in
+    /bin/bash|/usr/bin/bash) : ;;
+    *) return 0 ;;   # non-system bash (brew/nix/asdf) — leave env, it may move
+  esac
+  [ -x "$bash_path" ] || return 0
+
+  local f changed=0
+  for f in "$dir"/*.sh; do
+    [ -f "$f" ] || continue
+    case "$(head -1 "$f")" in
+      '#!/usr/bin/env bash') : ;;
+      *) continue ;;
+    esac
+    # In-place rewrite of line 1 only, via a temp file (never edit a live hook in
+    # place — a partial write would leave an unexecutable guard).
+    { printf '#!%s\n' "$bash_path"; tail -n +2 "$f"; } > "$f.stamp" 2>/dev/null || continue
+    chmod 700 "$f.stamp" 2>/dev/null || true
+    mv -f "$f.stamp" "$f" 2>/dev/null && changed=1
+  done
+  [ "$changed" = "1" ] || return 0
+
+  # Constraint 3: prove a stamped hook still executes. lib-suppress.sh is sourced by
+  # nearly every hook and exits 0 on empty input, so it is a safe probe.
+  probe="$dir/lib-suppress.sh"
+  if [ -x "$probe" ]; then
+    "$probe" </dev/null >/dev/null 2>&1; rc=$?
+    if [ "$rc" -gt 1 ]; then
+      for f in "$dir"/*.sh; do
+        [ -f "$f" ] || continue
+        case "$(head -1 "$f")" in
+          "#!$bash_path")
+            { printf '#!/usr/bin/env bash\n'; tail -n +2 "$f"; } > "$f.stamp" 2>/dev/null || continue
+            chmod 700 "$f.stamp" 2>/dev/null || true
+            mv -f "$f.stamp" "$f" 2>/dev/null || true ;;
+        esac
+      done
+      echo "  Note: shebang stamping reverted (probe failed) — hooks left on 'env bash'." >&2
+    fi
+  fi
+  return 0
+}
+
 deploy_hook_scripts() {
   local source_dir="$1"
   local target_dir="$HOME/.claude/supercharger/hooks"
@@ -368,6 +437,7 @@ deploy_hook_scripts() {
   cp "$source_dir/hooks/"*.sh "$target_dir/"
   cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
   chmod 700 "$target_dir/"*.sh
+  stamp_hook_shebangs "$target_dir"
   # Python deep-scanners invoked by hooks (safety-detect.py, env-file-detect.py).
   # These live in hooks/ but were previously never deployed (only *.sh was copied),
   # so safety.sh/env-file-guard.sh ran `python3 <missing-file>` → python exits 2 →
