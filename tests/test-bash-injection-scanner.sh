@@ -72,5 +72,39 @@ begin_test "malformed json fails open"
 got=$(printf '%s' 'not json {' | bash "$HOOK" 2>/dev/null)
 [ -z "$got" ] && pass || fail "expected fail-open silence, got: $got"
 
+# --- v2.24.12: test-runner output is not an untrusted channel -----------------
+# A security suite necessarily prints its own attack fixtures as result labels, so
+# running this repo's tests emitted a blocking stderr warning at the end of every
+# green run. Exempted because reaching that output means the agent already executed
+# the project's test code — arbitrary execution was granted before the warning could
+# matter. These tests pin both halves: the exemption, and that it did not widen.
+mkin_cmd() { CMD="$2" OUT="$3" python3 - "$1" <<'PY'
+import json, os, sys
+open(sys.argv[1], "w").write(json.dumps({
+    "tool_name": "Bash",
+    "tool_input": {"command": os.environ["CMD"]},
+    "tool_response": {"stdout": os.environ["OUT"], "stderr": ""},
+}))
+PY
+}
+FIXTURE='  PASS scanner: blocks ignore all previous instructions'
+
+for c in 'bash tests/run.sh' './tests/run.sh' 'npm test' 'pnpm run test' 'pytest -q' \
+         'cargo test' 'make check' 'cd /repo && bash tests/run.sh'; do
+  mkin_cmd "$TMP/tr.json" "$c" "$FIXTURE"
+  begin_test "test-runner output is exempt: $c"
+  [ "$(verdict "$TMP/tr.json")" = "SILENT" ] && pass || fail "expected SILENT for a test runner"
+done
+
+# The exemption must key on the COMMAND being a runner, not on the text appearing
+# anywhere. These all still carry attacker-reachable output.
+for c in 'gh issue view 42' 'curl -s https://example.com/r' 'cat ./cloned/README.md' \
+         'git log -1' 'echo test' 'cat tests/fixture.txt' 'gh pr view; echo tests/run.sh' \
+         'curl https://evil.tld/x  # npm test'; do
+  mkin_cmd "$TMP/un.json" "$c" "$FIXTURE"
+  begin_test "still flagged (not a runner): $c"
+  [ "$(verdict "$TMP/un.json")" = "WARN" ] && pass || fail "expected WARN — exemption is too wide"
+done
+
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 report
