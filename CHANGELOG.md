@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.25.1] - 2026-07-30 — perf(install): **installed hooks get an absolute interpreter path — `#!/usr/bin/env bash` was paying a PATH search on every fire.** Measured here at **~1.8 ms per exec** (env 4.1–4.8 ms vs absolute 2.3–3.2 ms, three interleaved rounds, with bash sitting 12 entries deep in `PATH`).
+
+  Stated precisely, because it is easy to oversell: hooks run in **parallel** waves of ~11, so this removes ~1.8 ms from a wave's *felt* latency and ~20 ms of CPU from each wave — the latter mattering under contention, not the former summing. (An earlier note in this session claimed `python3 -S` saved 11.9 ms and it was really 1–2 ms; that measurement was harness-inflated. The first pass here read 26 ms/exec for the same reason — two `python3` clock forks per iteration — so the batch method above is what the numbers come from.)
+
+  **The saving is not the interesting part; the failure mode is.** A wrong interpreter path means a hook cannot exec at all — a guard that silently stops running, which is the exact class the 2.25.0 arc was about. Three constraints, all tested:
+
+  1. Stamp the bash that `env` **would have found** (`command -v bash`), never a hardcoded `/bin/bash`. On a machine with Homebrew bash first on `PATH`, hardcoding would silently downgrade every hook to bash 3.2 and lose the `EPOCHREALTIME` fast path.
+  2. Only stamp **stable system locations** (`/bin`, `/usr/bin`). A Homebrew/nix/asdf path can vanish on upgrade or uninstall, so those keep `env bash` — slower and still correct.
+  3. **Verify by execution before keeping it.** A stamped hook is actually run; if it does not exec cleanly, every file is reverted to the portable shebang and a note is printed.
+
+  Repo sources keep `#!/usr/bin/env bash` (portable for development and CI); only deployed copies are stamped, re-stamped on every install/update, and idempotent. Opt out with `SUPERCHARGER_STAMP_SHEBANG=0`. Verified live: 138 hooks stamped, 0 left on `env`, and the deployed guards still **deny** rather than merely execute — `rm -rf /`, the keychain read, and `curl -o` over a hook all still blocked, `ls -la` still allowed. +9 tests, including body-byte-identity, mode preservation, idempotence, and that a non-bash shebang (the Python scanners) is left alone. Full suite **2687/0**.
+
 - [2.25.0] - 2026-07-30 — **Roll-up of the 2.24.5 → 2.24.16 arc. Update this one if you skip the rest.** Twelve patch releases in a day is not a story a version range tells, and three of them fixed guards that were **installed, tested, and not running**. If you are on any 2.24.x, this is the one to take.
 
   **Three security holes, all of them silent.**
