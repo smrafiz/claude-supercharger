@@ -2,6 +2,14 @@
 
 ## Contents
 
+- [2.25.2] - 2026-07-30 — fix(guards): **`.env` was matched as a substring, so `os.environ` in a command read as "sensitive file access".** `safety-detect.py`'s `_SENSITIVE_NAME_RE` carried `\.env(?:\.[a-zA-Z0-9_-]+)?` with **no terminator**, so the token matched inside ordinary identifiers — `os.environ`, `process.environ`, `.environment`, `.environment_notes`. Any reader command (`cat`, `grep`, `head`, `sed`, `awk`) whose arguments happened to contain one was denied. Hit repeatedly while inspecting the guards themselves, which is how it surfaced: the guard blocked reading the file that defines it.
+
+  **The trap in fixing it, which is the part worth recording.** The obvious terminator — `\b`, or `(?!\w)` alone — silently drops **`.envrc`**. direnv keeps secrets there, and it had only ever matched *because* the pattern was unbounded. Terminating the token without carrying `(?:rc)?` would have removed a real file from the sensitive set while every existing test stayed green: a guard that stops over-blocking by quietly under-blocking, which is worse than the false positive it fixes. The shipped pattern is `\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?(?!\w)`, and a hyphen still terminates so `.env-local` is unaffected.
+
+  Checked the whole family before assuming this was one instance: `safety-detect.py` has eight `.env` sites and `env-file-detect.py` five — **every other one already uses `\b` or a lookahead**, so there was no cross-channel drift to chase here, only this single unbounded token.
+
+  +14 tests pinning both directions — the five false positives must stop, and `.env`, `.env.local`, `.env.production`, `.env-local`, `.envrc`, `~/.ssh/id_rsa` and `credentials.json` must all still be caught. Verified to fail against the pre-fix pattern (3 of 14, the reader-command cases). Fuzz differential unchanged at 5,705 runs / 0 FN / 0 FP. Full suite **2701/0**.
+
 - [2.25.1] - 2026-07-30 — perf(install): **installed hooks get an absolute interpreter path — `#!/usr/bin/env bash` was paying a PATH search on every fire.** Measured here at **~1.8 ms per exec** (env 4.1–4.8 ms vs absolute 2.3–3.2 ms, three interleaved rounds, with bash sitting 12 entries deep in `PATH`).
 
   Stated precisely, because it is easy to oversell: hooks run in **parallel** waves of ~11, so this removes ~1.8 ms from a wave's *felt* latency and ~20 ms of CPU from each wave — the latter mattering under contention, not the former summing. (An earlier note in this session claimed `python3 -S` saved 11.9 ms and it was really 1–2 ms; that measurement was harness-inflated. The first pass here read 26 ms/exec for the same reason — two `python3` clock forks per iteration — so the batch method above is what the numbers come from.)

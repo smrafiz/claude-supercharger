@@ -1,0 +1,56 @@
+#!/usr/bin/env bash
+# Sensitive-filename token boundaries (v2.25.2)
+#
+# safety-detect.py's _SENSITIVE_NAME_RE matched `.env` with no terminator, so it fired
+# on the substring inside ordinary identifiers — `os.environ`, `process.environ`,
+# `.environment`. Any reader command (cat/grep/head/sed/awk…) whose arguments happened
+# to contain one was denied as "sensitive file access: .env — credentials likely
+# present". Hit repeatedly while inspecting the guards themselves.
+#
+# The trap when fixing it: the obvious terminator (`\b` or `(?!\w)`) silently DROPS
+# `.envrc`, which direnv uses and which holds secrets — it only matched before
+# BECAUSE the pattern was unbounded. So the fix carries `(?:rc)?`, and both halves are
+# pinned below: the false positives must stop, and every real filename must still be
+# caught. A guard that stops over-blocking by quietly under-blocking is worse than the
+# false positive it fixed.
+REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+
+DETECT="$REPO_DIR/hooks/safety-detect.py"
+
+echo "=== Sensitive Filename Boundary Tests ==="
+
+# Ask safety-detect.py directly: does it flag this command?
+flags() { CMD="$1" python3 "$DETECT" 2>/dev/null; }
+
+expect_flag() { # label cmd
+  begin_test "$1"
+  local out; out=$(flags "$2")
+  [ -n "$out" ] && pass || fail "expected a block for: $2"
+}
+expect_clean() { # label cmd
+  begin_test "$1"
+  local out; out=$(flags "$2")
+  [ -z "$out" ] && pass || fail "false positive: $out — for: $2"
+}
+
+# --- real sensitive files must STILL be caught ---
+expect_flag "still blocks: cat .env"                 'cat .env'
+expect_flag "still blocks: cat .env.local"           'cat .env.local'
+expect_flag "still blocks: cat .env.production"      'cat .env.production'
+expect_flag "still blocks: cat /srv/app/.env"        'cat /srv/app/.env'
+expect_flag "still blocks: grep in .env"             'grep SECRET .env'
+expect_flag "still blocks: head .env-local"          'head .env-local'
+# The one a naive boundary fix would have silently dropped.
+expect_flag "still blocks: cat .envrc (direnv)"      'cat .envrc'
+expect_flag "still blocks: cat ~/.aws/credentials"   'cat ~/.aws/credentials.json'
+expect_flag "still blocks: cat id_rsa"               'cat ~/.ssh/id_rsa'
+
+# --- the false positives that motivated this ---
+expect_clean "allows python reading os.environ"      'python3 -c "import os; print(os.environ)"'
+expect_clean "allows os.environ in a longer command" 'head -3 log.txt; python3 -c "print(os.environ[\"X\"])"'
+expect_clean "allows process.environ in JS"          'grep -rn "process.environ" src/'
+expect_clean "allows a .environment identifier"      'grep -rn settings.environment src/'
+expect_clean "allows an .environment_notes file"     'cat notes/.environment_notes'
+
+report
