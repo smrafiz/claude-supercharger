@@ -52,6 +52,27 @@ smart_approve_verdict() {
   # keeps that mandatory confirm from being swallowed. Tighten beats loosen.
   local _ci_tool _ci_path
   _ci_tool=$(printf '%s\n' "$input" | jq -r '.tool_name // empty' 2>/dev/null || true)
+
+  # v2.26.1: turning Supercharger OFF is never auto-approved.
+  #
+  # `sc-toggle.sh off` sets the kill-switch, after which EVERY guard exits 0 — so the
+  # three-step "disable, act, re-enable" makes every other protection here moot. The
+  # toggle is a legitimate user control, so it cannot be denied outright; what must not
+  # happen is it going through unseen. Measured before writing this: the toggle command
+  # passed harness-tamper, safety and path-guard, and with the flag set both safety and
+  # path-guard then allowed a settings.json write they otherwise deny.
+  #
+  # Placed here, before the autopilot loop, for the same reason as critical-infra:
+  # autopilot returns 0 for everything, so a later decline would be swallowed exactly
+  # when the user is least likely to be watching. Tighten beats loosen.
+  if [ "$_ci_tool" = "Bash" ] || [ "$_ci_tool" = "PowerShell" ]; then
+    local _sc_cmd
+    _sc_cmd=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+    case "$_sc_cmd" in
+      *sc-toggle*off*|*sc-toggle*disable*) return 1 ;;
+    esac
+  fi
+
   case "$_ci_tool" in
     Write|Edit|MultiEdit|NotebookEdit)
       _ci_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)

@@ -43,7 +43,14 @@ check "redirect over a hook"           "echo x > ~/.claude/supercharger/hooks/sa
 
 # --- should PASS (legit / unrelated) ---
 check "update.sh runs"                 "bash ~/.claude/supercharger/tools/update.sh --yes"    SILENT
-check "sc-toggle off runs"             "bash ~/.claude/supercharger/tools/sc-toggle.sh off"   SILENT
+# v2.26.1: `sc-toggle off` now raises a CONFIRM rather than passing silently. It sets
+# the kill-switch, after which every hook exits 0 — one command retires every other
+# guard, which is the first step a prompt injection would want. It stays permitted
+# (ASK, not DENY) because /sc off is a documented user control; what changed is that it
+# can no longer happen unseen. See tests/test-selfdisable-confirm.sh for the full
+# contract, including that autopilot cannot swallow the confirm.
+check "sc-toggle off asks for confirmation" "bash ~/.claude/supercharger/tools/sc-toggle.sh off" ASK
+check "sc-toggle on runs"              "bash ~/.claude/supercharger/tools/sc-toggle.sh on"    SILENT
 check "repo-relative dev chmod"        "chmod +x hooks/foo.sh"                                SILENT
 check "listing the hooks dir"          "ls ~/.claude/supercharger/hooks/"                     SILENT
 check "reading a hook"                 "cat ~/.claude/supercharger/hooks/safety.sh"           SILENT

@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.1] - 2026-07-30 — fix(security): **the agent could switch Supercharger off, and nothing asked.** `sc-toggle.sh off` writes the kill-switch, after which every hook exits 0 — so one command retires every other guard at once. Measured before writing the fix: the toggle passed `harness-tamper-guard`, `safety.sh` **and** `path-guard`, and with the flag set both `safety.sh` and `path-guard` then permitted a `settings.json` write they otherwise deny. Disable → act → re-enable worked end to end.
+
+  That is the first step a prompt injection would want, and it partially undercut a claim in the README, which says path-guard closes *"the pattern where agents disable their own guardrails."* Direct writes to `settings.json` and `.disabled-security-categories` **are** blocked — verified — but the toggle tool was an unguarded side door to the same outcome.
+
+  **ASK, not DENY**, because `/sc off` is a documented user control that must keep working; what changes is that it can no longer happen unseen. The confirm names the consequence ("every guard is inactive") and says plainly that an injected instruction would want exactly this step first.
+
+  **The half that actually closes it:** an `ask` alone would be theatre, because **autopilot auto-approves everything** — precisely when nobody is watching. `lib-smart-approve` now declines to auto-approve the disable **before** the autopilot loop, the same placement and reasoning already used for critical-infra and lockfile edits. Tighten beats loosen. Verified both ways: with an active autopilot window the disable is not auto-approved, while an ordinary `ls -la` still is.
+
+  Also fixed: `bash-injection-scanner` hardcoded `~/.claude/supercharger/scope/.debug-hooks`, so its debug flag never worked on a plugin install; it now honors `SUPERCHARGER_STATE`.
+
+  +12 tests. One **existing** assertion changed deliberately — `test-harness-tamper-guard` asserted `sc-toggle off` passes SILENT, which is exactly the behavior being fixed; it now asserts ASK, with `/sc on` and `status` pinned as ungated so the change cannot creep. Full suite **2771/0**.
+
 - [2.26.0] - 2026-07-30 — **feat(plugin): the plugin edition reaches feature parity with the installer — MCP servers, statusline, prompt cache, attribution, and a dependency preflight.** Four gaps closed, one deliberately left, one platform still unsupported.
 
   **MCP servers now ship with the plugin.** The manifest carried no `mcpServers` key and there was no `.mcp.json`, so a plugin install had *none* of Supercharger's servers — a gap nobody had noticed because the `mcp_profile` option was still prompted for and seeded, with nothing to act on. The reference confirms plugins support MCP natively, so `configs/mcp-servers.json` now ships context7, sequential-thinking, playwright and magic-ui, referenced via `"mcpServers": "./configs/mcp-servers.json"`. **Deliberately not a `.mcp.json` at the repo root:** the repo *is* the plugin root, so that filename would also load as a project-level MCP config for anyone developing Supercharger itself.
