@@ -64,6 +64,33 @@ begin_test "committed baseline exists and parses"
 [ -f "$REPO_DIR/docs/perf-baseline.json" ] && python3 -c "import json;json.load(open('$REPO_DIR/docs/perf-baseline.json'))" 2>/dev/null && pass || fail "baseline missing/unparseable"
 
 # --- statusline target (Phase 2, item 2) -------------------------------------
+begin_test "--target all sweeps every registered event and ranks by BLOCKING cost"
+# The instrument built to catch accumulation only ever looked at PreToolUse/Bash and
+# the statusline, so a 27.7ms blocking hook on every assistant message stayed
+# invisible for four releases and surfaced only because someone asked. Measuring one
+# hot path is how you miss the next one.
+AOUT=$(bash "$HARNESS" --target all --iterations 1 2>/dev/null)
+{ printf '%s' "$AOUT" | grep -q 'blocking ms' \
+  && printf '%s' "$AOUT" | grep -q 'PreToolUse' \
+  && printf '%s' "$AOUT" | grep -q 'UserPromptSubmit'; } \
+  && pass || fail "sweep missing events or the blocking column: $AOUT"
+
+begin_test "--target all ranks on blocking cost, not the sequential sum"
+# Ranking by sum would send the reader optimising async hooks nobody waits for —
+# the error HOOK-LATENCY-PLAN Phase 4 warned about. PostToolUse is the discriminator:
+# it has a large sum and a small blocking share, so a sum-ranked table puts it near
+# the top and a blocking-ranked one does not.
+python3 - <<PY >/dev/null 2>&1 && pass || fail "table is not ordered by the blocking column"
+import re,sys
+rows=[]
+for line in '''$AOUT'''.splitlines():
+    m=re.match(r'\s+(\w+)\s+(\d+)\s+([\d.]+)\s+([\d.]+)\s', line)
+    if m: rows.append((m.group(1), float(m.group(3))))
+assert len(rows) >= 5, rows
+vals=[v for _,v in rows]
+assert vals == sorted(vals, reverse=True), rows
+PY
+
 begin_test "--target statusline reports cold and warm renders"
 SOUT=$(bash "$HARNESS" --target statusline --iterations 2 2>/dev/null)
 { printf '%s' "$SOUT" | grep -q "cold (miss)" && printf '%s' "$SOUT" | grep -q "warm (hit)"; } \

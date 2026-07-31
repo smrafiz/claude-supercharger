@@ -2,6 +2,27 @@
 
 ## Contents
 
+- [2.26.13] - 2026-08-01 — feat(perf): **the latency instrument only ever looked at two hot paths, which is how the 2.26.12 regression survived four releases.** `perf-chain.sh --target all` now sweeps **every** registered event and ranks them by the cost a user actually waits behind. CI runs it on every push. Measuring one hot path is how you miss the next one.
+
+  **It ranks on BLOCKING cost, not the sequential sum.** Ranking by sum puts `PostToolUse` near the top (391 ms) when only 33 ms of that blocks anything — it would send the reader optimising async hooks nobody waits for, the exact error HOOK-LATENCY-PLAN Phase 4 warned about. The sum stays visible as the CPU/fork story. A test pins the ordering, using `PostToolUse` as the discriminator precisely because its two columns disagree.
+
+  Payloads are now shaped per event. A hook that cannot find the field it reads exits on its first line, so feeding a Bash tool payload to `MessageDisplay` measured a hook that found no message — the instrument would have reported the cost of bailing out.
+
+  First sweep, blocking ms (macOS, 3 iterations):
+
+  | event | hooks | blocking | sum | slowest blocking |
+  |---|---:|---:|---:|---|
+  | UserPromptSubmit | 13 | **204.9** | 287.7 | `agent-router.sh` @ 31.0 |
+  | SessionStart | 11 | 189.1 | 1838.3 | `session-memory-inject.sh` @ 83.7 |
+  | PreCompact | 2 | 141.7 | 141.7 | `compaction-backup.sh` @ 136.0 |
+  | SubagentStop | 7 | 118.7 | 187.7 | `agent-handoff-gate.sh` @ 50.0 |
+  | PreToolUse | 17 | 71.7 | 71.7 | `budget-cap.sh` @ 6.7 |
+  | PostToolUse | 13 | 32.7 | 391.3 | `bash-output-compactor.sh` @ 17.0 |
+
+  **`UserPromptSubmit` is the largest blocking cost in the system at ~205 ms, and it fires on every prompt** — nearly 3× `PreToolUse`, which is where all the tuning went. Recorded, not acted on: the §3b concurrency measurement covers `PreToolUse` only, so whether these 13 hooks parallelise is unknown and the felt figure could be a fraction of the sum. Phase 4's rule stands — measure the felt number before optimising anything.
+
+  Suite 2830/0.
+
 - [2.26.12] - 2026-08-01 — perf(hooks): **the MessageDisplay redactor added in 2.26.8 cost 27.7 ms on every assistant message — the comment said the cheap gate ran first, the code ran it last.** `display-secret-redactor.sh` forked `python3` to parse the payload **before** reaching the grep that decides whether there is anything to do. It is a blocking hook on a per-message path, so that was four times the warm statusline render, paid on every reply.
 
   Gating on the raw payload before any parsing: **27.7 → 7.2 ms** in the normal no-secret case, level with the warm statusline. Python is forked only when a credential is actually present (55 ms, rare, and correctness beats speed there). Matching the raw JSON is safe for this: every `SECRET_PATTERNS` shape is alphanumerics plus `-_/+.:`, none of which JSON escapes, so a credential in `message_text` appears verbatim in the payload. The direction of error is a wasted fork on a rare input, never a miss — and the extracted text is re-checked before anything is redacted, so a token living in some other field cannot cause a false redaction.

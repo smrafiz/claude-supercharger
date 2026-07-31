@@ -74,6 +74,15 @@ jobs:
             --chain /tmp/perf-chain.json \
             --statusline /tmp/perf-statusline.json
 
+      # Every registered event, ranked by the cost a user waits behind. The chain
+      # and statusline targets above cover two hot paths; this covers the ones
+      # nobody thought to name — which is how a 27.7ms per-message hook survived
+      # four releases (2.26.8 -> 2.26.12).
+      - name: Hook cost by event (all events)
+        run: |
+          set -euo pipefail
+          bash tests/perf-chain.sh --target all --iterations 3 | tee -a "$GITHUB_STEP_SUMMARY"
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}

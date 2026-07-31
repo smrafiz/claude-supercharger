@@ -70,8 +70,39 @@ PY
 }
 
 # Build the tool payload for a command; write to $1.
+# Build the payload for EVENT. v2.26.13: shaped per event, because a hook that
+# cannot find the field it reads exits on its first line, and the harness then
+# reports the cost of bailing rather than the cost of working. Feeding a Bash tool
+# payload to MessageDisplay measures a hook that found no message.
 _payload() {
-  TOOL="$TOOL" C="$2" REPO="$REPO" python3 -c 'import json,os,sys;open(sys.argv[1],"w").write(json.dumps({"session_id":"perfchain","tool_name":os.environ["TOOL"],"tool_input":{"command":os.environ["C"]},"cwd":os.environ["REPO"]}))' "$1"
+  TOOL="$TOOL" C="$2" REPO="$REPO" EVENT="$EVENT" python3 - "$1" <<'PY'
+import json, os, sys
+tool, cmd, repo, event = os.environ["TOOL"], os.environ["C"], os.environ["REPO"], os.environ["EVENT"]
+base = {"session_id": "perfchain", "cwd": repo, "hook_event_name": event}
+prose = ("Here is a representative assistant reply about refactoring the parser "
+         "and updating the tests so the suite stays green. ") * 6
+extra = {
+    "MessageDisplay":      {"message_text": prose},
+    "UserPromptSubmit":    {"user_prompt": cmd},
+    "UserPromptExpansion": {"command_name": "deploy", "expanded_prompt": prose},
+    "CwdChanged":          {"previous_cwd": "/tmp"},
+    "Stop":                {"last_assistant_message": prose},
+    "SubagentStop":        {"subagent_name": "explorer", "subagent_type": "explorer",
+                            "last_assistant_message": prose},
+    "SubagentStart":       {"subagent_name": "explorer", "subagent_type": "explorer"},
+    "Notification":        {"notification_type": "idle_prompt", "message": "waiting"},
+    "PostToolUse":         {"tool_name": tool, "tool_input": {"command": cmd},
+                            "tool_response": {"output": "ok"}},
+    "PostToolUseFailure":  {"tool_name": tool, "tool_input": {"command": cmd},
+                            "error": "boom"},
+    "SessionStart":        {"source": "startup"},
+    "SessionEnd":          {"end_reason": "other"},
+    "PreCompact":          {"compaction_trigger": "auto"},
+    "PostCompact":         {"compaction_trigger": "auto"},
+}.get(event, {"tool_name": tool, "tool_input": {"command": cmd}})
+base.update(extra)
+open(sys.argv[1], "w").write(json.dumps(base))
+PY
 }
 
 # ── statusline target (HOOK-LATENCY-PLAN Phase 2, item 2) ─────────────────────
@@ -162,6 +193,53 @@ if os.environ["WRITE_BASELINE"] == "1":
     print("\nwrote statusline baseline -> %s" % path, file=sys.stderr)
 PY
   rm -rf "$TMPD"
+  exit 0
+fi
+
+# ── all-events sweep (v2.26.13) ───────────────────────────────────────────────
+# The instrument built to catch accumulation only ever looked at PreToolUse/Bash
+# and the statusline, so a 27.7 ms BLOCKING hook on every assistant message was
+# invisible to it for four releases (2.26.8 -> 2.26.12) and surfaced only because
+# someone asked. Measuring one hot path is how you miss the next one.
+#
+# This sweeps every event registered in hooks.json and ranks them worst-first, so
+# a new recurring cost has to be looked at rather than found.
+if [ "$TARGET" = "all" ]; then
+  EVENTS=$(python3 -c "
+import json,sys
+print('\n'.join(sorted(json.load(open('$REPO/hooks/hooks.json'))['hooks'])))")
+  echo "Hook cost by event — every registered event, worst BLOCKING first  (${ITERS} iters each)"
+  echo ""
+  printf '  %-22s %6s %11s %9s  %s\n' "event" "hooks" "blocking ms" "sum ms" "slowest blocking hook"
+  for ev in $EVENTS; do
+    line=$(EVENT="$ev" bash "${BASH_SOURCE[0]}" --event "$ev" --iterations "$ITERS" --json 2>/dev/null \
+      | EV="$ev" REPO="$REPO" python3 -c "
+import json,os,sys
+try: d=json.load(sys.stdin)
+except Exception: sys.exit(0)
+# Rank on BLOCKING cost, not the sum. An async hook stalls nobody, and ranking by
+# sum sends the reader optimising something no user waits for — the exact error
+# HOOK-LATENCY-PLAN Phase 4 warned about. The sum stays visible as the CPU story.
+reg = json.load(open(os.path.join(os.environ['REPO'], 'hooks', 'hooks.json')))
+blocking = set()
+for e in reg['hooks'].get(os.environ['EV'], []):
+    for h in e.get('hooks', []):
+        if not (h.get('async') or h.get('asyncRewake')):
+            n = h['command'].split('/hooks/')[-1].split()[0]
+            blocking.add(n)
+p = d['payloads'].get('non-fast-pathed') or list(d['payloads'].values())[0]
+per = p['per_hook_ms']
+bsum = sum(v for k, v in per.items() if k in blocking)
+bslow = max(((k, v) for k, v in per.items() if k in blocking), key=lambda kv: kv[1], default=('-', 0.0))
+print('%09.3f|  %-22s %6d %11.1f %9.1f  %s @ %.1f ms' % (
+    bsum, d['event'], d['hooks'], bsum, p['chain_sum_ms'], bslow[0], bslow[1]))" 2>/dev/null)
+    [ -n "$line" ] && printf '%s\n' "$line"
+  done | sort -rn | cut -d'|' -f2-
+  echo ""
+  echo "blocking ms = the hooks the user actually waits behind. This is the ranking column."
+  echo "sum ms      = every hook including async ones: CPU / fork pressure, not felt latency."
+  echo "Weigh both against FREQUENCY: per-tool-call and per-message events matter far more"
+  echo "than once-per-session ones at the same cost."
   exit 0
 fi
 
