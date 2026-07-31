@@ -47,6 +47,33 @@ jobs:
           bash tools/gen-plugin-hooks.sh --check
           bash tools/gen-plugin-commands.sh --check
 
+  perf:
+    name: Hook latency (report-only)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      # Report-only on purpose (HOOK-LATENCY-PLAN §6): runner variance is larger
+      # than the regressions worth catching, so an absolute ms ceiling would cry
+      # wolf and get muted — worse than no gate. Make the number visible first;
+      # gate once there is enough history to know the noise floor.
+      #
+      # The measurement itself is NOT optional. `set -o pipefail` plus the report
+      # script's own input validation mean a run that produces no numbers fails the
+      # job rather than passing quietly, which is the failure mode this repo keeps
+      # finding: an instrument reporting "fine" because it never ran.
+      - name: Measure hook chain and statusline
+        run: |
+          set -euo pipefail
+          bash tests/perf-chain.sh --iterations 5 --json > /tmp/perf-chain.json
+          bash tests/perf-chain.sh --target statusline --iterations 10 --json > /tmp/perf-statusline.json
+
+      - name: Report against committed baseline
+        run: |
+          bash tools/perf-report.sh \
+            --chain /tmp/perf-chain.json \
+            --statusline /tmp/perf-statusline.json
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}

@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.6] - 2026-07-31 — feat(ci): **CI now reports hook latency on every push — and fails only when it measured nothing.** Closes HOOK-LATENCY-PLAN Phase 3. A new `perf` job runs `tests/perf-chain.sh` for both targets and pipes the JSON into `tools/perf-report.sh`, which writes a markdown table to the job summary.
+
+  **Report-only on the numbers, strict on the measurement.** The plan (§6) is explicit that an absolute ms ceiling would cry wolf on GitHub runners and get muted within a month — worse than no gate. So a slow reading is information, not a failure. But a perf job that measured nothing and stayed green is the exact failure this repo keeps finding: an instrument reporting "fine" because it never ran. The report exits non-zero on absent, unparseable, or empty input. `tests/test-perf-report.sh` (+8) pins both halves — including a doubled reading that must be **flagged and still exit 0**.
+
+  Deltas ≥ 25% are marked ⚠ **except across platforms**. The baseline is recorded on a dev mac, CI runs ubuntu, and that gap is larger than any regression worth catching. `perf-chain.sh` now stamps `platform` into its output; a cross-platform comparison is labelled "indicative only" instead of carrying a warning nobody can act on — a mark that fires on the unactionable trains people to ignore the mark.
+
+  Baseline regenerated while here, and it had drifted a long way: chain sum **173.8 → 69.8 ms** fast-pathed and **196.0 → 82.0 ms** non-fast-pathed, felt cost **29.4 → 7.6 ms** and **36.0 → 8.8 ms**, PreToolUse/Bash hooks 18 → 17. That is real improvement banked between 2.24.9 and 2.26.5 (2.25.1's absolute-interpreter-path stamping among it) that nothing had recorded — the committed baseline was measured 2026-07-29 and never refreshed. Exactly the drift a per-push report exists to stop accumulating unseen.
+
+  Also regenerated `docs/HOOKS.md`: the 2.24.16 drift check caught that `tools/perf-report.sh` was undocumented, which is the check doing its job on the very release that added the file.
+
+  Suite 2794/0.
+
 - [2.26.5] - 2026-07-31 — feat(perf): **the statusline runs on every render and was the one thing the latency plan could not see.** It is registered under `settings.json → statusLine`, not `hooks.json`, so `perf-chain.sh` was structurally blind to it — on the hottest recurring script in the system. Closes HOOK-LATENCY-PLAN Phase 2.
 
   `perf-chain.sh --target statusline` measures it instead of instrumenting it. The plan offered both; measuring won on three counts. Adding `lib-timing.sh` would put an EXIT-trap write on *every* render — a real share of the ~6 ms it would be measuring. It would change the script's `/sc off` behaviour, since `lib-timing.sh` exits at **source** time when the kill-switch is set (`:26-28`) and `statusline.sh` already handles that itself, deliberately, at `:19`. And it would edit a script whose failure is immediately visible to the user, to learn a number obtainable without touching it.

@@ -127,6 +127,7 @@ def stats(s):
             "max_ms": round(max(v), 1), "samples": len(v)} if v else {}
 cold, warm = stats(os.environ["COLD"]), stats(os.environ["WARM"])
 report = {"target": "statusline", "iterations": int(os.environ["ITERS"]),
+          "platform": os.uname().sysname,
           "cold_render": cold, "warm_render": warm}
 if cold and warm and warm["mean_ms"] > 0:
     report["cache_speedup"] = round(cold["mean_ms"] / warm["mean_ms"], 2)
@@ -224,8 +225,12 @@ for label, hook, sec in rows:
     try: by[label][hook] += float(sec)
     except ValueError: pass
 
+# Stamped because these numbers are only comparable within a platform: a baseline
+# written on a dev mac and a reading taken on an ubuntu runner differ by more than
+# any regression would, and a delta computed across the two means nothing.
 report = {"event": os.environ["EVENT"], "tool": os.environ["TOOL"],
-          "hooks": nh, "iterations": iters, "payloads": {}}
+          "hooks": nh, "iterations": iters, "platform": os.uname().sysname,
+          "payloads": {}}
 for label in labels:
     means = {h: (t / iters) * 1000.0 for h, t in by[label].items()}
     ranked = sorted(means.items(), key=lambda kv: kv[1], reverse=True)

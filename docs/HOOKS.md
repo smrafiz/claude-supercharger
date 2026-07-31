@@ -167,6 +167,7 @@ Run any of these manually:
 | `tools/mcp-setup.sh` | set -eo pipefail |
 | `tools/memory-prune.sh` | Claude Supercharger — Memory Auto-Pruner (v2.19.0) |
 | `tools/notify-toggle.sh` | Claude Supercharger — Desktop Notification Toggle |
+| `tools/perf-report.sh` | Claude Supercharger — Perf report (HOOK-LATENCY-PLAN Phase 3) |
 | `tools/plugin-setup.sh` | Claude Supercharger — Plugin parity setup (run by a HUMAN, in a terminal) |
 | `tools/profile-switch.sh` | set -euo pipefail |
 | `tools/readonly.sh` | Claude Supercharger — Read-only mode (time-boxed "look, don't touch") |

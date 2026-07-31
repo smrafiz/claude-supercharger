@@ -6,7 +6,7 @@ Status: **Phases 1–2 shipped · Phase 3 blocked · Phase 4 open** · Last upda
 |---|---|
 | 1 — aggregate harness | **done** — `tests/perf-chain.sh`, `docs/perf-baseline.json` |
 | 2 — instrumentation gaps | **done** — 123/123 registered hooks instrumented; `statusline.sh` measured via the harness (see §5) |
-| 3 — CI regression gate | **blocked** — needs a `.github/workflows/` edit, which requires the `workflow` token scope |
+| 3 — CI regression gate | **done (report-only)** — `perf` job + `tools/perf-report.sh`; see §6 |
 | 4 — act on the data | open — see §7; the first number to act on is in §5 |
 
 Supercharger registers **121 hook entries**, 47 of them on `PreToolUse`. Every agent tool
@@ -214,6 +214,27 @@ Mitigation, in order of preference:
 Start at (3), move to (1) once there is enough data to know the noise floor. Do **not** start
 at (2) — a gate that cries wolf gets deleted.
 
+### Shipped (2.26.6) — report-only, as planned
+
+`.github/workflows/ci.yml` gains a `perf` job running `tests/perf-chain.sh` for both targets and
+piping the JSON into `tools/perf-report.sh`, which writes a markdown table to the job summary.
+
+**The numbers never fail the job. A missing measurement does.** That distinction is the whole
+design: report-only means a slow reading is information, not an alarm — but a perf job that
+measured nothing and stayed green would be the exact failure this repo keeps finding, an
+instrument reporting "fine" because it never ran. So the report exits non-zero on absent,
+unparseable, or empty input, and `tests/test-perf-report.sh` (+8) pins both halves, including a
+doubled reading that must be *flagged and still exit 0*.
+
+Deltas ≥ 25% are marked ⚠ — **except across platforms**. The baseline is recorded on a dev mac
+and CI runs ubuntu; that gap is larger than any regression worth catching, so `perf-chain.sh`
+now stamps `platform` into its output and the report labels a cross-platform comparison
+"indicative only" rather than decorating it with a warning nobody can act on. A mark that fires
+on something unactionable trains people to ignore the mark.
+
+**Next step for this phase** is mitigation (1) — calibrate in-job against a fixed reference
+workload and gate on the ratio — once a few weeks of report-only history show the noise floor.
+
 ---
 
 ## 7. Phase 4 — Act on the data (P2)
@@ -234,8 +255,7 @@ Only after Phases 1–3. Options, to be chosen by what the baseline shows:
 
 - [x] `tests/perf-chain.sh` reports total PreToolUse:Bash chain cost, fast-pathed and not
 - [x] `docs/perf-baseline.json` committed — now carries both the chain and statusline sections
-- [ ] CI surfaces the number on every PR — **blocked**: editing `.github/workflows/ci.yml`
-      needs the `workflow` token scope (`gh auth refresh -s workflow`)
+- [x] CI surfaces the number on every PR — `perf` job, report-only (§6)
 - [x] `enforce-pkg-manager.sh` instrumented; `statusline.sh` measured via the harness (§5)
 - [x] The 12 cold-path hooks instrumented — 123/123 registered hooks, 0 gaps
 - [ ] README's hook-cost claim replaced with a measured figure (Phase 4)
