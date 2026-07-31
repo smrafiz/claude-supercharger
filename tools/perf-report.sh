@@ -76,14 +76,19 @@ def delta(now, was):
     return "%+.0f%%%s" % (pct, mark)
 
 w("### PreToolUse / %s — %d hooks\n" % (chain.get("tool", "?"), chain.get("hooks", 0)))
-w("| payload | felt (parallel) | chain sum (CPU) | slowest hook | vs baseline (felt) |")
-w("|---|---:|---:|---|---:|")
+w("| payload | felt (parallel) | chain sum (CPU) | spawn | hook work | slowest hook | vs baseline (felt) |")
+w("|---|---:|---:|---:|---:|---|---:|")
 for label, p in chain["payloads"].items():
     b = ((base or {}).get("payloads") or {}).get(label, {})
-    w("| %s | %.1f ms | %.1f ms | `%s` @ %.1f ms | %s |" % (
+    w("| %s | %.1f ms | %.1f ms | %.1f ms | %.1f ms | `%s` @ %.1f ms | %s |" % (
         label, p["parallel_est_ms"], p["chain_sum_ms"],
+        p.get("spawn_ms", 0.0), p.get("work_ms", 0.0),
         p["slowest_hook"], p["slowest_ms"],
         delta(p["parallel_est_ms"], b.get("parallel_est_ms"))))
+if chain.get("spawn_floor_ms"):
+    w("\n<sub>spawn = %.2f ms × %d hooks — starting bash and exiting, before a hook runs a line. "
+      "It is the floor for hook *count*, not hook content; optimising a hook can only recover the "
+      "`hook work` column.</sub>" % (chain["spawn_floor_ms"], chain.get("hooks", 0)))
 
 if sl:
     bs = (base or {}).get("statusline", {})

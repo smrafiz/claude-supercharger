@@ -211,8 +211,23 @@ EOF
   run_chain "${CMDS[$idx]}" "${LABELS[$idx]}"
 done
 
+# ── Spawn floor (HOOK-LATENCY-PLAN Phase 4) ───────────────────────────────────
+# The cost of starting bash and exiting, doing nothing. Without it, "chain sum
+# 70 ms across 17 hooks" reads as 70 ms of hook work that someone could optimise
+# away — and most of it is not. Measured here rather than assumed, on the same
+# machine and in the same run, because it is hardware- and shell-dependent.
+printf '#!/usr/bin/env bash\nexit 0\n' > "$TMPD/floor.sh"
+bash "$TMPD/floor.sh" < /dev/null >/dev/null 2>&1   # warm
+FLOOR_TOTAL=0; fi_=0
+while [ "$fi_" -lt 15 ]; do
+  { time bash "$TMPD/floor.sh" < /dev/null >/dev/null 2>/dev/null ; } 2>"$TF"
+  FLOOR_TOTAL="$FLOOR_TOTAL $(<"$TF")"
+  fi_=$((fi_+1))
+done
+
 # Aggregate once.
 NHOOKS="$NHOOKS" ITERS="$ITERS" EVENT="$EVENT" TOOL="$TOOL" JSON="$JSON" \
+FLOOR_TOTAL="$FLOOR_TOTAL" \
 WRITE_BASELINE="$WRITE_BASELINE" BASELINE_FILE="$BASELINE_FILE" \
 python3 - "$DATA" <<'PY'
 import os, sys, json, collections
@@ -231,6 +246,13 @@ for label, hook, sec in rows:
 report = {"event": os.environ["EVENT"], "tool": os.environ["TOOL"],
           "hooks": nh, "iterations": iters, "platform": os.uname().sysname,
           "payloads": {}}
+
+# Median, not mean: process spawn is occasionally interrupted by scheduling and a
+# single outlier would overstate the floor, which is the one number here that must
+# not be flattering.
+_floor = sorted(float(x) * 1000.0 for x in os.environ.get("FLOOR_TOTAL", "").split() if x)
+floor_ms = _floor[len(_floor) // 2] if _floor else 0.0
+report["spawn_floor_ms"] = round(floor_ms, 2)
 for label in labels:
     means = {h: (t / iters) * 1000.0 for h, t in by[label].items()}
     ranked = sorted(means.items(), key=lambda kv: kv[1], reverse=True)
@@ -247,8 +269,15 @@ for label in labels:
         i = workers.index(min(workers))
         workers[i] += v
     makespan = max(workers) if workers else 0.0
+    # Split the sequential total into the part that is process creation and the part
+    # that is the hooks doing something. Only the second is optimisable: a hook that
+    # exits on its first line still costs a spawn.
+    spawn_ms = floor_ms * nh
     report["payloads"][label] = {
         "chain_sum_ms": round(chain_sum, 1),
+        "spawn_ms": round(spawn_ms, 1),
+        "work_ms": round(max(0.0, chain_sum - spawn_ms), 1),
+        "spawn_share": round(spawn_ms / chain_sum, 2) if chain_sum else 0.0,
         "parallel_est_ms": round(makespan, 1),
         "parallel_width": width,
         "slowest_hook": slowest[0], "slowest_ms": round(slowest[1], 1),
@@ -265,6 +294,8 @@ else:
         print("\n[%s]  FELT ~%.1f ms  (parallel, width %d)   |   chain sum %.1f ms (CPU/fork)   slowest %s @ %.1f ms" % (
             label, p["parallel_est_ms"], p["parallel_width"],
             p["chain_sum_ms"], p["slowest_hook"], p["slowest_ms"]))
+        print("  of that chain sum: %.1f ms is process spawn (%d x %.2f ms, irreducible), %.1f ms is hook work" % (
+            p["spawn_ms"], nh, report["spawn_floor_ms"], p["work_ms"]))
         print("  %-32s %8s" % ("hook", "mean ms"))
         for h, v in list(p["per_hook_ms"].items())[:8]:
             print("  %-32s %8.1f" % (h, v))
@@ -276,12 +307,26 @@ else:
     print("            a user perceives. Override the width with SUPERCHARGER_HOOK_CONCURRENCY.")
     print("chain sum = sequential total: CPU / fork pressure per tool call (battery, load), not felt latency.")
     print("slowest   = hard lower bound — no amount of parallelism beats the single slowest hook.")
+    print("spawn     = %.2f ms x %d hooks. Starting bash and exiting costs this much before a hook" % (
+        report["spawn_floor_ms"], nh))
+    print("            runs a single line, so it is the floor for hook COUNT, not hook content.")
+    print("            Optimising a hook can only ever recover the `hook work` figure.")
 
 if os.environ["WRITE_BASELINE"] == "1":
-    import datetime  # noqa (date is fine here, not in a workflow script)
-    report["_note"] = "Regenerate deliberately: bash tests/perf-chain.sh --write-baseline"
-    open(os.environ["BASELINE_FILE"], "w").write(json.dumps(report, indent=2) + "\n")
-    print("\nwrote baseline -> %s" % os.environ["BASELINE_FILE"], file=sys.stderr)
+    # Preserve the statusline section, the way the statusline branch preserves this
+    # one. 2.26.5 added merging on that side only, so regenerating the chain baseline
+    # silently deleted the statusline numbers — caught by the test written in the same
+    # release for exactly this, which is the whole reason it exists.
+    path = os.environ["BASELINE_FILE"]
+    try:
+        keep = json.load(open(path)).get("statusline")
+    except Exception:
+        keep = None
+    if keep is not None:
+        report["statusline"] = keep
+    report["_note"] = "Regenerate deliberately: bash tests/perf-chain.sh [--target statusline] --write-baseline"
+    open(path, "w").write(json.dumps(report, indent=2) + "\n")
+    print("\nwrote baseline -> %s" % path, file=sys.stderr)
 PY
 
 rm -rf "$TMPD"

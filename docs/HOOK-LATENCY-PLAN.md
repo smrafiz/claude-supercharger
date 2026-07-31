@@ -239,7 +239,46 @@ workload and gate on the ratio — once a few weeks of report-only history show 
 
 ## 7. Phase 4 — Act on the data (P2)
 
-Only after Phases 1–3. Options, to be chosen by what the baseline shows:
+### The measurement that decides this phase — **the chain is spawn-bound**
+
+Measured 2026-07-31 (M4 Pro, bash 3.2). `perf-chain.sh` now reports a **spawn floor**: the
+cost of starting bash and exiting, doing nothing.
+
+| | value |
+|---|---|
+| Spawn floor (bare `exit 0`) | **2.00 ms** |
+| PreToolUse/Bash hooks | 17 |
+| Chain sum (fast-pathed) | 70.0 ms |
+| — of which process spawn | **34.0 ms (49%)** |
+| — of which hook work | 36.0 ms |
+| Cheapest real hook (`readonly-guard.sh`) | 2.0 ms — *at the floor* |
+
+Supporting probes on the same machine: bare bash `exit 0` **2.18 ms**, `+ read stdin` 3.23 ms,
+`+ source lib-suppress.sh` 3.76 ms, `budget-cap.sh` (slowest) 6.64 ms.
+
+**The per-hook distribution is flat — 2.0 to 7.4 ms across 17 hooks, no outlier.** That is the
+signature of interpreter startup dominating, not of a slow hook. `readonly-guard.sh` already sits
+*at* the spawn floor: it cannot be made faster, because it is already doing nothing.
+
+**What this rules out.** The plan assumed (§3b) that the wins were "cutting the slowest hook in
+each wave" and extending `safety.sh`'s fast-path to other hot-path hooks. Neither pays:
+
+- Cutting the slowest hook (`budget-cap.sh`, 7.4 ms) removes ~5 ms of a 70 ms sum, and **nothing
+  perceptible** — it runs concurrently with ten others, and felt cost is 7.6 ms.
+- Fast-pathing *every* hook perfectly converges on the floor: 70 → 34 ms. Real, but a 49% CPU
+  saving for 17 separate edits to security-adjacent files, with **zero** felt-latency change.
+
+**What is left.** The only lever on the 34 ms is **hook count on the hot path** — fewer processes,
+or several checks merged into one. That is a real design change with real risk (it couples guards
+that are currently independent, and independence is why they are auditable), and it should not be
+undertaken for a cost that is invisible to users and matters only for battery and load.
+
+**Recommendation: do not optimise the chain.** Felt cost is 7.6 ms locally and 12.4 ms on a CI
+runner — both far below anything a user attributes to Supercharger. The honest action is to
+publish the number and stop, which is what this phase now does. Revisit only if the hot-path
+hook count grows materially; the CI report from Phase 3 is what will show that.
+
+### Remaining options, for when that changes
 
 - Re-tune `SUPERCHARGER_PERF_THRESHOLD_MS` default, or make the always-on path record a
   per-tool-call *sum* rather than per-hook outliers.

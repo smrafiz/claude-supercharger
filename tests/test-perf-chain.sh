@@ -11,6 +11,29 @@ OUT=$(bash "$HARNESS" --iterations 1 2>/dev/null)
 { printf '%s' "$OUT" | grep -q "fast-pathed" && printf '%s' "$OUT" | grep -q "non-fast-pathed" \
   && printf '%s' "$OUT" | grep -q "chain sum ="; } && pass || fail "missing chain-sum output: $OUT"
 
+begin_test "chain output splits the sum into process spawn and hook work"
+# The split is the finding Phase 4 rests on: ~half the chain sum is process
+# creation and cannot be optimised away by editing hooks. A report that lost it
+# would send the next reader optimising the wrong half.
+SPOUT=$(bash "$HARNESS" --iterations 1 2>/dev/null)
+printf '%s' "$SPOUT" | grep -q 'is process spawn' && pass || fail "no spawn/work split: $SPOUT"
+
+begin_test "spawn floor is measured, positive, and below the cheapest hook"
+bash "$HARNESS" --iterations 1 --json 2>/dev/null | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+f=d['spawn_floor_ms']
+assert f>0, 'floor not measured: %r' % f
+# A floor at or above the cheapest hook would mean the probe is measuring something
+# other than bare process startup — the split would then be arithmetic, not evidence.
+cheapest=min(min(p['per_hook_ms'].values()) for p in d['payloads'].values())
+assert f<=cheapest+1.0, 'floor %.2f exceeds cheapest hook %.2f' % (f,cheapest)
+for p in d['payloads'].values():
+    assert abs((p['spawn_ms']+p['work_ms'])-p['chain_sum_ms'])<0.2, p
+    assert 0<p['spawn_share']<=1, p
+print('ok')
+" >/dev/null 2>&1 && pass || fail "spawn floor missing or implausible"
+
 begin_test "--json emits valid JSON with per-hook means + slowest"
 JOUT=$(bash "$HARNESS" --iterations 1 --json 2>/dev/null)
 printf '%s' "$JOUT" | python3 -c "

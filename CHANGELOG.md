@@ -2,6 +2,22 @@
 
 ## Contents
 
+- [2.26.7] - 2026-07-31 — feat(perf)+docs: **half the hook chain is process creation, so the optimisation this plan was heading toward does not pay.** Closes HOOK-LATENCY-PLAN Phase 4 — by measuring the thing that decides it and then *not* doing the work.
+
+  `perf-chain.sh` now measures a **spawn floor**: bash starting and exiting, doing nothing. On an M4 Pro that is **2.00 ms**, so 17 PreToolUse/Bash hooks pay **34 ms of the 70 ms chain sum (49%) before one of them runs a line.** Supporting probes: bare `exit 0` 2.18 ms, `+ read stdin` 3.23 ms, `+ source lib-suppress.sh` 3.76 ms.
+
+  The per-hook spread is **flat — 2.0 to 7.4 ms across 17 hooks, no outlier.** That is interpreter startup dominating, not a slow hook. `readonly-guard.sh` measures 2.0 ms: it is already *at* the floor and cannot be made faster, because it is already doing nothing.
+
+  **This rules out both wins §3b assumed.** Cutting the slowest hook (`budget-cap.sh`, 7.4 ms) removes ~5 ms of a 70 ms sum and nothing perceptible — it runs concurrently with ten others, and felt cost is 7.6 ms. Fast-pathing *every* hook perfectly converges on 34 ms: a real 49% CPU saving, for 17 separate edits to security-adjacent files, with **zero** felt-latency change. The only lever on the remaining 34 ms is hook count, which would couple guards that are independent today — and independence is why they are auditable.
+
+  **Recommendation recorded: do not optimise the chain.** Felt cost is 7.6 ms locally and 12.4 ms on a CI runner. The honest action is to publish the number and stop; Phase 3's per-push report is what will show if that changes.
+
+  README's speed section now carries the measured table (M4 Pro / ubuntu runner / the older Intel Mac figure it already had) instead of a single range, and states plainly which half of the cost is not ours to give back.
+
+  **Caught by a test from the release before it:** regenerating the chain baseline deleted the statusline section, because 2.26.5 added merge-on-write to the statusline branch only. The assertion written in that release for exactly this failed on the first run. Both branches now merge.
+
+  Suite 2796/0.
+
 - [2.26.6] - 2026-07-31 — feat(ci): **CI now reports hook latency on every push — and fails only when it measured nothing.** Closes HOOK-LATENCY-PLAN Phase 3. A new `perf` job runs `tests/perf-chain.sh` for both targets and pipes the JSON into `tools/perf-report.sh`, which writes a markdown table to the job summary.
 
   **Report-only on the numbers, strict on the measurement.** The plan (§6) is explicit that an absolute ms ceiling would cry wolf on GitHub runners and get muted within a month — worse than no gate. So a slow reading is information, not a failure. But a perf job that measured nothing and stayed green is the exact failure this repo keeps finding: an instrument reporting "fine" because it never ran. The report exits non-zero on absent, unparseable, or empty input. `tests/test-perf-report.sh` (+8) pins both halves — including a doubled reading that must be **flagged and still exit 0**.
