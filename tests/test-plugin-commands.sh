@@ -56,11 +56,22 @@ print('' if listed == ondisk else 'listed=%s ondisk=%s' % (listed, ondisk))
 [ -z "$DRIFT" ] && pass || fail "plugin.json agents[] out of sync: $DRIFT"
 
 begin_test "gen-plugin-commands: --check detects drift"
-TMPF="$OUT_DIR/.__drift_probe.md"
-printf 'drift\n' > "$TMPF"
-bash "$GEN" --check >/dev/null 2>&1
+# Probe a SANDBOX copy, never the live tree. This used to drop a stray .md into
+# $REPO_DIR/commands/ and delete it a moment later; the suite runs in parallel, so
+# any concurrent read of that directory saw a file that does not exist. Same shape
+# as the test-hook-new.sh fixtures that raced test-install (2.26.2), and
+# test-repo-tree-isolation.sh now fails the suite for it.
+# gen-plugin-commands.sh resolves SRC_DIR/OUT_DIR from its own location, so a copy
+# of the script plus the two directories is a complete sandbox.
+GEN_SANDBOX=$(mktemp -d)
+mkdir -p "$GEN_SANDBOX/tools" "$GEN_SANDBOX/configs" "$GEN_SANDBOX/commands"
+cp "$GEN" "$GEN_SANDBOX/tools/gen-plugin-commands.sh"
+cp -R "$SRC_DIR" "$GEN_SANDBOX/configs/commands"
+cp "$OUT_DIR"/*.md "$GEN_SANDBOX/commands/"
+printf 'drift\n' > "$GEN_SANDBOX/commands/.__drift_probe.md"
+bash "$GEN_SANDBOX/tools/gen-plugin-commands.sh" --check >/dev/null 2>&1
 RC=$?
-rm -f "$TMPF"
+rm -rf "$GEN_SANDBOX"
 [ "$RC" -ne 0 ] && pass || fail "--check did not flag an extra file as drift"
 
 report

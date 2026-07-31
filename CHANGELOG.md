@@ -2,6 +2,17 @@
 
 ## Contents
 
+- [2.26.3] - 2026-07-31 — feat(tests)+fix(tests): **the guard for 2.26.2's bug found three more instances of it, one of them disarming a security scanner mid-run.** New `tests/test-repo-tree-isolation.sh` (+8) enforces one rule: a `$REPO_DIR`-rooted path may be read, never written. A post-hoc `git status` check cannot find this class — the residue is always cleaned up, and the damage happens in the window between create and delete — so it is a static scan of the test sources, in the shape of `test-suite-count-invariance.sh`. It tracks alias variables transitively (`HOOKS_DIR="$REPO_DIR/hooks"` is how the original was spelt) and requires the verb in **command position**, because tests pass attack strings as arguments: `run_hook "$SAFETY_HOOK" "rm -r -f /"` is a read, and an earlier heuristic of mine flagged it.
+
+  What it caught, live on master:
+
+  - **`test-hooks.sh:361`** moved the real `hooks/safety-detect.py` aside and back to test the fail-open path. The suite runs in parallel, so for that window **every other test invoking `safety.sh` on a deep-scan-gated command silently took the fail-open path** — a security assertion could pass because a concurrent test had disarmed the scanner. Now removes the detector from a `mktemp -d` copy of `hooks/`; `safety.sh` sources its siblings via `${BASH_SOURCE[0]%/*}`, so the copy is faithful.
+  - **`test-plugin-commands.sh:59`** dropped a probe `.md` into the live `commands/` and deleted it. Now probes a sandbox; verified the sandbox still discriminates (`--check` returns 0 clean, 1 with the probe), so the assertion did not become decoration.
+
+  **And the assertion in the first one was vacuous.** Its input was `echo test with python -c snippet`, which the v2.14.1 perf fast-path (`safety.sh:56`, bare `echo *` with no metacharacter) exits 0 on — long before the `_NEED_PY` gate at `safety.sh:604` it claims to exercise. Proven by fault injection rather than inspection: replacing `|| PY_REASON=""` with an explicit non-zero exit, the old input **still passed**. Replaced with `python3 -c "print(1)"`, which reaches the gate (the same injection makes it fail), is allowed with the detector present, and must stay allowed with it missing. So a test named for a 2.17.3 regression stopped covering it the moment the fast path landed, and nothing said so.
+
+  Suite 2779/0, deterministic across 3 full runs.
+
 - [2.26.2] - 2026-07-30 — fix(tests): **a test wrote fixtures into the live `hooks/` directory, and the parallel suite raced it.** `tests/test-hook-new.sh` scaffolded into `$REPO_DIR/hooks/` and deleted each file straight after. Meanwhile `install.sh` runs `cp "$source_dir/hooks/"*.sh` — so when `test-install.sh` happened to expand that glob while a fixture existed and copy it after `cleanup_hook` removed it, `cp` failed, the hook deploy aborted, and `settings.json` was never written. Measured at **3 failures in 11 full runs (~27%)**; 6/6 green after the fix. The tool needs nothing from the repo but an empty `hooks/`, so it now runs from a `mktemp -d` sandbox holding one copied script.
 
   This is the same class as the 2.24.8 `HOME` isolation work and the gap that release left: `HOME` was isolated per test file, but the repo tree itself is shared mutable state and nothing covered it. `test-hook-new.sh` is the only test that wrote there — the other repo-path references are reads.

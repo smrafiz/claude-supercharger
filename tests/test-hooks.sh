@@ -356,13 +356,28 @@ _PD_RC=$?
 # to kill safety.sh with empty stderr → phantom "No stderr output" deny on every
 # deep-scan-gated command. `|| PY_REASON=""` must fail OPEN to the regex verdict.
 begin_test "safety: deep-scan-gated cmd fails OPEN when detector missing (2.17.3)"
-_SD_DIR=$(dirname "$SAFETY_HOOK")
-_SD_PY="$_SD_DIR/safety-detect.py"
-if [ -f "$_SD_PY" ]; then mv "$_SD_PY" "$_SD_PY.testbak"; fi
-# a benign command that trips _NEED_PY (mentions python -c) — must NOT phantom-deny
-_SD_ERR=$(printf '{"tool_input":{"command":"echo test with python -c snippet"}}' | bash "$SAFETY_HOOK" 2>&1 >/dev/null)
+# Remove the detector from a SANDBOX copy of hooks/, never from the live tree.
+# This used to `mv` the real hooks/safety-detect.py aside and back — and the suite
+# runs in parallel, so for that window every other test invoking safety.sh on a
+# deep-scan-gated command silently took the fail-open path. A security assertion
+# passing because a concurrent test disarmed the scanner is the worst version of
+# the race that 2.26.2 fixed in test-install; test-repo-tree-isolation.sh now fails
+# the suite for any repo-tree write. safety.sh sources its siblings via
+# ${BASH_SOURCE[0]%/*}, so a copy of the whole directory is a faithful sandbox.
+_SD_SANDBOX=$(mktemp -d)
+cp -R "$(dirname "$SAFETY_HOOK")" "$_SD_SANDBOX/hooks"
+rm -f "$_SD_SANDBOX/hooks/safety-detect.py"
+# A benign command that trips _NEED_PY and is NOT fast-pathed — must not phantom-deny.
+# It used to be `echo test with python -c snippet`, which the v2.14.1 perf fast-path
+# (safety.sh:56 — bare `echo *` with no metacharacter) exits 0 on long before the
+# _NEED_PY gate at safety.sh:604. So this assertion never reached the code it names:
+# verified by fault injection — with `|| PY_REASON=""` replaced by an explicit
+# non-zero exit, the old input still passed. `python3 -c "print(1)"` reaches the
+# gate (same injection makes it fail), stays allowed with the detector present, and
+# must stay allowed with it missing.
+_SD_ERR=$(printf '{"tool_input":{"command":"python3 -c \\"print(1)\\""}}' | bash "$_SD_SANDBOX/hooks/safety.sh" 2>&1 >/dev/null)
 _SD_RC=$?
-[ -f "$_SD_PY.testbak" ] && mv "$_SD_PY.testbak" "$_SD_PY"
+rm -rf "$_SD_SANDBOX"
 { [ "$_SD_RC" = "0" ] && [ -z "$_SD_ERR" ]; } && pass || fail "missing detector must fail-open (rc0, no stderr); got rc=$_SD_RC stderr=[$_SD_ERR]"
 
 begin_test "safety: rm -rf <PROJECT_DIR-absolute> is blocked"
