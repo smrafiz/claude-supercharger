@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.5] - 2026-07-31 — feat(perf): **the statusline runs on every render and was the one thing the latency plan could not see.** It is registered under `settings.json → statusLine`, not `hooks.json`, so `perf-chain.sh` was structurally blind to it — on the hottest recurring script in the system. Closes HOOK-LATENCY-PLAN Phase 2.
+
+  `perf-chain.sh --target statusline` measures it instead of instrumenting it. The plan offered both; measuring won on three counts. Adding `lib-timing.sh` would put an EXIT-trap write on *every* render — a real share of the ~6 ms it would be measuring. It would change the script's `/sc off` behaviour, since `lib-timing.sh` exits at **source** time when the kill-switch is set (`:26-28`) and `statusline.sh` already handles that itself, deliberately, at `:19`. And it would edit a script whose failure is immediately visible to the user, to learn a number obtainable without touching it.
+
+  **First measured figure (macOS, 10 iterations): cold render 36.2 ms, warm 6.4 ms, cache speedup 5.66×.** Both sides are reported because measuring one gives a number that is true and useless — cold is what a new session pays, warm is what Claude Code's 300 ms debounce burst pays, and the gap is the entire value of the v2.23.45 render cache. The file's own `~45ms → ~10ms` comment was an estimate; this is a measurement, committed to `docs/perf-baseline.json`.
+
+  `--write-baseline` now **merges** instead of overwriting: the chain and statusline sections are written by separate invocations, and a plain write would silently drop whichever ran first. A test asserts both survive. +3 assertions; the cache assertion has a floor (`>1.5×`) rather than an exact figure, so a regression that quietly disables the cache lands there.
+
+  Also re-counted while here: **123 registered hooks, 0 uninstrumented** — the plan's "14 uninstrumented" table was historical, closed by releases between 2.24.9 and 2.26.1. Phase 3 (the CI gate) is **blocked**: editing `.github/workflows/ci.yml` needs the `workflow` token scope, which this token does not have.
+
+  Suite 2786/0.
+
 - [2.26.4] - 2026-07-31 — fix(tests): **the fuzz harness reported a 100% bypass rate as a normal result, and nothing could tell that apart from a real breach.** `tests/fuzz-safety.sh` ran `bash "$HOOK"` without ever checking the hook was there. A missing file exits 127, 127 is not 2, and not-2 is counted as a false negative — so running a copy from outside the repo (where `REPO_DIR` no longer resolves) printed **4055 bypasses** in the same confident tone it uses for real findings. That number was believed for a while before it was traced to the copy.
 
   The fix is not an `[ -x "$HOOK" ]` test, which would only cover the one path that happened to break. Before measuring anything, the harness now proves it can see **both** verdicts: `rm -rf /` must block and `ls -la` must not. That catches the missing hook, a missing `python3` (an empty payload makes `safety.sh` exit 0 on every input — same catastrophic-looking output), a hook that dies on startup, and the inverse failure where a deny-everything hook would report a flawless zero. On any disagreement it aborts with exit 3 and says it is refusing to report a bypass rate measured with a broken instrument.

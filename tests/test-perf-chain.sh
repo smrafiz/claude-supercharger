@@ -32,4 +32,37 @@ bash "$HARNESS" --event NoSuchEvent --iterations 1 >/dev/null 2>&1 && fail "shou
 begin_test "committed baseline exists and parses"
 [ -f "$REPO_DIR/docs/perf-baseline.json" ] && python3 -c "import json;json.load(open('$REPO_DIR/docs/perf-baseline.json'))" 2>/dev/null && pass || fail "baseline missing/unparseable"
 
+# --- statusline target (Phase 2, item 2) -------------------------------------
+begin_test "--target statusline reports cold and warm renders"
+SOUT=$(bash "$HARNESS" --target statusline --iterations 2 2>/dev/null)
+{ printf '%s' "$SOUT" | grep -q "cold (miss)" && printf '%s' "$SOUT" | grep -q "warm (hit)"; } \
+  && pass || fail "missing cold/warm rows: $SOUT"
+
+begin_test "--target statusline --json reports a cache speedup over real renders"
+SJ=$(bash "$HARNESS" --target statusline --iterations 2 --json 2>/dev/null)
+printf '%s' "$SJ" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert d['target']=='statusline', d
+for k in ('cold_render','warm_render'):
+    assert d[k]['mean_ms']>0, (k,d[k])
+    assert d[k]['samples']==2, (k,d[k])
+# The cache must actually be doing something. Asserting a floor rather than an exact
+# figure: the point is that the warm path skips python3 entirely, which is worth
+# multiples, not percent. A regression that quietly disables the cache lands here.
+assert d['cache_speedup']>1.5, d['cache_speedup']
+print('ok')
+" >/dev/null 2>&1 && pass || fail "invalid statusline JSON or no cache benefit: $SJ"
+
+begin_test "committed baseline carries BOTH the chain and statusline sections"
+# --write-baseline runs once per target, so the second write must merge rather than
+# overwrite; a plain write would silently drop whichever section ran first.
+python3 -c "
+import json
+d=json.load(open('$REPO_DIR/docs/perf-baseline.json'))
+assert 'payloads' in d and d['payloads'], 'chain section missing'
+assert 'statusline' in d and d['statusline']['cold_render']['mean_ms']>0, 'statusline section missing'
+print('ok')
+" >/dev/null 2>&1 && pass || fail "baseline lost a section"
+
 report

@@ -1,6 +1,13 @@
 # Hook Latency Budget — Plan
 
-Status: **proposed** · Target: **a 2.x minor** · Last updated: 2026-07-28
+Status: **Phases 1–2 shipped · Phase 3 blocked · Phase 4 open** · Last updated: 2026-07-31
+
+| Phase | State |
+|---|---|
+| 1 — aggregate harness | **done** — `tests/perf-chain.sh`, `docs/perf-baseline.json` |
+| 2 — instrumentation gaps | **done** — 123/123 registered hooks instrumented; `statusline.sh` measured via the harness (see §5) |
+| 3 — CI regression gate | **blocked** — needs a `.github/workflows/` edit, which requires the `workflow` token scope |
+| 4 — act on the data | open — see §7; the first number to act on is in §5 |
 
 Supercharger registers **121 hook entries**, 47 of them on `PreToolUse`. Every agent tool
 call pays that chain. Today there is per-hook timing but **no measurement of the sum**, and
@@ -156,22 +163,34 @@ fast-pathed and a non-fast-pathed command. That number does not exist today.
 
 ---
 
-## 5. Phase 2 — Close instrumentation gaps (P1)
+## 5. Phase 2 — Close instrumentation gaps (P1) — **DONE**
 
-Ordered by hot-path impact, not by count.
+1. **`enforce-pkg-manager.sh`** — instrumented (`hooks/enforce-pkg-manager.sh:14`).
+2. **The 12 cold-path hooks** — instrumented. Re-counted 2026-07-31 against
+   `hooks/hooks.json`: **123 registered hooks, 0 uninstrumented.** The §2 table's "14
+   registered but uninstrumented" is historical.
+3. **`statusline.sh`** — **measured, not instrumented**, via `perf-chain.sh --target statusline`.
 
-1. **`enforce-pkg-manager.sh`** — add `. lib-timing.sh`. One line, the only hot-path gap.
-2. **`statusline.sh`** — needs a different mechanism (not a `hooks.json` entry). Either a
-   dedicated timing write on render, or fold it into Phase 1's harness as a separate target.
-   Given it runs per render, treat this as equal priority to the hot-path hook.
-3. **The remaining 12 cold-path hooks** — mechanical, low risk, do them in one batch. Each is
-   a single sourced line at the top; `lib-timing.sh` already no-ops when an EXIT trap exists
-   (`:35`), so it is safe to add blindly.
+The plan offered a choice for `statusline.sh`: add `lib-timing.sh` to it, or fold it into the
+harness. The harness won on three counts. It adds no per-render overhead to the hottest
+recurring script in the system — an EXIT-trap write on every render would cost a real share of
+what it measures. It avoids changing that script's `/sc off` behaviour: `lib-timing.sh` exits
+at *source* time when the kill-switch is set (`:26-28`), and `statusline.sh` already handles
+the kill-switch itself, deliberately, at `:19`. And it produces the number without editing a
+script whose failure is immediately visible to the user.
 
-**Risk note:** `lib-timing.sh` exits at source time when `/sc off` is set (`:26-28`). Adding it
-to a hook changes that hook's kill-switch behavior. For the 12 cold-path hooks, confirm each
-should honor `/sc off` before adding — most should, but this is a behavior change, not
-pure instrumentation. **Do not batch this without checking.**
+**First measured figure (macOS, 10 iterations, 2026-07-31):**
+
+| Render | mean | min | max |
+|---|---|---|---|
+| cold (cache miss) | **36.2 ms** | 34.0 | 38.0 |
+| warm (cache hit) | **6.4 ms** | 6.0 | 8.0 |
+
+**Cache speedup 5.66×.** Both sides are reported because only measuring one gives a number
+that is true and useless: cold is what a new session pays, warm is what Claude Code's 300 ms
+debounce burst pays, and the gap is the entire value of the v2.23.45 render cache. This also
+confirms that file's own comment (`~45ms → ~10ms`) as an estimate — now it is a measurement,
+committed to `docs/perf-baseline.json`.
 
 ---
 
@@ -213,13 +232,14 @@ Only after Phases 1–3. Options, to be chosen by what the baseline shows:
 
 ## 8. Success criteria
 
-- [ ] `tests/perf-chain.sh` reports total PreToolUse:Bash chain cost, fast-pathed and not
-- [ ] `docs/perf-baseline.json` committed
-- [ ] CI surfaces the number on every PR
-- [ ] `enforce-pkg-manager.sh` and `statusline.sh` instrumented
-- [ ] The 12 cold-path hooks instrumented, each `/sc off` behavior change reviewed
-- [ ] README's hook-cost claim replaced with a measured figure
-- [ ] Full suite still green (baseline: **2374 passed, 0 failed**)
+- [x] `tests/perf-chain.sh` reports total PreToolUse:Bash chain cost, fast-pathed and not
+- [x] `docs/perf-baseline.json` committed — now carries both the chain and statusline sections
+- [ ] CI surfaces the number on every PR — **blocked**: editing `.github/workflows/ci.yml`
+      needs the `workflow` token scope (`gh auth refresh -s workflow`)
+- [x] `enforce-pkg-manager.sh` instrumented; `statusline.sh` measured via the harness (§5)
+- [x] The 12 cold-path hooks instrumented — 123/123 registered hooks, 0 gaps
+- [ ] README's hook-cost claim replaced with a measured figure (Phase 4)
+- [x] Full suite still green
 
 ---
 

@@ -59,5 +59,22 @@
       }
     }
   },
-  "_note": "Regenerate deliberately: bash tests/perf-chain.sh --write-baseline"
+  "_note": "Regenerate deliberately: bash tests/perf-chain.sh [--target statusline] --write-baseline",
+  "statusline": {
+    "target": "statusline",
+    "iterations": 10,
+    "cold_render": {
+      "mean_ms": 36.2,
+      "min_ms": 34.0,
+      "max_ms": 38.0,
+      "samples": 10
+    },
+    "warm_render": {
+      "mean_ms": 6.4,
+      "min_ms": 6.0,
+      "max_ms": 8.0,
+      "samples": 10
+    },
+    "cache_speedup": 5.66
+  }
 }
