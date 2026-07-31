@@ -2,6 +2,20 @@
 
 ## Contents
 
+- [2.26.11] - 2026-08-01 — fix(tests): **the agent-eval harness had all three of the fuzzer's defects, plus one that killed it outright on bash 3.2.** "Excluded from the suite" has now hidden real defects in both files it covers, so `tests/eval-agents.sh` got the same audit. New `tests/test-eval-harness.sh` (+7) pins every failure mode with a stub `claude` on PATH, so nothing is spent.
+
+  1. **No `claude` preflight.** `run_scenario` swallows any failure into an empty string, and an empty response matches no `must_contain` pattern, so it scores FAIL. With no CLI installed, all nine agents "failed" and the run exited 1 — indistinguishable from every agent having regressed. Identical to the fuzzer reporting a missing hook as a 100% bypass rate. Now aborts with exit 3 *before* spending the ~$3.60 a full run costs.
+  2. **A run that evaluated nothing reported success.** A missing prompts file `return`ed without touching a counter, so the agent vanished from the totals; every file missing gave "0 total" and exit 0. Skips are now counted and shown, and a zero-scenario run exits 3.
+  3. **No state isolation.** The hooks fire inside these agent runs, so an eval wrote synthetic events into live `.blocked-commands` and `events.log` — the pollution fixed for the fuzzer in 2.26.10. `SUPERCHARGER_STATE` is now a temp dir. `HOME` deliberately is not: the CLI needs the real credentials, so this narrows the blast radius rather than closing it.
+
+  **A malformed prompts file scored the agent as PASSED — on Linux only.** The rollup was `[[ $agent_pass -eq $agent_total ]]`, which is `0 -eq 0` when the scenario loop never runs. Whether it runs is decided by `seq 0 $((count-1))` with `count` empty — i.e. `seq 0 -1` — and **BSD seq prints two values (0 and -1) while GNU seq prints none**. So macOS ran two bogus iterations and failed by accident; Linux skipped the loop and reported a pass. CI is ubuntu. The count is now validated as a positive integer before the loop, removing the platform dependence.
+
+  **And the harness died before it could report any of this.** `"${DETAIL_LINES[@]}"` on an *empty* array is an unbound-variable error under `set -u` on bash 3.2 — the macOS default and this project's floor — so any run scoring nothing exited 1 at the details loop, before the summary and before the new refusal. Found only because the exit-3 assertion kept seeing exit 1.
+
+  **The first version of these tests was decoration.** They asserted the word "FAIL" and a non-zero exit, both of which the *unfixed* harness also produces on macOS via the wrong path — so all six passed against a deliberately reverted build. They now assert the guard's own message and the exact refusal code, and are verified to fail against that reverted build.
+
+  Suite 2827/0.
+
 - [2.26.10] - 2026-07-31 — fix(tests): **the fuzz harness wrote its synthetic attacks into live security telemetry and evicted the real history.** `tests/fuzz-safety.sh` fires ~5700 real attack strings through the real `safety.sh`, and every block appends to `$SUPERCHARGER_STATE/scope/.blocked-commands` — a **500-line ring buffer**. One run overwrites it entirely. Measured on this machine after the 2.26.4 run: **530 of 533 entries were synthetic**, all dated the day the fuzzer ran, the top entries verbatim corpus mutations (`env FOO=bar cat installer.txt | bash`, the prefix and whitespace mutators).
 
   That log is not a scratch file. `learn-from-blocks.sh` reads it at SessionStart to teach future sessions which patterns to avoid, and the `[BLOCKS]` banner injected into every session is built from it at real token cost. So an unisolated fuzz run destroyed genuine block history, then taught every subsequent session from fixtures.

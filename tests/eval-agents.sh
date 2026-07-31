@@ -12,7 +12,7 @@ PROMPTS_DIR="$REPO_DIR/tests/eval-prompts"
 CYAN='\033[36m'; GREEN='\033[32m'; YELLOW='\033[33m'; RED='\033[31m'
 BOLD='\033[1m'; DIM='\033[2m'; NC='\033[0m'
 
-AGENTS_PASSED=0; AGENTS_PARTIAL=0; AGENTS_FAILED=0
+AGENTS_PASSED=0; AGENTS_PARTIAL=0; AGENTS_FAILED=0; AGENTS_SKIPPED=0
 SCENARIOS_PASSED=0; SCENARIOS_PARTIAL=0; SCENARIOS_FAILED=0
 DETAIL_LINES=()
 START_TIME=$(date +%s)
@@ -34,10 +34,48 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+EVAL_STATE=""
 cleanup() {
   [[ -n "$TEMP_PROJECT" && -d "$TEMP_PROJECT" ]] && rm -rf "$TEMP_PROJECT"
+  [[ -n "$EVAL_STATE" && -d "$EVAL_STATE" ]] && rm -rf "$EVAL_STATE"
 }
 trap cleanup EXIT
+
+# ── Preflight (v2.26.11) ──────────────────────────────────────────────────────
+# Every way this harness can fail to RUN produced the same output as a total
+# quality collapse. `run_scenario` swallows any failure into an empty string, and
+# an empty response matches no `must_contain` pattern, so it scores FAIL. With no
+# `claude` on PATH, all nine agents "failed" and the harness exited 1 — identical
+# to the model having regressed catastrophically. Same shape as the fuzzer
+# reporting a missing hook as a 100% bypass rate (2.26.4).
+#
+# Check before spending money: a full run is up to ~$3.60 in budgeted API calls.
+if ! command -v claude >/dev/null 2>&1; then
+  echo "ABORT: the claude CLI is not on PATH — every scenario would score FAIL," >&2
+  echo "       which is indistinguishable from every agent having regressed." >&2
+  exit 3
+fi
+if [[ ! -d "$AGENTS_DIR" ]] || [[ -z "$(ls -A "$AGENTS_DIR"/*.md 2>/dev/null)" ]]; then
+  echo "ABORT: no agent definitions in $AGENTS_DIR" >&2
+  exit 3
+fi
+if [[ ! -d "$PROMPTS_DIR" ]] || [[ -z "$(ls -A "$PROMPTS_DIR"/*.json 2>/dev/null)" ]]; then
+  echo "ABORT: no eval prompts in $PROMPTS_DIR — a run with nothing to score" >&2
+  echo "       reports 0 failures and exits 0, which reads as success." >&2
+  exit 3
+fi
+
+# Isolate Supercharger's own telemetry. The hooks fire inside these agent runs
+# (they are registered in the user's settings.json), so an unisolated eval writes
+# synthetic events into .blocked-commands, events.log and the cost trackers — the
+# same pollution the fuzzer caused in 2.26.10.
+#
+# HOME is deliberately NOT isolated: the claude CLI needs the real credentials in
+# ~/.claude to run at all. So this narrows the blast radius rather than closing it;
+# an eval run still appears in the CLI's own history.
+EVAL_STATE=$(mktemp -d)
+mkdir -p "$EVAL_STATE/scope"
+export SUPERCHARGER_STATE="$EVAL_STATE"
 
 # ---------------------------------------------------------------------------
 # Temp project scaffold
@@ -277,12 +315,26 @@ eval_agent() {
   local prompts_file="$PROMPTS_DIR/$agent_name.json"
 
   if [[ ! -f "$prompts_file" ]]; then
+    # v2.26.11: counted, not silent. This used to `return` without touching any
+    # counter, so an agent with no prompts file vanished from the totals — and if
+    # every file went missing the report read "0 passed, 0 failed (0 total)" and
+    # exited 0. A green run that evaluated nothing.
+    AGENTS_SKIPPED=$((AGENTS_SKIPPED + 1))
     echo -e "  ${YELLOW}SKIP${NC}  $agent_name — no prompts file found"
     return
   fi
 
   local scenarios_count
-  scenarios_count=$(PYTHONUTF8=1 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d['scenarios']))" "$prompts_file")
+  scenarios_count=$(PYTHONUTF8=1 python3 -c "import json,sys; d=json.load(open(sys.argv[1])); print(len(d['scenarios']))" "$prompts_file" 2>/dev/null)
+  # v2.26.11: a malformed prompts file left this empty, the loop never ran, and the
+  # agent finished 0/0 — which the rollup below scored as PASS. An agent that
+  # evaluated nothing must never read as one that passed everything.
+  if ! [[ "$scenarios_count" =~ ^[0-9]+$ ]] || [[ "$scenarios_count" -eq 0 ]]; then
+    AGENTS_FAILED=$((AGENTS_FAILED + 1))
+    printf "  ${RED}FAIL${NC}  %-16s (unreadable or empty prompts file: %s)\n" \
+      "$agent_name" "$(basename "$prompts_file")"
+    return
+  fi
 
   local agent_pass=0
   local agent_total=0
@@ -321,7 +373,12 @@ eval_agent() {
     esac
   done
 
-  if [[ $agent_pass -eq $agent_total ]]; then
+  # v2.26.11: guard the 0/0 case explicitly as well as at the parse above — the
+  # scenario loop can still end with nothing scored, and `0 -eq 0` is true.
+  if [[ $agent_total -eq 0 ]]; then
+    AGENTS_FAILED=$((AGENTS_FAILED + 1))
+    printf "  ${RED}FAIL${NC}  %-16s (no scenarios scored)\n" "$agent_name"
+  elif [[ $agent_pass -eq $agent_total ]]; then
     AGENTS_PASSED=$((AGENTS_PASSED + 1))
     printf "  ${GREEN}PASS${NC}  %-16s (%d/%d scenarios passed)\n" "$agent_name" "$agent_pass" "$agent_total"
   elif [[ $agent_pass -gt 0 ]]; then
@@ -357,7 +414,12 @@ fi
 
 echo ""
 echo -e "${DIM}--- Details ---${NC}"
-for line in "${DETAIL_LINES[@]}"; do
+# v2.26.11: `"${DETAIL_LINES[@]}"` on an EMPTY array is an unbound-variable error
+# under `set -u` on bash 3.2 — the macOS default and this project's floor. So any
+# run that scored no scenarios died right here with exit 1, before printing the
+# summary and before the refusal below could fire. The `+` expansion yields nothing
+# when the array is unset or empty, on both bash 3.2 and 5.
+for line in ${DETAIL_LINES[@]+"${DETAIL_LINES[@]}"}; do
   echo -e "$line"
 done
 
@@ -365,14 +427,22 @@ END_TIME=$(date +%s)
 ELAPSED=$((END_TIME - START_TIME))
 ELAPSED_FMT=$(printf "%dm %ds" $((ELAPSED / 60)) $((ELAPSED % 60)))
 
-TOTAL_AGENTS=$((AGENTS_PASSED + AGENTS_PARTIAL + AGENTS_FAILED))
+TOTAL_AGENTS=$((AGENTS_PASSED + AGENTS_PARTIAL + AGENTS_FAILED + AGENTS_SKIPPED))
 TOTAL_SCENARIOS=$((SCENARIOS_PASSED + SCENARIOS_PARTIAL + SCENARIOS_FAILED))
 
 echo ""
 echo -e "${CYAN}────────────────────────────────────────────────${NC}"
-echo -e "  Agents:    ${GREEN}$AGENTS_PASSED passed${NC}, ${YELLOW}$AGENTS_PARTIAL partial${NC}, ${RED}$AGENTS_FAILED failed${NC} ($TOTAL_AGENTS total)"
+echo -e "  Agents:    ${GREEN}$AGENTS_PASSED passed${NC}, ${YELLOW}$AGENTS_PARTIAL partial${NC}, ${RED}$AGENTS_FAILED failed${NC}, ${YELLOW}$AGENTS_SKIPPED skipped${NC} ($TOTAL_AGENTS total)"
 echo -e "  Scenarios: ${GREEN}$SCENARIOS_PASSED passed${NC}, ${YELLOW}$SCENARIOS_PARTIAL partial${NC}, ${RED}$SCENARIOS_FAILED failed${NC} ($TOTAL_SCENARIOS total)"
 echo -e "  Time: $ELAPSED_FMT"
 echo ""
 
+# v2.26.11: a run that scored NOTHING is not a pass. Previously only AGENTS_FAILED
+# gated the exit code, so zero agents evaluated exited 0 — the green-run-that-tested
+# nothing this file's preflight now aborts on, guarded again at the end in case the
+# scenarios all vanished after the preflight passed.
+if [[ $TOTAL_SCENARIOS -eq 0 ]]; then
+  echo -e "  ${RED}No scenarios were scored — refusing to report this as a pass.${NC}" >&2
+  exit 3
+fi
 [[ $AGENTS_FAILED -gt 0 ]] && exit 1 || exit 0
