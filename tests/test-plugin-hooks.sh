@@ -60,6 +60,32 @@ assert any(h.get('asyncRewake') for h in flat), 'no asyncRewake'
 assert any(h.get('if') for h in flat), 'no if'
 " 2>/dev/null; then pass; else fail "a flag class was dropped in emit"; fi
 
+begin_test "hooks.json: every hook carries a timeout (CC defaults to 600s)"
+# The default is ten minutes, so an unbounded hook that wedges freezes a tool call
+# for that long with no indication why. Asserting on EVERY entry, not on presence
+# somewhere: one un-timed hook on the hot path is the whole problem.
+if python3 -c "
+import json
+d=json.load(open('$HOOKS_JSON'))
+flat=[h for es in d['hooks'].values() for e in es for h in e.get('hooks',[])]
+missing=[h['command'] for h in flat if not isinstance(h.get('timeout'), int)]
+assert not missing, 'no timeout on: %s' % missing[:3]
+" 2>/dev/null; then pass; else fail "at least one hook has no timeout"; fi
+
+begin_test "hooks.json: blocking hooks get the tight cap, async hooks the loose one"
+# Two tiers because they fail differently — a blocking hook stalls the user, an
+# async one stalls nobody. A single value would either strangle the async scanners
+# or leave the hot path effectively unbounded.
+if python3 -c "
+import json
+d=json.load(open('$HOOKS_JSON'))
+flat=[h for es in d['hooks'].values() for e in es for h in e.get('hooks',[])]
+for h in flat:
+    want = 120 if (h.get('async') or h.get('asyncRewake')) else 15
+    assert h.get('timeout') == want, (h['command'], h.get('timeout'), want)
+assert any(h['timeout'] == 15 for h in flat) and any(h['timeout'] == 120 for h in flat)
+" 2>/dev/null; then pass; else fail "timeout tier wrong for at least one hook"; fi
+
 # The real CLI validator only runs where it is installed — but the ASSERTION is
 # always emitted. v2.24.11: `begin_test` used to live inside the `if`, so on a
 # machine without the CLI this test silently did not exist. That made the suite

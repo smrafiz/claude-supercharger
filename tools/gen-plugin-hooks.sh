@@ -73,6 +73,16 @@ for line in hooks_input.strip().split('\n'):
         inner['async'] = True
     if 'asyncRewake' in flag_list:
         inner['asyncRewake'] = True
+    # v2.26.8: cap every hook. Claude Code defaults command hooks to 600s, so one
+    # wedged hook — hung network call, stuck python, slow NFS stat — freezes a tool
+    # call for ten minutes with the agent unable to proceed and no indication why.
+    # Two tiers because the two kinds fail differently: a BLOCKING hook stalls the
+    # user, so its cap is deliberately tight (measured hook work is under 10ms, so
+    # 15s is three orders of magnitude of headroom); an async hook stalls nobody and
+    # some legitimately run long (update-check does network, code-security-scanner
+    # runs a python scan). Kept in sync with lib/hooks.sh - a test asserts the two
+    # emitters agree.
+    inner['timeout'] = 120 if ('async' in flag_list or 'asyncRewake' in flag_list) else 15
     if if_pattern:
         inner['if'] = if_pattern
 

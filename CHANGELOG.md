@@ -2,6 +2,19 @@
 
 ## Contents
 
+- [2.26.8] - 2026-07-31 — fix(hooks)+feat(security): **no hook had a timeout, so a wedged one could freeze a tool call for ten minutes.** Claude Code defaults command hooks to 600s and Supercharger set the field on **0 of 140** entries. Both emitters now stamp two tiers: **15s blocking, 120s async** — different because they fail differently, since a blocking hook stalls the user and an async one stalls nobody (and some run long on purpose: update-check does network, code-security-scanner runs a python scan). Measured hook work is under 10ms, so 15s is three orders of magnitude of headroom. Two assertions pin every entry and its tier.
+
+  Found by auditing the shipped hook registry against the current hook API, which also closed two channels:
+
+  - **`UserPromptExpansion`** — a slash command's body can come from a plugin or a shared repo, and `expanded_prompt` goes straight into context. Same threat shape as Read/WebFetch, so it is routed into the **existing** `prompt-injection-scanner.sh` rather than a second scanner: one pattern list, no drift. A test asserts both channels fire on the same payload, and another that the new branch did not widen the old gate.
+  - **`MessageDisplay`** — new `display-secret-redactor.sh`, the only guard that protects the **human** rather than the model. The other two secret scanners act on Claude's context; if a credential reaches an assistant message anyway it lands in the terminal, the scrollback, and any screen share running at the time. `displayContent` rewrites what is rendered, keeping a 4-char prefix so the reader knows which key to rotate — and the message says plainly that Claude still has the original, because redacting the render does not unsee it.
+
+  Also new: `config-weakening-notice.sh` on **CwdChanged**. Entering a directory whose `.supercharger.json` disables security categories or hooks is a guardrail change nobody reviewed — it arrives with the branch or the clone, not with a decision. path-guard stops the *agent* writing those files; nothing covered them arriving this way. Notice only, never a block.
+
+  **The audit's top-ranked finding was wrong, and the repo already knew.** `WorktreeCreate`/`WorktreeRemove` looked like the best-fitting gap — Supercharger resolves config through worktrees but hooked nothing in their lifecycle. They are **provider** events: CC delegates worktree creation to a hook registered there and requires a path back, so a passive hook breaks `isolation: worktree` for every agent. That was shipped and reverted in v2.7.26→.27, and `tests/test-install.sh:242` exists to stop it coming back. It caught this within one suite run. The concern was real, so it moved to CwdChanged — the correct event, and one that covers strictly more.
+
+  Suite 2819/0 (+23), 143 registered hooks.
+
 - [2.26.7] - 2026-07-31 — feat(perf)+docs: **half the hook chain is process creation, so the optimisation this plan was heading toward does not pay.** Closes HOOK-LATENCY-PLAN Phase 4 — by measuring the thing that decides it and then *not* doing the work.
 
   `perf-chain.sh` now measures a **spawn floor**: bash starting and exiting, doing nothing. On an M4 Pro that is **2.00 ms**, so 17 PreToolUse/Bash hooks pay **34 ms of the 70 ms chain sum (49%) before one of them runs a line.** Supporting probes: bare `exit 0` 2.18 ms, `+ read stdin` 3.23 ms, `+ source lib-suppress.sh` 3.76 ms.

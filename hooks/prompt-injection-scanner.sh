@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Prompt Injection Scanner Hook
-# Event: PostToolUse | Matcher: mcp__*,WebFetch,WebSearch
+# Event: PostToolUse | Matcher: mcp__*,WebFetch,WebSearch,Read
+# Event: UserPromptExpansion | Matcher: (none) — scans a slash command's expanded body
 # Scans MCP and external tool outputs for prompt injection attempts.
 
 set -euo pipefail
@@ -21,23 +22,41 @@ except Exception:
     sys.exit(0)
 
 tool_name = d.get('tool_name') or ''
-# v2.6.83: include Read so file-content injections (GitHub issues read via
-# `gh issue view`, malicious README, poisoned PR body in `gh pr view`) are
-# scanned for instruction-override markers.
-if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch', 'Read')):
-    sys.exit(0)
+event = d.get('hook_event_name') or ''
 
-resp = d.get('tool_response') or {}
-# Read payloads use `.content`; MCP/Web tools use `.output`. Try both.
-output = resp.get('output') or resp.get('content') or ''
-# v2.8.2: MCP/Read responses often arrive as structured content (list of blocks
-# or a dict), not a bare string. Previously NFKC on a non-str raised → the whole
-# python errored under `2>/dev/null` → the scanner was INERT for structured
-# payloads. Coerce to a string first (mirrors mcp-provenance).
-if isinstance(output, (dict, list)):
-    output = json.dumps(output)
-if not output:
-    sys.exit(0)
+# v2.26.8: slash-command expansion is a THIRD channel by which untrusted text
+# becomes instructions. A command body can come from a plugin or a shared repo,
+# and `expanded_prompt` goes straight into the model's context. It is the same
+# threat shape as Read/WebFetch — text becoming instruction — so it gets the same
+# patterns, in the same hook. A second scanner with its own copy of the list would
+# drift, and cross-channel parity is the rule this project already follows.
+#
+# Deliberately NOT exempted the way test-runner commands are in
+# bash-injection-scanner (2.24.12). That exemption rests on execution already
+# having been granted; expanding a slash command executes nothing.
+if event == 'UserPromptExpansion':
+    tool_name = '/' + (d.get('command_name') or 'slash-command')
+    output = d.get('expanded_prompt') or ''
+    if not output:
+        sys.exit(0)
+else:
+    # v2.6.83: include Read so file-content injections (GitHub issues read via
+    # `gh issue view`, malicious README, poisoned PR body in `gh pr view`) are
+    # scanned for instruction-override markers.
+    if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch', 'Read')):
+        sys.exit(0)
+
+    resp = d.get('tool_response') or {}
+    # Read payloads use `.content`; MCP/Web tools use `.output`. Try both.
+    output = resp.get('output') or resp.get('content') or ''
+    # v2.8.2: MCP/Read responses often arrive as structured content (list of blocks
+    # or a dict), not a bare string. Previously NFKC on a non-str raised → the whole
+    # python errored under `2>/dev/null` → the scanner was INERT for structured
+    # payloads. Coerce to a string first (mirrors mcp-provenance).
+    if isinstance(output, (dict, list)):
+        output = json.dumps(output)
+    if not output:
+        sys.exit(0)
 
 _nfkc = unicodedata.normalize('NFKC', output)
 # v2.10.7: fold common Cyrillic/Greek homoglyphs to their Latin lookalikes BEFORE

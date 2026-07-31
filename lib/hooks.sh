@@ -334,6 +334,28 @@ get_hooks_for_mode() {
     hooks+=("TaskCreated||${hooks_dir}/event-logger.sh task_created|async")
     hooks+=("TaskCompleted||${hooks_dir}/event-logger.sh task_completed|async")
     hooks+=("TeammateIdle||${hooks_dir}/event-logger.sh teammate_idle|async")
+    # v2.26.8: entering a directory whose .supercharger.json weakens guards is a
+    # config change nobody reviewed — it arrives with the branch or the clone, not
+    # with a decision. path-guard stops the AGENT writing these files; this covers
+    # the other way they arrive.
+    #
+    # On CwdChanged, deliberately NOT WorktreeCreate. Worktree* are PROVIDER events:
+    # CC delegates worktree creation to a hook registered there and needs a path
+    # back, so a passive hook breaks `isolation: worktree` for every agent (shipped
+    # and reverted in v2.7.26→.27; test-install.sh:242 guards it). CwdChanged is the
+    # correct event and covers strictly more — a plain cd into any repo, not just a
+    # new worktree.
+    hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
+    # v2.26.8: slash-command expansion is a third channel by which untrusted text
+    # becomes instructions — a command body can come from a plugin or a shared repo.
+    # Same hook, same pattern list as the Read/WebFetch/MCP channel: a second scanner
+    # would drift from the first.
+    hooks+=("UserPromptExpansion||${hooks_dir}/prompt-injection-scanner.sh|async")
+    # v2.26.8: the only guard that protects the HUMAN rather than the model. The other
+    # two secret scanners act on Claude's context; if a credential reaches an assistant
+    # message anyway it lands in the terminal, the scrollback, and any screen share
+    # running at the time. MessageDisplay's displayContent rewrites what is rendered.
+    hooks+=("MessageDisplay||${hooks_dir}/display-secret-redactor.sh|")
     hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
@@ -571,6 +593,13 @@ for line in hooks_input.strip().split('\n'):
         inner['async'] = True
     if 'asyncRewake' in flag_list:
         inner['asyncRewake'] = True
+    # v2.26.8: cap every hook. Claude Code defaults command hooks to 600s, so one
+    # wedged hook freezes a tool call for ten minutes with no indication why. Two
+    # tiers: a BLOCKING hook stalls the user, so its cap is tight (measured hook
+    # work is under 10ms; 15s is ample); an async hook stalls nobody and some run
+    # long on purpose. Mirrored in tools/gen-plugin-hooks.sh - a test asserts the
+    # two emitters agree.
+    inner['timeout'] = 120 if ('async' in flag_list or 'asyncRewake' in flag_list) else 15
     if if_pattern:
         inner['if'] = if_pattern
 

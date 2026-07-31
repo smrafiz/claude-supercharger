@@ -34,6 +34,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `compaction-backup` | PreCompact | (none) | Saves conversation transcript before context compaction. |
 | `confidence-gate` | PreToolUse | Edit,Write,Bash | Computes confidence score from recent tool history + signal flags; |
 | `config-scan` | SessionStart | (none) | Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns. |
+| `config-weakening-notice` | CwdChanged | (none) | Entering a directory whose `.supercharger.json` disables security categories or |
 | `context-advisor` | UserPromptSubmit | (none) | Injects context warnings and economy suggestions based on context window usage. |
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
 | `critical-infra-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Forces an explicit human confirm before Claude edits a critical-infra file — |
@@ -44,6 +45,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
+| `display-secret-redactor` | MessageDisplay | (none) | Last line of defense, and the only one that protects the HUMAN rather than the |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `editor-config-guard` | PreToolUse | Write, Edit, MultiEdit | The `.claude/settings.json` hook-injection / `.mcp.json` stdio-server primitive |
 | `elicitation-discovery` | Elicitation, ElicitationResult | * | Elicitation lets MCP servers solicit structured input from the user — a |
@@ -94,7 +96,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `post-write-advisor` | PostToolUse | Write, Edit, MultiEdit | Folds three advisory checks that each used to be a separate PostToolUse hook — |
 | `precompact-priorities` | PreCompact | (none) | Augments the default compact prompt with fidelity rules so the |
 | `project-config` | SessionStart | (none) | (no description) |
-| `prompt-injection-scanner` | PostToolUse | mcp__*,WebFetch,WebSearch | Scans MCP and external tool outputs for prompt injection attempts. |
+| `prompt-injection-scanner` | PostToolUse | mcp__*,WebFetch,WebSearch,Read | Scans MCP and external tool outputs for prompt injection attempts. |
 | `prompt-layer-inject` | SessionStart | (none) | Delivers the instructional/prompt layer under the PLUGIN runtime, where a plugin |
 | `prompt-secret-guard` | UserPromptSubmit | (none) | Blocks a prompt that contains what looks like a LIVE credential BEFORE it is |
 | `prompt-validator` | UserPromptSubmit | (none) | Deterministic enforcement: catches obvious anti-patterns via regex. |
