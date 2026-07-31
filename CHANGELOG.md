@@ -2,6 +2,16 @@
 
 ## Contents
 
+- [2.26.12] - 2026-08-01 — perf(hooks): **the MessageDisplay redactor added in 2.26.8 cost 27.7 ms on every assistant message — the comment said the cheap gate ran first, the code ran it last.** `display-secret-redactor.sh` forked `python3` to parse the payload **before** reaching the grep that decides whether there is anything to do. It is a blocking hook on a per-message path, so that was four times the warm statusline render, paid on every reply.
+
+  Gating on the raw payload before any parsing: **27.7 → 7.2 ms** in the normal no-secret case, level with the warm statusline. Python is forked only when a credential is actually present (55 ms, rare, and correctness beats speed there). Matching the raw JSON is safe for this: every `SECRET_PATTERNS` shape is alphanumerics plus `-_/+.:`, none of which JSON escapes, so a credential in `message_text` appears verbatim in the payload. The direction of error is a wasted fork on a rare input, never a miss — and the extracted text is re-checked before anything is redacted, so a token living in some other field cannot cause a false redaction.
+
+  The new assertion checks the **structure**, not a millisecond bound — the gate must appear before the parse. A timing threshold would be flaky on a loaded runner, and the defect was ordering, not speed.
+
+  Everything else measured after the 2.26.8–2.26.11 arc: PreToolUse/Bash chain **17 hooks, felt 7.2–8.2 ms, sum 63.6–74.8 ms**, spawn floor 2.00 ms — unchanged, because none of the three hooks added in 2.26.8 sit on the tool-call path. Statusline cold 38.1 ms / warm 6.4 ms, cache speedup 5.95×.
+
+  Suite 2828/0.
+
 - [2.26.11] - 2026-08-01 — fix(tests): **the agent-eval harness had all three of the fuzzer's defects, plus one that killed it outright on bash 3.2.** "Excluded from the suite" has now hidden real defects in both files it covers, so `tests/eval-agents.sh` got the same audit. New `tests/test-eval-harness.sh` (+7) pins every failure mode with a stub `claude` on PATH, so nothing is spent.
 
   1. **No `claude` preflight.** `run_scenario` swallows any failure into an empty string, and an empty response matches no `must_contain` pattern, so it scores FAIL. With no CLI installed, all nine agents "failed" and the run exited 1 — indistinguishable from every agent having regressed. Identical to the fuzzer reporting a missing hook as a 100% bypass rate. Now aborts with exit 3 *before* spending the ~$3.60 a full run costs.

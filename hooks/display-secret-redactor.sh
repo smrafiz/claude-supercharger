@@ -23,6 +23,27 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 _INPUT=$(cat)
 
+[ "${#_INPUT}" -lt 24 ] && exit 0
+
+# shellcheck source=hooks/lib-secret-patterns.sh
+. "$HOOKS_DIR/lib-secret-patterns.sh"
+COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+
+# v2.26.12: gate on the RAW payload, before any parsing. This hook is blocking and
+# fires on every assistant message, and the first version parsed the JSON with a
+# python3 fork *before* reaching this grep — 27.7 ms per message measured, four
+# times the warm statusline render, on a path the user waits behind. The comment
+# claimed the grep came first; the code did not. Now: bash startup plus one grep,
+# and python is forked only when a credential is actually present.
+#
+# Matching the raw JSON rather than the extracted string is safe for this purpose.
+# Every SECRET_PATTERNS shape is alphanumerics with `-`, `_`, `/`, `+`, `.` and `:`,
+# none of which JSON escapes, so a credential in message_text appears verbatim in
+# the payload. The cost of the choice is direction-of-error: a token appearing in
+# some other field would also trip the gate, and then the python pass simply finds
+# nothing in message_text and exits — a wasted fork on a rare input, never a miss.
+printf '%s\n' "$_INPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN" || exit 0
+
 TEXT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
@@ -34,12 +55,9 @@ except Exception:
 [ -z "$TEXT" ] && exit 0
 [ "${#TEXT}" -lt 10 ] && exit 0
 
-# shellcheck source=hooks/lib-secret-patterns.sh
-. "$HOOKS_DIR/lib-secret-patterns.sh"
-COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
-
-# Gate on grep before forking python for the rewrite: the overwhelming majority of
-# messages contain no secret, and this hook renders on every one of them.
+# Re-check the extracted text: the raw-payload gate above can match a credential
+# that lives in another field, and redacting a message that never contained one
+# would be a lie about what was on screen.
 printf '%s\n' "$TEXT" | LC_ALL=C grep -qE "$COMBINED_PATTERN" || exit 0
 
 echo "[Supercharger] display-secret-redactor: redacting a credential from the rendered message" >&2

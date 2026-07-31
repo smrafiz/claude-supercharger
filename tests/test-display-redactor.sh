@@ -27,6 +27,20 @@ FAKE_SK="sk-""abcdefghijklmnopqrstuvwxyz0123"
 
 msg() { printf '{"hook_event_name":"MessageDisplay","message_text":%s}' "$(printf '%s' "$1" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))')"; }
 
+begin_test "redactor: the no-secret path forks no python (it is blocking, per message)"
+# The first version parsed the JSON with a python3 fork BEFORE the grep gate, so
+# every assistant message paid 27.7ms — four times the warm statusline, on a path
+# the user waits behind. The comment claimed the grep came first; the code did not.
+# Asserting the structure rather than a timing threshold, because a ms bound would
+# be flaky on a loaded CI runner: the gate must appear before the parse.
+GATE=$(grep -n 'grep -qE "$COMBINED_PATTERN"' "$REDACTOR" | head -1 | cut -d: -f1)
+PARSE=$(grep -n 'python3 -c' "$REDACTOR" | head -1 | cut -d: -f1)
+if [ -n "$GATE" ] && [ -n "$PARSE" ] && [ "$GATE" -lt "$PARSE" ]; then
+  pass
+else
+  fail "python parse (line $PARSE) runs before the cheap grep gate (line $GATE)"
+fi
+
 begin_test "redactor: silent on a message with no credential"
 OUT=$(msg "Here is a normal reply about refactoring the parser." | bash "$REDACTOR" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected silence: $OUT"
