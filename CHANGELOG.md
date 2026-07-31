@@ -2,6 +2,14 @@
 
 ## Contents
 
+- [2.26.9] - 2026-07-31 — fix(tests): **2.26.8's own perf assertion was flaky on the macOS runner — it compared two things measured differently.** The spawn floor is a 15-sample median; the per-hook means it was checked against come from `--iterations 1`, so they are **single samples**. Asserting `floor <= cheapest + 1ms` across that gap held on a quiet dev machine and on ubuntu, then failed on macOS where one noisy sample lands under a stable median. CI red on one of two runners.
+
+  Relaxed to an order-of-magnitude check, which is what the assertion was ever really for: a probe measuring the whole chain instead of one spawn would be ~17× the cheapest hook, not 2×. Tolerance is now `cheapest × 2 + 2ms`.
+
+  The failure was also undiagnosable — the python ran under `>/dev/null 2>&1`, so a real CI failure printed only "spawn floor missing or implausible" with no numbers. Same discarded-diagnostic mistake fixed in `test-install.sh` in 2.26.2, made again three releases later in a test I wrote. It now prints the floor, the cheapest hook, and which invariant broke.
+
+  Suite 2819/0.
+
 - [2.26.8] - 2026-07-31 — fix(hooks)+feat(security): **no hook had a timeout, so a wedged one could freeze a tool call for ten minutes.** Claude Code defaults command hooks to 600s and Supercharger set the field on **0 of 140** entries. Both emitters now stamp two tiers: **15s blocking, 120s async** — different because they fail differently, since a blocking hook stalls the user and an async one stalls nobody (and some run long on purpose: update-check does network, code-security-scanner runs a python scan). Measured hook work is under 10ms, so 15s is three orders of magnitude of headroom. Two assertions pin every entry and its tier.
 
   Found by auditing the shipped hook registry against the current hook API, which also closed two channels:

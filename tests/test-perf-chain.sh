@@ -18,21 +18,29 @@ begin_test "chain output splits the sum into process spawn and hook work"
 SPOUT=$(bash "$HARNESS" --iterations 1 2>/dev/null)
 printf '%s' "$SPOUT" | grep -q 'is process spawn' && pass || fail "no spawn/work split: $SPOUT"
 
-begin_test "spawn floor is measured, positive, and below the cheapest hook"
-bash "$HARNESS" --iterations 1 --json 2>/dev/null | python3 -c "
+begin_test "spawn floor is measured, positive, and plausible against the cheapest hook"
+# The floor is a 15-sample median; per-hook means here come from --iterations 1, so
+# they are SINGLE samples. Comparing them tightly is comparing two different
+# measurements — the first version of this asserted floor <= cheapest + 1ms and
+# duly failed on the macOS runner, where one noisy sample lands under a stable
+# median. The check that actually matters is order-of-magnitude: a probe measuring
+# the whole chain instead of one spawn would be ~17x the cheapest hook, not 2x.
+# Failure prints the numbers, because a bare "implausible" is undiagnosable.
+DIAG=$(bash "$HARNESS" --iterations 1 --json 2>/dev/null | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
 f=d['spawn_floor_ms']
-assert f>0, 'floor not measured: %r' % f
-# A floor at or above the cheapest hook would mean the probe is measuring something
-# other than bare process startup — the split would then be arithmetic, not evidence.
+if not f>0: print('floor not measured: %r' % f); sys.exit(1)
 cheapest=min(min(p['per_hook_ms'].values()) for p in d['payloads'].values())
-assert f<=cheapest+1.0, 'floor %.2f exceeds cheapest hook %.2f' % (f,cheapest)
-for p in d['payloads'].values():
-    assert abs((p['spawn_ms']+p['work_ms'])-p['chain_sum_ms'])<0.2, p
-    assert 0<p['spawn_share']<=1, p
-print('ok')
-" >/dev/null 2>&1 && pass || fail "spawn floor missing or implausible"
+if f > cheapest*2 + 2:
+    print('floor %.2f implausible vs cheapest hook %.2f' % (f,cheapest)); sys.exit(1)
+for lab,p in d['payloads'].items():
+    if abs((p['spawn_ms']+p['work_ms'])-p['chain_sum_ms'])>=0.2:
+        print('%s: spawn+work != sum: %r' % (lab,p)); sys.exit(1)
+    if not 0<p['spawn_share']<=1:
+        print('%s: spawn_share out of range: %r' % (lab,p['spawn_share'])); sys.exit(1)
+" 2>&1)
+[ -z "$DIAG" ] && pass || fail "spawn floor implausible — $DIAG"
 
 begin_test "--json emits valid JSON with per-hook means + slowest"
 JOUT=$(bash "$HARNESS" --iterations 1 --json 2>/dev/null)
