@@ -2,6 +2,16 @@
 
 ## Contents
 
+- [2.26.4] - 2026-07-31 — fix(tests): **the fuzz harness reported a 100% bypass rate as a normal result, and nothing could tell that apart from a real breach.** `tests/fuzz-safety.sh` ran `bash "$HOOK"` without ever checking the hook was there. A missing file exits 127, 127 is not 2, and not-2 is counted as a false negative — so running a copy from outside the repo (where `REPO_DIR` no longer resolves) printed **4055 bypasses** in the same confident tone it uses for real findings. That number was believed for a while before it was traced to the copy.
+
+  The fix is not an `[ -x "$HOOK" ]` test, which would only cover the one path that happened to break. Before measuring anything, the harness now proves it can see **both** verdicts: `rm -rf /` must block and `ls -la` must not. That catches the missing hook, a missing `python3` (an empty payload makes `safety.sh` exit 0 on every input — same catastrophic-looking output), a hook that dies on startup, and the inverse failure where a deny-everything hook would report a flawless zero. On any disagreement it aborts with exit 3 and says it is refusing to report a bypass rate measured with a broken instrument.
+
+  New `tests/test-fuzz-harness.sh` (+4) pins the preflight, because the fuzzer is deliberately excluded from the suite (slow + non-deterministic) and so nothing kept its instrument honest. Three assertions fault-inject the failure modes; a fourth runs the two probes against the real `safety.sh`, so the preflight cannot pass by having become meaningless. All four abort before the corpus, so they cost nothing.
+
+  Verified end to end afterwards: **5705 runs, 0 false negatives, 0 false positives.**
+
+  Suite 2783/0.
+
 - [2.26.3] - 2026-07-31 — feat(tests)+fix(tests): **the guard for 2.26.2's bug found three more instances of it, one of them disarming a security scanner mid-run.** New `tests/test-repo-tree-isolation.sh` (+8) enforces one rule: a `$REPO_DIR`-rooted path may be read, never written. A post-hoc `git status` check cannot find this class — the residue is always cleaned up, and the damage happens in the window between create and delete — so it is a static scan of the test sources, in the shape of `test-suite-count-invariance.sh`. It tracks alias variables transitively (`HOOKS_DIR="$REPO_DIR/hooks"` is how the original was spelt) and requires the verb in **command position**, because tests pass attack strings as arguments: `run_hook "$SAFETY_HOOK" "rm -r -f /"` is a read, and an earlier heuristic of mine flagged it.
 
   What it caught, live on master:

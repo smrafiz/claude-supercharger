@@ -162,6 +162,42 @@ run_safety() {
   echo $?
 }
 
+# ── Instrument self-check (v2.26.4) ───────────────────────────────────────────
+# Every way this harness can break produces the SAME output as a catastrophic
+# security regression: a run that reports ~100% of dangerous commands allowed.
+# `bash "$HOOK"` on a missing file exits 127, which is != 2, which counts as a
+# false negative — so copying this script somewhere its REPO_DIR no longer
+# resolves reports thousands of bypasses in a confident tone. That happened, and
+# the number was believed for a while before it was traced to the copy.
+#
+# So prove the instrument works before trusting a single measurement: one command
+# that must block and one that must not. If either disagrees, this is measuring
+# its own breakage, not safety.sh, and every count below would be noise.
+if [ ! -f "$HOOK" ]; then
+  echo "ABORT: hook not found at $HOOK" >&2
+  echo "       (REPO_DIR resolved to $REPO_DIR — run this script from its place in the repo)" >&2
+  exit 3
+fi
+if ! command -v python3 >/dev/null 2>&1; then
+  echo "ABORT: python3 not found — run_safety builds its JSON payload with it," >&2
+  echo "       and an empty payload makes safety.sh exit 0 on every input." >&2
+  exit 3
+fi
+
+_SC_BLOCK=$(run_safety "rm -rf /")
+_SC_ALLOW=$(run_safety "ls -la")
+if [ "$_SC_BLOCK" != "2" ]; then
+  echo "ABORT: self-check failed — 'rm -rf /' returned exit ${_SC_BLOCK}, expected 2." >&2
+  echo "       Either safety.sh is broken or this harness cannot invoke it." >&2
+  echo "       Refusing to report a bypass rate measured with a broken instrument." >&2
+  exit 3
+fi
+if [ "$_SC_ALLOW" = "2" ]; then
+  echo "ABORT: self-check failed — 'ls -la' was BLOCKED, expected allow." >&2
+  echo "       A hook that denies everything would report zero false negatives." >&2
+  exit 3
+fi
+
 # Aggregate counters
 TOTAL=0
 FN_COUNT=0   # dangerous but allowed (exit 0/1)
