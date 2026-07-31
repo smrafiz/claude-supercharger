@@ -59,6 +59,36 @@ else
 fi
 rm -rf "$SB"
 
+begin_test "fuzz-safety: never writes to live Supercharger state"
+# The harness fires thousands of real attack strings through the real hook, and
+# safety.sh appends every block to $SUPERCHARGER_STATE/scope/.blocked-commands —
+# a 500-line ring buffer that feeds learn-from-blocks.sh and the [BLOCKS] banner
+# injected into every session. One unisolated run evicted the user's entire
+# genuine block history and replaced it with synthetic attacks (530 of 533
+# entries). A diagnostic must not write to the thing it diagnoses.
+#
+# Discriminating by construction: the stub hook writes into whatever
+# SUPERCHARGER_STATE it is handed, exactly as safety.sh does. If the harness stops
+# isolating, that write lands in the sentinel and this fails. The stub exits 0 on
+# everything, so the preflight aborts after two probes — no corpus, no minutes.
+SB=$(sandbox)
+cat > "$SB/hooks/safety.sh" <<'EOS'
+#!/usr/bin/env bash
+mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
+echo "block" >> "$SUPERCHARGER_STATE/scope/.blocked-commands" 2>/dev/null || true
+exit 0
+EOS
+SENTINEL=$(mktemp -d); mkdir -p "$SENTINEL/scope"
+printf 'pre-existing-real-entry\n' > "$SENTINEL/scope/.blocked-commands"
+SUPERCHARGER_STATE="$SENTINEL" bash "$SB/tests/fuzz-safety.sh" >/dev/null 2>&1
+LIVE=$(wc -l < "$SENTINEL/scope/.blocked-commands" | tr -d ' ')
+if [ "$LIVE" = "1" ]; then
+  pass
+else
+  fail "harness wrote to live state: sentinel went 1 -> $LIVE lines"
+fi
+rm -rf "$SB" "$SENTINEL"
+
 begin_test "fuzz-safety: the real hook passes the preflight (probes still classify correctly)"
 # Guards the guard the other way: if safety.sh ever stopped blocking `rm -rf /` or
 # started blocking `ls -la`, the three assertions above would still pass while the

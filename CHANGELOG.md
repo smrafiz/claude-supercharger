@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.10] - 2026-07-31 — fix(tests): **the fuzz harness wrote its synthetic attacks into live security telemetry and evicted the real history.** `tests/fuzz-safety.sh` fires ~5700 real attack strings through the real `safety.sh`, and every block appends to `$SUPERCHARGER_STATE/scope/.blocked-commands` — a **500-line ring buffer**. One run overwrites it entirely. Measured on this machine after the 2.26.4 run: **530 of 533 entries were synthetic**, all dated the day the fuzzer ran, the top entries verbatim corpus mutations (`env FOO=bar cat installer.txt | bash`, the prefix and whitespace mutators).
+
+  That log is not a scratch file. `learn-from-blocks.sh` reads it at SessionStart to teach future sessions which patterns to avoid, and the `[BLOCKS]` banner injected into every session is built from it at real token cost. So an unisolated fuzz run destroyed genuine block history, then taught every subsequent session from fixtures.
+
+  The harness now isolates `SUPERCHARGER_STATE` and `HOME` to `mktemp -d`, cleaned on exit. A fresh state dir is also the **correct** baseline: category opt-outs live in state, so an isolated run measures the shipped guard rather than one machine's local exemptions. Re-run after the change: **5705 runs, 0 false negatives, 0 false positives — verdicts unchanged — and the live log delta was 0.**
+
+  Same class as 2.24.8 (HOME isolation for the suite) and 2.26.2 (repo-tree writes), and it survived both for the same reason: this file is deliberately excluded from the suite, so neither guard ever reached it. A diagnostic must not write to the thing it diagnoses.
+
+  `tests/test-fuzz-harness.sh` gains an assertion that discriminates by construction — a stub hook writes into whatever `SUPERCHARGER_STATE` it is handed, exactly as `safety.sh` does, so a regression lands in the sentinel. Verified by fault injection: with the isolation removed the sentinel grows 1 → 3 lines. It costs nothing, because the preflight aborts after two probes.
+
+  Suite 2820/0.
+
 - [2.26.9] - 2026-07-31 — fix(tests): **2.26.8's own perf assertion was flaky on the macOS runner — it compared two things measured differently.** The spawn floor is a 15-sample median; the per-hook means it was checked against come from `--iterations 1`, so they are **single samples**. Asserting `floor <= cheapest + 1ms` across that gap held on a quiet dev machine and on ubuntu, then failed on macOS where one noisy sample lands under a stable median. CI red on one of two runners.
 
   Relaxed to an order-of-magnitude check, which is what the assertion was ever really for: a probe measuring the whole chain instead of one spawn would be ~17× the cheapest hook, not 2×. Tolerance is now `cheapest × 2 + 2ms`.

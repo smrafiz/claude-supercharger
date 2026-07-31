@@ -11,6 +11,29 @@ set -u
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOOK="$REPO_DIR/hooks/safety.sh"
 
+# ── State isolation (v2.26.10) ────────────────────────────────────────────────
+# This harness fires several thousand REAL attack strings through the REAL hook,
+# and safety.sh appends every block to $SUPERCHARGER_STATE/scope/.blocked-commands.
+# Run against live state, one pass writes thousands of synthetic entries into a
+# 500-line ring buffer — evicting the user's genuine block history, poisoning what
+# learn-from-blocks.sh teaches every future session, and inflating the [BLOCKS]
+# banner injected into every session at real token cost. Measured: a single run
+# left 530 of 533 entries synthetic.
+#
+# 2.24.8 isolated HOME for the test suite and 2.26.2 the repo tree, but this file
+# is deliberately excluded from the suite, so neither reached it. A diagnostic must
+# not write to the thing it diagnoses.
+#
+# A fresh state dir is also the CORRECT baseline: category opt-outs
+# (.disabled-security-categories) live in state, so an isolated run measures the
+# shipped guard rather than one user's local exemptions.
+_FUZZ_STATE=$(mktemp -d)
+_FUZZ_HOME=$(mktemp -d)
+mkdir -p "$_FUZZ_STATE/scope" "$_FUZZ_HOME/.claude"
+export SUPERCHARGER_STATE="$_FUZZ_STATE"
+export HOME="$_FUZZ_HOME"
+trap 'rm -rf "$_FUZZ_STATE" "$_FUZZ_HOME"' EXIT
+
 VERBOSE=0
 [ "${1:-}" = "--verbose" ] && VERBOSE=1
 
