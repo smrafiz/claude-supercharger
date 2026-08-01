@@ -119,6 +119,42 @@ but **bounded** (width ≈ 11), not unlimited.
 > Absolute ms above are inflated: profiling forks python twice per hook to timestamp. The
 > *structure* — parallel, width ≈ 11 — is the finding; the ms are not a latency claim.
 
+### Confirmed for a SECOND event (2026-08-01) — `UserPromptSubmit`
+
+The width-11 finding above was measured on `PreToolUse` only, and every later
+argument reused it as an assumption. `tools/hook-concurrency.sh` (v2.26.14) makes the
+method repeatable; run against a live `UserPromptSubmit`:
+
+| Measure | Value |
+|---|---|
+| Hooks recorded | 13 of 13 |
+| Overlapping interval pairs | **65 / 78** |
+| Wall-clock span | 101 ms |
+| Sum of elapsed | 613 ms |
+| **Max concurrency (width)** | **11** |
+| Speedup vs serial | 6.1× |
+
+Two visible waves — six hooks starting at +0…+14 ms, seven at +44…+52 ms. Same
+structure, same width as `PreToolUse`, so the assumption held. (Absolute ms inflated
+by profiling, as above.)
+
+**Unprofiled felt cost: 31.6 ms per prompt**, against a 269 ms sequential sum. So the
+`--target all` sweep's headline — "`UserPromptSubmit` is the worst blocking cost at
+~205 ms" — is a **bookkeeping figure, not a felt one**. The sweep ranks by blocking
+sum because it cannot know concurrency; this is the measurement that converts it.
+
+**No single lever, despite appearances.** The felt estimate (31.6 ms) equals the
+slowest hook (`scope-guard.sh`, 30.8 ms), which looks like a 1:1 optimisation
+opportunity — cut that hook and the whole event drops. It is not: the spread is
+**flat at 26–31 ms across all 13**, so removing the slowest entirely would move felt
+to 30.8 ms. Same conclusion as §7, reached from the opposite direction.
+
+What differs from `PreToolUse` is the per-hook constant: 26–31 ms here versus 2–7 ms
+there, because these hooks are python-heavy (`scope-guard.sh` alone forks python3
+four times) while the `PreToolUse` guards are mostly pure bash. The only real lever
+is systemic — fewer python forks across 13 files — worth ~20 ms on an event that
+fires a few times a minute. Recorded, not recommended.
+
 **What this changes:**
 
 - **Felt latency ≈ the span, not the sum.** With ~18 Bash hooks and width ≈ 11, a tool call is

@@ -2,6 +2,22 @@
 
 ## Contents
 
+- [2.26.14] - 2026-08-01 — feat(perf): **`UserPromptSubmit`'s "205 ms on every prompt" is bookkeeping — felt cost is 31.6 ms.** 2.26.13's sweep ranked it the worst blocking cost in the system, nearly 3× `PreToolUse`. It ranks by blocking *sum* because it cannot know concurrency. This is the measurement that converts the two.
+
+  New `tools/hook-concurrency.sh` makes HOOK-LATENCY-PLAN §3b's method repeatable. §3b established parallel execution at width ~11 — but measured `PreToolUse` only, and every argument since has reused that as an assumption rather than a result. Run against a live `UserPromptSubmit`: **13 of 13 hooks recorded, 65/78 interval pairs overlapping, span 101 ms vs 613 ms sum, max concurrency 11, 6.1× speedup.** Two visible waves. The assumption held — now it is checked.
+
+  Unprofiled felt cost is **31.6 ms per prompt** against a 269 ms sequential sum. Real, ~4× `PreToolUse`'s 7.6 ms, but on an event that fires a few times a minute rather than dozens.
+
+  **No single lever, despite looking like one.** The felt estimate equals the slowest hook (`scope-guard.sh`, 30.8 ms), which reads as a 1:1 opportunity — cut it and the whole event drops. It is not: the spread is **flat at 26–31 ms across all 13**, so deleting the slowest outright would move felt to 30.8 ms. Same conclusion as Phase 4, reached from the opposite direction, and I nearly reported the wrong one before checking the distribution.
+
+  What differs from `PreToolUse` is the per-hook constant — 26–31 ms versus 2–7 ms — because these hooks are python-heavy (`scope-guard.sh` alone forks python3 four times) while the PreToolUse guards are mostly pure bash. The only real lever is systemic and worth ~20 ms on an infrequent event. Recorded, not recommended.
+
+  The tool **aborts (exit 3) rather than reporting a result** when it has no records, when the event is unregistered, or when the audit log is missing — no data must never read as "sequential, cost zero". `tests/test-hook-concurrency.sh` (+6) drives it with synthetic logs, and the discriminating assertion is the *sequential* one: a tool that said "parallel" regardless would have confirmed §3b no matter what the data showed.
+
+  Also confirmed in passing: with profiling off, **today's audit log holds zero timing records for these 13 hooks** — every one sits under the 40 ms threshold. §3's central claim, observed in the wild rather than argued.
+
+  Suite 2836/0.
+
 - [2.26.13] - 2026-08-01 — feat(perf): **the latency instrument only ever looked at two hot paths, which is how the 2.26.12 regression survived four releases.** `perf-chain.sh --target all` now sweeps **every** registered event and ranks them by the cost a user actually waits behind. CI runs it on every push. Measuring one hot path is how you miss the next one.
 
   **It ranks on BLOCKING cost, not the sequential sum.** Ranking by sum puts `PostToolUse` near the top (391 ms) when only 33 ms of that blocks anything — it would send the reader optimising async hooks nobody waits for, the exact error HOOK-LATENCY-PLAN Phase 4 warned about. The sum stays visible as the CPU/fork story. A test pins the ordering, using `PostToolUse` as the discriminator precisely because its two columns disagree.

@@ -159,6 +159,7 @@ Run any of these manually:
 | `tools/economy-switch.sh` | Resolve source directory (tools/ → repo root) |
 | `tools/gen-plugin-commands.sh` | Claude Supercharger — Plugin commands/ generator |
 | `tools/gen-plugin-hooks.sh` | Claude Supercharger — Plugin hooks.json generator |
+| `tools/hook-concurrency.sh` | Claude Supercharger — Hook concurrency reconstructor |
 | `tools/hook-doctor.sh` | Claude Supercharger — Hook Doctor |
 | `tools/hook-new.sh` | Claude Supercharger — New Hook Scaffolder |
 | `tools/hook-perf.sh` | Claude Supercharger — Hook Performance Profiler |
