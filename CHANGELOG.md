@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.16] - 2026-08-01 — perf(hooks): **two hooks forked python on every prompt to look for a field that does not exist in the payload.** `adaptive-economy.sh` and `context-advisor.sh` used the pattern `X=$(… jq …); if [ -z "$X" ]; then X=$(… python3 …); fi`, which conflates "jq is unavailable" with "the field is absent". The fallback exists for the first; it fired on the second. They read `.context_window.used_percentage` — **not part of the `UserPromptSubmit` payload at all** — so the python fork ran on every prompt and could only ever return empty. `context-advisor`'s next line exits when the value is empty, so the fork bought literally nothing.
+
+  The tell was that both hooks were **slower when the field was absent (32.3 ms) than when present (13.0 ms)** — exactly backwards. Fixed with `command -v jq`, a builtin: **32.3 → 9.7 ms** and **29.6 → 8.9 ms**, and the anomaly is gone. Output verified byte-identical to the previous version, and the fallback still works with jq genuinely removed from `PATH`.
+
+  **Event cost: chain sum 269.4 → 220.8 ms (−18%). Felt cost 31.6 → 31.2 ms — unchanged.** That is the predicted result, now measured rather than argued: the two fixed hooks dropped from ~30 ms to ~9 ms, and the makespan simply promoted the next hook (`agent-router.sh`, 31.2 ms). With a flat 26–31 ms distribution across 13 hooks, removing the top two moves nothing a user waits for. Worth keeping for CPU and battery, and because it fixes a real defect — but it does not make anything feel faster, and 2.26.14's recommendation stands.
+
+  The same jq-empty-then-python shape appears at **22 sites repo-wide**. Only these two were fixed, because only these two read a field guaranteed absent; elsewhere the field is normally present, so jq succeeds and no fork happens. The rest are a latent trap, not a live cost — recorded, not changed.
+
+  `tests/test-jq-fallback.sh` (+5) pins both halves: the fast path must not fork, and the fallback must still work without jq. The second assertion initially passed with a broken setup — `mktemp` was not in the stripped `PATH`, so the hook got an empty state dir — and now allocates the temp dir before stripping and fails on `command not found`.
+
+  Suite 2841/0.
+
 - [2.26.15] - 2026-08-01 — fix(tests): **the statusline cache assertion measured the wrong statistic and reddened macOS CI.** It asserted `cold_mean / warm_mean > 1.5`. A warm render that crosses a wall-clock second boundary **misses the cache and costs a full cold render** — documented behaviour, and the reason the harness reports min alongside mean. On the macOS runner one of two warm samples missed: **warm min 15 ms, max 82 ms, mean 48.5**, mean-speedup **1.46** — while the hit path was doing **70 → 15 ms, 4.7×**. The cache was fine; the statistic was wrong.
 
   Now asserts `cold_min / warm_min > 2.5`, the cache-**hit floor**, which is what "does the cache work" actually asks. Verified both ways: replayed against the exact CI numbers it passes at 4.67, and against a disabled cache it fails at 1.01 — so this narrows the question rather than loosening the bar. `cache_speedup_min` is now in the JSON next to the mean.

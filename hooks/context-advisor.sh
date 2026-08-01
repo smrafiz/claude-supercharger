@@ -13,8 +13,14 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "context-advisor" && exit 0
 
-PCT=$(printf '%s\n' "$_INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null || true)
-if [ -z "$PCT" ]; then
+# v2.26.16: fall back to python only when jq is genuinely UNAVAILABLE — not when jq
+# ran fine and the field simply is not there. `context_window` is not part of the
+# UserPromptSubmit payload, so the old `[ -z "$PCT" ]` test fired on every prompt
+# and paid ~20ms for a python fork that could only return empty — and the very next
+# line exits when PCT is empty, so the fork bought nothing at all.
+if command -v jq >/dev/null 2>&1; then
+  PCT=$(printf '%s\n' "$_INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null || true)
+else
   PCT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)

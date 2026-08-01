@@ -19,8 +19,15 @@ PROJECT_DIR=$(_resolve_project_root "$PROJECT_DIR")
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "adaptive-economy" && exit 0
 
-PCT=$(printf '%s\n' "$_INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null || true)
-if [ -z "$PCT" ]; then
+# v2.26.16: fall back to python only when jq is genuinely UNAVAILABLE — not when jq
+# ran fine and the field simply is not there. `context_window` is not part of the
+# UserPromptSubmit payload at all, so the old `[ -z "$PCT" ]` test fired on every
+# prompt and paid ~20ms for a python fork that could only ever return empty. The
+# hook was measurably SLOWER when the field was absent (32.3ms) than when it was
+# present (13.0ms), which is exactly backwards. `command -v` is a builtin: no fork.
+if command -v jq >/dev/null 2>&1; then
+  PCT=$(printf '%s\n' "$_INPUT" | jq -r '.context_window.used_percentage // empty' 2>/dev/null || true)
+else
   PCT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 data = json.load(sys.stdin)
