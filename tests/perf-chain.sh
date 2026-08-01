@@ -162,6 +162,14 @@ report = {"target": "statusline", "iterations": int(os.environ["ITERS"]),
           "cold_render": cold, "warm_render": warm}
 if cold and warm and warm["mean_ms"] > 0:
     report["cache_speedup"] = round(cold["mean_ms"] / warm["mean_ms"], 2)
+# v2.26.15: min-over-min as well as mean-over-mean. A warm render that crosses a
+# wall-clock second boundary MISSES the cache and costs a full cold render, so the
+# warm mean legitimately includes misses — on a slow runner one miss in two samples
+# halves the apparent speedup. Measured on macOS CI: warm min 15 ms, max 82 ms,
+# mean 48.5, mean-speedup 1.46 while the hit path was doing 70 -> 15 ms (4.7x).
+# The min is the true cache-hit floor, which is what "does the cache work" means.
+if cold and warm and warm["min_ms"] > 0:
+    report["cache_speedup_min"] = round(cold["min_ms"] / warm["min_ms"], 2)
 
 if os.environ["JSON"] == "1":
     print(json.dumps(report, indent=2))

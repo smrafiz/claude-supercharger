@@ -70,18 +70,19 @@
     "iterations": 10,
     "platform": "Darwin",
     "cold_render": {
-      "mean_ms": 39.2,
+      "mean_ms": 38.4,
       "min_ms": 38.0,
-      "max_ms": 40.0,
+      "max_ms": 41.0,
       "samples": 10
     },
     "warm_render": {
-      "mean_ms": 6.8,
+      "mean_ms": 6.9,
       "min_ms": 6.0,
-      "max_ms": 7.0,
+      "max_ms": 8.0,
       "samples": 10
     },
-    "cache_speedup": 5.76
+    "cache_speedup": 5.57,
+    "cache_speedup_min": 6.33
   },
   "_note": "Regenerate deliberately: bash tests/perf-chain.sh [--target statusline] --write-baseline"
 }

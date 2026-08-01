@@ -2,6 +2,14 @@
 
 ## Contents
 
+- [2.26.15] - 2026-08-01 — fix(tests): **the statusline cache assertion measured the wrong statistic and reddened macOS CI.** It asserted `cold_mean / warm_mean > 1.5`. A warm render that crosses a wall-clock second boundary **misses the cache and costs a full cold render** — documented behaviour, and the reason the harness reports min alongside mean. On the macOS runner one of two warm samples missed: **warm min 15 ms, max 82 ms, mean 48.5**, mean-speedup **1.46** — while the hit path was doing **70 → 15 ms, 4.7×**. The cache was fine; the statistic was wrong.
+
+  Now asserts `cold_min / warm_min > 2.5`, the cache-**hit floor**, which is what "does the cache work" actually asks. Verified both ways: replayed against the exact CI numbers it passes at 4.67, and against a disabled cache it fails at 1.01 — so this narrows the question rather than loosening the bar. `cache_speedup_min` is now in the JSON next to the mean.
+
+  Third time this session a threshold has compared two differently-measured things: 2.26.9 (15-sample median vs single sample) and 2.26.11 (BSD vs GNU `seq`) were the others. The pattern is asserting across a boundary where the two sides were not produced the same way.
+
+  Suite 2836/0.
+
 - [2.26.14] - 2026-08-01 — feat(perf): **`UserPromptSubmit`'s "205 ms on every prompt" is bookkeeping — felt cost is 31.6 ms.** 2.26.13's sweep ranked it the worst blocking cost in the system, nearly 3× `PreToolUse`. It ranks by blocking *sum* because it cannot know concurrency. This is the measurement that converts the two.
 
   New `tools/hook-concurrency.sh` makes HOOK-LATENCY-PLAN §3b's method repeatable. §3b established parallel execution at width ~11 — but measured `PreToolUse` only, and every argument since has reused that as an assumption rather than a result. Run against a live `UserPromptSubmit`: **13 of 13 hooks recorded, 65/78 interval pairs overlapping, span 101 ms vs 613 ms sum, max concurrency 11, 6.1× speedup.** Two visible waves. The assumption held — now it is checked.

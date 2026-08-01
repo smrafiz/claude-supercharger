@@ -108,7 +108,14 @@ for k in ('cold_render','warm_render'):
 # The cache must actually be doing something. Asserting a floor rather than an exact
 # figure: the point is that the warm path skips python3 entirely, which is worth
 # multiples, not percent. A regression that quietly disables the cache lands here.
-assert d['cache_speedup']>1.5, d['cache_speedup']
+#
+# v2.26.15: on MIN, not mean. A warm render crossing a wall-clock second boundary
+# misses the cache and costs a full cold render, so the warm mean legitimately
+# includes misses — with 2 samples on a slow runner, one miss halves the figure.
+# That is exactly what reddened macOS CI: mean-speedup 1.46 while the hit path was
+# doing 70 -> 15 ms. The min is the cache-hit floor, which is what this is asking
+# about. Same mistake as 2.26.9: a threshold across two differently-measured things.
+assert d['cache_speedup_min']>2.5, (d['cache_speedup_min'], d['cache_speedup'])
 print('ok')
 " >/dev/null 2>&1 && pass || fail "invalid statusline JSON or no cache benefit: $SJ"
 
