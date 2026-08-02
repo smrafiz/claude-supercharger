@@ -200,6 +200,59 @@ if config_file and os.path.isfile(config_file):
             if os.path.isfile(profile_file):
                 os.remove(profile_file)
 
+        # Per-project CUSTOM dangerous patterns (v2.26.21). Additive only — a project
+        # may TIGHTEN the guard, never loosen it, so there is no "allow" counterpart.
+        # This is the on-thesis answer to "I want my own rules": config that survives
+        # updates, rather than forking the hooks (which harness-tamper-guard exists to
+        # prevent, and which would strand a repo on stale security patterns).
+        custom = config.get('customPatterns', [])
+        pat_file = os.path.join(_SCOPE, '.custom-patterns')
+        if isinstance(custom, list):
+            # Bounded: 50 patterns, 200 chars each. A runaway config must not turn every
+            # Bash call into an unbounded regex. Newlines are stripped because the file
+            # is line-based, exactly like the block ledger.
+            clean = []
+            for c in custom[:50]:
+                if not isinstance(c, str):
+                    continue
+                c = c.replace('\n', ' ').replace('\r', ' ').strip()[:200]
+                if c:
+                    clean.append(c)
+            # Validate with GREP, not python's re — they are different dialects, and
+            # grep is what actually evaluates these. (`foo[unclosed` is rejected by
+            # both here, but POSIX classes like [[:space:]] and python-only escapes
+            # diverge, so testing with the wrong engine would pass patterns that then
+            # fail at match time.)
+            #
+            # Reported HERE rather than in safety.sh because safety.sh only reaches
+            # the custom-pattern code for commands that survive its fast path — a user
+            # with a typo could go a whole session without ever seeing the warning,
+            # believing a rule protects them when it does not. This runs once, at
+            # SessionStart, where the config is read.
+            import subprocess
+            valid, invalid = [], []
+            for c in clean:
+                try:
+                    rc = subprocess.run(['grep', '-qiE', c], input=b'',
+                                        stdout=subprocess.DEVNULL,
+                                        stderr=subprocess.DEVNULL).returncode
+                except Exception:
+                    rc = 2
+                (valid if rc in (0, 1) else invalid).append(c)
+            clean = valid
+            if invalid:
+                cfg_parts.append(
+                    'INVALID customPatterns (not active): ' + ', '.join(invalid[:3]))
+            if clean:
+                os.makedirs(os.path.dirname(pat_file), exist_ok=True)
+                with open(pat_file, 'w') as f:
+                    f.write('\n'.join(clean) + '\n')
+                cfg_parts.append(f'Custom patterns: {len(clean)}')
+            elif os.path.isfile(pat_file):
+                os.remove(pat_file)
+        elif os.path.isfile(pat_file):
+            os.remove(pat_file)
+
         # Per-project security category toggles
         disabled_cats = config.get('disableSecurityCategories', [])
         cats_file = os.path.join(_SCOPE, '.disabled-security-categories')
