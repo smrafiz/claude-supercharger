@@ -187,7 +187,12 @@ if _cat_enabled "filesystem"; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since
         # `rm -rf ~/` and `rm -rf $HOME/` are equally destructive.
-        if [[ "$args" =~ (^|[[:space:]])(\/[[:space:]]*$|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
+        # v2.26.25: the root arm was `\/[[:space:]]*$` — root ONLY as the last token,
+        # so `rm / -rf` slipped by. Now a bare `\/`; the trailing group still requires
+        # space/end/slash after it, so `/etc` and `/tmp/x` are untouched. The python
+        # block below is the real check — this stays correct because it is the only
+        # guard left if python3 is missing (`|| true` fails open).
+        if [[ "$args" =~ (^|[[:space:]])(\/|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
           block "recursive force rm on dangerous target"
         fi
         # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
@@ -231,7 +236,13 @@ for tok in tokens:
     expanded = os.path.expanduser(os.path.expandvars(tok))
     target = os.path.realpath(os.path.join(cwd, expanded))
     # 1. cwd or an ancestor of cwd (project-dir wipe)
-    if target == cwd or cwd.startswith(target + os.sep):
+    # v2.26.25: `target + os.sep` is '//' when target is '/', so cwd.startswith()
+    # was always False and ROOT — the ancestor that contains everything — was the
+    # one ancestor this check could never catch. Every root spelling lands here
+    # ('/', '//', '/.', '/..', '"/"' after shlex all realpath to '/'), so the
+    # reordered `rm / -rf` and `rm -rf / --no-preserve-root` passed both layers.
+    prefix = target if target.endswith(os.sep) else target + os.sep
+    if target == cwd or cwd.startswith(prefix):
         print(target); sys.exit(0)
     # 2. protected absolute system root (or under one)
     for r in SYS_ROOTS:
