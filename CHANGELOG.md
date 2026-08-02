@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.27] - 2026-08-02 — fix(tests): 2.26.27 — the new rm assertions hardcoded a macOS-shaped path and reddened Linux CI. 2960 tests passing.
 - [2.26.26] - 2026-08-02 — fix(deploy): 2.26.26 — every /sc-update reported success while deploying nothing. 2959 tests passing.
 - [2.26.25] - 2026-08-02 — fix(security): 2.26.25 — the ancestor check could never match the ancestor that contains everything. 2951 tests passing.
 - [2.26.24] - 2026-08-02 — fix(security): **loosening audit complete — `trust-mcp` was the last real gap, and `/trust-mcp` silently did nothing on plugin installs.** 2.26.1 gated `sc-toggle`, 2.26.23 gated `hook-toggle`; this assesses every remaining path an agent could use to weaken the guard layer, and closes the one that mattered.

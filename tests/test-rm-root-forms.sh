@@ -24,11 +24,16 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 SAFETY="$REPO_DIR/hooks/safety.sh"
 
+# `cwd` is sent explicitly. safety.sh reads it from the payload to decide whether
+# a target is the project root or an ancestor of it, and falls back to the hook
+# process cwd when absent. Relying on that fallback would silently couple these
+# assertions to the directory the suite happens to be launched from.
 blocked() { # command -> 0 if the hook denies it
   local rc
-  printf '%s' "$(CMD="$1" python3 -c '
+  printf '%s' "$(CMD="$1" CWD="$REPO_DIR" python3 -c '
 import json, os
-print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["CMD"]}}))')" \
+print(json.dumps({"tool_name": "Bash", "cwd": os.environ["CWD"],
+                  "tool_input": {"command": os.environ["CMD"]}}))')" \
     | bash "$SAFETY" >/dev/null 2>&1
   rc=$?
   [ "$rc" -eq 2 ]
@@ -51,12 +56,32 @@ for form in "-rf $R" "$R -rf" "-r $R -f" "$R --recursive --force" \
 done
 
 # --- the non-root dangerous targets must stay blocked in both orders ---------
-for t in "~" "\$HOME" "/etc" "/Users" "~/.ssh"; do
+# NB: no hardcoded /Users or /home here. Those are caught by the ancestor-of-cwd
+# rule in their native environment, not by a path list — /Users is an ancestor on
+# macOS and merely a nonexistent path on Linux, so asserting it cross-platform
+# fails CI for an environment difference rather than a guard defect (it did).
+# The ancestor case is covered below with a path derived from the actual cwd.
+for t in "~" "\$HOME" "/etc" "~/.ssh"; do
   begin_test "rm -rf $t is blocked (flags first)"
   blocked "rm -rf $t" && pass || fail "ALLOWED: rm -rf $t"
   begin_test "rm $t -rf is blocked (flags last)"
   blocked "rm $t -rf" && pass || fail "ALLOWED: rm $t -rf"
 done
+
+# --- ancestor-of-cwd, derived rather than hardcoded --------------------------
+# Works on both CI platforms because it is computed from wherever the suite runs.
+# safety.sh falls back to its own cwd for PROJECT_DIR when the payload has none,
+# and the suite runs from the repo, so the repo's parent is a true ancestor.
+PARENT=$(dirname "$REPO_DIR")
+
+begin_test "an ancestor of the project dir is blocked (flags first)"
+blocked "rm -rf $PARENT" && pass || fail "ALLOWED: rm -rf $PARENT"
+
+begin_test "an ancestor of the project dir is blocked (flags last)"
+blocked "rm $PARENT -rf" && pass || fail "ALLOWED: rm $PARENT -rf"
+
+begin_test "the project dir itself is blocked"
+blocked "rm -rf $REPO_DIR" && pass || fail "ALLOWED: rm -rf $REPO_DIR"
 
 # --- false positives: ordinary cleanup must not be touched ------------------
 # The widened regex arm is the FP risk here — it now matches a bare slash, so a
