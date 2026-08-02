@@ -146,7 +146,13 @@ done
 
 # ── Update CHANGELOG ──────────────────────────────────────────────────────────
 CHANGELOG="$REPO_DIR/CHANGELOG.md"
-FIRST_ENTRY=$(grep -n '^\- \[' "$CHANGELOG" | head -1 | cut -d: -f1)
+# v2.26.25: was `grep -n … | head -1`. grep now emits ~122KB of matches and the
+# pipe buffer is 64KB, so head exited first, grep took SIGPIPE, and `set -o
+# pipefail` turned that into a non-zero pipeline that `set -e` killed the script
+# on — silently, right after the version files were bumped. Size-dependent, so it
+# worked for every release until the CHANGELOG crossed the buffer. `-m1` makes
+# grep stop on its own and removes the pipe.
+FIRST_ENTRY=$(grep -n -m1 '^\- \[' "$CHANGELOG" | cut -d: -f1)
 
 if [ -n "$FIRST_ENTRY" ]; then
   # Insert before first existing entry
