@@ -2,6 +2,20 @@
 
 ## Contents
 
+- [2.26.18] - 2026-08-02 — **fix(docs)+perf(tests): 2.26.17 shipped the right fix with the wrong explanation.** The evasion it closed was real and the tests are sound, but the stated cause was not what fixed it — recorded here rather than quietly amended, because the reasoning error is the reusable part.
+
+  **What 2.26.17 claimed:** `split_segments` did not treat a newline as a separator, so a multi-line command reached safety.sh as one segment and the `^rm` check never matched.
+
+  **What was actually true:** safety.sh reads segment output with `while IFS= read -r seg`, which **already splits on newlines**. Verified directly — `echo one\n    rm -rf /` arrives as two segments, `echo one` and `    rm -rf /`. The second was rejected purely because `^rm[[:space:]]` requires `rm` at column 0 and the line was indented. **Allowing leading whitespace in the `^`-anchored `rm`/`mv` checks is the entire fix.**
+
+  Worse, one of the two "fixes" could never have done anything: `*'\n'*` in a bash `case` is the literal two characters backslash-n, not a newline, so that pattern matched nothing. Reverted. The python splitter's `'\n'` separator is kept — it is semantically correct (reached only outside quotes, so a newline inside a quoted string still does not split) and adds defence in depth for `a && b\nc` shapes — but its comment no longer claims it closed the evasion.
+
+  **A third error, caught by the suite rather than by me.** The comment documenting all this was written inside `cmd-normalize.sh`'s `python3 -c "..."` block, using backticks. Inside a double-quoted shell string those are command substitution, so bash would have executed `while IFS= read -r seg` at hook runtime — a read with no input, which blocks. Two tests failed and shellcheck flagged it as an unparsable while loop; both cleared once the backticks were removed. Third time this exact quoting trap has bitten in this repo, so the block now carries a note saying why it must never contain them.
+
+  A second claim from the same session was also wrong: a "+21.9 ms per multi-line Bash call" regression was attributed to this change. That number came from comparing multi-line against single-line commands, not before against after. Measured properly against the v2.26.16 files: **−0.6 ms**, i.e. noise. Multi-line commands have always cost ~28 ms; nothing regressed.
+
+  **perf(tests): `fuzz-safety.sh` forked a python interpreter per iteration purely to build a JSON payload.** Replaced with fork-free bash escaping. Measured by interleaved A/B rather than wall time, because whole-run timings are not comparable across machine states — the first run after the change took *longer* (700 s) purely because the box was busier, and the same fork measured 27.6 ms when idle and 55 ms under load. Isolated: **55.05 ms → 1.03 ms per iteration, ~308 s saved over 5,705 runs.** Equivalence was checked semantically rather than byte-wise, since python emits `{"a": 1}` with spaces: 71 payloads (every corpus base plus tabs, embedded newlines, backslashes, quotes and `$(cat)`) parse back to the identical command string through `jq`. The remaining cost is the hook itself — a dangerous command runs ~58 ms against ~6 ms for a benign one, because it falls past the fast path into normalize/split/safety-detect, three or four interpreter startups each.
+
 - [2.26.17] - 2026-08-02 — fix(security): **an indented continuation line escaped `safety.sh` entirely.** Found while fixing an unrelated ledger bug, which is the only reason it surfaced at all:
 
   ```

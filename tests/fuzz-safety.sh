@@ -176,12 +176,32 @@ mutate_flag_split() {
 }
 
 # ── Run + classify ────────────────────────────────────────────────────────────
+# v2.26.18: build the payload in BASH, not by forking python.
+#
+# This forked a python interpreter per iteration purely to turn a string into JSON.
+# Measured: 27.6 ms of the ~85 ms per iteration — 157 s of a ~489 s run, 32% of total
+# wall time, spent on string formatting. The hook itself is the other 58 ms (a
+# dangerous command costs ~10x a benign one because it falls through the fast path
+# into normalize/split/safety-detect, three or four interpreter startups each).
+#
+# JSON escaping here is deliberate and minimal: the corpus is ASCII shell commands, so
+# only backslash, double-quote and the control characters that actually occur (\n, \t,
+# \r) need escaping. Anything else would be a corpus that no longer matches what the
+# hook sees in production. jq -Rs would be correct too but is another fork.
+_json_escape() {
+  local s="$1"
+  s="${s//\\/\\\\}"      # backslash first, or it double-escapes the rest
+  s="${s//\"/\\\"}"
+  s="${s//$'\n'/\\n}"
+  s="${s//$'\t'/\\t}"
+  s="${s//$'\r'/\\r}"
+  printf '%s' "$s"
+}
+
 run_safety() {
   local cmd="$1"
-  # Build minimal PreToolUse:Bash payload
-  local payload
-  payload=$(python3 -c "import json,sys; print(json.dumps({'tool_name':'Bash','tool_input':{'command':sys.argv[1]},'cwd':'/tmp'}))" "$cmd")
-  echo "$payload" | bash "$HOOK" >/dev/null 2>&1
+  printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"/tmp"}' "$(_json_escape "$cmd")" \
+    | bash "$HOOK" >/dev/null 2>&1
   echo $?
 }
 
