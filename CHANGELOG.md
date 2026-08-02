@@ -2,6 +2,12 @@
 
 ## Contents
 
+- [2.26.20] - 2026-08-02 — feat(commands): **`/resolve-conflicts` — there was no merge-conflict command at all.** A conflict is two intentions colliding, and the failure mode is resolving one without ever reading the other: `git log --merge -p <file>` recovers why each side changed, and skipping that step is guessing. The command also states the constraints that matter under pressure — preserve both intents where they compose, name the trade-off where they don't, never invent behaviour that was on neither side (that belongs in its own reviewable commit), don't `--abort` to escape a hard conflict, and grep for `<<<<<<<` before continuing, since a committed marker is a broken build git will not warn you about. Verification discovers the project's own checks rather than assuming them, typecheck before tests because a type error makes test failures unreadable. Indexed and routed.
+
+  **The prune pass produced no prune, and that is the finding.** Two families looked duplicated from their first lines — `/audit` + `/multi-review` + `/security`, and `/scope` + `/interview` + `/estimate`. Reading the bodies, both are genuinely distinct: `/audit` sweeps a codebase for consistency with no diff involved, `/security` is OWASP-anchored and diff-scoped with a real scope-resolution table, `/multi-review` fans out to parallel agents and costs agent spawns. The pre-flight three are sequential stages, not alternatives — what do we want, what will we touch, how long. Merging any of them would have made the set worse; the actual gap was that nothing documented the distinctions, which 2.26.19's routing table now does.
+
+  Also removed a hardcoded "There are 30 user-invoked commands" from the router, which this release would itself have made wrong — the same staleness class as the tests badge and the hook catalog, caught by counting after adding a command rather than before. Full suite **2865/0**.
+
 - [2.26.19] - 2026-08-02 — feat(commands): **`/supercharger` was an index pretending to be a router — 30 commands printed, and the user left to scan them.** Passing an argument did name lookup, so the only way to find a command was already knowing it existed. With 30 user-invoked commands that is a cognitive-load problem: the user has to *be* the index.
 
   It now routes a **situation**. `/supercharger my typecheck seems stale` returns one primary command and at most two alternates, with the reason. The cap is deliberate — a router that answers with five options has rebuilt the index the user was trying to avoid.

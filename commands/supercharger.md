@@ -1,6 +1,6 @@
 Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS
 
-There are 30 user-invoked commands. Nobody holds 30 in their head, so this screen has
+There are more user-invoked commands than anyone holds in their head, so this screen has
 two jobs: an index when you want to browse, and a router when you already have a
 problem and don't want to scan a list to name it.
 
@@ -21,6 +21,7 @@ Claude Supercharger — Slash Commands
     /estimate       Time + complexity estimate (report-only, no work started)
     /cleanup        Dead code + unused-import removal (two-tier safety: auto-fix safe, gate risky)
     /pr             One-step pull request (summary + test plan + gh pr create)
+    /resolve-conflicts  Resolve an in-progress merge/rebase conflict (recover intent, verify, finish)
     /handoff        Session resume brief — decisions, files changed, next steps
     /devlog         Update living architecture journal with what changed and why
     /interview      Structured requirements gathering, one question at a time
@@ -85,6 +86,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "I don't know what I want yet" | `/interview` | `/scope` |
 | "how long will this take" | `/estimate` | |
 | "open a PR", "ship this" | `/pr` | |
+| "I have merge conflicts", "rebase blew up" | `/resolve-conflicts` | `/stuck` — that is for debug loops, not conflicts |
 | "I'm running out of context", "continue tomorrow" | `/handoff` | |
 | "record why we did it this way" | `/devlog` | `/learn` — that's a rule, this is history |
 | "remember this rule for next time" | `/learn` | `/devlog` |
