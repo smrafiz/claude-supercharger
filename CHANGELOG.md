@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.29] - 2026-08-02 — feat(security): 2.26.29 — a public transaction hash is indistinguishable from a wallet key, so the prompt channel warns instead of refusing. 2985 tests passing.
 - [2.26.28] - 2026-08-02 — fix(release): 2.26.28 — a branch release pushed nothing and tagged a commit no remote branch contained. 2969 tests passing.
 - [2.26.27] - 2026-08-02 — fix(tests): 2.26.27 — the new rm assertions hardcoded a macOS-shaped path and reddened Linux CI. 2960 tests passing.
 - [2.26.26] - 2026-08-02 — fix(deploy): 2.26.26 — every /sc-update reported success while deploying nothing. 2959 tests passing.
