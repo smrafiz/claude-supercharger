@@ -159,6 +159,12 @@ block() {
 if _cat_enabled "filesystem"; then
   while IFS= read -r seg; do
     [ -z "$seg" ] && continue
+    # v2.26.17: `^rm` required the segment to begin with `rm` at column 0. Segment
+    # output is read line-by-line by the loop above, so an INDENTED continuation line
+    # arrived as `    rm -rf /` and this anchor rejected it — `echo one\n<TAB>rm -rf /`
+    # was ALLOWED while the unindented form was denied. Leading whitespace is now
+    # tolerated. This is the change that closed the evasion (see 2.26.18: the
+    # cmd-normalize newline work was defence in depth, not the fix).
     if [[ "$seg" =~ ^[[:space:]]*rm[[:space:]] ]]; then
       has_recursive=false
       has_force=false

@@ -43,12 +43,8 @@ split_segments() {
   # calls (npm test, git status, cat x) have none → a single segment. Any of
   # those chars ANYWHERE (even inside quotes) falls through to the quote-aware
   # python splitter, so this can never mis-split a quoted separator.
-  # v2.26.17: newline added. A NEWLINE is a shell separator, but only `& | ;`
-  # were listed, so a multi-line command took the single-segment fast path and
-  # arrived at safety.sh's ^-anchored checks as one segment starting with the
-  # FIRST line's command. An indented `rm -rf /` on line 2 was never validated.
   case "$cmd" in
-    *'&'*|*'|'*|*';'*|*'\n'*) ;;
+    *'&'*|*'|'*|*';'*) ;;
     *)
       local seg="$cmd"
       # Mirror the python per-segment logic (strip() first, THEN prefixes) so the
@@ -94,8 +90,14 @@ while i < n:
         segments.append(''.join(buf)); buf = []; i += 2; continue
     if c == '|' and i + 1 < n and cmd[i + 1] == '|':
         segments.append(''.join(buf)); buf = []; i += 2; continue
-    # Single-char separators. '\n' included: a newline separates commands just as
-    # ';' does, and omitting it let an indented second line skip per-segment checks.
+    # Single-char separators. '\n' included in v2.26.17 because a newline separates
+    # commands exactly as ';' does; reached only outside quotes, so a newline inside a
+    # quoted string still does not split. NOTE (2.26.18): this was NOT what fixed the
+    # indented-continuation evasion -- safety.sh's read loop already split segment
+    # output on newlines. The fix was allowing leading whitespace in the ^-anchored
+    # rm/mv checks. This stays as defence in depth for 'a && b' plus newline shapes.
+    # (No backticks in this block: it lives inside python3 -c "...", where bash would
+    #  treat them as command substitution and RUN them.)
     if c == ';' or c == '|' or c == '&' or c == '\n':
         segments.append(''.join(buf)); buf = []; i += 1; continue
     buf.append(c)
