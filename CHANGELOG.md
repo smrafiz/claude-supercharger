@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.31] - 2026-08-02 — feat(security): 2.26.31 — the Verification Gate was a prompt rule; this checks the claim against what actually ran. 3064 tests passing.
 - [2.26.30] - 2026-08-02 — feat(security): 2.26.30 — reset --hard was guarded but the reflog that makes it survivable was not. 3043 tests passing.
 - [2.26.29] - 2026-08-02 — feat(security): 2.26.29 — a public transaction hash is indistinguishable from a wallet key, so the prompt channel warns instead of refusing. 2985 tests passing.
 - [2.26.28] - 2026-08-02 — fix(release): 2.26.28 — a branch release pushed nothing and tagged a commit no remote branch contained. 2969 tests passing.
