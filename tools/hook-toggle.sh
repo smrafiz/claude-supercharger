@@ -5,8 +5,18 @@
 
 set -euo pipefail
 
-SETTINGS_FILE="$HOME/.claude/settings.json"
+# v2.26.23: honour an explicit override so this can be exercised without touching live
+# config. It was hardcoded to $HOME, and SUPERCHARGER_STATE does NOT redirect it — a
+# probe run with an isolated state dir silently commented safety.sh, git-safety.sh and
+# subagent-safety.sh out of the developer's real settings.json. A tool that mutates user
+# config needs a testable seam, or it gets tested on the user.
+SETTINGS_FILE="${SUPERCHARGER_SETTINGS_FILE:-$HOME/.claude/settings.json}"
 SUPERCHARGER_TAG="#supercharger"
+
+# Disabling these removes the security floor rather than tuning noise. Still permitted —
+# a guard that misfires must have an escape hatch — but it is announced, and
+# harness-tamper-guard raises a confirm the agent cannot pass unseen.
+_SC_SECURITY_HOOKS="safety git-safety subagent-safety path-guard harness-tamper-guard env-file-guard code-security-scanner commit-secret-guard commit-guard prompt-injection-scanner bash-injection-scanner output-secrets-scanner mcp-egress-guard readonly-guard critical-infra-guard memory-write-guard notebook-exec-guard cloud-cli-destructive-guard bulk-exfil-guard"
 
 usage() {
   echo "Usage: hook-toggle.sh <hook-name> <on|off>"
@@ -71,6 +81,21 @@ if [ ! -f "$SETTINGS_FILE" ]; then
   echo "Error: $SETTINGS_FILE not found. Run install.sh first."
   exit 1
 fi
+
+# Warn loudly when the target is a security guard. The confirm in harness-tamper-guard
+# covers the AGENT invoking this; this covers a human doing it directly in a terminal,
+# where no hook is involved at all.
+case " $_SC_SECURITY_HOOKS " in
+  *" $HOOK_NAME "*)
+    if [ "$ACTION" = "off" ]; then
+      echo "WARNING: $HOOK_NAME is a security guard." >&2
+      echo "  Disabling it removes that protection for EVERY session until re-enabled." >&2
+      echo "  Narrower alternatives: disableSecurityCategories, or customPatterns to add" >&2
+      echo "  your own rules, in .supercharger.json." >&2
+      echo "" >&2
+    fi
+    ;;
+esac
 
 SETTINGS_FILE="$SETTINGS_FILE" HOOK_NAME="$HOOK_NAME" ACTION="$ACTION" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" python3 -c "
 import json, sys, os
