@@ -2,6 +2,26 @@
 
 ## Contents
 
+- [2.26.17] - 2026-08-02 — fix(security): **an indented continuation line escaped `safety.sh` entirely.** Found while fixing an unrelated ledger bug, which is the only reason it surfaced at all:
+
+  ```
+  rm -rf /                      DENY
+  <TAB>rm -rf /                 DENY      (leading whitespace, line 1)
+  echo one \n rm -rf /          DENY
+  echo one \n <TAB>rm -rf /     ALLOW  ←  the hole
+  echo one \n     rm -rf /      ALLOW     (4 spaces)
+  ```
+
+  **Two layers failed together, which is why neither caught it.** `split_segments` splits on `;`, `|` and `&` but **not on a newline** — although a newline separates commands exactly as `;` does. So a multi-line command arrived as ONE segment beginning with the *first* line's command, and safety.sh's `[[ "$seg" =~ ^rm[[:space:]] ]]` never matched. The generic pattern layer anchors without allowing indentation, so the second line escaped that too. Unindented line-2 commands were caught only because they happened to satisfy the generic anchor.
+
+  Fixed at the cause: a newline is now a segment separator (both in the fork-free fast path and the quote-aware python splitter), and the `^`-anchored `rm`/`mv` checks tolerate leading whitespace. **Strictly tightening** — more segments means more validation, never less.
+
+  +11 tests pinning both directions, because splitting more aggressively risks over-blocking ordinary multi-line work: indented wipes at one, two and three lines deep must DENY, while multi-line builds, an indented `rm -rf build` on a project path, and a heredoc that merely *mentions* the dangerous string must still ALLOW.
+
+  **Also — the block ledger.** `scope/.blocked-commands` is line-based (`/why` reads the last N lines; `learn-from-blocks` turns it into the `[BLOCKS]` summary injected into every session), but all three writers embedded the raw command. A multi-line command wrote a multi-line entry, so a fragment like `rm -rf .` became its own row and read as a real destructive block — three corrupted rows were present. Newlines and tabs are now collapsed **before** shortening, since the newline sits inside the first 120 bytes. +6 tests.
+
+  Separately, the live ledger was cleared (backed up to `~/.claude/backups/`): all 580 entries dated from a single test session, 546 of them fuzz-corpus payloads written before 2.26.10 stopped the harness polluting real telemetry. They were being counted as genuine security events and billed as context tokens every session. Fuzz differential unchanged at 5,705 runs / 0 false negatives / 0 false positives, and the security suites are clean (cmd-normalize 22, bash-evasions 14, aliasing 6, env-file-guard 27, tamper 25, guard-FPs 32, git-remote 20). Full suite **2858/0**.
+
 - [2.26.16] - 2026-08-01 — perf(hooks): **two hooks forked python on every prompt to look for a field that does not exist in the payload.** `adaptive-economy.sh` and `context-advisor.sh` used the pattern `X=$(… jq …); if [ -z "$X" ]; then X=$(… python3 …); fi`, which conflates "jq is unavailable" with "the field is absent". The fallback exists for the first; it fired on the second. They read `.context_window.used_percentage` — **not part of the `UserPromptSubmit` payload at all** — so the python fork ran on every prompt and could only ever return empty. `context-advisor`'s next line exits when the value is empty, so the fork bought literally nothing.
 
   The tell was that both hooks were **slower when the field was absent (32.3 ms) than when present (13.0 ms)** — exactly backwards. Fixed with `command -v jq`, a builtin: **32.3 → 9.7 ms** and **29.6 → 8.9 ms**, and the anomaly is gone. Output verified byte-identical to the previous version, and the fallback still works with jq genuinely removed from `PATH`.

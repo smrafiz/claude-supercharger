@@ -48,7 +48,14 @@ block() {
   echo "" >&2
   local blocks_log="$SUPERCHARGER_STATE/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
-  local safe_cmd="${COMMAND:0:120}"
+  # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
+  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+  # summary injected into every session. A multi-line command wrote a multi-line
+  # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
+  # destructive block. Shortening alone would still leave an embedded newline.
+  local safe_cmd="$COMMAND"
+  safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
+  safe_cmd="${safe_cmd:0:120}"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then
