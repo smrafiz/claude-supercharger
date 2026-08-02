@@ -27,6 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `bulk-exfil-guard` | PreToolUse | Bash | safety-detect.py's upload arms (_NETWORK_UPLOADS / _CLOUD_UPLOADS) only fire when |
 | `cache-health` | PostToolUse | * | Flags: async | Samples cache hit rate every 5th call. Warns when degraded (<50% for 3 consecutive readings). |
+| `claim-evidence-gate` | Stop | * | Checks a stated test result against what actually ran. CLAUDE.md's Verification |
 | `cloud-cli-destructive-guard` | PreToolUse | Bash | Cross-channel parity with mcp-destructive-guard: that hook ASKS before a |
 | `code-security-scanner` | PreToolUse | Write,Edit | Scans content Claude is about to write for common security vulnerabilities. |
 | `comment-replacement-check` | PostToolUse | Edit, MultiEdit | Detects when Claude replaces working code with comments. Advisory — injects |

@@ -95,8 +95,15 @@ for test_file in "$SCRIPT_DIR"/test-*.sh; do
   output=$(cat "$RESULT_DIR/$test_name.out" 2>/dev/null || true)
   echo "$output"
 
-  passed=$(echo "$output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' || echo "0")
-  failed=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' || echo "0")
+  # tail -1: take the REPORT line only. This grepped every match in the file's
+  # whole output, so a test whose name or echoed tool output contained "0 failed"
+  # yielded two numbers and $(( )) died with "syntax error in expression" — the
+  # suite then reported a partial total (286) as if it were the real one. report()
+  # always prints last, so the final match is the authoritative count.
+  passed=$(echo "$output" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1)
+  failed=$(echo "$output" | grep -oE '[0-9]+ failed' | grep -oE '[0-9]+' | tail -1)
+  [ -z "$passed" ] && passed=0
+  [ -z "$failed" ] && failed=0
 
   TOTAL_PASSED=$((TOTAL_PASSED + passed))
   TOTAL_FAILED=$((TOTAL_FAILED + failed))

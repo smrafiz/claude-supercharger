@@ -321,6 +321,9 @@ get_hooks_for_mode() {
     hooks+=("PreCompact||${hooks_dir}/compaction-backup.sh|")
     hooks+=("PostCompact||${hooks_dir}/post-compact-inject.sh|")
     hooks+=("SessionEnd||${hooks_dir}/session-end.sh|async")
+    # Synchronous, and registered before stop-verify: it can block the stop, and a
+    # hook registered `async` cannot.
+    hooks+=("Stop|*|${hooks_dir}/claim-evidence-gate.sh|")
     hooks+=("Stop|*|${hooks_dir}/stop-verify.sh|")
     hooks+=("Stop|*|${hooks_dir}/scope-guard.sh clear|async")
     hooks+=("Stop|*|${hooks_dir}/session-complete.sh|async")
