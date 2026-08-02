@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.19] - 2026-08-02 — feat(commands): **`/supercharger` was an index pretending to be a router — 30 commands printed, and the user left to scan them.** Passing an argument did name lookup, so the only way to find a command was already knowing it existed. With 30 user-invoked commands that is a cognitive-load problem: the user has to *be* the index.
+
+  It now routes a **situation**. `/supercharger my typecheck seems stale` returns one primary command and at most two alternates, with the reason. The cap is deliberate — a router that answers with five options has rebuilt the index the user was trying to avoid.
+
+  The routing table matches on situation rather than keyword, and each row also records what NOT to route to, which is where the real value sits: `/audit` reports inconsistency while `/cleanup` deletes; `/challenge` attacks a decision while `/think` reasons about one; `/stuck` breaks a debug loop where `/think` would just reason harder; `/sc-readonly` blocks edits while `/sc-strict` still permits them and confirms each. Where two fit equally, the rule is **prefer the one that reports over the one that changes** — a wrong report costs a paragraph, a wrong change costs a revert.
+
+  **The new test found a pre-existing hole:** `/trust-mcp` has never been listed in the printed index. It shipped, worked, and was undiscoverable unless you already knew the name — the same shape as the inert matchers and the stale hook catalog. Now listed and routable.
+
+  `test-command-router.sh` pins both directions a router can rot silently: it must not name a command that does not exist (the user is sent nowhere), and no command may exist that it never names (undiscoverable — the exact failure the router was added to fix). Plus the index still lists everything, the answer cap is stated, and the tie-break rule is present.
+
+  Prompted by a look at `mattpocock/skills`, which frames this well: a model-invoked skill spends *context load* and fires itself, a user-invoked one spends *cognitive load* because you become the index — and the cure when user-invoked commands multiply is a router. Supercharger's commands are all user-invoked; it had the multiplication and not the cure. Full suite **2865/0**.
+
 - [2.26.18] - 2026-08-02 — **fix(docs)+perf(tests): 2.26.17 shipped the right fix with the wrong explanation.** The evasion it closed was real and the tests are sound, but the stated cause was not what fixed it — recorded here rather than quietly amended, because the reasoning error is the reusable part.
 
   **What 2.26.17 claimed:** `split_segments` did not treat a newline as a separator, so a multi-line command reached safety.sh as one segment and the `^rm` check never matched.

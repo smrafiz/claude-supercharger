@@ -1,6 +1,10 @@
-List all Claude Supercharger slash commands. Arguments: $ARGUMENTS
+Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS
 
-Print this table exactly:
+There are 30 user-invoked commands. Nobody holds 30 in their head, so this screen has
+two jobs: an index when you want to browse, and a router when you already have a
+problem and don't want to scan a list to name it.
+
+## If `$ARGUMENTS` is empty — print this table exactly, then stop
 
 ```
 Claude Supercharger — Slash Commands
@@ -43,8 +47,64 @@ Claude Supercharger — Slash Commands
     /sc-readonly    Time-boxed read-only — block edits + mutating commands for a duration (look, don't touch)
     /sc-strict      Time-boxed strict — auto-approve nothing; confirm every call (overrides autopilot)
     /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
-    /supercharger   This screen
+    /trust-mcp      Trust an MCP server to request credentials via Elicitation forms
+    /supercharger   This screen — pass a situation to route instead of browse
     /sc-update      Check for and apply Supercharger updates
 ```
 
-No further output. If the user passes `$ARGUMENTS`, check if it matches a command name and give a one-line description of that command only.
+Then add one line: `Tip: /supercharger <what you're trying to do> routes you instead.`
+
+## If `$ARGUMENTS` names a command — one-line description of that command only
+
+## Otherwise `$ARGUMENTS` is a SITUATION — route it
+
+Answer in this shape, nothing else:
+
+```
+→ /command          — why this one, in one clause
+  /other-command    — when you'd want this instead
+```
+
+Name **one primary** command and **at most two** alternates. Never list more; a router
+that returns five options has just rebuilt the index the user was avoiding. If nothing
+fits, say so plainly and suggest the closest thing — do not invent a command.
+
+### Routing table — match on the user's SITUATION, not on keywords
+
+| They say something like | Route to | Not to |
+|---|---|---|
+| "is this safe to ship", "check my changes for vulns" | `/security` | `/audit` — that's consistency, not vulnerabilities |
+| "review this properly", "what did I miss" | `/multi-review` | `/security` unless they said security |
+| "the codebase feels inconsistent", "naming is a mess" | `/audit` | `/cleanup` — that deletes, this reports |
+| "remove dead code", "unused imports" | `/cleanup` | `/audit` |
+| "am I sure about this decision", "poke holes in this" | `/challenge` | `/think` — that reasons, this attacks |
+| "this is hard, don't rush it" | `/think` | |
+| "I've been stuck on this bug for ages", "same error again" | `/stuck` | `/think` — a debug loop needs a new hypothesis, not more reasoning |
+| "why was that blocked", "what fired" | `/why` | |
+| "before we start", "what's in scope" | `/scope` | `/interview` — that gathers, this gates |
+| "I don't know what I want yet" | `/interview` | `/scope` |
+| "how long will this take" | `/estimate` | |
+| "open a PR", "ship this" | `/pr` | |
+| "I'm running out of context", "continue tomorrow" | `/handoff` | |
+| "record why we did it this way" | `/devlog` | `/learn` — that's a rule, this is history |
+| "remember this rule for next time" | `/learn` | `/devlog` |
+| "does this UI work", "accessibility" | `/design` | |
+| "how did that session go" | `/reflect` | |
+| "Claude keeps asking permission" | `/sc-autopilot` | `/sc` — that removes the safety floor too |
+| "don't let it touch anything" | `/sc-readonly` | `/sc-strict` — that still allows edits, just confirms each |
+| "confirm every single call" | `/sc-strict` | `/sc-readonly` |
+| "turn it all off", "I want plain Claude" | `/sc off` | `/sc-readonly` if they only want to stop edits |
+| "what's active right now", "what's this costing" | `/sc-status` | `/perf` — that's hook latency, this is session state |
+| "everything feels slow" | `/perf` | `/profile` — check the measurement before switching profile |
+| "make it faster" | `/profile` | `/perf` first |
+| "context keeps filling up" | `/memory-prune` | |
+| "typecheck seems stale", "is it caching" | `/cache-stats` | `/cache-clear` — look before you wipe |
+| "force a full re-check" | `/cache-clear` | `/cache-stats` first |
+| "an MCP server wants my credentials" | `/trust-mcp` | |
+| "update Supercharger" | `/sc-update` | |
+
+### When two look equally right
+
+Prefer the one that **reports** over the one that **changes** — `/audit` before `/cleanup`,
+`/perf` before `/profile`, `/estimate` before `/pr`. A wrong report costs a paragraph; a
+wrong change costs a revert.
