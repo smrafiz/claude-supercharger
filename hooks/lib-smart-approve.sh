@@ -73,6 +73,13 @@ smart_approve_verdict() {
       # v2.26.23: hook-toggle disabling a security guard carries the same confirm,
       # and must be declined here too — otherwise an active autopilot window
       # auto-approves it, which is exactly when nobody is watching.
+      # v2.26.24: same for trusting an MCP server — a credential-harvest enabler must
+      # not be auto-approved by an active autopilot window.
+      *trust-mcp*)
+        case "$_sc_cmd" in
+          *--remove*|*--rm*|*--list*|*--untrust*) : ;;
+          *) return 1 ;;
+        esac ;;
       *hook-toggle*off*)
         case "$_sc_cmd" in
           *safety*|*path-guard*|*harness-tamper*|*git-safety*|*env-file-guard*|*secret*|*injection*|*egress*|*code-security*|*commit-guard*|*subagent-safety*|*readonly*|*critical-infra*|*memory-write*|*notebook-exec*|*cloud-cli*|*bulk-exfil*|*mcp-*) return 1 ;;

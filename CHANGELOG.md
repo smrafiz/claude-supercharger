@@ -2,6 +2,23 @@
 
 ## Contents
 
+- [2.26.24] - 2026-08-02 — fix(security): **loosening audit complete — `trust-mcp` was the last real gap, and `/trust-mcp` silently did nothing on plugin installs.** 2.26.1 gated `sc-toggle`, 2.26.23 gated `hook-toggle`; this assesses every remaining path an agent could use to weaken the guard layer, and closes the one that mattered.
+
+  | Path | Loosens? | Verdict |
+  |---|---|---|
+  | `trust-mcp <server>` | **yes — credential forms** | **gated (ASK)** |
+  | `profile-switch minimal` | no blocking guard | no action — perf control |
+  | `autopilot 8h global` | prompts only, floor stays | no action — 8h cap, loud clamp |
+  | `SUPERCHARGER_*=0` | only from Claude Code's own env | **not agent-exploitable** |
+
+  **`trust-mcp` is a credential-harvest enabler.** `elicitation-guard` declines Elicitation forms asking for `api_key`/`password`/`token` from untrusted servers; trusting one permits exactly that. Measured: an untrusted server's credential form DECLINEs, and after `trust-mcp <server>` the identical form is ALLOWed. It was agent-invokable with no confirmation. Now ASK, with the decline placed before the autopilot loop — *removing* trust and listing stay ungated, because tightening never needs a prompt.
+
+  **`SUPERCHARGER_*=0` turned out not to be a bypass at all**, which is worth recording because it looked like one: a hook runs in **Claude Code's** process environment, not the environment of the command inside the tool call. `SUPERCHARGER_HARNESS_TAMPER_GUARD=0 rm <hook>` sets the variable for the `rm`, not for the guard evaluating it — verified still DENIED. Setting it for real requires control of Claude Code's environment, which is a higher privilege than issuing tool calls, and the `settings.json` `env` route is already blocked by `path-guard`.
+
+  **The bug found on the way:** `/trust-mcp` reported success and had no effect under a plugin layout. `tools/trust-mcp.sh` writes via `sc_scope_dirs()`, which treats an explicitly-set `CLAUDE_PLUGIN_DATA` as the *only* root (the v2.24.3 decision), while `elicitation-guard` hardcoded `$HOME` — so the tool wrote one file and the guard read another. Fail-safe in direction, since it over-declines, but silent: the same "declared but not effective" class as the inert matchers and the stale hook catalog. The reader now consults every scope root.
+
+  +9 tests, including both storage layouts and a check that an untrusted server is still declined — a trust fix that quietly stopped guarding would be worse than the bug. Full suite **2902/0**.
+
 - [2.26.23] - 2026-08-02 — fix(security): **`hook-toggle` was the same door 2.26.1 closed on `sc-toggle`, and it was still open.** `hook-toggle.sh <guard> off` comments the registration out of `settings.json`, so the hook never fires again — for every session, until re-enabled. It edits that file from *inside a tool*, where `path-guard` and `safety.sh` never see the write, and it was agent-invokable with **no confirmation at all**.
 
   This was not reasoned about — it was demonstrated by accident. A probe intended to be sandboxed still hit the live install, because `SETTINGS_FILE` is hardcoded to `$HOME/.claude/settings.json` and overriding `SUPERCHARGER_STATE` does not redirect it. **`safety.sh`, `git-safety.sh` and `subagent-safety.sh` were commented out of a working install in one command**, then restored. Worse, the first verification said the tool was a harmless no-op: it counted hook *names*, and `# /path/safety.sh` still contains `safety.sh`. The check written to confirm nothing was wrong was measuring the wrong thing.
