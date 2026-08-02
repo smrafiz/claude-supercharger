@@ -290,7 +290,19 @@ source "$REPO_DIR/lib/backup.sh"
 detect_platform
 
 
-OLD_VERSION="$VERSION"
+# v2.26.25: was `OLD_VERSION="$VERSION"`, i.e. the version from the REPO's
+# lib/utils.sh sourced just above. NEW_VERSION re-sources that same file after
+# `git pull`, so the "has anything changed?" test compared the repo to itself and
+# reported "Already up to date" whenever the checkout was current — which it
+# always is straight after a local release. The update then exited 0 without
+# deploying a single file, so a green run meant nothing had happened.
+#
+# This is why an install sat 15 releases behind (2.26.1 vs 2.26.16) while every
+# `/sc-update` reported success. What we want to know is whether the INSTALLED
+# tree differs from the repo, so read the installed marker; fall back to the repo
+# version only when there is no installation to compare against.
+OLD_VERSION=$(cat "$INSTALLED_VERSION_FILE" 2>/dev/null || echo "$VERSION")
+[ -z "$OLD_VERSION" ] && OLD_VERSION="$VERSION"
 
 echo ""
 echo -e "  ${BOLD}Claude Supercharger — Smart Update${NC}"
