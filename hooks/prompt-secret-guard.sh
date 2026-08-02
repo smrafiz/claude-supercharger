@@ -46,7 +46,52 @@ fi
 COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]:-}")
 [ -z "$COMBINED_PATTERN" ] && exit 0
 
-if printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
+# v2.26.29: `0x` + 64 hex is an EVM wallet private key AND, byte for byte, a
+# public transaction hash, block hash or any other 32-byte on-chain identifier.
+# There is nothing in the value to tell them apart, so blocking it meant a prompt
+# asking about a PUBLIC identifier was refused outright. Held as a known FP since
+# the v2.22.10 audit; the argument for keeping it was that a bare wallet key with
+# no label is the realistic leak and a keyword requirement would miss it.
+#
+# Resolution: ambiguous patterns WARN on this channel instead of blocking. The
+# other channels are untouched — output-secrets-scanner still blocks the value in
+# tool output and display-secret-redactor still redacts it on the way to the
+# screen — so a real wallet key stays covered everywhere it would be echoed. What
+# is given up is silent prevention of a key reaching the transcript; the user is
+# told instead of overruled.
+#
+# Matched by exact pattern string. If lib-secret-patterns.sh rewrites this regex
+# the match stops working and the pattern simply goes back to blocking — the
+# fail-safe direction. test-prompt-secret-ambiguous.sh pins that it still matches.
+AMBIGUOUS_PATTERNS=('0x[a-fA-F0-9]{64}')
+
+BLOCK_LIST=()
+WARN_LIST=()
+for _p in "${SECRET_PATTERNS[@]:-}"; do
+  _is_amb=0
+  for _a in "${AMBIGUOUS_PATTERNS[@]:-}"; do
+    if [ "$_p" = "$_a" ]; then _is_amb=1; break; fi
+  done
+  if [ "$_is_amb" = "1" ]; then WARN_LIST+=("$_p"); else BLOCK_LIST+=("$_p"); fi
+done
+BLOCK_PATTERN=$(IFS='|'; echo "${BLOCK_LIST[*]:-}")
+WARN_PATTERN=$(IFS='|'; echo "${WARN_LIST[*]:-}")
+
+# Ambiguous-only match: warn, do not block. Checked after the blocking set below,
+# so a prompt carrying both a real credential and a tx hash is still blocked.
+if [ -n "$WARN_PATTERN" ] \
+   && ! printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$BLOCK_PATTERN" \
+   && printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$WARN_PATTERN"; then
+  echo '[Supercharger] prompt-secret-guard: your prompt contains a 0x + 64-hex value. That is the format of an EVM wallet PRIVATE KEY as well as of a public transaction or block hash — they are indistinguishable, so this is a warning, not a block. If it is a private key, stop and rotate it: it is now in the transcript. Silence this with SUPERCHARGER_PROMPT_SECRET_GUARD=0.' >&2
+  # UserPromptSubmit stdout on exit 0 is added to the model's context.
+  echo 'Note: the user prompt contains a 0x+64-hex value that may be a wallet private key. Do not repeat, echo, or log the value; refer to it generically.'
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] ambiguous secret pattern in user prompt — warned, not blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  exit 0
+fi
+
+if [ -n "$BLOCK_PATTERN" ] && printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$BLOCK_PATTERN"; then
   MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is intentional (e.g. a revoked or test value), resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
   echo "$MSG" >&2
   # Log the block (never the value).
