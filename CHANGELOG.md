@@ -2,6 +2,18 @@
 
 ## Contents
 
+- [2.26.23] - 2026-08-02 — fix(security): **`hook-toggle` was the same door 2.26.1 closed on `sc-toggle`, and it was still open.** `hook-toggle.sh <guard> off` comments the registration out of `settings.json`, so the hook never fires again — for every session, until re-enabled. It edits that file from *inside a tool*, where `path-guard` and `safety.sh` never see the write, and it was agent-invokable with **no confirmation at all**.
+
+  This was not reasoned about — it was demonstrated by accident. A probe intended to be sandboxed still hit the live install, because `SETTINGS_FILE` is hardcoded to `$HOME/.claude/settings.json` and overriding `SUPERCHARGER_STATE` does not redirect it. **`safety.sh`, `git-safety.sh` and `subagent-safety.sh` were commented out of a working install in one command**, then restored. Worse, the first verification said the tool was a harmless no-op: it counted hook *names*, and `# /path/safety.sh` still contains `safety.sh`. The check written to confirm nothing was wrong was measuring the wrong thing.
+
+  Fixed the same way as 2.26.1, because it is the same failure: **ASK, not DENY** — a guard that misfires must keep an escape hatch — and the decline is placed **before the autopilot loop** in `lib-smart-approve`, since autopilot auto-approves everything and that is exactly when nobody is watching. Scoped to security hooks by name; disabling `post-write-advisor` or a formatter stays frictionless, and *enabling* anything is never gated.
+
+  Two supporting fixes:
+  - **`hook-toggle` now honours `SUPERCHARGER_SETTINGS_FILE`.** A tool that mutates user config with no testable seam gets tested on the user — which is precisely what happened here.
+  - **It warns when a human disables a security guard directly**, since no hook is involved in that path, and points at the narrower controls (`disableSecurityCategories`, `customPatterns`) that solve most real cases without removing the floor.
+
+  +11 tests covering both halves: the agent cannot disable a guard unseen and autopilot cannot swallow the confirm; ordinary hooks and re-enabling stay ungated. Full suite **2893/0**.
+
 - [2.26.22] - 2026-08-02 — feat(commands): **`/supercharger` now returns an ordered sequence when the request is a whole job, not a single step.** "I want a security audit" is not one command — it is a review, a decision about how wide to go, and a record of what was found. Asking a router built to name one command produces the narrowest true answer and leaves the rest to the user.
 
   ```

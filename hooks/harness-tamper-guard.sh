@@ -34,7 +34,7 @@ case "$_INPUT" in
 # v2.26.1: +sc-toggle — the disable confirm below must be reachable for the relative
 # and ${CLAUDE_PLUGIN_ROOT} forms too; those carry none of the other tokens and were
 # exiting at this gate before it could fire.
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*) : ;;
   *) exit 0 ;;
 esac
 
@@ -182,6 +182,27 @@ fi
 # swallow the confirm (that is exactly when it would be least likely to be noticed).
 # Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
 if [ -z "$REASON" ]; then
+  # v2.26.23: hook-toggle is the same door. `hook-toggle.sh <guard> off` comments the
+  # registration out of settings.json, so the hook never fires again — and it edits that
+  # file from inside a tool, where path-guard and safety.sh never see the write. It was
+  # agent-invokable with no confirmation at all.
+  #
+  # Scoped to SECURITY hooks: turning off post-write-advisor or a formatter is ordinary
+  # housekeeping and must stay frictionless. Turning off safety, path-guard or
+  # harness-tamper-guard removes the floor.
+  case "$CMD" in
+    *hook-toggle*off*)
+      case "$CMD" in
+        *safety*|*path-guard*|*harness-tamper*|*git-safety*|*env-file-guard*|*secret*|\
+        *injection*|*egress*|*code-security*|*commit-guard*|*subagent-safety*|*readonly*|\
+        *critical-infra*|*memory-write*|*notebook-exec*|*cloud-cli*|*bulk-exfil*|*mcp-*)
+          _HT_ASK="This disables a SECURITY guard ($CMD). It comments the hook out of settings.json, so it stops firing entirely — for every session, until re-enabled. Approve only if you asked for this; a guard that fires on something legitimate is better narrowed with disableSecurityCategories or customPatterns than switched off."
+          _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
+          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+          exit 0 ;;
+      esac
+      ;;
+  esac
   case "$CMD" in
     *sc-toggle*off*|*sc-toggle*disable*)
       _HT_ASK="Supercharger is about to be switched OFF. While off, every guard is inactive — destructive-command blocking, path-guard, credential and env-file guards, git-safety. Approve only if you asked for this; an injected instruction reaching the model would want exactly this step first."

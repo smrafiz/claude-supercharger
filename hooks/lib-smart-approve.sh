@@ -70,6 +70,13 @@ smart_approve_verdict() {
     _sc_cmd=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
     case "$_sc_cmd" in
       *sc-toggle*off*|*sc-toggle*disable*) return 1 ;;
+      # v2.26.23: hook-toggle disabling a security guard carries the same confirm,
+      # and must be declined here too — otherwise an active autopilot window
+      # auto-approves it, which is exactly when nobody is watching.
+      *hook-toggle*off*)
+        case "$_sc_cmd" in
+          *safety*|*path-guard*|*harness-tamper*|*git-safety*|*env-file-guard*|*secret*|*injection*|*egress*|*code-security*|*commit-guard*|*subagent-safety*|*readonly*|*critical-infra*|*memory-write*|*notebook-exec*|*cloud-cli*|*bulk-exfil*|*mcp-*) return 1 ;;
+        esac ;;
     esac
   fi
 
