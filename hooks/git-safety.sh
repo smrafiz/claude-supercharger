@@ -13,8 +13,12 @@ _INPUT=$(cat)
 # stash drop|clear) and `git commit` (for the checkpoint message at the
 # bottom) can trigger any output. If none of those tokens appears in the
 # raw stdin, exit immediately — no jq, no python, no source.
+# v2.26.30: the work-destroying family below adds verbs. A rule the gate does not
+# admit never runs — the gate is the first thing to extend, not the last.
 case "$_INPUT" in
-  *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"stash drop"*|*"stash clear"*|*commit*) ;;
+  *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"branch --delete"*|\
+  *"stash drop"*|*"stash clear"*|*switch*|*reflog*|*prune*|*filter-branch*|\
+  *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*) ;;
   *) exit 0 ;;
 esac
 
@@ -64,6 +68,22 @@ block() {
   RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
+}
+
+# v2.26.30: ASK, not deny, for operations that destroy work but have a real
+# legitimate use (deleting a merged branch, rewriting history to strip a secret).
+# Denying those trades one class of lost work for daily friction, and friction is
+# what makes people uninstall a guard layer.
+#
+# The reason is RECORDED, not emitted, and the decision is issued after every
+# segment has been examined. Emitting on the spot would exit the loop early, so
+# `git gc --prune=now && git reflog expire --expire=now` would ask (soft) instead
+# of blocking (hard) on the second half. block() still exits immediately, so a
+# hard rule found in any later segment always wins over a recorded ask.
+ASK_REASON=""
+ask() {
+  if [ -z "$ASK_REASON" ]; then ASK_REASON="$1"; fi
+  return 0
 }
 
 # INVARIANT: this is the only hook in the codebase that emits
@@ -213,16 +233,91 @@ while IFS= read -r seg; do
     block "git clean with force permanently removes untracked files"
   fi
 
-  if [[ "$seg" =~ ^git\ branch[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])-D([[:space:]]|$) ]]; then
+  if [[ "$seg" =~ ^git\ branch[[:space:]] ]] \
+     && [[ "$seg" =~ (^|[[:space:]])(-D|--delete[[:space:]]+--force|--force[[:space:]]+--delete)([[:space:]]|$) ]]; then
     if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
       block "force-deleting a protected branch (main/master)"
     fi
+    # v2.26.30: -D was only guarded for main/master. On any other branch it still
+    # deletes unmerged commits — which is the entire difference from -d, since -d
+    # refuses exactly that case.
+    ask "git branch -D deletes the branch even if it holds unmerged commits (-d refuses in that case). Use -d unless you mean to discard them."
   fi
 
   if [[ "$seg" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
     block "git stash drop/clear permanently removes stashed changes"
   fi
+
+  # ---------------------------------------------------------------------------
+  # v2.26.30: the rest of the work-destroying family. git-safety already owned
+  # "do not destroy uncommitted work" (reset --hard, checkout -- ., restore,
+  # stash drop, clean -f) but only some arms of it — these are the siblings that
+  # reach the same outcome by another spelling.
+  # ---------------------------------------------------------------------------
+
+  # Force checkout/switch — identical effect to `git checkout -- .` (blocked
+  # above), reached with a flag instead of a pathspec.
+  if [[ "$seg" =~ ^git\ (checkout|switch)[[:space:]] ]] \
+     && [[ "$seg" =~ (^|[[:space:]])(--force|--discard-changes|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+    block "git checkout/switch --force overwrites the working tree, discarding all uncommitted changes"
+  fi
+
+  # THE recovery net. reset --hard, branch -D and a bad rebase are all survivable
+  # because the reflog still points at the old commits. This is the command that
+  # takes that away — and it is why blocking reset --hard alone was never enough.
+  if [[ "$seg" =~ ^git\ reflog[[:space:]]+expire ]] \
+     && [[ "$seg" =~ --expire(-unreachable)?=(now|all) ]]; then
+    block "git reflog expire --expire=now destroys the reflog — the safety net that makes reset --hard, branch -D and a bad rebase recoverable"
+  fi
+
+  # Deleting a ref by hand bypasses every branch-deletion check above.
+  if [[ "$seg" =~ ^git\ update-ref[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])-d([[:space:]]|$) ]]; then
+    block "git update-ref -d deletes a ref directly, bypassing branch-deletion safety"
+  fi
+
+  # Remote branch deletion — affects everyone else on the repo, not just here.
+  if [[ "$seg" =~ ^git\ push[[:space:]] ]]; then
+    if [[ "$seg" =~ (^|[[:space:]])(--delete|-d)([[:space:]]|$) ]]; then
+      ask "git push --delete removes that branch on the remote, for everyone."
+    elif [[ "$seg" =~ [[:space:]]:[^[:space:]]+ ]]; then
+      # `git push origin :branch` is the older spelling of --delete. Anchored on a
+      # LEADING space so `git push origin HEAD:main` (a normal push) is untouched.
+      ask "git push origin :<branch> is the old spelling of --delete — it removes that branch on the remote."
+    fi
+  fi
+
+  # Prunes unreachable objects immediately instead of after the grace period.
+  if [[ "$seg" =~ ^git\ gc([[:space:]]|$) ]] && [[ "$seg" =~ --prune= ]]; then
+    ask "git gc --prune=<now> discards unreachable objects immediately — anything not on a branch or in the reflog stops being recoverable."
+  fi
+
+  if [[ "$seg" =~ ^git\ (filter-branch|filter-repo)([[:space:]]|$) ]]; then
+    ask "history rewrite: every downstream commit is replaced, and collaborators' clones diverge permanently."
+  fi
+
+  if [[ "$seg" =~ ^git\ worktree[[:space:]]+remove ]] \
+     && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+    ask "git worktree remove --force discards uncommitted changes in that worktree."
+  fi
+
+  if [[ "$seg" =~ ^git\ rebase[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])--skip([[:space:]]|$) ]]; then
+    ask "git rebase --skip drops the current commit from the rebase entirely."
+  fi
+
+  if [[ "$seg" =~ ^git\ replace[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--graft|-g)([[:space:]]|$) ]]; then
+    ask "git replace --graft rewrites what history looks like without changing the objects — easy to forget it is in effect."
+  fi
 done <<< "$SEGMENTS"
+
+# Issued only after every segment has been checked, so a hard block anywhere in a
+# compound command still wins over an ask recorded earlier.
+if [ -n "$ASK_REASON" ]; then
+  echo "[Supercharger] git-safety: $ASK_REASON" >&2
+  ASK_JSON=$(printf '%s' "$ASK_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
+    || printf '"%s"' "$(printf '%s' "$ASK_REASON" | tr -d '"\\' | tr '\n' ' ')")
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$ASK_JSON"
+  exit 0
+fi
 
 
 # Checkpoint before commit — warn if unstaged/untracked work exists
