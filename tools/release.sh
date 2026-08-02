@@ -208,9 +208,27 @@ echo -e "  ${GREEN}✓${NC} Committed"
 git -C "$REPO_DIR" tag "v${NEW}"
 echo -e "  ${GREEN}✓${NC} Tagged v${NEW}"
 
-git -C "$REPO_DIR" push origin master
+# v2.26.25: was `push origin master`, unconditionally. Releases in this repo are
+# cut on a release/X branch and merged to master afterwards, so that line pushed
+# a branch the commit was not on: git printed "Everything up-to-date", exited 0,
+# and the tag went to the remote pointing at a commit no remote branch contained.
+# A green "Released" for a release nobody could fetch. Push what was actually
+# committed — HEAD — and say plainly when the work is not on master yet.
+BRANCH=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
+git -C "$REPO_DIR" push origin "$BRANCH"
 git -C "$REPO_DIR" push origin "v${NEW}"
-echo -e "  ${GREEN}✓${NC} Pushed"
+echo -e "  ${GREEN}✓${NC} Pushed ${BRANCH} + v${NEW}"
 
 echo ""
-echo -e "${GREEN}${BOLD}Released v${NEW}${NC}"
+if [ "$BRANCH" = "master" ]; then
+  echo -e "${GREEN}${BOLD}Released v${NEW}${NC}"
+else
+  # Not an error — it is the normal branch flow — but the release is only half
+  # done, and the tag already points at an unmerged commit. Saying "Released"
+  # here is what made the gap easy to miss.
+  echo -e "${YELLOW}${BOLD}Tagged v${NEW} on ${BRANCH} — NOT yet on master.${NC}"
+  echo -e "  v${NEW} points at a commit master does not contain. Finish with:"
+  echo -e "    git checkout master"
+  echo -e "    git merge --no-ff ${BRANCH} -m \"Merge ${NEW} — <summary>\""
+  echo -e "    git push origin master"
+fi
