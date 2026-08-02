@@ -152,15 +152,27 @@ try:
         trusted.add(_normkey(s))
 except Exception:
     pass
-try:
-    with open(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger',
-                           'scope', '.trusted-elicitation-servers')) as f:
-        for line in f:
-            s = _normkey(line)
-            if s:
-                trusted.add(s)
-except Exception:
-    pass
+# v2.26.24: read EVERY scope root, not just $HOME. tools/trust-mcp.sh writes via
+# sc_scope_dirs(), which treats an explicitly-set CLAUDE_PLUGIN_DATA as the ONLY root
+# (v2.24.3). The reader hardcoded $HOME, so under that layout the tool wrote one file
+# and the guard read another — /trust-mcp reported success and the server stayed
+# untrusted. Fail-safe in direction (it over-declines) but silent, which is the same
+# "declared but not effective" class as the inert matchers.
+_trust_roots = []
+_pd = os.environ.get('CLAUDE_PLUGIN_DATA') or ''
+_st = os.environ.get('SUPERCHARGER_STATE') or ''
+for _r in (_st, _pd, os.path.join(os.path.expanduser('~'), '.claude', 'supercharger')):
+    if _r and _r not in _trust_roots:
+        _trust_roots.append(_r)
+for _r in _trust_roots:
+    try:
+        with open(os.path.join(_r, 'scope', '.trusted-elicitation-servers')) as f:
+            for line in f:
+                s = _normkey(line)
+                if s:
+                    trusted.add(s)
+    except Exception:
+        pass
 
 server_l = _normkey(server)
 is_trusted = bool(server_l) and server_l in trusted

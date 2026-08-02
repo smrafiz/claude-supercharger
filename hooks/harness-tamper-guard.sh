@@ -34,7 +34,7 @@ case "$_INPUT" in
 # v2.26.1: +sc-toggle — the disable confirm below must be reachable for the relative
 # and ${CLAUDE_PLUGIN_ROOT} forms too; those carry none of the other tokens and were
 # exiting at this gate before it could fire.
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*) : ;;
   *) exit 0 ;;
 esac
 
@@ -190,6 +190,24 @@ if [ -z "$REASON" ]; then
   # Scoped to SECURITY hooks: turning off post-write-advisor or a formatter is ordinary
   # housekeeping and must stay frictionless. Turning off safety, path-guard or
   # harness-tamper-guard removes the floor.
+  # v2.26.24: trusting an MCP server is a loosening step. elicitation-guard declines
+  # credential-shaped Elicitation forms (api_key, password, token) from untrusted
+  # servers; trusting one permits exactly that. Verified: an untrusted server's
+  # credential form DECLINEs, and after `trust-mcp <server>` the same form is ALLOWED.
+  # An injected instruction that can get a malicious server trusted has a credential
+  # harvest, so the human must see it. Removing trust needs no confirm.
+  case "$CMD" in
+    *trust-mcp*)
+      case "$CMD" in
+        *--remove*|*--rm*|*--list*|*--untrust*|*list*) : ;;
+        *)
+          _HT_ASK="This trusts an MCP server to request credentials ($CMD). Trusted servers may show Elicitation forms asking for API keys, tokens or passwords, which are declined by default. Approve only for a server you control or audited — a trusted malicious server is a credential harvest."
+          _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
+          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+          exit 0 ;;
+      esac
+      ;;
+  esac
   case "$CMD" in
     *hook-toggle*off*)
       case "$CMD" in
