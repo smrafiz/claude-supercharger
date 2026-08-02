@@ -105,6 +105,36 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "an MCP server wants my credentials" | `/trust-mcp` | |
 | "update Supercharger" | `/sc-update` | |
 
+### If the situation is a whole JOB, not a single step — return a sequence
+
+Some requests are an arc, not a question. "I want a security audit" is not one command;
+it is a scope decision, a review, and a record of what was found. When the situation
+matches a workflow below, return the **ordered sequence** instead of a single route:
+
+```
+→ /security        1. the core review — diff-scoped, OWASP-anchored
+  /multi-review    2. breadth beyond security, if the change is large
+  /devlog          3. record what was found and decided
+```
+
+Number the steps and say what each contributes. **Cap at four** — past that it stops being
+advice and becomes a project plan the user did not ask for. Name only steps that earn
+their place for *this* request; a workflow is a starting point, not a checklist to
+complete.
+
+| The job | Sequence | Why this order |
+|---|---|---|
+| Security audit | `/security` → `/multi-review` → `/devlog` | Narrow before broad. `/security` is diff-scoped and cheap; `/multi-review` spawns agents, so only widen if the first pass warrants it |
+| Starting a substantial feature | `/interview` → `/scope` → `/estimate` | Requirements before boundaries before time. Estimating an unscoped task is guesswork |
+| Inherited or unfamiliar codebase | `/audit` → `/security` → `/cleanup` | Understand shape, then risk, then remove. Deleting before understanding is how you delete something load-bearing |
+| Finishing a work session | `/reflect` → `/handoff` | Reflect first — its observations are what makes the handoff worth reading |
+| Shipping a change | `/multi-review` → `/pr` → `/devlog` | Review before the PR exists, so the description reflects what survived review |
+| Stuck and going in circles | `/stuck` → `/why` | `/stuck` reframes; `/why` only if a guard is involved and the cause is unclear |
+| Something feels slow | `/perf` → `/profile` | Measure before switching profile. The measurement usually names a single hook, not a profile problem |
+
+If the request is a single step, do **not** manufacture a sequence — one route is the
+better answer, and padding it wastes the user's attention.
+
 ### When two look equally right
 
 Prefer the one that **reports** over the one that **changes** — `/audit` before `/cleanup`,

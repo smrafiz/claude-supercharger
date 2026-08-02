@@ -63,6 +63,57 @@ begin_test "report-over-change tie-break is stated"
 grep -qi 'reports.*over.*changes\|report.*before.*change' "$ROUTER" && pass \
   || fail "no tie-break rule for equally-plausible routes"
 
+# --- workflow sequences (v2.26.22) -------------------------------------------
+# Some requests are an arc, not a question: "I want a security audit" is a scope
+# decision, a review, and a record. The router returns an ordered sequence for those.
+# It rots the same two ways the routing table does, plus one of its own — an
+# unbounded sequence stops being advice and becomes a project plan.
+
+begin_test "workflow section exists"
+grep -q '### If the situation is a whole JOB' "$ROUTER" && pass || fail "no workflow section"
+
+begin_test "every command named in a workflow exists"
+WF_MISSING=$(python3 -c "
+import re, os, glob, sys
+body = open(sys.argv[1]).read()
+wf = body.split('### If the situation is a whole JOB')[1].split('### When two look')[0]
+refs = sorted(set(re.findall(r'\`/([a-z][a-z-]*)', wf)))
+have = {os.path.basename(p)[:-3] for p in glob.glob(os.path.join(sys.argv[2], 'configs/commands/*.md'))}
+print(' '.join(r for r in refs if r not in have))
+" "$ROUTER" "$REPO_DIR")
+[ -z "$WF_MISSING" ] && pass || fail "workflows name non-existent commands: $WF_MISSING"
+
+begin_test "no workflow exceeds the four-step cap"
+TOO_LONG=$(python3 -c "
+import sys
+body = open(sys.argv[1]).read()
+wf = body.split('### If the situation is a whole JOB')[1].split('### When two look')[0]
+bad = [l.split('|')[1].strip() for l in wf.split('\n')
+       if l.startswith('| ') and l.count('→') > 3]
+print('; '.join(bad))
+" "$ROUTER")
+[ -z "$TOO_LONG" ] && pass || fail "workflows longer than 4 steps: $TOO_LONG"
+
+begin_test "each workflow states WHY that order (not just a list)"
+NO_WHY=$(python3 -c "
+import sys
+body = open(sys.argv[1]).read()
+wf = body.split('### If the situation is a whole JOB')[1].split('### When two look')[0]
+bad = []
+for l in wf.split('\n'):
+    if l.startswith('| ') and '→' in l:
+        cols = [c.strip() for c in l.split('|')[1:-1]]
+        # job | sequence | why  — the third column must be substantive
+        if len(cols) < 3 or len(cols[2]) < 25:
+            bad.append(cols[0])
+print('; '.join(bad))
+" "$ROUTER")
+[ -z "$NO_WHY" ] && pass || fail "workflows with no rationale for the order: $NO_WHY"
+
+begin_test "router is told NOT to manufacture a sequence for single-step requests"
+grep -qi 'do \*\*not\*\* manufacture a sequence\|not manufacture a sequence' "$ROUTER" && pass \
+  || fail "nothing stops the router padding a one-command answer into a workflow"
+
 begin_test "generated commands/ copy is in sync with the source"
 if diff -q "$ROUTER" "$REPO_DIR/commands/supercharger.md" >/dev/null 2>&1; then
   pass
