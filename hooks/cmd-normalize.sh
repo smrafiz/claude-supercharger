@@ -43,8 +43,12 @@ split_segments() {
   # calls (npm test, git status, cat x) have none → a single segment. Any of
   # those chars ANYWHERE (even inside quotes) falls through to the quote-aware
   # python splitter, so this can never mis-split a quoted separator.
+  # v2.26.17: newline added. A NEWLINE is a shell separator, but only `& | ;`
+  # were listed, so a multi-line command took the single-segment fast path and
+  # arrived at safety.sh's ^-anchored checks as one segment starting with the
+  # FIRST line's command. An indented `rm -rf /` on line 2 was never validated.
   case "$cmd" in
-    *'&'*|*'|'*|*';'*) ;;
+    *'&'*|*'|'*|*';'*|*'\n'*) ;;
     *)
       local seg="$cmd"
       # Mirror the python per-segment logic (strip() first, THEN prefixes) so the
@@ -90,8 +94,9 @@ while i < n:
         segments.append(''.join(buf)); buf = []; i += 2; continue
     if c == '|' and i + 1 < n and cmd[i + 1] == '|':
         segments.append(''.join(buf)); buf = []; i += 2; continue
-    # Single-char separators
-    if c == ';' or c == '|' or c == '&':
+    # Single-char separators. '\n' included: a newline separates commands just as
+    # ';' does, and omitting it let an indented second line skip per-segment checks.
+    if c == ';' or c == '|' or c == '&' or c == '\n':
         segments.append(''.join(buf)); buf = []; i += 1; continue
     buf.append(c)
     i += 1

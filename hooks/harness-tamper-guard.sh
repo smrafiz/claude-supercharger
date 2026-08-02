@@ -201,6 +201,12 @@ echo "[Supercharger] harness-tamper-guard: DENY — $REASON" >&2
 # Log to the block ledger for /why and audits (best-effort).
 _BLK="$SUPERCHARGER_STATE/scope/.blocked-commands"
 mkdir -p "$(dirname "$_BLK")" 2>/dev/null || true
-printf '[%s] harness-tamper — %s — %.120s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "guardrail teardown" "$CMD" >> "$_BLK" 2>/dev/null || true
+# v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
+# /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+# summary injected into every session. A multi-line command wrote a multi-line
+# entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
+# destructive block. Shortening alone would still leave an embedded newline.
+_BLK_CMD="${CMD//$'\n'/ }"; _BLK_CMD="${_BLK_CMD//$'\r'/ }"; _BLK_CMD="${_BLK_CMD//$'\t'/ }"
+printf '[%s] harness-tamper — %s — %.120s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "guardrail teardown" "$_BLK_CMD" >> "$_BLK" 2>/dev/null || true
 
 exit 2

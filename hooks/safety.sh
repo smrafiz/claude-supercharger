@@ -136,6 +136,12 @@ block() {
     -e 's/\(API_KEY=\)[^ ]*/\1[REDACTED]/g' \
     -e 's/ghp_[A-Za-z0-9]\{36\}/[REDACTED]/g' \
     -e 's/sk-[A-Za-z0-9]\{32,\}/[REDACTED]/g')
+  # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
+  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+  # summary injected into every session. A multi-line command wrote a multi-line
+  # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
+  # destructive block. Shortening alone would still leave an embedded newline.
+  safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
   # Truncate to 120 chars to avoid bloating session context
   safe_cmd="${safe_cmd:0:120}"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
@@ -153,10 +159,12 @@ block() {
 if _cat_enabled "filesystem"; then
   while IFS= read -r seg; do
     [ -z "$seg" ] && continue
-    if [[ "$seg" =~ ^rm[[:space:]] ]]; then
+    if [[ "$seg" =~ ^[[:space:]]*rm[[:space:]] ]]; then
       has_recursive=false
       has_force=false
 
+      # segment may now arrive indented (newline-split); strip before slicing
+      seg="${seg#"${seg%%[![:space:]]*}"}"
       args="${seg#rm }"
 
       if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
@@ -463,7 +471,7 @@ fi
 if _cat_enabled "filesystem"; then
   while IFS= read -r seg; do
     [ -z "$seg" ] && continue
-    if [[ "$seg" =~ ^mv[[:space:]]+(\/|~|\$HOME)[[:space:]] ]]; then
+    if [[ "$seg" =~ ^[[:space:]]*mv[[:space:]]+(\/|~|\$HOME)[[:space:]] ]]; then
       block "mv from root or home directory"
     fi
   done <<< "$SEGMENTS"
