@@ -2,6 +2,22 @@
 
 ## Contents
 
+- [2.26.22] - 2026-08-02 — feat(commands): **`/supercharger` now returns an ordered sequence when the request is a whole job, not a single step.** "I want a security audit" is not one command — it is a review, a decision about how wide to go, and a record of what was found. Asking a router built to name one command produces the narrowest true answer and leaves the rest to the user.
+
+  ```
+  /supercharger i want a security audit
+
+  → /security        1. the core review — diff-scoped, OWASP-anchored
+    /multi-review    2. breadth beyond security, if the change is large
+    /devlog          3. record what was found and decided
+  ```
+
+  Seven recipes ship: security audit, starting a substantial feature, inheriting an unfamiliar codebase, finishing a session, shipping a change, going in circles, and something feels slow. Each carries **why that order**, which is the part that makes it advice rather than a list — narrow before broad because `/security` is cheap and diff-scoped while `/multi-review` spawns agents; understand before deleting because deleting first is how you remove something load-bearing; reflect before handing off because the reflection is what makes the handoff worth reading.
+
+  **Extended `/supercharger` rather than adding a command**, deliberately: every new user-invoked command adds the cognitive load the router exists to reduce, and "which sequence" is the same job as "which command" asked at a larger grain. Recipes are **named and fixed**, not improvised per request — the same request should produce the same sequence, which is the whole point of a router.
+
+  Two guards against it becoming noise: sequences are **capped at four steps** (past that it stops being advice and becomes a project plan nobody asked for), and the router is explicitly told **not to manufacture a sequence** when one command is the better answer. Both are enforced by tests, along with the same integrity checks the routing table has — every command named in a workflow must exist, and every workflow must state its rationale. Full suite **2882/0**.
+
 - [2.26.21] - 2026-08-02 — feat(config)+fix(commands): **`customPatterns` — a project can add its own blocks without forking the guards**, plus four command improvements taken from comparing overlapping skills with `mattpocock/skills`.
 
   ```json
