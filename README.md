@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.26.20-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2865%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.26.21-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-2877%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -248,6 +248,12 @@ Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to
 Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
 
 Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
+
+Add your own blocks: `{"customPatterns": ["terraform[[:space:]]+apply", "kubectl[[:space:]]+delete"]}`
+
+Extended regex, matched case-insensitively against the command — the same engine the built-in patterns use. Commit it and the whole team inherits the rule. **Additive only:** a project can tighten the guard, never loosen it, so there is no allow-list counterpart. Capped at 50 patterns of 200 chars. A pattern that isn't valid regex is reported at session start and skipped — it cannot disable the built-in guards, which are evaluated separately for exactly that reason.
+
+This is the supported way to customise enforcement. Editing the installed hooks is not: `harness-tamper-guard` blocks it, and a forked guard stops receiving security updates.
 
 ### Speed & tokens
 

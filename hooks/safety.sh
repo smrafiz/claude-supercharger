@@ -474,6 +474,37 @@ if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   fi
 fi
 
+# --- Per-project custom patterns (v2.26.21) ----------------------------------
+# Deliberately a SEPARATE grep from the built-ins above, never joined with them.
+# Every built-in pattern is combined into one alternation and matched in a single
+# call; a malformed user regex added to that alternation would make grep error, the
+# `if` go false, and EVERY built-in destructive pattern silently stop matching. One
+# bad character in a project config would disable the guard.
+#
+# Isolated, the worst case is that the custom patterns themselves do not fire — the
+# built-ins are untouched, and the failure is announced rather than silent.
+# Additive only: a project can tighten the guard, never loosen it.
+_CUSTOM_PAT_FILE="$SUPERCHARGER_STATE/scope/.custom-patterns"
+if [ -s "$_CUSTOM_PAT_FILE" ]; then
+  _CUSTOM_JOINED=$(tr '\n' '|' < "$_CUSTOM_PAT_FILE" 2>/dev/null | sed 's/|$//')
+  if [ -n "$_CUSTOM_JOINED" ]; then
+    printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$_CUSTOM_JOINED" 2>/dev/null
+    _CUSTOM_RC=$?
+    if [ "$_CUSTOM_RC" -eq 0 ]; then
+      while IFS= read -r _cp; do
+        [ -z "$_cp" ] && continue
+        if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$_cp" 2>/dev/null; then
+          block "custom project pattern: $_cp"
+        fi
+      done < "$_CUSTOM_PAT_FILE"
+    elif [ "$_CUSTOM_RC" -gt 1 ]; then
+      # Invalid regex in .supercharger.json. Say so — a silently ignored rule the user
+      # believes is protecting them is worse than no rule.
+      echo "[Supercharger] customPatterns in .supercharger.json contains an invalid regex — those rules are NOT active. Built-in guards are unaffected." >&2
+    fi
+  fi
+fi
+
 if _cat_enabled "filesystem"; then
   while IFS= read -r seg; do
     [ -z "$seg" ] && continue

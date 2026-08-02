@@ -2,6 +2,26 @@
 
 ## Contents
 
+- [2.26.21] - 2026-08-02 — feat(config)+fix(commands): **`customPatterns` — a project can add its own blocks without forking the guards**, plus four command improvements taken from comparing overlapping skills with `mattpocock/skills`.
+
+  ```json
+  { "customPatterns": ["terraform[[:space:]]+apply", "kubectl[[:space:]]+delete"] }
+  ```
+
+  Extended regex, matched case-insensitively — the same engine the built-ins use. Commit it and the team inherits the rule. **Additive only:** a project may tighten the guard, never loosen it, so there is deliberately no allow-list counterpart. This is the answer to "I want my own rules" that vendoring the repo would otherwise be: config survives updates, a fork strands you on stale security patterns and is blocked by `harness-tamper-guard` anyway.
+
+  **The design constraint found before writing any of it:** every built-in pattern is joined into a single alternation and matched in one `grep` call. A user regex added to that alternation would mean **one typo in a project config makes grep error, the `if` go false, and every built-in destructive pattern silently stop matching** — a malformed `.supercharger.json` would switch off the guard. Custom patterns therefore run in an **isolated pass**; worst case the custom rules do not fire and the built-ins are untouched. Most of the 12 tests exist to hold that property, not the happy path.
+
+  Two corrections during the build. Invalid patterns were first reported from `safety.sh`, which only reaches that code for commands surviving its fast path — a user with a typo could go a whole session never seeing the warning while believing a rule protected them; validation moved to config-load time, once per session. And validation uses **grep, not python's `re`**: different dialects, and grep is what evaluates these at match time, so the wrong engine would pass patterns that fail later.
+
+  **Command improvements**, from reading their SKILL.md files against ours rather than their README:
+  - `/handoff` now **redacts** — it is assembled from git output, config and command history, which is exactly where secrets live, and it had no such instruction. Not theoretical: a real API key was leaked into a transcript in this session by doing precisely that.
+  - `/handoff` now **references instead of restating** — if it is in a commit, CHANGELOG, ADR or diff, link it. The brief is for what is *not* recoverable from the repo.
+  - `/handoff` gained a **Start With** section naming the commands to run first, which composes with 2.26.19's router.
+  - `/stuck` now requires hypotheses to be **falsifiable** — "if X is the cause, then Y makes the symptom disappear". It previously asked for three hypotheses with no such requirement, so they could be vibes, and an unfalsifiable hypothesis cannot end a debug loop because nothing observed can rule it out. It also names which step is load-bearing (facts vs assumptions) rather than presenting five equal steps, and tags temporary logs `[DEBUG-a4f2]` so cleanup is one grep.
+
+  Fuzz differential unchanged at 5,705 runs / 0 FN / 0 FP. Full suite **2877/0**.
+
 - [2.26.20] - 2026-08-02 — feat(commands): **`/resolve-conflicts` — there was no merge-conflict command at all.** A conflict is two intentions colliding, and the failure mode is resolving one without ever reading the other: `git log --merge -p <file>` recovers why each side changed, and skipping that step is guessing. The command also states the constraints that matter under pressure — preserve both intents where they compose, name the trade-off where they don't, never invent behaviour that was on neither side (that belongs in its own reviewable commit), don't `--abort` to escape a hard conflict, and grep for `<<<<<<<` before continuing, since a committed marker is a broken build git will not warn you about. Verification discovers the project's own checks rather than assuming them, typecheck before tests because a type error makes test failures unreadable. Indexed and routed.
 
   **The prune pass produced no prune, and that is the finding.** Two families looked duplicated from their first lines — `/audit` + `/multi-review` + `/security`, and `/scope` + `/interview` + `/estimate`. Reading the bodies, both are genuinely distinct: `/audit` sweeps a codebase for consistency with no diff involved, `/security` is OWASP-anchored and diff-scoped with a real scope-resolution table, `/multi-review` fans out to parallel agents and costs agent spawns. The pre-flight three are sequential stages, not alternatives — what do we want, what will we touch, how long. Merging any of them would have made the set worse; the actual gap was that nothing documented the distinctions, which 2.26.19's routing table now does.
