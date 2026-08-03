@@ -18,6 +18,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `adaptive-economy` | UserPromptSubmit | (none) | Auto-switches economy tier based on context window usage. |
 | `agent-gate` | PreToolUse | Agent | Reads the stored agent classification. Warns on mismatch but allows |
 | `agent-handoff-gate` | SubagentStop | (none) | Validates sub-agent output quality before the result flows back to the parent. |
+| `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
 | `ansi-escape-guard` | PreToolUse | Write, Edit, MultiEdit | A raw ANSI escape written into a file can carry a HIDDEN payload: the SGR conceal |
 | `audit-trail` | PostToolUse | Bash,Write,Edit | Logs write operations to a JSONL audit file. |

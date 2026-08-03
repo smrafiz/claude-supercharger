@@ -21,6 +21,7 @@ IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # pathlib, runs all 10 compiled regexes against each skill file's text,
 # counts zero-width chars directly, emits the final JSON. Median 70ms → ~30ms.
 RESULT=$(HOOK_INPUT="$_INPUT" PWD_DIR="$PWD" HOME_DIR="$HOME" HOOK_SUPPRESS="$HOOK_SUPPRESS" \
+         HOOKS_DIR_PY="$HOOKS_DIR" \
          python3 <<'PYEOF' 2>/dev/null
 import json, os, re, sys
 from pathlib import Path
@@ -97,6 +98,19 @@ for base in candidates:
 if not scan_paths:
     sys.exit(0)
 
+# v2.26.40: patterns moved to lib_poison_patterns.py, shared with
+# agent-poisoning-scanner. Two scanners hunting "the same" injection markers
+# WILL diverge the first time one is tightened alone — this project's signature
+# security-hook bug class (v2.8.1-.11). Add a pattern THERE, not here.
+# The list below is the fallback for a missing asset (v2.17.3: a hook died
+# because the installer never copied hooks/*.py) and must stay in step.
+_shared_scan = None
+try:
+    sys.path.insert(0, os.environ.get('HOOKS_DIR_PY', ''))
+    from lib_poison_patterns import scan_text as _shared_scan
+except Exception:
+    _shared_scan = None
+
 # (label, compiled regex, severity) — ordered by severity.
 # v2.7.14: all patterns are re.IGNORECASE — previously case-sensitive against raw
 # skill text, so UPPERCASE injection (e.g. "IGNORE PREVIOUS INSTRUCTIONS", "CURL ... | SH")
@@ -125,6 +139,11 @@ for p in scan_paths:
     except Exception:
         continue
     fname = p.name
+    if _shared_scan is not None:
+        _f, _c = _shared_scan(text, fname)
+        findings.extend(_f)
+        critical += _c
+        continue
     for label, regex, sev in patterns:
         n = len(regex.findall(text))
         if n:

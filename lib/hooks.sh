@@ -267,6 +267,10 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
+    # v2.26.40: the same inspection for agent definitions. Skills had a load-time
+    # scanner since v2.7.x; ~/.claude/agents/*.md had none, though it is the same
+    # thing — instructions Claude follows, loaded by name, persistent on disk.
+    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-poisoning-scanner.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an

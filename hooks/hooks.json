@@ -418,6 +418,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/agent-poisoning-scanner.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Agent"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cron-discovery.sh",
             "async": true,
             "timeout": 120
