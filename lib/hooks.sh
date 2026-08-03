@@ -307,7 +307,16 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/adaptive-economy.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/economy-reinforce.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/scope-guard.sh contract|")
-    hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|")
+    # v2.26.37: async. This hook writes advisory nudges to stderr, always exits 0,
+    # and never blocks or injects context — so nothing downstream depends on it
+    # having finished. Synchronously it was 35ms of the ~131ms UserPromptSubmit
+    # chain, i.e. the largest single contributor to the delay between the user
+    # pressing enter and the model starting. Async keeps the notes and removes the
+    # wait. Precedent on this exact event: context-advisor and learn-from-prompts.
+    #
+    # If this hook ever gains a block, an `exit 2`, or an additionalContext emit,
+    # it MUST go back to synchronous — async output cannot gate a prompt.
+    hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
     # v2.10.9: block a pasted LIVE credential in the prompt before it reaches the

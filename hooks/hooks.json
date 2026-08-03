@@ -1050,7 +1050,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/prompt-validator.sh",
-            "timeout": 15
+            "async": true,
+            "timeout": 120
           }
         ]
       },
