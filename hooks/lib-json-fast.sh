@@ -53,3 +53,24 @@ _json_fast_str() {
   case "$_JSON_FAST_VAL" in *\\*) _JSON_FAST_VAL=""; return 1 ;; esac
   return 0
 }
+
+# v2.26.36: the standard "try fork-free, fall back to jq" wrapper. Every
+# UserPromptSubmit hook re-parsed the SAME payload with its own jq fork — ~14
+# forks across the chain at ~3ms each, on the path the user actually waits on
+# (the gap between pressing enter and the model starting).
+#
+# Sets a NAMED variable rather than echoing: `X=$(_json_get …)` would fork a
+# subshell and give back most of what this saves. printf -v is fork-free.
+#
+# The fallback is not optional — _json_fast_str deliberately refuses anything
+# ambiguous or escaped, and those payloads still have to resolve correctly.
+_json_get() { # var, key, payload, jq_filter
+  local __val=""
+  if _json_fast_str "$2" "$3" 2>/dev/null; then
+    __val="$_JSON_FAST_VAL"
+  else
+    __val=$(printf '%s\n' "$3" | jq -r "$4" 2>/dev/null || true)
+    [ "$__val" = "null" ] && __val=""
+  fi
+  printf -v "$1" '%s' "$__val"
+}

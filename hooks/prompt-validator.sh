@@ -18,8 +18,12 @@ IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # keyword list stays single-case. Keep this list aligned with the python patterns
 # below — any trigger word added there must have a substring here, or that check
 # becomes unreachable. Over-firing into python is harmless (it just exits).
-_LC=$(printf '%s' "$_INPUT" | tr '[:upper:]' '[:lower:]' 2>/dev/null || printf '%s' "$_INPUT")
-case "$_LC" in
+# v2.26.36: `tr` was a fork (~2ms) plus a subshell, paid on every prompt purely to
+# fold case for the match below. `nocasematch` makes `case` case-insensitive with
+# no fork at all, and is restored immediately after so nothing else in the hook
+# inherits a changed matching mode.
+shopt -s nocasematch
+case "$_INPUT" in
   *fix*|*updat*|*chang*|*improv*|*make*|*optim*|*clean*|*broke*|*broken*|*messed*|*'nothing works'*|\
   *build*|*creat*|*'full app'*|*whole*|*'and also'*|*'and then'*|*' plus '*|*addition*|\
   *modif*|*discuss*|*talked*|*' thing'*|*continu*|*'keep going'*|*remember*|*'already know'*|\
@@ -27,8 +31,8 @@ case "$_LC" in
   *rename*|*split*|*merge*|*inline*|*rewrit*|*redesign*|*rebuild*|*restructur*|*overhaul*|*rearchitect*|\
   *'set up'*|*configur*|*deploy*|*migrat*|*initial*|*bootstrap*|*explain*|*describ*|*'tell me'*|\
   *'what is'*|*'act as'*|*pretend*|*'you are a'*|*behave*|*roleplay*|*install*|*' add '*|*upgrad*|\
-  *error*|*' bug'*|*'not working'*|*fail*|*crash*|*' test '*) ;;
-  *) exit 0 ;;
+  *error*|*' bug'*|*'not working'*|*fail*|*crash*|*' test '*) shopt -u nocasematch ;;
+  *) shopt -u nocasematch; exit 0 ;;
 esac
 
 # v2.6.30: one python3 fork replaces 1 jq + 1 python3 prompt extract + ~30
