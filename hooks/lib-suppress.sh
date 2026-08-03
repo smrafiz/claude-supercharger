@@ -32,9 +32,16 @@ fi
 # Disabled hooks content — loaded once at init time, bash 3.2 compatible
 _DISABLED_HOOKS_CONTENT=""
 
-_load_disabled_hooks() {
+_load_disabled_hooks() { # optional: project dir
   _DISABLED_HOOKS_CONTENT=""
-  local disabled_file="$SUPERCHARGER_STATE/scope/.disabled-hooks"
+  local disabled_file
+  # v2.26.33: per-project, falling back to the legacy global file.
+  if type sc_scope_resolve >/dev/null 2>&1; then
+    sc_scope_resolve ".disabled-hooks" "${1:-}"
+    disabled_file="$SC_SCOPE_FILE"
+  else
+    disabled_file="$SUPERCHARGER_STATE/scope/.disabled-hooks"
+  fi
   [ ! -f "$disabled_file" ] && return
   _DISABLED_HOOKS_CONTENT=$(<"$disabled_file")
 }
@@ -117,11 +124,19 @@ init_hook_suppress() {
     fi
   fi
 
-  _load_disabled_hooks
+  _load_disabled_hooks "$dir"
 
   # Load project profile from scope file — set SUPERCHARGER_PROFILE if not already set by env
+  # v2.26.33: resolved per-project. Previously one global .profile meant the last
+  # project to load config decided the performance profile for every project.
   if [ -z "${SUPERCHARGER_PROFILE:-}" ]; then
-    local profile_file="$SUPERCHARGER_STATE/scope/.profile"
+    local profile_file
+    if type sc_scope_resolve >/dev/null 2>&1; then
+      sc_scope_resolve ".profile" "$dir"
+      profile_file="$SC_SCOPE_FILE"
+    else
+      profile_file="$SUPERCHARGER_STATE/scope/.profile"
+    fi
     [ -f "$profile_file" ] && SUPERCHARGER_PROFILE=$(<"$profile_file") || true
   fi
 

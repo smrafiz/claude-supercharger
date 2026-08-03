@@ -81,11 +81,24 @@ fi
 teardown_test_home; rm -rf "$TMP"
 
 # ── 4: project-config applies profile from main repo config ───────────────────
+# v2.26.33: these control files are keyed by project path now (audit HIGH #13 —
+# one global file let a project's config overwrite another's). Resolve the name
+# the same way sc_project_key() does.
+_pkey() {
+  python3 -c "
+import sys
+k = sys.argv[1].replace('/', '-')
+k = k[1:] if k.startswith('-') else k
+k = k[-100:] if len(k) > 100 else k
+print(k or 'root')" "$1"
+}
 begin_test "project-config: profile from main repo written to scope (worktree)"
 setup_test_home
 mk_worktree '{"profile":"fast"}'
 printf '{"cwd":"%s"}\n' "$WT" | bash "$HOOKS/project-config.sh" >/dev/null 2>&1
-PROFILE_FILE="$(scope_dir)/.profile"
+# Keyed by the WORKTREE path — that is the cwd the hook receives, even though
+# the config itself is read from the main repo.
+PROFILE_FILE="$(scope_dir)/.profile-$(_pkey "$WT")"
 if [ -f "$PROFILE_FILE" ] && grep -q '^fast$' "$PROFILE_FILE"; then
   pass
 else
