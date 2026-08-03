@@ -66,8 +66,19 @@ except Exception:
 fi
 _cat_enabled() { case ",$DISABLED_CATS," in *",$1,"*) return 1 ;; esac; return 0; }
 
+# Session launch dir (recorded by project-config.sh at SessionStart). Read
+# fork-free; absent for a session that started before this version, which simply
+# means the boundary behaves as it did then.
+SESSION_ROOT=""
+if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+  _SR_F="$SUPERCHARGER_STATE/scope/.session-root-$CLAUDE_CODE_SESSION_ID"
+  if [ -f "$_SR_F" ]; then
+    IFS= read -r SESSION_ROOT < "$_SR_F" || SESSION_ROOT=""
+  fi
+fi
+
 REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" \
-         EXTRA_ROOTS="$EXTRA_ROOTS" python3 <<'PYEOF'
+         EXTRA_ROOTS="$EXTRA_ROOTS" SESSION_ROOT="$SESSION_ROOT" python3 <<'PYEOF'
 import os, sys, re
 
 p = os.environ.get('FILE_PATH', '')
@@ -121,7 +132,21 @@ def _extra_roots(proj_real):
     if _extra_roots_cache[0] is not None:
         return _extra_roots_cache[0]
     out = []
-    raw = os.environ.get('EXTRA_ROOTS', '')
+    # v2.26.42: the session's LAUNCH directory, recorded once at SessionStart.
+    # Claude Code's cwd follows `cd`, so the boundary used to move mid-session:
+    # open Claude in a wrapper holding two repos, end up inside one, and the
+    # sibling silently left the project. Carrying the launch dir makes the
+    # boundary stable — it is the workspace the user actually opened.
+    #
+    # It goes through the SAME validation as a configured root: launching from
+    # $HOME is common, and pinning to it would make the entire home directory
+    # in-project. Refused there, exactly as a configured root would be.
+    raw = os.environ.get('SESSION_ROOT', '')
+    extra = os.environ.get('EXTRA_ROOTS', '')
+    if raw and extra:
+        raw = raw + '\t' + extra
+    elif extra:
+        raw = extra
     if raw:
         try:
             home = os.path.realpath(os.path.expanduser('~'))

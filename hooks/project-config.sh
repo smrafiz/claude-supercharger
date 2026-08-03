@@ -41,6 +41,30 @@ LIB_DIR="$(cd "$HOOKS_DIR/../lib" && pwd)"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
 
+# v2.26.42: record the session's LAUNCH directory so path-guard has a stable
+# project boundary.
+#
+# The boundary was read from each payload's `.cwd`, which follows the session's
+# working directory — Claude Code emits CwdChanged on a plain `cd`. Open Claude
+# in a wrapper directory holding two repos, let cwd move into one of them, and
+# the sibling silently becomes "outside the project": writes that worked at the
+# start of the session start failing, with nothing announcing why. Reported from
+# the field, and confirmed by the reporter watching it happen.
+#
+# CLAUDE_PROJECT_DIR would be the natural source but is NOT set by this Claude
+# Code version (verified — the env carries only CLAUDE_CODE_*, CLAUDE_PID,
+# CLAUDE_EFFORT), so we record it ourselves, once, at SessionStart.
+#
+# Session-scoped: two sessions in different projects must not share a root.
+_SR_SID="${CLAUDE_CODE_SESSION_ID:-}"
+if [ -n "$_SR_SID" ]; then
+  mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
+  _SR_FILE="$SUPERCHARGER_STATE/scope/.session-root-$_SR_SID"
+  # Write once. SessionStart also fires on resume/compact, and by then cwd may
+  # already have moved — overwriting would defeat the whole point.
+  [ -f "$_SR_FILE" ] || printf '%s\n' "$PROJECT_DIR" > "$_SR_FILE" 2>/dev/null || true
+fi
+
 # Walk up to find .supercharger.json (max 5 levels).
 # v2.6.36: in a linked worktree, start from main repo root.
 CONFIG_FILE=""

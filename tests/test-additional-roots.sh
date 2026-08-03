@@ -186,4 +186,109 @@ edit_from "$W/free" "$W/free/free.php"
 [ "$RC" -eq 0 ] && pass || fail "in-project write broke without config: rc=$RC"
 rm -rf "$(dirname "$W")"
 
+# --- session launch root (v2.26.42) ------------------------------------------
+# The reported sequence: Claude opened in the WRAPPER, cwd later moved into one
+# repo, and the sibling silently left the project. Carrying the launch dir keeps
+# the boundary where the user opened it. No .supercharger.json involved.
+SR_STATE=""
+with_session_root() { # launch_dir, cwd, target
+  SR_STATE=$(mktemp -d); mkdir -p "$SR_STATE/scope"
+  printf '%s\n' "$1" > "$SR_STATE/scope/.session-root-tsid"
+  OUT=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$3" "$2" \
+    | CLAUDE_CODE_SESSION_ID=tsid SUPERCHARGER_STATE="$SR_STATE" bash "$GUARD" 2>/dev/null)
+  RC=$?
+  rm -rf "$SR_STATE"
+}
+
+begin_test "launched in the wrapper, cwd moved into free/ — sibling still writable"
+W=$(newlayout)
+with_session_root "$W" "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 0 ] && pass || fail "the reported bug is not fixed by the session root: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "without the recorded root, the same edit is denied (proves it is doing the work)"
+W=$(newlayout)
+edit_from "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 2 ] && pass || fail "control failed — the deny is not coming from the boundary: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "a session launched in \$HOME does NOT make the home dir in-project"
+# Launching Claude from ~ is common; pinning to it would be a silent, enormous
+# widening. It goes through the same refusals as a configured root.
+W=$(newlayout)
+with_session_root "$HOME" "$W/free" "$HOME/sc-session-root-probe.txt"
+[ "$RC" -eq 2 ] && pass || fail "launching from \$HOME opened the whole home dir: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "a session launched at / does not open the filesystem"
+W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P)
+with_session_root "/" "$W/free" "$OTHER/anywhere.php"
+[ "$RC" -eq 2 ] && pass || fail "launching from / opened everything: rc=$RC"
+rm -rf "$(dirname "$W")" "$OTHER"
+
+begin_test "credential paths stay blocked with a valid session root"
+W=$(newlayout)
+with_session_root "$W" "$W/free" "$HOME/.ssh/config"
+[ "$RC" -eq 2 ] && pass || fail "session root reached the credential list: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "an unrelated directory is still outside a valid session root"
+W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P)
+with_session_root "$W" "$W/free" "$OTHER/x.php"
+[ "$RC" -eq 2 ] && pass || fail "session root leaked to an unrelated dir: rc=$RC"
+rm -rf "$(dirname "$W")" "$OTHER"
+
+begin_test "a stale root pointing at a deleted dir is ignored, not trusted"
+W=$(newlayout); GONE=$(mktemp -d); GONE=$(cd "$GONE" && pwd -P); rm -rf "$GONE"
+with_session_root "$GONE" "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 2 ] && pass || fail "a deleted session root was trusted: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+# --- the recording half (project-config.sh at SessionStart) -------------------
+fire_session_start() { # state_dir, sid, cwd
+  printf '{"cwd":"%s"}' "$3" \
+    | CLAUDE_CODE_SESSION_ID="$2" SUPERCHARGER_STATE="$1" \
+      bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1 || true
+}
+
+begin_test "SessionStart records the launch directory"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+fire_session_start "$ST" sid1 "$W"
+[ "$(cat "$ST/scope/.session-root-sid1" 2>/dev/null)" = "$W" ] && pass \
+  || fail "launch dir not recorded: $(ls -A "$ST/scope" | tr '\n' ' ')"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "the recorded root is WRITE-ONCE (SessionStart also fires on resume/compact)"
+# If a later SessionStart overwrote it with the moved cwd, the fix would undo
+# itself precisely in the situation it exists for.
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+fire_session_start "$ST" sid1 "$W"
+fire_session_start "$ST" sid1 "$W/free"
+[ "$(cat "$ST/scope/.session-root-sid1" 2>/dev/null)" = "$W" ] && pass \
+  || fail "root was overwritten after cwd moved: $(cat "$ST/scope/.session-root-sid1" 2>/dev/null)"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "roots are per-session, never shared between sessions"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+fire_session_start "$ST" sid1 "$W"
+fire_session_start "$ST" sid2 "$W/free"
+[ "$(cat "$ST/scope/.session-root-sid2" 2>/dev/null)" = "$W/free" ] && pass \
+  || fail "second session inherited the first session's root"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "no session id — nothing recorded, guard unaffected"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+printf '{"cwd":"%s"}' "$W" | CLAUDE_CODE_SESSION_ID="" SUPERCHARGER_STATE="$ST" \
+  bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1 || true
+[ -z "$(ls -A "$ST/scope" 2>/dev/null | grep '^\.session-root' || true)" ] && pass \
+  || fail "wrote a root with no session id"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "session root and additionalRoots compose"
+W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P); mkdir -p "$OTHER/third"
+cfg "$W/free" "{\"additionalRoots\":[\"$OTHER/third\"]}"
+with_session_root "$W" "$W/free" "$OTHER/third/x.php"
+[ "$RC" -eq 0 ] && pass || fail "config root lost when a session root is present: rc=$RC"
+rm -rf "$(dirname "$W")" "$OTHER"
+
 report

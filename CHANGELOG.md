@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.42] - 2026-08-03 — fix(path-guard): the project boundary followed cwd, so a mid-session cd silently pushed a sibling repo out of the project; it is now pinned to the session launch directory. 3194 tests passing.
 - [2.26.41] - 2026-08-03 — feat(config): additionalRoots — sibling repos under one wrapper dir can be edited together without disabling a security category. 3182 tests passing.
 - [2.26.40] - 2026-08-03 — security: agent definitions (~/.claude/agents) had no poisoning scanner — skills did; patterns now shared so the two cannot drift. 3161 tests passing.
 - [2.26.39] - 2026-08-03 — security: skill-poisoning-scanner never scanned ~/.claude/skills — the canonical skill install path bypassed poisoning detection. 3138 tests passing.
