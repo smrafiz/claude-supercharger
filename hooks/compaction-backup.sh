@@ -26,7 +26,10 @@ chmod 700 "$SUMMARIES_DIR"
 TIMESTAMP=$(date +%Y-%m-%d-%H%M%S)
 BACKUP_FILE="$BACKUP_DIR/$TIMESTAMP.md"
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 printf '%s\n' "$_INPUT" > "$BACKUP_FILE"
 chmod 600 "$BACKUP_FILE"
 

@@ -28,7 +28,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 [ "${SUPERCHARGER_PROMPT_SECRET_GUARD:-1}" = "0" ] && exit 0
 [ "${SUPERCHARGER_ALLOW_PROMPT_SECRETS:-0}" = "1" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
 if [ -z "$PROMPT" ]; then
@@ -64,6 +67,16 @@ COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]:-}")
 # the match stops working and the pattern simply goes back to blocking — the
 # fail-safe direction. test-prompt-secret-ambiguous.sh pins that it still matches.
 AMBIGUOUS_PATTERNS=('0x[a-fA-F0-9]{64}')
+
+# v2.26.35: cheap pre-filter. The partition loop plus two greps below used to run
+# on EVERY prompt, including the overwhelming majority containing no secret-shaped
+# value at all — measured +6.6ms per prompt (13.2 -> 19.8, a 50% regression this
+# hook did not have before 2.26.29). One combined grep answers "is any of this
+# even present?" for the common case, which is what the hook did originally; the
+# partition only happens once something has actually matched.
+if ! printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
+  exit 0
+fi
 
 BLOCK_LIST=()
 WARN_LIST=()

@@ -38,7 +38,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 [ "${SUPERCHARGER_CLAIM_EVIDENCE_GATE:-1}" = "0" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # Never re-enter. Without this, blocking the stop and the model answering again
 # with the same wording would loop forever.

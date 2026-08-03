@@ -11,7 +11,10 @@ source "${BASH_SOURCE[0]%/*}/notify-helper.sh"
 [ -f "$SUPERCHARGER_DIR/.no-desktop-notify" ] && exit 0
 check_hook_disabled "notify" && exit 0
 
-PAYLOAD=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' PAYLOAD || true; PAYLOAD="${PAYLOAD%"${PAYLOAD##*[!$'\n']}"}"
 
 # Suppress during subagents
 _is_subagent "$PAYLOAD" && exit 0

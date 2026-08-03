@@ -24,7 +24,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-timing.sh"
 . "$HOOKS_DIR/lib-smart-approve.sh"
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 if smart_approve_verdict "$_INPUT"; then
   TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // "?"' 2>/dev/null || echo "?")

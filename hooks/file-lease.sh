@@ -18,7 +18,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 [ "${SUPERCHARGER_FILE_LEASE:-1}" = "0" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 LEASE_DIR="$SCOPE_DIR/.file-leases"
 mkdir -p "$LEASE_DIR" 2>/dev/null || true

@@ -19,7 +19,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 [ "${SUPERCHARGER_LOCKFILE_GUARD:-1}" = "0" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # Fast-path: bail with ZERO forks unless the payload could reference a lockfile.
 # This is a superset of lib-lockfile's basename list (every lock name contains
 # "lock", "shrinkwrap", or ".sum") — false positives just fall through to the

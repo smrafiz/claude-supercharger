@@ -14,7 +14,10 @@ set -euo pipefail
 # shellcheck source=hooks/lib-json-fast.sh
 . "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # 2.22.11: also read PowerShell's field. safety.sh matches Bash AND PowerShell,
 # but the PowerShell tool may carry the body in .script/.code rather than
 # .command — without this the body would be empty and every check skipped.
@@ -80,7 +83,18 @@ _SAFETY_TRACE="$SUPERCHARGER_STATE/scope/.safety-trace.log"
 # v2.24.1: the directory is statically known and normally exists — test before forking
 # (this was `mkdir -p "$(dirname …)"`, i.e. two forks on every single fire).
 [ -d "$SUPERCHARGER_STATE/scope" ] || mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
-printf '[%s] cwd=%s cmd=%.140s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "$PROJECT_DIR" "$COMMAND" >> "$_SAFETY_TRACE" 2>/dev/null || true
+# v2.26.35: `$(date …)` forked on EVERY Bash call — measured 1.59ms, paid even by
+# commands that turn out to be harmless. bash 5's printf can format the clock with
+# no fork at all; bash 3.2 (macOS default) has no equivalent, so it keeps the fork
+# rather than losing the timestamp. The trace is the breadcrumb that distinguishes
+# "hook never fired" from "fired but matched nothing", so dropping the time is not
+# on the table.
+if [ "${BASH_VERSINFO[0]}" -ge 5 ]; then
+  printf -v _sfx_ts '%(%Y-%m-%dT%H:%M:%SZ)T' -1
+else
+  _sfx_ts=$(date '+%Y-%m-%dT%H:%M:%SZ')
+fi
+printf '[%s] cwd=%s cmd=%.140s\n' "$_sfx_ts" "$PROJECT_DIR" "$COMMAND" >> "$_SAFETY_TRACE" 2>/dev/null || true
 # Cap at 1000 lines
 if [ -f "$_SAFETY_TRACE" ] && [ "$(wc -l < "$_SAFETY_TRACE" 2>/dev/null || echo 0)" -gt 1000 ]; then
   tail -800 "$_SAFETY_TRACE" > "${_SAFETY_TRACE}.tmp" 2>/dev/null && mv "${_SAFETY_TRACE}.tmp" "$_SAFETY_TRACE" 2>/dev/null || true
