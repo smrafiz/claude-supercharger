@@ -16,6 +16,19 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
+# v2.26.34: customPatterns is keyed by project path now (the tightening twin of
+# audit HIGH #13 — one project's extra rules used to fire in every project).
+# Fixture-based tests below still use the un-suffixed name on purpose: that
+# exercises the legacy-global fallback.
+_pkey() {
+  python3 -c "
+import sys
+k = sys.argv[1].replace('/', '-')
+k = k[1:] if k.startswith('-') else k
+k = k[-100:] if len(k) > 100 else k
+print(k or 'root')" "$1"
+}
+
 HOOK="$REPO_DIR/hooks/safety.sh"
 
 # Run safety.sh with a given set of custom patterns; echo DENY or ALLOW.
@@ -77,7 +90,7 @@ JSON
 OUT=$(printf '{"cwd":"%s","workspace":{"current_dir":"%s"}}' "$PD" "$PD" \
   | env SUPERCHARGER_STATE="$ST" HOME="$PD" bash "$REPO_DIR/hooks/project-config.sh" 2>&1)
 if printf '%s' "$OUT" | grep -qi 'INVALID customPatterns'; then
-  grep -q 'terraform' "$ST/scope/.custom-patterns" 2>/dev/null && pass \
+  grep -q 'terraform' "$ST/scope/.custom-patterns-$(_pkey "$PD")" 2>/dev/null && pass \
     || fail "invalid pattern reported but its valid sibling was dropped too"
 else
   fail "invalid customPatterns not reported at config load: $OUT"
@@ -90,10 +103,12 @@ begin_test "one bad pattern alongside good ones still leaves built-ins working"
 begin_test "built-in patterns keep working with valid custom patterns present"
 [ "$(verdict "$WIPE" 'terraform[[:space:]]+apply')" = "DENY" ] && pass || fail "valid custom patterns disturbed the built-ins"
 
-# --- additive only: a project may tighten, never loosen ---
+# --- additive only: customPatterns may tighten, never loosen ---
 begin_test "custom patterns cannot UNBLOCK a built-in denial"
-# There is no allow-list counterpart by design; a pattern matching a dangerous command
-# can only add another reason to block it.
+# A customPattern matching a dangerous command can only add another reason to block
+# it. Exempting a command is a separate, deliberately narrower mechanism —
+# `allowPatterns` (v2.26.34, see test-allow-patterns.sh) — which cannot touch
+# self-modification blocks and fails safe on a bad regex.
 [ "$(verdict "$WIPE" 'rm')" = "DENY" ] && pass || fail "a custom pattern loosened the guard"
 
 begin_test "an empty custom-patterns file is inert"
@@ -105,6 +120,7 @@ print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["CMD
 rm -rf "$ST"
 [ "$GOT" != "2" ] && pass || fail "an empty file caused a block"
 
+
 # --- config plumbing ---
 begin_test "project-config writes customPatterns to the scope file"
 ST=$(mktemp -d); PD=$(mktemp -d); mkdir -p "$ST/scope"
@@ -113,8 +129,9 @@ cat > "$PD/.supercharger.json" <<'JSON'
 JSON
 printf '{"cwd":"%s","workspace":{"current_dir":"%s"}}' "$PD" "$PD" \
   | env SUPERCHARGER_STATE="$ST" HOME="$PD" bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1
-if [ -s "$ST/scope/.custom-patterns" ] && grep -q 'terraform' "$ST/scope/.custom-patterns"; then pass
-else fail "customPatterns not written: $(cat "$ST/scope/.custom-patterns" 2>/dev/null)"; fi
+PF="$ST/scope/.custom-patterns-$(_pkey "$PD")"
+if [ -s "$PF" ] && grep -q 'terraform' "$PF"; then pass
+else fail "customPatterns not written: $(ls -A "$ST/scope" 2>/dev/null | tr '\n' ' ')"; fi
 rm -rf "$ST" "$PD"
 
 begin_test "project-config bounds the list (a runaway config cannot flood the guard)"
@@ -124,7 +141,7 @@ import json
 json.dump({'customPatterns': ['p%d' % i for i in range(200)]}, open('$PD/.supercharger.json','w'))"
 printf '{"cwd":"%s","workspace":{"current_dir":"%s"}}' "$PD" "$PD" \
   | env SUPERCHARGER_STATE="$ST" HOME="$PD" bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1
-N=$(wc -l < "$ST/scope/.custom-patterns" 2>/dev/null | tr -d ' ')
+N=$(wc -l < "$ST/scope/.custom-patterns-$(_pkey "$PD")" 2>/dev/null | tr -d ' ')
 [ "${N:-0}" -le 50 ] && pass || fail "wrote $N patterns; expected a cap of 50"
 rm -rf "$ST" "$PD"
 

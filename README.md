@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.26.33-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3091%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.26.34-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3107%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -251,7 +251,17 @@ Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `
 
 Add your own blocks: `{"customPatterns": ["terraform[[:space:]]+apply", "kubectl[[:space:]]+delete"]}`
 
-Extended regex, matched case-insensitively against the command — the same engine the built-in patterns use. Commit it and the whole team inherits the rule. **Additive only:** a project can tighten the guard, never loosen it, so there is no allow-list counterpart. Capped at 50 patterns of 200 chars. A pattern that isn't valid regex is reported at session start and skipped — it cannot disable the built-in guards, which are evaluated separately for exactly that reason.
+Extended regex, matched case-insensitively against the command — the same engine the built-in patterns use. Commit it and the whole team inherits the rule. Capped at 50 patterns of 200 chars. A pattern that isn't valid regex is reported at session start and skipped — it cannot disable the built-in guards, which are evaluated separately for exactly that reason.
+
+Exempt a specific command: `{"allowPatterns": ["rm -rf .*/Library/Caches/"]}`
+
+For the false positive you hit repeatedly. Without it the only escape is `disableSecurityCategories`, which switches a whole category off — so this is the narrower instrument, never a wider one: it reaches exactly the blocks that setting already removes wholesale. Three limits are enforced in code, not just documented:
+
+- **It can never exempt a self-modification block.** These patterns live in `.supercharger.json`, which the `selfmod` rule protects — a pattern able to exempt `selfmod` could authorise edits to the file granting it that power.
+- **`git-safety`, `path-guard` and `harness-tamper-guard` are untouched.** The human-approval floor is not negotiable from a config file.
+- **An invalid regex fails safe.** The command stays blocked; a broken allow rule never widens the guard.
+
+Every exemption is written to the block ledger, so `/why` and the session `[BLOCKS]` summary show what was let through.
 
 This is the supported way to customise enforcement. Editing the installed hooks is not: `harness-tamper-guard` blocks it, and a forked guard stops receiving security updates.
 

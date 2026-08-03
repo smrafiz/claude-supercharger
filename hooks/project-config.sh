@@ -223,53 +223,99 @@ if config_file and os.path.isfile(config_file):
         # This is the on-thesis answer to "I want my own rules": config that survives
         # updates, rather than forking the hooks (which harness-tamper-guard exists to
         # prevent, and which would strand a repo on stale security patterns).
-        custom = config.get('customPatterns', [])
-        pat_file = os.path.join(_SCOPE, '.custom-patterns')
-        if isinstance(custom, list):
-            # Bounded: 50 patterns, 200 chars each. A runaway config must not turn every
-            # Bash call into an unbounded regex. Newlines are stripped because the file
-            # is line-based, exactly like the block ledger.
-            clean = []
-            for c in custom[:50]:
+        # Bounded: 50 patterns, 200 chars each. A runaway config must not turn every
+        # Bash call into an unbounded regex. Newlines are stripped because the file
+        # is line-based, exactly like the block ledger.
+        #
+        # Validated with GREP, not python's re — they are different dialects, and
+        # grep is what actually evaluates these. (`foo[unclosed` is rejected by both,
+        # but POSIX classes like [[:space:]] and python-only escapes diverge, so
+        # testing with the wrong engine would pass patterns that then fail at match
+        # time.)
+        #
+        # Reported HERE rather than in safety.sh because safety.sh only reaches the
+        # pattern code for commands that survive its fast path — a user with a typo
+        # could go a whole session without ever seeing the warning, believing a rule
+        # is in force when it is not. This runs once, at SessionStart.
+        #
+        # v2.26.34: shared by customPatterns and allowPatterns. Two copies of a
+        # validator drift, and a drifted validator on the ALLOW side would be a
+        # security bug rather than a cosmetic one.
+        import subprocess
+
+        def _validated_patterns(raw):
+            cleaned = []
+            for c in raw[:50]:
                 if not isinstance(c, str):
                     continue
                 c = c.replace('\n', ' ').replace('\r', ' ').strip()[:200]
                 if c:
-                    clean.append(c)
-            # Validate with GREP, not python's re — they are different dialects, and
-            # grep is what actually evaluates these. (`foo[unclosed` is rejected by
-            # both here, but POSIX classes like [[:space:]] and python-only escapes
-            # diverge, so testing with the wrong engine would pass patterns that then
-            # fail at match time.)
-            #
-            # Reported HERE rather than in safety.sh because safety.sh only reaches
-            # the custom-pattern code for commands that survive its fast path — a user
-            # with a typo could go a whole session without ever seeing the warning,
-            # believing a rule protects them when it does not. This runs once, at
-            # SessionStart, where the config is read.
-            import subprocess
-            valid, invalid = [], []
-            for c in clean:
+                    cleaned.append(c)
+            good, bad = [], []
+            for c in cleaned:
                 try:
                     rc = subprocess.run(['grep', '-qiE', c], input=b'',
                                         stdout=subprocess.DEVNULL,
                                         stderr=subprocess.DEVNULL).returncode
                 except Exception:
                     rc = 2
-                (valid if rc in (0, 1) else invalid).append(c)
-            clean = valid
+                (good if rc in (0, 1) else bad).append(c)
+            return good, bad
+
+        def _write_patterns(path, patterns):
+            if patterns:
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, 'w') as f:
+                    f.write('\n'.join(patterns) + '\n')
+            elif os.path.isfile(path):
+                os.remove(path)
+
+        custom = config.get('customPatterns', [])
+        # v2.26.34: keyed per project. This was the last config file still written to
+        # a shared global path after v2.26.33 — one project's extra block rules
+        # applied to every project, which is the tightening direction and so shows up
+        # as unexplained false positives somewhere else entirely.
+        pat_file = _scope('.custom-patterns')
+        if isinstance(custom, list):
+            clean, invalid = _validated_patterns(custom)
             if invalid:
                 cfg_parts.append(
                     'INVALID customPatterns (not active): ' + ', '.join(invalid[:3]))
+            _write_patterns(pat_file, clean)
             if clean:
-                os.makedirs(os.path.dirname(pat_file), exist_ok=True)
-                with open(pat_file, 'w') as f:
-                    f.write('\n'.join(clean) + '\n')
                 cfg_parts.append(f'Custom patterns: {len(clean)}')
-            elif os.path.isfile(pat_file):
-                os.remove(pat_file)
         elif os.path.isfile(pat_file):
             os.remove(pat_file)
+
+        # Per-project ALLOW patterns (v2.26.34). The counterpart customPatterns
+        # deliberately did not have — a project may now exempt a specific command
+        # from a category block instead of switching the whole category off.
+        #
+        # This LOOSENS, so the boundary is drawn tightly and stated here:
+        #   * it only affects safety.sh's category blocks — exactly the surface
+        #     `disableSecurityCategories` already turns off wholesale, so an allow
+        #     pattern can never permit something the existing config could not
+        #     already permit more bluntly. It is strictly the narrower tool.
+        #   * it can NEVER exempt a self-modification block. allowPatterns lives in
+        #     .supercharger.json, which the selfmod rule protects; a pattern able to
+        #     exempt selfmod could authorise edits to the very file that grants it
+        #     that power. safety.sh enforces this, not just this comment.
+        #   * git-safety, path-guard and harness-tamper-guard are untouched — the
+        #     human-approval floor is not negotiable from a config file.
+        # Every exemption is written to the block ledger, so it stays visible in
+        # /why and the [BLOCKS] summary rather than silently widening the guard.
+        allow = config.get('allowPatterns', [])
+        allow_file = _scope('.allow-patterns')
+        if isinstance(allow, list):
+            ok, bad = _validated_patterns(allow)
+            if bad:
+                cfg_parts.append(
+                    'INVALID allowPatterns (not active): ' + ', '.join(bad[:3]))
+            _write_patterns(allow_file, ok)
+            if ok:
+                cfg_parts.append(f'Allow patterns: {len(ok)}')
+        elif os.path.isfile(allow_file):
+            os.remove(allow_file)
 
         # Per-project security category toggles
         disabled_cats = config.get('disableSecurityCategories', [])
