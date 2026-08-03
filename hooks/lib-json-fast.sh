@@ -64,11 +64,31 @@ _json_fast_str() {
 #
 # The fallback is not optional — _json_fast_str deliberately refuses anything
 # ambiguous or escaped, and those payloads still have to resolve correctly.
+#
+# DEPTH CHECK. _json_fast_str matches a key at ANY depth — deliberate, and what
+# safety.sh needs to read the nested `tool_input.command`. But these callers ask
+# for TOP-LEVEL fields, and their jq filters say so (`.cwd // .workspace.current_dir`).
+# Without a depth check the two disagree on a payload whose only `cwd` is nested:
+#
+#   {"other":{"cwd":"/nested"},"workspace":{"current_dir":"/correct"}}
+#     fast path -> /nested        jq -> /correct
+#
+# Not reachable with Claude Code's own payload shape (these keys are top-level),
+# but it is a real difference from the code this replaced, so it is closed rather
+# than documented. Counting braces in the PREFIX is fork-free and cheap for a
+# top-level key, because the prefix is short exactly when the answer is yes.
 _json_get() { # var, key, payload, jq_filter
-  local __val=""
+  local __val="" __pre __o __c
   if _json_fast_str "$2" "$3" 2>/dev/null; then
-    __val="$_JSON_FAST_VAL"
-  else
+    __pre="${3%%\"$2\"*}"
+    __o="${__pre//[^\{]/}"
+    __c="${__pre//[^\}]/}"
+    # Exactly one unclosed brace before the key == top level.
+    if [ $(( ${#__o} - ${#__c} )) -eq 1 ]; then
+      __val="$_JSON_FAST_VAL"
+    fi
+  fi
+  if [ -z "$__val" ]; then
     __val=$(printf '%s\n' "$3" | jq -r "$4" 2>/dev/null || true)
     [ "$__val" = "null" ] && __val=""
   fi
