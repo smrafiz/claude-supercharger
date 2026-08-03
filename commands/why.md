@@ -10,6 +10,7 @@ use the globs exactly as written (pick the most-recently-MODIFIED match, `ls -t 
 2. `${CLAUDE_PLUGIN_DATA}/scope/.blocked-commands` (last line — **single global file, NO suffix**) — last block reason
 3. `${CLAUDE_PLUGIN_DATA}/scope/.user-corrections*` (last line of newest) — last correction
 4. `${CLAUDE_PLUGIN_DATA}/scope/.failed-commands-*` (last line of newest — per-project hash) — last failure cluster
+4b. `${CLAUDE_PLUGIN_DATA}/scope/.prompt-notes-*` (last 3 lines of newest — per-session) — prompt-validator's phrasing advice. It runs **async**, so this note may have scrolled past or arrived beside the answer; this file is where it is kept. Report it as guidance on how the request was phrased, never as something that blocked anything.
 5. `${CLAUDE_PLUGIN_DATA}/audit/$(date -u +%Y-%m-%d).jsonl` (last 5 entries **that have a `hook` field** — skip timing/field-less rows) — recent audit events
 6. `${CLAUDE_PLUGIN_DATA}/scope/.tool-history-*` (last line of newest — per-session) — last tool result
 

@@ -6,6 +6,24 @@
 
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
+# shellcheck source=hooks/lib-paths.sh
+. "${BASH_SOURCE[0]%/*}/lib-paths.sh" 2>/dev/null || true
+: "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
+
+# v2.26.38: notes are also PERSISTED, not only written to stderr.
+#
+# This hook runs async (v2.26.37) so it no longer delays the prompt, but that
+# means its advice can land beside or after the answer instead of before it. It
+# was already losable when synchronous — a nudge scrolled past was simply gone.
+# Recording it makes `/why` able to show it afterwards, which is strictly better
+# than the old behaviour rather than a consolation for going async.
+#
+# Session id comes from the environment: reading it out of the payload would cost
+# a jq fork on a hook whose whole point right now is not costing anything.
+_PV_SID="${CLAUDE_CODE_SESSION_ID:-default}"
+_PV_SID="${_PV_SID//[^a-zA-Z0-9_-]/}"
+[ -z "$_PV_SID" ] && _PV_SID="default"
+_PV_NOTES="$SUPERCHARGER_STATE/scope/.prompt-notes-${_PV_SID}"
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
@@ -41,7 +59,7 @@ esac
 # ~30ms because compiled regex over a single string is essentially free
 # inside python. Sync UserPromptSubmit hook — drops user-perceived input
 # latency by ~40ms on every prompt.
-HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
+HOOK_INPUT="$_INPUT" PV_NOTES_FILE="$_PV_NOTES" python3 <<'PYEOF'
 import json, os, re, sys
 
 raw = os.environ.get('HOOK_INPUT', '')
@@ -154,6 +172,26 @@ if m(r"\b(getting an error|there.s a bug|it.s broken|not working|fails|crashes)\
 
 for n in notes:
     sys.stderr.write('[Supercharger] ' + n + '\n')
+
+# Persist for /why. Best-effort and last: a failure here must never cost the
+# user the stderr note they would otherwise have seen.
+notes_file = os.environ.get('PV_NOTES_FILE', '')
+if notes and notes_file:
+    try:
+        import time
+        os.makedirs(os.path.dirname(notes_file), exist_ok=True)
+        stamp = time.strftime('%Y-%m-%d %H:%M')
+        with open(notes_file, 'a') as fh:
+            for n in notes:
+                fh.write('[%s] %s\n' % (stamp, n))
+        # Bounded like the block ledger — this appends on every triggering prompt.
+        with open(notes_file) as fh:
+            lines = fh.readlines()
+        if len(lines) > 200:
+            with open(notes_file, 'w') as fh:
+                fh.writelines(lines[-150:])
+    except Exception:
+        pass
 PYEOF
 
 exit 0
