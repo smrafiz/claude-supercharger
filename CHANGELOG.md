@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.37] - 2026-08-03 — perf: 2.26.37 — prompt-validator is advisory-only, so it no longer blocks the prompt path. 3121 tests passing.
 - [2.26.36] - 2026-08-03 — perf: 2.26.36 — UserPromptSubmit hooks each re-forked jq for the same payload; shared fork-free accessor. 3114 tests passing.
 - [2.26.35] - 2026-08-03 — perf: 2.26.35 — 115 hooks forked /bin/cat to read stdin; Bash-call hook chain 130ms to 93ms. 3114 tests passing.
 - [2.26.34] - 2026-08-03 — feat(config): 2.26.34 — allowPatterns exempts one command instead of disabling a whole category. 3107 tests passing.
