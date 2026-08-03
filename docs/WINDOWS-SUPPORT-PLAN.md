@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **proposed** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-07-07
+Status: **proposed** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-08-03
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -62,7 +62,7 @@ References:
 
 | # | Gap | Sites | File:line (representative) | Fix |
 |---|---|---|---|---|
-| G1 | **Desktop notifications** — only macOS (`osascript`) + Linux (`notify-send`); no Windows branch → silent (bell only) | 8 | `hooks/notify-helper.sh:67-101` (89,92 osascript; 94,97 notify-send) | Add a Windows branch: PowerShell toast (`New-BurntToastNotification`) or `msg`; graceful no-op if absent |
+| G1 | **Desktop notifications** — only macOS (`osascript`) + Linux (`notify-send`); no Windows branch → silent (bell only) | 8 | `hooks/notify-helper.sh` (104,107 osascript; 112 notify-send — re-verified 2026-08-03; the earlier 89–97 refs had drifted) | Add a Windows branch: PowerShell toast (`New-BurntToastNotification`) or `msg`; graceful no-op if absent. See §10 for confirmation that a **protocol-activated** toast is the right backend |
 | G2 | **`md5sum`/`md5`** — neither exists on Git Bash; fallback chain ends empty | 8 | `repetition-detector.sh:52`, `failure-tracker.sh:54`, `quality-gate.sh:40,145`, `agent-router.sh:165`, `session-memory-write.sh:38`, `learn-from-prompts.sh:25`, `lib-suppress.sh:185` | Add `python3 hashlib.md5` as the final fallback — one helper in `lib/utils.sh`, call everywhere |
 | G3 | **`flock` shell utility** — absent on Git Bash; shell use has no fallback | 1 | `tool-history-tracker.sh:66` (`flock -w 2 9`) | Fall back to python `fcntl.flock`, or skip locking on Windows (best-effort append) |
 | G4 | **`jq` + `python3` not on Git Bash by default** | prereqs | `install.sh:8-24` (jq gate), `:25-28` (python) | Installer: detect on Windows, guide `choco install jq` / python; keep the hard `jq` gate but with a Windows-specific message |
@@ -95,6 +95,10 @@ directly fixes the already-reported "no notifications" bug.
 1. **`notify-helper.sh` Windows branch (G1)** — add a `powershell.exe`/`pwsh` toast path (BurntToast if
    present, else `msg` / balloon), gated on OSTYPE/`uname` detecting `msys`/`cygwin`/WSL. Keep the bell as
    the final fallback. *Works for WSL (via `powershell.exe` interop) and Git Bash.*
+   **Verification caveat:** this branch is *writable and unit-testable here* — mock `powershell.exe` exactly
+   as the existing tests mock `osascript`/`notify-send` — but whether a toast actually **appears** cannot be
+   confirmed without a Windows box. It would ship written-and-unit-tested, not verified. Say so in the
+   CHANGELOG entry rather than implying Windows notifications work.
 2. **`md5` python fallback helper (G2)** — one function in `lib/utils.sh` (`sc_md5`), swap the 8 call sites
    to it. Chain: `md5sum` → `md5 -q` → `python3 hashlib.md5`.
 3. **`flock` fallback (G3)** — `tool-history-tracker.sh`: if `command -v flock` absent, best-effort append
@@ -150,6 +154,9 @@ line replaced with a real setup guide.
   against current green CI and the Git-Bash-runs-install fact.
 - **2026-07-07** — Sequenced Phase 1 (platform hardening, ships on 2.x) before Phase 2 (native Windows + CI, 3.0),
   so the notification fix and robustness land immediately and de-risk the harder native work.
+- **2026-08-03** — Evaluated two third-party Windows projects (§10). **Rejected both as dependencies**;
+  kept one technical confirmation (protocol-activated toast is the Windows backend) and one corroboration
+  (Git Bash is genuinely the Windows interpreter). **Plan unchanged** — G1 is still ~10 lines of our own bash.
 
 ---
 
@@ -158,3 +165,44 @@ line replaced with a real setup guide.
 Build **Phase 1, item 1** — the `notify-helper.sh` Windows branch. Smallest, highest-value, independently
 useful (fixes the reported "no notifications" issue on WSL today), and it proves the platform-detection
 pattern the rest of Phase 1 reuses.
+
+---
+
+## 10. Prior art evaluated (2026-08-03)
+
+Two community projects were checked against this plan. **Neither is adopted.** Recorded so they are not
+re-evaluated, and so the reasoning survives if someone else proposes them.
+
+### 10.1 `777genius/claude-notifications-go` — REJECTED as a dependency
+
+Go binary, 772★/104 forks, GPL-3.0. Cross-platform notifier for Claude Code: Windows 10+ native toasts,
+macOS AX-API window focus, Linux D-Bus with compositor detection, tmux/zellij/WezTerm targeting, webhooks
+(Slack/Discord/Telegram/Teams/ntfy). Registers its own `PreToolUse` and `Stop`/`SubagentStop` hooks.
+Installs via `curl -fsSL … | bash`, auto-downloading release binaries.
+
+It genuinely solves notifications — far past what G1 needs — but is the wrong dependency here:
+
+| # | Blocker | Detail |
+|---|---|---|
+| 1 | **License conflict** | GPL-3.0 vs our MIT (`LICENSE:1`). The code can't be vendored, and bundling the binary puts a GPL obligation on anyone redistributing Supercharger. Telling users to install it separately is license-clean but makes it a *prerequisite*, not something we ship. |
+| 2 | **Competing hook layer, not a component** | It claims `Stop`/`SubagentStop`, where `claim-evidence-gate.sh` already runs. Two independent guard layers on one event, neither aware of the other. |
+| 3 | **Binary + install pattern we ourselves block** | Supercharger is bash + `jq`/`python3` with no binary artifacts. Its installer is the `curl … \| bash` form `safety.sh` blocks — 28 hits in the live ledger. Shipping an install path our own guards reject is indefensible. |
+
+**Kept from it — the technique, not the code:** it confirms the Windows backend is a **protocol-activated
+toast** (clicking raises the originating terminal), and that **per-tab/pane targeting is impossible** on
+Windows Terminal by architecture — so G1 should not attempt it. Its layered-fallback shape also matches the
+one already in §7. Nothing here changes the ~10-line estimate for G1.
+
+*Open question worth one check when Phase 1 starts:* it reaches Win10+ toast APIs **natively**, without
+BurntToast. If a plain `powershell.exe` one-liner can do the same, the "BurntToast not installed" risk in §7
+disappears and the fallback chain gets shorter. Unconfirmed — do not assume it.
+
+### 10.2 `Ruanweiqiao/claude-code-windows-setup` — no technical content
+
+127★/16 forks, single Chinese-language `README.md`, no code, no license. End-user install guide:
+`irm https://claude.ai/install.ps1 | iex` in admin PowerShell, set `PATH`, fix execution policy, 32-bit
+unsupported.
+
+Touches none of G1–G6. Its one value is **independent corroboration of §2's central premise** — that Claude
+Code on Windows relies on Git Bash — from a source outside the CC docs. That premise is what makes this plan
+"not a rewrite", so a second source for it is worth the line. Nothing else to take.
