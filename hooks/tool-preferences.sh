@@ -19,7 +19,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 [ "${SUPERCHARGER_TOOL_PREFS:-1}" = "0" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # v2.24.0: fork-free `cwd` first — this jq ran on every Bash call, before the
 # "is there even a config?" exit below. jq stays as the fallback.
 if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then

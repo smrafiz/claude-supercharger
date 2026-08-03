@@ -16,7 +16,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 check_hook_disabled "auto-compact" && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # 2.21.12: session-scope the compaction debounce band. The context window is
 # per-session, but .compact-last-band was global — one session at 85% wrote
 # band 80 and suppressed another session's 70/80 warning, and dropping below 70

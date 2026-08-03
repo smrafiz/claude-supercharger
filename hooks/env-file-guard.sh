@@ -23,7 +23,10 @@ _efg_field() {   # $1=key -> echoes value ('' if unknown)
   printf '%s\n' "$_INPUT" | jq -r --arg k "$1" '.[$k] // .tool_input[$k] // empty' 2>/dev/null || true
 }
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # NB: the jq form also falls back to .workspace.current_dir, so only take the fast
 # path when it actually finds `cwd`; otherwise run the original expression verbatim.
 if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then

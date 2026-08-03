@@ -20,7 +20,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 [ "${SUPERCHARGER_REDIRECT_CLOBBER_GUARD:-1}" = "0" ] && exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # Fast-path: bail with ZERO forks unless the payload could contain a clobber op.
 # Superset match on the raw stdin — precise parsing happens only past this gate.
 case "$_INPUT" in

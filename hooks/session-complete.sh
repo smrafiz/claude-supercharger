@@ -20,7 +20,10 @@ SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 
 mkdir -p "$SUMMARIES_DIR" 2>/dev/null || true
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # v2.7.16: skip Stop re-fires (stop_hook_active) so the completion webhook fires
 # once per session, not once per re-entry.

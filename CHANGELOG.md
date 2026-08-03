@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.35] - 2026-08-03 — perf: 2.26.35 — 115 hooks forked /bin/cat to read stdin; Bash-call hook chain 130ms to 93ms. 3114 tests passing.
 - [2.26.34] - 2026-08-03 — feat(config): 2.26.34 — allowPatterns exempts one command instead of disabling a whole category. 3107 tests passing.
 - [2.26.33] - 2026-08-03 — fix(config): 2.26.33 — audit HIGH #13 closed; one project could disable another's security categories. 3091 tests passing.
 - [2.26.32] - 2026-08-03 — fix(tests): 2.26.32 — running one test file directly wrote test payloads into live security telemetry. 3073 tests passing.

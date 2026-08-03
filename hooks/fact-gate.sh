@@ -22,7 +22,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # Default OFF — this is a friction feature, opt-in only. Zero cost otherwise.
 [ "${SUPERCHARGER_FACT_GATE:-0}" = "1" ] || exit 0
 
-_INPUT=$(cat)
+# v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
+# ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
+# strip reproduces $(cat)'s newline handling so this is byte-identical.
+IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
 OUT=$(printf '%s\n' "$_INPUT" | SCOPE_DIR="$SCOPE_DIR" TTL="${SUPERCHARGER_FACT_GATE_TTL:-1800}" PYTHONUTF8=1 python3 -c "
