@@ -195,8 +195,13 @@ if 'selfmod' not in disabled:
     # safety.sh's Bash-channel _SELFMOD_CFG — otherwise a plugin install (whose hooks
     # read them at $CLAUDE_PLUGIN_DATA/scope, not the classic path) lets a Write to the
     # plugin-path copy slip past this exact-match list and disable the guardrails.
-    _selfmod_basenames = {'.disabled-security-categories', '.disabled-hooks'}
-    if os.path.basename(p) in _selfmod_basenames or any(p == t for t in selfmod_targets):
+    # v2.26.33: PREFIX match, not equality. These files gained a per-project
+    # suffix (".disabled-hooks-Users-me-proj"), and an exact-basename set stopped
+    # matching them the moment they did — silently un-protecting the very files
+    # this rule exists to protect. The prefix form covers both spellings.
+    _selfmod_basenames = ('.disabled-security-categories', '.disabled-hooks')
+    _bn = os.path.basename(p)
+    if any(_bn == b or _bn.startswith(b + '-') for b in _selfmod_basenames) or any(p == t for t in selfmod_targets):
         print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
         sys.exit(0)
     # Project-level: .supercharger.json (any depth — could be repo root or nested),

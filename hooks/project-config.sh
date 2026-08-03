@@ -117,6 +117,24 @@ if stack_parts:
         except Exception:
             pass
 
+# v2.26.33: these four files hold PER-PROJECT values but were written to one
+# global path, so two projects open at once overwrote each other — a project with
+# no `profile` key os.remove()d another project's, and a `budget` set in one
+# silently capped the other. Keyed by project path now.
+#
+# MUST match sc_project_key() in hooks/lib-paths.sh byte for byte, or the writer
+# and the readers disagree and the config silently does nothing.
+def _project_key(pdir):
+    k = (pdir or '/').replace('/', '-')
+    if k.startswith('-'):
+        k = k[1:]
+    if len(k) > 100:
+        k = k[-100:]
+    return k or 'root'
+
+def _scope(name):
+    return os.path.join(_SCOPE, name + '-' + _project_key(project_dir))
+
 # --- Project config (.supercharger.json) ---
 if config_file and os.path.isfile(config_file):
     try:
@@ -149,7 +167,7 @@ if config_file and os.path.isfile(config_file):
             try:
                 budget = float(budget)
                 if budget > 0:
-                    budget_file = os.path.join(_SCOPE, '.budget-cap')
+                    budget_file = _scope('.budget-cap')
                     with open(budget_file, 'w') as f:
                         f.write(str(budget))
                     cfg_parts.append(f'Budget: ${budget:.2f}')
@@ -173,7 +191,7 @@ if config_file and os.path.isfile(config_file):
         # .disabled-hooks alone — written by another project) from key-present-
         # but-empty (clear). Conflating these caused cross-project state bleed.
         disable_hooks = config.get('disableHooks', None)
-        disabled_file = os.path.join(_SCOPE, '.disabled-hooks')
+        disabled_file = _scope('.disabled-hooks')
         if isinstance(disable_hooks, list) and disable_hooks:
             valid = [h.strip() for h in disable_hooks if isinstance(h, str) and h.strip()]
             if valid:
@@ -189,7 +207,7 @@ if config_file and os.path.isfile(config_file):
 
         # Per-project performance profile
         profile = config.get('profile', '').strip().lower()
-        profile_file = os.path.join(_SCOPE, '.profile')
+        profile_file = _scope('.profile')
         if profile in ('minimal', 'fast', 'standard'):
             os.makedirs(os.path.dirname(profile_file), exist_ok=True)
             with open(profile_file, 'w') as f:
@@ -255,7 +273,7 @@ if config_file and os.path.isfile(config_file):
 
         # Per-project security category toggles
         disabled_cats = config.get('disableSecurityCategories', [])
-        cats_file = os.path.join(_SCOPE, '.disabled-security-categories')
+        cats_file = _scope('.disabled-security-categories')
         valid_cats = {'filesystem', 'database', 'destructive', 'network', 'credentials', 'persistence', 'clipboard', 'browser', 'history', 'selfmod'}
         filtered = [c.strip().lower() for c in disabled_cats if c.strip().lower() in valid_cats]
         if filtered:

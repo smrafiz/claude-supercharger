@@ -103,7 +103,15 @@ SEGMENTS=$(split_segments "$CMD" 2>/dev/null) || SEGMENTS=""
 
 # Load disabled security categories
 _DISABLED_CATS=""
-_DISABLED_CATS_FILE="$SUPERCHARGER_STATE/scope/.disabled-security-categories"
+# v2.26.33: per-project, falling back to the legacy global file. One global file
+# meant a project that disabled a security category disabled it for EVERY
+# project on the machine — the loosening direction, so this one mattered most.
+if type sc_scope_resolve >/dev/null 2>&1; then
+  sc_scope_resolve ".disabled-security-categories" "$PROJECT_DIR"
+  _DISABLED_CATS_FILE="$SC_SCOPE_FILE"
+else
+  _DISABLED_CATS_FILE="$SUPERCHARGER_STATE/scope/.disabled-security-categories"
+fi
 [ -f "$_DISABLED_CATS_FILE" ] && _DISABLED_CATS=$(<"$_DISABLED_CATS_FILE")
 
 _cat_enabled() {

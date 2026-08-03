@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.33] - 2026-08-03 — fix(config): 2.26.33 — audit HIGH #13 closed; one project could disable another's security categories. 3091 tests passing.
 - [2.26.32] - 2026-08-03 — fix(tests): 2.26.32 — running one test file directly wrote test payloads into live security telemetry. 3073 tests passing.
 - [2.26.31] - 2026-08-02 — feat(security): 2.26.31 — the Verification Gate was a prompt rule; this checks the claim against what actually ran. 3064 tests passing.
 - [2.26.30] - 2026-08-02 — feat(security): 2.26.30 — reset --hard was guarded but the reflog that makes it survivable was not. 3043 tests passing.

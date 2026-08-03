@@ -9,6 +9,18 @@ PROJECT_CONFIG="$HOOKS_DIR/project-config.sh"
 echo "=== Hook Overrides Tests ==="
 
 # ── Test 1: disabled-hooks file created from config ───────────────────────────
+# v2.26.33: these control files are keyed by project path now (audit HIGH #13 —
+# one global file let a project's config overwrite another's). Resolve the name
+# the same way sc_project_key() does.
+_pkey() {
+  python3 -c "
+import sys
+k = sys.argv[1].replace('/', '-')
+k = k[1:] if k.startswith('-') else k
+k = k[-100:] if len(k) > 100 else k
+print(k or 'root')" "$1"
+}
+
 begin_test "hook overrides: disabled-hooks file created from config"
 result=$(
   setup_test_home
@@ -19,7 +31,7 @@ result=$(
 JSON
   INPUT=$(python3 -c "import json; print(json.dumps({'cwd': '$PROJ'}))")
   printf '%s\n' "$INPUT" | bash "$PROJECT_CONFIG" >/dev/null 2>&1 || true
-  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks-$(_pkey "$PROJ")"
   if [ -f "$DISABLED_FILE" ] && grep -qx "typecheck" "$DISABLED_FILE" && grep -qx "quality-gate" "$DISABLED_FILE"; then
     echo "ok"
   fi
@@ -77,14 +89,18 @@ begin_test "hook overrides: preserved when disableHooks key absent (no cross-pro
 result=$(
   setup_test_home
   mkdir -p "$HOME/.claude/supercharger/scope"
-  printf 'typecheck\n' > "$HOME/.claude/supercharger/scope/.disabled-hooks"
   PROJ=$(mktemp -d)
+  # v2.26.33: seed THIS project's own file. Cross-project clearing is now
+  # structurally impossible (each project keys its own), so what this still
+  # guards is the tri-state within a single project: key absent must not clear.
+  SEED="$HOME/.claude/supercharger/scope/.disabled-hooks-$(_pkey "$PROJ")"
+  printf 'typecheck\n' > "$SEED"
   cat > "$PROJ/.supercharger.json" <<'JSON'
 {"roles": ["developer"]}
 JSON
   INPUT=$(python3 -c "import json; print(json.dumps({'cwd': '$PROJ'}))")
   printf '%s\n' "$INPUT" | bash "$PROJECT_CONFIG" >/dev/null 2>&1 || true
-  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks-$(_pkey "$PROJ")"
   if [ -f "$DISABLED_FILE" ] && grep -qx "typecheck" "$DISABLED_FILE"; then
     echo "ok"
   fi
@@ -110,7 +126,7 @@ result=$(
 JSON
   INPUT=$(python3 -c "import json; print(json.dumps({'cwd': '$PROJ'}))")
   printf '%s\n' "$INPUT" | bash "$PROJECT_CONFIG" >/dev/null 2>&1 || true
-  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks"
+  DISABLED_FILE="$HOME/.claude/supercharger/scope/.disabled-hooks-$(_pkey "$PROJ")"
   if [ ! -f "$DISABLED_FILE" ]; then
     echo "ok"
   fi
