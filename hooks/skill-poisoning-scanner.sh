@@ -44,11 +44,20 @@ cwd = data.get('cwd') or pwd_dir
 # Find skill definition files. Match only the skill's own file, not random
 # READMEs that happen to contain the skill name.
 scan_paths = []
+# v2.26.39: 'skills' is the CANONICAL directory for a standalone skill — a bundle
+# installed with `git clone && ./install.sh` lands in ~/.claude/skills/<name>/SKILL.md,
+# not commands/ or plugins/. Omitting it meant the primary install path was never
+# scanned: an identical poisoned SKILL.md was DENIED under plugins/ and commands/
+# and PASSED under skills/. Found by scanning two real published bundles, not
+# fixtures — every test staged into commands/ or plugins/, so the suite agreed
+# with the bug. The globs and patterns below already worked; only the root was missing.
 candidates = [
     Path(home_dir) / '.claude' / 'commands',
     Path(home_dir) / '.claude' / 'plugins',
+    Path(home_dir) / '.claude' / 'skills',
     Path(cwd) / '.claude' / 'commands',
     Path(cwd) / '.claude' / 'plugins',
+    Path(cwd) / '.claude' / 'skills',
 ]
 # v2.7.54: skills are often invoked NAMESPACED ("plugin:skill"), but the file on
 # disk is named by the BARE skill — a raw-name glob then matches nothing and the
