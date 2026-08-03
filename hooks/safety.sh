@@ -114,6 +114,22 @@ else
 fi
 [ -f "$_DISABLED_CATS_FILE" ] && _DISABLED_CATS=$(<"$_DISABLED_CATS_FILE")
 
+# allowPatterns (v2.26.34) — exempt a specific command from a category block
+# instead of switching the whole category off. Loaded here so block() can consult
+# it. Joined into ONE alternation, kept in its own pass: a bad user regex makes
+# grep error, and rc>1 is treated as no-match below, so a broken allow rule
+# leaves the command BLOCKED rather than silently permitting it.
+_ALLOW_JOINED=""
+if type sc_scope_resolve >/dev/null 2>&1; then
+  sc_scope_resolve ".allow-patterns" "$PROJECT_DIR"
+  _ALLOW_PAT_FILE="$SC_SCOPE_FILE"
+else
+  _ALLOW_PAT_FILE="$SUPERCHARGER_STATE/scope/.allow-patterns"
+fi
+if [ -s "$_ALLOW_PAT_FILE" ]; then
+  _ALLOW_JOINED=$(tr '\n' '|' < "$_ALLOW_PAT_FILE" 2>/dev/null | sed 's/|$//')
+fi
+
 _cat_enabled() {
   case "$_DISABLED_CATS" in
     *"$1"*) return 1 ;;
@@ -122,6 +138,27 @@ _cat_enabled() {
 }
 
 block() {
+  # allowPatterns exemption. Deliberately NOT applied to self-modification: the
+  # patterns live in .supercharger.json, which the selfmod rule protects, so a
+  # rule that could exempt selfmod would be able to authorise edits to the file
+  # granting it that power. That bootstrap hole is closed here, in code.
+  if [ -n "${_ALLOW_JOINED:-}" ]; then
+    case "$1" in
+      *self-modification*|*guardrail*) : ;;
+      *)
+        if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$_ALLOW_JOINED" 2>/dev/null; then
+          # Visible, not silent: an exemption is a widened guard and belongs in
+          # the ledger that /why and the [BLOCKS] summary read.
+          local _al="$SUPERCHARGER_STATE/scope/.blocked-commands"
+          mkdir -p "$(dirname "$_al")" 2>/dev/null || true
+          printf '[%s] ALLOWED by allowPatterns (would have blocked: %s) — %.100s\n' \
+            "$(date '+%Y-%m-%d %H:%M')" "$1" "$COMMAND" >> "$_al" 2>/dev/null || true
+          echo "[Supercharger] safety: allowPatterns exempted this command (would have blocked: $1)" >&2
+          exit 0
+        fi
+        ;;
+    esac
+  fi
   echo "" >&2
   echo "Supercharger blocked this command." >&2
   echo "  Reason : $1" >&2
@@ -503,7 +540,15 @@ fi
 # Isolated, the worst case is that the custom patterns themselves do not fire — the
 # built-ins are untouched, and the failure is announced rather than silent.
 # Additive only: a project can tighten the guard, never loosen it.
-_CUSTOM_PAT_FILE="$SUPERCHARGER_STATE/scope/.custom-patterns"
+# v2.26.34: per-project. This was the last config file on a shared global path
+# after v2.26.33 — one project's extra block rules fired in every other project,
+# surfacing as false positives somewhere the user never configured anything.
+if type sc_scope_resolve >/dev/null 2>&1; then
+  sc_scope_resolve ".custom-patterns" "$PROJECT_DIR"
+  _CUSTOM_PAT_FILE="$SC_SCOPE_FILE"
+else
+  _CUSTOM_PAT_FILE="$SUPERCHARGER_STATE/scope/.custom-patterns"
+fi
 if [ -s "$_CUSTOM_PAT_FILE" ]; then
   _CUSTOM_JOINED=$(tr '\n' '|' < "$_CUSTOM_PAT_FILE" 2>/dev/null | sed 's/|$//')
   if [ -n "$_CUSTOM_JOINED" ]; then
