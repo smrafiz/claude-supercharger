@@ -11,6 +11,38 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# --- writable-state isolation ------------------------------------------------
+# Hooks write telemetry under HOME — the block ledger, the audit log, scope
+# flags. tests/run.sh already gives every file its own HOME (see run_one), so the
+# SUITE has always been isolated. What was NOT covered is running a single file
+# directly — `bash tests/test-foo.sh` — which inherits the developer's real HOME
+# and appends test payloads to live telemetry. That is the ordinary way to work
+# on one test, so it is the path that actually leaks.
+#
+# Isolation is by moving HOME, NOT by exporting SUPERCHARGER_STATE, matching
+# run_one. The tests read state back through "$HOME/.claude/supercharger/..."
+# literals while hooks resolve it via lib-paths.sh; overriding only STATE splits
+# those apart — the hook writes one place, the assertion looks in another — which
+# failed 151 assertions when tried here.
+#
+# Tests that set their own HOME afterwards are unaffected: state follows whatever
+# HOME is current when the hook runs.
+if [ -z "${SUPERCHARGER_TEST_HOME:-}" ]; then
+  SUPERCHARGER_TEST_HOME="${TMPDIR:-/tmp}/sc-test-home-$$"
+  mkdir -p "$SUPERCHARGER_TEST_HOME/.claude/supercharger/scope" \
+           "$SUPERCHARGER_TEST_HOME/.claude/supercharger/audit" 2>/dev/null || true
+  # Canonicalise, for the reason run_one documents: on macOS TMPDIR lives under
+  # /var/folders/... and /var is a symlink to /private/var. path-guard realpaths
+  # paths, so a symlinked HOME trips its in-path-symlink check and wrongly denies
+  # writes the tests expect to succeed.
+  SUPERCHARGER_TEST_HOME=$(cd "$SUPERCHARGER_TEST_HOME" && pwd -P)
+  export SUPERCHARGER_TEST_HOME
+  export HOME="$SUPERCHARGER_TEST_HOME"
+  # Best-effort: several tests install their own EXIT trap, which replaces this
+  # one. tests/run.sh sweeps leftovers by pattern for that reason.
+  trap 'rm -rf "${SUPERCHARGER_TEST_HOME:-/nonexistent}" 2>/dev/null || true' EXIT
+fi
+
 setup_test_home() {
   TEST_HOME=$(mktemp -d)
   export HOME="$TEST_HOME"
