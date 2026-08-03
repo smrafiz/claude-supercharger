@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.26.40-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3161%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.26.41-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3182%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -262,6 +262,18 @@ For the false positive you hit repeatedly. Without it the only escape is `disabl
 - **An invalid regex fails safe.** The command stays blocked; a broken allow rule never widens the guard.
 
 Every exemption is written to the block ledger, so `/why` and the session `[BLOCKS]` summary show what was let through.
+
+Work across sibling repos: `{"additionalRoots": ["../my-pro-plugin"]}`
+
+For a wrapper directory holding two repos that must change together (a free/pro plugin pair, an SDK and its example app). The project boundary is the session's working directory, so with `cwd` in one repo the other is "outside the project" and every write to it is denied — in both directions. Widening to the enclosing git repo doesn't help, because each repo is its own git root.
+
+Paths are relative to the project root, or absolute. Put one in each repo pointing at the other; commit them and the team inherits the setup. *(Launching Claude from the wrapper directory needs no config at all — both repos are then already inside the boundary.)*
+
+It only widens the "is this inside my project" test, and it can never subtract a protection:
+
+- **`/`, `$HOME`, any ancestor of `$HOME`, and `~/.claude` are refused.** A root that resolves to any of them would disable the guard while looking like a whitelist.
+- **The credential and system list stays blocked** — `~/.ssh`, `~/.aws`, `~/.config`, `/etc/` and the rest are checked *before* the boundary test, so no whitelist can reach them.
+- **Roots are resolved through symlinks** before being trusted, and a path that doesn't exist (or isn't a directory) is ignored rather than silently accepted.
 
 This is the supported way to customise enforcement. Editing the installed hooks is not: `harness-tamper-guard` blocks it, and a forked guard stops receiving security updates.
 

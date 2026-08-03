@@ -44,21 +44,30 @@ FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_inpu
 
 # Disabled categories from .supercharger.json (project-level opt-out)
 DISABLED_CATS=""
+EXTRA_ROOTS=""
 if [ -f "$CONFIG_ROOT/.supercharger.json" ]; then
-  DISABLED_CATS=$(python3 -c "
-import json, sys
+  # One fork reads both keys. CONFIG_ROOT goes through the ENVIRONMENT, not
+  # string interpolation into the python source: a project path containing a
+  # quote used to break (or inject into) this program.
+  _PG_CFG=$(SC_CFG_ROOT="$CONFIG_ROOT" python3 -c "
+import json, os
 try:
-    with open('$CONFIG_ROOT/.supercharger.json') as f:
+    with open(os.path.join(os.environ['SC_CFG_ROOT'], '.supercharger.json')) as f:
         d = json.load(f)
-    cats = d.get('disableSecurityCategories', [])
-    print(','.join(cats))
+    print(','.join(c for c in (d.get('disableSecurityCategories') or []) if isinstance(c, str)))
+    # v2.26.41: additionalRoots — sibling directories that count as in-project.
+    # Tab-joined: a tab cannot appear in a sane path and keeps this to one line.
+    print('\t'.join(r for r in (d.get('additionalRoots') or []) if isinstance(r, str)))
 except Exception:
-    pass
-" 2>/dev/null || echo "")
+    print(''); print('')
+" 2>/dev/null || printf '\n\n')
+  DISABLED_CATS=$(printf '%s\n' "$_PG_CFG" | sed -n '1p')
+  EXTRA_ROOTS=$(printf '%s\n' "$_PG_CFG" | sed -n '2p')
 fi
 _cat_enabled() { case ",$DISABLED_CATS," in *",$1,"*) return 1 ;; esac; return 0; }
 
-REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" python3 <<'PYEOF'
+REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" \
+         EXTRA_ROOTS="$EXTRA_ROOTS" python3 <<'PYEOF'
 import os, sys, re
 
 p = os.environ.get('FILE_PATH', '')
@@ -92,12 +101,80 @@ def _repo_root(start):
     _repo_root_cache[0] = rr
     return rr
 
+# v2.26.41: additionalRoots — sibling directories that count as in-project.
+#
+# The v2.23.13 widening above covers a SUBDIRECTORY launch (files at the repo
+# root sit above cwd). It cannot help two SIBLING repos edited together — a
+# free/pro plugin pair under one wrapper dir — because the git toplevel of one
+# repo is that repo. Reported from the field: editing pro from free was denied
+# in both directions, and the only offered outs were `/sc off` (every guard) or
+# disableSecurityCategories:["abs-path"] (also unprotects ~/.ssh, ~/.aws, /etc).
+#
+# This widens ONLY the "is it inside my project" test. It cannot subtract any
+# protection: the credential/system list is checked BEFORE this (3.4 below), and
+# selfmod is a separate check that never consults the boundary.
+#
+# Refusals matter more than the feature — a root that resolves to /, $HOME, or
+# any ancestor of $HOME would disable the guard while looking like a whitelist.
+_extra_roots_cache = [None]
+def _extra_roots(proj_real):
+    if _extra_roots_cache[0] is not None:
+        return _extra_roots_cache[0]
+    out = []
+    raw = os.environ.get('EXTRA_ROOTS', '')
+    if raw:
+        try:
+            home = os.path.realpath(os.path.expanduser('~'))
+        except Exception:
+            home = ''
+        claude_dir = os.path.join(home, '.claude') if home else ''
+        for entry in raw.split('\t'):
+            entry = entry.strip()
+            if not entry:
+                continue
+            cand = entry if os.path.isabs(entry) else os.path.join(proj_real, entry)
+            try:
+                rp = os.path.realpath(cand)
+            except Exception:
+                continue
+            # Must exist and be a directory. A typo'd root that silently "works"
+            # is worse than none: it reads as protection that is not there.
+            if not os.path.isdir(rp):
+                continue
+            # Root of the filesystem, $HOME itself, or any ANCESTOR of $HOME
+            # (e.g. /Users) would make everything in-project.
+            if rp == os.path.dirname(rp):
+                continue
+            if home and (rp == home or home.startswith(rp + os.sep)):
+                continue
+            # Supercharger's own config/state stays out of reach.
+            if claude_dir and (rp == claude_dir or rp.startswith(claude_dir + os.sep)):
+                continue
+            out.append(rp)
+    _extra_roots_cache[0] = out
+    return out
+
+def _under(target_real, root):
+    # `root + os.sep` is '//' when root is '/', which matches nothing — the exact
+    # shape of the v2.26.25 root-deletion hole in safety.sh. Containment must not
+    # depend on the root having no trailing separator.
+    if not root:
+        return False
+    if target_real == root.rstrip(os.sep) or target_real == root:
+        return True
+    prefix = root if root.endswith(os.sep) else root + os.sep
+    return target_real.startswith(prefix)
+
 def _within_project(target_real, proj_real):
     # inside cwd, or inside the enclosing git repo root (subdir-launch case)
-    if target_real == proj_real or target_real.startswith(proj_real + os.sep):
+    if _under(target_real, proj_real):
         return True
-    rr = _repo_root(proj_real)
-    return bool(rr) and (target_real == rr or target_real.startswith(rr + os.sep))
+    if _under(target_real, _repo_root(proj_real)):
+        return True
+    for er in _extra_roots(proj_real):
+        if _under(target_real, er):
+            return True
+    return False
 
 # --- 3.1 Path traversal: decode and normalize ---
 if 'path-traversal' not in disabled:
