@@ -9,6 +9,8 @@
 
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
 MODE="${1:-check}"
 SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
@@ -72,7 +74,11 @@ if [[ "$MODE" == "contract" ]]; then
     rm -f "$CONTRACT_FILE"
   fi
   # _INPUT already drained at top (v2.6.77)
-  PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
+  # Pre-initialised: if lib-json-fast is absent _json_get is undefined, and
+  # under `set -u` an unset var here is FATAL — which turned a missing lib
+  # into a fail-CLOSED block. Empty keeps the fail-open contract.
+  PROMPT=""
+  _json_get PROMPT prompt "$_INPUT" '.prompt // empty'
   if [ -z "$PROMPT" ]; then
     PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
   fi

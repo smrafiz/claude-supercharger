@@ -11,6 +11,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
 [ "${SUPERCHARGER_LESSONS:-1}" = "0" ] && exit 0
 
@@ -23,7 +25,15 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "lesson-recall" && exit 0
 hook_profile_skip "lesson-recall" && exit 0
 
-PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.prompt // empty' 2>/dev/null || true)
+# Pre-initialised: if lib-json-fast is absent _json_get is undefined, and
+
+# under `set -u` an unset var here is FATAL — which turned a missing lib
+
+# into a fail-CLOSED block. Empty keeps the fail-open contract.
+
+PROMPT=""
+
+_json_get PROMPT prompt "$_INPUT" '.prompt // empty'
 if [ -z "$PROMPT" ]; then
   PROMPT=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('prompt',''))" 2>/dev/null || echo "")
 fi

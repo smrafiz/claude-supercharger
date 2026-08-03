@@ -9,6 +9,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
@@ -101,7 +103,11 @@ DEDUP_KEY="${PCT_BUCKET}:${TIER}"
 # A global `.eco-last` made concurrent sessions in two projects share
 # state — session B silently skipped its own eco advisory if session A
 # had already crossed the same bucket.
-SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+# Pre-initialised: if lib-json-fast is absent _json_get is undefined, and
+# under `set -u` an unset var here is FATAL — which turned a missing lib
+# into a fail-CLOSED block. Empty keeps the fail-open contract.
+SID=""
+_json_get SID session_id "$_INPUT" '.session_id // empty'
 [ -z "$SID" ] && SID="default"
 DEDUP_FILE="$SCOPE_DIR/.eco-last-${SID}"
 LAST_KEY=$(cat "$DEDUP_FILE" 2>/dev/null || echo "")

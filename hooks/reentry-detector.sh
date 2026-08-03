@@ -8,6 +8,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 [ "${SUPERCHARGER_ADVISORY_HOOKS:-1}" = "0" ] && exit 0
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
@@ -19,7 +21,11 @@ init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "reentry-detector" && exit 0
 
 # Extract user prompt text
-PROMPT=$(printf '%s\n' "$_INPUT" | jq -r '.message // .prompt // empty' 2>/dev/null || true)
+# Pre-initialised: if lib-json-fast is absent _json_get is undefined, and
+# under `set -u` an unset var here is FATAL — which turned a missing lib
+# into a fail-CLOSED block. Empty keeps the fail-open contract.
+PROMPT=""
+_json_get PROMPT message "$_INPUT" '.message // .prompt // empty'
 [ -z "$PROMPT" ] && exit 0
 
 # Check for system markers in user prompt — these should never appear in real user input
