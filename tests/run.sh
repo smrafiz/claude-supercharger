@@ -36,7 +36,10 @@ if [ -z "${TEST_JOBS:-}" ]; then
 fi
 
 RESULT_DIR=$(mktemp -d)
-trap 'rm -rf "$RESULT_DIR"' EXIT
+# Also sweep the per-test isolated state dirs from tests/helpers.sh. Tests that
+# install their own EXIT trap replace the helper's cleanup, so without this the
+# dirs accumulate in TMPDIR across runs.
+trap 'rm -rf "$RESULT_DIR"; rm -rf "${TMPDIR:-/tmp}"/sc-test-home-* 2>/dev/null || true' EXIT
 
 # Each file runs under its own HOME.
 #
