@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.44] - 2026-08-04 — fix(hooks): browser workflows tripped two guards on ordinary content — the circuit breaker matched page text, and screenshots matched the Bitcoin WIF pattern. 3228 tests passing.
 - [2.26.43] - 2026-08-04 — fix(path-guard): honour Claude Code's own directory authorisation (--add-dir, /add-dir, permissions.additionalDirectories) — an explicitly added directory was still denied. 3212 tests passing.
 - [2.26.42] - 2026-08-03 — fix(path-guard): the project boundary followed cwd, so a mid-session cd silently pushed a sibling repo out of the project; it is now pinned to the session launch directory. 3194 tests passing.
 - [2.26.41] - 2026-08-03 — feat(config): additionalRoots — sibling repos under one wrapper dir can be edited together without disabling a security category. 3182 tests passing.

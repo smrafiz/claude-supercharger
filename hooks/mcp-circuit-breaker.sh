@@ -67,15 +67,55 @@ FAIL_RE = re.compile(
     r'|rate[ _-]?limit|too many requests|service unavailable|overloaded'
     r'|ECONNREFUSED|ETIMEDOUT|\\bunavailable\\b', re.IGNORECASE)
 
-if is_post:
-    blob = ''
+# v2.26.44: the pattern above used to run over the WHOLE response body. For a
+# server that returns CONTENT rather than status envelopes — a browser tool,
+# a docs fetcher, a file reader — the body is arbitrary page text, so ordinary
+# pages tripped the breaker. Measured on realistic payloads:
+#   \"currently unavailable in your region\"  -> TRIPPED
+#   \"what a 503 means for your integration\" -> TRIPPED
+#   \"Errors today: 403\"                     -> TRIPPED
+# Each opened a 30s+ escalating cooldown on a healthy server. Reported from the
+# field as roughly a dozen cooldowns to complete one browser task, which is worse
+# than no breaker: the enforced wait exceeded the server's own backoff.
+#
+# It is also a denial-of-tool vector — page content is attacker-controlled, so a
+# site could embed \"rate limit exceeded\" to make Claude stop using the browser.
+#
+# So: trip only on a signal the SERVER framed as an error.
+#   - an explicit error envelope (isError/is_error true, or an 'error' key)
+#     -> match FAIL_RE inside it, as before
+#   - otherwise, plain content -> require an UNAMBIGUOUS phrase AND a short body.
+#     A real error envelope is small; a page of text is not. Bare status numbers
+#     and a lone 'unavailable' are dropped from this path entirely.
+STRONG_RE = re.compile(
+    r'rate[ _-]?limit(ed|ing)?[ _-]?(exceeded|reached|hit)?'
+    r'|too many requests|service unavailable|server overloaded'
+    r'|ECONNREFUSED|ETIMEDOUT', re.IGNORECASE)
+CONTENT_MAX = 2000
+
+def _failure_signal(resp):
+    err_part = None
+    if isinstance(resp, dict):
+        if resp.get('isError') or resp.get('is_error'):
+            err_part = resp
+        elif resp.get('error') is not None:
+            err_part = resp.get('error')
+    if err_part is not None:
+        try:
+            blob = err_part if isinstance(err_part, str) else json.dumps(err_part)
+        except Exception:
+            blob = str(err_part)
+        return bool(FAIL_RE.search(blob))
     try:
         blob = resp if isinstance(resp, str) else json.dumps(resp)
     except Exception:
         blob = str(resp)
-    # Trip on a strong rate-limit/unavailable signal in the response, or an
-    # explicit MCP error envelope carrying one.
-    if FAIL_RE.search(blob):
+    if len(blob) > CONTENT_MAX:
+        return False
+    return bool(STRONG_RE.search(blob))
+
+if is_post:
+    if _failure_signal(resp):
         # escalate cooldown by consecutive trip count (capped)
         count = 0
         try:

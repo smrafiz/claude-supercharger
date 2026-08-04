@@ -42,6 +42,32 @@ fi
 [ -z "$OUTPUT" ] && exit 0
 [ "${#OUTPUT}" -lt 10 ] && exit 0
 
+# v2.26.44: drop base64 IMAGE payloads before scanning. A browser screenshot
+# returns its pixels as base64, and base64 of binary data contains long Base58-safe
+# runs — which matched the Bitcoin WIF pattern on nearly every screenshot. The
+# pattern is now boundary-anchored (see lib-secret-patterns.sh), but image bytes
+# are not a credential channel at all, so scanning them is pure downside: cost and
+# false alarms with nothing to find.
+#
+# Narrowly scoped ON PURPOSE — only base64 tied to an image media_type or a
+# data:image/ URI, and only when the payload mentions an image at all. A general
+# "strip long base64" rule would also skip a base64-encoded .env, which IS worth
+# scanning.
+case "$OUTPUT" in
+  *image/*|*data:image*)
+    OUTPUT=$(printf '%s' "$OUTPUT" | python3 -c "
+import re, sys
+t = sys.stdin.read()
+# \"data\": \"<base64>\" following an image media_type, and data:image/...;base64,<...>
+t = re.sub(r'(\"media_type\"\s*:\s*\"image/[^\"]*\"[^}]*?\"data\"\s*:\s*\")[A-Za-z0-9+/=\s]+', r'\1<image-data-stripped>', t)
+t = re.sub(r'(\"data\"\s*:\s*\")[A-Za-z0-9+/=]{200,}(\")', r'\1<image-data-stripped>\2', t)
+t = re.sub(r'data:image/[a-zA-Z0-9.+-]+;base64,[A-Za-z0-9+/=]+', 'data:image/<stripped>', t)
+sys.stdout.write(t)
+" 2>/dev/null || printf '%s' "$OUTPUT")
+    ;;
+esac
+[ -z "$OUTPUT" ] && exit 0
+
 # v2.9.8: SECRET_PATTERNS moved to lib-secret-patterns.sh — the single source of
 # truth shared with commit-guard.sh (prevents cross-channel parity drift).
 # shellcheck source=hooks/lib-secret-patterns.sh

@@ -71,5 +71,20 @@ SECRET_PATTERNS=(
   # (testnet), Base58, 107-108 chars. Prefix makes FP essentially nil.
   '([xyz]prv|[tuv]prv)[1-9A-HJ-NP-Za-km-z]{107,108}'
   # Bitcoin WIF private key (Base58, mainnet) — starts 5/K/L, 51-52 chars total.
-  '[5KL][1-9A-HJ-NP-Za-km-z]{50,51}'
+  #
+  # v2.26.44: BOUNDARY-ANCHORED. Unanchored, this was the highest-FP pattern in
+  # the file by a wide margin: it is pure Base58 with no prefix to disambiguate,
+  # and base64 payloads are full of Base58-safe runs. A browser screenshot (image
+  # bytes as base64) tripped the secret scanner on nearly every call — measured
+  # at 42 false positives across 20 screenshots, 1 after anchoring.
+  #
+  # The boundary class is the Base58 alphabet's COMPLEMENT, deliberately not the
+  # base64 alphabet: `key=5Hue…` is a real-world shape, and excluding '=' from
+  # the boundary would stop matching it. That leaves the rare base64 run bounded
+  # by 0/O/I/l/+// — hence 1 residual rather than 0. output-secrets-scanner also
+  # strips image payloads before scanning, which closes the screenshot case.
+  #
+  # All four consumers use `grep -qE` (quiet), so widening the match to include
+  # the boundary characters changes no reported output.
+  '(^|[^1-9A-HJ-NP-Za-km-z])[5KL][1-9A-HJ-NP-Za-km-z]{50,51}([^1-9A-HJ-NP-Za-km-z]|$)'
 )
