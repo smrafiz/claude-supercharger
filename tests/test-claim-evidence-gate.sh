@@ -141,5 +141,39 @@ begin_test "present in the generated plugin hooks.json"
 grep -q 'claim-evidence-gate' "$REPO_DIR/hooks/hooks.json" && pass \
   || fail "hooks.json is generated — run tools/gen-plugin-hooks.sh"
 
+# --- killed runs are not failed runs (v2.26.47) -------------------------------
+# `is_error` is set for ANY non-zero exit, including SIGTERM from a harness
+# timeout (143) and SIGINT (130). The gate treated that as "the tests failed" and
+# blocked, telling the author their green run was red. Observed live: a suite run
+# cut off by a 10-minute tool timeout, immediately after a completed 3251/0.
+#
+# An interrupted run is NO EVIDENCE, not counter-evidence — so it downgrades to
+# the advisory rather than a block. A failure that was ALSO killed still blocks.
+mk killed 'asst("Running the suite.", "bash tests/run.sh", "t1") + \
+  res("t1", "Exit code 143\nCommand timed out after 10m 0s\nTotal: 3251 passed, 0 failed", err=True) + \
+  asst("All tests pass — the suite is green.")'
+
+begin_test "a run killed by a timeout does NOT block a passing claim"
+[ "$(rc_for killed)" = "0" ] && pass || fail "a killed run was reported as a test failure"
+
+begin_test "and it says no result was recorded, not that tests failed"
+msg_for killed | grep -qi 'no test command ran' && pass \
+  || fail "wrong message for an interrupted run: $(msg_for killed)"
+
+mk killed_sigint 'asst("Running.", "bash tests/run.sh", "t1") + \
+  res("t1", "Exit code 130\nterminated by signal", err=True) + \
+  asst("Tests all pass.")'
+begin_test "SIGINT (130) is treated the same as a timeout"
+[ "$(rc_for killed_sigint)" = "0" ] && pass || fail "Ctrl-C treated as a test failure"
+
+mk failed_and_killed 'asst("Running.", "bash tests/run.sh", "t1") + \
+  res("t1", "  FAIL something broke\nTotal: 3200 passed, 1 failed\nCommand timed out after 10m 0s", err=True) + \
+  asst("All tests pass now.")'   # must match CLAIM: "everything passes" does not
+begin_test "a REAL failure that was also killed still blocks"
+# The exemption keys on the ABSENCE of failure markers — otherwise it would
+# become a way to launder any red run into an advisory.
+[ "$(rc_for failed_and_killed)" = "2" ] && pass \
+  || fail "a genuine failure escaped the gate because the run was also killed"
+
 rm -rf "$TD"
 report

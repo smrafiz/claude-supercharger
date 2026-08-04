@@ -36,10 +36,32 @@ if [ -z "${TEST_JOBS:-}" ]; then
 fi
 
 RESULT_DIR=$(mktemp -d)
+# v2.26.47: keep the per-file output when the suite goes red.
+#
+# RESULT_DIR was always deleted on exit, so a failure that does not reproduce
+# left nothing to inspect — which is the situation with an intermittent test.
+# A ~1-in-5 single-assertion flip was seen here and could not be identified: it
+# never reproduced in 36 isolated runs of the likeliest files, so it only exists
+# under parallel execution, and re-running the whole suite to catch it costs
+# ~5 minutes per attempt at a 20% hit rate.
+#
+# Preserving the directory turns that hunt into a passive trap: the NEXT red run
+# leaves the exact per-file output on disk, for free. Kept only on failure, so a
+# green run still cleans up after itself and nothing accumulates.
+SC_KEEP_DIR="${TMPDIR:-/tmp}/sc-suite-failure-$$"
+_sc_cleanup() {
+  if [ "${TOTAL_FAILED:-0}" != "0" ]; then
+    cp -R "$RESULT_DIR" "$SC_KEEP_DIR" 2>/dev/null \
+      && echo "" >&2 \
+      && echo "Per-file output kept for inspection: $SC_KEEP_DIR" >&2
+  fi
+  rm -rf "$RESULT_DIR"
+  rm -rf "${TMPDIR:-/tmp}"/sc-test-home-* 2>/dev/null || true
+}
 # Also sweep the per-test isolated state dirs from tests/helpers.sh. Tests that
 # install their own EXIT trap replace the helper's cleanup, so without this the
 # dirs accumulate in TMPDIR across runs.
-trap 'rm -rf "$RESULT_DIR"; rm -rf "${TMPDIR:-/tmp}"/sc-test-home-* 2>/dev/null || true' EXIT
+trap _sc_cleanup EXIT
 
 # Each file runs under its own HOME.
 #

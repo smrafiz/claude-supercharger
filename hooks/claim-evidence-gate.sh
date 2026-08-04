@@ -151,6 +151,29 @@ if last_result is None:
     sys.exit(0)
 
 cmd, is_error, out = last_result
+
+# v2.26.47: a run KILLED before it finished is not a run that reported failures.
+# `is_error` is set for any non-zero exit, including SIGTERM from a harness
+# timeout (143) and SIGINT (130). Blocking on that told the author "the tests
+# failed" when nothing had failed — the command simply never produced a verdict.
+# Observed on a suite run cut off by a 10-minute tool timeout: the completed run
+# immediately before it was 3251/0.
+#
+# Treat it as NO EVIDENCE rather than contradiction: an interrupted run genuinely
+# tells us nothing about whether the tests pass, so the honest response is the
+# advisory ("no result in this session"), not a hard block asserting failure.
+# Only when the output carries no failure markers of its own — a real failure
+# that also happened to be killed still contradicts the claim.
+TERMINATED_RE = re.compile(
+    r'command timed out after'
+    r'|\\bexit code (13[0-9]|14[0-9]|15[0-9])\\b'
+    r'|terminated by signal|\\bsigterm\\b|\\bsigkill\\b|\\bsigint\\b',
+    re.IGNORECASE)
+
+if is_error and not is_failure(out) and TERMINATED_RE.search(out):
+    print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
+    sys.exit(0)
+
 if is_error or is_failure(out):
     excerpt = ""
     for line in out.splitlines():
