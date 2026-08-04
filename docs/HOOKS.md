@@ -47,6 +47,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
+| `dir-added-record` | DirectoryAdded | (none) | Claude Code has three ways to put a directory in the workspace: the `--add-dir` |
 | `display-secret-redactor` | MessageDisplay | (none) | Last line of defense, and the only one that protects the HUMAN rather than the |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `editor-config-guard` | PreToolUse | Write, Edit, MultiEdit | The `.claude/settings.json` hook-injection / `.mcp.json` stdio-server primitive |

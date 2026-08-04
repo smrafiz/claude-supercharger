@@ -284,6 +284,134 @@ printf '{"cwd":"%s"}' "$W" | CLAUDE_CODE_SESSION_ID="" SUPERCHARGER_STATE="$ST" 
   || fail "wrote a root with no session id"
 rm -rf "$ST" "$(dirname "$W")"
 
+# --- Claude Code's own directory authorisation (v2.26.43) ---------------------
+# CC has three ways to put a directory in the workspace: --add-dir, /add-dir, and
+# permissions.additionalDirectories. path-guard honoured NONE of them, so a user
+# who authorised a directory through the product's front door still had every
+# write to it denied. Verified by grep before building: zero references.
+RECORDER="$REPO_DIR/hooks/dir-added-record.sh"
+
+cc_settings() { # dir, json  -> writes <dir>/.claude/settings.json
+  mkdir -p "$1/.claude"
+  printf '%s\n' "$2" > "$1/.claude/settings.json"
+}
+
+begin_test "permissions.additionalDirectories (project settings) widens the boundary"
+W=$(newlayout)
+cc_settings "$W/free" "{\"permissions\":{\"additionalDirectories\":[\"$W/pro\"]}}"
+edit_from "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 0 ] && pass || fail "CC additionalDirectories ignored: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "without it, the same edit is denied (the setting is doing the work)"
+W=$(newlayout)
+edit_from "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 2 ] && pass || fail "control failed: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "a relative additionalDirectories entry resolves against the project"
+W=$(newlayout)
+cc_settings "$W/free" '{"permissions":{"additionalDirectories":["../pro"]}}'
+edit_from "$W/free" "$W/pro/pro.php"
+[ "$RC" -eq 0 ] && pass || fail "relative CC dir not resolved: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "REFUSES additionalDirectories:[\$HOME] — CC read access is not write consent"
+# CC granting visibility into a tree must not silently make it writable here.
+W=$(newlayout)
+cc_settings "$W/free" "{\"permissions\":{\"additionalDirectories\":[\"$HOME\"]}}"
+edit_from "$W/free" "$HOME/sc-ccdir-probe.txt"
+[ "$RC" -eq 2 ] && pass || fail "CC-authorised \$HOME made the home dir writable: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "REFUSES additionalDirectories:[/]"
+W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P)
+cc_settings "$W/free" '{"permissions":{"additionalDirectories":["/"]}}'
+edit_from "$W/free" "$OTHER/anywhere.php"
+[ "$RC" -eq 2 ] && pass || fail "CC-authorised / opened everything: rc=$RC"
+rm -rf "$(dirname "$W")" "$OTHER"
+
+begin_test "credential paths stay blocked with a valid CC directory set"
+W=$(newlayout)
+cc_settings "$W/free" "{\"permissions\":{\"additionalDirectories\":[\"$W/pro\"]}}"
+edit_from "$W/free" "$HOME/.ssh/config"
+[ "$RC" -eq 2 ] && pass || fail "CC dir reached the credential list: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+begin_test "malformed settings.json does not break the guard"
+W=$(newlayout); mkdir -p "$W/free/.claude"
+printf '{ not json' > "$W/free/.claude/settings.json"
+edit_from "$W/free" "$W/free/free.php"
+[ "$RC" -eq 0 ] && pass || fail "malformed CC settings broke an in-project write: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+# --- the in-session /add-dir recorder ----------------------------------------
+record_dir() { # state_dir, sid, payload_json
+  printf '%s' "$3" | CLAUDE_CODE_SESSION_ID="$2" SUPERCHARGER_STATE="$1" \
+    bash "$RECORDER" >/dev/null 2>&1 || true
+}
+
+begin_test "DirectoryAdded records the added directory"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"$W/pro\"}"
+grep -Fxq "$W/pro" "$ST/scope/.session-dirs-sid1" 2>/dev/null && pass \
+  || fail "not recorded: $(ls -A "$ST/scope" 2>/dev/null | tr '\n' ' ')"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "a recorded /add-dir directory becomes writable"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"$W/pro\"}"
+OUT=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$W/pro/pro.php" "$W/free" \
+  | CLAUDE_CODE_SESSION_ID=sid1 SUPERCHARGER_STATE="$ST" bash "$GUARD" 2>/dev/null); RC=$?
+rm -rf "$ST" "$(dirname "$W")"
+[ "$RC" -eq 0 ] && pass || fail "recorded /add-dir directory still denied: rc=$RC"
+
+begin_test "the recorder reads alternate payload field names"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"path\":\"$W/pro\"}"
+grep -Fxq "$W/pro" "$ST/scope/.session-dirs-sid1" 2>/dev/null && pass || fail "'path' field ignored"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "a relative added dir is resolved against cwd"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"../pro\",\"cwd\":\"$W/free\"}"
+grep -q 'pro' "$ST/scope/.session-dirs-sid1" 2>/dev/null && pass || fail "relative dir not resolved"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "duplicate /add-dir calls do not grow the file"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"$W/pro\"}"
+record_dir "$ST" sid1 "{\"directory\":\"$W/pro\"}"
+[ "$(wc -l < "$ST/scope/.session-dirs-sid1" | tr -d ' ')" = "1" ] && pass || fail "duplicate appended"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "recorded dirs are per-session"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"$W/pro\"}"
+[ ! -f "$ST/scope/.session-dirs-sid2" ] && pass || fail "leaked into another session"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "RECORDING IS NOT TRUST — /add-dir \$HOME is still refused by the guard"
+# The recorder is deliberately permissive; path-guard applies the refusals.
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+record_dir "$ST" sid1 "{\"directory\":\"$HOME\"}"
+OUT=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s"},"cwd":"%s"}' "$HOME/sc-adddir-probe.txt" "$W/free" \
+  | CLAUDE_CODE_SESSION_ID=sid1 SUPERCHARGER_STATE="$ST" bash "$GUARD" 2>/dev/null); RC=$?
+rm -rf "$ST" "$(dirname "$W")"
+[ "$RC" -eq 2 ] && pass || fail "/add-dir \$HOME made the home dir writable: rc=$RC"
+
+begin_test "no session id — the recorder writes nothing"
+ST=$(mktemp -d); mkdir -p "$ST/scope"; W=$(newlayout)
+printf '{"directory":"%s"}' "$W/pro" | CLAUDE_CODE_SESSION_ID="" SUPERCHARGER_STATE="$ST" \
+  bash "$RECORDER" >/dev/null 2>&1 || true
+[ -z "$(ls -A "$ST/scope" 2>/dev/null)" ] && pass || fail "wrote without a session id"
+rm -rf "$ST" "$(dirname "$W")"
+
+begin_test "recorder is registered on DirectoryAdded and executable"
+grep -q 'DirectoryAdded|\*|.*dir-added-record.sh' "$REPO_DIR/lib/hooks.sh" \
+  && grep -q 'dir-added-record' "$REPO_DIR/hooks/hooks.json" \
+  && [ -x "$RECORDER" ] && pass || fail "registration or exec bit missing"
+
 begin_test "session root and additionalRoots compose"
 W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P); mkdir -p "$OTHER/third"
 cfg "$W/free" "{\"additionalRoots\":[\"$OTHER/third\"]}"

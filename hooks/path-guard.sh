@@ -77,8 +77,53 @@ if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   fi
 fi
 
+# v2.26.43: Claude Code's OWN directory authorisation. CC has three ways to put a
+# directory in the workspace — the `--add-dir` launch flag, the `/add-dir`
+# in-session command, and `permissions.additionalDirectories` in settings.json —
+# and path-guard honoured none of them. A user who ran `/add-dir ../sibling` had
+# authorised that directory through the product's front door, CC allowed it, and
+# this guard still denied the write. That is a false block on explicit consent,
+# and it is the answer we should have given before inventing `additionalRoots`.
+#
+# Two sources, matching CC's two mechanisms:
+#   - settings.json permissions.additionalDirectories  (static; user + project)
+#   - .session-dirs-<sid>, appended by dir-added-record.sh on DirectoryAdded
+#     (dynamic; the in-session `/add-dir`)
+# Both go through the SAME refusals as a configured root — CC granting read
+# access to $HOME must not silently make the home directory writable here.
+CC_DIRS=""
+_CC_SETTINGS="$HOME/.claude/settings.json"
+_CC_PROJ="$CONFIG_ROOT/.claude/settings.json"
+_CC_PROJ_LOCAL="$CONFIG_ROOT/.claude/settings.local.json"
+if [ -f "$_CC_SETTINGS" ] || [ -f "$_CC_PROJ" ] || [ -f "$_CC_PROJ_LOCAL" ]; then
+  CC_DIRS=$(SC_S1="$_CC_SETTINGS" SC_S2="$_CC_PROJ" SC_S3="$_CC_PROJ_LOCAL" python3 -c "
+import json, os
+out = []
+for k in ('SC_S1', 'SC_S2', 'SC_S3'):
+    try:
+        with open(os.environ[k]) as f:
+            d = json.load(f)
+        for v in ((d.get('permissions') or {}).get('additionalDirectories') or []):
+            if isinstance(v, str) and v:
+                out.append(v)
+    except Exception:
+        continue
+print('\t'.join(out))
+" 2>/dev/null || echo "")
+fi
+# In-session /add-dir, recorded per session by dir-added-record.sh.
+if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
+  _SD_F="$SUPERCHARGER_STATE/scope/.session-dirs-$CLAUDE_CODE_SESSION_ID"
+  if [ -f "$_SD_F" ]; then
+    while IFS= read -r _d || [ -n "$_d" ]; do
+      [ -n "$_d" ] && CC_DIRS="${CC_DIRS:+$CC_DIRS	}$_d"
+    done < "$_SD_F"
+  fi
+fi
+
 REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" \
-         EXTRA_ROOTS="$EXTRA_ROOTS" SESSION_ROOT="$SESSION_ROOT" python3 <<'PYEOF'
+         EXTRA_ROOTS="$EXTRA_ROOTS" SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
+         python3 <<'PYEOF'
 import os, sys, re
 
 p = os.environ.get('FILE_PATH', '')
@@ -141,12 +186,13 @@ def _extra_roots(proj_real):
     # It goes through the SAME validation as a configured root: launching from
     # $HOME is common, and pinning to it would make the entire home directory
     # in-project. Refused there, exactly as a configured root would be.
-    raw = os.environ.get('SESSION_ROOT', '')
-    extra = os.environ.get('EXTRA_ROOTS', '')
-    if raw and extra:
-        raw = raw + '\t' + extra
-    elif extra:
-        raw = extra
+    # Three sources, one validation path: the session launch dir, this project's
+    # additionalRoots, and the directories Claude Code itself authorised.
+    raw = '\t'.join(s for s in (
+        os.environ.get('SESSION_ROOT', ''),
+        os.environ.get('EXTRA_ROOTS', ''),
+        os.environ.get('CC_DIRS', ''),
+    ) if s)
     if raw:
         try:
             home = os.path.realpath(os.path.expanduser('~'))

@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.26.42-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3194%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.26.43-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3212%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -267,7 +267,9 @@ Work across sibling repos: `{"additionalRoots": ["../my-pro-plugin"]}`
 
 For a wrapper directory holding two repos that must change together (a free/pro plugin pair, an SDK and its example app).
 
-**You may not need this.** Since v2.26.42 the project boundary is pinned to the directory you *launched* Claude in, and stays there for the whole session. Open Claude in the wrapper and both repos are in scope permanently — even after `cd` moves the working directory into one of them. Previously the boundary followed `cwd`, so a mid-session `cd` silently pushed the sibling out of the project and writes that worked at the start began failing with nothing explaining why.
+**You probably don't need this.** Since v2.26.43, path-guard honours Claude Code's own directory authorisation — `--add-dir`, the `/add-dir` command, and `permissions.additionalDirectories` in `settings.json`. If you've told Claude Code a directory is in your workspace, writes to it are allowed. Reach for `/add-dir ../sibling-repo` first; `additionalRoots` is only for roots Claude Code doesn't know about.
+
+**And since v2.26.42** the project boundary is pinned to the directory you *launched* Claude in, and stays there for the whole session. Open Claude in the wrapper and both repos are in scope permanently — even after `cd` moves the working directory into one of them. Previously the boundary followed `cwd`, so a mid-session `cd` silently pushed the sibling out of the project and writes that worked at the start began failing with nothing explaining why.
 
 `additionalRoots` is for the case the launch directory can't cover: repos that aren't under one parent, or a session started inside one repo. Widening to the enclosing git repo doesn't help there, because each repo is its own git root.
 
@@ -275,7 +277,7 @@ Paths are relative to the project root, or absolute. Put one in each repo pointi
 
 It only widens the "is this inside my project" test, and it can never subtract a protection:
 
-- **`/`, `$HOME`, any ancestor of `$HOME`, and `~/.claude` are refused.** A root that resolves to any of them would disable the guard while looking like a whitelist. The same refusals apply to the launch directory — starting Claude from `~` is common, and pinning the boundary there would quietly make your whole home directory writable.
+- **`/`, `$HOME`, any ancestor of `$HOME`, and `~/.claude` are refused.** A root that resolves to any of them would disable the guard while looking like a whitelist. The same refusals apply to the launch directory *and* to Claude Code's own added directories — starting Claude from `~`, or running `/add-dir ~`, would otherwise quietly make your whole home directory writable. Claude Code granting **read** access to a tree is not consent to **write** to it.
 - **The credential and system list stays blocked** — `~/.ssh`, `~/.aws`, `~/.config`, `/etc/` and the rest are checked *before* the boundary test, so no whitelist can reach them.
 - **Roots are resolved through symlinks** before being trusted, and a path that doesn't exist (or isn't a directory) is ignored rather than silently accepted.
 

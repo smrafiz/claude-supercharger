@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.43] - 2026-08-04 — fix(path-guard): honour Claude Code's own directory authorisation (--add-dir, /add-dir, permissions.additionalDirectories) — an explicitly added directory was still denied. 3212 tests passing.
 - [2.26.42] - 2026-08-03 — fix(path-guard): the project boundary followed cwd, so a mid-session cd silently pushed a sibling repo out of the project; it is now pinned to the session launch directory. 3194 tests passing.
 - [2.26.41] - 2026-08-03 — feat(config): additionalRoots — sibling repos under one wrapper dir can be edited together without disabling a security category. 3182 tests passing.
 - [2.26.40] - 2026-08-03 — security: agent definitions (~/.claude/agents) had no poisoning scanner — skills did; patterns now shared so the two cannot drift. 3161 tests passing.

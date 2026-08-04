@@ -362,6 +362,10 @@ get_hooks_for_mode() {
     # correct event and covers strictly more — a plain cd into any repo, not just a
     # new worktree.
     hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
+    # v2.26.43: record `/add-dir` so path-guard honours Claude Code's own
+    # directory authorisation. Without it, a directory the user explicitly added
+    # to the workspace is still denied by our boundary check.
+    hooks+=("DirectoryAdded|*|${hooks_dir}/dir-added-record.sh|")
     # v2.26.8: slash-command expansion is a third channel by which untrusted text
     # becomes instructions — a command body can come from a plugin or a shared repo.
     # Same hook, same pattern list as the Read/WebFetch/MCP channel: a second scanner
