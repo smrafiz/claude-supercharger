@@ -141,6 +141,57 @@ print('LOST: '+'; '.join(bad) if bad else 'OK')
 " 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 
+# v2.26.48: coverage that exists only because a SIBLING token forced regex mode.
+#
+# `mcp__.*|WebFetch|WebSearch|Read` is a regex (it contains . and *), so the
+# `Read` arm is UNANCHORED and matches inside `ReadMcpResourceTool` — MCP
+# resource reads are scanned for injection and secrets. That is real coverage,
+# but nothing declared it: it is a side effect of the mcp__ token's presence.
+#
+# Drop or rename that token and the matcher flips to exact-list mode, silently
+# losing every substring match. No error, no failing test — the same shape as
+# v2.24.5, where a bare `mcp__` matched nothing and killed 13 registrations
+# quietly. This pins the outcome rather than the spelling.
+begin_test "mcp matchers: MCP resource reads are actually scanned (regex-mode side effect)"
+RES=$(python3 -c "
+import json
+$CC_MATCH_PY
+d=json.load(open('$HOOKS_JSON'))['hooks']
+# tool -> the scanners that must see it
+need=[('ReadMcpResourceTool','prompt-injection-scanner.sh'),
+      ('ReadMcpResourceTool','output-secrets-scanner.sh')]
+bad=[]
+for tool,script in need:
+    ok=False
+    for ev,entries in d.items():
+        for e in entries:
+            if not any(script in h.get('command','') for h in e.get('hooks',[])): continue
+            if cc_matches(e.get('matcher',''),tool): ok=True
+    if not ok: bad.append(tool+' -> '+script)
+print('UNSCANNED: '+'; '.join(bad) if bad else 'OK')
+" 2>&1)
+if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
+
+begin_test "mcp matchers: the scanner matchers are in regex mode, not exact"
+# The assertion above passes ONLY in regex mode. State the precondition too, so a
+# failure says WHY coverage was lost rather than just that it was.
+RES=$(python3 -c "
+import json,re
+SIMPLE=re.compile(r'^[A-Za-z0-9_,| -]*\$')
+d=json.load(open('$HOOKS_JSON'))['hooks']
+bad=[]
+for ev,entries in d.items():
+    for e in entries:
+        for h in e.get('hooks',[]):
+            c=h.get('command','')
+            if 'prompt-injection-scanner.sh' in c or 'output-secrets-scanner.sh' in c:
+                m=e.get('matcher','')
+                if m not in ('','*') and SIMPLE.match(m):
+                    bad.append(ev+':'+m)
+print('EXACT-MODE: '+'; '.join(sorted(set(bad))) if bad else 'OK')
+" 2>&1)
+if [ "$RES" = "OK" ]; then pass; else fail "scanner matcher fell back to exact mode, losing substring coverage: $RES"; fi
+
 begin_test "mcp matchers: both emitters agree (settings.json vs plugin hooks.json)"
 # lib/hooks.sh (installer) and tools/gen-plugin-hooks.sh each carry a copy of the
 # normalizer. Cross-channel parity drift is a recurring bug class in this repo,
