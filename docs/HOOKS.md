@@ -21,6 +21,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
 | `ansi-escape-guard` | PreToolUse | Write, Edit, MultiEdit | A raw ANSI escape written into a file can carry a HIDDEN payload: the SGR conceal |
+| `artifact-publish-guard` | PreToolUse | Artifact | The Artifact tool renders a local file to a page hosted on claude.ai and |
 | `audit-trail` | PostToolUse | Bash,Write,Edit | Logs write operations to a JSONL audit file. |
 | `auto-compact` | PostToolUse | (none) | Injects /compact reminders during agentic runs when context climbs. |
 | `bash-injection-scanner` | PostToolUse | Bash | Scans Bash command OUTPUT for prompt-injection / instruction-override markers. |

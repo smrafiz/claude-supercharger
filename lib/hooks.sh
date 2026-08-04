@@ -123,6 +123,11 @@ get_hooks_for_mode() {
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
   hooks+=("PostToolUse|Bash,Read,WebFetch,WebSearch,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # v2.26.44: Artifact publishes a local file to a hosted URL — content leaving
+  # the machine, irreversibly. None of the exfil guards matched it (they cover
+  # Bash/MCP/WebFetch), and output-secrets-scanner is PostToolUse, i.e. after the
+  # publish. PreToolUse so the check happens before anything is sent.
+  hooks+=("PreToolUse|Artifact|${hooks_dir}/artifact-publish-guard.sh|")
   # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
   # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
   # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops

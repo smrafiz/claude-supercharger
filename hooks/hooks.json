@@ -196,6 +196,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/artifact-publish-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Artifact"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/confidence-gate.sh",
             "timeout": 15
           }
