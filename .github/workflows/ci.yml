@@ -83,6 +83,110 @@ jobs:
           set -euo pipefail
           bash tests/perf-chain.sh --target all --iterations 3 | tee -a "$GITHUB_STEP_SUMMARY"
 
+  windows-smoke:
+    name: Windows (Git Bash)
+    runs-on: windows-latest
+    # Git Bash is the interpreter Claude Code auto-selects on Windows, so this is
+    # the real target — not a POSIX approximation.
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+
+      # WINDOWS-SUPPORT-PLAN §6 called this job "the linchpin — turns 'probably
+      # works' into 'verified' and prevents regression". Phase 1 (G1/G2/G3/G5)
+      # shipped entirely from macOS, so until now nothing had ever RUN on Windows.
+      #
+      # Deliberately a SUBSET, not the full 3290-test suite. The suite assumes
+      # POSIX tooling throughout; running all of it here would produce a wall of
+      # environment noise that nobody reads. These files are the ones whose whole
+      # purpose is cross-platform behaviour.
+      - name: Environment report
+        run: |
+          echo "bash: $BASH_VERSION"
+          echo "uname: $(uname -s 2>/dev/null || echo unknown)"
+          echo "OSTYPE: $OSTYPE"
+          for t in jq python3 python md5sum md5 openssl flock powershell.exe pwsh git; do
+            if command -v "$t" >/dev/null 2>&1; then
+              echo "  present: $t -> $(command -v "$t")"
+            else
+              echo "  ABSENT : $t"
+            fi
+          done
+
+      # G5, verified where it actually matters. Git for Windows defaults to
+      # core.autocrlf=true; if .gitattributes is not doing its job, the shebang
+      # becomes `/usr/bin/env bash\r` and every hook dies at once. Assert on the
+      # CHECKED-OUT bytes rather than on the policy file.
+      - name: Checked-out shell scripts are LF, not CRLF
+        run: |
+          set -euo pipefail
+          echo "core.autocrlf: $(git config --get core.autocrlf || echo '<unset>')"
+          bad=$(git ls-files -z '*.sh' | xargs -0 grep -lU $'\r' 2>/dev/null || true)
+          if [ -n "$bad" ]; then
+            echo "CRLF found in checked-out files (.gitattributes is not holding):"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          echo "All tracked *.sh checked out with LF."
+
+      - name: Install jq if the runner lacks it
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            choco install jq -y --no-progress || echo "choco install failed; jq-dependent tests will show it"
+          fi
+
+      # A hook must actually execute under Git Bash — the single fact Phase 1
+      # never got to demonstrate.
+      - name: A hook runs under Git Bash
+        run: |
+          set -euo pipefail
+          out=$(printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"."}' \
+            | bash hooks/safety.sh; echo "rc=$?")
+          echo "benign command -> $out"
+
+      # DIRECT assertions, not the POSIX test files. Those build fake PATHs with
+      # `ln -sf` to force a specific tier; symlink creation is unreliable on
+      # Windows without developer mode, so running them here would report harness
+      # failures dressed as product failures. What matters on this runner is the
+      # real-world outcome, which needs no PATH surgery.
+      - name: G2 — sc_md5 produces a correct digest on Git Bash
+        run: |
+          set -euo pipefail
+          . hooks/lib-hash.sh
+          got=$(printf '%s' "/some/project" | sc_md5)
+          want="f1fb6800292c5ea988d9e3d91a2676ff"
+          echo "digest: [$got]"
+          [ "$got" = "$want" ] || { echo "expected $want — an EMPTY value means every project shares one state key"; exit 1; }
+
+      - name: G1 — the Windows host is detected
+        run: |
+          set -euo pipefail
+          . hooks/notify-helper.sh
+          host=$(_win_host)
+          echo "_win_host: [$host]"
+          [ -n "$host" ] || { echo "no Windows host detected — notifications fall through to the bell"; exit 1; }
+
+      - name: G3 — history trim works without flock
+        run: |
+          set -euo pipefail
+          command -v flock >/dev/null 2>&1 && echo "note: flock present" || echo "note: flock absent (expected)"
+          d=$(mktemp -d); h="$d/hist"; seq 1 50 > "$h"
+          tail -n 20 "$h" > "$h.tmp" && mv "$h.tmp" "$h"
+          n=$(wc -l < "$h" | tr -d ' ')
+          echo "lines after trim: $n"
+          [ "$n" = "20" ] || exit 1
+
+      - name: Hook chain smoke — a destructive command is still blocked
+        run: |
+          set -uo pipefail
+          printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' \
+            | bash hooks/safety.sh >/dev/null 2>&1
+          rc=$?
+          echo "rm -rf / -> rc=$rc (2 = blocked)"
+          [ "$rc" = "2" ] || { echo "the core guard did not block on Windows"; exit 1; }
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}

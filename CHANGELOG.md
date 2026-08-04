@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.52] - 2026-08-04 — ci(windows): add a windows-latest Git Bash job — Phase 1 shipped entirely from macOS and had never run on the platform it targets. 3290 tests passing.
 - [2.26.51] - 2026-08-04 — fix(windows): CRLF checkout policy, and remove a flock lock that never ran on macOS, guarded the wrong window, and protected advisory telemetry. 3290 tests passing.
 - [2.26.50] - 2026-08-04 — fix(hooks): the md5 fallback chain was unreachable, so an absent md5sum produced an EMPTY per-project key and every project shared one state file. 3279 tests passing.
 - [2.26.49] - 2026-08-04 — feat(notify): Windows/WSL desktop notifications — Git Bash and WSL had no backend and fell through to the bell (written and unit-tested; toast rendering unverified on a real machine). 3267 tests passing.
