@@ -45,7 +45,8 @@ BRANCH=$(printf '%s\n' "$_RP" | sed -n '1p'); [ -z "$BRANCH" ] && BRANCH="unknow
 # --- Recent corrections (last 5, project-scoped) ---
 CORRECTIONS=""
 PROJECT_DIR=$(printf '%s\n' "$_RP" | sed -n '2p'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR=$(pwd)
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null || echo "global")
+. "${BASH_SOURCE[0]%/*}/lib-hash.sh" 2>/dev/null || true
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | sc_md5 2>/dev/null || true); [ -z "$PROJ_HASH" ] && PROJ_HASH="global"
 PROJ_HASH="${PROJ_HASH:0:8}"
 CORRECTIONS_FILE="$SCOPE_DIR/.user-corrections-${PROJ_HASH}"
 # Fall back to global file if project-scoped one doesn't exist yet

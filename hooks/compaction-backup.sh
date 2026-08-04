@@ -54,7 +54,8 @@ fi
 if [ "${SUPERCHARGER_NO_MEMORY:-0}" != "1" ] && [ "${SUPERCHARGER_HANDOFF_NUDGE:-1}" != "0" ]; then
   _HN_SCOPE="$SUPERCHARGER_STATE/scope"
   _HN_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || echo "$PWD")
-  _HN_HASH=$(printf '%s' "$_HN_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$_HN_ROOT" | md5 -q 2>/dev/null || echo "global")
+  . "${BASH_SOURCE[0]%/*}/lib-hash.sh" 2>/dev/null || true
+  _HN_HASH=$(printf '%s' "$_HN_ROOT" | sc_md5 2>/dev/null || true); [ -z "$_HN_HASH" ] && _HN_HASH="global"
   _HN_FLAG="$_HN_SCOPE/.handoff-nudge-${_HN_HASH:0:8}"
   # v2.23.12: handoff is session-scoped; skip the nudge if any recent brief exists
   # (own-SID preferred, else newest, else legacy). Shared selector = no drift.

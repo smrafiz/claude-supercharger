@@ -207,7 +207,8 @@ hook_already_emitted() {
   local scope_dir="$SUPERCHARGER_STATE/scope"
   local dedup_file="${scope_dir}/.dedup-${sid}-${hook_name}"
   local now hash
-  hash=$(printf '%s' "$msg" | md5 -q 2>/dev/null || printf '%s' "$msg" | md5sum 2>/dev/null | cut -c1-32 || printf 'NOHASH')
+  . "${BASH_SOURCE[0]%/*}/lib-hash.sh" 2>/dev/null || true
+  hash=$(printf '%s' "$msg" | sc_md5 2>/dev/null | cut -c1-32 || true); [ -z "$hash" ] && hash="NOHASH"
 
   if [ -f "$dedup_file" ]; then
     now=$(date +%s)

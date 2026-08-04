@@ -23,6 +23,8 @@ PROJECT_ROOT=$(git -C "$(dirname "$FILE_PATH")" rev-parse --show-toplevel 2>/dev
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-hash.sh
+. "$HOOKS_DIR/lib-hash.sh" 2>/dev/null || true
 init_hook_suppress "$PROJECT_ROOT"
 check_hook_disabled "quality-gate" && exit 0
 hook_profile_skip "quality-gate" && exit 0
@@ -145,7 +147,7 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
   fi
 
   # Compare with previous iteration — break if issues unchanged (fix can't resolve them)
-  CURRENT_HASH=$(md5sum "$FILE_PATH" 2>/dev/null | cut -d' ' -f1 || md5 -q "$FILE_PATH" 2>/dev/null || echo "")
+  CURRENT_HASH=$(sc_md5 < "$FILE_PATH" 2>/dev/null || true)
   if [ -n "$CURRENT_HASH" ] && [ "$CURRENT_HASH" = "$PREV_ISSUES" ]; then
     break
   fi

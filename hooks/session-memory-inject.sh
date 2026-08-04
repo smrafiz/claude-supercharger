@@ -8,6 +8,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-hash.sh
+. "$HOOKS_DIR/lib-hash.sh" 2>/dev/null || true
 
 [ "${SUPERCHARGER_NO_MEMORY:-0}" = "1" ] && exit 0
 
@@ -140,7 +142,7 @@ else
   fi
   # Recent failures
   PROJECT_ROOT=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || echo "$PROJECT_DIR")
-  PROJ_HASH_ENR=$(printf '%s' "$PROJECT_ROOT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$PROJECT_ROOT" | md5 -q 2>/dev/null || echo "global")
+  PROJ_HASH_ENR=$(printf '%s' "$PROJECT_ROOT" | sc_md5 2>/dev/null || true); [ -z "$PROJ_HASH_ENR" ] && PROJ_HASH_ENR="global"
   PROJ_HASH_ENR="${PROJ_HASH_ENR:0:8}"
   FAILURE_LOG="$SUPERCHARGER_STATE/scope/.failure-log-${PROJ_HASH_ENR}"
   if [ -f "$FAILURE_LOG" ]; then

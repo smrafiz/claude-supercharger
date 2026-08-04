@@ -9,6 +9,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-hash.sh
+. "$HOOKS_DIR/lib-hash.sh" 2>/dev/null || true
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
@@ -61,7 +63,7 @@ case "$TOOL_NAME" in
 esac
 
 if [ -n "$FINGERPRINT" ]; then
-  HASH=$(printf '%s' "$FINGERPRINT" | md5sum 2>/dev/null | cut -d' ' -f1 || printf '%s' "$FINGERPRINT" | md5 -q 2>/dev/null || echo "")
+  HASH=$(printf '%s' "$FINGERPRINT" | sc_md5 2>/dev/null || true)
   if [ -n "$HASH" ]; then
     # tail-then-awk; awk always emits the count, no shell-exit-status games
     COUNT=0

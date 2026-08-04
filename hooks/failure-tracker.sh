@@ -54,7 +54,8 @@ CMD_KEY=$(printf '%.100s' "$COMMAND" | sed 's/[0-9]\{4,\}//g')
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 # v2.7.15: key by project so a command that failed in repo A doesn't trip the
 # nudge in repo B months later, and cap the file so it can't grow unbounded.
-PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | md5sum 2>/dev/null | cut -c1-8 || printf '%s' "$PROJECT_DIR" | md5 -q 2>/dev/null | cut -c1-8 || echo global)
+. "${BASH_SOURCE[0]%/*}/lib-hash.sh" 2>/dev/null || true
+PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | sc_md5 2>/dev/null | cut -c1-8 || true); [ -z "$PROJ_HASH" ] && PROJ_HASH="global"
 FAILURES_LOG="$SCOPE_DIR/.failed-commands-${PROJ_HASH}"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 

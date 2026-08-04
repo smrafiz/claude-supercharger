@@ -63,7 +63,7 @@ References:
 | # | Gap | Sites | File:line (representative) | Fix |
 |---|---|---|---|---|
 | G1 | ~~**Desktop notifications**~~ — **BUILT v2.26.49** | 8 | `hooks/notify-helper.sh` (`_win_host` detector + PowerShell branch) | Git Bash/MSYS/Cygwin, and WSL when `notify-send` is absent, now route to a PowerShell toast: BurntToast if installed → native Win10+ WinRT toast → bell. Ordered *after* `notify-send` so WSLg keeps the native Linux path. Payload passes via `$env:` vars, never interpolated (PowerShell expands `$(…)`/backticks in double-quoted literals exactly as bash does — the v2.6.72 AppleScript RCE class). 10 tests in `test-notify-helper.sh`. **NOT verified on a real machine — see §11.** |
-| G2 | **`md5sum`/`md5`** — neither exists on Git Bash; fallback chain ends empty | 8 | `repetition-detector.sh:52`, `failure-tracker.sh:54`, `quality-gate.sh:40,145`, `agent-router.sh:165`, `session-memory-write.sh:38`, `learn-from-prompts.sh:25`, `lib-suppress.sh:185` | Add `python3 hashlib.md5` as the final fallback — one helper in `lib/utils.sh`, call everywhere |
+| G2 | ~~**`md5sum`/`md5`**~~ — **BUILT v2.26.50**. Worse than scoped: the existing `\|\|` fallback was **unreachable** (it binds to the pipeline, whose status is `cut`'s, and cut exits 0 on empty input), so an absent md5sum yielded an EMPTY key — every project sharing one state file, the audit-HIGH-#13 collision class. `hooks/lib-hash.sh` `sc_md5` guards each tier with `command -v`: md5sum → md5 → openssl → python3. 12 tests. | 8 | `repetition-detector.sh:52`, `failure-tracker.sh:54`, `quality-gate.sh:40,145`, `agent-router.sh:165`, `session-memory-write.sh:38`, `learn-from-prompts.sh:25`, `lib-suppress.sh:185` | Add `python3 hashlib.md5` as the final fallback — one helper in `lib/utils.sh`, call everywhere |
 | G3 | **`flock` shell utility** — absent on Git Bash; shell use has no fallback | 1 | `tool-history-tracker.sh:66` (`flock -w 2 9`) | Fall back to python `fcntl.flock`, or skip locking on Windows (best-effort append) |
 | G4 | **`jq` + `python3` not on Git Bash by default** | prereqs | `install.sh:8-24` (jq gate), `:25-28` (python) | Installer: detect on Windows, guide `choco install jq` / python; keep the hard `jq` gate but with a Windows-specific message |
 | G5 | **CRLF line endings** break Git Bash execution | repo | — | Add `.gitattributes`: `*.sh text eol=lf` (also `*.py`, `*.md` as appropriate) |
@@ -166,7 +166,7 @@ line replaced with a real setup guide.
 exactly what that does and does not prove. It established the `_win_host` platform-detection pattern the
 rest of Phase 1 reuses.
 
-**Next: Phase 1, item 2 — the `md5` fallback (G2).** Eight call sites lose their hash entirely on Git Bash
+**Next: Phase 1, item 3 — the `flock` fallback (G3),** then `.gitattributes` LF (G5). ~~item 2 (G2)~~ shipped in v2.26.50. Eight call sites lose their hash entirely on Git Bash
 (neither `md5sum` nor `md5` exists), and unlike G1 it is **fully verifiable here**: `sc_md5` returning 8 hex
 chars through each fallback tier is testable on macOS and Linux CI. Prefer it over G3/G5 because the empty
 hash silently breaks caching and dedup rather than failing loudly.
