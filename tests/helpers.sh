@@ -11,6 +11,31 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 NC='\033[0m'
 
+# --- configuration isolation -------------------------------------------------
+# v2.26.46: clear ambient SUPERCHARGER_* settings before any test runs.
+#
+# These variables are the documented way to disable a guard, so a developer who
+# turns one off in ~/.claude/settings.json (an `env` block reaches hooks AND the
+# shell running the suite) silently disables it for the tests too. The hook then
+# exits at its first line and every assertion about it fails — while CI, with a
+# clean environment, stays green.
+#
+# That happened: SUPERCHARGER_MCP_BREAKER=0 was set as a workaround for a real
+# bug, and the resulting 3 failures read as a regression in unrelated work. Time
+# went into bisecting code that was never broken.
+#
+# Two are preserved deliberately: NO_NOTIFY is set by run.sh so the suite does not
+# fire desktop notifications, and TEST_HOME is this file's own isolation flag.
+# Everything else is cleared here, BEFORE tests do their own inline or exported
+# assignments — those still work, because they happen after this point.
+for _sc_v in $(env | sed -n 's/^\(SUPERCHARGER_[A-Za-z0-9_]*\)=.*/\1/p'); do
+  case "$_sc_v" in
+    SUPERCHARGER_NO_NOTIFY|SUPERCHARGER_TEST_HOME) continue ;;
+  esac
+  unset "$_sc_v"
+done
+unset _sc_v
+
 # --- writable-state isolation ------------------------------------------------
 # Hooks write telemetry under HOME — the block ledger, the audit log, scope
 # flags. tests/run.sh already gives every file its own HOME (see run_one), so the

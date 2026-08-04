@@ -81,4 +81,32 @@ begin_test "run.sh sweeps the isolated home dirs"
 grep -q 'sc-test-home-\*' "$REPO_DIR/tests/run.sh" && pass \
   || fail "run.sh does not sweep leftovers — they accumulate in TMPDIR"
 
+# --- configuration isolation (v2.26.46) --------------------------------------
+# SUPERCHARGER_* vars are the documented way to disable a guard. Setting one in
+# ~/.claude/settings.json `env` reaches the hooks AND the shell running the
+# suite, so the guard exits at its first line and its tests fail — while CI, on a
+# clean environment, stays green. That misdiagnosis cost real time: 3 failures
+# from SUPERCHARGER_MCP_BREAKER=0 read as a regression in unrelated work.
+begin_test "helpers.sh clears ambient SUPERCHARGER_* configuration"
+grep -q 'SUPERCHARGER_\[A-Za-z0-9_\]\*' "$REPO_DIR/tests/helpers.sh" && pass \
+  || fail "helpers.sh no longer clears ambient config — a developer's disabled guard will fail the suite"
+
+begin_test "a guard disabled in the environment does not fail its own tests"
+OUT=$(SUPERCHARGER_MCP_BREAKER=0 bash "$REPO_DIR/tests/test-mcp-circuit-breaker.sh" "$REPO_DIR" 2>&1 | tail -1)
+printf '%s' "$OUT" | grep -q '0 failed' && pass || fail "ambient disable still breaks the suite: $OUT"
+
+begin_test "NO_NOTIFY survives the clear (run.sh relies on it)"
+# If this were cleared, the suite would fire desktop notifications on every run.
+grep -q 'SUPERCHARGER_NO_NOTIFY' "$REPO_DIR/tests/helpers.sh" && pass \
+  || fail "NO_NOTIFY is not preserved — the suite will spam notifications"
+
+begin_test "a test's own inline assignment still reaches the hook"
+# The clear happens when helpers.sh is sourced, before tests assign anything.
+H=$(mktemp -d)
+OUT=$(printf '{"hook_event_name":"PostToolUse","tool_name":"mcp__x__y","tool_response":{"isError":true,"content":"429"}}' \
+  | SUPERCHARGER_MCP_BREAKER=0 HOME="$H" bash "$REPO_DIR/hooks/mcp-circuit-breaker.sh" 2>&1)
+FOUND=$(find "$H" -name '*mcp-health*' 2>/dev/null | wc -l | tr -d ' ')
+rm -rf "$H"
+[ "$FOUND" = "0" ] && pass || fail "inline SUPERCHARGER_MCP_BREAKER=0 no longer reaches the hook"
+
 report

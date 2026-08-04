@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.46] - 2026-08-04 — fix(tests): a guard disabled in the environment silently disabled it for the suite too, turning green tests red and reading as a regression. 3251 tests passing.
 - [2.26.45] - 2026-08-04 — feat(security): artifact-publish-guard — Artifact publishes a local file to a hosted URL, and nothing scanned it for credentials before it left the machine. 3247 tests passing.
 - [2.26.44] - 2026-08-04 — fix(hooks): browser workflows tripped two guards on ordinary content — the circuit breaker matched page text, and screenshots matched the Bitcoin WIF pattern. 3228 tests passing.
 - [2.26.43] - 2026-08-04 — fix(path-guard): honour Claude Code's own directory authorisation (--add-dir, /add-dir, permissions.additionalDirectories) — an explicitly added directory was still denied. 3212 tests passing.
