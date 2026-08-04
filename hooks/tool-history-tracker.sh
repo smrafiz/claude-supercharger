@@ -62,13 +62,30 @@ printf '%s\n' "$ENTRY" >> "$HISTORY"
 if [ -f "$HISTORY" ]; then
   COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
   if [ "$COUNT" -gt 20 ]; then
-    # v2.6.77: serialize the read-count-trim-replace under flock to prevent
-    # last-writer-wins races when two async invocations both exceed 20 entries
-    # at the same time (rare but plausible in tool-dense sessions).
-    (
-      flock -w 2 9 || true
-      tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" && mv "$HISTORY.$$.tmp" "$HISTORY"
-    ) 9>"$HISTORY.lock" 2>/dev/null || true
+    # v2.26.51 (WINDOWS-SUPPORT-PLAN G3): the flock wrapper is gone. Three reasons,
+    # in order of how much they mattered:
+    #
+    # 1. It never ran on macOS. `flock` is util-linux; Darwin does not ship it, so
+    #    since v2.6.77 the subshell hit `command not found`, took the `|| true`,
+    #    and trimmed unserialized on the primary development platform. Git Bash
+    #    behaves identically — the "Windows gap" was already the macOS behaviour.
+    # 2. It did not protect what the comment claimed. The append on line 60 is
+    #    OUTSIDE the lock, so an entry written between another process's `tail`
+    #    and its `mv` is lost with or without flock. The lock serialized the trim
+    #    against itself and nothing else.
+    # 3. The remaining race is benign. `mv` is atomic within a filesystem, and
+    #    every concurrent trim writes "the last 20 lines as it saw them" — so a
+    #    loser's result is simply replaced by an equally valid 20-line file. The
+    #    worst case is one advisory history entry, not a corrupt file.
+    #
+    # Keeping a lock that runs on one of three platforms, guards the wrong window,
+    # and protects advisory telemetry is worse than not having one: it reads as a
+    # guarantee. The atomic write below is the real protection.
+    tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" 2>/dev/null \
+      && mv "$HISTORY.$$.tmp" "$HISTORY" 2>/dev/null \
+      || rm -f "$HISTORY.$$.tmp" 2>/dev/null || true
+    # Sweep the lock file left behind by installs that ran the old code path.
+    rm -f "$HISTORY.lock" 2>/dev/null || true
   fi
 fi
 

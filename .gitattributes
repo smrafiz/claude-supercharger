@@ -1,0 +1,36 @@
+# Claude Supercharger — line-ending policy (WINDOWS-SUPPORT-PLAN G5)
+#
+# Git for Windows defaults to core.autocrlf=true, which rewrites LF to CRLF on
+# checkout. A `.sh` file with CRLF does not run under Git Bash: the shebang is
+# read as `/usr/bin/env bash\r`, and the error names a program nobody typed —
+# "bad interpreter: No such file or directory". Every hook would fail at once,
+# on a machine where nothing looks misconfigured.
+#
+# These rules are checkout-time policy, so they protect a Windows clone even
+# though the repository itself has never contained a CRLF file (verified: 0).
+#
+# Executables and anything an interpreter reads MUST stay LF.
+*.sh    text eol=lf
+*.py    text eol=lf
+*.bash  text eol=lf
+
+# Data and config read by jq/python at runtime — a stray CR ends up inside a
+# parsed string value rather than failing loudly.
+*.json  text eol=lf
+*.jsonl text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Prose. LF keeps diffs clean across platforms; nothing here is executed.
+*.md    text eol=lf
+
+# PowerShell is the one place CRLF is the native convention. Nothing in this
+# repo ships .ps1 today; the rule exists so a future Windows helper does not
+# silently inherit the LF default.
+*.ps1   text eol=crlf
+
+# Binary assets — never touched.
+*.png   binary
+*.jpg   binary
+*.gif   binary
+*.ico   binary
