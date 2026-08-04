@@ -47,6 +47,24 @@ _is_subagent() {
   return 1
 }
 
+# v2.26.49: is there a Windows host we can raise a toast on? Covers Git Bash /
+# MSYS / Cygwin (OSTYPE) and WSL, where the kernel release string carries
+# "microsoft" and powershell.exe is reachable through interop.
+#
+# Echoes a non-empty string when yes. Fork-free on the common path: OSTYPE is a
+# shell variable, and the /proc read only happens on Linux.
+_win_host() {
+  case "$OSTYPE" in
+    msys*|cygwin*|win32) printf 'win'; return 0 ;;
+  esac
+  [ -n "${WSL_DISTRO_NAME:-}" ] && { printf 'wsl'; return 0; }
+  if [ -r /proc/sys/kernel/osrelease ]; then
+    local rel; IFS= read -r rel < /proc/sys/kernel/osrelease || rel=""
+    case "$rel" in *[Mm]icrosoft*) printf 'wsl'; return 0 ;; esac
+  fi
+  return 0
+}
+
 # Send notification with click-to-focus
 _send_notification() {
   # v2.23.8: never emit a REAL desktop notification during test/CI runs. Hook
@@ -105,6 +123,44 @@ _send_notification() {
     else
       SC_NOTIFY_MSG="$ascii_msg" SC_NOTIFY_TITLE="$ascii_title" \
         osascript -e 'display notification (system attribute "SC_NOTIFY_MSG") with title (system attribute "SC_NOTIFY_TITLE")' 2>/dev/null || true
+    fi
+  elif [ -n "$(_win_host)" ] && ! command -v notify-send >/dev/null 2>&1; then
+    # v2.26.49 (WINDOWS-SUPPORT-PLAN G1): Git Bash / MSYS / Cygwin, and WSL with
+    # no working notify-send. Until now these fell through to the bell, which is
+    # the reported "no notifications on Windows/WSL" bug.
+    #
+    # Ordered AFTER the notify-send check so a WSL setup with WSLg keeps using the
+    # native Linux path — powershell.exe interop is the fallback there, not the
+    # default. On Git Bash notify-send does not exist, so this is simply the path.
+    #
+    # Text goes through the ENVIRONMENT and is read as $env:VAR inside PowerShell.
+    # Never interpolate it into the command string: a branch name reaches here
+    # (see the v2.6.72 AppleScript RCE), and PowerShell would expand $(...) and
+    # backticks in a double-quoted literal exactly as bash did.
+    local ps_body="$safe_msg"; [ -n "$safe_sub" ] && ps_body="${safe_sub} — ${safe_msg}"
+    local ps_exe
+    ps_exe=$(command -v powershell.exe 2>/dev/null || command -v pwsh.exe 2>/dev/null || command -v pwsh 2>/dev/null || true)
+    if [ -n "$ps_exe" ]; then
+      # Layered, each falling to the next: BurntToast (clean API, if installed) →
+      # native WinRT toast (Win10+, no dependency) → bell. Every layer is wrapped
+      # so a missing module or an older Windows never errors the hook.
+      SC_NOTIFY_TITLE="$safe_title" SC_NOTIFY_MSG="$ps_body" \
+        "$ps_exe" -NoProfile -NonInteractive -Command '
+$t = $env:SC_NOTIFY_TITLE; $m = $env:SC_NOTIFY_MSG
+if (Get-Module -ListAvailable -Name BurntToast) {
+  Import-Module BurntToast -ErrorAction Stop
+  New-BurntToastNotification -Text $t, $m
+} else {
+  [void][Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType=WindowsRuntime]
+  $tpl = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
+  $tx = $tpl.GetElementsByTagName("text")
+  [void]$tx.Item(0).AppendChild($tpl.CreateTextNode($t))
+  [void]$tx.Item(1).AppendChild($tpl.CreateTextNode($m))
+  $toast = [Windows.UI.Notifications.ToastNotification]::new($tpl)
+  [Windows.UI.Notifications.ToastNotificationManager]::CreateToastNotifier("Claude Supercharger").Show($toast)
+}' 2>/dev/null || printf '\a'
+    else
+      printf '\a'
     fi
   elif command -v notify-send &>/dev/null; then
     # Linux notify-send has no subtitle tier — fold it into the body (\n works here)

@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.49] - 2026-08-04 — feat(notify): Windows/WSL desktop notifications — Git Bash and WSL had no backend and fell through to the bell (written and unit-tested; toast rendering unverified on a real machine). 3267 tests passing.
 - [2.26.48] - 2026-08-04 — test(matchers): pin the MCP resource-read coverage that exists only because a sibling token forces regex mode. 3257 tests passing.
 - [2.26.47] - 2026-08-04 — fix(verification): a killed test run is not a failed one, and a red suite now keeps its per-file output so an intermittent failure can be identified. 3255 tests passing.
 - [2.26.46] - 2026-08-04 — fix(tests): a guard disabled in the environment silently disabled it for the suite too, turning green tests red and reading as a regression. 3251 tests passing.

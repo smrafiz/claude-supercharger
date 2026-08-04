@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **proposed** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-08-03
+Status: **Phase 1 in progress (G1 shipped v2.26.49)** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-08-04
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -62,7 +62,7 @@ References:
 
 | # | Gap | Sites | File:line (representative) | Fix |
 |---|---|---|---|---|
-| G1 | **Desktop notifications** — only macOS (`osascript`) + Linux (`notify-send`); no Windows branch → silent (bell only) | 8 | `hooks/notify-helper.sh` (104,107 osascript; 112 notify-send — re-verified 2026-08-03; the earlier 89–97 refs had drifted) | Add a Windows branch: PowerShell toast (`New-BurntToastNotification`) or `msg`; graceful no-op if absent. See §10 for confirmation that a **protocol-activated** toast is the right backend |
+| G1 | ~~**Desktop notifications**~~ — **BUILT v2.26.49** | 8 | `hooks/notify-helper.sh` (`_win_host` detector + PowerShell branch) | Git Bash/MSYS/Cygwin, and WSL when `notify-send` is absent, now route to a PowerShell toast: BurntToast if installed → native Win10+ WinRT toast → bell. Ordered *after* `notify-send` so WSLg keeps the native Linux path. Payload passes via `$env:` vars, never interpolated (PowerShell expands `$(…)`/backticks in double-quoted literals exactly as bash does — the v2.6.72 AppleScript RCE class). 10 tests in `test-notify-helper.sh`. **NOT verified on a real machine — see §11.** |
 | G2 | **`md5sum`/`md5`** — neither exists on Git Bash; fallback chain ends empty | 8 | `repetition-detector.sh:52`, `failure-tracker.sh:54`, `quality-gate.sh:40,145`, `agent-router.sh:165`, `session-memory-write.sh:38`, `learn-from-prompts.sh:25`, `lib-suppress.sh:185` | Add `python3 hashlib.md5` as the final fallback — one helper in `lib/utils.sh`, call everywhere |
 | G3 | **`flock` shell utility** — absent on Git Bash; shell use has no fallback | 1 | `tool-history-tracker.sh:66` (`flock -w 2 9`) | Fall back to python `fcntl.flock`, or skip locking on Windows (best-effort append) |
 | G4 | **`jq` + `python3` not on Git Bash by default** | prereqs | `install.sh:8-24` (jq gate), `:25-28` (python) | Installer: detect on Windows, guide `choco install jq` / python; keep the hard `jq` gate but with a Windows-specific message |
@@ -162,9 +162,14 @@ line replaced with a real setup guide.
 
 ## 9. Recommended first action
 
-Build **Phase 1, item 1** — the `notify-helper.sh` Windows branch. Smallest, highest-value, independently
-useful (fixes the reported "no notifications" issue on WSL today), and it proves the platform-detection
-pattern the rest of Phase 1 reuses.
+~~Build **Phase 1, item 1** — the `notify-helper.sh` Windows branch.~~ **DONE in v2.26.49** — see §11 for
+exactly what that does and does not prove. It established the `_win_host` platform-detection pattern the
+rest of Phase 1 reuses.
+
+**Next: Phase 1, item 2 — the `md5` fallback (G2).** Eight call sites lose their hash entirely on Git Bash
+(neither `md5sum` nor `md5` exists), and unlike G1 it is **fully verifiable here**: `sc_md5` returning 8 hex
+chars through each fallback tier is testable on macOS and Linux CI. Prefer it over G3/G5 because the empty
+hash silently breaks caching and dedup rather than failing loudly.
 
 ---
 
@@ -206,3 +211,17 @@ unsupported.
 Touches none of G1–G6. Its one value is **independent corroboration of §2's central premise** — that Claude
 Code on Windows relies on Git Bash — from a source outside the CC docs. That premise is what makes this plan
 "not a rewrite", so a second source for it is worth the line. Nothing else to take.
+
+---
+
+## 11. What G1 does and does not prove (2026-08-04)
+
+G1 shipped in **v2.26.49**. Be precise about its status, because "Windows notifications work" is not what was demonstrated.
+
+**Verified here, by test:** the correct backend is *selected* for Git Bash (`msys`), Cygwin, and WSL; WSL **with** a working `notify-send` keeps the native Linux path (ordering, not just presence); plain Linux and macOS are unchanged; a host with no PowerShell and no `notify-send` still falls back to the bell; and the payload reaches PowerShell through `$env:` rather than the command line. Bisected — removing the branch fails 5 of them.
+
+**NOT verified, and only a real machine can:** that a toast actually **appears**. The tests mock `powershell.exe`, so they prove invocation, not rendering. Specifically unproven: whether the native WinRT path raises a toast without an app-registered AUMID, whether BurntToast is commonly enough installed to matter, and whether the WSL interop path is reachable in a default WSL2 install.
+
+**The §7 open question stands:** if the native WinRT layer works without BurntToast, that risk row disappears and the chain shortens to two layers. The code already tries native as the fallback, so the answer arrives with the first real test.
+
+**Do not upgrade the claim** in the README or CHANGELOG beyond "written and unit-tested" until someone runs it on Windows or WSL.

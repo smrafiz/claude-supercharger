@@ -180,4 +180,91 @@ bash -c "
 if [ -s "$_NNTMP/captured" ]; then fail "notification fired despite NO_NOTIFY (captured: $(cat "$_NNTMP/captured"))"; else pass; fi
 rm -rf "$_NNTMP"
 
+# --- Windows / WSL backend (v2.26.49, WINDOWS-SUPPORT-PLAN G1) ----------------
+# Git Bash and WSL had NO desktop-notification path — they fell through to the
+# bell. That is the reported "no notifications on Windows/WSL" bug.
+#
+# VERIFICATION LIMIT, stated plainly: these tests prove the right BACKEND is
+# selected, that ordering is right, and that nothing errors. They cannot prove a
+# toast actually appears on screen — that needs a real Windows or WSL machine.
+_win_capture() { # ostype, wsl_release_present, notify_send_present -> captured args
+  local ostype="$1" wsl="$2" ns="$3"
+  local tmpdir; tmpdir=$(mktemp -d)
+  mkdir -p "$tmpdir/bin"
+  # Fake powershell.exe records how it was invoked and what it was handed.
+  cat > "$tmpdir/bin/powershell.exe" <<PSEOF
+#!/usr/bin/env bash
+printf 'PS-TITLE: %s\n' "\$SC_NOTIFY_TITLE" >> '$tmpdir/captured'
+printf 'PS-MSG: %s\n'   "\$SC_NOTIFY_MSG"   >> '$tmpdir/captured'
+printf 'PS-ARGS: %s\n'  "\$*"               >> '$tmpdir/captured'
+PSEOF
+  chmod +x "$tmpdir/bin/powershell.exe"
+  if [ "$ns" = "yes" ]; then
+    printf '#!/usr/bin/env bash\nprintf "NS-ARG: %%s\\n" "$@" >> %s/captured\n' "$tmpdir" > "$tmpdir/bin/notify-send"
+    chmod +x "$tmpdir/bin/notify-send"
+  fi
+  mkdir -p "$tmpdir/home" "$tmpdir/sc/scope"
+  # A SUBSHELL, not `bash -c "…"`. The nested quoting in a bash -c string mangled
+  # the exports and every backend assertion came back empty — six failures that
+  # were entirely the harness, while the implementation was correct throughout.
+  (
+    export PATH="$tmpdir/bin:$PATH"
+    export HOME="$tmpdir/home"
+    export OSTYPE="$ostype"
+    [ "$wsl" = "yes" ] && export WSL_DISTRO_NAME='Ubuntu'
+    SUPERCHARGER_DIR="$tmpdir/sc"; SCOPE_DIR="$tmpdir/sc/scope"
+    unset SUPERCHARGER_NO_NOTIFY
+    # shellcheck source=hooks/notify-helper.sh
+    . "$HELPER"
+    _send_notification 'Title' 'Body'
+  ) >/dev/null 2>&1
+  cat "$tmpdir/captured" 2>/dev/null
+  rm -rf "$tmpdir"
+}
+
+begin_test "Git Bash (msys) uses the PowerShell toast path"
+_win_capture msys no no | grep -q '^PS-TITLE: Title' && pass || fail "no PowerShell backend on msys"
+
+begin_test "cygwin also routes to PowerShell"
+_win_capture cygwin no no | grep -q '^PS-TITLE:' && pass || fail "no PowerShell backend on cygwin"
+
+begin_test "WSL without notify-send uses powershell.exe interop"
+_win_capture linux-gnu yes no | grep -q '^PS-TITLE:' && pass || fail "WSL fell through to the bell"
+
+begin_test "WSL WITH notify-send keeps the native Linux path"
+# WSLg works; interop is the fallback, not the default. Ordering matters.
+OUT=$(_win_capture linux-gnu yes yes)
+printf '%s' "$OUT" | grep -q '^NS-ARG:' && ! printf '%s' "$OUT" | grep -q '^PS-TITLE:' \
+  && pass || fail "WSL with a working notify-send should not use PowerShell: $OUT"
+
+begin_test "plain Linux is unaffected"
+OUT=$(_win_capture linux-gnu no yes)
+printf '%s' "$OUT" | grep -q '^NS-ARG:' && ! printf '%s' "$OUT" | grep -q '^PS-TITLE:' \
+  && pass || fail "Linux path changed: $OUT"
+
+begin_test "the message is passed via the environment, never interpolated"
+# A branch name reaches this text (see the v2.6.72 AppleScript RCE). PowerShell
+# expands \$(...) and backticks inside a double-quoted literal exactly as bash
+# does, so the payload must arrive as \$env:VAR — not inside the command string.
+OUT=$(_win_capture msys no no)
+printf '%s' "$OUT" | grep -q '^PS-ARGS:.*SC_NOTIFY' && fail "payload was interpolated into the command line" || pass
+
+begin_test "the PowerShell command reads \$env: vars rather than embedding text"
+grep -q 'env:SC_NOTIFY_TITLE' "$HELPER" && grep -q 'env:SC_NOTIFY_MSG' "$HELPER" && pass \
+  || fail "helper does not read the payload from the environment"
+
+begin_test "no Windows host and no notify-send still falls back to the bell"
+OUT=$(_win_capture linux-gnu no no)
+[ -z "$OUT" ] && pass || fail "unexpected backend fired: $OUT"
+
+begin_test "macOS is untouched by the Windows branch"
+# The line reads `[[ "$OSTYPE" == "darwin"* ]]` — the quote sits between the name
+# and the star, so a 'darwin\*' pattern matches nothing and passes vacuously.
+grep -q '"darwin"\*' "$HELPER" && pass || fail "darwin branch lost"
+
+begin_test "the toast layers degrade — BurntToast, then native WinRT, then bell"
+grep -q 'BurntToast' "$HELPER" && grep -q 'ToastNotificationManager' "$HELPER" \
+  && grep -qF "|| printf '\\a'" "$HELPER" && pass \
+  || fail "the layered fallback chain is incomplete"
+
 report
