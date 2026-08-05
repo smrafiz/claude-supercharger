@@ -42,10 +42,18 @@ out=$(echo '{"agent_id":"aCMD","agent_name":"Sherlock","last_assistant_message":
 echo "$out" | grep -q "subagent-report.sh aCMD" && echo "$out" | grep -q "subagent-reports/aCMD.md" \
   && pass || fail "expected both the read command and the report path in the pointer"
 
-begin_test "notify: emits additionalContext (not systemMessage)"
+# v2.26.55: this assertion used to be `additionalContext AND NOT systemMessage`.
+# That encoded a decision that turned out to be the bug: the two channels are
+# complementary, not exclusive — additionalContext reaches CLAUDE, systemMessage
+# reaches the USER (v2.7.31). Emitting only the model channel meant a person
+# watching a subagent return "Ready." saw nothing, reported twice from the field.
+# The old objection (systemMessage may replace the subagent's terminal output)
+# is the desired behaviour here, because this hook only fires when that output
+# is a stub worth replacing.
+begin_test "notify: emits BOTH channels — model and user"
 out=$(echo '{"agent_id":"aAC","agent_name":"x","last_assistant_message":"Ready.","session_id":"sAC"}' | bash "$H" 2>/dev/null)
-echo "$out" | grep -q '"additionalContext"' && ! echo "$out" | grep -q '"systemMessage"' \
-  && pass || fail "expected additionalContext channel"
+echo "$out" | grep -q '"additionalContext"' && echo "$out" | grep -q '"systemMessage"' \
+  && pass || fail "expected both channels; got: $(printf '%s' "$out" | head -c 120)"
 
 # Dedup is a real feature — verify a second identical call is suppressed.
 begin_test "notify: dedup suppresses a repeated pointer in the same session"
@@ -151,5 +159,42 @@ grep -q 'subagent-report' "$REPO_DIR/commands/why.md" && pass \
 begin_test "record: /why frames it as recovered work, not a failure"
 grep -qi 'not a block\|nothing failed' "$REPO_DIR/configs/commands/why.md" && pass \
   || fail "why.md should say the work completed and only the reply was lost"
+
+# --- both channels (v2.26.55) -------------------------------------------------
+# additionalContext reaches CLAUDE; systemMessage reaches the USER (established
+# v2.7.31 in session-memory-inject). Emitting only additionalContext meant the
+# findings were available to the model and INVISIBLE to the person watching a
+# subagent return "Ready." — which is exactly what was reported twice.
+CST=$(mktemp -d); mkdir -p "$CST/scope/subagent-reports"
+printf '# findings\nTranslated into 6 locales; MARKER_FINDINGS present.\n' > "$CST/scope/subagent-reports/ch1.md"
+COUT=$(printf '%s' '{"agent_id":"ch1","agent_name":"Translator","last_assistant_message":"Ready.","session_id":"cs1","cwd":"."}' \
+  | SUPERCHARGER_STATE="$CST" bash "$H" 2>/dev/null)
+
+begin_test "channels: the emitted JSON is valid"
+printf '%s' "$COUT" | python3 -c 'import sys,json; json.load(sys.stdin)' 2>/dev/null && pass \
+  || fail "invalid JSON — CC would discard the whole payload: $(printf '%s' "$COUT" | head -c 120)"
+
+begin_test "channels: systemMessage is present (the USER-facing one)"
+printf '%s' "$COUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d.get("systemMessage") else 1)' 2>/dev/null \
+  && pass || fail "no systemMessage — the user sees only the stub, which is the reported bug"
+
+begin_test "channels: additionalContext is still present (the MODEL-facing one)"
+printf '%s' "$COUT" | python3 -c 'import sys,json; d=json.load(sys.stdin); sys.exit(0 if d["hookSpecificOutput"].get("additionalContext") else 1)' 2>/dev/null \
+  && pass || fail "additionalContext lost — the parent can no longer act on the findings"
+
+begin_test "channels: the user-facing copy carries the FINDINGS, not just a path"
+printf '%s' "$COUT" | python3 -c '
+import sys, json
+d = json.load(sys.stdin)
+sys.exit(0 if "MARKER_FINDINGS" in d.get("systemMessage","") else 1)' 2>/dev/null \
+  && pass || fail "systemMessage has no findings — a pointer asks the reader to run a command to see existing work"
+rm -rf "$CST"
+
+begin_test "channels: a HEALTHY subagent emits nothing at all"
+CST2=$(mktemp -d); mkdir -p "$CST2/scope/subagent-reports"
+GOUT=$(printf '%s' '{"agent_id":"ok1","agent_name":"Good","last_assistant_message":"Reviewed src/auth.ts:44 and found three issues worth fixing.","session_id":"cs2","cwd":"."}' \
+  | SUPERCHARGER_STATE="$CST2" bash "$H" 2>/dev/null)
+rm -rf "$CST2"
+[ -z "$GOUT" ] && pass || fail "replaced a healthy subagent's output: $GOUT"
 
 report

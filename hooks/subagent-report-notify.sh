@@ -134,8 +134,27 @@ hook_already_emitted "subagent-report-notify" "$SESSION_ID" "$AGENT_ID" && exit 
 echo "[Supercharger] subagent-report-notify: degraded final for agent=${AGENT_ID}, pointed parent to report" >&2
 
 CTX=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$MSG")
-# additionalContext (not systemMessage): systemMessage on SubagentStop can be
-# read by CC as a replacement for the subagent's terminal output.
-printf '{"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":%s}}\n' "$CTX"
+
+# v2.26.55: emit BOTH channels. They are complementary, not alternatives — the
+# earlier note here treated them as a choice and picked one, which is why the
+# user saw nothing but "Ready.".
+#
+#   additionalContext -> enters CLAUDE's context (the parent can act on it)
+#   systemMessage     -> reaches the USER only  (v2.7.31 established this in
+#                        session-memory-inject: "systemMessage only reached the
+#                        USER, so the memory never entered Claude's context")
+#
+# Sending only additionalContext meant the findings were, at best, available to
+# the model and invisible to the person watching a subagent return a stub.
+#
+# The original objection — systemMessage on SubagentStop may be rendered in
+# place of the subagent's terminal output — is the DESIRED behaviour here: this
+# hook only fires when that output is a degraded stub, so there is nothing worth
+# preserving. Replacing "Ready." with the recovered findings is the point.
+# Both channels carry the SAME text, which already inlines the recovered
+# findings when the report is on disk (see the $MSG construction above). The
+# user-facing copy deliberately carries the findings rather than only a path —
+# a pointer asks the reader to run a command to see work that already exists.
+printf '{"systemMessage":%s,"hookSpecificOutput":{"hookEventName":"SubagentStop","additionalContext":%s}}\n' "$CTX" "$CTX"
 
 exit 0
