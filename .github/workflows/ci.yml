@@ -164,10 +164,16 @@ jobs:
 
       - name: Hook chain smoke — a destructive command is still blocked
         run: |
-          set -uo pipefail
+          # `set +e` is REQUIRED, not tidying. The runner starts this shell as
+          # `bash --noprofile --norc -e -o pipefail`, and a `set -uo pipefail`
+          # line does not undo the -e it was launched with. A blocking guard
+          # exits 2 BY DESIGN, so errexit aborted the step on the guard working
+          # correctly and reported it as "the core guard did not block".
+          set +e
           printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"."}' \
             | bash hooks/safety.sh >/dev/null 2>&1
           rc=$?
+          set -u
           echo "rm -rf / -> rc=$rc (2 = blocked)"
           [ "$rc" = "2" ] || { echo "the core guard did not block on Windows"; exit 1; }
 
