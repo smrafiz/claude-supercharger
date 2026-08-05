@@ -1,6 +1,6 @@
 # Windows Support — Plan
 
-Status: **Phase 1 in progress (G1 shipped v2.26.49)** · Target: **Phase 1 → a 2.x minor · Phase 2 → 3.0** · Last updated: 2026-08-04
+Status: **Phase 1 COMPLETE and verified on windows-latest · G6 closed · only G4 remains** · Last updated: 2026-08-05
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -67,7 +67,7 @@ References:
 | G3 | ~~**`flock` shell utility**~~ — **CLOSED v2.26.51 by REMOVAL, not a port.** It never ran on macOS either (Darwin has no flock), it guarded the wrong window (the append is outside the lock), and the residual race is benign because `mv` is atomic — concurrent trims each write a valid 20-line file. A lock that runs on 1 of 3 platforms and protects advisory telemetry reads as a guarantee it never gave. | 1 | `tool-history-tracker.sh:66` (`flock -w 2 9`) | Fall back to python `fcntl.flock`, or skip locking on Windows (best-effort append) |
 | G4 | **`jq` + `python3` not on Git Bash by default** | prereqs | `install.sh:8-24` (jq gate), `:25-28` (python) | Installer: detect on Windows, guide `choco install jq` / python; keep the hard `jq` gate but with a Windows-specific message |
 | G5 | ~~**CRLF line endings**~~ — **BUILT v2.26.51.** `.gitattributes` pins `*.sh/py/json/jsonl/yml/yaml/md` to `eol=lf`, `*.ps1` to `crlf`, assets `binary`. Checkout-time policy, so it protects a Windows clone even though the repo has never held a CRLF file (verified 0). | repo | — | Add `.gitattributes`: `*.sh text eol=lf` (also `*.py`, `*.md` as appropriate) |
-| G6 | **Symlink `! -L` tests** — reliability on Windows/Git Bash unclear | 8 | `enforce-pkg-manager.sh:62,69,76,85` | Validate on Windows; worst case the check is advisory, so degrade safely |
+| G6 | ~~**Symlink `! -L` tests**~~ — **CLOSED v2.26.53, no code change needed.** Measured on windows-latest: `ln -s` **exits 0 but silently COPIES** (MSYS default without `winsymlinks:nativestrict`), so `-L` never returns true. `[ -f X ] && [ ! -L X ]` therefore collapses to `[ -f X ]` — the guard fires MORE often, the fail-safe direction. A real lockfile still trips it (asserted in CI). The dangerous direction (`-L` always true → guard silently skipped) does not occur. | 8 | `enforce-pkg-manager.sh:62,69,76,85` | Validate on Windows; worst case the check is advisory, so degrade safely |
 
 ### 4.2 Already handled — no work
 
@@ -238,3 +238,7 @@ The `windows-smoke` job ran. **G1, G2 and G3 pass on Git Bash**, and a hook exec
 **G5 was never broken.** The first run reported every `.sh` as CRLF and that was recorded as "G5 is NOT fixed". It was a **false positive in the check**: `grep -lU $'\r'` flagged files that `git ls-files --eol` and `od -c` both showed as LF. The assertion now asks git directly. What it did legitimately find: `.gitattributes` itself was `w/crlf attr/` — no rule covered it — now pinned.
 
 **Still unverified:** whether a toast actually renders. The runner proves selection and non-error, not pixels.
+
+**G6 answered (2026-08-05):** `ln -s` on Git Bash **succeeds and copies** rather than failing — a silent-success, not an error. This also retroactively justifies keeping the POSIX test files off this runner: their `ln -sf` PATH-building would have copied `bash`/`python3` instead of linking them, and reported harness breakage as product failure.
+
+**Phase 2 status:** G6 closed. **G4 (installer Windows detection) is the only Phase 1/2 gap left**, and it is now verifiable here rather than blocked.
