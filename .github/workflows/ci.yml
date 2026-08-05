@@ -206,13 +206,31 @@ jobs:
         run: |
           set -euo pipefail
           echo "core.autocrlf: $(git config --get core.autocrlf || echo '<unset>')"
-          bad=$(git ls-files -z '*.sh' | xargs -0 grep -lU $'\r' 2>/dev/null || true)
+          # Ask GIT, not grep. The first version used
+          #   git ls-files -z '*.sh' | xargs -0 grep -lU $'\r'
+          # which reported EVERY .sh as CRLF on this runner while `ls-files --eol`
+          # and `od -c` both showed LF — a false positive that made a working
+          # .gitattributes look broken and got G5 recorded as "not fixed".
+          # `ls-files --eol` is authoritative: git reports the worktree ending it
+          # actually produced, with no shell-quoting or MSYS grep semantics in the
+          # way.
+          # `w/none` is an EMPTY file — no line endings to get wrong. Excluding it
+          # is not a loosening: an assertion that flags empty files is the same
+          # kind of false positive as the grep this replaced.
+          bad=$(git ls-files --eol -- '*.sh' '*.py' \
+                | awk '$2 != "w/lf" && $2 != "w/none" { print $2 "  " $NF }')
           if [ -n "$bad" ]; then
-            echo "CRLF found in checked-out files (.gitattributes is not holding):"
+            echo "Non-LF worktree endings (.gitattributes is not holding):"
             printf '%s\n' "$bad"
             exit 1
           fi
-          echo "All tracked *.sh checked out with LF."
+          echo "All tracked *.sh and *.py checked out with LF."
+
+          # The policy file itself must be LF too — it was w/crlf with attr/
+          # unspecified, because no rule covered dotfiles.
+          ga=$(git ls-files --eol -- .gitattributes | awk '{print $2}')
+          echo ".gitattributes worktree ending: $ga"
+          [ "$ga" = "w/lf" ] || { echo ".gitattributes is not itself pinned to LF"; exit 1; }
 
   shellcheck:
     name: Shellcheck

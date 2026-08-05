@@ -225,3 +225,16 @@ G1 shipped in **v2.26.49**. Be precise about its status, because "Windows notifi
 **The §7 open question stands:** if the native WinRT layer works without BurntToast, that risk row disappears and the chain shortens to two layers. The code already tries native as the fallback, so the answer arrives with the first real test.
 
 **Do not upgrade the claim** in the README or CHANGELOG beyond "written and unit-tested" until someone runs it on Windows or WSL.
+
+### 11.1 First real Windows results (2026-08-05)
+
+The `windows-smoke` job ran. **G1, G2 and G3 pass on Git Bash**, and a hook executes there — the facts §11 said only a machine could establish:
+
+- `_win_host` detects the platform (`OSTYPE` is **`cygwin`**, not `msys` — the detector covers both, but by luck rather than knowledge).
+- `sc_md5` returns the correct digest. Note `md5sum` **is** present on Git Bash, so **G2's stated premise in §4.1 was wrong** — the fix was still right, for the other reason: the `||` fallback was unreachable.
+- `flock` is confirmed absent, as G3 assumed.
+- `safety.sh` still blocks `rm -rf /` (exit 2).
+
+**G5 was never broken.** The first run reported every `.sh` as CRLF and that was recorded as "G5 is NOT fixed". It was a **false positive in the check**: `grep -lU $'\r'` flagged files that `git ls-files --eol` and `od -c` both showed as LF. The assertion now asks git directly. What it did legitimately find: `.gitattributes` itself was `w/crlf attr/` — no rule covered it — now pinned.
+
+**Still unverified:** whether a toast actually renders. The runner proves selection and non-error, not pixels.

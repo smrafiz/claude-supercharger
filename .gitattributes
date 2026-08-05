@@ -29,6 +29,13 @@
 # silently inherit the LF default.
 *.ps1   text eol=crlf
 
+# The policy file itself, and the other dotfiles git and CI read. Verified on a
+# windows-latest runner: `.gitattributes` checked out as `w/crlf attr/` because
+# no rule covered it — the one file whose own line endings this policy forgot.
+.gitattributes  text eol=lf
+.gitignore      text eol=lf
+.editorconfig   text eol=lf
+
 # Binary assets — never touched.
 *.png   binary
 *.jpg   binary
