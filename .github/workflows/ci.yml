@@ -125,10 +125,47 @@ jobs:
       # never got to demonstrate.
       - name: A hook runs under Git Bash
         run: |
-          set -euo pipefail
-          out=$(printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"."}' \
-            | bash hooks/safety.sh; echo "rc=$?")
-          echo "benign command -> $out"
+          # set +e for the same reason as the smoke step below: the runner starts
+          # this shell with -e, and capturing rc=$? from a hook that may exit
+          # non-zero would abort the step instead of reporting the code.
+          set +e
+          printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"."}' \
+            | bash hooks/safety.sh >/dev/null 2>&1
+          rc=$?
+          set -u
+          echo "benign command -> rc=$rc (0 = allowed)"
+          [ "$rc" = "0" ] || { echo "a benign command was not allowed"; exit 1; }
+
+      # G6 — the plan has always said symlink reliability on Git Bash is
+      # "unclear; validate, worst case degrade safely". enforce-pkg-manager.sh
+      # uses `[ -f X ] && [ ! -L X ]` in four places, meaning "a REAL lockfile,
+      # not a symlink". The failure directions are not symmetric:
+      #   -L always false  -> guard fires more often  -> fail-safe
+      #   -L always true   -> guard silently SKIPPED  -> the dangerous one
+      # So the assertion that matters is that a real file is seen as real.
+      - name: G6 — symlink detection semantics
+        run: |
+          set +e
+          d=$(mktemp -d)
+          printf 'lock\n' > "$d/real.lock"
+          ln -s "$d/real.lock" "$d/link.lock" 2>/dev/null
+          ln_rc=$?
+          set -u
+          echo "ln -s exit: $ln_rc (non-zero = symlinks unavailable, which is fine)"
+          [ -f "$d/real.lock" ] && echo "  real: -f yes" || echo "  real: -f NO"
+          [ -L "$d/real.lock" ] && echo "  real: -L yes (WRONG)" || echo "  real: -L no (correct)"
+          if [ -e "$d/link.lock" ]; then
+            [ -L "$d/link.lock" ] && echo "  link: -L yes (symlinks work)" || echo "  link: -L no (copied, not linked)"
+          else
+            echo "  link: not created — symlinks unavailable on this runner"
+          fi
+          # The load-bearing assertion: a real lockfile must trip the guard.
+          if [ -f "$d/real.lock" ] && [ ! -L "$d/real.lock" ]; then
+            echo "  guard condition on a real lockfile: TRUE (fires — correct)"
+          else
+            echo "  guard condition on a real lockfile: FALSE — enforce-pkg-manager would be SKIPPED on Windows"
+            exit 1
+          fi
 
       # DIRECT assertions, not the POSIX test files. Those build fake PATHs with
       # `ln -sf` to force a specific tier; symlink creation is unreliable on
