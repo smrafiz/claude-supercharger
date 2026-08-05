@@ -24,7 +24,7 @@ Takes about 30 seconds. Your existing config is backed up first, and `./uninstal
 
 Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as-a-plugin).
 
-**Requirements:** Claude Code CLI · Bash 3.2+ (macOS or Linux) · Python 3.6+ · `jq`
+**Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.6+ · `jq`
 
 ---
 
@@ -480,7 +480,13 @@ bash tools/hook-toggle.sh my-hook on
 Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 
 **Windows?**
-Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or Git Bash. Alpine Linux is **not supported** (it ships `ash`, not `bash`) — run inside a Debian/Ubuntu/Fedora container, or install GNU bash first.
+Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash** — Claude Code auto-selects Git Bash as its hook interpreter on Windows, so the hooks run as-is.
+
+Every CI run exercises a `windows-latest` job under Git Bash. It verifies that hooks execute, `rm -rf /` is still blocked, the hashing used for per-project state works, the platform is detected for notifications, and `.sh` files check out with LF endings rather than CRLF. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
+
+Two things are **not** verified, and it would be dishonest to imply otherwise: nobody has watched a desktop notification actually render on Windows (the CI job proves the correct backend is selected, not that a toast appears), and no human has run a full install on a Windows desktop — only the scripted CI path. If you try it, [open an issue](https://github.com/smrafiz/claude-supercharger/issues) either way; that is the gap.
+
+Alpine Linux is **not supported** (it ships `ash`, not `bash`) — run inside a Debian/Ubuntu/Fedora container, or install GNU bash first.
 
 ---
 
