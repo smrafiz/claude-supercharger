@@ -263,4 +263,42 @@ else
   fail "expected 0 < deduped ($DEDUP) < raw registrations ($RAW)"
 fi
 
+# --- statusLine path portability (v2.26.57) -----------------------------------
+# Measured on a windows-latest runner: lib/hooks.sh built statusline_path with
+# Python's expanduser+join. Under Git Bash python3 is WINDOWS python, so that
+# returned `C:\Users\name\...` — written verbatim into settings.json as
+# statusLine.command, which Git Bash cannot execute. The statusline silently
+# never ran, and nothing on macOS or Linux could show it: both produce forward
+# slashes, so the bug was invisible to the entire test suite.
+#
+# The path now comes from bash, whose $HOME is POSIX on Git Bash. This asserts
+# the OUTCOME (no backslash in the emitted command) rather than the mechanism,
+# so a future refactor that reintroduces a native path still fails here.
+begin_test "install: statusLine.command contains no backslash (Git Bash portability)"
+SLT=$(mktemp -d)
+mkdir -p "$SLT/.claude/supercharger/hooks"
+printf '#!/usr/bin/env bash\necho x\n' > "$SLT/.claude/supercharger/hooks/statusline.sh"
+chmod +x "$SLT/.claude/supercharger/hooks/statusline.sh"
+( export HOME="$SLT"; . "$REPO_DIR/lib/hooks.sh"; merge_hooks_into_settings full true ) >/dev/null 2>&1
+SL_CMD=$(python3 -c "
+import json, os, sys
+try:
+    d = json.load(open(os.path.join('$SLT', '.claude', 'settings.json')))
+except Exception:
+    print(''); sys.exit(0)
+print((d.get('statusLine') or {}).get('command', ''))" 2>/dev/null)
+rm -rf "$SLT"
+case "$SL_CMD" in
+  "")     fail "statusLine was not written at all — the path now resolves to nothing" ;;
+  *\\*)   fail "backslash in statusLine.command: $SL_CMD" ;;
+  *statusline.sh*) pass ;;
+  *)      fail "statusLine.command does not point at statusline.sh: $SL_CMD" ;;
+esac
+
+begin_test "install: the statusLine path is taken from bash, not python expanduser"
+# Mechanism check alongside the outcome check: expanduser is correct for OPENING
+# a file with python and wrong for BUILDING a string another program executes.
+grep -q "statusline_path = os.environ.get('STATUSLINE_PATH'" "$REPO_DIR/lib/hooks.sh" && pass \
+  || fail "statusline_path is computed in python again — it will be a native path on Windows"
+
 report

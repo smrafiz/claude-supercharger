@@ -541,7 +541,10 @@ merge_hooks_into_settings() {
   local hooks_list
   hooks_list=$(get_hooks_for_mode "$mode" "$has_developer" "$hooks_dir")
 
-  SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" HOOKS_INPUT="$hooks_list" python3 -c "
+  # STATUSLINE_PATH comes from bash so it stays POSIX on Git Bash — see the
+  # note at the statusline_path assignment below.
+  SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" HOOKS_INPUT="$hooks_list" \
+  STATUSLINE_PATH="$hooks_dir/statusline.sh" python3 -c "
 import json, os, sys
 
 settings_file = os.environ['SETTINGS_FILE']
@@ -634,8 +637,22 @@ for line in hooks_input.strip().split('\n'):
 
     settings['hooks'][event].append(hook_entry)
 
-statusline_path = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh')
-if os.path.isfile(statusline_path):
+# v2.26.57: take the path from BASH, not from Python's expanduser.
+#
+# Measured on a windows-latest runner: under Git Bash, python3 is WINDOWS python,
+# so expanduser('~') returns `C:\Users\name` and os.path.join uses backslashes.
+# That string was written straight into settings.json as statusLine.command —
+# a command Git Bash cannot execute, so the statusline silently never runs.
+#
+# Bash's $HOME is already POSIX there (/c/Users/name), which is why STATUSLINE_PATH
+# is passed in. The rule: expanduser is fine for opening a file with Python, and
+# wrong for building a string another program will execute. Only this one site
+# did the latter — tools/mcp-custom.sh's uses are file I/O and are correct as-is.
+#
+# The plugin emitter needs no matching change: a plugin cannot set statusLine at
+# all (tools/gen-plugin-hooks.sh:11), so there is no parity risk here.
+statusline_path = os.environ.get('STATUSLINE_PATH', '')
+if statusline_path and os.path.isfile(statusline_path):
     settings['statusLine'] = {
         'type': 'command',
         'command': statusline_path + ' ' + tag
