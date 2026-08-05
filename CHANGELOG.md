@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.56] - 2026-08-05 — fix(subagent): two hooks competed for one output channel, so recovered findings could be shadowed by a cost line — found by driving the whole chain, not individual hooks. 3328 tests passing.
 - [2.26.55] - 2026-08-05 — fix(subagent): a degraded subagent's recovered findings reached Claude but never the user — emit systemMessage too, replacing the useless stub. 3304 tests passing.
 - [2.26.54] - 2026-08-05 — fix(subagent): a recovered report was reachable only through a channel we cannot confirm Claude Code delivers — /why now reads it, and the hook records that it fired. 3299 tests passing.
 - [2.26.53] - 2026-08-05 — fix(windows): pin .gitattributes itself to LF, and verify Phase 1 on a real windows-latest runner (G6 closed: ln -s silently copies, so the pkg-manager guard degrades fail-safe). 3290 tests passing.

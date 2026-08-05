@@ -349,6 +349,34 @@ finally:
         except Exception:
             pass
 
+# v2.26.56: stay silent when this agent's findings were just recovered.
+#
+# subagent-report-notify (position 4 on SubagentStop) emits the recovered
+# findings; this hook is position 7, the LAST. Both wrote
+# hookSpecificOutput.additionalContext for the same event, so the two competed
+# for one channel — and depending on whether Claude Code concatenates or takes
+# the last writer, a cost line could shadow findings the user had already lost
+# once. Found by driving the whole chain (tests/test-subagent-chain.sh); every
+# hook passed its own tests while the pipeline dropped the important message.
+#
+# A cost summary is worth far less than recovered work, so the low-value one
+# yields. Only in the degraded case: ordinary runs still report cost, and the
+# figure is recorded to the cost file either way — this suppresses the
+# ANNOUNCEMENT, not the accounting.
+_degraded = False
+try:
+    _sid = str(d.get('session_id') or 'default')
+    _rec = os.path.join(scope_dir, f'.subagent-report-{_sid}')
+    if agent_id and os.path.exists(_rec):
+        with open(_rec, 'r', errors='replace') as _f:
+            _degraded = agent_id in _f.read()
+except Exception:
+    _degraded = False
+
+if _degraded:
+    sys.stderr.write(f'[Supercharger] subagent-cost: suppressed summary for degraded agent={agent_id} (findings own the channel)\n')
+    sys.exit(0)
+
 # Emit hookSpecificOutput JSON for Claude
 summary = f'[AGENT] {agent_name} completed: ~{cost_fmt} ({tokens_fmt} tokens, {duration_s}s)'
 print(json.dumps({
