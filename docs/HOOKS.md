@@ -47,7 +47,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `dependency-preflight` | SessionStart | — | install.sh refuses to proceed without `jq` and `python3` (install.sh:8, :25). A |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
-| `detect-stack` | — | — | Usage: bash detect-stack.sh [project_dir] |
+| `detect-stack` | — | — | Helper: not a registered hook — Shared stack detection sourced by hooks that vary behaviour per project type. |
 | `dir-added-record` | DirectoryAdded | (none) | Claude Code has three ways to put a directory in the workspace: the `--add-dir` |
 | `display-secret-redactor` | MessageDisplay | (none) | Last line of defense, and the only one that protects the HUMAN rather than the |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
@@ -124,7 +124,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
 | `smart-approve` | PermissionRequest | (none) | Auto-approves known-safe tool calls to reduce user prompts. |
 | `standards-inject` | SessionStart | (none) | Detects project stack via lib/detect_stack.py and injects matching standards |
-| `statusline` | — | — | Registered via: settings.json → statusLine → { type: "command", command: "..." } |
+| `statusline` | — | — | Helper: not a registered hook — Rendered by Claude Code as statusLine.command, not by a hook event. |
 | `stop-failure` | StopFailure | (none) | Logs API errors (rate limits, auth failures) to errors.log for diagnosis. |
 | `stop-keep-going` | Stop | (none) | Activation: opt-in only — touch ~/.claude/supercharger/scope/.keep-going |
 | `stop-verify` | Stop | * | Merged from verify-on-stop.sh + project-verify.sh |

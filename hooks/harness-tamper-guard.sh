@@ -13,6 +13,7 @@
 #      the kill-switch file (.supercharger-disabled) tears the layer down — the
 #      selfmod filename list does not cover the scripts/dir themselves.
 # Blocks (deny). Fail-open; disable with SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
+# Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

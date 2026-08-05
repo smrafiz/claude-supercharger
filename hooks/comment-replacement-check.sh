@@ -5,6 +5,7 @@
 # systemMessage so Claude deletes code cleanly instead of leaving "this was here"
 # comments. Skipped for .md/.mdx/.txt/.rst files.
 # Inspired by carlrannaberg/claudekit check-comment-replacement.
+# Disable: SUPERCHARGER_ADVISORY_HOOKS=0
 
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

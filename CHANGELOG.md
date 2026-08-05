@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.59] - 2026-08-05 — chore(contracts): document all 34 hook kill-switches, mark shared helpers, and pin both plus deny-JSON validity with meta-tests. 3339 tests passing.
 - [2.26.58] - 2026-08-05 — fix(windows): the installer's dependency gates ran before platform detection, so the py-launcher shim that would have rescued a Windows install was unreachable. 3334 tests passing.
 - [2.26.57] - 2026-08-05 — fix(windows): settings.json got a backslash statusLine path from Python expanduser, so the statusline never ran on Git Bash. 3330 tests passing.
 - [2.26.56] - 2026-08-05 — fix(subagent): two hooks competed for one output channel, so recovered findings could be shadowed by a cost line — found by driving the whole chain, not individual hooks. 3328 tests passing.

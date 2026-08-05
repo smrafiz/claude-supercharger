@@ -13,6 +13,7 @@
 # build-dir deploys (`aws s3 sync build/ s3://cdn`) do NOT fire — only whole
 # cwd/root/home to a remote. Advisory + fail-open; disable with
 # SUPERCHARGER_BULK_EXFIL_GUARD=0.
+# Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

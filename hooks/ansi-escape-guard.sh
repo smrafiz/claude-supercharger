@@ -13,6 +13,7 @@
 # Terminal-recording / snapshot fixtures and docs are skipped. Plain SGR *color*
 # (ESC[31m …) is NOT flagged — only content-HIDING codes. Asks once per file per
 # session. Fail-open; disable with SUPERCHARGER_ANSI_ESCAPE_GUARD=0.
+# Disable: SUPERCHARGER_ANSI_ESCAPE_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

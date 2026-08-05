@@ -2,6 +2,7 @@
 # Claude Supercharger — Design Context Injector
 # Event: PreToolUse | Matcher: Write,Edit
 # When editing a CSS/style file, injects DESIGN.md into context if present in project root.
+# Disable: SUPERCHARGER_ADVISORY_HOOKS=0
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

@@ -12,6 +12,7 @@
 # ASK on the softer exec forms (exec/eval/__import__, rare in old editable pth).
 # Legit `.pth` files list bare paths, or `import sys; sys.path...` finders — both
 # pass. Fail-open; disable with SUPERCHARGER_PTH_GUARD=0.
+# Disable: SUPERCHARGER_PTH_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

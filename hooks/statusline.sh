@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Enhanced Statusline
+# Helper: not a registered hook — Rendered by Claude Code as statusLine.command, not by a hook event.
 # Registered via: settings.json → statusLine → { type: "command", command: "..." }
 # Reads JSON from stdin, outputs 2-line status bar.
 

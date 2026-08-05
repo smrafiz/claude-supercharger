@@ -4,6 +4,7 @@
 # Detects when Claude renames a parameter `foo` to `_foo` instead of properly
 # removing or handling it. Universal anti-pattern across TS/JS/Python/Rust/etc.
 # Inspired by carlrannaberg/claudekit check-unused-parameters.
+# Disable: SUPERCHARGER_ADVISORY_HOOKS=0
 
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

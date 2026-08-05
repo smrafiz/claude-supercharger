@@ -12,6 +12,7 @@
 # manifest edit ADDS/CHANGES a lifecycle script, or introduces one whose command
 # reaches the network or evals code (curl/wget/node -e/python -c/base64/…).
 # Advisory + fail-open; disable with SUPERCHARGER_INSTALL_SCRIPT_GUARD=0.
+# Disable: SUPERCHARGER_INSTALL_SCRIPT_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

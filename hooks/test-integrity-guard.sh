@@ -10,6 +10,7 @@
 # skip/only markers. The closest existing hooks (lazy-refactor-check,
 # comment-replacement-check) inspect param/comment churn, not test semantics.
 # Advisory + fail-open; disable with SUPERCHARGER_TEST_INTEGRITY_GUARD=0.
+# Disable: SUPERCHARGER_TEST_INTEGRITY_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

@@ -1,5 +1,9 @@
 """Claude Supercharger — shared instruction-poisoning patterns.
 
+NAMING: python libs here use underscores (lib_poison_patterns.py) while shell
+libs use hyphens (lib-suppress.sh). That is not drift — a hyphen makes a module
+un-importable, so `import lib_poison_patterns` requires it. Do not "fix" it.
+
 Loaded by BOTH scanners that inspect agent-authored instruction files:
 
   skill-poisoning-scanner.sh   PreToolUse:Skill   — ~/.claude/skills|commands|plugins

@@ -16,6 +16,7 @@
 # (url) MCP config passes. `.cursor/rules/*.mdc` is intentionally NOT here — that's
 # instruction-poisoning, already covered by memory-write-guard. Asks once per file
 # per session. Fail-open; disable with SUPERCHARGER_EDITOR_CONFIG_GUARD=0.
+# Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

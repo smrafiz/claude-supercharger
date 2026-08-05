@@ -3,6 +3,7 @@
 # Event: PreCompact | Matcher: (none)
 # Saves conversation transcript before context compaction.
 # Also ensures summaries directory exists for Claude to write session summaries.
+# Disable: SUPERCHARGER_HANDOFF_NUDGE=0
 
 set -euo pipefail
 

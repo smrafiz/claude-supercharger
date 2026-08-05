@@ -12,6 +12,7 @@
 # the Bash channel; this is the tool-channel, ASK-tier, source-of-truth reminder.
 # Asks once per file per session. Advisory + fail-open; disable with
 # SUPERCHARGER_GENERATED_FILE_GUARD=0.
+# Disable: SUPERCHARGER_GENERATED_FILE_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

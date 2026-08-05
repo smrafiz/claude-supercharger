@@ -16,6 +16,7 @@
 # exist). Gated to workflow files; the trigger alone (labelers, comment-bots) does NOT
 # fire — the untrusted-head reference must co-occur. Fail-open; disable with
 # SUPERCHARGER_WORKFLOW_PWN_GUARD=0.
+# Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

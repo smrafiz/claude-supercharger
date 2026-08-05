@@ -13,6 +13,7 @@
 #     those files there.
 #   - NEVER clobbers an existing scope file — a runtime switch ("eco minimal",
 #     /profile, mcp-profile.sh) always wins over the enable-time default.
+# Disable: SUPERCHARGER_PLUGIN_NUDGE=0
 set -uo pipefail
 
 # v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing

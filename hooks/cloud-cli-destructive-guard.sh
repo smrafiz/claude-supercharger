@@ -12,6 +12,7 @@
 # slipped through. This ASKS (user confirms) on those — matching the MCP channel.
 # (terraform/tofu destroy is already blocked by safety.sh, so it is not covered here.)
 # Advisory + fail-open; disable with SUPERCHARGER_CLOUD_CLI_GUARD=0.
+# Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

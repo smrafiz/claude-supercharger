@@ -13,6 +13,7 @@
 # (`2>/dev/null` alone) is NOT flagged — it hides output but the exit code still
 # propagates, so it can't turn red into green on its own. Advisory + fail-open;
 # disable with SUPERCHARGER_TEST_MASK_GUARD=0.
+# Disable: SUPERCHARGER_TEST_MASK_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

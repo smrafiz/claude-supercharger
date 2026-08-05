@@ -10,6 +10,7 @@
 # EXACT same destructive/network/credential rules — no pattern drift), and a
 # package install in a cell is surfaced for confirmation.
 # Advisory + fail-open; disable with SUPERCHARGER_NOTEBOOK_EXEC_GUARD=0.
+# Disable: SUPERCHARGER_NOTEBOOK_EXEC_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

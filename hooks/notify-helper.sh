@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Shared Notification Helper
+# Helper: not a registered hook — Shared desktop-notification sender sourced by the hooks that notify.
 # Sourced by notify.sh, notify-stop.sh, notify-permission.sh
 
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).

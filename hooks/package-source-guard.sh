@@ -13,6 +13,7 @@
 # unguarded, and a malicious source runs before dep-vuln-scanner ever sees it.
 # ASKS (dep-from-source is occasionally legit); asks once per source per session.
 # Advisory + fail-open; disable with SUPERCHARGER_PACKAGE_SOURCE_GUARD=0.
+# Disable: SUPERCHARGER_PACKAGE_SOURCE_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

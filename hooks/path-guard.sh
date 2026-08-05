@@ -11,6 +11,7 @@
 # Each category is opt-out via .supercharger.json:
 #   {"disableSecurityCategories": ["path-traversal", "symlink", "git-internals",
 #                                   "selfmod", "abs-path", "build-artifacts"]}
+# Disable: SUPERCHARGER_PATH_GUARD=0
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

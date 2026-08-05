@@ -17,6 +17,7 @@
 # per distinct missing-set, so a healthy machine never pays a line of noise and a
 # newly-missing dependency is still reported. `command -v` is a shell builtin, so the
 # healthy path costs zero forks.
+# Disable: SUPERCHARGER_DEPENDENCY_PREFLIGHT=0
 set -uo pipefail
 
 # Honor the global kill-switch (/sc off must silence every hook).

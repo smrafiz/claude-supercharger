@@ -19,6 +19,7 @@
 #
 # Override (intentional paste of a revoked/test value): SUPERCHARGER_ALLOW_PROMPT_SECRETS=1
 # Disable entirely:                                     SUPERCHARGER_PROMPT_SECRET_GUARD=0
+# Disable: SUPERCHARGER_PROMPT_SECRET_GUARD=0
 
 set -uo pipefail
 # shellcheck source=hooks/lib-json-fast.sh

@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Stack Auto-Detection
+# Helper: not a registered hook — Shared stack detection sourced by hooks that vary behaviour per project type.
 # Usage: bash detect-stack.sh [project_dir]
 # Outputs detected stack info as key=value pairs.
 # Used by claude-check and can be sourced by other tools.

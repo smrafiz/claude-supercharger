@@ -11,6 +11,7 @@
 # typo/hallucination signal. Barrel `index.*`/`__init__.py` and every real
 # extension are resolved before flagging, to keep false positives low.
 # Fail-open; disable with SUPERCHARGER_PHANTOM_IMPORT_GUARD=0.
+# Disable: SUPERCHARGER_PHANTOM_IMPORT_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

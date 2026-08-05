@@ -8,6 +8,7 @@
 # Behavior is identical — each check keeps its own opt-in/disable flag and its own
 # block reason; any check can deny. Order: cheap → expensive (coauthor grep,
 # conventional-format parse, then the staged-diff secret scan which forks git).
+# Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

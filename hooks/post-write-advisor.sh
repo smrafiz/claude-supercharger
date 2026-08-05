@@ -11,6 +11,7 @@
 # (SUPERCHARGER_CONFLICT_MARKER_GUARD / _CONFIG_VALIDITY_GUARD / _SHEBANG_EXEC_GUARD),
 # plus a master SUPERCHARGER_POST_WRITE_ADVISOR=0. WARN only (additionalContext),
 # async, fail-open.
+# Disable: SUPERCHARGER_POST_WRITE_ADVISOR=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

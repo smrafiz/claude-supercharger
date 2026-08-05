@@ -16,6 +16,7 @@
 # UX: asks at most ONCE per file per session (records an ack after asking) so an
 # active edit loop on a workflow file isn't a nag — the human already consented to
 # that file this session.
+# Disable: SUPERCHARGER_CRITICAL_INFRA_GUARD=0
 set -uo pipefail
 
 # Fast-path: resolve state inline, no fork/source needed to bail on a non-critical path.

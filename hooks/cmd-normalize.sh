@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Command Normalization Helper
+# Helper: not a registered hook — Shared command normaliser (unwraps quoting/obfuscation) sourced by the guards.
 # Sourced by PreToolUse hooks that inspect the Bash command string.
 # Usage:
 #   CMD=$(normalize_cmd "$COMMAND")

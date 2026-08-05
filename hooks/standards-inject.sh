@@ -5,6 +5,7 @@
 # (forbidden patterns, toolchain, pitfalls) from rules/stacks/<name>.md.
 # User override: ~/.claude/rules/stacks/<name>.md takes precedence over bundled.
 # Tier-scaled output: minimal=stack tag, lean=key sections, standard=full.
+# Disable: SUPERCHARGER_STANDARDS=0
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

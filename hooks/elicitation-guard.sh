@@ -21,6 +21,7 @@
 #   .supercharger.json → {"trustedElicitationServers": ["postgres", "my-server"]}
 # Disable entirely: SUPERCHARGER_ELICITATION_GUARD=0  (or disable "elicitation-guard")
 # Audit: ~/.claude/supercharger/audit/elicitation-guard.jsonl
+# Disable: SUPERCHARGER_ELICITATION_GUARD=0
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

@@ -19,6 +19,7 @@
 # clone/fetch/remote time — no config key, no hooks) and `protocol.ext.allow=always`
 # which re-enables it. Never legitimate in agent-driven work; near-zero FP.
 # (simple-git CVE-2026-28292 CVSS 9.8, n8n CVE-2026-25053.)
+# Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

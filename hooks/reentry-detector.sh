@@ -3,6 +3,7 @@
 # Event: UserPromptSubmit | Matcher: (none)
 # Detects when system output (hook messages, [MEM], [CTX]) gets pasted back
 # as user input — a sign of an infinite echo loop.
+# Disable: SUPERCHARGER_ADVISORY_HOOKS=0
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

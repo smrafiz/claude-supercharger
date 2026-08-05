@@ -11,6 +11,7 @@
 # legit dev uses), value-shape gated so benign forms pass (NODE_OPTIONS=
 # --max-old-space-size, LD_LIBRARY_PATH=/usr/local/lib). Asks once per var per
 # session. Advisory + fail-open; disable with SUPERCHARGER_ENV_EXEC_GUARD=0.
+# Disable: SUPERCHARGER_ENV_EXEC_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh

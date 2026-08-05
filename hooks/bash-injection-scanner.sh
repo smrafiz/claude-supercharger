@@ -12,6 +12,7 @@
 # payloads the sibling catches on other channels. This closes that parity gap
 # (cross-channel-parity-drift). Non-destructive: the command already ran; this
 # only WARNs the model to treat the surfaced text as data.
+# Disable: SUPERCHARGER_BASH_INJECTION_SCANNER=0
 
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
