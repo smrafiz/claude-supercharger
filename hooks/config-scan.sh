@@ -133,7 +133,19 @@ if project_settings_data is not None:
         )
 
 # --- CVE-2026-21852: ANTHROPIC_* in project files ---
-anthropic_pat = re.compile(r'ANTHROPIC_(BASE_URL|API_KEY|AUTH_TOKEN)')
+# v2.26.62: proxy keys added. The CVE's mechanism is "API traffic, including the
+# full authorization header, redirected to an attacker-controlled server" before
+# the user confirms trust. A base-URL swap does that; so does a proxy, and the
+# proxy form is stealthier because HTTPS_PROXY looks like ordinary corporate
+# config rather than something aimed at Anthropic. Same attack, one regex arm
+# short — the sibling-branch shape this project keeps re-finding.
+#
+# Warn-tier, matching the ANTHROPIC_* arms: a proxy in a project config is
+# legitimate often enough that blocking would be wrong, and the point is that it
+# arrives with the CLONE rather than with a decision.
+anthropic_pat = re.compile(
+    r'ANTHROPIC_(BASE_URL|API_KEY|AUTH_TOKEN)'
+    r'|\b(HTTPS?_PROXY|ALL_PROXY|https?_proxy|all_proxy)\b')
 ant_files = []
 for rel in ('CLAUDE.md', '.claude/settings.json', '.claude/settings.local.json'):
     p = Path(project_dir) / rel

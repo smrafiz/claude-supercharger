@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.62] - 2026-08-05 — feat(security): CVE-2026-21852 covered the base-URL swap but not the proxy form of the same API-traffic redirection. 3351 tests passing.
 - [2.26.61] - 2026-08-05 — perf+fix: sc_md5 added a fork to a hot path, and the perf harness's own arithmetic was the 1-in-5 suite flake. 3346 tests passing.
 - [2.26.60] - 2026-08-05 — docs(hooks): the authoring guide told maintainers two live security hooks were dead events. 3342 tests passing.
 - [2.26.59] - 2026-08-05 — chore(contracts): document all 34 hook kill-switches, mark shared helpers, and pin both plus deny-JSON validity with meta-tests. 3339 tests passing.
