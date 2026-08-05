@@ -87,4 +87,69 @@ _CTX=$(printf '%s' "$_OUT" | python3 -c 'import sys,json; print(json.load(sys.st
   || fail "cap not respected or tail missed (len=$(printf '%s' "$_CTX" | wc -c))"
 rm -rf "$_NST"
 
+# --- durable record (v2.26.54) ------------------------------------------------
+# Reported twice from the field: the report WAS recovered to disk and the parent
+# still went and read the files itself — the behaviour you would see if the
+# additionalContext pointer never arrived. Whether Claude Code delivers
+# additionalContext from a SubagentStop hook is unconfirmed, so this hook no
+# longer relies on it alone:
+#   - `/why` reads .subagent-report-<sid>, a channel that cannot be discarded
+#   - an entry proves the hook FIRED, which separates "did not run" from
+#     "ran and the context was dropped" — previously indistinguishable
+rec() { # state_dir, sid -> file contents
+  cat "$1/scope/.subagent-report-$2" 2>/dev/null || true
+}
+
+begin_test "record: a degraded final writes a pointer line"
+RST=$(mktemp -d); mkdir -p "$RST/scope/subagent-reports"
+printf '%s' '{"agent_id":"recA","agent_name":"Translator","last_assistant_message":"Ready.","session_id":"rs1","cwd":"."}' \
+  | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
+rec "$RST" rs1 | grep -q 'recA' && rec "$RST" rs1 | grep -q 'subagent-reports/recA.md' && pass \
+  || fail "no pointer recorded: $(rec "$RST" rs1)"
+
+begin_test "record: the line carries a timestamp and the agent name"
+rec "$RST" rs1 | grep -qE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}\] Translator' && pass \
+  || fail "line shape wrong: $(rec "$RST" rs1)"
+
+begin_test "record: written even on the DEDUPED second firing"
+# The repeat is precisely the evidence that would otherwise be missing, so the
+# record must be written before the dedup exit.
+SUPERCHARGER_NO_DEDUP=0 printf '%s' '{"agent_id":"recA","agent_name":"Translator","last_assistant_message":"Ready.","session_id":"rs1","cwd":"."}' \
+  | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
+[ "$(rec "$RST" rs1 | wc -l | tr -d ' ')" -ge 2 ] && pass \
+  || fail "dedup swallowed the record — the firing becomes invisible"
+
+begin_test "record: a HEALTHY final records nothing"
+printf '%s' '{"agent_id":"recB","agent_name":"Good","last_assistant_message":"I reviewed src/auth.ts:44 and found three issues worth fixing before release.","session_id":"rs1","cwd":"."}' \
+  | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
+rec "$RST" rs1 | grep -q 'recB' && fail "recorded a healthy agent — /why would report a non-event" || pass
+
+begin_test "record: per-session, never shared"
+printf '%s' '{"agent_id":"recC","agent_name":"Other","last_assistant_message":"Done.","session_id":"rs2","cwd":"."}' \
+  | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
+rec "$RST" rs1 | grep -q 'recC' && fail "session rs2 leaked into rs1" || pass
+
+begin_test "record: bounded so a fan-out cannot grow it without limit"
+python3 -c "
+import os
+p = os.path.join('$RST','scope','.subagent-report-rs1')
+open(p,'w').write('\n'.join('[2026-01-01 00:00] filler %d' % i for i in range(400)) + '\n')"
+printf '%s' '{"agent_id":"recD","agent_name":"N","last_assistant_message":"Ready.","session_id":"rs1","cwd":"."}' \
+  | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
+N=$(rec "$RST" rs1 | wc -l | tr -d ' ')
+[ "$N" -le 200 ] && pass || fail "grew to $N lines unbounded"
+rm -rf "$RST"
+
+begin_test "record: /why knows to read it"
+grep -q 'subagent-report' "$REPO_DIR/configs/commands/why.md" && pass \
+  || fail "why.md does not read the subagent-report file"
+
+begin_test "record: the generated command carries it (commands/ is generated)"
+grep -q 'subagent-report' "$REPO_DIR/commands/why.md" && pass \
+  || fail "run tools/gen-plugin-commands.sh — config and generated copy have drifted"
+
+begin_test "record: /why frames it as recovered work, not a failure"
+grep -qi 'not a block\|nothing failed' "$REPO_DIR/configs/commands/why.md" && pass \
+  || fail "why.md should say the work completed and only the reply was lost"
+
 report

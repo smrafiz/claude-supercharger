@@ -98,6 +98,37 @@ fi
 
 # Dedup: don't re-inject the same pointer twice in a session.
 SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/null || echo "default")
+
+# v2.26.54: record the pointer to a file BEFORE the dedup check and before
+# emitting, for two reasons that turned out to be the same fix.
+#
+# 1. A CHANNEL THAT DOES NOT DEPEND ON THE UNCERTAIN ONE. This hook's whole
+#    design assumes Claude Code delivers `additionalContext` from a SubagentStop
+#    hook into the parent's context. Reported twice from the field: the report
+#    WAS recovered to disk, and the parent still said "verifying the files
+#    directly" — the behaviour you would see if the pointer never arrived. Until
+#    that is settled, `/why` reads this file, so the path is always reachable.
+#
+# 2. INSTRUMENTATION. Nothing recorded whether this hook fired, so "did it not
+#    run?" and "did it run and CC discard the context?" were indistinguishable.
+#    An entry here means it ran. Absence after a degraded subagent means it did
+#    not — which is a different bug with a different fix.
+#
+# Written before the dedup exit on purpose: the second firing for the same agent
+# is exactly the evidence that would otherwise be missing.
+_SR_SCOPE="$SUPERCHARGER_STATE/scope"
+mkdir -p "$_SR_SCOPE" 2>/dev/null || true
+_SR_F="$_SR_SCOPE/.subagent-report-${SESSION_ID}"
+{
+  printf '[%s] %s (agent %s) returned a degraded final; report: %s\n' \
+    "$(date '+%Y-%m-%d %H:%M' 2>/dev/null || echo unknown)" \
+    "$AGENT_NAME" "$AGENT_ID" "$REPORT_PATH"
+} >> "$_SR_F" 2>/dev/null || true
+# Bound it — a large fan-out of degraded agents must not grow this without limit.
+if [ "$(wc -l < "$_SR_F" 2>/dev/null | tr -d ' ' || echo 0)" -gt 200 ]; then
+  tail -n 100 "$_SR_F" > "$_SR_F.tmp" 2>/dev/null && mv "$_SR_F.tmp" "$_SR_F" 2>/dev/null || true
+fi
+
 hook_already_emitted "subagent-report-notify" "$SESSION_ID" "$AGENT_ID" && exit 0
 
 echo "[Supercharger] subagent-report-notify: degraded final for agent=${AGENT_ID}, pointed parent to report" >&2

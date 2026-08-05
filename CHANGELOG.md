@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.54] - 2026-08-05 — fix(subagent): a recovered report was reachable only through a channel we cannot confirm Claude Code delivers — /why now reads it, and the hook records that it fired. 3299 tests passing.
 - [2.26.53] - 2026-08-05 — fix(windows): pin .gitattributes itself to LF, and verify Phase 1 on a real windows-latest runner (G6 closed: ln -s silently copies, so the pkg-manager guard degrades fail-safe). 3290 tests passing.
 - [2.26.52] - 2026-08-04 — ci(windows): add a windows-latest Git Bash job — Phase 1 shipped entirely from macOS and had never run on the platform it targets. 3290 tests passing.
 - [2.26.51] - 2026-08-04 — fix(windows): CRLF checkout policy, and remove a flock lock that never ran on macOS, guarded the wrong window, and protected advisory telemetry. 3290 tests passing.
