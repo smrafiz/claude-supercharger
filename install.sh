@@ -3,6 +3,22 @@ set -euo pipefail
 umask 077
 
 # --- Prerequisite check ---
+# v2.26.58 (WINDOWS-SUPPORT-PLAN G4): the platform is resolved BEFORE the gates.
+#
+# The gates used to run at the very top, ~76 lines before `detect_platform` was
+# called. detect_platform is where the Windows python handling lives: it tries
+# `py` (the python.org launcher), `python`, then `py3` and builds a shim. So on a
+# Windows box with `py` but no `python3` on PATH, the install died with
+# "ERROR: python3 is required" while the code that would have fixed it sat
+# unreachable further down the same file. A reorder, not new logic.
+#
+# Nothing between the old gate position and the old detect_platform call used
+# jq or python3, so moving it earlier is safe. detect_platform reads only $OSTYPE.
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=lib/utils.sh
+source "$SCRIPT_DIR/lib/utils.sh"
+detect_platform
+
 # jq is used by ~60 hooks for parsing tool input JSON. Without it, hooks silently
 # degrade (empty values, malformed JSON output). Fail fast at install.
 if ! command -v jq >/dev/null 2>&1; then
@@ -17,15 +33,23 @@ if ! command -v jq >/dev/null 2>&1; then
     echo "  sudo dnf install jq" >&2
   elif command -v pacman >/dev/null 2>&1; then
     echo "  sudo pacman -S jq" >&2
+  elif [ "${PLATFORM:-}" = "windows" ]; then
+    # Git Bash has none of the above, so the generic line below was the only
+    # message a Windows user ever saw — true, and useless. Measured on a
+    # windows-latest runner: jq is NOT preinstalled with Git for Windows.
+    echo "  winget install jqlang.jq" >&2
+    echo "  or:  choco install jq" >&2
+    echo "" >&2
+    echo "  Then reopen Git Bash so the new PATH is picked up." >&2
   else
     echo "  Check your package manager — jq is widely available." >&2
   fi
   exit 1
 fi
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "ERROR: python3 is required but not installed." >&2
-  exit 1
-fi
+# NOTE: no python3 gate here. detect_platform (called above) already resolves
+# python3 — including the Windows `py`/`python`/`py3` shim — and prints a proper
+# error if no interpreter exists at all. A second bare `command -v python3` here
+# would re-introduce exactly the bug this reorder fixed.
 
 # Safe Mode warning (Claude Code v2.1.169+)
 # Installing under safe mode is fine, but the resulting session won't run hooks
@@ -40,11 +64,8 @@ if [ "${CLAUDE_CODE_SAFE_MODE:-}" = "1" ]; then
   echo "" >&2
 fi
 
-# Resolve source directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-# Source modules
-source "$SCRIPT_DIR/lib/utils.sh"
+# Source the remaining modules. SCRIPT_DIR, lib/utils.sh and detect_platform
+# already ran in the prerequisite block at the top of this file (v2.26.58).
 source "$SCRIPT_DIR/lib/backup.sh"
 source "$SCRIPT_DIR/lib/roles.sh"
 source "$SCRIPT_DIR/lib/hooks.sh"
@@ -98,7 +119,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-detect_platform
+# detect_platform is NOT re-run here: it already ran above, and a second call
+# would build another python shim dir and prepend PATH twice.
 
 # Determine if running non-interactively (all args provided)
 NON_INTERACTIVE="false"

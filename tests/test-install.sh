@@ -295,6 +295,57 @@ case "$SL_CMD" in
   *)      fail "statusLine.command does not point at statusline.sh: $SL_CMD" ;;
 esac
 
+# --- G4: prerequisite gates run AFTER platform detection (v2.26.58) ----------
+# The gates used to sit ~76 lines above the detect_platform call. detect_platform
+# is where the Windows python handling lives (`py` launcher → `python` → `py3`,
+# then a shim). So on a Windows box with `py` but no `python3` on PATH, install
+# died with "ERROR: python3 is required" while the code that would have fixed it
+# sat unreachable in the same file — including its App-Execution-Aliases advice.
+gate_out() { # OSTYPE, path-dir -> installer stderr+stdout, first lines
+  PATH="$2" OSTYPE="$1" HOME="$2/../home" bash "$REPO_DIR/install.sh" \
+    --mode full --roles developer --config skip --settings skip \
+    --economy lean --notify off --commits off --mcp-profile light 2>&1 | head -12
+}
+mk_pathdir() { # tools... -> echoes a bin dir containing only those
+  local d; d=$(mktemp -d); mkdir -p "$d/bin" "$d/home"
+  local c s
+  for c in "$@"; do
+    s=$(command -v "$c" 2>/dev/null) && [ -n "$s" ] && ln -sf "$s" "$d/bin/$c" 2>/dev/null
+  done
+  printf '%s' "$d/bin"
+}
+
+begin_test "install: missing jq on Windows names winget/choco, not 'your package manager'"
+PD=$(mk_pathdir bash sed grep cat mktemp dirname uname tr head cut python3 chmod mkdir rm cp ln find sort awk)
+OUT=$(gate_out msys "$PD")
+rm -rf "$(dirname "$PD")"
+printf '%s' "$OUT" | grep -qi 'winget\|choco' && pass \
+  || fail "Windows jq guidance missing — Git Bash has no brew/apt/dnf/pacman, so the generic line was all a Windows user ever saw"
+
+begin_test "install: missing jq on Linux keeps the generic guidance"
+PD=$(mk_pathdir bash sed grep cat mktemp dirname uname tr head cut python3 chmod mkdir rm cp ln find sort awk)
+OUT=$(gate_out linux-gnu "$PD")
+rm -rf "$(dirname "$PD")"
+printf '%s' "$OUT" | grep -qi 'winget\|choco' \
+  && fail "Windows text leaked onto Linux" || pass
+
+begin_test "install: no bare python3 gate before detect_platform"
+# A second `command -v python3 ... exit 1` above the detect_platform call would
+# re-introduce the exact bug: the shim becomes unreachable again.
+python3 -c "
+import re, sys
+src = open('$REPO_DIR/install.sh').read()
+dp = src.find('\ndetect_platform')
+if dp < 0:
+    print('detect_platform never called'); sys.exit(1)
+head = src[:dp]
+sys.exit(1 if re.search(r'command -v python3.*\n.*exit 1', head, re.S) else 0)" 2>/dev/null \
+  && pass || fail "a python3 gate runs before detect_platform — the Windows py-launcher shim is unreachable"
+
+begin_test "install: detect_platform is called exactly once"
+N=$(grep -c '^detect_platform$' "$REPO_DIR/install.sh")
+[ "$N" = "1" ] && pass || fail "called $N times — a second call builds another python shim dir and re-prepends PATH"
+
 begin_test "install: the statusLine path is taken from bash, not python expanduser"
 # Mechanism check alongside the outcome check: expanduser is correct for OPENING
 # a file with python and wrong for BUILDING a string another program executes.
