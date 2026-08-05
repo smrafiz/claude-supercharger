@@ -115,22 +115,6 @@ jobs:
             fi
           done
 
-      # G5, verified where it actually matters. Git for Windows defaults to
-      # core.autocrlf=true; if .gitattributes is not doing its job, the shebang
-      # becomes `/usr/bin/env bash\r` and every hook dies at once. Assert on the
-      # CHECKED-OUT bytes rather than on the policy file.
-      - name: Checked-out shell scripts are LF, not CRLF
-        run: |
-          set -euo pipefail
-          echo "core.autocrlf: $(git config --get core.autocrlf || echo '<unset>')"
-          bad=$(git ls-files -z '*.sh' | xargs -0 grep -lU $'\r' 2>/dev/null || true)
-          if [ -n "$bad" ]; then
-            echo "CRLF found in checked-out files (.gitattributes is not holding):"
-            printf '%s\n' "$bad"
-            exit 1
-          fi
-          echo "All tracked *.sh checked out with LF."
-
       - name: Install jq if the runner lacks it
         run: |
           if ! command -v jq >/dev/null 2>&1; then
@@ -186,6 +170,43 @@ jobs:
           rc=$?
           echo "rm -rf / -> rc=$rc (2 = blocked)"
           [ "$rc" = "2" ] || { echo "the core guard did not block on Windows"; exit 1; }
+
+      # G5, verified where it actually matters. Git for Windows defaults to
+      # core.autocrlf=true; if .gitattributes is not doing its job, the shebang
+      # becomes `/usr/bin/env bash\r` and every hook dies at once. Assert on the
+      # CHECKED-OUT bytes rather than on the policy file.
+      # v2.26.52 shipped .gitattributes believing it pinned LF; this job's first
+      # run proved otherwise (core.autocrlf=true, every .sh checked out CRLF).
+      # The cause could not be reproduced from macOS, so ask git directly.
+      # `ls-files --eol` is the decisive one: it reports the INDEX ending, the
+      # WORKTREE ending, and the attribute git actually applied — which separates
+      # "the attribute was ignored" from "the blob itself holds CRLF".
+      - name: Diagnose line-ending handling
+        run: |
+          echo "git: $(git --version)"
+          echo "--- crlf-related config, all scopes ---"
+          git config -l --show-origin 2>/dev/null | grep -iE 'autocrlf|eol|safecrlf' || echo "  (none)"
+          echo "--- .gitattributes in the checkout ---"
+          ls -l .gitattributes 2>/dev/null || echo "  ABSENT"
+          echo "  first bytes: $(head -c 40 .gitattributes 2>/dev/null | od -An -c | head -2 | tr -s ' ')"
+          echo "--- what git says the attributes are, ON THIS RUNNER ---"
+          git check-attr text eol -- hooks/safety.sh .gitattributes 2>&1 || true
+          echo "--- index vs worktree endings (the decisive check) ---"
+          git ls-files --eol hooks/safety.sh .gitattributes tests/run.sh 2>&1 || true
+          echo "--- raw first line of a checked-out hook ---"
+          head -c 60 hooks/safety.sh | od -An -c | head -3
+
+      - name: Checked-out shell scripts are LF, not CRLF
+        run: |
+          set -euo pipefail
+          echo "core.autocrlf: $(git config --get core.autocrlf || echo '<unset>')"
+          bad=$(git ls-files -z '*.sh' | xargs -0 grep -lU $'\r' 2>/dev/null || true)
+          if [ -n "$bad" ]; then
+            echo "CRLF found in checked-out files (.gitattributes is not holding):"
+            printf '%s\n' "$bad"
+            exit 1
+          fi
+          echo "All tracked *.sh checked out with LF."
 
   shellcheck:
     name: Shellcheck
