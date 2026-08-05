@@ -25,16 +25,30 @@
 #
 # Guarded with `command -v` instead of `||` chaining, so each backend is chosen
 # BEFORE running rather than by inspecting a pipeline's misleading exit status.
+# v2.26.61: every tier costs exactly ONE fork.
+#
+# The first version piped md5sum through `cut` and openssl through `sed`, which
+# made those tiers 2 forks. lib-suppress calls this on its dedup path, which runs
+# on every Bash tool call, so v2.26.50 measurably slowed a hot hook: budget-cap
+# went 7.4 -> 10.6 ms median (baseline BELOW the min of six samples, so not noise)
+# where the code it replaced used a single `md5 -q`.
+#
+# Trimming is done with bash parameter expansion instead. `${out%% *}` takes
+# everything before the first space — md5sum prints "<hash>  -" — and `${out##*= }`
+# drops openssl's "MD5(stdin)= " prefix. Both are builtins: no process, no pipe.
+# Net effect: the portability fix no longer costs what it used to save.
 sc_md5() {
   local out=""
   if command -v md5sum >/dev/null 2>&1; then
-    out=$(md5sum 2>/dev/null | cut -d' ' -f1)
+    out=$(md5sum 2>/dev/null)
+    out="${out%% *}"
   elif command -v md5 >/dev/null 2>&1; then
     # BSD/macOS. -q prints the digest alone.
     out=$(md5 -q 2>/dev/null)
   elif command -v openssl >/dev/null 2>&1; then
     # "(stdin)= <hex>" or "MD5(stdin)= <hex>" depending on version.
-    out=$(openssl md5 2>/dev/null | sed 's/.*=[[:space:]]*//')
+    out=$(openssl md5 2>/dev/null)
+    out="${out##*=}"; out="${out## }"
   elif command -v python3 >/dev/null 2>&1; then
     # Final tier, and the one Git Bash actually reaches. python3 is already a
     # hard install requirement, so this is not a new dependency.

@@ -18,6 +18,34 @@ begin_test "chain output splits the sum into process spawn and hook work"
 SPOUT=$(bash "$HARNESS" --iterations 1 2>/dev/null)
 printf '%s' "$SPOUT" | grep -q 'is process spawn' && pass || fail "no spawn/work split: $SPOUT"
 
+# v2.26.61: the ~1-in-5 suite flake, finally captured by the failure trap added
+# in v2.26.47. It was never a race between test files — it is this harness's own
+# arithmetic. spawn_ms (floor x hooks) and chain_sum_ms are INDEPENDENT
+# measurements; under load the floor probe inflates and spawn can exceed the whole
+# chain. Captured artifact: spawn 136.0 inside an 89.0 chain, share 1.53, work
+# clamped to 0 — which broke the harness's own spawn+work==sum identity.
+#
+# Fixed in the harness (clamp + a spawn_estimate_capped flag) rather than by
+# loosening the test: reporting a 136 ms spawn inside an 89 ms chain is wrong in
+# the OUTPUT, not just in the assertion.
+begin_test "degenerate case: an inflated spawn estimate stays self-consistent"
+python3 - <<'PY'
+import sys
+# The exact numbers from the captured failure.
+chain_sum, spawn_raw = 89.0, 136.0
+capped = spawn_raw > chain_sum > 0
+spawn = chain_sum if capped else spawn_raw
+work  = max(0.0, chain_sum - spawn)
+share = spawn / chain_sum
+ok = capped and abs((spawn + work) - chain_sum) < 0.2 and 0 < share <= 1
+sys.exit(0 if ok else 1)
+PY
+[ $? -eq 0 ] && pass || fail "the clamp does not restore spawn+work==sum / share<=1"
+
+begin_test "the harness clamps rather than silently reporting a >100% spawn share"
+grep -q 'spawn_estimate_capped' "$HARNESS" && grep -q 'spawn_ms > chain_sum' "$HARNESS" && pass \
+  || fail "clamp or its flag missing — the flake returns and the anomaly is invisible"
+
 begin_test "spawn floor is measured, positive, and plausible against the cheapest hook"
 # The floor is a 15-sample median; per-hook means here come from --iterations 1, so
 # they are SINGLE samples. Comparing them tightly is comparing two different

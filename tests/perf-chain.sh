@@ -359,11 +359,26 @@ for label in labels:
     # that is the hooks doing something. Only the second is optimisable: a hook that
     # exits on its first line still costs a spawn.
     spawn_ms = floor_ms * nh
+    # v2.26.61: the floor and the chain are INDEPENDENT measurements — a 15-sample
+    # median probe vs this run's sum. Under load the probe can be scheduled badly
+    # and come out larger than the whole chain it is supposed to be a component of.
+    # Observed: spawn 136.0 inside an 89.0 chain, i.e. a 153% "share", with work_ms
+    # clamped to 0 — which silently broke the harness's own spawn+work==sum
+    # identity and failed test-perf-chain about once in five runs.
+    #
+    # Clamp so the reported numbers are self-consistent, and RECORD that it
+    # happened. Clamping alone would hide a real signal (a floor that large means
+    # the probe measured something other than one spawn); the flag keeps it
+    # visible in a report-only job without failing the build on machine load.
+    spawn_capped = spawn_ms > chain_sum > 0
+    if spawn_capped:
+        spawn_ms = chain_sum
     report["payloads"][label] = {
         "chain_sum_ms": round(chain_sum, 1),
         "spawn_ms": round(spawn_ms, 1),
         "work_ms": round(max(0.0, chain_sum - spawn_ms), 1),
         "spawn_share": round(spawn_ms / chain_sum, 2) if chain_sum else 0.0,
+        "spawn_estimate_capped": spawn_capped,
         "parallel_est_ms": round(makespan, 1),
         "parallel_width": width,
         "slowest_hook": slowest[0], "slowest_ms": round(slowest[1], 1),

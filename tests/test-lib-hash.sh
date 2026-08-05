@@ -116,6 +116,19 @@ for f in $(grep -rl 'sc_md5' "$REPO_DIR"/hooks/*.sh | grep -v lib-hash); do
 done
 [ -z "$MISS" ] && pass || fail "callers without the source line:$MISS"
 
+begin_test "every tier costs exactly ONE fork (no pipe to cut/sed)"
+# lib-suppress calls sc_md5 on its dedup path, which runs on every Bash tool
+# call. The first version piped md5sum through `cut` and openssl through `sed`,
+# making those tiers 2 forks — measured as budget-cap 7.4 -> 10.6 ms median,
+# with the baseline below the min of six samples. Trimming is bash parameter
+# expansion now. A pipe inside a tier is the regression.
+PIPED=$(sed -n '/^sc_md5()/,/^}/p' "$LIB" | grep -nE '^\s*out=\$\(.*\|' || true)
+[ -z "$PIPED" ] && pass || fail "a tier pipes to another process: $PIPED"
+
+begin_test "trimming uses parameter expansion, not a subprocess"
+sed -n '/^sc_md5()/,/^}/p' "$LIB" | grep -q 'out="${out%%' && pass \
+  || fail "md5sum output is no longer trimmed with \${out%% *}"
+
 begin_test "callers fall back to a NAMED key, never an empty suffix"
 # `.failed-commands-` with nothing after it is the collision this fix exists for.
 BAD=""
