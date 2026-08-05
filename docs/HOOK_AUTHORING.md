@@ -59,10 +59,26 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 | `Notification` | System notification event | No |
 | `Setup` | Claude Code runs `--init` / `--init-only` / `--maintenance` | No |
 
-> Note: `MessageDisplay` and `UserPromptExpansion` existed in mid-2026 Claude Code
-> builds but were later dropped — current CC rejects them as unknown events.
-> Supercharger's hooks for them were removed in v2.7.25. `PostToolBatch` is
-> likewise not in the current valid-events list.
+> **Corrected 2026-08-05.** This note previously said `MessageDisplay` and
+> `UserPromptExpansion` "were later dropped — current CC rejects them as unknown
+> events", and that Supercharger's hooks for them were removed in v2.7.25. That
+> was true when written and is **wrong now**: all three names below are in Claude
+> Code's current documented event list, and the hooks were re-added after v2.7.25.
+>
+> - **`MessageDisplay`** — VALID and registered (`display-secret-redactor.sh`).
+>   Per its own tests this is *the only guard that protects the HUMAN* — it
+>   redacts secrets from what gets rendered. **Do not delete it on the strength of
+>   an old note.** That is exactly what the stale text invited.
+> - **`UserPromptExpansion`** — VALID and registered (`prompt-injection-scanner.sh`,
+>   scanning a slash command's expanded body).
+> - **`PostToolBatch`** — VALID per the docs, deliberately **not** registered. No
+>   hook needs batch-level granularity today; `PostToolUse` covers our cases.
+>
+> **Not verified:** whether `MessageDisplay` and `UserPromptExpansion` actually
+> fire in practice. They are registered and tested against synthetic payloads, but
+> no audit-log evidence of a live firing has been observed. Registration is not
+> proof of delivery — see [[matcher-exact-not-prefix]], where 13 hooks were inert
+> for months while looking correctly registered.
 
 `PreToolUse` is where most hooks live — it's the only place you can intercept and block tool execution.
 

@@ -122,4 +122,26 @@ PY
 )
 [ -z "$BAD" ] && pass || fail "malformed JSON (Claude Code discards the whole payload): $BAD"
 
+# --- 4. events the docs called dead are alive and registered ------------------
+# docs/HOOK_AUTHORING.md said MessageDisplay and UserPromptExpansion "were later
+# dropped — current CC rejects them as unknown events", and that our hooks for
+# them were removed in v2.7.25. Both statements went stale: the events are in
+# Claude Code's current documented list, and the hooks were re-added afterwards.
+#
+# The risk was never a crash — it was a maintainer reading that note and deleting
+# display-secret-redactor, which its own tests call the only guard protecting the
+# HUMAN (it redacts secrets from what gets rendered). Prose rots; this does not.
+begin_test "contract: MessageDisplay is registered (the human-facing secret guard)"
+grep -qE 'hooks\+=\("MessageDisplay\|' "$REPO_DIR/lib/hooks.sh" && pass \
+  || fail "display-secret-redactor lost its registration — nothing redacts secrets from rendered output"
+
+begin_test "contract: UserPromptExpansion is registered (slash-command body scan)"
+grep -qE 'hooks\+=\("UserPromptExpansion\|' "$REPO_DIR/lib/hooks.sh" && pass \
+  || fail "expanded slash-command bodies are no longer scanned for injection"
+
+begin_test "contract: the authoring doc no longer calls those events invalid"
+# The exact sentence that invited the deletion.
+grep -q 'current CC rejects them as unknown events' "$REPO_DIR/docs/HOOK_AUTHORING.md" \
+  && fail "the stale note is back — it tells maintainers two live hooks are dead" || pass
+
 report

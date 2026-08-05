@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.60] - 2026-08-05 — docs(hooks): the authoring guide told maintainers two live security hooks were dead events. 3342 tests passing.
 - [2.26.59] - 2026-08-05 — chore(contracts): document all 34 hook kill-switches, mark shared helpers, and pin both plus deny-JSON validity with meta-tests. 3339 tests passing.
 - [2.26.58] - 2026-08-05 — fix(windows): the installer's dependency gates ran before platform detection, so the py-launcher shim that would have rescued a Windows install was unreachable. 3334 tests passing.
 - [2.26.57] - 2026-08-05 — fix(windows): settings.json got a backslash statusLine path from Python expanduser, so the statusline never ran on Git Bash. 3330 tests passing.
