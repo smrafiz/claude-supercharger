@@ -214,6 +214,44 @@ jobs:
           echo "rm -rf / -> rc=$rc (2 = blocked)"
           [ "$rc" = "2" ] || { echo "the core guard did not block on Windows"; exit 1; }
 
+      # G4 — the last Windows gap. Two claims from a scoping pass that CANNOT be
+      # settled from macOS, so they are asked here instead of guessed at.
+      - name: G4a — does stamp_hook_shebangs mangle hooks on Git Bash?
+        run: |
+          set +e
+          echo "command -v bash -> $(command -v bash)"
+          # Run it against a COPY. If it rewrites shebangs, the question is
+          # whether a rewritten hook still executes — that is the harm, not the edit.
+          d=$(mktemp -d); cp hooks/*.sh "$d/" 2>/dev/null
+          before=$(head -1 "$d/safety.sh")
+          ( . lib/hooks.sh 2>/dev/null; stamp_hook_shebangs "$d" ) >/dev/null 2>&1
+          after=$(head -1 "$d/safety.sh")
+          echo "shebang before: $before"
+          echo "shebang after : $after"
+          if [ "$before" = "$after" ]; then
+            echo "  -> no rewrite on this platform"
+          else
+            echo "  -> REWRITTEN; checking the stamped hook still runs"
+            printf '{"tool_name":"Bash","tool_input":{"command":"echo hi"},"cwd":"."}' | "$d/safety.sh" >/dev/null 2>&1
+            rc=$?
+            echo "  stamped hook direct-exec rc=$rc"
+            [ "$rc" = "0" ] || { echo "  STAMPED HOOK NO LONGER EXECUTES — install would break every guard"; exit 1; }
+          fi
+
+      - name: G4b — does the installer write a backslash statusLine path?
+        run: |
+          set -euo pipefail
+          # lib/hooks.sh builds statusline_path with Python's expanduser+join. On
+          # Git Bash, python3 is WINDOWS python, so expanduser returns C:\Users\…
+          # and join uses backslashes — a command Git Bash cannot execute.
+          # settings.json is consumed by Claude Code, so this must be POSIX.
+          p=$(python3 -c "import os; print(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh'))")
+          echo "python-built statusline path: $p"
+          case "$p" in
+            *\\*) echo "  BACKSLASH PRESENT — statusLine.command would be unusable on Git Bash"; exit 1 ;;
+            *)    echo "  forward-slash only — safe" ;;
+          esac
+
       # G5, verified where it actually matters. Git for Windows defaults to
       # core.autocrlf=true; if .gitattributes is not doing its job, the shebang
       # becomes `/usr/bin/env bash\r` and every hook dies at once. Assert on the
