@@ -238,18 +238,26 @@ jobs:
             [ "$rc" = "0" ] || { echo "  STAMPED HOOK NO LONGER EXECUTES — install would break every guard"; exit 1; }
           fi
 
-      - name: G4b — does the installer write a backslash statusLine path?
+      - name: G4b — statusLine.command must be POSIX after a real merge
         run: |
           set -euo pipefail
-          # lib/hooks.sh builds statusline_path with Python's expanduser+join. On
-          # Git Bash, python3 is WINDOWS python, so expanduser returns C:\Users\…
-          # and join uses backslashes — a command Git Bash cannot execute.
-          # settings.json is consumed by Claude Code, so this must be POSIX.
-          p=$(python3 -c "import os; print(os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'hooks', 'statusline.sh'))")
-          echo "python-built statusline path: $p"
-          case "$p" in
-            *\\*) echo "  BACKSLASH PRESENT — statusLine.command would be unusable on Git Bash"; exit 1 ;;
-            *)    echo "  forward-slash only — safe" ;;
+          # The first version of this step asserted what PYTHON produces
+          # (expanduser+join). That is a fact about Windows python, not about our
+          # code — it stays true after the fix, so the step failed for the wrong
+          # reason once v2.26.57 landed. Assert the OUTCOME instead: run the real
+          # merge and read what actually reaches settings.json.
+          echo "for reference, python still yields: $(python3 -c "import os; print(os.path.join(os.path.expanduser('~'), '.claude', 'x'))")"
+          T=$(mktemp -d)
+          mkdir -p "$T/.claude/supercharger/hooks"
+          printf '#!/usr/bin/env bash\necho x\n' > "$T/.claude/supercharger/hooks/statusline.sh"
+          chmod +x "$T/.claude/supercharger/hooks/statusline.sh"
+          ( export HOME="$T"; . lib/hooks.sh; merge_hooks_into_settings full true ) >/dev/null 2>&1 || true
+          cmd=$(jq -r '.statusLine.command // ""' "$T/.claude/settings.json" 2>/dev/null || echo "")
+          echo "statusLine.command: ${cmd:-<absent>}"
+          case "$cmd" in
+            "")    echo "  statusLine missing — the merge did not write it on Git Bash"; exit 1 ;;
+            *\\*)  echo "  BACKSLASH PRESENT — Git Bash cannot execute this"; exit 1 ;;
+            *)     echo "  POSIX path — correct" ;;
           esac
 
       # G5, verified where it actually matters. Git for Windows defaults to
