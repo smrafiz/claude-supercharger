@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.70] - 2026-08-06 — fix(windows): blocking hooks timed out at 15s on Git Bash and their output was discarded.
+
+Reported from the same real Windows desktop as v2.26.69, on every prompt:
+
+    UserPromptSubmit hook timed out after 15s — output discarded.
+
+The 15s cap is ours (lib/hooks.sh), chosen from macOS measurements where a hook forks in ~2ms and real work is under 10ms. Git Bash has no fork(): every python3 or jq is a CreateProcess through MSYS, commonly 200-500ms, and worse with Defender scanning each launch. The 13 UserPromptSubmit hooks make roughly 64 interpreter calls between them, so exceeding 15s is honest arithmetic rather than a hang — verified by ruling out the hang shapes first (no sleeps, no network calls, no unbounded transcript reads on any of the nine 15s hooks), and by measuring the same chain here at 49ms felt / 339ms sequential.
+
+Windows now gets 60s, other platforms keep 15s, and SUPERCHARGER_SYNC_TIMEOUT overrides either — a slow machine is not exclusively a Windows machine. Resolved in bash, where PLATFORM is known, and passed in; the async 120s tier is untouched since it has nothing to do with fork cost.
+
+WHAT THIS DOES NOT DO, stated plainly because the release title could mislead: it does not make Windows fast. The user still waits. It stops a slow hook from ALSO being a silently dropped one, so the context injection survives. The real fix is cutting UserPromptSubmit from ~64 interpreter calls to one or two, which is a project rather than a patch, and /profile fast only skips 3 of the 13.
+
+KNOWN LIMIT: the plugin channel still emits 15s. Its hooks.json is a committed static artifact with no install-time platform knowledge, so a plugin user on Windows keeps the old cap. The parity test between the two emitters compares matchers, not timeouts, so nothing breaks — but the gap is real and is not closed here.
+
++6 tests, 3 failing against the previous emitter. One asserts the caps do not come out MIXED: a partially applied change would leave some hooks at 15 and some at 60, which reads as working while a subset still drops its output.. 3414 tests passing.
 - [2.26.69] - 2026-08-06 — fix(install): every install on every platform executed a Windows example path from a comment.
 
 Reported by the FIRST human Windows install (2026-08-06), which is the thing CI could never do:

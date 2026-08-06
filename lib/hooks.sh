@@ -543,13 +543,23 @@ merge_hooks_into_settings() {
 
   # STATUSLINE_PATH comes from bash so it stays POSIX on Git Bash — see the
   # note at the statusline_path assignment below.
+  # SYNC_TIMEOUT is resolved in BASH, where PLATFORM is known — see the note at the
+  # timeout assignment below. Overridable so a slow machine on any platform can
+  # raise it without editing the installer.
+  local sync_timeout="${SUPERCHARGER_SYNC_TIMEOUT:-}"
+  if [ -z "$sync_timeout" ]; then
+    if [ "${PLATFORM:-}" = "windows" ]; then sync_timeout=60; else sync_timeout=15; fi
+  fi
+
   SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" HOOKS_INPUT="$hooks_list" \
+  SYNC_TIMEOUT="$sync_timeout" \
   STATUSLINE_PATH="$hooks_dir/statusline.sh" python3 -c "
 import json, os, sys
 
 settings_file = os.environ['SETTINGS_FILE']
 tag = os.environ['SUPERCHARGER_TAG']
 hooks_input = os.environ['HOOKS_INPUT']
+SYNC_TIMEOUT = int(os.environ.get('SYNC_TIMEOUT') or 15)
 
 
 # v2.24.5 - MCP matchers must be regex, not exact.
@@ -627,7 +637,17 @@ for line in hooks_input.strip().split('\n'):
     # work is under 10ms; 15s is ample); an async hook stalls nobody and some run
     # long on purpose. Mirrored in tools/gen-plugin-hooks.sh - a test asserts the
     # two emitters agree.
-    inner['timeout'] = 120 if ('async' in flag_list or 'asyncRewake' in flag_list) else 15
+    # v2.26.70: the 15s figure above was measured on macOS, where a hook forks in
+    # ~2ms. Git Bash has no fork(): every python3/jq is a CreateProcess through
+    # MSYS, commonly 200-500ms and worse with Defender scanning each launch. A
+    # UserPromptSubmit hook making ~8 of them blows 15s honestly, and Claude Code
+    # then DISCARDS its output — so the user loses the context injection as well as
+    # the time. Reported from a real Windows desktop, 2026-08-06.
+    #
+    # Raising the cap does not make Windows fast; it stops a slow hook from also
+    # being a silently dropped one. The fork count is the actual fix and is not a
+    # one-line change.
+    inner['timeout'] = 120 if ('async' in flag_list or 'asyncRewake' in flag_list) else SYNC_TIMEOUT
     if if_pattern:
         inner['if'] = if_pattern
 
