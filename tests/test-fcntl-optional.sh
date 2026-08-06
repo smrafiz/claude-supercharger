@@ -19,9 +19,31 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-# A module that fails to import, standing in for a platform that lacks it.
+# Stand in for a platform without fcntl.
+#
+# NOT a fcntl.py on PYTHONPATH: that works on macOS, where fcntl is a shared
+# extension resolved through sys.path, and silently does NOTHING on Linux, where it
+# is compiled into the interpreter and BuiltinImporter answers first. The first
+# version did exactly that and went green on macOS while proving nothing on the
+# ubuntu runner — caught by the guard test below, which is the only reason it did
+# not ship as five vacuous assertions.
+#
+# A sitecustomize is imported at startup and can insert a finder ahead of every
+# other one, so it intercepts built-ins too. Portable across both.
 SHIM=$(mktemp -d)
-printf 'raise ImportError("No module named %s")\n' "'fcntl'" > "$SHIM/fcntl.py"
+cat > "$SHIM/sitecustomize.py" <<'PY'
+import sys
+
+
+class _BlockFcntl:
+    def find_spec(self, name, path=None, target=None):
+        if name == "fcntl":
+            raise ImportError("No module named 'fcntl'")
+        return None
+
+
+sys.meta_path.insert(0, _BlockFcntl())
+PY
 
 # Each case gets its own state dir. An earlier version of this reused one across
 # both runs, so the second saw a consumed transcript offset, produced no delta, and
