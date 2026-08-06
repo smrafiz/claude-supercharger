@@ -1,6 +1,9 @@
 # Windows Support — Plan
 
-Status: **Phase 1 + 2 gaps G1–G6 all closed, verified on windows-latest** · Last updated: 2026-08-05
+Status: **Phase 1 + 2 gaps G1–G6 all closed, verified on windows-latest; `install.sh` now runs there too** · Last updated: 2026-08-06
+
+**Installing?** Skip to [§12](#12-installing-on-windows-2026-08-06) — the rest of this
+file is the plan and its decision record, not a user guide.
 
 This plan is the output of a research spike (two subagents: one on Claude Code's Windows
 hook-execution model, one auditing the codebase for platform-specific bash). It scopes what
@@ -244,3 +247,83 @@ The `windows-smoke` job ran. **G1, G2 and G3 pass on Git Bash**, and a hook exec
 **Phase 2 status: G1–G6 ALL CLOSED.** Every gap in §4.1 is now either fixed or measured-and-dismissed, and the fixes are asserted on a real windows-latest runner rather than reasoned about. What remains is not a gap but a limit: no toast has been seen to RENDER, and no human has run a full install on a Windows desktop.
 
 **G4a was UNFOUNDED (2026-08-05).** A scoping pass warned that `stamp_hook_shebangs` (`lib/hooks.sh:427-451`) would rewrite all 146 shebangs on Git Bash. Measured: `command -v bash` is `/usr/bin/bash`, so it *does* rewrite (`env bash` → `/usr/bin/bash`) — and the stamped hook **still executes, rc=0**. MSYS resolves it. Real in mechanism, harmless in effect. No change made; asserted in CI so it stays that way.
+
+---
+
+## 12. Installing on Windows (2026-08-06)
+
+Everything below runs in **Git Bash**, not PowerShell or CMD. Claude Code auto-selects
+Git Bash as its hook interpreter on Windows, so that is the environment the hooks
+execute in and the one the install must happen from.
+
+### 12.1 Prerequisites
+
+| | |
+|---|---|
+| [Git for Windows](https://git-scm.com/download/win) | provides Git Bash itself |
+| Python | the python.org `py` launcher is enough — `detect_platform` resolves `py` / `python` / `py3` and builds a shim, so `python3` need not be on PATH |
+| `jq` | **not** bundled with Git for Windows — measured on the runner, not assumed |
+
+```powershell
+winget install jqlang.jq
+# or
+choco install jq
+```
+
+**Then close and reopen Git Bash.** This is the step that gets missed: a shell opened
+before the install does not see the new PATH, `jq` appears absent, and `install.sh`
+stops at its dependency gate. That gate is also the one v2.26.58 had to reorder — it
+used to run ~76 lines before `detect_platform`, so a box with `py` but no `python3`
+died on "python3 is required" while the code that would have rescued it sat
+unreachable further down the same file (§5, G4).
+
+### 12.2 Install
+
+```bash
+git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
+```
+
+Or without leaving the repo behind:
+
+```bash
+bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
+```
+
+Then restart Claude Code: hooks activate on the next tool call, the CLAUDE.md prompt
+layer loads at session start.
+
+**WSL is the alternative and the better-trodden path** — inside WSL this is an
+ordinary Linux install with nothing Windows-specific in play.
+
+### 12.3 What this path is, and is not, backed by
+
+Since 2026-08-06 the `windows-smoke` job runs `install.sh` itself on every push:
+non-interactive, into a temp `HOME`, asserting the installer exits 0, produces
+`CLAUDE.md` / `settings.json` / `hooks/safety.sh`, registers hooks in
+`settings.json`, and that a hook **placed by the installer** — not the checkout copy
+every other step uses — still denies `rm -rf /`. First run passed:
+
+```
+installer rc=0
+settings.json parses and carries hook registrations
+installed safety.sh rc=2  (expect 2)
+```
+
+Before that step existed, `install.sh` had never executed on Windows in any form —
+not in CI, not by a human — so the Windows arm added in v2.26.58 had never run on the
+platform it was written for. `test-install.sh` does cover the installer, but the suite
+it belongs to runs only on ubuntu and macos.
+
+What that verification does **not** cover, and should not be read as covering:
+
+- **A real desktop.** CI runs a clean runner: no pre-existing `~/.claude`, no
+  antivirus, no OneDrive-redirected home directory. Those are where a real install
+  would break, and nobody has tried one.
+- **Notifications rendering.** The correct backend is selected and does not error. No
+  toast has been observed to appear.
+- **The other ~3390 behaviours.** The suite is ubuntu/macos only; this job is 14
+  targeted assertions, deliberately a subset (§6).
+
+The honest claim is therefore *supported on Git Bash, install verified by CI, unproven
+in human hands* — not "ready". A single success or failure report from a real desktop
+is what would change that, and is worth an issue either way.
