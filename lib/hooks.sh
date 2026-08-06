@@ -640,7 +640,19 @@ for line in hooks_input.strip().split('\n'):
 # v2.26.57: take the path from BASH, not from Python's expanduser.
 #
 # Measured on a windows-latest runner: under Git Bash, python3 is WINDOWS python,
-# so expanduser('~') returns `C:\Users\name` and os.path.join uses backslashes.
+# so expanduser('~') returns a C:\Users\name style path and os.path.join uses
+# backslashes.
+#
+# This whole block is a DOUBLE-QUOTED bash string. Three characters must never
+# appear in it: a backtick or a dollar-paren (bash executes them before python
+# sees the source), and a double quote (it closes the string early).
+#
+# Both mistakes have now been made here. The example path above used to sit in
+# backticks, so every install on every platform ran it and printed a
+# command-not-found for C:Usersname -- reported by the first human Windows
+# install, 2026-08-06. The first attempt to document that fix quoted the error
+# text, which closed the string and produced an install with ZERO hooks and no
+# statusline. Keep this comment plain.
 # That string was written straight into settings.json as statusLine.command —
 # a command Git Bash cannot execute, so the statusline silently never runs.
 #

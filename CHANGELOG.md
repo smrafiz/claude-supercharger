@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.69] - 2026-08-06 — fix(install): every install on every platform executed a Windows example path from a comment.
+
+Reported by the FIRST human Windows install (2026-08-06), which is the thing CI could never do:
+
+    lib/hooks.sh: line 546: C:Usersname: command not found
+
+merge_hooks_into_settings passes its python source as a DOUBLE-QUOTED bash string. A comment inside it carried the example path C:\Users\name in backticks, so bash ran it as a command before python ever saw the source, stripping the backslashes on the way. Non-fatal, which is why it survived: install output is normally redirected and only the exit code is checked. It was NOT Windows-specific — it fired on macOS and Linux identically, and a local install run hours earlier the same day had already produced it into a log nobody read.
+
+A repo-wide scan for the same shape found no siblings: one occurrence, now fixed.
+
+WHAT WENT WRONG WHILE FIXING IT, because the fix broke the installer worse than the bug did: the replacement comment quoted the error text, and a double quote closes that same string. The full suite caught it — zero hooks installed, no statusline registered, and test-install reporting "got 0" across four assertions. My own verification had passed, because it grepped for the error text and a silently broken install emits none. Checking that the symptom is gone is not the same as checking the thing works.
+
++5 tests. A scan for command substitution in multi-line double-quoted -c blocks (with a decoy proving the scan can fail), plus three assertions over one real install: no command-not-found, hooks actually placed, statusline actually registered. The last two are the ones a grep for error text cannot see. Verified by reintroducing the quoted form: the statusline assertion fails, which is the check that was missing.
+
+Scan lives in tests/lib-interp-scan.py rather than a heredoc — embedded in the shell test, its quoting collided with the decoy it had to build.. 3408 tests passing.
 - [2.26.68] - 2026-08-06 — fix(safety): two false positives the FP audit found in the fix shipped four hours earlier.
 
 First run of an inverted audit lens: every prior sweep (v2.21, v2.22) asked what the guards MISS. This asked what they wrongly BLOCK. Pass 1, 33 ordinary developer operations, found nothing and all three controls fired — the layer is clean on everyday work. Pass 2 used awkward-but-legitimate shapes instead, since every false positive found today was an edge shape rather than a common command: 6 of 29 blocked, of which 2 were real. The other 4 are correct and stay: volume-destroying prune, dropping a database (ask, not deny), emptying a table the guard cannot know is a fixture, and hard reset over uncommitted work.

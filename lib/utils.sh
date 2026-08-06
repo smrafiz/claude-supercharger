@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Utility Functions
 
-VERSION="2.26.68"
+VERSION="2.26.69"
 
 # Every scope dir a HOOK might read state from — classic install + any plugin install.
 # Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
