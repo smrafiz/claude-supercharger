@@ -99,6 +99,39 @@ denies "envrc" "cat ${E}rc"
 begin_test "GAP CHECK: other credential stores are unaffected"
 denies "npmrc" "cat ${NPM}"
 
+# --- v2.26.68: the two gaps the FP audit found in the v2.26.65 fix ---------------
+
+begin_test "a PR body carrying prose is not executable either"
+# v2.26.65 enumerated -m and --message and stopped, so this still denied.
+allows "pr-body" 'gh pr create --title "Harden installer" --body "Removes the DROP TABLE fallback"'
+
+begin_test "a release --notes body is inert too"
+allows "release-notes" 'gh release create v1.2.0 --notes "drop table legacy_sessions in a follow-up"'
+
+begin_test "grepping source for a .key property is not file access"
+# The sibling-arm defect: v2.26.65 excluded the idioms on the .env arm only, and
+# `.key`, `.cer`, `.pem` are ordinary property names on the arm next to it.
+allows "config-key" 'grep -rn "config.key" src/'
+
+begin_test "ripgrep for a cert property is not file access"
+allows "tls-cer" 'rg "tls.cer" --type ts'
+
+begin_test "GAP CHECK: a real key file passed to grep as a FILE still denies"
+# The distinction the fix rests on: only the first operand is a pattern. Here the
+# pattern is `foo` and the sensitive name is a genuine file argument.
+denies "grep-file-arg" 'grep -rn foo "secrets.json"'
+
+begin_test "GAP CHECK: a real key file is still denied to a non-pattern reader"
+denies "cat-key" 'cat server.key'
+
+begin_test "GAP CHECK: sed reading a real key file still denies"
+denies "sed-key" "sed -n '1,5p' server.pem"
+
+begin_test "GAP CHECK: unbalanced quotes scan the args untouched"
+# _drop_first_operand fails toward MORE scanning; dropping unparsed tokens would
+# hide real filenames.
+denies "unbalanced" 'grep -rn "unclosed server.key'
+
 begin_test "GAP CHECK: an executed shell string is still denied"
 # The case that makes blanket quote-stripping unsafe: here the danger IS the quoted
 # text, because bash -c runs it.

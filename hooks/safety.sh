@@ -561,12 +561,16 @@ _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 #     not fail. Use -m for messages that trip a pattern.
 #   - An unterminated quote matches nothing and is left intact, so malformed input is
 #     scanned in full rather than silently skipped.
+# v2.26.68: --body and --notes join the list. The v2.26.65 pass enumerated -m and
+# --message and stopped there, so `gh pr create --body "...DROP TABLE..."` still
+# denied. safety-detect.py check_sensitive_read had ALREADY listed `gh pr|issue|
+# release create` as message-bearing — the enumeration existed and was not consulted.
 CMD_SCAN="$CMD"
 case "$CMD_SCAN" in
-  *-m\ *|*--message\ *)
+  *-m\ *|*--message\ *|*--body\ *|*--notes\ *)
     CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-      -e "s/((^|[[:space:]])(-m|--message)[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/((^|[[:space:]])(-m|--message)[[:space:]]+)"[^"]*"/\1""/g')
+      -e "s/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+      -e 's/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g')
     ;;
 esac
 

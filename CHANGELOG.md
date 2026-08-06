@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.68] - 2026-08-06 — fix(safety): two false positives the FP audit found in the fix shipped four hours earlier.
+
+First run of an inverted audit lens: every prior sweep (v2.21, v2.22) asked what the guards MISS. This asked what they wrongly BLOCK. Pass 1, 33 ordinary developer operations, found nothing and all three controls fired — the layer is clean on everyday work. Pass 2 used awkward-but-legitimate shapes instead, since every false positive found today was an edge shape rather than a common command: 6 of 29 blocked, of which 2 were real. The other 4 are correct and stay: volume-destroying prune, dropping a database (ask, not deny), emptying a table the guard cannot know is a fixture, and hard reset over uncommitted work.
+
+1. v2.26.65 enumerated -m and --message and stopped, so a PR body still denied on prose. safety-detect.py check_sensitive_read had ALREADY listed gh pr, issue and release create as message-bearing — the enumeration existed and I did not consult it. --body and --notes now join the list.
+
+2. v2.26.65 excluded the property-access idioms on the env arm and did not check the arms beside it. key, cer and pem are ordinary property names, so grepping source for a key property was denied as sensitive file access.
+
+   Fixed by grammar, not by another name list, because the name set is open. For grep, rg, ag, ack, sed and awk the first non-flag operand is defined by the tool to be a pattern, so it is dropped before the sensitive-name search. This is NOT a general ignore-quoted-text rule: grep with a pattern and a real filename as its FILE argument still denies, and unbalanced quotes fail toward scanning everything rather than dropping tokens that failed to parse.
+
+That second finding is the third time today the same lesson has applied — fix one arm, leave the siblings. v2.25.2 to .3 was this, v2.26.64 was this, and this one was my own v2.26.65.
+
++8 tests, 3 failing against the previous hooks, each narrowing paired with the attack case that must still deny. Re-running the audit sweep against the fix: 6 blocked to 4, and the 4 survivors are the intended ones.
+
+KNOWN GAP, found while writing this message: the -m and --message blanking runs through sed, which is line-oriented, so it does not match a MULTI-LINE message value. Single-line commit messages are covered; a multi-line release message is not. Tracked for the next release rather than fixed here, because widening it touches the same matching path this release just narrowed twice.. 3403 tests passing.
 - [2.26.67] - 2026-08-06 — chore(ledger): raise the stored-command cap from 120 to 400 — the reason for 120 stopped being true two releases ago.
 
 The cap existed to "avoid bloating session context". That was accurate when the [BLOCKS] summary injected command text. It has not injected command text since v2.26.63, which switched to reasons only — so since then the cap has protected nothing and starved /why and post-hoc analysis instead.

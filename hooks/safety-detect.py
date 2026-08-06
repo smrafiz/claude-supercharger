@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 import re
+import shlex
 import sys
 
 cmd = os.environ.get("CMD", "")
@@ -145,6 +146,39 @@ _SENSITIVE_NAME_RE = re.compile(
 )
 
 
+# v2.26.68: tools whose FIRST non-flag operand is a pattern/script, not a path.
+# `grep -rn "config.key" src/` was denied as "sensitive file access: config.key",
+# because the search pattern was scanned as if it named a file. Same class as the
+# `process.env` fix in v2.26.65 — and found by auditing the OTHER ARMS of that same
+# regex, which that fix did not do. `.key`, `.cer` and `.pem` are ordinary property
+# names, so the arm matched `config.key`, `tls.cer`, and so on.
+#
+# Fixed by syntax rather than by another name list: for these tools the first operand
+# is defined by the tool's own grammar to be a pattern, so dropping it is exact and
+# does not need to guess. Crucially it is NOT a general "ignore quoted text" rule —
+# `grep -rn foo "secrets.json"` still denies, because there the first operand is the
+# pattern `foo` and the sensitive name is a genuine FILE argument.
+_PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk"}
+
+
+def _drop_first_operand(args: str) -> str:
+    """Remove the leading non-flag token (the pattern/script) from an arg string."""
+    try:
+        toks = shlex.split(args)
+    except ValueError:
+        # Unbalanced quotes: scan the args untouched. Failing toward MORE scanning is
+        # the only safe direction here — dropping tokens we failed to parse would
+        # hide real filenames.
+        return args
+    out, dropped = [], False
+    for t in toks:
+        if not dropped and not t.startswith("-"):
+            dropped = True
+            continue
+        out.append(t)
+    return " ".join(out)
+
+
 def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
     # Skip safe metadata commits/PRs that may mention sensitive names in text
@@ -152,10 +186,12 @@ def check_sensitive_read(c: str) -> str | None:
         return None
 
     # Reader/editor commands followed by a sensitive filename token
-    READER = r"\b(?:cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|awk|sed|tee|xxd|hexdump|od)\b"
+    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od)\b"
     # Capture the args of a reader command and search for sensitive names within
     for m in re.finditer(READER + r"\s+([\S\s]*?)(?:$|\||;|&&|\|\|)", c):
-        args = m.group(1)
+        args = m.group(2)
+        if m.group("tool") in _PATTERN_READERS:
+            args = _drop_first_operand(args)
         sm = _SENSITIVE_NAME_RE.search(args)
         if sm:
             return f"sensitive file access: {sm.group(0)} — credentials likely present"
