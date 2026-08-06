@@ -370,6 +370,67 @@ jobs:
           echo "installed safety.sh rc=$hrc (expect 2)"
           [ "$hrc" -eq 2 ] || { echo "the INSTALLED hook did not block a destructive command"; exit 1; }
 
+      # The updater had never run on Windows either, which is why a user asking
+      # "should I use /sc-update on Windows?" had to be told no, use git pull and
+      # install.sh instead — the installer is verified here, the updater was not.
+      # update.sh also has form for reporting success while deploying nothing (see
+      # the note at tools/update.sh:295), and a silent no-op on an unverified
+      # platform is the worst outcome: the user believes they have a fix they do
+      # not have. So this asserts BEHAVIOUR, not the exit code.
+      - name: update.sh runs on Git Bash and actually deploys
+        run: |
+          set +e
+          WORK=$(mktemp -d)
+          export HOME="$WORK/home"
+          mkdir -p "$HOME"
+
+          # Seed an install, then age its version marker so the updater has
+          # something real to do rather than short-circuiting on "up to date".
+          bash install.sh --mode full --roles developer \
+            --config deploy --settings deploy --economy lean >"$WORK/install.log" 2>&1
+          [ $? -eq 0 ] || { echo "seed install failed"; cat "$WORK/install.log"; exit 1; }
+          echo "0.0.1" > "$HOME/.claude/supercharger/.version"
+
+          # Run the INSTALLED copy, not tools/update.sh from the checkout. That is
+          # what /sc-update invokes, and it is the branch that clones to a temp dir.
+          # Run from the checkout instead, update.sh does `git pull --rebase` on the
+          # checkout itself — which fails on CI's detached HEAD and on any working
+          # tree with local edits. Caught in a local dry-run before it could redden
+          # this job for a reason no user would ever hit.
+          UPD="$HOME/.claude/supercharger/tools/update.sh"
+          [ -f "$UPD" ] || { echo "installer did not deploy update.sh"; exit 1; }
+
+          # --check is read-only. A network failure on a CI runner is not a product
+          # bug, so an unreachable GitHub is tolerated — but a crash is not.
+          bash "$UPD" --check >"$WORK/check.log" 2>&1
+          crc=$?
+          echo "--check rc=$crc"; cat "$WORK/check.log"
+          if [ "$crc" -ne 0 ]; then echo "update.sh --check crashed on Git Bash"; exit 1; fi
+
+          if grep -qi 'could not reach github' "$WORK/check.log"; then
+            echo "NOTE: GitHub unreachable from this runner — skipping the deploy half."
+            exit 0
+          fi
+
+          bash "$UPD" --yes >"$WORK/update.log" 2>&1
+          urc=$?
+          echo "--yes rc=$urc"
+          if [ "$urc" -ne 0 ]; then
+            echo "--- update output ---"; cat "$WORK/update.log"; exit 1
+          fi
+
+          # BEHAVIOUR, not the marker: the version file is what update.sh writes
+          # itself, so trusting it would re-create the bug it once had.
+          n=$(ls "$HOME/.claude/supercharger/hooks/"*.sh 2>/dev/null | wc -l | tr -d ' ')
+          echo "hooks present after update: $n"
+          [ "${n:-0}" -gt 100 ] || { echo "update deployed nothing"; cat "$WORK/update.log"; exit 1; }
+
+          printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"%s"}' "$WORK" \
+            | bash "$HOME/.claude/supercharger/hooks/safety.sh" >/dev/null 2>&1
+          hrc=$?
+          echo "post-update safety.sh rc=$hrc (expect 2)"
+          [ "$hrc" -eq 2 ] || { echo "hooks stopped guarding after an update"; exit 1; }
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}
