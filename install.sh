@@ -389,8 +389,25 @@ ROLES_LIST=$(format_roles_list)
 MODE_LABEL=$(capitalize "$MODE")
 
 if [[ "$CLAUDE_MD_ACTION" == "deploy" || "$CLAUDE_MD_ACTION" == "replace" ]]; then
-  sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" -e "s/{{VERSION}}/v${VERSION}/g" \
-    "$SCRIPT_DIR/configs/universal/CLAUDE.md" > "$HOME/.claude/CLAUDE.md"
+  # v2.26.72: write the SAME wrapper the merge path appends. This branch used to
+  # write the bare template, so a fresh install produced a CLAUDE.md that nothing
+  # else could recognise:
+  #   - uninstall.sh keys on `^# --- Claude Supercharger` and left all 54 lines
+  #     behind — verified, and a straight violation of "clean uninstall".
+  #   - the next install's merge path saw an unmarked block and stripped it with
+  #     the pre-v2.3 LEGACY rule, warning about a block it had written itself one
+  #     run earlier. That warning is what prompted this.
+  #   - that legacy rule deletes from the H1 to EOF, so anything a user appended
+  #     after the block went with it (backed up, but gone from the live file).
+  # One writer, one marker, so every reader agrees.
+  {
+    echo "# --- Claude Supercharger v${VERSION} ---"
+    echo "# Do not edit below this line. Managed by Supercharger."
+    echo "# To remove: run uninstall.sh or delete this block."
+    echo ""
+    sed -e "s/{{ROLES}}/$ROLES_LIST/g" -e "s/{{MODE}}/$MODE_LABEL/g" -e "s/{{VERSION}}/v${VERSION}/g" \
+      "$SCRIPT_DIR/configs/universal/CLAUDE.md"
+  } > "$HOME/.claude/CLAUDE.md"
   success "Universal config installed"
 elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
   # Remove existing Supercharger block if present

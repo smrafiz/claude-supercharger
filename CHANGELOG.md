@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.72] - 2026-08-06 — fix(install): a fresh install wrote a managed block that uninstall could not remove.
+
+Surfaced by a warning on a real Windows desktop, on the second install of the day:
+
+    Stripped legacy unmarked Supercharger block ... (backup at .legacy-bak)
+
+Nothing legacy about it. The deploy/replace branch wrote the bare template while the merge branch appended a wrapper marker, so the installer was stripping a block IT HAD WRITTEN ITSELF one run earlier, using the pre-v2.3 rule meant for genuinely old installs.
+
+The warning was cosmetic. What it exposed was not: uninstall.sh strips from the marker to end of file, so after a fresh deploy install it recognised nothing and left all 54 lines of the managed block in place. Verified before and after. That is a straight violation of principle 2, be reversible with a clean uninstall.
+
+Both branches now write the same wrapper. One writer, one marker, every reader agrees — the same shape as the cross-channel drift this repo keeps rediscovering.
+
++6 tests, 3 failing against the previous installer, including the reported warning itself and the uninstall leftover. One asserts the genuine pre-v2.3 legacy path still works, since this fix must not silently retire it.
+
+DELIBERATELY NOT FIXED, decided rather than missed. Content a user appends AFTER the managed block is still removed on re-install, because the merge path deletes to end of file; it lands in the backup but disappears from the live copy. And uninstall restores a backup that may itself contain a block, so the file can end up with Supercharger content again. Both are lifecycle-semantics questions about what config preserved and restore exactly should mean, not one-line fixes, and both are recorded in the test header rather than left to be rediscovered.. 3426 tests passing.
 - [2.26.71] - 2026-08-06 — fix(windows): python wrote UTF-8 characters to a cp1252 console, so the statusline died and took the context bar with it.
 
 Reported from a real Windows desktop on enabling autopilot:
