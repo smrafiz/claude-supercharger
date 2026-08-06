@@ -315,6 +315,61 @@ jobs:
           echo ".gitattributes worktree ending: $ga"
           [ "$ga" = "w/lf" ] || { echo ".gitattributes is not itself pinned to LF"; exit 1; }
 
+      # Every step above exercises hooks from the CHECKOUT. This is the only one
+      # that exercises what a real user touches FIRST, and until now install.sh had
+      # never run on Windows at all — not here, not by a human. Its Windows arm
+      # (v2.26.58: platform detection moved above the dependency gates, plus the
+      # winget/choco jq branch) had therefore never executed on the platform it was
+      # written for. `test-install.sh` covers the installer, but the suite it lives
+      # in runs only on ubuntu and macos.
+      #
+      # Asserts OUR behaviour, not the environment's: that the installer exits 0,
+      # that it produced the files it claims to, that settings.json carries hook
+      # registrations, and that a hook INSTALLED BY IT still blocks. G4b was a step
+      # asserting a fact about Python rather than about our code, and stayed red
+      # after the code was fixed — this avoids that shape.
+      - name: install.sh runs non-interactively and the installed hook fires
+        run: |
+          # The runner starts steps with -e; capturing rc from a hook that exits
+          # non-zero would abort the step instead of reporting the code.
+          set +e
+          WORK=$(mktemp -d)
+          export HOME="$WORK/home"
+          mkdir -p "$HOME"
+          LOG="$WORK/install.log"
+
+          bash install.sh --mode full --roles developer \
+            --config deploy --settings deploy --economy lean >"$LOG" 2>&1
+          rc=$?
+          echo "installer rc=$rc"
+          if [ "$rc" -ne 0 ]; then
+            echo "--- installer output ---"; cat "$LOG"; exit 1
+          fi
+
+          for f in .claude/CLAUDE.md .claude/settings.json \
+                   .claude/supercharger/hooks/safety.sh; do
+            if [ ! -f "$HOME/$f" ]; then
+              echo "MISSING after install: $f"
+              echo "--- installer output ---"; cat "$LOG"; exit 1
+            fi
+            echo "  present: $f"
+          done
+
+          if ! jq -e '.hooks | length > 0' "$HOME/.claude/settings.json" >/dev/null; then
+            echo "settings.json has no hook registrations"
+            jq . "$HOME/.claude/settings.json" 2>&1 | head -30
+            exit 1
+          fi
+          echo "settings.json parses and carries hook registrations"
+
+          # The decisive assertion: a hook placed by install.sh — not the checkout
+          # copy every other step uses — still denies on Git Bash.
+          printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf /"},"cwd":"%s"}' "$WORK" \
+            | bash "$HOME/.claude/supercharger/hooks/safety.sh" >/dev/null 2>&1
+          hrc=$?
+          echo "installed safety.sh rc=$hrc (expect 2)"
+          [ "$hrc" -eq 2 ] || { echo "the INSTALLED hook did not block a destructive command"; exit 1; }
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}
