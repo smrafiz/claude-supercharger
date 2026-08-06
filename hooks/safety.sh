@@ -533,11 +533,40 @@ _cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${PERSIST_PATTERNS[@]}")
 _cat_enabled "credentials" && DANGEROUS_PATTERNS+=("${CRED_CMD_PATTERNS[@]}")
 _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 
+# v2.26.65: blank the VALUE of -m/--message before pattern matching. These patterns
+# match the raw command with no awareness of shell quoting, so prose inside a commit
+# or release message was treated as executable. Measured on a benign corpus: 4 of 14
+# ordinary commands denied, two of them commit messages —
+#   git commit -m "fix: truncate the log output"   -> TRUNCATE ... pattern
+#   git commit -m "docs: when to DROP TABLE"       -> DROP TABLE pattern
+# Both are inert: a message body is data git stores, never a command it runs.
+#
+# safety-detect.py's check_sensitive_read has exempted `git commit`/`git tag` since
+# it was written, so this follows the existing design rather than inventing a hole.
+#
+# Scoped deliberately:
+#   - Only the quoted VALUE is blanked, never the rest of the line, so
+#     `git commit -m "x" && rm -rf /` still denies on the rm.
+#   - Only -m/--message. `git commit -F -` heredoc bodies are NOT stripped: finding a
+#     heredoc terminator in a newline-collapsed string is ambiguous, and guessing wrong
+#     removes real commands from the scan — a false NEGATIVE, the direction that must
+#     not fail. Use -m for messages that trip a pattern.
+#   - An unterminated quote matches nothing and is left intact, so malformed input is
+#     scanned in full rather than silently skipped.
+CMD_SCAN="$CMD"
+case "$CMD_SCAN" in
+  *-m\ *|*--message\ *)
+    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+      -e "s/((^|[[:space:]])(-m|--message)[[:space:]]+)'[^']*'/\1''/g" \
+      -e 's/((^|[[:space:]])(-m|--message)[[:space:]]+)"[^"]*"/\1""/g')
+    ;;
+esac
+
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
-  if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
+  if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
     for pattern in "${DANGEROUS_PATTERNS[@]}"; do
-      if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$pattern"; then
+      if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$pattern"; then
         block "dangerous pattern: $pattern"
       fi
     done

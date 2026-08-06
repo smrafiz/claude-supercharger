@@ -2,6 +2,19 @@
 
 ## Contents
 
+- [2.26.65] - 2026-08-06 — fix(safety): two false-positive classes — prose in an inert argument value, and a property access read as file access.
+
+Reported as "the safety hook is catching lots of false positives recently". It is not recent: no pattern-widening commit in 14 days, and v2.26.17 was narrow. Measured on a corpus of ordinary developer commands, 4 of 14 were denied.
+
+1. safety.sh matched patterns against the raw command with no awareness of shell quoting, so a commit or release message was scanned as if it were code. A message body is data git stores, never a command it runs. The VALUE of -m/--message is now blanked before matching. safety-detect.py check_sensitive_read has exempted git commit and git tag since it was written, so this follows existing design rather than inventing a hole.
+
+   Scoped so the narrowing cannot become a gap: only the quoted value is blanked, never the rest of the line, so a payload chained after a message still denies. Heredoc bodies for git commit -F are NOT stripped — locating a terminator in a newline-collapsed string is ambiguous, and guessing wrong removes real commands from the scan, which is the direction that must not fail.
+
+2. safety-detect.py _SENSITIVE_NAME_RE matched inside any identifier ending in the env suffix, so grepping source for a property access was denied as sensitive file access.
+
+   The obvious fix is a left boundary, and it is WRONG. It reads well, clears the false positives, and silently stops matching prod, backup and staging env files — real credential stores whose names are syntactically identical to the idioms. I proposed that fix and reported it as zero-regression before noticing the true-positive set I tested against had no such names in it. Only the two idioms are excluded now, by name.
+
++16 tests, 4 of which fail against the previous hooks. Every narrowing has a paired attack case, because the last guard narrowed to clear false positives (v2.24.9) opened a real one. One of those checks failed on first run and turned out to assert the wrong thing: an unterminated quote is a shell syntax error, so nothing after it executes and allowing it is correct. It failed identically against the pre-fix hook, which is what prompted checking the shell rather than trusting the assertion.. 3385 tests passing.
 - [2.26.64] - 2026-08-06 — fix(learning): three sibling ledgers never got the v2.26.17 line-integrity fix, and one of them silently disabled a nudge.
 
 v2.26.17 collapsed newlines before writing .blocked-commands, because that ledger is LINE-BASED: /why reads the last N lines and learn-from-blocks parses it into the summaries injected at every session start. The same contract governs .user-corrections, .user-reinforcements and .failed-commands. None of their writers were fixed. Found by auditing the sibling BRANCHES of the original fix rather than other instances of the same call.

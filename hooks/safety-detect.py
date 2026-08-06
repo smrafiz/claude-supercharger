@@ -106,7 +106,14 @@ _SENSITIVE_NAME_RE = re.compile(
     # `(?:rc)?` is not decoration: `.envrc` (direnv, holds secrets) only ever matched
     # because the pattern was unbounded, so adding the terminator below without this
     # would silently DROP that file from the sensitive set.
-    r"\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?"
+    # v2.26.65: `process.env` / `import.meta.env` are property accesses, not files, and
+    # any command mentioning one (`grep -rn "process.env" src/`) was denied as
+    # "sensitive file access". Excluded by name rather than by a left boundary: a
+    # general `(?<!\w)` here reads well and is WRONG, because it also stops matching
+    # `prod.env`, `backup.env`, `staging.env` — real credential files whose names are
+    # syntactically identical to the idioms. Measured: the boundary version cleared the
+    # two FPs and silently allowed three of those. Only the idioms are excluded.
+    r"(?<!process)(?<!meta)\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
     r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|/)pip\.conf"
