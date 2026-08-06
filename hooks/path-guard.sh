@@ -124,6 +124,7 @@ fi
 
 REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" \
          EXTRA_ROOTS="$EXTRA_ROOTS" SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
+         SID="${CLAUDE_CODE_SESSION_ID:-}" \
          python3 <<'PYEOF'
 import os, sys, re
 
@@ -386,6 +387,19 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     _mem_root = os.path.join(os.path.realpath(os.path.expanduser('~')), '.claude', 'projects')
     _rp = os.path.realpath(p)
     if _rp.startswith(_mem_root + os.sep) and '/memory/' in _rp and _rp.endswith('.md'):
+        sys.exit(0)
+    # v2.26.66: allow the harness's own per-session scratchpad, for the same reason
+    # as the memory store above. Claude Code's system prompt directs ALL temp files
+    # there, yet the Write tool was denied while the identical path succeeded via
+    # Bash — so scratch work got pushed into the project tree instead, which is the
+    # outcome this guard exists to prevent.
+    #
+    # NOT a general /tmp allowance: the path must contain this session's own id
+    # immediately followed by `scratchpad`, so it names one ephemeral directory that
+    # is already writable through the Bash channel. Narrower than the memory-store
+    # allowance above, which permits any projects/**/memory/*.md.
+    _sid = os.environ.get('SID', '')
+    if _sid and ('/' + _sid + '/scratchpad/') in (_rp + '/'):
         sys.exit(0)
     abs_blocked = [
         os.path.expanduser('~/.ssh/'),

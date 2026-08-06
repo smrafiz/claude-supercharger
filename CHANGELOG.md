@@ -2,6 +2,15 @@
 
 ## Contents
 
+- [2.26.66] - 2026-08-06 — fix(path-guard): the Write tool was denied the harness scratchpad that Bash could write freely, so temp files landed in the project tree.
+
+Claude Code directs every temporary file to a per-session scratchpad under the OS temp dir. path-guard abs-path denied that path for Write while the identical path succeeded through the Bash channel — a cross-channel gap whose practical effect was the opposite of the rule intent: scratch work got written into the repo because that was the only channel that accepted it. Hit repeatedly while investigating the false positives in v2.26.65.
+
+Same class as v2.8.11, which carved out Claude Code file-memory store after /remember silently failed for exactly this reason, and this follows that precedent rather than inventing an exception.
+
+Pinned to the CURRENT session id: the path must contain that id as a whole segment immediately followed by the scratchpad directory. It therefore names one ephemeral directory that the Bash channel already writes, and is strictly narrower than the memory-store allowance above it, which permits any projects memory markdown file. CLAUDE_CODE_SESSION_ID had to be added to the explicit env whitelist the python block runs under.
+
++8 tests, 6 of them negative: a bare temp path, another session scratchpad, a lookalike directory name, a partial session-id segment, an empty session id, and an ssh write must all still deny. Two fail against the previous hook, which are the two positive cases.. 3393 tests passing.
 - [2.26.65] - 2026-08-06 — fix(safety): two false-positive classes — prose in an inert argument value, and a property access read as file access.
 
 Reported as "the safety hook is catching lots of false positives recently". It is not recent: no pattern-widening commit in 14 days, and v2.26.17 was narrow. Measured on a corpus of ordinary developer commands, 4 of 14 were denied.
