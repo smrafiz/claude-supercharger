@@ -18,6 +18,29 @@
 : "${SUPERCHARGER_HOME:=${CLAUDE_PLUGIN_ROOT:-$HOME/.claude/supercharger}}"
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 
+# --- python output encoding ---------------------------------------------------
+# v2.26.71: Python on Windows defaults stdout to the ANSI codepage (cp1252 on most
+# installs), so any character outside it raises UnicodeEncodeError and the hook's
+# ENTIRE output is lost. Reported from a real Windows desktop:
+#
+#   [statusline error: 'charmap' codec can't encode character '⚡' ...]
+#
+# U+26A1 is the autopilot bolt. The same crash took the context bar with it, which
+# draws in U+2591 — one report, two symptoms, one cause. Reproduced on macOS by
+# forcing PYTHONIOENCODING=cp1252, which is now how it is regression-tested.
+#
+# Set here rather than per-hook because lib-paths is the one file every hook
+# reaches: 101 source it through lib-suppress, 20 more directly, and statusline
+# sources it at line 15 — well before it spawns python. A per-hook fix would have
+# to land in 80+ files and could be partially applied.
+#
+# `:=` so an explicit user setting is honoured rather than silently overridden.
+# PYTHONIOENCODING covers every supported interpreter; PYTHONUTF8 is 3.7+ and
+# harmless where unsupported.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 # --- per-project scope files --------------------------------------------------
 # .profile, .disabled-hooks, .disabled-security-categories and .budget-cap hold
 # values that belong to ONE project, but they lived at a single global path. With

@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.71] - 2026-08-06 — fix(windows): python wrote UTF-8 characters to a cp1252 console, so the statusline died and took the context bar with it.
+
+Reported from a real Windows desktop on enabling autopilot:
+
+    [statusline error: charmap codec cannot encode character u26a1 in position 85]
+
+U+26A1 is the autopilot bolt. Python on Windows defaults stdout to the ANSI codepage, cp1252 on most installs, and any character outside it raises UnicodeEncodeError — losing the hook entire output, not just the character. The missing context bar reported alongside it was the SAME crash: that bar draws in U+2591, also outside cp1252. One report, two symptoms, one cause.
+
+Fixed in hooks/lib-paths.sh rather than per-hook: it is the one file every hook reaches (101 source it through lib-suppress, 20 more directly, and statusline sources it well before it spawns python). A per-hook fix would have to land in 80+ files and could be partially applied. Uses := so an explicit user setting is honoured rather than silently overridden.
+
+Second, structural: print(line1) sat OUTSIDE the inner try, so one unencodable character in it fell through to the outer handler and replaced ALL THREE lines with an error string. Lines 2 and 3 already degraded independently; line 1 now does too, so the worst case is one blank line rather than a dead statusline.
+
+TESTING NOTE, because the first two attempts proved nothing. A statusline with nothing to report is pure ASCII and cannot reproduce this, so the fixture now stages an autopilot window and a guard test asserts the fixture actually emits the bolt. And the Windows platform default cannot be simulated here at all — python 3.7+ coerces the C locale to UTF-8 (PEP 538), so LC_ALL=C does not reproduce it. The encoding test therefore asserts OUR exported variable, not python resulting encoding, which is the same mistake G4b made in CI.
+
++6 tests, 3 failing against the previous hooks including the live symptom.. 3420 tests passing.
 - [2.26.70] - 2026-08-06 — fix(windows): blocking hooks timed out at 15s on Git Bash and their output was discarded.
 
 Reported from the same real Windows desktop as v2.26.69, on every prompt:

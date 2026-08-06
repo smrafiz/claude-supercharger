@@ -1,0 +1,109 @@
+#!/usr/bin/env bash
+# Python output encoding on Windows consoles (v2.26.71)
+#
+# Python on Windows defaults stdout to the ANSI codepage — cp1252 on most installs.
+# Any character outside it raises UnicodeEncodeError, and the hook's ENTIRE output
+# is lost. Reported from a real Windows desktop when autopilot was enabled:
+#
+#   [statusline error: 'charmap' codec can't encode character '⚡' ...]
+#
+# U+26A1 is the autopilot bolt. The same crash also took the context bar, which
+# draws in U+2591 — one report, two symptoms, one cause.
+#
+# Reproducible on macOS/Linux by forcing PYTHONIOENCODING=cp1252, which is what
+# makes this testable at all without a Windows box.
+REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
+source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+
+echo "=== Python Output Encoding ==="
+
+begin_test "lib-paths EXPORTS a UTF-8 encoding when none is set"
+# Asserts OUR variable, not python's resulting encoding. On macOS and Linux python
+# already defaults to UTF-8, so checking sys.stdout.encoding passes with or without
+# the fix — the first version of this test did exactly that and proved nothing.
+# The Windows platform default cannot be simulated here at all: python 3.7+ coerces
+# the C locale to UTF-8 (PEP 538), so LC_ALL=C does not reproduce it either.
+SET=$(env -u PYTHONIOENCODING -u PYTHONUTF8 bash -c "
+  . '$REPO_DIR/hooks/lib-paths.sh' 2>/dev/null
+  printf '%s' \"\${PYTHONIOENCODING:-UNSET}\"
+" 2>/dev/null)
+[ "$(printf '%s' "$SET" | tr 'A-Z' 'a-z')" = "utf-8" ] && pass \
+  || fail "lib-paths left PYTHONIOENCODING as '$SET' — a Windows console would use cp1252"
+
+begin_test "an explicit user setting is honoured, not overridden"
+# Silently clamping a value the user set is its own bug class in this repo.
+GOT=$(env PYTHONIOENCODING=latin-1 bash -c "
+  . '$REPO_DIR/hooks/lib-paths.sh' 2>/dev/null
+  python3 -c 'import os; print(os.environ[\"PYTHONIOENCODING\"])'
+" 2>/dev/null)
+[ "$GOT" = "latin-1" ] && pass || fail "override lost: got '$GOT'"
+
+# A statusline with nothing to report is pure ASCII and cannot reproduce this at
+# all — the first version of these tests passed against the PRE-FIX code for that
+# reason. The bolt only renders while an autopilot window is open, so the fixture
+# has to stage one. Read from ~/.claude/supercharger/scope, which follows HOME.
+stage_bolt() { # -> echoes a state dir whose statusline contains U+26A1
+  local sl; sl=$(mktemp -d)
+  mkdir -p "$sl/scope" "$sl/home/.claude/supercharger/scope"
+  printf '%s' "$(( $(date +%s) + 3600 ))" > "$sl/home/.claude/supercharger/scope/.autopilot-until"
+  printf '%s' "$sl"
+}
+render() { # state-dir, encoding -> statusline output (empty encoding = inherit)
+  local sl="$1" enc="${2:-}"
+  # An earlier version wrote `${enc:+PYTHONIOENCODING="$enc"} ${enc:-}`, where the
+  # second expansion repeated the VALUE as a bare argument — env then tried to run
+  # `cp1252` as a command, produced nothing, and every grep-for-absence assertion
+  # passed for the wrong reason.
+  if [ -n "$enc" ]; then
+    printf '{"session_id":"enc","cwd":"%s","model":{"display_name":"Opus"},"workspace":{"current_dir":"%s"}}' \
+      "$REPO_DIR" "$REPO_DIR" \
+    | env PYTHONIOENCODING="$enc" HOME="$sl/home" SUPERCHARGER_STATE="$sl" \
+      bash "$REPO_DIR/hooks/statusline.sh" 2>&1
+  else
+    printf '{"session_id":"enc","cwd":"%s","model":{"display_name":"Opus"},"workspace":{"current_dir":"%s"}}' \
+      "$REPO_DIR" "$REPO_DIR" \
+    | env -u PYTHONIOENCODING -u PYTHONUTF8 HOME="$sl/home" SUPERCHARGER_STATE="$sl" \
+      bash "$REPO_DIR/hooks/statusline.sh" 2>&1
+  fi
+}
+
+begin_test "the fixture actually renders the autopilot bolt"
+# Guards the guard: if this stops emitting U+26A1, every assertion below becomes
+# vacuous without failing, which is precisely what happened on the first attempt.
+SL=$(stage_bolt)
+render "$SL" "" | grep -q 'Autopilot' && pass || fail "fixture does not produce the bolt — the tests below prove nothing"
+rm -rf "$SL"
+
+begin_test "the autopilot bolt survives a default environment"
+SL=$(stage_bolt)
+OUT=$(render "$SL" "")
+if printf '%s' "$OUT" | grep -q 'statusline error'; then
+  fail "statusline errored in a default environment: $(printf '%s' "$OUT" | head -1)"
+else
+  pass
+fi
+rm -rf "$SL"
+
+begin_test "a hostile encoding degrades to a blank line, never to an error string"
+# The structural half of the fix. print(line1) used to sit OUTSIDE the inner try,
+# so one unencodable character replaced ALL THREE lines with an error string.
+# Lines 2 and 3 already degraded independently; line 1 now does too. The worst case
+# is a missing line, not a dead statusline.
+SL=$(stage_bolt)
+OUT=$(render "$SL" cp1252)
+if printf '%s' "$OUT" | grep -q 'statusline error'; then
+  fail "cp1252 still produces an error string rather than degrading"
+else
+  pass
+fi
+rm -rf "$SL"
+
+begin_test "the statusline still emits three lines when it degrades"
+# Claude Code renders a fixed number of statusline rows; collapsing to one would
+# shift the display even when the content is merely missing.
+SL=$(stage_bolt)
+N=$(render "$SL" cp1252 2>/dev/null | wc -l | tr -d ' ')
+[ "${N:-0}" -ge 3 ] && pass || fail "expected >=3 lines, got ${N:-0}"
+rm -rf "$SL"
+
+report

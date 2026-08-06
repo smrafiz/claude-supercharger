@@ -590,7 +590,15 @@ try:
  else:
      line3 = f'{DIM}{cost_label}{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}{budget_str}{rl_str}'
 
- print(line1)
+ # v2.26.71: line1 was printed OUTSIDE a try, so a single unencodable character in
+ # it fell through to the outer handler and replaced ALL THREE lines with an error
+ # string — which is exactly what a Windows console did with the autopilot bolt.
+ # Lines 2 and 3 already degraded independently; line 1 now does too, so the worst
+ # case is one blank line instead of a dead statusline.
+ try:
+     print(line1)
+ except Exception:
+     print('')
  try:
      print(line2)
  except Exception:
