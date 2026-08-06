@@ -1,100 +1,92 @@
 # Roadmap — Claude Supercharger
 
+**Current: v2.26.62** — 133 hook scripts (129 registered across events; the rest are the
+statusline and shared helpers), 3351 tests passing, CI green on macOS, Linux and Windows.
+
+Per-release detail lives in [`../CHANGELOG.md`](../CHANGELOG.md) (2.10+) and
+[`CHANGELOG-archive.md`](CHANGELOG-archive.md) (earlier). This file records *direction* —
+what is done, what is next, and what was considered and rejected.
+
 ---
 
 ## Shipped
 
+### Themes since v2.0
+
+Over 440 releases, grouped by what they were actually for:
+
+- **Security coverage** — the largest single line of work. Two adversarial hook audits
+  (the v2.21 and v2.22 series) plus ongoing sweeps closed path-traversal,
+  secret-exfiltration, self-modification, git data-loss, egress, MCP, skill/agent
+  poisoning and prompt-injection classes. Every guard that can *loosen* the
+  system (`sc-toggle`, `hook-toggle`, `trust-mcp`) is now gated behind an explicit
+  confirmation, because all three were agent-invokable.
+- **Per-project isolation** — scope state, security-category opt-outs, `allowPatterns` and
+  `additionalRoots` are keyed per project, so one repo can no longer change another's rules.
+- **Performance** — the Bash hook chain went 130 ms → 93 ms → ~72 ms by removing forks
+  (`cat`, `jq`, `md5`) from hot paths. Note that Claude Code runs matching hooks **in
+  parallel**: the felt cost is the slowest hook (~7.6 ms), not the chain sum.
+- **Plugin distribution** — Supercharger installs as a Claude Code plugin as well as a
+  classic `install.sh`; the two detect each other and refuse to double-fire.
+- **Cross-platform** — `.gitattributes` LF policy, a portable hash chain, a Windows/WSL
+  notification backend, and a `windows-latest` CI job.
+- **Learning loop** — blocked commands, corrections and recorded lessons are replayed at
+  session start (`learn-from-blocks`, `learn-from-prompts`, `lesson-record`, `lesson-recall`).
+
 ### v2.0 — "Never Be Surprised"
 
-**Wave 1: Cost Shield**
-- `budget-cap.sh` — session cost accumulator + optional hard stop at user-defined limit
-- `cost-forecast.sh` — estimates cost before agent spawns
-- `cache-health.sh` — warns when prompt cache hit rate degrades (safe mode)
-- `subagent-cost.sh` — per-agent cost visibility with JSONL logging
-- Statusline: budget display on line 3, cache health coloring on line 2
-
-**Wave 2: Smart Adaptation**
-- `adaptive-economy.sh` upgrade — auto-switches tier at context thresholds + session-history learning
-- `thinking-budget.sh` — calibrates reasoning depth by task complexity
-- `rate-limit-advisor.sh` — warns when session projected to exhaust in <30m
-- Statusline: burn rate projection on line 3
-
-**Wave 3: Session Intelligence**
-- `session-checkpoint.sh` — crash-resilient state written on every file change
-- `session-memory-inject.sh` upgrade — checkpoint recovery + enriched resume (diff/cost/failures)
-- `tools/hook-perf.sh` — hook performance profiler with timing analysis
-- `project-config.sh` upgrade — parses budget, autoEconomy, thinkingControl, forecastTurnsPerAgent
-
-**Hook counts:** Safe: 10 (+1), Full+dev: 64 (+10). Tests: 342 passing.
-
----
-
-### v1.0.1 — Current release
-
-**Protection layer (9 safe mode hooks + 43 full mode hooks = 52 total)**
-
-Safe mode hooks:
-- `safety.sh` — blocks destructive commands, credential exfiltration, force-push to main
-- `code-security-scanner.sh` — warns on eval(), innerHTML=, pickle.load(), SQL injection, weak crypto, hardcoded secrets
-- `smart-approve.sh` — auto-approves read-only operations (Read, Glob, Grep, git status, curl GET)
-- `audit-trail.sh` — JSONL log of every file write and shell command, credentials auto-redacted, 30-day rotation
-- `trace-compactor.sh` — compresses large Python/Node tracebacks to 1-line summaries
-- `mcp-output-truncator.sh` — caps MCP responses at 3.5K chars
-- `prompt-injection-scanner.sh` — detects "ignore previous instructions" and similar patterns in MCP/web output
-- `output-secrets-scanner.sh` — scans Bash/Read output for leaked credentials (AWS, OpenAI, Slack, Stripe, etc.)
-- `config-scan.sh` — scans CLAUDE.md and settings.json at session start for injection patterns
-
-Full mode adds 43 hooks across: notifications, git safety, scope/memory, learning loop, monitoring, agent routing, session/compaction, verification/quality.
-
-**Intelligence layer (prompt-level)**
-- 3-line statusline: model, project, branch, stack, economy tier, memory/scan indicators, agent, MCP, context bar, cost, rate limit
-- Token economy: Standard (~30%), Lean (~45%), Minimal (~60%) — switchable mid-conversation
-- Agent routing: 9 types, task-classified per prompt
-- 8 roles: developer, designer, devops, pm, researcher, student, data, writer
-- Slash commands: /think, /challenge, /refactor, /audit, /test, /doc
-- Skill routing table: maps task types to superpowers skills
-- Project config: `.supercharger.json` for team-shared settings
-- Session memory: written on stop and compact, injected on next start
-- Learning loop: logs blocked commands and corrections, replays at session start
-- MCP profiles: light (~300 tokens), dev (~1,200), research (~1,500), full (~3,500)
-- Context advisor: warns at 50%, recommends compact at 70%, minimal at 80%, critical at 90%
-- Quality gates: lint after edits, TypeScript check after .ts/.tsx, verify-on-stop
-
-**Tooling**
-- `install.sh` / `uninstall.sh` — interactive + non-interactive modes, backup/restore
-- `update.sh`, `economy-switch.sh`, `hook-toggle.sh`, `config-health.sh`
-- `mcp-setup.sh`, `mcp-profile.sh`, `claude-check.sh`, `token-report.sh`, `session-analytics.sh`
-- `notify-toggle.sh`, `webhook-setup.sh`, `bump-version.sh`
-- 293 tests passing
+Cost shield (`budget-cap`, `cost-forecast`, `cache-health`, `subagent-cost`), adaptive
+economy, session checkpointing, and the hook performance profiler.
 
 ---
 
 ## Near term
 
-### ~~Adaptive economy~~ → shipped in v2.0
+### Windows — finish verification, not code
+
+Phases 1 and 2 are code-complete and gaps G1–G6 are closed and verified on a
+`windows-latest` runner ([`WINDOWS-SUPPORT-PLAN.md`](WINDOWS-SUPPORT-PLAN.md) §11.1).
+What remains cannot be done from CI:
+
+- **No toast has been observed to render.** The runner proves backend selection and a
+  non-error exit — not pixels.
+- **No human has run a full install on a Windows desktop.**
+
+The README's Windows claim stays at its current strength until one of those happens.
 
 ---
 
 ## Longer term
 
 ### Hook pipeline composer
-Chain hooks into sequential pipelines. If any hook exits 2, pipeline stops. Useful for project-specific pre-flight sequences.
 
-### ~~Enhanced resume~~ → shipped in v2.0 (memory + git diff + cost + failures)
+Chain hooks into ordered, project-defined sequences that stop on the first exit 2.
 
-### Learn from sessions
-Analyze past conversations for repeated corrections and violated instructions. Surface patterns as suggested additions to CLAUDE.md.
+*Status: not built, and the case for it has weakened.* Hooks already run in parallel per
+event, which is why latency stayed flat as the count grew — sequencing them would give
+that up. It also cuts against principle 1 below: a pipeline is a config file the user has
+to author. Revisit only if a concrete project-specific pre-flight sequence turns up that
+the existing event model genuinely cannot express.
+
+### ~~Learn from sessions~~ → shipped
+
+Repeated corrections and blocked commands are logged and surfaced at session start.
 
 ---
 
 ## Principles
 
 Every feature must:
-1. **Work without code** — no editing config files, no scripting, no CLI flags beyond install.sh
+1. **Work without code** — no editing config files, no scripting, no CLI flags beyond `install.sh`
 2. **Be reversible** — clean uninstall, no orphaned files, backup before any change
 3. **Respect the user** — no telemetry, no external calls, no data leaves the machine
 4. **Stay lightweight** — Bash + Python 3 only, no npm install, no compiled binaries
 5. **Add measurable value** — if you can't show a before/after improvement, don't ship it
+
+A sixth rule earned the hard way: **be an enforcement layer, not an orchestrator.**
+Supercharger guards the harness around Claude. Features that instead try to direct
+Claude's work — plan/ship pipelines, multi-agent scanners, workflow ceremony — have been
+evaluated and rejected repeatedly. They belong in skills, not hooks.
 
 ---
 
