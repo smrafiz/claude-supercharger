@@ -106,7 +106,21 @@ if [[ "$MODE" == "accumulate" ]]; then
   PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
   SESSION_ID_RAW="$SESSION_ID_RAW" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
-import json, os, fcntl, time, datetime, re
+import json, os, time, datetime, re
+
+# v2.26.73: fcntl does not exist on Windows python. Imported unconditionally, the
+# ModuleNotFoundError killed this whole block before it wrote anything — so on Git
+# Bash the per-session token file was never created (statusline showed `main 0`)
+# and, far worse, THE BUDGET CAP NEVER RAN. A cost guard that silently does nothing
+# is the worst failure mode available to it. Reported from a real Windows desktop.
+#
+# Degrading to no lock is safe rather than a compromise: the acquire below is
+# already bounded and falls through to a best-effort unlocked write after ~2s, so
+# this simply takes a path the code has always tolerated. os.replace stays atomic.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 
 cost_file = os.environ['COST_INPUT']
 transcript = os.environ['TRANSCRIPT']
@@ -134,7 +148,7 @@ try:
     # without the lock — a rare lost delta under real contention beats a permanent
     # session hang. Uncontended acquire still succeeds on the first try.
     _deadline = time.time() + 2.0
-    while True:
+    while fcntl is not None:   # no fcntl (Windows) -> the unlocked path below
         try:
             fcntl.flock(_lf, fcntl.LOCK_EX | fcntl.LOCK_NB)
             break
@@ -275,7 +289,8 @@ except Exception:
 finally:
     if _lf is not None:
         try:
-            fcntl.flock(_lf, fcntl.LOCK_UN)
+            if fcntl is not None:
+                fcntl.flock(_lf, fcntl.LOCK_UN)
             _lf.close()
         except Exception:
             pass

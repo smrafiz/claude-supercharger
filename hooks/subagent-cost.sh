@@ -297,12 +297,24 @@ cost_delta = max(0.0, turn_cost - prev_cost)
 # whole RMW. The atomic rename already prevented corruption; this prevents lost
 # updates.
 cost_file = os.path.join(scope_dir, '.session-cost')
-import fcntl
+# v2.26.73: optional, because Windows python has no fcntl. Unconditional, the
+# import killed this block outright — the same failure that made budget-cap's
+# token file and the budget cap itself silently inert on Git Bash. Fixed in both
+# because they lock the SAME file and would otherwise drift apart.
+#
+# Note the acquire below is BLOCKING (LOCK_EX, no timeout), unlike budget-cap's
+# bounded one. That difference is pre-existing and out of scope here; skipping the
+# lock entirely when fcntl is absent sidesteps it on the platform that cannot lock.
+try:
+    import fcntl
+except ImportError:
+    fcntl = None
 lock_file = cost_file + '.lock'
 _lf = None
 try:
     _lf = open(lock_file, 'w')
-    fcntl.flock(_lf, fcntl.LOCK_EX)
+    if fcntl is not None:
+        fcntl.flock(_lf, fcntl.LOCK_EX)
 except Exception:
     _lf = None
 try:
@@ -344,7 +356,8 @@ try:
 finally:
     if _lf is not None:
         try:
-            fcntl.flock(_lf, fcntl.LOCK_UN)
+            if fcntl is not None:
+                fcntl.flock(_lf, fcntl.LOCK_UN)
             _lf.close()
         except Exception:
             pass

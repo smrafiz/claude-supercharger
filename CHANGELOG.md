@@ -2,6 +2,22 @@
 
 ## Contents
 
+- [2.26.73] - 2026-08-06 — fix(windows): python has no fcntl there, so cost accounting and the budget cap were silently dead.
+
+Reported from a real Windows desktop as a statusline reading main 0 while the context bar showed 214.3K and a cost of $8.52 — three numbers that cannot all be right.
+
+budget-cap and subagent-cost both did import fcntl unconditionally. Windows python has no such module, so the ModuleNotFoundError killed the whole block before it wrote anything. Two consequences, and the visible one is the lesser:
+
+  - the per-session token file was never created, so the statusline had nothing to read and showed main 0. That is the reported symptom.
+  - THE BUDGET CAP NEVER RAN. .session-cost was never written, so nothing was ever compared against a configured budget. A cost guard that silently does nothing is the worst failure mode available to it, and nobody would have noticed until a bill arrived.
+
+Both files now import it optionally and skip locking when it is absent. That is a degradation the code already tolerated rather than a new compromise: budget-cap acquire is bounded and falls through to a best-effort unlocked write after ~2s, and os.replace stays atomic. Fixed in BOTH because they lock the same file and would otherwise drift.
+
+Reproduced on macOS by putting a module on PYTHONPATH that raises on import, which is how a Windows interpreter behaves without needing one. That is now the regression test.
+
++7 tests, 5 failing against the previous hooks. One asserts the shim really does break the import, because a guard that stops guarding makes every case below pass for free. One is a meta-check that no hook imports fcntl unconditionally, so the class cannot come back. And one pins that the token TOTAL is identical with and without the lock — degrading the lock must not degrade the accounting.
+
+Process note: the first run of my own harness reported the fix as broken. It reused one state dir across both cases, so the second saw a consumed transcript offset and produced no delta. The fix was already correct; the harness was not.. 3433 tests passing.
 - [2.26.72] - 2026-08-06 — fix(install): a fresh install wrote a managed block that uninstall could not remove.
 
 Surfaced by a warning on a real Windows desktop, on the second install of the day:
