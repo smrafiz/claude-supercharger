@@ -250,6 +250,7 @@ mkdir -p "$(dirname "$_BLK")" 2>/dev/null || true
 # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
 # destructive block. Shortening alone would still leave an embedded newline.
 _BLK_CMD="${CMD//$'\n'/ }"; _BLK_CMD="${_BLK_CMD//$'\r'/ }"; _BLK_CMD="${_BLK_CMD//$'\t'/ }"
-printf '[%s] harness-tamper — %s — %.120s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "guardrail teardown" "$_BLK_CMD" >> "$_BLK" 2>/dev/null || true
+# v2.26.67: 400, was 120 — see safety.sh. Sibling writer of the same ledger.
+printf '[%s] harness-tamper — %s — %.400s\n' "$(date '+%Y-%m-%dT%H:%M:%SZ')" "guardrail teardown" "$_BLK_CMD" >> "$_BLK" 2>/dev/null || true
 
 exit 2

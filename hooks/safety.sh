@@ -165,7 +165,7 @@ block() {
           # the ledger that /why and the [BLOCKS] summary read.
           local _al="$SUPERCHARGER_STATE/scope/.blocked-commands"
           mkdir -p "$(dirname "$_al")" 2>/dev/null || true
-          printf '[%s] ALLOWED by allowPatterns (would have blocked: %s) — %.100s\n' \
+          printf '[%s] ALLOWED by allowPatterns (would have blocked: %s) — %.400s\n' \
             "$(date '+%Y-%m-%d %H:%M')" "$1" "$COMMAND" >> "$_al" 2>/dev/null || true
           echo "[Supercharger] safety: allowPatterns exempted this command (would have blocked: $1)" >&2
           exit 0
@@ -201,8 +201,16 @@ block() {
   # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
   # destructive block. Shortening alone would still leave an embedded newline.
   safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
-  # Truncate to 120 chars to avoid bloating session context
-  safe_cmd="${safe_cmd:0:120}"
+  # v2.26.67: 400, was 120. The original rationale — "avoid bloating session context"
+  # — stopped being true in v2.26.63, when the [BLOCKS] summary switched to injecting
+  # REASONS only and never command text. So the cap no longer protects the context
+  # window; it only starves /why and post-hoc analysis.
+  #
+  # Measured cost of that: a false-positive investigation on 2026-08-06 could not use
+  # its own ledger, because the blocks being investigated were `--message` values that
+  # sit past character 120 — the fragment retained neither the trigger nor the flag.
+  # The log is capped at 500 lines and rotated at 30 days, so 400 costs a few KB.
+  safe_cmd="${safe_cmd:0:400}"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then

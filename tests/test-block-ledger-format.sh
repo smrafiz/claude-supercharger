@@ -191,4 +191,47 @@ OUT=$(fail_hook "$ST" 'npm run build && deploy --prod' 3)
 printf '%s' "$OUT" | grep -q 'failed' && pass || fail "single-line nudge regressed (got: ${OUT:-<empty>})"
 rm -rf "$ST"
 
+# --- ledger command budget (v2.26.67) -----------------------------------------
+
+begin_test "a long command survives past 120 chars in the ledger"
+# The cap was 120 with the rationale "avoid bloating session context". That stopped
+# being true in v2.26.63, when [BLOCKS] switched to injecting reasons and never
+# command text. The cost showed up on 2026-08-06: an FP investigation could not read
+# its own ledger, because the blocks under investigation were `--message` values
+# sitting past character 120 — the stored fragment kept neither the trigger nor the
+# flag that caused the block.
+LONGCMD="rm -rf / # $(printf 'x%.0s' $(seq 1 200)) TAILMARKER"
+ST=$(run_hook safety.sh "$LONGCMD")
+LED="$ST/scope/.blocked-commands"
+grep -q 'TAILMARKER' "$LED" 2>/dev/null && pass || fail "tail lost — cap still too low: $(wc -c < "$LED" 2>/dev/null) bytes"
+rm -rf "$ST"
+
+begin_test "every ledger writer shares the same command budget"
+# A meta-test rather than a shared constant: four hooks append to this one file, and
+# the 120 cap drifted across them independently. Any writer left at a lower cap makes
+# the ledger inconsistent, which is what makes it unreadable for forensics.
+# Only writes bound for THIS ledger count. safety.sh also has a `cmd=%.140s` trace
+# line writing to a different file — an earlier draft of this test flagged it, and
+# widening the budget there would have been a change made to satisfy a bad assertion.
+BAD=$(REPO="$REPO_DIR" python3 - <<'PY'
+import os, re
+budget = 400
+bad = []
+for name in ('safety.sh', 'git-safety.sh', 'harness-tamper-guard.sh'):
+    path = os.path.join(os.environ['REPO'], 'hooks', name)
+    for i, line in enumerate(open(path), 1):
+        # `safe_cmd="${safe_cmd:0:N}"` — the slice that feeds the ledger printf.
+        m = re.search(r'safe_cmd:0:(\d+)', line)
+        if m and int(m.group(1)) < budget:
+            bad.append(f'{name}:{i}={m.group(1)}')
+        # `printf ... %.Ns ... >> <ledger>` on one line.
+        if 'blocked-commands' in line or '"$_BLK"' in line or '"$_al"' in line:
+            for n in re.findall(r'%\.(\d+)s', line):
+                if int(n) < budget:
+                    bad.append(f'{name}:{i}={n}')
+print(' '.join(bad))
+PY
+)
+[ -z "$BAD" ] && pass || fail "writer(s) below the 400-char budget: $BAD"
+
 report

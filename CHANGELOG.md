@@ -2,6 +2,15 @@
 
 ## Contents
 
+- [2.26.67] - 2026-08-06 — chore(ledger): raise the stored-command cap from 120 to 400 — the reason for 120 stopped being true two releases ago.
+
+The cap existed to "avoid bloating session context". That was accurate when the [BLOCKS] summary injected command text. It has not injected command text since v2.26.63, which switched to reasons only — so since then the cap has protected nothing and starved /why and post-hoc analysis instead.
+
+The cost was measured today. A false-positive investigation could not use its own ledger as evidence: the blocks being investigated were --message values sitting past character 120, so the stored fragment kept neither the trigger nor the flag that caused the block. Replaying 40 real blocked commands through the guard reproduced 3, and truncation was why.
+
+Applied to all four writes into this one file (safety.sh block + allowPatterns exemption, git-safety, harness-tamper-guard), because the 120 had already drifted across them independently. The log is capped at 500 lines and rotated at 30 days, so the added cost is a few KB.
+
++2 tests. One pins that a long command keeps its tail; the other is a meta-test asserting no writer sits below the budget, verified to FAIL when one is reverted to 120. It only inspects writes bound for this ledger — an earlier draft also flagged safety.sh cmd trace line, which writes to a different file, and widening that would have been a change made to satisfy a bad assertion.. 3395 tests passing.
 - [2.26.66] - 2026-08-06 — fix(path-guard): the Write tool was denied the harness scratchpad that Bash could write freely, so temp files landed in the project tree.
 
 Claude Code directs every temporary file to a per-session scratchpad under the OS temp dir. path-guard abs-path denied that path for Write while the identical path succeeded through the Bash channel — a cross-channel gap whose practical effect was the opposite of the rule intent: scratch work got written into the repo because that was the only channel that accepted it. Hit repeatedly while investigating the false positives in v2.26.65.
