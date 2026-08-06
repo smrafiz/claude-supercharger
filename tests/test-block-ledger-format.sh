@@ -95,4 +95,100 @@ else
 fi
 rm -rf "$ST"
 
+# --- Sibling ledgers (v2.26.64) -----------------------------------------------
+# v2.26.17 fixed this for .blocked-commands only. The SAME line-based contract
+# governs .user-corrections, .user-reinforcements and .failed-commands, and none
+# of those writers collapsed newlines. Found by auditing the sibling branches of
+# the original fix rather than other instances of the same call.
+
+# learn-from-prompts fires on UserPromptSubmit; the prompt text is the payload.
+prompt_hook() { # prompt -> state dir
+  local st; st=$(mktemp -d); mkdir -p "$st/scope" "$st/home"
+  ST="$st" P="$1" python3 -c '
+import json, os
+print(json.dumps({"prompt": os.environ["P"], "cwd": os.environ["ST"],
+                  "session_id": "led", "hook_event_name": "UserPromptSubmit"}))' \
+    | env HOME="$st/home" SUPERCHARGER_STATE="$st" bash "$REPO_DIR/hooks/learn-from-prompts.sh" >/dev/null 2>&1
+  printf '%s' "$st"
+}
+
+# failure-tracker short-circuits unless stderr carries a STRONG failure marker.
+fail_hook() { # command, repeats -> state dir; echoes nothing
+  local st="$1" cmd="$2" n="$3" i
+  ST="$st" C="$cmd" python3 -c '
+import json, os
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["C"]},
+                  "tool_response": {"stderr": "deploy: command not found",
+                                    "stdout": "", "interrupted": False},
+                  "cwd": os.environ["ST"], "hook_event_name": "PostToolUse"}))' > "$st/payload.json"
+  LAST=""
+  for ((i=0; i<n; i++)); do
+    LAST=$(env HOME="$st/home" SUPERCHARGER_STATE="$st" \
+      bash "$REPO_DIR/hooks/failure-tracker.sh" < "$st/payload.json" 2>/dev/null)
+  done
+  printf '%s' "$LAST"
+}
+
+MULTILINE_PROMPT='no, that is wrong:
+use the other approach instead'
+
+begin_test "learn-from-prompts: a multi-line CORRECTION writes ONE row"
+ST=$(prompt_hook "$MULTILINE_PROMPT")
+LED=$(ls "$ST"/scope/.user-corrections-* 2>/dev/null | head -1)
+if [ -s "$LED" ]; then
+  [ "$(wc -l < "$LED" | tr -d ' ')" -eq 1 ] && pass || fail "expected 1 row, got $(wc -l < "$LED" | tr -d ' '): $(cat "$LED")"
+else
+  fail "nothing logged for a correction-shaped prompt"
+fi
+rm -rf "$ST"
+
+begin_test "learn-from-prompts: the correction row is well-formed"
+ST=$(prompt_hook "$MULTILINE_PROMPT")
+LED=$(ls "$ST"/scope/.user-corrections-* 2>/dev/null | head -1)
+all_lines_well_formed "$LED" && pass || fail "fragment row written: $(cat "$LED" 2>/dev/null)"
+rm -rf "$ST"
+
+begin_test "learn-from-prompts: the continuation text is kept, not dropped"
+# Collapsing must not truncate the correction away — the tail is the useful half.
+ST=$(prompt_hook "$MULTILINE_PROMPT")
+LED=$(ls "$ST"/scope/.user-corrections-* 2>/dev/null | head -1)
+grep -q 'use the other approach instead' "$LED" 2>/dev/null && pass || fail "collapsing lost the tail: $(cat "$LED" 2>/dev/null)"
+rm -rf "$ST"
+
+begin_test "learn-from-prompts: a multi-line REINFORCEMENT writes ONE row"
+ST=$(prompt_hook 'perfect, thanks:
+that is exactly what I wanted')
+LED=$(ls "$ST"/scope/.user-reinforcements-* 2>/dev/null | head -1)
+if [ -s "$LED" ]; then
+  [ "$(wc -l < "$LED" | tr -d ' ')" -eq 1 ] && pass || fail "expected 1 row, got $(wc -l < "$LED" | tr -d ' '): $(cat "$LED")"
+else
+  fail "nothing logged for a reinforcement-shaped prompt"
+fi
+rm -rf "$ST"
+
+begin_test "failure-tracker: a multi-line failing command writes ONE row per failure"
+ST=$(mktemp -d); mkdir -p "$ST/scope" "$ST/home"
+fail_hook "$ST" 'npm run build
+&& deploy --prod' 3 >/dev/null
+LED=$(ls "$ST"/scope/.failed-commands-* 2>/dev/null | head -1)
+N=$(wc -l < "$LED" 2>/dev/null | tr -d ' ')
+[ "${N:-0}" -eq 3 ] && pass || fail "3 failures wrote $N rows: $(cat "$LED" 2>/dev/null)"
+rm -rf "$ST"
+
+begin_test "failure-tracker: the repeat-failure nudge fires for MULTI-LINE commands"
+# The consequence that was not cosmetic. FAIL_COUNT comes from `awk index($0,k)`;
+# a key containing a newline can never match a single line, so the counter stuck
+# at 0 and the "try a different approach" nudge never fired.
+ST=$(mktemp -d); mkdir -p "$ST/scope" "$ST/home"
+OUT=$(fail_hook "$ST" 'npm run build
+&& deploy --prod' 3)
+printf '%s' "$OUT" | grep -q 'failed' && pass || fail "no nudge after 3 multi-line failures (got: ${OUT:-<empty>})"
+rm -rf "$ST"
+
+begin_test "failure-tracker: single-line commands still nudge (no regression)"
+ST=$(mktemp -d); mkdir -p "$ST/scope" "$ST/home"
+OUT=$(fail_hook "$ST" 'npm run build && deploy --prod' 3)
+printf '%s' "$OUT" | grep -q 'failed' && pass || fail "single-line nudge regressed (got: ${OUT:-<empty>})"
+rm -rf "$ST"
+
 report

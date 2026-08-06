@@ -41,7 +41,11 @@ suppress = os.environ.get('HOOK_SUPPRESS', 'false').lower() in ('true', '1', 'ye
 proj_hash = hashlib.md5(project_dir.encode()).hexdigest()[:8]
 
 blocks_log         = os.path.join(scope_dir, '.blocked-commands')
-failures_log       = os.path.join(scope_dir, '.failed-commands')
+# v2.26.64: failure-tracker writes `.failed-commands-<proj_hash>`; this read the
+# unsuffixed name, which nothing has written since the ledger was project-scoped.
+# [FAILS] could therefore never render. Corrections and reinforcements already had
+# the suffixed-then-global lookup below — failures was the one arm that missed it.
+failures_log       = os.path.join(scope_dir, f'.failed-commands-{proj_hash}')
 corrections_log    = os.path.join(scope_dir, f'.user-corrections-{proj_hash}')
 reinforcements_log = os.path.join(scope_dir, f'.user-reinforcements-{proj_hash}')
 
@@ -50,6 +54,8 @@ if not os.path.isfile(corrections_log) and os.path.isfile(os.path.join(scope_dir
     corrections_log = os.path.join(scope_dir, '.user-corrections')
 if not os.path.isfile(reinforcements_log) and os.path.isfile(os.path.join(scope_dir, '.user-reinforcements')):
     reinforcements_log = os.path.join(scope_dir, '.user-reinforcements')
+if not os.path.isfile(failures_log) and os.path.isfile(os.path.join(scope_dir, '.failed-commands')):
+    failures_log = os.path.join(scope_dir, '.failed-commands')
 
 # --- 30-day rotation: keep lines whose [YYYY-MM-DD ...] timestamp is >= cutoff
 cutoff = (datetime.utcnow() - timedelta(days=30)).strftime('%Y-%m-%d')

@@ -39,7 +39,18 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.workspace.current_dir // .cwd //
 PROJ_HASH=$(printf '%s' "$PROJECT_DIR" | sc_md5 2>/dev/null || true); [ -z "$PROJ_HASH" ] && PROJ_HASH="global"
 PROJ_HASH="${PROJ_HASH:0:8}"
 
-SNIPPET=$(printf '%.200s' "$PROMPT")
+# v2.26.64: collapse newlines/tabs BEFORE shortening — same fix safety.sh got in
+# v2.26.17, never applied to this sibling. Both ledgers below are LINE-BASED:
+# learn-from-blocks parses them into the [CORR]/[WORKS] summaries injected at every
+# session start, and /why reads the last N lines. A multi-line correction wrote a
+# multi-line row, so its continuation became an orphan entry — observed live as
+#     [CORR] no need, this:|Want me to write a short "perf & tokens" section...
+# where the second field is not a correction at all, just the tail of the first.
+# Truncating alone does not help: the newline sits inside the first 200 chars.
+# Collapsing here (not at each writer) also fixes the dedup below, which passes
+# the snippet to `grep -qF` — a multi-line pattern there matches line-by-line.
+SNIPPET="${PROMPT//$'\n'/ }"; SNIPPET="${SNIPPET//$'\r'/ }"; SNIPPET="${SNIPPET//$'\t'/ }"
+SNIPPET=$(printf '%.200s' "$SNIPPET")
 
 # --- Corrections (negative feedback) ---
 # Only match if prompt is short (<500 chars) and starts with correction language.

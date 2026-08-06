@@ -105,6 +105,38 @@ OUT=$(printf '{"session_id":"blk","cwd":"%s","hook_event_name":"SessionStart","s
 [ -z "$OUT" ] && pass || fail "expected no output for an empty ledger, got: $OUT"
 rm -rf "$ST"
 
+# --- [FAILS] reader (v2.26.64) ------------------------------------------------
+# failure-tracker writes `.failed-commands-<proj_hash>`; this hook read the
+# unsuffixed name, which nothing had written since the ledger became
+# project-scoped, so [FAILS] could never render at all. Corrections and
+# reinforcements already had the suffixed-then-global lookup; failures did not.
+fails_summary() { # ledger-basename -> systemMessage text
+  local name="$1" st out h today
+  st=$(mktemp -d); mkdir -p "$st/scope" "$st/home"
+  h=$(ST="$st" python3 -c "import hashlib,os;print(hashlib.md5(os.environ['ST'].encode()).hexdigest()[:8])")
+  today=$(date -u +%Y-%m-%d)
+  name="${name/HASH/$h}"
+  for i in 1 2 3; do printf '[%s 09:0%s] exit=1 — npm run build\n' "$today" "$i" >> "$st/scope/$name"; done
+  out=$(printf '{"session_id":"f","cwd":"%s","hook_event_name":"SessionStart","source":"startup"}' "$st" \
+    | env HOME="$st/home" SUPERCHARGER_STATE="$st" bash "$REPO_DIR/hooks/learn-from-blocks.sh" 2>/dev/null)
+  printf '%s' "$out" | python3 -c "
+import json,sys
+raw=sys.stdin.read().strip()
+if not raw: sys.exit(0)
+try: print(json.loads(raw).get('systemMessage',''))
+except Exception: sys.exit(0)
+"
+  rm -rf "$st"
+}
+
+begin_test "[FAILS] renders from the project-scoped ledger failure-tracker writes"
+OUT=$(fails_summary '.failed-commands-HASH')
+printf '%s' "$OUT" | grep -q '\[FAILS\]' && pass || fail "suffixed ledger not read: ${OUT:-<empty>}"
+
+begin_test "[FAILS] still falls back to a legacy unsuffixed ledger"
+OUT=$(fails_summary '.failed-commands')
+printf '%s' "$OUT" | grep -q '\[FAILS\]' && pass || fail "legacy fallback lost: ${OUT:-<empty>}"
+
 begin_test "malformed ledger rows are skipped without killing the summary"
 OUT=$(summarize "this row has no timestamp at all
 [$TODAY 09:00] self-modification — rm hook")

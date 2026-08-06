@@ -49,7 +49,18 @@ COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/
 [ -z "$COMMAND" ] && exit 0
 
 # Normalize command for comparison (first 100 chars, strip args that change)
-CMD_KEY=$(printf '%.100s' "$COMMAND" | sed 's/[0-9]\{4,\}//g')
+# v2.26.64: collapse newlines/tabs BEFORE shortening (safety.sh got this in
+# v2.26.17; this sibling never did). Two consequences, and the second is not
+# cosmetic:
+#   1. A multi-line failing command wrote a multi-line row, so its continuation
+#      became an orphan entry in the ledger /why and [FAILS] read.
+#   2. The repeat-failure counter below is `awk index($0,k)` — a key containing a
+#      newline can never match a single line, so FAIL_COUNT stayed 0 and the
+#      "failed 3x, try a different approach" nudge NEVER FIRED for multi-line
+#      commands. Measured: 3 identical multi-line failures produced 6 rows and no
+#      nudge; the same command on one line produced 3 rows and nudged.
+CMD_KEY="${COMMAND//$'\n'/ }"; CMD_KEY="${CMD_KEY//$'\r'/ }"; CMD_KEY="${CMD_KEY//$'\t'/ }"
+CMD_KEY=$(printf '%.100s' "$CMD_KEY" | sed 's/[0-9]\{4,\}//g')
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 # v2.7.15: key by project so a command that failed in repo A doesn't trip the

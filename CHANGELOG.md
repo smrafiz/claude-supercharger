@@ -2,6 +2,17 @@
 
 ## Contents
 
+- [2.26.64] - 2026-08-06 — fix(learning): three sibling ledgers never got the v2.26.17 line-integrity fix, and one of them silently disabled a nudge.
+
+v2.26.17 collapsed newlines before writing .blocked-commands, because that ledger is LINE-BASED: /why reads the last N lines and learn-from-blocks parses it into the summaries injected at every session start. The same contract governs .user-corrections, .user-reinforcements and .failed-commands. None of their writers were fixed. Found by auditing the sibling BRANCHES of the original fix rather than other instances of the same call.
+
+1. learn-from-prompts wrote the raw prompt snippet, so a multi-line correction became two rows and its tail turned into an orphan entry. Observed live, and visible in this repo session start as a [CORR] value whose second field was not a correction at all, just the continuation of the first. Collapsing at the shared SNIPPET assignment covers the CORRECTION and REINFORCED writers and the grep -qF dedup between them, so the fix cannot be partially applied.
+
+2. failure-tracker had the same defect with a consequence that is NOT cosmetic. FAIL_COUNT comes from awk index against the stored key; a key containing a newline can never match a single line, so the counter stuck at 0 and the "failed 3x, try a different approach" nudge NEVER FIRED for multi-line commands. Measured before: 3 identical multi-line failures produced 6 rows and no nudge. After: 3 rows and the nudge fires. Single-line behaviour unchanged.
+
+3. learn-from-blocks read .failed-commands unsuffixed while failure-tracker writes .failed-commands with the project hash, so [FAILS] could never render at all. Corrections and reinforcements already had the suffixed-then-global lookup; failures was the one arm that missed it. The legacy unsuffixed path is kept as a fallback.
+
++7 tests, 6 of which fail against the previous hooks. The seventh is a regression guard: it passes both ways by design, pinning that collapsing does not cut the useful tail away.. 3369 tests passing.
 - [2.26.63] - 2026-08-06 — fix(learning): the [BLOCKS] session-start injection was mostly truncated regex source, and it crowded out every readable lesson.
 
 safety.sh:541 blocks with "dangerous pattern: $pattern" — so for pattern hits the ledger reason field IS the raw regex. learn-from-blocks capped it at 80 chars and injected the top 8 by frequency, which meant six of eight "learnings" arrived as a POSIX character class cut off mid-token. The point of [BLOCKS] is "do not retry these"; half a bracket expression teaches nothing.
