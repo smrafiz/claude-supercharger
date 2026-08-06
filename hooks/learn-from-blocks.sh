@@ -94,25 +94,61 @@ failures_lines      = rotate_and_dedup(failures_log, do_dedup=False)
 
 context_parts = []
 
-# Blocked commands → category counts, top 8 by frequency
+# Blocked commands → category counts, top 8 by frequency.
+#
+# v2.26.63: safety.sh:541 logs `dangerous pattern: <raw regex>` as the reason, so
+# the reason field for those entries is regex SOURCE, and the [:80] cap cut it
+# mid-character-class. Six of the top eight "learnings" injected at every session
+# start looked like this:
+#     dangerous pattern: [^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-
+# That is unactionable — the point of [BLOCKS] is "do not retry these", and a
+# truncated POSIX class teaches nothing. It also crowded the readable reasons
+# (self-modification, shell profile modification) out of the eight slots.
+#
+# These now collapse into ONE line carrying what is actually usable: that command
+# patterns are being blocked, how many distinct rules, how often. The regex stays
+# in the ledger for /why, which shows single entries and has room for detail.
+#
+# Deliberately NOT relabelled per-family (piping to a shell, destructive SQL)
+# by pattern-matching the regex text: the bucket spans shell, SQL, network and
+# cloud rules, and a heuristic that mislabels a block is worse than a generic
+# count. Recovering the true category means logging it at the source — a change
+# to safety.sh's block path, deliberately out of scope here.
 if blocks_lines:
     counts = Counter()
     last_seen = {}
+    pat_rules = set()
+    pat_count = 0
+    pat_last = ''
     entry_re = re.compile(r'^\[(\d{4}-\d{2}-\d{2} \d{2}:\d{2})\] (.+)$')
+    PAT_PREFIX = 'dangerous pattern: '
     for line in blocks_lines:
         m = entry_re.match(line)
         if not m:
             continue
         date, rest = m.group(1), m.group(2)
-        reason = rest.split(' — ')[0].strip()[:80]
+        reason = rest.split(' — ')[0].strip()
+        if reason.startswith(PAT_PREFIX):
+            # Key on the FULL regex, not the truncated form — two different rules
+            # sharing an 80-char prefix would otherwise merge into one.
+            pat_rules.add(reason[len(PAT_PREFIX):])
+            pat_count += 1
+            pat_last = max(pat_last, date[:10])
+            continue
+        reason = reason[:80]
         counts[reason] += 1
         last_seen[reason] = date[:10]
-    if counts:
-        body = '\n'.join(
-            f'- {reason} (blocked {count}x, last: {last_seen[reason]})'
-            for reason, count in counts.most_common(8)
+    lines_out = [
+        f'- {reason} (blocked {count}x, last: {last_seen[reason]})'
+        for reason, count in counts.most_common(8)
+    ]
+    if pat_rules:
+        lines_out.append(
+            f'- dangerous command patterns ({len(pat_rules)} rules, '
+            f'blocked {pat_count}x, last: {pat_last})'
         )
-        context_parts.append('[BLOCKS] ' + body)
+    if lines_out:
+        context_parts.append('[BLOCKS] ' + '\n'.join(lines_out))
 
 # User corrections (last 5, pipe-joined)
 if corrections_lines:

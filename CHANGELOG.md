@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [2.26.63] - 2026-08-06 — fix(learning): the [BLOCKS] session-start injection was mostly truncated regex source, and it crowded out every readable lesson.
+
+safety.sh:541 blocks with "dangerous pattern: $pattern" — so for pattern hits the ledger reason field IS the raw regex. learn-from-blocks capped it at 80 chars and injected the top 8 by frequency, which meant six of eight "learnings" arrived as a POSIX character class cut off mid-token. The point of [BLOCKS] is "do not retry these"; half a bracket expression teaches nothing.
+
+The real damage was not the bytes. Eight slots consumed by regex meant the ACTIONABLE reasons never reached the model at all — on the live ledger those turned out to be "OS shell-out hidden in python -c wrapper", ".env file access", "destructive command hidden in python -c wrapper" and "claim contradicted by recorded test result". All invisible until now.
+
+Pattern entries collapse into one line carrying what is usable: how many distinct rules, how often, when last. The regex stays in the ledger for /why, which shows single entries and has room for detail.
+
+Measured: 863 to 730 bytes at session start. Predicted ~600 saved; actual 133, because the freed slots immediately filled with the reasons that had been crowded out. This is a signal fix, not a token fix.
+
+Deliberately NOT relabelled per-family by pattern-matching the regex text — the bucket spans shell, SQL, network and cloud rules, and a heuristic that mislabels a block is worse than a generic count. Recovering the true category means logging it at the source, a change to safety.sh block path, left out of scope.
+
+Rule identity keys on the FULL regex, not the truncated prefix: two rules sharing 80 chars would otherwise merge and under-report.
+
++9 tests. 5 of the 9 fail against the previous renderer.. 3360 tests passing.
 - [2.26.62] - 2026-08-05 — feat(security): CVE-2026-21852 covered the base-URL swap but not the proxy form of the same API-traffic redirection. 3351 tests passing.
 - [2.26.61] - 2026-08-05 — perf+fix: sc_md5 added a fork to a hot path, and the perf harness's own arithmetic was the 1-in-5 suite flake. 3346 tests passing.
 - [2.26.60] - 2026-08-05 — docs(hooks): the authoring guide told maintainers two live security hooks were dead events. 3342 tests passing.
