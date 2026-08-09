@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.81] - 2026-08-09 — red-teaming the new guards: Workflow args reached agent prompts unscanned, and a secret cut across message/summary escaped both. 3528 tests passing.
 - [2.26.80] - 2026-08-09 — budget-cap and subagent-cost still forked /bin/cat for stdin, missed by v2.26.35. 3521 tests passing.
 - [2.26.79] - 2026-08-09 — update.sh died with exit 22 on a rate-limited IP — the curl SHA branch could abort the update it only informs. 3521 tests passing.
 - [2.26.78] - 2026-08-09 — a .env readable over MCP resource reads, and ScheduleWakeup unobserved — both matcher-mode gaps. 3516 tests passing.

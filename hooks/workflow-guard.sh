@@ -130,6 +130,21 @@ if isinstance(name, str) and name.strip():
                 except Exception:
                     continue
 
+# v2.26.81: `args` is passed to the script VERBATIM as the global `args`, and the
+# tool's own canonical pattern for a parameterised workflow is agent(args.task).
+# So a payload placed there reaches an agent prompt having been scanned by nothing
+# — the exact "use the unguarded channel" move this hook exists to close, one
+# field over. Found by red-teaming the hook after shipping it; the script arm was
+# blocking while args sailed past.
+# Serialised rather than walked: args may be a string, list or nested object, and
+# every leaf of it is prompt material.
+_args = ti.get('args')
+if _args is not None:
+    try:
+        sources.append((_args if isinstance(_args, str) else json.dumps(_args), '<args>'))
+    except Exception:
+        pass
+
 if not sources:
     sys.exit(0)
 
@@ -157,7 +172,11 @@ for text, label in sources:
 # "syntax error near unexpected token" 44 lines further down, which is why the
 # regex is spelled with paired quotes and a backreference instead. Same family as
 # the "no backticks in a -c block" rule.
-_AT_RX = re.compile("agentType\\s*:\\s*(['\"])([^'\"]{1,120})\\1")
+# v2.26.81: +backtick. A template literal is still a LITERAL, so agentType:`x` was
+# a free bypass of the arm below. A COMPUTED agentType (const t="x"; {agentType:t})
+# stays out of reach — it is not statically resolvable, and that is a documented
+# limit rather than a gap to paper over.
+_AT_RX = re.compile("agentType\\s*:\\s*(['\"`])([^'\"`]{1,120})\\1")
 agent_types = set()
 for text, _ in sources:
     for m in _AT_RX.finditer(text):

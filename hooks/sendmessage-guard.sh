@@ -71,7 +71,14 @@ if not isinstance(msg, str) or not msg.strip():
     sys.exit(0)
 to = ti.get('to') or ''
 summary = ti.get('summary') or ''
-haystack = msg + '\n' + (summary if isinstance(summary, str) else '')
+summary = summary if isinstance(summary, str) else ''
+haystack = msg + '\n' + summary
+# v2.26.81: also scan the two fields JOINED, not only newline-separated. A secret
+# cut across the boundary (message ends "...AKIA", summary begins "IOSFO...")
+# matched neither half and neither did the separated form. Found by red-teaming.
+# Cheap because both fields are already in hand; it does not help against a secret
+# the model base64s first, which pattern scanning cannot reach either way.
+haystack_joined = msg + summary
 
 # ── (A) credentials leaving the session ───────────────────────────────────────
 hits = []
@@ -80,7 +87,7 @@ for pat in (os.environ.get('PATTERNS') or '').splitlines():
     if not pat:
         continue
     try:
-        if re.search(pat, haystack):
+        if re.search(pat, haystack) or re.search(pat, haystack_joined):
             hits.append(pat)
     except re.error:
         continue

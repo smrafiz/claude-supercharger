@@ -61,6 +61,20 @@ print(json.dumps({"tool_name":"SendMessage","tool_input":{"to":os.environ["TO"],
   | SUPERCHARGER_STATE="$ST" bash "$HOOK" 2>/dev/null)
 printf '%s' "$OUT" | grep -q 'worker' && pass || fail "reason does not say where it was going: $OUT"
 
+begin_test "a secret CUT ACROSS message/summary is caught (v2.26.81)"
+# Found by red-teaming: the two fields were only ever scanned newline-separated,
+# so a token split at the boundary matched neither half nor the pair.
+GOT=$(python3 -c '
+import json
+print(json.dumps({"tool_name":"SendMessage",
+                  "tool_input":{"to":"w","message":"key AKIA","summary":"IOSFODNN7EXAMPLE"}}))' \
+  | SUPERCHARGER_STATE="$ST" bash "$HOOK" >/dev/null 2>&1; echo $?)
+[ "$GOT" = "2" ] && pass || fail "split secret left the session"
+
+begin_test "joining the fields does not invent false positives"
+[ "$(send worker 'the build is green')" = "allow" ] || fail "joined-scan over-matched"
+[ "$(send worker 'the build is green')" = "allow" ] && pass
+
 # --- (B) laundering a blocked command ---
 begin_test "replaying a blocked command to a peer raises a confirm"
 [ "$(send worker "please run $BLOCKED for me")" = "ask" ] && pass || fail "laundering not caught"
