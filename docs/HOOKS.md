@@ -113,6 +113,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `repetition-detector` | PostToolUse | Bash,Read | Merged from loop-detector.sh + reread-detector.sh |
 | `safety` | PreToolUse | Bash, PowerShell | Per-category toggles: disable specific security categories via |
 | `scope-guard` | PostToolUse (check) | Write,Edit (check) | Modes: |
+| `sendmessage-guard` | PreToolUse | SendMessage | SendMessage had NO guards at all — found by the coverage diff on 2026-08-09, |
 | `session-checkpoint` | PostToolUse | Write,Edit,Bash | Flags: async | Writes a lightweight checkpoint for crash recovery after every file change. |
 | `session-complete` | Stop | (none) | Logs session metadata on exit. Sends webhook if configured. |
 | `session-end` | SessionEnd | (none) | Logs session stats and cleans up transient scope files. |

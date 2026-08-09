@@ -280,6 +280,10 @@ get_hooks_for_mode() {
     # capability without the Agent channel's three guards. Blocking, not async: it
     # must decide before the fan-out starts.
     hooks+=("PreToolUse|Workflow|${hooks_dir}/workflow-guard.sh|")
+    # v2.26.77: SendMessage moves free text to other sessions and other MACHINES.
+    # The tool's own description forbids using it to launder a blocked action past
+    # the permission layer, but states it as an instruction with no mechanism.
+    hooks+=("PreToolUse|SendMessage|${hooks_dir}/sendmessage-guard.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an

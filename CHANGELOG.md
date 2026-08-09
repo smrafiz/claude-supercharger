@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.77] - 2026-08-09 — SendMessage could carry secrets off-machine and launder blocked commands past the permission layer. 3503 tests passing.
 - [2.26.76] - 2026-08-09 — Workflow spawned subagents through a channel with no guards, while Agent had three. 3483 tests passing.
 - [2.26.75] - 2026-08-09 — release.sh had no non-interactive flag, and declining its commit left the tree half-bumped. 3464 tests passing.
 - [2.26.74] - 2026-08-09 — the time-boxed loosening modes were agent-invokable with no confirm. 3452 tests passing.

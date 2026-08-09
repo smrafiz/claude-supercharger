@@ -448,6 +448,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/sendmessage-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "SendMessage"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cron-discovery.sh",
             "async": true,
             "timeout": 120

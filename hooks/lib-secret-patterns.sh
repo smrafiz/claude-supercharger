@@ -4,6 +4,7 @@
 # sets SECRET_PATTERNS in the caller's scope. Sourced by:
 #   - output-secrets-scanner.sh  (scans tool OUTPUT — Bash/Read)
 #   - commit-guard.sh     (scans the STAGED git diff at commit)
+#   - sendmessage-guard.sh (scans a cross-session message body — SendMessage)
 # ONE list prevents cross-channel parity drift — a secret caught in output but
 # not at commit (or vice-versa) is exactly the divergence this file exists to
 # prevent. Add a pattern here and BOTH channels gain it.
