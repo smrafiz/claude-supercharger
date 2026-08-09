@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.79] - 2026-08-09 — update.sh died with exit 22 on a rate-limited IP — the curl SHA branch could abort the update it only informs. 3521 tests passing.
 - [2.26.78] - 2026-08-09 — a .env readable over MCP resource reads, and ScheduleWakeup unobserved — both matcher-mode gaps. 3516 tests passing.
 - [2.26.77] - 2026-08-09 — SendMessage could carry secrets off-machine and launder blocked commands past the permission layer. 3503 tests passing.
 - [2.26.76] - 2026-08-09 — Workflow spawned subagents through a channel with no guards, while Agent had three. 3483 tests passing.

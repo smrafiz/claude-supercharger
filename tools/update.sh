@@ -228,8 +228,16 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
     EXPECTED_SHA=$(gh api "repos/smrafiz/claude-supercharger/commits/master" --jq '.sha' 2>/dev/null || echo "")
   fi
   if [ -z "$EXPECTED_SHA" ] && command -v curl >/dev/null 2>&1; then
+    # v2.26.79: `|| echo ""` — without it this line ABORTS the update it is only
+    # meant to inform. `curl -f` exits 22 on HTTP 403, which is what the anonymous
+    # API returns once the 60-req/hr per-IP cap is hit; `set -o pipefail` hands 22
+    # to the assignment and `set -e` kills the script. So the exact rate-limit case
+    # the comment above says to survive was fatal, and only on a shared/NAT'd IP —
+    # invisible until a Windows CI runner hit the cap on v2.26.78.
+    # The sibling `gh` branch had the guard and the python branch catches its own
+    # exceptions; this was the one arm of three without it.
     EXPECTED_SHA=$(curl -fsSL --max-time 6 -H 'Accept: application/vnd.github.sha' \
-      "https://api.github.com/repos/smrafiz/claude-supercharger/commits/master" 2>/dev/null | tr -d '[:space:]')
+      "https://api.github.com/repos/smrafiz/claude-supercharger/commits/master" 2>/dev/null | tr -d '[:space:]' || echo "")
   fi
   if [ -z "$EXPECTED_SHA" ]; then
     EXPECTED_SHA=$(python3 -c "
