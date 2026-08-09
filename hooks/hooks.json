@@ -19,7 +19,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read"
+        "matcher": "Read,ReadMcpResourceTool,ReadMcpResourceDirTool"
       },
       {
         "hooks": [
@@ -463,7 +463,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "CronCreate,CronDelete,CronList"
+        "matcher": "CronCreate,CronDelete,CronList,ScheduleWakeup"
       },
       {
         "hooks": [

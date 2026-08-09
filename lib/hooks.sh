@@ -24,7 +24,11 @@ get_hooks_for_mode() {
   # arbitrary OS commands (execute_command / run / exec) that never reached the
   # Bash channel, so rm -rf / curl|bash / DB-drop / persistence were unguarded.
   hooks+=("PreToolUse|Bash,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__|${hooks_dir}/safety.sh|")
-  hooks+=("PreToolUse|Read|${hooks_dir}/env-file-guard.sh|")
+  # v2.26.78: +ReadMcpResourceTool,ReadMcpResourceDirTool. A bare `Read` carries no
+  # regex metachar, so CC keeps this matcher in EXACT-LIST mode and it never matched
+  # the longer MCP resource-read tool names. Spelled out rather than left to a regex,
+  # so the coverage is declared instead of incidental.
+  hooks+=("PreToolUse|Read,ReadMcpResourceTool,ReadMcpResourceDirTool|${hooks_dir}/env-file-guard.sh|")
   # v2.23.6: Bash-channel self-defense. path-guard covers the Write/Edit channel and
   # safety.sh's selfmod blocks Bash edits to the config FILES; this closes the two
   # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
@@ -284,7 +288,11 @@ get_hooks_for_mode() {
     # The tool's own description forbids using it to launder a blocked action past
     # the permission layer, but states it as an instruction with no mechanism.
     hooks+=("PreToolUse|SendMessage|${hooks_dir}/sendmessage-guard.sh|")
-    hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
+    # v2.26.78: +ScheduleWakeup. It is the same "make this run again later"
+    # capability as Cron*, from the /loop dynamic-pacing path, and was unobserved.
+    # The hook is schema-agnostic (it dumps tool_input verbatim), so this needs no
+    # logic change — which is the point of having built it as pure observation.
+    hooks+=("PreToolUse|CronCreate,CronDelete,CronList,ScheduleWakeup|${hooks_dir}/cron-discovery.sh|async")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an
     # observational one: CC delegates worktree creation to the registered hook and

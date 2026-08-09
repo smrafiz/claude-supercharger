@@ -78,8 +78,29 @@ if [ "$TOOL" = "Bash" ]; then
 fi
 
 # Read tool: block reading .env files + /proc and /sys (process env exfil)
-if [ "$TOOL" = "Read" ]; then
+#
+# v2.26.78: ReadMcpResourceTool / ReadMcpResourceDirTool are the same READ on a
+# different channel and were reaching none of this. Found by the coverage diff on
+# 2026-08-09: the matcher was the bare string `Read`, which has no regex metachar,
+# so CC keeps it in EXACT-LIST mode and it never matched the longer tool names.
+# The PostToolUse scanners do see those tools, but only as a side effect of a
+# sibling `mcp__.*` token flipping their matchers into regex mode — coverage
+# nobody declared. This arm is declared.
+#
+# Their schema is {server, uri} (confirmed against the tool definition, not
+# assumed) — no file_path at all, so widening the matcher alone would have
+# changed nothing. A file:// resource is a local file read by another name.
+if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "ReadMcpResourceDirTool" ]; then
   FILE_PATH=$(_efg_field file_path)
+  if [ -z "$FILE_PATH" ]; then
+    # Strip a file:// scheme so basename/path tests below see a real path. Other
+    # schemes are left intact: they still flow through the checks, and a resource
+    # named .env on any scheme is worth the same block.
+    FILE_PATH=$(_efg_field uri)
+    case "$FILE_PATH" in
+      file://*) FILE_PATH="${FILE_PATH#file://}" ;;
+    esac
+  fi
   [ -z "$FILE_PATH" ] && exit 0
 
   # v2.6.83: block /proc/<pid>/environ and /sys reads. Real incident: GitHub
