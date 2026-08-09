@@ -41,7 +41,12 @@ COST_TMP="$SCOPE_DIR/.session-cost.$$.tmp"
 
 # ── accumulate (PostToolUse) ───────────────────────────────────────────────────
 if [[ "$MODE" == "accumulate" ]]; then
-  _INPUT=$(cat)
+  # v2.26.80: fork-free stdin read. This hook was missed by v2.26.35, which removed
+  # the /bin/cat fork from every other hook — and `check` is the single most
+  # expensive hook on the Bash PreToolUse chain, so it was the worst place to
+  # leave one. Byte-identical to $(cat): the trailing strip reproduces its
+  # newline handling.
+  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   # v2.7.15: CC's PostToolUse payload carries NO token usage (verified: tool_response
   # = {interrupted,isImage,noOutputExpected,stderr,stdout}), so the old payload-usage
@@ -336,7 +341,12 @@ fi
 
 # ── check (PreToolUse) ────────────────────────────────────────────────────────
 if [[ "$MODE" == "check" ]]; then
-  _INPUT=$(cat)
+  # v2.26.80: fork-free stdin read. This hook was missed by v2.26.35, which removed
+  # the /bin/cat fork from every other hook — and `check` is the single most
+  # expensive hook on the Bash PreToolUse chain, so it was the worst place to
+  # leave one. Byte-identical to $(cat): the trailing strip reproduces its
+  # newline handling.
+  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   # Bash fast-path: skip the python3 fork entirely when no budget cap is
   # configured (the common case — most users don't set one). Walks up at most
