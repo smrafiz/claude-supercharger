@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.76] - 2026-08-09 — Workflow spawned subagents through a channel with no guards, while Agent had three. 3483 tests passing.
 - [2.26.75] - 2026-08-09 — release.sh had no non-interactive flag, and declining its commit left the tree half-bumped. 3464 tests passing.
 - [2.26.74] - 2026-08-09 — the time-boxed loosening modes were agent-invokable with no confirm. 3452 tests passing.
 - [2.26.73] - 2026-08-06 — fix(windows): python has no fcntl there, so cost accounting and the budget cap were silently dead.

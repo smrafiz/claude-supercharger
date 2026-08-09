@@ -276,6 +276,10 @@ get_hooks_for_mode() {
     # scanner since v2.7.x; ~/.claude/agents/*.md had none, though it is the same
     # thing — instructions Claude follows, loaded by name, persistent on disk.
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-poisoning-scanner.sh|")
+    # v2.26.76: Workflow runs a script that spawns subagents — the Agent channel's
+    # capability without the Agent channel's three guards. Blocking, not async: it
+    # must decide before the fan-out starts.
+    hooks+=("PreToolUse|Workflow|${hooks_dir}/workflow-guard.sh|")
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList|${hooks_dir}/cron-discovery.sh|async")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an

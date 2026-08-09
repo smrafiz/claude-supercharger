@@ -61,7 +61,7 @@ cwd = data.get('cwd') or pwd_dir
 # hook died with "No stderr output" instead of degrading.
 sys.path.insert(0, hooks_dir)
 try:
-    from lib_poison_patterns import scan_text
+    from lib_poison_patterns import scan_text, resolve_agent_defs
 except Exception:
     I = re.IGNORECASE
     _P = [
@@ -87,46 +87,40 @@ except Exception:
             f.append('HIGH: steganographic whitespace (%dx in %s)' % (z, fname))
         return f, c
 
-# Agent definitions live in agents/. A namespaced invocation ("plugin:agent")
-# names a file by its BARE name on disk — the v2.7.54 skill bypass, avoided here
-# rather than rediscovered.
-names = {agent}
-bare = re.split(r'[:/]', agent)[-1]
-if bare:
-    names.add(bare)
+    # v2.26.76: the fallback resolver mirrors lib_poison_patterns.resolve_agent_defs.
+    # Kept only for the asset-missing path; edit the shared one, not this.
+    def resolve_agent_defs(agent_name, home, cwd_):
+        names_ = {agent_name}
+        bare_ = re.split(r'[:/]', agent_name)[-1]
+        if bare_:
+            names_.add(bare_)
+        globs_ = []
+        for nm in names_:
+            globs_ += ['%s.md' % nm, '*/%s.md' % nm, '*/*/%s.md' % nm,
+                       '%s/AGENT.md' % nm, '*/%s/AGENT.md' % nm]
+        out_, seen_ = [], set()
+        for base in (Path(home) / '.claude' / 'agents', Path(cwd_) / '.claude' / 'agents'):
+            if not base.is_dir():
+                continue
+            for pat in globs_:
+                try:
+                    for p in base.glob(pat):
+                        if not p.is_file():
+                            continue
+                        try:
+                            st = p.stat(); key = (st.st_dev, st.st_ino)
+                        except OSError:
+                            key = str(p.resolve())
+                        if key not in seen_:
+                            seen_.add(key); out_.append(p)
+                except Exception:
+                    continue
+        return out_
 
-candidates = [
-    Path(home_dir) / '.claude' / 'agents',
-    Path(cwd) / '.claude' / 'agents',
-]
-globs = []
-for nm in names:
-    globs += [
-        '%s.md' % nm, '*/%s.md' % nm, '*/*/%s.md' % nm,
-        '%s/AGENT.md' % nm, '*/%s/AGENT.md' % nm,
-    ]
-
-scan_paths, seen = [], set()
-for base in candidates:
-    if not base.is_dir():
-        continue
-    for pat in globs:
-        try:
-            for p in base.glob(pat):
-                if p.is_file():
-                    # Dedup by inode: on a case-insensitive filesystem two globs
-                    # differing only in case resolve to ONE file, and a path-string
-                    # key would scan it twice and double-count every finding.
-                    try:
-                        st = p.stat()
-                        key = (st.st_dev, st.st_ino)
-                    except OSError:
-                        key = str(p.resolve())
-                    if key not in seen:
-                        seen.add(key)
-                        scan_paths.append(p)
-        except Exception:
-            continue
+# v2.26.76: resolution moved to lib_poison_patterns so the Workflow channel
+# (workflow-guard, via `agentType`) reads the SAME files by the SAME rules. The
+# namespace and inode-dedup hazards it encodes are documented there.
+scan_paths = resolve_agent_defs(agent, home_dir, cwd)
 
 if not scan_paths:
     sys.exit(0)
