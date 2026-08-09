@@ -446,10 +446,31 @@ jobs:
           TEST_JOBS=4 bash tests/run.sh > /tmp/win-suite.log 2>&1 || true
           echo "=== totals ==="
           grep -E '^Total:' /tmp/win-suite.log | tail -1
-          echo "=== files with failures ==="
-          awk '/^--- /{f=$2} /FAIL/{print f}' /tmp/win-suite.log | sort | uniq -c | sort -rn | head -40
-          echo "=== first 60 failure lines ==="
-          grep -E 'FAIL' /tmp/win-suite.log | head -60
+          # Group with python, not awk: the awk form printed NOTHING on Git Bash
+          # (the FAIL lines carry ANSI colour), and grouping is the whole point of
+          # the recon. Strip escapes first, then attribute each FAIL to its file.
+          python3 - <<'PY'
+          import re
+          cur='?'; fails={}; tot={}
+          for line in open('/tmp/win-suite.log', encoding='utf-8', errors='replace'):
+              s=re.sub(r'\x1b\[[0-9;]*m','',line).rstrip()
+              m=re.match(r'^--- (\S+) ---', s)
+              if m: cur=m.group(1); continue
+              t=s.strip()
+              if t.startswith(('FAIL','PASS')): tot[cur]=tot.get(cur,0)+1
+              if t.startswith('FAIL'): fails[cur]=fails.get(cur,0)+1
+          print(f"files with failures: {len(fails)} | total failures: {sum(fails.values())}")
+          for f,c in sorted(fails.items(), key=lambda x:-x[1]):
+              print(f"  {c:4d}/{tot.get(f,0):<4d}  {f}")
+          PY
+
+      - name: RECON — upload the full suite log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-suite-log
+          path: /tmp/win-suite.log
+          retention-days: 7
 
   shellcheck:
     name: Shellcheck
