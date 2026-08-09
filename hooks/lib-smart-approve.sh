@@ -84,6 +84,15 @@ smart_approve_verdict() {
         case "$_sc_cmd" in
           *safety*|*path-guard*|*harness-tamper*|*git-safety*|*env-file-guard*|*secret*|*injection*|*egress*|*code-security*|*commit-guard*|*subagent-safety*|*readonly*|*critical-infra*|*memory-write*|*notebook-exec*|*cloud-cli*|*bulk-exfil*|*mcp-*) return 1 ;;
         esac ;;
+      # v2.26.74: the time-boxed modes carry a confirm too (harness-tamper-guard), and
+      # it must be declined HERE for the same reason as the three above — an already
+      # active autopilot window would otherwise auto-approve its own EXTENSION, and
+      # `readonly off` / `strict off`, without the confirm ever reaching the user.
+      # The glob is the cheap gate; the shape regex only forks in that rare case.
+      *autopilot.sh*|*readonly.sh*|*strict.sh*)
+        printf '%s' "$_sc_cmd" \
+          | grep -Eq 'autopilot\.sh["'\'']?[[:space:]]+[0-9]|(readonly|strict)\.sh["'\'']?[[:space:]]+off' \
+          && return 1 ;;
     esac
   fi
 

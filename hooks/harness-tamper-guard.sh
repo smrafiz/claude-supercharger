@@ -38,7 +38,10 @@ case "$_INPUT" in
 # v2.26.1: +sc-toggle — the disable confirm below must be reachable for the relative
 # and ${CLAUDE_PLUGIN_ROOT} forms too; those carry none of the other tokens and were
 # exiting at this gate before it could fire.
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*) : ;;
+# v2.26.74: +autopilot/readonly/strict — the loosening confirms below need the same
+# reachability for the relative and ${CLAUDE_PLUGIN_ROOT} forms. `.sh` is required in
+# the token so a plain `readonly VAR=1` (bash builtin) does not defeat the early exit.
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*) : ;;
   *) exit 0 ;;
 esac
 
@@ -223,6 +226,35 @@ if [ -z "$REASON" ]; then
           printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
           exit 0 ;;
       esac
+      ;;
+  esac
+  # v2.26.74: the remaining loosening controls. `/sc off` and `hook-toggle off` were
+  # gated; the time-boxed MODES were not, and they are the same door one notch down:
+  #   - autopilot ON auto-approves every permission prompt for up to 8h. The safety
+  #     floor survives, so this is not `/sc off` — but every ASK-level confirm that is
+  #     not explicitly declined in lib-smart-approve is swallowed for the window.
+  #     Verified agent-invokable with no prompt before this arm existed.
+  #   - `readonly off` / `strict off` retire a restriction the USER asked for. Turning
+  #     either ON is tightening and stays frictionless; only OFF is gated.
+  #
+  # Matched on the invocation SHAPE, not the bare word: `autopilot.sh` followed by a
+  # duration (digit-leading), `readonly|strict.sh` followed by `off`. So `autopilot.sh
+  # off`, `autopilot.sh status`, and a read like `grep foo tools/autopilot.sh` are not
+  # gated — the v2.24.x false-positive class where a verb and a target merely co-occur.
+  case "$CMD" in
+    *autopilot.sh*|*readonly.sh*|*strict.sh*)
+      if printf '%s' "$CMD" | grep -Eq 'autopilot\.sh["'\'']?[[:space:]]+[0-9]'; then
+        _HT_ASK="This turns AUTOPILOT on ($CMD). For the whole window every permission prompt is auto-approved, including confirms you would otherwise see. The safety hooks still block destructive commands, but nothing else will pause for you. Approve only if you asked for this."
+        _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
+        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+        exit 0
+      fi
+      if printf '%s' "$CMD" | grep -Eq '(readonly|strict)\.sh["'\'']?[[:space:]]+off'; then
+        _HT_ASK="This turns OFF a restriction you switched on ($CMD). read-only mode blocks writes; strict mode auto-approves nothing. Ending either early restores normal write / auto-approve behaviour for the rest of the session. Approve only if you asked for this."
+        _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
+        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+        exit 0
+      fi
       ;;
   esac
   case "$CMD" in

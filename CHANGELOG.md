@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.74] - 2026-08-09 — the time-boxed loosening modes were agent-invokable with no confirm. 3452 tests passing.
 - [2.26.73] - 2026-08-06 — fix(windows): python has no fcntl there, so cost accounting and the budget cap were silently dead.
 
 Reported from a real Windows desktop as a statusline reading main 0 while the context bar showed 214.3K and a cost of $8.52 — three numbers that cannot all be right.
