@@ -439,6 +439,39 @@ jobs:
       # harness breakage as product failure.
       # continue-on-error so the recon run cannot turn master red. Once the
       # failure list is triaged this becomes a curated TEST_GLOB subset, gating.
+      # The recon showed path-guard REFUSING NOTHING on Windows ("$HOME accepted
+      # as a root: rc=0") — i.e. the whole home directory becomes in-project and
+      # writable. The suspected cause is a FORM mismatch, not a logic error: Git
+      # Bash hands paths as /c/Users/..., while Windows python's expanduser('~')
+      # returns C:\Users\..., and realpath cannot reconcile the two — so
+      # `rp == home` is False and the refusal is skipped.
+      # This step PROVES or DISPROVES that before a security hook is patched on a
+      # hypothesis. Nothing Windows is answerable from macOS.
+      - name: DIAGNOSTIC — POSIX vs Windows path forms
+        continue-on-error: true
+        shell: bash
+        run: |
+          echo "bash   HOME       = $HOME"
+          echo "bash   PWD        = $PWD"
+          python3 - <<'PY'
+          import os
+          hb = os.environ.get('HOME','')
+          exp = os.path.expanduser('~')
+          print('python expanduser  =', exp)
+          print('python realpath(HOME env) =', os.path.realpath(hb) if hb else '(no HOME)')
+          print('python os.sep      =', repr(os.sep))
+          print('MATCH realpath(expanduser) == realpath(HOME env)?',
+                os.path.realpath(exp) == os.path.realpath(hb) if hb else 'n/a')
+          # The exact comparison path-guard makes for a POSIX-form candidate root.
+          cand = hb
+          rp = os.path.realpath(cand)
+          home = os.path.realpath(exp)
+          print('candidate realpath =', rp)
+          print('home realpath      =', home)
+          print('REFUSAL WOULD FIRE (rp == home)?', rp == home)
+          print('ancestor form: home.startswith(rp + sep)?', home.startswith(rp + os.sep))
+          PY
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
