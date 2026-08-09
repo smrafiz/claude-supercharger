@@ -152,7 +152,12 @@ if stack_parts:
 # MUST match sc_project_key() in hooks/lib-paths.sh byte for byte, or the writer
 # and the readers disagree and the config silently does nothing.
 def _project_key(pdir):
-    k = (pdir or '/').replace('/', '-')
+    # MUST stay byte-identical to sc_project_key in hooks/lib-paths.sh — the two
+    # channels resolve the same project's scope files and a disagreement means
+    # one writes a file the other never reads.
+    # v2.26.83: '\\' and ':' folded for Windows payload cwds (C:\Users\...), which
+    # carry no '/' to fold and are illegal in an NTFS filename. See lib-paths.sh.
+    k = (pdir or '/').replace('/', '-').replace('\\', '-').replace(':', '-')
     if k.startswith('-'):
         k = k[1:]
     if len(k) > 100:

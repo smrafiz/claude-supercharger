@@ -59,6 +59,19 @@ export PYTHONIOENCODING PYTHONUTF8
 sc_project_key() { # project_dir -> sets SC_PROJECT_KEY
   local p="${1:-$PWD}"
   p="${p//\//-}"
+  # v2.26.83: also fold Windows path separators and the drive colon. Git Bash's
+  # own $PWD is POSIX (/c/Users/...), but the hook PAYLOAD's cwd on Windows is a
+  # native path (C:\Users\...) because Claude Code is a Windows binary — it has
+  # no forward slash to fold, so the key passed through carrying ':' and '\',
+  # both ILLEGAL in an NTFS filename. The scope file then failed to write or
+  # truncated at the colon, so every project on C: collapsed onto one key and
+  # per-project allowPatterns / customPatterns leaked across projects (audit
+  # HIGH #13, closed on POSIX, still open here). Found by running the suite on
+  # windows-latest for the first time.
+  # No-op on POSIX: real paths there contain neither character, so existing keys
+  # are byte-identical and no installed scope file is orphaned.
+  p="${p//\\/-}"
+  p="${p//:/-}"
   p="${p#-}"
   # Cap for filename limits (255 bytes typical). A collision needs two projects
   # sharing a 100-char path suffix, and degrades to the old shared-file
