@@ -90,8 +90,11 @@ smart_approve_verdict() {
       # `readonly off` / `strict off`, without the confirm ever reaching the user.
       # The glob is the cheap gate; the shape regex only forks in that rare case.
       *autopilot.sh*|*readonly.sh*|*strict.sh*)
+        # v2.26.82: quote moved AFTER the whitespace — see harness-tamper-guard.
+        # These two patterns must stay identical: if the guard asks and this does
+        # not decline, an open autopilot window auto-approves its own renewal.
         printf '%s' "$_sc_cmd" \
-          | grep -Eq 'autopilot\.sh["'\'']?[[:space:]]+[0-9]|(readonly|strict)\.sh["'\'']?[[:space:]]+off' \
+          | grep -Eq 'autopilot\.sh[[:space:]]+["'\'']?[0-9]|(readonly|strict)\.sh[[:space:]]+["'\'']?off' \
           && return 1 ;;
     esac
   fi

@@ -100,6 +100,28 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     case "$FILE_PATH" in
       file://*) FILE_PATH="${FILE_PATH#file://}" ;;
     esac
+    # v2.26.82: a URI is not a path. Two evasions found by red-teaming the arm
+    # shipped in .78, both of which a resolver undoes before opening the file:
+    #   file:///p/%2Eenv   percent-encoded '.' -> basename never matched .env
+    #   file:///p/.env?v=1 query suffix        -> basename was ".env?v=1"
+    # Strip the query/fragment first, then percent-decode, so the tests below see
+    # the name the server will actually resolve. Pure bash: this is the frequent
+    # Read path and a python fork here would be paid on every resource read.
+    FILE_PATH="${FILE_PATH%%\?*}"; FILE_PATH="${FILE_PATH%%#*}"
+    case "$FILE_PATH" in
+      *%[0-9A-Fa-f][0-9A-Fa-f]*)
+        _EFG_DEC=""; _EFG_REST="$FILE_PATH"
+        while [ -n "$_EFG_REST" ]; do
+          case "$_EFG_REST" in
+            %[0-9A-Fa-f][0-9A-Fa-f]*)
+              _EFG_HEX="${_EFG_REST:1:2}"
+              _EFG_DEC="$_EFG_DEC$(printf '\\x%s' "$_EFG_HEX")"
+              _EFG_REST="${_EFG_REST:3}" ;;
+            *) _EFG_DEC="$_EFG_DEC${_EFG_REST:0:1}"; _EFG_REST="${_EFG_REST:1}" ;;
+          esac
+        done
+        FILE_PATH=$(printf "%b" "$_EFG_DEC") ;;
+    esac
   fi
   [ -z "$FILE_PATH" ] && exit 0
 
@@ -115,9 +137,20 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   esac
 
   base=$(basename "$FILE_PATH")
+  # v2.26.82: match the names case-INSENSITIVELY. `.ENV` and `ID_RSA` walked
+  # straight through, and on a case-insensitive filesystem (macOS, the common
+  # case) they open the very same file the lowercase name does. Pre-existing on
+  # the Read channel, not new to the MCP arm — so it is fixed HERE, once, rather
+  # than only for URIs, which would leave the sibling channel wrong.
+  # `shopt -s nocasematch` and not `${base,,}`: parameter-expansion case
+  # conversion is bash 4+, and macOS ships bash 3.2 (nocasematch is 3.1+).
+  # No fork either, which matters on this path. Reporting still uses the ORIGINAL
+  # spelling so the message names the file the user actually asked for.
+  # Widening direction only: it can block more, never less.
+  shopt -s nocasematch
   # templates are safe
   case "$base" in
-    .env.example|.env.template|.env.sample|.env.dist) exit 0 ;;
+    .env.example|.env.template|.env.sample|.env.dist) shopt -u nocasematch; exit 0 ;;
   esac
   # v2.8.9: the Read tool is a separate channel from Bash — reading id_rsa /
   # *.pem / .netrc / .git-credentials / cloud credentials via Read bypassed this
@@ -144,6 +177,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
   esac
+  shopt -u nocasematch
   exit 0
 fi
 

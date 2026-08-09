@@ -243,13 +243,18 @@ if [ -z "$REASON" ]; then
   # gated — the v2.24.x false-positive class where a verb and a target merely co-occur.
   case "$CMD" in
     *autopilot.sh*|*readonly.sh*|*strict.sh*)
-      if printf '%s' "$CMD" | grep -Eq 'autopilot\.sh["'\'']?[[:space:]]+[0-9]'; then
+      # v2.26.82: the quote was on the WRONG SIDE of the whitespace — the pattern
+      # allowed `autopilot.sh" 8h` (meaningless) but not `autopilot.sh "8h"`, which
+      # is an ordinary way to write it and DOES open a full 8h window. Verified
+      # against the tool: the quoted form enables autopilot, so the confirm was
+      # skippable by adding two characters. Found by red-teaming after shipping.
+      if printf '%s' "$CMD" | grep -Eq 'autopilot\.sh[[:space:]]+["'\'']?[0-9]'; then
         _HT_ASK="This turns AUTOPILOT on ($CMD). For the whole window every permission prompt is auto-approved, including confirms you would otherwise see. The safety hooks still block destructive commands, but nothing else will pause for you. Approve only if you asked for this."
         _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
         printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
         exit 0
       fi
-      if printf '%s' "$CMD" | grep -Eq '(readonly|strict)\.sh["'\'']?[[:space:]]+off'; then
+      if printf '%s' "$CMD" | grep -Eq '(readonly|strict)\.sh[[:space:]]+["'\'']?off'; then
         _HT_ASK="This turns OFF a restriction you switched on ($CMD). read-only mode blocks writes; strict mode auto-approves nothing. Ending either early restores normal write / auto-approve behaviour for the rest of the session. Approve only if you asked for this."
         _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
         printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"

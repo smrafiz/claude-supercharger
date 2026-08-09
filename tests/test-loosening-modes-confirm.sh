@@ -67,6 +67,23 @@ begin_test "the plugin-root form is gated too (no .claude/supercharger in the pa
 begin_test "a bare-number duration is gated"
 [ "$(decision 'bash tools/autopilot.sh 45')" = "ask" ] && pass || fail "no confirm"
 
+# v2.26.82: the quote sat on the WRONG SIDE of the whitespace, so the pattern
+# allowed `autopilot.sh" 8h` (meaningless) and missed `autopilot.sh "8h"` — an
+# ordinary spelling that was VERIFIED to open a full 8h window. Two characters
+# skipped the confirm. Found by red-teaming the guard after shipping it.
+begin_test "a double-quoted duration is gated"
+[ "$(decision 'bash tools/autopilot.sh "8h"')" = "ask" ] && pass || fail "quoted duration skipped the confirm"
+
+begin_test "a single-quoted duration is gated"
+[ "$(decision "bash tools/autopilot.sh '8h'")" = "ask" ] && pass || fail "quoted duration skipped the confirm"
+
+begin_test "a quoted 'off' for readonly is gated"
+[ "$(decision 'bash tools/readonly.sh "off"')" = "ask" ] && pass || fail "quoted off skipped the confirm"
+
+begin_test "AUTOPILOT cannot auto-approve a QUOTED extension either"
+[ "$(autopilot_approves 'bash tools/autopilot.sh "8h"')" = "no" ] \
+  && pass || fail "the two patterns drifted — an open window renews itself unseen"
+
 begin_test "ending read-only mode early raises a confirm"
 [ "$(decision 'bash tools/readonly.sh off')" = "ask" ] && pass || fail "no confirm"
 

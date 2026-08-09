@@ -74,6 +74,48 @@ begin_test "a non-file scheme naming .env is still blocked"
 [ "$(read_uri ReadMcpResourceTool 'resource://server/config/.env')" = "blocked" ] \
   && pass || fail "only file:// was covered"
 
+# --- v2.26.82: a URI is not a path (found by red-teaming the .78 arm) ---
+# Each of these is undone by the resolver before the file is opened, so matching
+# the raw URI text matched the wrong string.
+begin_test "a percent-encoded dot still resolves to .env"
+[ "$(read_uri ReadMcpResourceTool 'file:///p/%2Eenv')" = "blocked" ] \
+  && pass || fail "percent-encoding bypassed the basename test"
+
+begin_test "a query-string suffix does not hide the name"
+[ "$(read_uri ReadMcpResourceTool 'file:///p/.env?v=1')" = "blocked" ] \
+  && pass || fail "query suffix bypassed the basename test"
+
+begin_test "a fragment suffix does not hide the name"
+[ "$(read_uri ReadMcpResourceTool 'file:///p/.env#frag')" = "blocked" ] \
+  && pass || fail "fragment bypassed the basename test"
+
+begin_test "a fully percent-encoded name resolves"
+[ "$(read_uri ReadMcpResourceTool 'file:///p/%2Essh/%69d_rsa')" = "blocked" ] \
+  && pass || fail "multi-escape path bypassed"
+
+# --- case-insensitive names: pre-existing on the Read channel, fixed for both ---
+begin_test "uppercase .ENV is blocked over MCP"
+[ "$(read_uri ReadMcpResourceTool 'file:///p/.ENV')" = "blocked" ] \
+  && pass || fail "case bypass"
+
+begin_test "uppercase ID_RSA is blocked over MCP"
+[ "$(read_uri ReadMcpResourceTool 'file:///h/.ssh/ID_RSA')" = "blocked" ] \
+  && pass || fail "case bypass"
+
+begin_test "uppercase .ENV is blocked on the plain Read channel too"
+GOT=$(python3 -c '
+import json
+print(json.dumps({"tool_name":"Read","tool_input":{"file_path":"/p/.ENV"}}))' \
+  | bash "$HOOK" >/dev/null 2>&1; echo $?)
+[ "$GOT" = "2" ] && pass || fail "fixed only for URIs — the sibling channel was left wrong"
+
+begin_test "an uppercase TEMPLATE is still exempt (exemption stays case-insensitive too)"
+GOT=$(python3 -c '
+import json
+print(json.dumps({"tool_name":"Read","tool_input":{"file_path":"/p/.ENV.EXAMPLE"}}))' \
+  | bash "$HOOK" >/dev/null 2>&1; echo $?)
+[ "$GOT" = "0" ] && pass || fail "case-insensitivity broke the template exemption"
+
 # --- and does not over-block ---
 begin_test "an ordinary resource read is not blocked"
 [ "$(read_uri ReadMcpResourceTool 'file:///home/u/project/README.md')" = "allowed" ] \
