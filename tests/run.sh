@@ -99,8 +99,15 @@ run_one() {
   rm -rf "$home"
 }
 
+# v2.26.83: TEST_GLOB selects a subset of files. Added for the Windows job, which
+# must run a WINDOWS-RELEVANT subset rather than everything: several test files
+# build a PATH with `ln -sf`, and on Git Bash `ln -s` silently COPIES (measured,
+# plan §11.1), so they would copy bash/python3 and report harness breakage as
+# product failure. Default is unchanged, so mac/Linux keep running everything.
+TEST_GLOB="${TEST_GLOB:-test-*.sh}"
+
 running=0
-for test_file in "$SCRIPT_DIR"/test-*.sh; do
+for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   [ -f "$test_file" ] || continue
   run_one "$test_file" &
   running=$((running + 1))
@@ -112,7 +119,9 @@ done
 wait
 
 # Replay in glob order so the report is deterministic regardless of finish order.
-for test_file in "$SCRIPT_DIR"/test-*.sh; do
+# Must use the SAME glob as the run loop above, or a subset run replays files it
+# never executed and reports them as empty.
+for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   [ -f "$test_file" ] || continue
   test_name=$(basename "$test_file" .sh)
   echo "--- $test_name ---"
@@ -161,6 +170,12 @@ BADGE=$(grep -oE 'tests-[0-9]+%20passing' "$REPO_DIR/README.md" 2>/dev/null | he
 # failure and send the reader after the wrong bug. (It did — a flaky
 # test-install.sh made the badge check cry drift for two releases.)
 TOTAL_RUN=$((TOTAL_PASSED + TOTAL_FAILED))
+# v2.26.83: a SUBSET run must not judge the badge — it counts a fraction of the
+# suite, so it would always report drift and, worse, `BADGE_DRIFT=1` would fail
+# the Windows job for a number that is correct.
+if [ "$TEST_GLOB" != 'test-*.sh' ]; then
+  BADGE=""
+fi
 if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_RUN" ]; then
   echo "WARNING: README tests badge says ${BADGE}, suite has ${TOTAL_RUN}."
   echo "         Bump it to ${TOTAL_RUN} (tools/release.sh does this automatically on release)."

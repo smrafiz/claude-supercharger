@@ -431,6 +431,26 @@ jobs:
           echo "post-update safety.sh rc=$hrc (expect 2)"
           [ "$hrc" -eq 2 ] || { echo "hooks stopped guarding after an update"; exit 1; }
 
+      # v2.26.83 RECON, TEMPORARY: the plan's Phase 2 item 4 called for the suite
+      # to run here and it never landed, so 3540 assertions run on ubuntu+macOS
+      # and ZERO on Windows. This step exists to LEARN which files are actually
+      # Windows-safe rather than guess: several build a PATH with `ln -sf`, and
+      # Git Bash's `ln -s` silently COPIES (plan §11.1), which would report
+      # harness breakage as product failure.
+      # continue-on-error so the recon run cannot turn master red. Once the
+      # failure list is triaged this becomes a curated TEST_GLOB subset, gating.
+      - name: RECON — full suite on Git Bash (report-only)
+        continue-on-error: true
+        shell: bash
+        run: |
+          TEST_JOBS=4 bash tests/run.sh > /tmp/win-suite.log 2>&1 || true
+          echo "=== totals ==="
+          grep -E '^Total:' /tmp/win-suite.log | tail -1
+          echo "=== files with failures ==="
+          awk '/^--- /{f=$2} /FAIL/{print f}' /tmp/win-suite.log | sort | uniq -c | sort -rn | head -40
+          echo "=== first 60 failure lines ==="
+          grep -E 'FAIL' /tmp/win-suite.log | head -60
+
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}
