@@ -512,6 +512,20 @@ jobs:
           echo "  tool_name  = [$(printf '%s' "$PAY" | jq -r '.tool_name // empty' 2>&1)]"
           echo "  disabled   = [$(printf '%s' "$PAY" | jq -r '.disabled // empty' 2>&1)]"
 
+          # The runner blocks a drive-letter path and allows a POSIX-form one. Both
+          # gated sections (symlink, abs-path) start from os.path.isabs(p), and on
+          # Windows a single leading slash is drive-RELATIVE, not absolute. If isabs
+          # is False for '/etc/hosts' then both sections are skipped and the guard
+          # allows it — which matches every observation. Settle it here; it cannot
+          # be checked from macOS, where posixpath answers instead.
+          echo "--- isabs, the gate both blocking sections start from ---"
+          python3 - <<'PYEOF'
+          import os, sys, ntpath
+          print('  python        =', sys.version.split()[0])
+          for cand in ('/etc/hosts', 'C:/Users/x/f', '/c/Users/x/f', '\\\\etc\\\\hosts'):
+              print(f'    isabs({cand!r:22}) = {os.path.isabs(cand)}   ntpath={ntpath.isabs(cand)}')
+          PYEOF
+
           echo "--- what the refusal comparisons actually see ---"
           SC_PROJ="$W/free" python3 - <<'PYEOF'
           import os
