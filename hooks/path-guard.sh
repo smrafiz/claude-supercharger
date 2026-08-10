@@ -214,6 +214,7 @@ def _extra_roots(proj_real):
         os.environ.get('EXTRA_ROOTS', ''),
         os.environ.get('CC_DIRS', ''),
     ) if s)
+    _dbg('roots-raw', raw=raw)
     if raw:
         try:
             home = os.path.realpath(os.path.expanduser('~'))
@@ -235,6 +236,9 @@ def _extra_roots(proj_real):
                 continue
             # Root of the filesystem, $HOME itself, or any ANCESTOR of $HOME
             # (e.g. /Users) would make everything in-project.
+            _dbg('root-cand', entry=entry, rp=rp, is_fs_root=(rp == os.path.dirname(rp)),
+                 is_home=(bool(home) and rp == home),
+                 is_home_ancestor=(bool(home) and home.startswith(rp + os.sep)))
             if rp == os.path.dirname(rp):
                 continue
             if home and (rp == home or home.startswith(rp + os.sep)):
