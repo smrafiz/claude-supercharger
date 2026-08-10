@@ -2,6 +2,58 @@
 
 ## Contents
 
+- [2.26.83] - 2026-08-10 — fix(windows): four verified fixes from running the suite on Git Bash for the first time
+
+The branch existed to answer one question -- how much of this actually works on
+Windows -- by running the full suite there report-only. It does: 466 of 3552 failed
+on the first run. Four causes accounted for 267 of them, and each fix was verified
+ON THE RUNNER rather than predicted.
+
+  CRLF                130 -> 0    windows python print() emits \r\n; bash splits on
+                                  \n, so every registered hook name kept a trailing
+                                  CR and the existence check asked for a path that
+                                  could not exist. 28% of all failures, one line.
+
+  destructive paths     6 -> 0    safety.sh python resolver realpaths every token,
+                                  so on Windows /etc becomes a drive path matching
+                                  no SYS_ROOT, and os.sep being a backslash builds
+                                  the prefix /etc\. Deleting /etc, the project dir
+                                  or an ancestor was ALLOWED. Bare / kept blocking
+                                  through a separate string rule, which is exactly
+                                  why the smoke test stayed green and hid it.
+
+  interpolated -c     131 -> 1    MSYS rewrites paths passed as ARGUMENTS, not paths
+                                  baked into a -c string, so a test helper opening
+                                  its verdict file printed nothing and every
+                                  assertion read "expected ASK got --".
+
+  MSYS root             7 -> 6    EXTRA_ROOTS travels an env var, which MSYS
+                                  rewrites, so a configured root of "/" arrives as
+                                  the Git install root, is not a filesystem root,
+                                  and the refusal never fires.
+
+Net: 466 -> 202 on the runner, 3369 passing.
+
+THE FINDING WORTH KEEPING, which was not in the v2.9.3 taxonomy: paths reaching a
+hook through an ENV VAR are silently rewritten on Windows; paths reaching it as TEXT
+are not. That single distinction explains all four -- and explains why one
+investigation was a dead end. A guard "allowing" writes to /etc turned out to be
+receiving C:/Program Files/Git/etc/hosts, because /etc is a Git Bash MOUNT POINT.
+There was no write to /etc to miss. Seven hypotheses died before the gate trace
+showed it; the trace is now shipped behind SC_PATHGUARD_DEBUG.
+
+What did NOT go well, recorded so it is not repeated. The MSYS-root fix first keyed
+on the <root>/usr/bin/bash layout, which is where ordinary LINUX keeps bash -- it
+derived / as the MSYS root and reddened the ubuntu suite while passing on macOS,
+where bash lives in /bin. A layout is not a platform. It now keys on os.name == nt,
+with the consequence stated in the test file rather than hidden: the positive case
+cannot be exercised off Windows, so the suite pins only that it stays inert and the
+Windows recon verifies it fires.
+
+Also merges the earlier session Windows work on this branch: NTFS-illegal project
+keys, and the recon harness itself.
+
++38 tests. Suite 3552 -> 3571.. 3571 tests passing.
 - [2.26.82] - 2026-08-09 — red-team round 2: a quoted duration skipped the autopilot confirm, and percent-encoded/uppercase names walked past the credential guard. 3540 tests passing.
 - [2.26.81] - 2026-08-09 — red-teaming the new guards: Workflow args reached agent prompts unscanned, and a secret cut across message/summary escaped both. 3528 tests passing.
 - [2.26.80] - 2026-08-09 — budget-cap and subagent-cost still forked /bin/cat for stdin, missed by v2.26.35. 3521 tests passing.
