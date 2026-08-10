@@ -221,17 +221,31 @@ def _extra_roots(proj_real):
     # location so it does not hardcode "C:/Program Files/Git": bash lives at
     # <root>/usr/bin/bash, so two levels up is the root. Empty off Windows, which
     # makes every use of it below a no-op there.
+    # os.name is the only exact discriminator. On Git Bash the interpreter is NATIVE
+    # Windows python, so this is 'nt'; it is 'posix' on macOS and Linux no matter what
+    # MSYSTEM says. Two weaker tests were tried first and both were wrong:
+    #   - MSYSTEM alone: an env var, so anything may set it.
+    #   - the <root>/usr/bin/bash layout: that is where ORDINARY LINUX keeps bash, so
+    #     it derived '/' as the MSYS root and reddened the ubuntu suite. It passed
+    #     locally only because macOS keeps bash in /bin.
+    # Consequence for testing, stated rather than hidden: the positive case cannot be
+    # exercised off Windows. The suite pins that this stays INERT here; the Windows
+    # recon is what verifies it fires there.
     _msys_root = ''
-    if os.environ.get('MSYSTEM'):
+    if os.name == 'nt' and os.environ.get('MSYSTEM'):
         try:
             import shutil
             _sh = shutil.which('bash') or ''
-            # Only derive from the MSYS layout <root>/usr/bin/bash. Without this
-            # check the two-levels-up rule silently yields '/' anywhere bash lives
-            # in /bin — which is every POSIX system, and would put a bogus value in
-            # a security comparison the moment MSYSTEM appeared in the environment.
+            # Require the .exe: on Git Bash this resolves through NATIVE Windows
+            # python, so bash is always bash.exe, and no POSIX bash ever is.
+            #
+            # The first version accepted a bare '/usr/bin/bash' too, which is where
+            # bash lives on ORDINARY LINUX — so the two-levels-up rule derived '/'
+            # as the "MSYS root" and reddened the ubuntu suite. It passed locally
+            # because macOS keeps bash in /bin. A layout is not a platform; the
+            # executable suffix is the part only Windows has.
             _norm = _sh.replace('\\', '/').lower()
-            if _norm.endswith('/usr/bin/bash') or _norm.endswith('/usr/bin/bash.exe'):
+            if _norm.endswith('/usr/bin/bash.exe'):
                 _msys_root = os.path.realpath(
                     os.path.join(os.path.dirname(_sh), os.pardir, os.pardir))
         except Exception:

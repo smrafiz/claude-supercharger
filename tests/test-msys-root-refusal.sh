@@ -9,21 +9,29 @@
 #
 # So the filesystem-root refusal (`rp == dirname(rp)`) never fires, the root is
 # accepted, and the project silently widens to everything under the Git install —
-# which is how C:/Program Files/Git/etc/hosts came back as in-project.
+# which is how C:/Program Files/Git/etc/hosts came back as in-project. The refusal
+# now also rejects the MSYS root, derived from the shell's own location rather than
+# a hardcoded install path.
 #
-# The refusal now also rejects the MSYS root, derived from the shell's own location
-# rather than a hardcoded "C:/Program Files/Git", so it holds for any install path.
+# WHAT THIS FILE CAN AND CANNOT CHECK, stated plainly. The guard keys on
+# os.name == 'nt', which is true only under native Windows python. So the POSITIVE
+# case — the MSYS root actually being refused — cannot be exercised here at all, and
+# is verified by the Windows recon instead. Everything below pins the half that CAN
+# be checked off Windows: that the new branch stays completely inert.
 #
-# Severity, stated precisely because it was overstated once: a user writing "/" does
-# not get the filesystem root — they get the Git install dir. Silent and wrong, not
-# catastrophic.
+# That distinction is the point rather than a caveat. Two earlier attempts used
+# weaker discriminators that DID run here — MSYSTEM alone, then the
+# <root>/usr/bin/bash layout — and the second passed on macOS while breaking the
+# ubuntu suite, because ordinary Linux keeps bash in exactly that layout. A test
+# that runs everywhere is worthless if the thing it tests is not the thing that
+# ships.
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 CFG=".supercharger"".json"   # split: the local self-mod guard reads the literal
 
-# A fake MSYS tree. The guard keys on MSYSTEM plus the <root>/usr/bin/bash layout,
-# so both are needed to reproduce the platform.
+# A directory shaped like an MSYS install, including the bash layout that fooled the
+# second attempt. On this platform it must be treated as an ordinary directory.
 MROOT=$(mktemp -d)/Git
 mkdir -p "$MROOT/usr/bin" "$MROOT/etc"
 printf '#!/bin/sh\nexec /bin/bash "$@"\n' > "$MROOT/usr/bin/bash"
@@ -53,37 +61,35 @@ root_of() { # extra-env... -> the msys_root the guard derives
   rm -rf "$st"
 }
 
-echo "=== MSYS root refusal ==="
+echo "=== MSYS root refusal (inertness off Windows) ==="
 
-begin_test "the MSYS root is refused as a project root"
-# The bug in its own terms: before the fix this root was accepted, making every
-# file under the Git install in-project.
-[ "$(verdict "$MROOT" MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")" = "BLOCK" ] \
-  && pass || fail "the MSYS root was accepted — everything under the Git install is in-project"
-
-begin_test "the root is derived from the shell, not a hardcoded install path"
-GOT=$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")
-[ -n "$GOT" ] && [ "$(cd "$GOT" && pwd -P)" = "$(cd "$MROOT" && pwd -P)" ] \
-  && pass || fail "derived '$GOT', expected '$MROOT'"
-
-begin_test "GATE: nothing is derived without the MSYS layout"
-# MSYSTEM alone must not be enough. bash lives in /bin on every POSIX system, and
-# the two-levels-up rule would otherwise yield '/' — a bogus value in a security
-# comparison. This is the check the first draft of the fix was missing.
+begin_test "GATE: nothing is derived on this platform, even with MSYSTEM set"
+# os.name is 'posix' here, so the branch must not run at all.
 [ -z "$(root_of MSYSTEM=MINGW64)" ] \
-  && pass || fail "derived a root from a POSIX bash: '$(root_of MSYSTEM=MINGW64)'"
+  && pass || fail "derived a root off Windows: '$(root_of MSYSTEM=MINGW64)'"
+
+begin_test "GATE: an MSYS-shaped bash layout does not trigger it either"
+# The exact shape that broke ubuntu: <root>/usr/bin/bash is where Linux keeps bash.
+[ -z "$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")" ] \
+  && pass || fail "the /usr/bin/bash layout derived a root: '$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")'"
 
 begin_test "GATE: nothing is derived when MSYSTEM is unset"
-[ -z "$(root_of)" ] && pass || fail "derived a root off Windows: '$(root_of)'"
+[ -z "$(root_of)" ] && pass || fail "derived a root with MSYSTEM unset: '$(root_of)'"
 
-begin_test "GATE: an ordinary directory is still a valid root off Windows"
-# The refusal must not leak into macOS/Linux, where this dir is simply a directory.
-[ "$(verdict "$MROOT")" = "allow" ] \
+begin_test "GATE: an ordinary directory is still a valid project root"
+# The refusal must not leak into macOS/Linux, where this is just a directory.
+[ "$(verdict "$MROOT" MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")" = "allow" ] \
   && pass || fail "an ordinary root was refused on a non-Windows platform"
 
 begin_test "GATE: the filesystem root is still refused"
-# The original refusal must keep working — this fix adds to it, not replaces it.
+# The original check must keep working — this fix adds to it, not replaces it.
 [ "$(verdict "/")" = "allow" ] && fail "'/' was accepted as a root" || pass
+
+begin_test "the guard keys on os.name, not on MSYSTEM or a path layout"
+# Pins the discriminator itself, since the two weaker ones each shipped and each
+# was wrong. Source-level because the behaviour it guards cannot run here.
+grep -q "os.name == 'nt' and os.environ.get('MSYSTEM')" "$REPO_DIR/hooks/path-guard.sh" \
+  && pass || fail "the MSYS gate no longer keys on os.name — a weaker test has crept back"
 
 rm -rf "$(dirname "$MROOT")"
 report
