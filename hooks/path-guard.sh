@@ -12,6 +12,9 @@
 #   {"disableSecurityCategories": ["path-traversal", "symlink", "git-internals",
 #                                   "selfmod", "abs-path", "build-artifacts"]}
 # Disable: SUPERCHARGER_PATH_GUARD=0
+# Debug:   SC_PATHGUARD_DEBUG=1 — trace each gate to stderr (never stdout, which
+#          carries the verdict). Off by default; added after six probes failed to
+#          explain a Windows verdict and tracing the real gates settled it in one.
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
