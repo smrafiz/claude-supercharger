@@ -53,6 +53,12 @@ for ev,v in h.items():
 print('\n'.join(sorted(out)))
 PY
 )
+# v2.26.83: strip CR. Windows python's print() writes \r\n in text mode; bash splits
+# on \n, so every name kept a trailing \r and `[ -f hooks/<name>.sh<CR> ]` was false.
+# That produced 130 failures — 28% of ALL Windows suite failures — from one line,
+# and every one of them read as a missing hook rather than as a parsing bug.
+# Stripped once here rather than in each consumer, so it cannot be half-applied.
+REGISTERED="${REGISTERED//$'\r'/}"
 
 for path in "$REPO_DIR"/hooks/*.sh; do
   f=$(basename "$path")
