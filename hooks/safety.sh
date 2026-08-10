@@ -329,6 +329,57 @@ PYEOF
         if [ -n "$BAD" ]; then
           block "recursive force rm on protected path ($BAD)"
         fi
+
+        # v2.26.83: the python resolver above is INERT ON WINDOWS, and everything it
+        # is the only guard for therefore failed OPEN. Proven on a windows-latest
+        # runner, not inferred — `rm -rf /etc` (both flag orders), `rm /. -rf`, and
+        # deleting the project dir or an ancestor of it were all ALLOWED.
+        #
+        # Cause: every check there realpath()s the token first. On Windows that maps
+        # `/etc` to `D:\etc`, which never equals the POSIX literal in SYS_ROOTS, and
+        # os.sep is a backslash so `r + os.sep` builds the nonsense prefix `/etc\`.
+        # All three checks (cwd-ancestor, system root, home) break the same way.
+        # `rm -rf /` kept blocking via the bash arm above, which is exactly why the
+        # CI smoke test stayed green and hid this for the whole port.
+        #
+        # A TEXT match, gated to Windows. Text is the right layer here: the operator
+        # typed `/etc` whatever the platform, so no path resolution is needed to know
+        # what they meant. The gate makes the macOS/Linux path provably unchanged —
+        # $OSTYPE is never msys/cygwin there, so this block cannot execute.
+        #
+        # Deliberately mirrors SYS_ROOTS rather than inventing a list, and omits
+        # /var for the same reason the python side does (macOS temp dirs).
+        case "$OSTYPE" in
+          msys*|cygwin*|win32*)
+            # System roots, and anything beneath one.
+            if [[ "$args" =~ (^|[[:space:]])\"?/(etc|usr|bin|sbin|lib|lib64|boot|sys|dev|proc|root|System|Library)(/|\"?[[:space:]]|\"?$) ]]; then
+              block "recursive force rm on protected path (Windows text match)"
+            fi
+            # Root spellings the bash arm above does not cover: `/.`, `/..`, `//`.
+            # Their python equivalents all realpath to '/' on POSIX, which is how
+            # they were caught there.
+            if [[ "$args" =~ (^|[[:space:]])\"?/(\.|\.\.|/)+\"?([[:space:]]|$) ]]; then
+              block "recursive force rm on root (Windows text match)"
+            fi
+            # The project dir itself, or any ancestor of it. $PWD is POSIX-form under
+            # Git Bash (/d/a/...), so a plain prefix comparison is exact — no
+            # resolution, and no drive-letter conversion to get wrong.
+            for _tok in $args; do
+              case "$_tok" in
+                -*) continue ;;
+              esac
+              _t="${_tok%/}"; _t="${_t%\"}"; _t="${_t#\"}"
+              [ -z "$_t" ] && continue
+              case "$_t" in
+                /*)
+                  if [ "$PWD" = "$_t" ] || case "$PWD" in "$_t"/*) true ;; *) false ;; esac; then
+                    block "recursive force rm on the project directory or an ancestor (Windows text match)"
+                  fi
+                  ;;
+              esac
+            done
+            ;;
+        esac
       fi
     fi
   done <<< "$SEGMENTS"
