@@ -472,6 +472,51 @@ jobs:
           print('ancestor form: home.startswith(rp + sep)?', home.startswith(rp + os.sep))
           PY
 
+      # The suite recon reports test-additional-roots refusals failing on Windows:
+      # additionalRoots:["/"] and ["$HOME"] are ACCEPTED, which disables the guard.
+      # Inspection could not settle why, and one hypothesis (expanduser != $HOME)
+      # was disproven by the path-form diagnostic above — realpath(HOME env) ==
+      # realpath(expanduser) on this runner, so the comparison itself is sound.
+      # Only the platform can say where it actually diverges. This runs the exact
+      # failing scenario and prints every intermediate the refusal depends on.
+      - name: DIAGNOSTIC — why path-guard root refusals do not fire
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          CFG=".supercharger"".json"
+          W=$(mktemp -d)/w; mkdir -p "$W/free"; : > "$W/free/f.php"
+          echo "layout = $W"
+
+          printf '{"additionalRoots":["/"]}' > "$W/free/$CFG"
+          echo "--- root '/' , write to /etc/hosts (expect rc=2, root refused) ---"
+          printf '{"tool_name":"Write","tool_input":{"file_path":"/etc/hosts","content":"x"},"cwd":"%s"}' "$W/free" \
+            | bash hooks/path-guard.sh; echo "  rc=$?"
+
+          printf '{"additionalRoots":["%s"]}' "$HOME" > "$W/free/$CFG"
+          echo "--- root \$HOME , write into \$HOME (expect rc=2, root refused) ---"
+          printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.ssh/authorized_keys","content":"x"},"cwd":"%s"}' "$HOME" "$W/free" \
+            | bash hooks/path-guard.sh; echo "  rc=$?"
+
+          echo "--- what the refusal comparisons actually see ---"
+          SC_PROJ="$W/free" python3 - <<'PYEOF'
+          import os
+          proj = os.path.realpath(os.environ['SC_PROJ'])
+          home = os.path.realpath(os.path.expanduser('~'))
+          print(f'  proj_real = {proj!r}')
+          print(f'  home      = {home!r}')
+          print(f'  os.sep    = {os.sep!r}')
+          for cand in ('/', os.environ.get('HOME', ''), '/etc/hosts'):
+              if not cand:
+                  continue
+              rp = os.path.realpath(cand)
+              print(f'  cand={cand!r}')
+              print(f'    realpath    = {rp!r}  isabs={os.path.isabs(cand)}  isdir={os.path.isdir(rp)}')
+              print(f'    fs-root?      {rp == os.path.dirname(rp)}   (dirname={os.path.dirname(rp)!r})')
+              print(f'    ==home?       {rp == home}   ancestor-of-home? {home.startswith(rp + os.sep)}')
+          PYEOF
+          rm -rf "$(dirname "$W")"
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
