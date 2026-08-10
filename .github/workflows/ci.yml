@@ -498,6 +498,20 @@ jobs:
           printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.ssh/authorized_keys","content":"x"},"cwd":"%s"}' "$HOME" "$W/free" \
             | bash hooks/path-guard.sh; echo "  rc=$?"
 
+          # The containment logic is provably correct under Windows path semantics
+          # (checked locally against ntpath with the runner's own measured values):
+          # the symlink section AND the /etc/ string match should each block. They
+          # do not, so the sections must be SKIPPED — both are gated on `proj`, and
+          # both `proj` and `p` come from jq. This shows what the hook actually
+          # extracts, which is the one thing not yet observed.
+          echo "--- what the hook extracts from the payload ---"
+          PAY=$(printf '{"tool_name":"Write","tool_input":{"file_path":"/etc/hosts","content":"x"},"cwd":"%s"}' "$W/free")
+          echo "  jq present : $(command -v jq || echo NO)"
+          echo "  file_path  = [$(printf '%s' "$PAY" | jq -r '.tool_input.file_path // empty' 2>&1)]"
+          echo "  cwd        = [$(printf '%s' "$PAY" | jq -r '.cwd // .workspace.current_dir // empty' 2>&1)]"
+          echo "  tool_name  = [$(printf '%s' "$PAY" | jq -r '.tool_name // empty' 2>&1)]"
+          echo "  disabled   = [$(printf '%s' "$PAY" | jq -r '.disabled // empty' 2>&1)]"
+
           echo "--- what the refusal comparisons actually see ---"
           SC_PROJ="$W/free" python3 - <<'PYEOF'
           import os
