@@ -16,7 +16,7 @@ PY
 }
 verdict() {
   SUPERCHARGER_STATE="$(mktemp -d)" bash "$HOOK" < "$1" > "$TMP/o" 2>/dev/null
-  python3 -c "import json;s=open('$TMP/o').read().strip();print('ASK' if s and json.loads(s)['hookSpecificOutput']['permissionDecision']=='ask' else 'ALLOW')"
+  python3 -c "import json,sys;s=open(sys.argv[1]).read().strip();print('ASK' if s and json.loads(s)['hookSpecificOutput']['permissionDecision']=='ask' else 'ALLOW')" "$TMP/o"
 }
 n=0
 check() { # name command expected

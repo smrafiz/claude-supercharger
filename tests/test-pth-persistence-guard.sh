@@ -17,7 +17,7 @@ PY
 }
 verdict() {
   SUPERCHARGER_STATE="$(mktemp -d)" bash "$HOOK" < "$1" > "$TMP/o" 2>/dev/null
-  python3 -c "import json;s=open('$TMP/o').read().strip();print(json.loads(s)['hookSpecificOutput']['permissionDecision'].upper() if s else 'ALLOW')"
+  python3 -c "import json,sys;s=open(sys.argv[1]).read().strip();print(json.loads(s)['hookSpecificOutput']['permissionDecision'].upper() if s else 'ALLOW')" "$TMP/o"
 }
 n=0
 check() { n=$((n+1)); mkin "$TMP/c$n" "$2" "$3"; begin_test "$1"; local g; g=$(verdict "$TMP/c$n"); [ "$g" = "$4" ] && pass || fail "expected $4 got $g"; }
