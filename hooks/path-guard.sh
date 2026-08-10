@@ -217,7 +217,26 @@ def _extra_roots(proj_real):
         os.environ.get('EXTRA_ROOTS', ''),
         os.environ.get('CC_DIRS', ''),
     ) if s)
-    _dbg('roots-raw', raw=raw)
+    # The MSYS installation root, or '' anywhere else. Resolved from the shell's own
+    # location so it does not hardcode "C:/Program Files/Git": bash lives at
+    # <root>/usr/bin/bash, so two levels up is the root. Empty off Windows, which
+    # makes every use of it below a no-op there.
+    _msys_root = ''
+    if os.environ.get('MSYSTEM'):
+        try:
+            import shutil
+            _sh = shutil.which('bash') or ''
+            # Only derive from the MSYS layout <root>/usr/bin/bash. Without this
+            # check the two-levels-up rule silently yields '/' anywhere bash lives
+            # in /bin — which is every POSIX system, and would put a bogus value in
+            # a security comparison the moment MSYSTEM appeared in the environment.
+            _norm = _sh.replace('\\', '/').lower()
+            if _norm.endswith('/usr/bin/bash') or _norm.endswith('/usr/bin/bash.exe'):
+                _msys_root = os.path.realpath(
+                    os.path.join(os.path.dirname(_sh), os.pardir, os.pardir))
+        except Exception:
+            _msys_root = ''
+    _dbg('roots-raw', raw=raw, msys_root=_msys_root)
     if raw:
         try:
             home = os.path.realpath(os.path.expanduser('~'))
@@ -243,6 +262,21 @@ def _extra_roots(proj_real):
                  is_home=(bool(home) and rp == home),
                  is_home_ancestor=(bool(home) and home.startswith(rp + os.sep)))
             if rp == os.path.dirname(rp):
+                continue
+            # v2.26.83: on Git Bash, MSYS rewrites a single-path env var in transit,
+            # so a configured root of "/" reaches this loop already turned into the
+            # MSYS installation root. Measured on a windows-latest runner:
+            #     config  additionalRoots: ["/"]
+            #     python  raw='C:/Program Files/Git/'   is_fs_root=False
+            # The check above therefore never fires, the refusal is silently
+            # bypassed, and the project widens to everything under the Git install
+            # — which is how C:/Program Files/Git/etc/hosts read as in-project.
+            #
+            # Refuse the MSYS root by identity rather than by string: it is wherever
+            # bash itself lives (two levels above /usr/bin/bash), so this holds for
+            # any install location and stays inert off Windows, where MSYSTEM is
+            # unset and the value is empty.
+            if _msys_root and (rp == _msys_root or _msys_root.startswith(rp + os.sep)):
                 continue
             if home and (rp == home or home.startswith(rp + os.sep)):
                 continue
