@@ -1,6 +1,11 @@
 # Windows Support — Plan
 
-Status: **Phase 1 + 2 gaps G1–G6 all closed, verified on windows-latest; `install.sh` now runs there too** · Last updated: 2026-08-06
+Status: **the full suite now runs on Git Bash — 3369 of 3571 pass (94.4%)** · Last updated: 2026-08-10
+
+Phase 1 + 2 gaps G1–G6 are closed, and `install.sh` and `update.sh` both run on
+`windows-latest` every push. What changed on 2026-08-10 is that the *suite itself*
+runs there report-only, so "does Supercharger work on Windows" is now a measured
+number instead of an inference — see [§13](#13-what-the-suite-actually-does-on-git-bash-2026-08-10).
 
 **Installing?** Skip to [§12](#12-installing-on-windows-2026-08-06) — the rest of this
 file is the plan and its decision record, not a user guide.
@@ -327,3 +332,96 @@ What that verification does **not** cover, and should not be read as covering:
 The honest claim is therefore *supported on Git Bash, install verified by CI, unproven
 in human hands* — not "ready". A single success or failure report from a real desktop
 is what would change that, and is worth an issue either way.
+
+---
+
+## 13. What the suite actually does on Git Bash (2026-08-10)
+
+Everything before this section reasons about Windows from macOS. This section is the
+first time the whole suite ran *there*, report-only, with the log uploaded as an
+artifact. Read this before forming a theory about Windows: three of the four bugs
+below had already been "fixed" once on the unmerged `feat/windows-support` branch
+(v2.9.3) and were rediscovered from scratch, because that branch never landed.
+
+### 13.1 The number
+
+```
+first run   3086 passed / 466 failed
+after v2.26.83   3369 passed / 202 failed        94.4% of the suite
+```
+
+Four causes accounted for 267 failures. Each was verified **on the runner**, not
+predicted:
+
+| cause | failures | what it was |
+|---|---|---|
+| CRLF | 130 → 0 | Windows `print()` emits `\r\n`; bash splits on `\n`, so every registered hook name kept a trailing CR and its existence check asked for a path that cannot exist. 28% of all failures, from one line. |
+| destructive paths | 6 → 0 | `safety.sh`'s resolver `realpath()`s each token, so `/etc` becomes a drive path matching no `SYS_ROOT`, and `os.sep` being `\` builds the prefix `/etc\`. Deleting `/etc`, the project dir, or an ancestor was **ALLOWED**. |
+| interpolated `-c` | 131 → 1 | MSYS rewrites paths passed as *arguments*, not paths baked into a `python3 -c` string. A test helper opening its verdict file printed nothing, so every assertion read `expected ASK got —`. |
+| MSYS root | 7 → 6 | `EXTRA_ROOTS` travels an env var, which MSYS rewrites, so a configured root of `"/"` arrives as the Git install root — not a filesystem root, so the refusal never fires. |
+
+### 13.2 The rule that explains all four
+
+**A path reaching a hook through an ENV VAR is silently rewritten on Windows. A path
+reaching it as TEXT is not.**
+
+This is not in the §4 taxonomy and is the single most useful thing on this page.
+Check which channel a value arrives through before theorising about why a comparison
+fails:
+
+- `safety.sh` scans the command **text** inside JSON → not rewritten → its `/etc`
+  blindness was real, and fixed with a Windows-gated text match.
+- `path-guard` receives `FILE_PATH` and `EXTRA_ROOTS` as **env vars** → rewritten →
+  `"/"` became the Git install root, and `/etc/hosts` became
+  `C:/Program Files/Git/etc/hosts`.
+
+### 13.3 The dead end, recorded so it is not repeated
+
+`test-additional-roots` reports that writes to `/etc` are allowed, which reads as a
+security fail-open. **It is not one.** On Git Bash `/etc` is a MOUNT POINT for the
+Git installation's etc directory, so the guard never receives a path to the system
+`/etc` — there is no write to miss. That test asserts POSIX semantics the platform
+does not have.
+
+Seven hypotheses died before the gate trace showed this: `expanduser` mismatch,
+broken containment, empty `jq` extraction, an `ntpath` simulation run under the wrong
+interpreter, `isabs` semantics, and two more. Six were killed by measurement rather
+than argument. The trace that settled it ships behind `SC_PATHGUARD_DEBUG=1` — stderr
+only, inert by default — and is the right first tool for the next Windows verdict
+that makes no sense.
+
+### 13.4 A layout is not a platform
+
+The MSYS-root fix first keyed on the `<root>/usr/bin/bash` layout. That is where
+**ordinary Linux** keeps bash, so it derived `/` as the "MSYS root", put a bogus value
+into a security comparison, and reddened the ubuntu suite. It passed locally only
+because macOS keeps bash in `/bin`.
+
+It now keys on `os.name == 'nt'`, which is true only under native Windows python. The
+consequence is stated in `tests/test-msys-root-refusal.sh` rather than hidden: the
+positive case **cannot** be exercised off Windows, so the suite pins only that the
+branch stays inert, and the recon verifies that it fires. A test that runs everywhere
+is worthless if what it tests is not what ships.
+
+### 13.5 What the remaining 202 are
+
+A long tail across ~60 files with no cause above 12. Mixed:
+
+- **Platform artefacts** — no `flock`, no exec bits on NTFS, sandbox `HOME` vs
+  `%USERPROFILE%`, POSIX `/tmp`, timing-sensitive perf assertions. These say nothing
+  about the product.
+- **Individually real** — e.g. a scope key with a Windows path baked into it, and a
+  `test-autopilot` case reporting that `safety.sh` did not block.
+
+There is no lever left: this is per-file triage. Anyone planning to spend a day here
+should expect single-digit gains per file, and should re-run the recon first, since
+these numbers move with every fix.
+
+### 13.6 Still unanswerable from CI
+
+- **No toast has been seen to render.** The runner proves backend selection, not pixels.
+- **Whether it FEELS usable.** Hook timeouts were raised to 60s on Windows (v2.26.70)
+  because ~64 interpreter launches per prompt exceed 15s there, and Git Bash has no
+  `fork()`. That stops output being discarded; it does not make Windows fast. Cutting
+  UserPromptSubmit to one or two forks is the largest remaining Windows project and
+  has not been started.
