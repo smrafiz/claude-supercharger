@@ -518,6 +518,19 @@ jobs:
           # is False for '/etc/hosts' then both sections are skipped and the guard
           # allows it — which matches every observation. Settle it here; it cannot
           # be checked from macOS, where posixpath answers instead.
+          # THE decisive probe. Five earlier probes each answered one INPUT to the
+          # guard and none identified why a POSIX-form path is allowed here while a
+          # drive-letter one is blocked. This traces the REAL code through its gates
+          # — not a copy that can drift — and prints which section it reaches and
+          # what it decides. Inert unless SC_PATHGUARD_DEBUG is set; stderr only.
+          echo "--- TRACE: the guard's own gates, POSIX-form path ---"
+          printf '{"additionalRoots":["/"]}' > "$W/free/$CFG"
+          printf '{"tool_name":"Write","tool_input":{"file_path":"/etc/hosts","content":"x"},"cwd":"%s"}' "$W/free" \
+            | SC_PATHGUARD_DEBUG=1 bash hooks/path-guard.sh 2>&1 >/dev/null | sed 's/^/    /'
+          echo "--- TRACE: the same guard, drive-letter path (this one blocks) ---"
+          printf '{"tool_name":"Write","tool_input":{"file_path":"C:/Windows/System32/drivers/etc/hosts","content":"x"},"cwd":"%s"}' "$W/free" \
+            | SC_PATHGUARD_DEBUG=1 bash hooks/path-guard.sh 2>&1 >/dev/null | sed 's/^/    /'
+
           echo "--- isabs, the gate both blocking sections start from ---"
           python3 - <<'PYEOF'
           import os, sys, ntpath

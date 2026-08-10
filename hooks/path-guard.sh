@@ -132,7 +132,26 @@ p = os.environ.get('FILE_PATH', '')
 proj = os.environ.get('PROJECT_DIR', '')
 disabled = set(c.strip() for c in os.environ.get('DISABLED', '').split(',') if c.strip())
 
+# v2.26.83: opt-in trace, inert unless SC_PATHGUARD_DEBUG is set. Added because
+# five separate probes each answered ONE input to this guard and none identified
+# why a POSIX-form absolute path is allowed on Windows while a drive-letter one is
+# blocked. Probing inputs one at a time was not converging; tracing the real code
+# through its gates settles it in a single run. Writes to stderr so it can never be
+# mistaken for a verdict — the verdict is stdout, and an empty stdout means allow.
+_DBG = os.environ.get('SC_PATHGUARD_DEBUG', '') not in ('', '0')
+
+
+def _dbg(where, **kw):
+    if not _DBG:
+        return
+    bits = '  '.join(f'{k}={v!r}' for k, v in kw.items())
+    sys.stderr.write(f'[path-guard:{where}] {bits}\n')
+
+
+_dbg('input', p=p, proj=proj, disabled=sorted(disabled))
+
 if not p:
+    _dbg('exit', why='empty file_path -> allow')
     sys.exit(0)
 
 # v2.23.13: the "project boundary" is the session's cwd, but Claude Code is often
@@ -284,12 +303,16 @@ if 'path-traversal' not in disabled:
 # the lexical path (a symlink was followed) — plain absolute-outside paths keep
 # deferring to abs-path (with its safe-list + memory-store allowance); `..` paths
 # already exited in the path-traversal category above.
+_dbg('3.2-gate', enabled=('symlink' not in disabled), proj_set=bool(proj))
 if 'symlink' not in disabled and proj:
     try:
         proj_real = os.path.realpath(proj)
         cand = p if os.path.isabs(p) else os.path.join(proj_real, p)
         full = os.path.realpath(cand)
         lexical = os.path.normpath(cand)
+        _dbg('3.2', isabs=os.path.isabs(p), cand=cand, full=full, lexical=lexical,
+             differs=(full != lexical), proj_real=proj_real,
+             repo_root=_repo_root(proj_real), within=_within_project(full, proj_real))
         if full != lexical:  # a symlink changed the resolution
             if re.search(r'(^|/)\.git/(hooks|refs|objects|config)(/|$)', full):
                 print('write resolves via a symlink into git internals ('
@@ -301,8 +324,8 @@ if 'symlink' not in disabled and proj:
                       + full[:120] + ') — out-of-project write; '
                       'opt out via disableSecurityCategories: ["symlink"]')
                 sys.exit(0)
-    except Exception:
-        pass
+    except Exception as _e:
+        _dbg('3.2-EXCEPTION', err=repr(_e))
 
 # --- 3.3 Git internals + supercharger hooks ---
 if 'git-internals' not in disabled:
@@ -421,6 +444,8 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
         proj_real = os.path.realpath(proj)
         target_dir = os.path.dirname(p) or '/'
         target_real = os.path.realpath(target_dir)
+        _dbg('3.4-generic', target_dir=target_dir, target_real=target_real,
+             proj_real=proj_real, within=_within_project(target_real, proj_real))
         if not _within_project(target_real, proj_real):
             print('absolute path outside project root: ' + p[:100] + '; opt out via disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
