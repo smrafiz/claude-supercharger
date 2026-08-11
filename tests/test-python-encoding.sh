@@ -106,4 +106,56 @@ N=$(render "$SL" cp1252 2>/dev/null | wc -l | tr -d ' ')
 [ "${N:-0}" -ge 3 ] && pass || fail "expected >=3 lines, got ${N:-0}"
 rm -rf "$SL"
 
+# --- CRLF: the OTHER half of Windows python output ---------------------------
+# print() on Windows terminates lines with CRLF. bash splits on \n alone, so any
+# hook that reads a MULTI-LINE python result into shell variables keeps a trailing
+# CR on every field but the last.
+#
+# tool-history-tracker parses exactly that shape — line 1 is the session id, line
+# 2 is the entry — and used line 1 to build `.tool-history-<sid>`. With the CR
+# attached the filename holds a character Windows does not permit, the append
+# fails, and the hook records NOTHING: no history, no per-session isolation, and
+# a confidence-gate that never sees a failure. Five recon failures, one byte.
+#
+# Simulated with a python3 stub that emits CRLF, because that is the one part of
+# Windows behaviour reproducible here — the same technique test-windows-rm-net
+# uses to make the resolver inert.
+begin_test "tool-history-tracker survives CRLF-terminated python output"
+CRLF_DIR=$(mktemp -d); ST=$(mktemp -d); mkdir -p "$ST/scope"
+REAL_PY=$(command -v python3)
+# Resolve the real interpreter FIRST: a stub named python3 that re-invokes
+# `python3` by name finds itself on PATH and forks until the box gives up.
+cat > "$CRLF_DIR/python3" <<EOF
+#!/bin/sh
+"$REAL_PY" "\$@" | while IFS= read -r l; do printf '%s\r\n' "\$l"; done
+EOF
+chmod +x "$CRLF_DIR/python3"
+
+printf '{"session_id":"crlfsess","tool_name":"Bash","tool_response":{"stdout":"ok"}}' \
+  | env PATH="$CRLF_DIR:$PATH" SUPERCHARGER_STATE="$ST" \
+    bash "$REPO_DIR/hooks/tool-history-tracker.sh" >/dev/null 2>&1
+
+# The file must exist under the CLEAN name, and no CR-suffixed sibling may appear.
+CLEAN=$ST/scope/.tool-history-crlfsess
+DIRTY=$(find "$ST/scope" -name '*.tool-history*' 2>/dev/null | tr -d '\r' | grep -c . || true)
+if [ -s "$CLEAN" ]; then
+  pass
+else
+  fail "history not written under the clean name (found: $(ls -A "$ST/scope" 2>/dev/null | cat -v | tr '\n' ' ')) files=$DIRTY"
+fi
+rm -rf "$CRLF_DIR" "$ST"
+
+begin_test "the CRLF stub really does emit carriage returns (guard the guard)"
+# Without this, a stub that quietly failed would make the check above pass for
+# the wrong reason -- the exact trap the resolver-stub test was written to avoid.
+CRLF_DIR=$(mktemp -d); REAL_PY=$(command -v python3)
+cat > "$CRLF_DIR/python3" <<EOF
+#!/bin/sh
+"$REAL_PY" "\$@" | while IFS= read -r l; do printf '%s\r\n' "\$l"; done
+EOF
+chmod +x "$CRLF_DIR/python3"
+GOT=$(env PATH="$CRLF_DIR:$PATH" python3 -c "print('x')" | od -c | head -1)
+rm -rf "$CRLF_DIR"
+printf '%s' "$GOT" | grep -q '\\r' && pass || fail "stub emitted no CR — the test above proves nothing: $GOT"
+
 report

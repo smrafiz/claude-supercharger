@@ -51,6 +51,15 @@ print(json.dumps({'session_id': sid, 'tool': tool, 'success': success, 'ts': int
 " 2>/dev/null)
 
 [ -z "$RESULT" ] && exit 0
+# Windows python print() terminates every line with CRLF, and bash splits on \n
+# alone — so both fields below kept a trailing CR. The session id then built the
+# filename `.tool-history-<sid>\r`, and CR is not a legal character in a Windows
+# filename, so the append failed and NOTHING was ever recorded: no history, no
+# per-session isolation, and a confidence-gate with no failures to see.
+# Neither field can legitimately contain a CR — the id is sanitized to
+# [A-Za-z0-9_-] above, and a real CR inside the JSON is escaped as two characters
+# — so stripping the byte outright is safe and covers both lines at once.
+RESULT=${RESULT//$'\r'/}
 SESSION_ID=${RESULT%%$'\n'*}
 ENTRY=${RESULT#*$'\n'}
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
