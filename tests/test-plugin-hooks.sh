@@ -12,7 +12,7 @@ OUT=$(bash "$GEN" --check 2>&1)
 if [ $? -eq 0 ]; then pass; else fail "stale — run gen-plugin-hooks.sh: $OUT"; fi
 
 begin_test "hooks.json: valid JSON wrapped in top-level 'hooks' object"
-if python3 -c "import json,sys; d=json.load(open('$HOOKS_JSON')); sys.exit(0 if isinstance(d.get('hooks'),dict) else 1)" 2>/dev/null; then
+if python3 -c "import sys, json,sys; d=json.load(open(sys.argv[1])); sys.exit(0 if isinstance(d.get('hooks'),dict) else 1)" "$HOOKS_JSON" 2>/dev/null; then
   pass
 else
   fail "hooks.json is not {\"hooks\": {...}}"
@@ -47,7 +47,7 @@ begin_test "hooks.json: registration count matches get_hooks_for_mode (no drift)
 # shellcheck source=lib/hooks.sh
 . "$REPO_DIR/lib/hooks.sh"
 TUPLES=$(SUPERCHARGER_EMIT_ALL=1 get_hooks_for_mode "full" "true" '"${CLAUDE_PLUGIN_ROOT}"/hooks' | grep -c .)
-ENTRIES=$(python3 -c "import json; d=json.load(open('$HOOKS_JSON')); print(sum(len(v) for v in d['hooks'].values()))")
+ENTRIES=$(python3 -c "import sys, json; d=json.load(open(sys.argv[1])); print(sum(len(v) for v in d['hooks'].values()))" "$HOOKS_JSON")
 if [ "$TUPLES" = "$ENTRIES" ]; then pass; else fail "tuples=$TUPLES json=$ENTRIES"; fi
 
 begin_test "hooks.json: async / asyncRewake / if flags survive the emit"

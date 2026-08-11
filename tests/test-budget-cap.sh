@@ -53,7 +53,7 @@ for i in 1 2 3; do
   asst_msg 1000 0 0 100 >> "$TR"       # append one new turn
   echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 done
-TURN_COUNT=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost')).get('turn_count',0))" 2>/dev/null || echo 0)
+TURN_COUNT=$(python3 -c "import sys, json; print(json.load(open(sys.argv[1])).get('turn_count',0))" "$SCOPE_DIR/.session-cost" 2>/dev/null || echo 0)
 [ "$TURN_COUNT" = "3" ] && pass || fail "expected turn_count=3, got $TURN_COUNT"
 teardown_test_home
 
@@ -84,12 +84,12 @@ TR="$SCOPE_DIR/transcript.jsonl"
 { asst_msg 1000 0 0 100; printf '{"type":"user","message":{"content":"caf\xc3\xa9 \xe2\x9c\x93 unicode"}}\n'; asst_msg 1000 0 0 100; } > "$TR"
 PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-M1=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['main_total'],8))")
-T1=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])")
+M1=$(python3 -c "import sys, json; print(round(json.load(open(sys.argv[1]))['main_total'],8))" "$SCOPE_DIR/.session-cost")
+T1=$(python3 -c "import sys, json; print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost")
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1   # same transcript, no new lines
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
-M2=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['main_total'],8))")
-T2=$(python3 -c "import json; print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])")
+M2=$(python3 -c "import sys, json; print(round(json.load(open(sys.argv[1]))['main_total'],8))" "$SCOPE_DIR/.session-cost")
+T2=$(python3 -c "import sys, json; print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost")
 if [ "$M1" = "$M2" ] && [ "$T1" = "$T2" ] && [ "$T1" = "2" ]; then pass
 else fail "re-counted on unchanged transcript: main $M1->$M2, turns $T1->$T2 (want stable, turns=2)"; fi
 teardown_test_home
@@ -232,7 +232,7 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
 TR="$SCOPE_DIR/tr.jsonl"
 asst_msg 1000 50000 900000 4000 > "$TR"   # content = 1000+4000 = 5000 (all cache excluded)
 printf '{"tool_name":"Write","session_id":"tk1","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
-GOT=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-tk1'))['new_tokens'])" 2>/dev/null)
+GOT=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['new_tokens'])" "$SCOPE_DIR/.main-tokens-tk1" 2>/dev/null)
 [ "$GOT" = "5000" ] && pass || fail "expected new_tokens=5000, got: $GOT"
 teardown_test_home
 
@@ -244,7 +244,7 @@ asst_msg 1000 50000 900000 4000 > "$TR"    # 5000
 printf '{"tool_name":"Write","session_id":"tk2","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
 asst_msg 200 10000 800000 2000 >> "$TR"     # +2200
 printf '{"tool_name":"Write","session_id":"tk2","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
-GOT=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-tk2'))['new_tokens'])" 2>/dev/null)
+GOT=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['new_tokens'])" "$SCOPE_DIR/.main-tokens-tk2" 2>/dev/null)
 [ "$GOT" = "7200" ] && pass || fail "expected incremental 7200, got: $GOT"
 teardown_test_home
 
@@ -262,8 +262,8 @@ asst_msg 300  0 0 700  > "$TB"        # B msg1: content 1000
 printf '{"tool_name":"Write","session_id":"sA","transcript_path":"%s"}' "$TA" | bash "$HOOK" >/dev/null 2>&1  # A -> 7200
 printf '{"tool_name":"Write","session_id":"sB","transcript_path":"%s"}' "$TB" | bash "$HOOK" >/dev/null 2>&1  # B (smaller) rewinds a shared offset
 printf '{"tool_name":"Write","session_id":"sA","transcript_path":"%s"}' "$TA" | bash "$HOOK" >/dev/null 2>&1  # A again, NO new msgs
-GOTA=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-sA'))['new_tokens'])" 2>/dev/null)
-GOTB=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.main-tokens-sB'))['new_tokens'])" 2>/dev/null)
+GOTA=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['new_tokens'])" "$SCOPE_DIR/.main-tokens-sA" 2>/dev/null)
+GOTB=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['new_tokens'])" "$SCOPE_DIR/.main-tokens-sB" 2>/dev/null)
 if [ "$GOTA" = "7200" ] && [ "$GOTB" = "1000" ]; then pass
 else fail "cross-transcript contamination: A=$GOTA (want 7200) B=$GOTB (want 1000)"; fi
 teardown_test_home
@@ -326,10 +326,10 @@ asst_msg 1000 0 0 500 > "$TR"
 P=$(printf '{"tool_name":"Write","session_id":"dsess","transcript_path":"%s"}' "$TR")
 # 4s window (default). Call 1 walks; append a turn; call 2 immediately → debounced.
 echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
-T1=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+T1=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 asst_msg 2000 0 0 1000 >> "$TR"
 echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
-T2=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+T2=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 if [ "$T1" = "1" ] && [ "$T2" = "1" ]; then pass; else fail "expected turn_count 1 then 1 (debounced), got $T1 then $T2"; fi
 teardown_test_home
 
@@ -345,7 +345,7 @@ echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1  # 
 # expire the window (marker is keyed by transcript basename) → next call walks
 rm -f "$SCOPE_DIR"/.budget-walk-* 2>/dev/null
 echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
-T=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+T=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 [ "$T" = "2" ] && pass || fail "deferred turn lost: expected turn_count=2 after window expiry, got $T"
 teardown_test_home
 
@@ -358,7 +358,7 @@ P=$(printf '{"tool_name":"Write","session_id":"dsess3","transcript_path":"%s"}' 
 echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash "$HOOK" >/dev/null 2>&1
 asst_msg 2000 0 0 1000 >> "$TR"
 echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash "$HOOK" >/dev/null 2>&1
-T=$(python3 -c "import json;print(json.load(open('$SCOPE_DIR/.session-cost'))['turn_count'])" 2>/dev/null)
+T=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 [ "$T" = "2" ] && pass || fail "DEBOUNCE=0 should walk every call: expected turn_count=2, got $T"
 teardown_test_home
 

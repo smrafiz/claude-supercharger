@@ -89,7 +89,7 @@ begin_test "an event with no registered hooks exits non-zero"
 bash "$HARNESS" --event NoSuchEvent --iterations 1 >/dev/null 2>&1 && fail "should exit non-zero" || pass
 
 begin_test "committed baseline exists and parses"
-[ -f "$REPO_DIR/docs/perf-baseline.json" ] && python3 -c "import json;json.load(open('$REPO_DIR/docs/perf-baseline.json'))" 2>/dev/null && pass || fail "baseline missing/unparseable"
+[ -f "$REPO_DIR/docs/perf-baseline.json" ] && python3 -c "import sys, json;json.load(open(sys.argv[1]))" "$REPO_DIR/docs/perf-baseline.json" 2>/dev/null && pass || fail "baseline missing/unparseable"
 
 # --- statusline target (Phase 2, item 2) -------------------------------------
 begin_test "--target all sweeps every registered event and ranks by BLOCKING cost"

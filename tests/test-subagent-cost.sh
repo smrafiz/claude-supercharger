@@ -223,7 +223,7 @@ ROWS=$(wc -l < "$F" 2>/dev/null | tr -d ' ')
 # final cumulative = 7 messages * 2000 tok = 14000; session aggregate must equal
 # the single final cost, NOT the sum of all three firings.
 FINAL_TOK=$(tail -1 "$F" | python3 -c "import sys,json; print(json.load(sys.stdin)['total_tokens'])" 2>/dev/null)
-SUB=$(python3 -c "import json; print(round(json.load(open('$SCOPE_DIR/.session-cost'))['subagent_total'],6))" 2>/dev/null)
+SUB=$(python3 -c "import sys, json; print(round(json.load(open(sys.argv[1]))['subagent_total'],6))" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 LAST_COST=$(tail -1 "$F" | python3 -c "import sys,json; print(round(json.load(sys.stdin)['cost_usd'],6))" 2>/dev/null)
 if [ "$ROWS" = "1" ] && [ "$FINAL_TOK" = "14000" ] && [ "$SUB" = "$LAST_COST" ]; then pass
 else fail "expected 1 row / 14000 tok / subagent_total==final ($LAST_COST); got rows=$ROWS tok=$FINAL_TOK sub=$SUB"; fi
