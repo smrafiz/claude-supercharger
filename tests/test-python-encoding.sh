@@ -121,13 +121,21 @@ rm -rf "$SL"
 # hook-side fix worked precisely because one file covered everything, and the
 # tools cannot have that (only 9 of 23 even have a REPO_DIR to source from), so
 # the scan is what stops this being partially applied.
-begin_test "every python-forking tool sets a UTF-8 stdout encoding"
+begin_test "every python-forking script outside hooks/ sets a UTF-8 stdout"
+# tools/ AND lib/ AND install.sh/uninstall.sh. The first version of this scan
+# covered tools/ only, and six more files had the identical exposure — including
+# install.sh, the first thing a Windows user runs, and lib/hooks.sh, which writes
+# settings.json. A scan that stops at one directory is still a list.
+#
+# hooks/ is excluded deliberately: every hook reaches hooks/lib-paths.sh, which
+# sets this once for all of them (v2.26.71). Nothing else reaches that file.
 MISSING=""
-for f in "$REPO_DIR"/tools/*.sh; do
+for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$REPO_DIR"/uninstall.sh; do
+  [ -f "$f" ] || continue
   grep -q 'python3' "$f" || continue
   grep -q 'PYTHONIOENCODING' "$f" || MISSING="$MISSING $(basename "$f")"
 done
-[ -z "$MISSING" ] && pass || fail "tools fork python without a UTF-8 stdout:$MISSING"
+[ -z "$MISSING" ] && pass || fail "forks python without a UTF-8 stdout:$MISSING"
 
 begin_test "the tools honour an explicit encoding rather than forcing utf-8"
 # `:=` not `=`. A user who deliberately sets an encoding must keep it, and the
@@ -135,7 +143,8 @@ begin_test "the tools honour an explicit encoding rather than forcing utf-8"
 # macOS/Linux already defaults to UTF-8 (PEP 538/540), so forcing cp1252 would
 # only prove that an override works.
 BAD=""
-for f in "$REPO_DIR"/tools/*.sh; do
+for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$REPO_DIR"/uninstall.sh; do
+  [ -f "$f" ] || continue
   grep -q 'PYTHONIOENCODING' "$f" || continue
   grep -q ': "${PYTHONIOENCODING:=' "$f" || BAD="$BAD $(basename "$f")"
 done

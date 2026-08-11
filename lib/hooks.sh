@@ -1,6 +1,14 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Hook Assembly & settings.json Merge
 
+# Windows python defaults stdout to the ANSI codepage (cp1252) and raises
+# UnicodeEncodeError on the box-drawing and arrow characters this script prints,
+# losing ALL of its output. Hooks get this from hooks/lib-paths.sh; installer-side
+# code never reaches that file, so it sets its own. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 SUPERCHARGER_TAG="#supercharger"
 
 get_hooks_for_mode() {
