@@ -165,7 +165,7 @@ Install writes hooks/agents/commands/rules to `~/.claude/`, registers them in `~
 
 ### Install as a plugin
 
-Supercharger ships the **full** framework through Claude Code's native plugin system, with no shell script:
+Supercharger ships the **full** framework through Claude Code's native plugin system, with no install script to run:
 
 ```
 /plugin marketplace add smrafiz/claude-supercharger
@@ -173,6 +173,13 @@ Supercharger ships the **full** framework through Claude Code's native plugin sy
 ```
 
 At enable time you're prompted for role, economy tier, and MCP profile. Update with `/plugin update`, toggle with `/plugin enable|disable`.
+
+> **On Windows the plugin still needs Git Bash.** There is no install script to run,
+> but every hook *is* a bash script. Claude Code picks Git Bash as its hook
+> interpreter when it is installed and **falls back to PowerShell when it is not** —
+> and under PowerShell none of these hooks run. The classic installer cannot hit this
+> (it needs bash to execute at all); the plugin can, because nothing in the install
+> path requires bash. Install Git for Windows first.
 
 **Every guard runs identically on both channels.** What differs is packaging:
 
@@ -480,7 +487,7 @@ bash tools/hook-toggle.sh my-hook on
 Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 
 **Windows?**
-Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash** — Claude Code auto-selects Git Bash as its hook interpreter on Windows, so the hooks run as-is.
+Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash** — Claude Code auto-selects Git Bash as its hook interpreter on Windows, so the hooks run as-is. Git Bash is a **requirement, not a preference**: Claude Code falls back to PowerShell when it is absent, and every hook here is a bash script, so all of them silently fail to run.
 
 Every CI run exercises a `windows-latest` job under Git Bash. It verifies that hooks execute, `rm -rf /` is still blocked, the hashing used for per-project state works, the platform is detected for notifications, and `.sh` files check out with LF endings rather than CRLF. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
 
