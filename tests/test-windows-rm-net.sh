@@ -36,10 +36,17 @@ probe() { # command, ostype, [hook_cwd], [payload_cwd] -> BLOCK|allow
   # separate claims, and a guard that conflates them has a blind spot.
   local cmd="$1" ost="$2" wd="${3:-}" pcwd="${4:-}" st rc payload
   st=$(mktemp -d); mkdir -p "$st/scope" "$st/home"
-  payload=$(CMD="$cmd" ST="${pcwd:-$st}" python3 -c '
-import json, os
-print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["CMD"]},
-                  "cwd": os.environ["ST"]}))')
+  # Both values go in on STDIN, which MSYS does not touch. Passing them as env
+  # vars — the obvious way, and how this started — respells the payload cwd on
+  # Windows: ST looks like a single path so it arrives as C:/Users/... while the
+  # command string keeps its POSIX spelling, and the guard then compares two
+  # different names for one directory and allows the wipe. This file documents
+  # that exact conversion rule, and its own harness fell to it.
+  payload=$(printf '%s\n%s\n' "$cmd" "${pcwd:-$st}" | python3 -c '
+import json, sys
+cmd = sys.stdin.readline().rstrip("\r\n")
+cwd = sys.stdin.readline().rstrip("\r\n")
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": cmd}, "cwd": cwd}))')
   if [ -n "$wd" ]; then
     printf '%s' "$payload" | (cd "$wd" && env PATH="$STUBDIR:$PATH" HOME="$st/home" \
       SUPERCHARGER_STATE="$st" OSTYPE="$ost" bash "$REPO_DIR/hooks/safety.sh") >/dev/null 2>&1

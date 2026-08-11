@@ -96,11 +96,22 @@ else
 fi
 
 begin_test "nothing is derived when MSYSTEM is genuinely unset"
-# `env -u`, because Git Bash sets MSYSTEM for real: the old version inherited it
-# and so never tested the condition it named. Same contract on both platforms —
-# the guard requires os.name == 'nt' AND MSYSTEM.
-DERIVED=$(root_of -u MSYSTEM)
-[ -z "$DERIVED" ] && pass || fail "derived a root with MSYSTEM unset: '$DERIVED'"
+# `env -u`, because the old version merely inherited whatever was set and so
+# never tested the condition it named.
+#
+# On Git Bash the condition cannot be built from outside at all: MSYS bash
+# re-exports MSYSTEM to every child, so `env -u MSYSTEM bash …` hands python a
+# populated MSYSTEM regardless. The runner proved it — this asserted "unset" and
+# got 'C:\Program Files\Git'. That is the shell being itself, not the guard
+# misbehaving, so the assertion is made where it can actually hold.
+if [ "$ON_WINDOWS" = 1 ]; then
+  echo "    (skipped on Git Bash: MSYS bash re-exports MSYSTEM to children,"
+  echo "     so an unset-MSYSTEM process cannot be constructed from outside)"
+  pass
+else
+  DERIVED=$(root_of -u MSYSTEM)
+  [ -z "$DERIVED" ] && pass || fail "derived a root with MSYSTEM unset: '$DERIVED'"
+fi
 
 begin_test "GATE: an ordinary directory is still a valid project root"
 # The refusal must not leak into macOS/Linux, where this is just a directory.
