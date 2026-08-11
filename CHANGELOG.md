@@ -2,6 +2,35 @@
 
 ## Contents
 
+- [2.26.86] - 2026-08-11 — docs(hooks): correct v2.26.85 — the if field is not broken, our syntax was wrong
+
+v2.26.85 said "a hook registered with if never fires". That is FALSE about Claude
+Code and needs correcting before it misleads someone.
+
+The measurement was right: git-safety and git-remote-guard were inert on every
+classic install since 6fc897b. The explanation was wrong. Per the Claude Code hooks
+documentation, `if` takes PERMISSION RULE syntax:
+
+    documented   "Bash(git *)"   "Edit(*.ts)"
+    ours         "git *"          <- bare glob, matches nothing
+
+So the field works and we passed the wrong dialect. Same class as v2.24.5, where a
+bare mcp__ matcher silently killed 13 registrations: a filter in the wrong dialect
+matches nothing, fires nothing, and errors nothing. The mistake was mine both times,
+and both times the symptom was silence.
+
+Left REMOVED rather than corrected to "Bash(git *)". The saving is two hook spawns
+per Bash call, and a mis-specified filter has now cost two security guards for
+months. Anyone restoring it must verify on a LIVE session that the gated hook
+actually fires -- reading the syntax off the docs is exactly what produced the
+original bug, and I have just done it again in the opposite direction.
+
+The test that banned `if` outright now checks its SHAPE instead: a value must look
+like Tool(pattern). Banning a working feature because I misused it would be the
+wrong lesson; the bare glob is the specific silent mistake, so that is what is
+pinned.
+
+Suite 3576/0, unchanged -- documentation and a test rationale, no behaviour change.. 3576 tests passing.
 - [2.26.85] - 2026-08-11 — fix(security): two git guards were inert — a registration filter that matches nothing
 
 git-safety (force-push protection) and git-remote-guard (remote exfiltration) were

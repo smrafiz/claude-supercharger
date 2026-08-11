@@ -241,17 +241,22 @@ get_hooks_for_mode() {
     hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
-    # v2.26.85: the `if` field is REMOVED, not narrowed. Measured against a live
-    # Claude Code session: a hook registered with `if` never fires. A plain
-    # `git push --force origin main` -- a command that literally starts with the
-    # gated prefix -- was NOT blocked, while the same installed hook invoked
-    # directly returns rc=2. Both guards had therefore been inert on every classic
-    # install since 6fc897b.
+    # v2.26.85: the `if` field is REMOVED. Both guards were inert on every classic
+    # install since 6fc897b -- measured live, not inferred: `git push --force
+    # origin main` was NOT blocked, while the same installed hook invoked directly
+    # returns rc=2.
     #
-    # Same class as v2.24.5, where a bare `mcp__` matcher silently killed 13
-    # registrations: a declared filter that matches nothing fires nothing and
-    # errors nothing. Cost of removing it is two extra hooks per Bash call; the
-    # alternative is two security guards that do not run.
+    # v2.26.86 correction: `if` is NOT broken. It takes PERMISSION RULE syntax --
+    # "Bash(git *)", "Edit(*.ts)" -- and we passed a bare glob "git *", which
+    # matches nothing. My own doing, and the same class as v2.24.5's bare `mcp__`
+    # matcher: a filter in the wrong dialect matches nothing, fires nothing, and
+    # errors nothing.
+    #
+    # Left REMOVED rather than corrected to "Bash(git *)". A mis-specified filter
+    # cost two security guards for months, and the saving is two hook spawns per
+    # Bash call. Anyone restoring it must verify on a LIVE session that the gated
+    # hook actually fires -- reading the syntax off the docs is what produced the
+    # original bug.
     hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —
     # asks before pushing the whole repo to a non-origin host or hijacking origin's

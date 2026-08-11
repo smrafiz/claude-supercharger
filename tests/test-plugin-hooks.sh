@@ -59,28 +59,37 @@ assert any(h.get('async') for h in flat), 'no async'
 assert any(h.get('asyncRewake') for h in flat), 'no asyncRewake'
 " "$HOOKS_JSON" 2>/dev/null; then pass; else fail "a flag class was dropped in emit"; fi
 
-begin_test "no registration uses the 'if' field — it stops the hook firing at all"
-# v2.26.85: `if` was dropped from the two git registrations, and this asserts it
-# stays dropped rather than asserting the emitter can still produce it.
+begin_test "no registration uses 'if' with a bare glob — that dialect matches nothing"
+# v2.26.85 dropped `if` from the two git registrations. v2.26.86 corrects WHY.
 #
-# Measured against a live Claude Code session: a hook registered with `if` NEVER
-# FIRES. `git push --force origin main` — a command that literally starts with the
-# gated prefix — was not blocked, while the same installed hook invoked directly
-# returns rc=2. git-safety (force-push) and git-remote-guard (remote exfiltration)
-# had both been inert on every classic install since 6fc897b.
+# Measured live: git-safety (force-push) and git-remote-guard (remote exfiltration)
+# were inert on every classic install since 6fc897b. `git push --force origin main`
+# was not blocked; the same installed hook invoked directly returns rc=2.
 #
-# Same class as v2.24.5, where a bare `mcp__` matcher silently killed 13
-# registrations: a filter that matches nothing fires nothing and errors nothing.
-# The emitter still SUPPORTS the field; nothing may use it until someone
-# demonstrates, on a live session, that a gated hook actually runs.
+# The cause was OURS, not a broken feature. `if` takes PERMISSION RULE syntax —
+# "Bash(git *)", "Edit(*.ts)" — and we passed the bare glob "git *". Same class as
+# v2.24.5's bare `mcp__` matcher: a filter in the wrong dialect matches nothing,
+# fires nothing, errors nothing.
+#
+# This asserts the SHAPE, not a ban: an `if` value must look like Tool(pattern).
+# A bare glob is the specific mistake that cost two guards, and it is silent, so
+# it gets a test. Anyone adding one must still verify on a LIVE session that the
+# gated hook fires — reading the syntax off the docs is what produced the bug.
 GATED=$(python3 -c "
-import json, sys
+import json, re, sys
 d=json.load(open(sys.argv[1]))
-print(' '.join(h.get('command','?').split('/')[-1].split()[0]
-                for es in d['hooks'].values() for e in es for h in e.get('hooks',[])
-                if h.get('if')))
+bad=[]
+for es in d['hooks'].values():
+    for e in es:
+        for h in e.get('hooks',[]):
+            cond=h.get('if')
+            # Permission rule syntax is Tool(pattern); anything else silently
+            # matches nothing, which is the failure this pins.
+            if cond and not re.match(r'^[A-Za-z_][A-Za-z0-9_]*\(.*\)$', cond.strip()):
+                bad.append(h.get('command','?').split('/')[-1].split()[0] + '=' + cond)
+print(' '.join(bad))
 " "$HOOKS_JSON" 2>/dev/null)
-[ -z "$GATED" ] && pass || fail "if-gated (and therefore inert) registrations: $GATED"
+[ -z "$GATED" ] && pass || fail "if not in Tool(pattern) form — matches nothing, hook is inert: $GATED"
 
 begin_test "hooks.json: every hook carries a timeout (CC defaults to 600s)"
 # The default is ten minutes, so an unbounded hook that wedges freezes a tool call
