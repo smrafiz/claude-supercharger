@@ -30,10 +30,13 @@ STUBDIR=$(mktemp -d)
 printf '#!/bin/sh\nexit 0\n' > "$STUBDIR/python3"
 chmod +x "$STUBDIR/python3"
 
-probe() { # command, ostype, [cwd] -> BLOCK|allow
-  local cmd="$1" ost="$2" wd="${3:-}" st rc payload
+probe() { # command, ostype, [hook_cwd], [payload_cwd] -> BLOCK|allow
+  # hook_cwd is where the hook PROCESS runs; payload_cwd is the project Claude
+  # Code names in the payload. They are separate arguments because they are
+  # separate claims, and a guard that conflates them has a blind spot.
+  local cmd="$1" ost="$2" wd="${3:-}" pcwd="${4:-}" st rc payload
   st=$(mktemp -d); mkdir -p "$st/scope" "$st/home"
-  payload=$(CMD="$cmd" ST="$st" python3 -c '
+  payload=$(CMD="$cmd" ST="${pcwd:-$st}" python3 -c '
 import json, os
 print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["CMD"]},
                   "cwd": os.environ["ST"]}))')
@@ -86,6 +89,23 @@ begin_test "an ancestor of the project directory blocks on Windows"
 WD=$(mktemp -d); mkdir -p "$WD/sub/dir"
 [ "$(probe "rm -rf $WD" msys "$WD/sub/dir")" = "BLOCK" ] && pass || fail "ancestor wipe still allowed"
 rm -rf "$WD"
+
+# The two claims can disagree. Claude Code sends the project as the payload's
+# `cwd`, while the hook process runs wherever it was spawned — so a guard that
+# consults only $PWD leaves the ACTUAL project unprotected. Recon caught this as
+# "safety: rm -rf <PROJECT_DIR-absolute> is blocked" failing with rc=0 on the
+# runner: the payload named a project the guard never looked at.
+begin_test "the PAYLOAD's project blocks even when the hook runs elsewhere"
+PROJ=$(mktemp -d); ELSEWHERE=$(mktemp -d)
+[ "$(probe "rm -rf $PROJ" msys "$ELSEWHERE" "$PROJ")" = "BLOCK" ] \
+  && pass || fail "payload-cwd project wipe allowed (only \$PWD was consulted)"
+rm -rf "$PROJ" "$ELSEWHERE"
+
+begin_test "GATE: the payload-cwd rule is inert on darwin"
+PROJ=$(mktemp -d); ELSEWHERE=$(mktemp -d)
+[ "$(probe "rm -rf $PROJ" darwin "$ELSEWHERE" "$PROJ")" = "allow" ] \
+  && pass || fail "the Windows-only net fired on darwin"
+rm -rf "$PROJ" "$ELSEWHERE"
 
 # --- the gate must not change macOS/Linux -----------------------------------
 begin_test "GATE: the net is inert on darwin"

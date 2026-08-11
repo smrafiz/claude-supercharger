@@ -361,9 +361,20 @@ PYEOF
             if [[ "$args" =~ (^|[[:space:]])\"?/(\.|\.\.|/)+\"?([[:space:]]|$) ]]; then
               block "recursive force rm on root (Windows text match)"
             fi
-            # The project dir itself, or any ancestor of it. $PWD is POSIX-form under
-            # Git Bash (/d/a/...), so a plain prefix comparison is exact — no
+            # The project dir itself, or any ancestor of it. Both forms are POSIX
+            # under Git Bash (/d/a/...), so a plain prefix comparison is exact — no
             # resolution, and no drive-letter conversion to get wrong.
+            #
+            # BOTH the payload's cwd and $PWD, because they are different claims and
+            # either being wiped is the thing worth stopping. PROJECT_DIR is the
+            # authoritative project for this tool call (payload .cwd, falling back
+            # to $PWD at line 77); $PWD is merely where the hook happens to run.
+            # Checking only $PWD left a session whose project differs from the
+            # hook's cwd with its own root unprotected — `rm -rf <project>` was
+            # allowed outright on Windows, where the python resolver that normally
+            # catches this cannot run. Checking only PROJECT_DIR would drop the
+            # $PWD case that already had coverage. A guard should widen here, not
+            # trade one blind spot for another.
             for _tok in $args; do
               case "$_tok" in
                 -*) continue ;;
@@ -372,9 +383,12 @@ PYEOF
               [ -z "$_t" ] && continue
               case "$_t" in
                 /*)
-                  if [ "$PWD" = "$_t" ] || case "$PWD" in "$_t"/*) true ;; *) false ;; esac; then
-                    block "recursive force rm on the project directory or an ancestor (Windows text match)"
-                  fi
+                  for _base in "$PROJECT_DIR" "$PWD"; do
+                    [ -n "$_base" ] || continue
+                    if [ "$_base" = "$_t" ] || case "$_base" in "$_t"/*) true ;; *) false ;; esac; then
+                      block "recursive force rm on the project directory or an ancestor (Windows text match)"
+                    fi
+                  done
                   ;;
               esac
             done
