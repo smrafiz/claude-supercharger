@@ -28,11 +28,16 @@ import os,re,sys
 sys.path.insert(0,'.')
 src=open(sys.argv[1]).read()
 m=re.search(r'def _project_key.*?return k or .root.', src, re.S)
-ns={}
-exec(m.group(0).replace('    ','',1).replace('\n    ','\n'), ns) if False else None
-# exec the function as written, dedented by its own indentation
+# The extracted function reads os.environ (for a bash-supplied key), so the exec
+# namespace has to carry os. Without it the call raised NameError, python printed
+# nothing, and the test reported an empty key as a channel DISAGREEMENT — a
+# harness gap wearing the costume of the bug it was written to catch.
+ns={'os': os}
 body=m.group(0)
 exec(body, ns)
+# Unset so this exercises the fallback derivation, which is the half that has to
+# stay byte-identical to sc_project_key. The supplied-key path is asserted below.
+os.environ.pop('SC_PROJECT_KEY', None)
 print(ns['_project_key'](os.environ['PD']))
 " "$REPO_DIR/hooks/project-config.sh"; }
 
@@ -92,5 +97,39 @@ B=$(bkey '/Users/me/repo'); P=$(pkey '/Users/me/repo')
 begin_test "bash and python agree on root"
 B=$(bkey '/'); P=$(pkey '/')
 [ "$B" = "$P" ] && pass || fail "channels disagree — bash='$B' python='$P'"
+
+# --- the fix: hand python the KEY, not just the path -------------------------
+# Agreeing above only proves the two copies of the algorithm match. It cannot
+# catch the failure that actually happened on Windows, where both copies were
+# already identical and the INPUTS differed: PROJECT_DIR crosses as an env var,
+# MSYS respells a single-path env var in transit, and python keyed
+# 'C:-Program Files-Git-Users-me-proj' for the project bash keyed
+# 'Users-me-proj'. Writer and readers then used different scope files and every
+# per-project setting silently did nothing.
+#
+# A key has no separators left, so it crosses unchanged. These pin that python
+# HONOURS it rather than re-deriving.
+pkey_supplied() { # path, supplied-key -> the key python actually uses
+  PD="$1" SC_PROJECT_KEY="$2" python3 -c "
+import os,re,sys
+src=open(sys.argv[1]).read()
+m=re.search(r'def _project_key.*?return k or .root.', src, re.S)
+ns={'os': os}
+exec(m.group(0), ns)
+print(ns['_project_key'](os.environ['PD']))
+" "$REPO_DIR/hooks/project-config.sh"
+}
+
+begin_test "python uses the key bash supplies, not its own re-derivation"
+# The respelled path is what MSYS would hand it; the supplied key is what bash
+# saw. Honouring the latter is the whole fix.
+GOT=$(pkey_supplied 'C:\Program Files\Git\Users\me\proj' 'Users-me-proj')
+[ "$GOT" = "Users-me-proj" ] && pass || fail "python re-derived instead of using the supplied key: '$GOT'"
+
+begin_test "an empty supplied key falls back to deriving one"
+# Non-hook callers do not set it, and an empty value must not yield an empty key
+# — that would collapse every project onto one shared scope file.
+GOT=$(pkey_supplied '/Users/me/repo' '')
+[ "$GOT" = "$(bkey '/Users/me/repo')" ] && pass || fail "empty supplied key did not fall back: '$GOT'"
 
 report

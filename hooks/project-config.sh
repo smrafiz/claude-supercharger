@@ -79,7 +79,26 @@ for _ in 1 2 3 4 5; do
   SEARCH_DIR="$PARENT"
 done
 
-RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" SUPERCHARGER_STATE="$SUPERCHARGER_STATE" python3 << 'PYEOF'
+# Derive the scope key HERE and hand python the key, not just the path.
+#
+# Both channels ran the same algorithm on different INPUTS. PROJECT_DIR crosses
+# as an env var, and MSYS rewrites a single-path env var in transit, so a POSIX
+# cwd reached python respelled: bash keyed 'Users-me-proj' while python keyed
+# 'C:-Program Files-Git-Users-me-proj' off the same project. The writer and the
+# readers then used different scope files and every per-project setting —
+# profile, disabled-hooks, allowPatterns, customPatterns — silently did nothing.
+#
+# A key has no slashes left to rewrite, so it crosses unchanged. This also
+# retires the "MUST match byte for byte" duplication below: two copies of an
+# algorithm agreeing by discipline is the cross-channel parity drift this repo
+# keeps rediscovering. python still keeps its own copy as a fallback for
+# callers that do not set the variable.
+SC_PROJECT_KEY=""
+if command -v sc_project_key >/dev/null 2>&1; then
+  sc_project_key "$PROJECT_DIR"
+fi
+
+RESULT=$(CONFIG_FILE="$CONFIG_FILE" PROJECT_DIR="$PROJECT_DIR" SC_PROJECT_KEY="$SC_PROJECT_KEY" WELCOME_FLAG="$WELCOME_FLAG" LIB_DIR="$LIB_DIR" SUPERCHARGER_STATE="$SUPERCHARGER_STATE" python3 << 'PYEOF'
 import json, os, sys, re
 sys.path.insert(0, os.environ['LIB_DIR'])
 from detect_stack import detect_stack
@@ -152,9 +171,16 @@ if stack_parts:
 # MUST match sc_project_key() in hooks/lib-paths.sh byte for byte, or the writer
 # and the readers disagree and the config silently does nothing.
 def _project_key(pdir):
-    # MUST stay byte-identical to sc_project_key in hooks/lib-paths.sh — the two
-    # channels resolve the same project's scope files and a disagreement means
-    # one writes a file the other never reads.
+    # Prefer the key bash already derived. It arrives as a plain token with no
+    # separators left, so MSYS cannot respell it in transit the way it respells
+    # PROJECT_DIR — which is exactly how the two channels came to key the same
+    # project differently on Windows.
+    supplied = os.environ.get('SC_PROJECT_KEY', '')
+    if supplied:
+        return supplied
+    # Fallback for callers that do not set it. Kept byte-identical to
+    # sc_project_key in hooks/lib-paths.sh; a disagreement means one channel
+    # writes a file the other never reads.
     # v2.26.83: '\\' and ':' folded for Windows payload cwds (C:\Users\...), which
     # carry no '/' to fold and are illegal in an NTFS filename. See lib-paths.sh.
     k = (pdir or '/').replace('/', '-').replace('\\', '-').replace(':', '-')
