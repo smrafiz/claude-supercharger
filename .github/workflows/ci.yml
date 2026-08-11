@@ -558,6 +558,59 @@ jobs:
           PYEOF
           rm -rf "$(dirname "$W")"
 
+      # Two clusters survive the interpolated-path sweep with no visible cause:
+      # standards-inject emits NOTHING for every stack (10 tests), and the
+      # hook-perf chain harness produces no chain-sum (9 tests). Neither has an
+      # interpolated path left, so the next step is evidence, not another theory —
+      # the last two Windows theories formed from inspection were both wrong.
+      # Both hooks take their paths through ENV VARS, which the EXTRA_ROOTS
+      # finding says MSYS *does* rewrite; this prints what python actually sees.
+      - name: DIAGNOSTIC — standards-inject and the perf chain produce nothing
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          echo "=== standards-inject: does the hook see the project at all? ==="
+          P=$(mktemp -d)
+          echo '{"dependencies":{"vue":"3.4.0"}}' > "$P/package.json"
+          echo "  project dir (bash) = $P"
+          echo "  package.json there?  $([ -f "$P/package.json" ] && echo yes || echo NO)"
+
+          echo "--- hook output (stderr NOT suppressed, unlike the test) ---"
+          printf '{"cwd":"%s"}' "$P" | SUPERCHARGER_TIER=lean bash hooks/standards-inject.sh
+          echo "  rc=$?"
+
+          echo "--- what jq extracts, and what python then sees ---"
+          echo "  jq present : $(command -v jq || echo NO)"
+          CWD_OUT=$(printf '{"cwd":"%s"}' "$P" | jq -r '.cwd // empty' 2>&1)
+          echo "  jq .cwd    = [$CWD_OUT]"
+          PROJECT_DIR="$P" python3 -c "
+          import os, sys
+          p = os.environ['PROJECT_DIR']
+          print('  env PROJECT_DIR as python sees it = %r' % p)
+          print('  isdir(PROJECT_DIR)                = %s' % os.path.isdir(p))
+          print('  isfile(package.json)              = %s'
+                % os.path.isfile(os.path.join(p, 'package.json')))
+          "
+          echo "--- is an arbitrary env var path-converted by MSYS at all? ---"
+          # The whole question in one line: if this prints a drive letter, MSYS
+          # rewrote it and detection should work; if it prints /d/... or /tmp/...,
+          # env-var conversion does NOT apply to arbitrary names and that is the bug.
+          RULES_DIR="$(pwd)/rules" python3 -c "
+          import os; print('  RULES_DIR to python = %r' % os.environ['RULES_DIR'])"
+          echo "  bundled vue.md exists (bash)? $([ -f rules/stacks/vue.md ] && echo yes || echo NO)"
+          rm -rf "$P"
+
+          echo ""
+          echo "=== perf chain: why no chain-sum ==="
+          echo "--- tools/hook-perf.sh --chain, stderr visible ---"
+          bash tools/hook-perf.sh --chain 2>&1 | head -25
+          echo "  rc=${PIPESTATUS[0]}"
+          echo "--- the clock the harness depends on ---"
+          echo "  BASH_VERSION     = $BASH_VERSION"
+          echo "  EPOCHREALTIME    = ${EPOCHREALTIME:-<unset>}"
+          echo "  date +%s%N       = $(date +%s%N 2>&1)"
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
