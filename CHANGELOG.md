@@ -2,6 +2,40 @@
 
 ## Contents
 
+- [2.26.85] - 2026-08-11 — fix(security): two git guards were inert — a registration filter that matches nothing
+
+git-safety (force-push protection) and git-remote-guard (remote exfiltration) were
+registered with an `if` filter. Measured against a LIVE Claude Code session, not by
+inspection: a hook registered with `if` never fires.
+
+    live   git push --force origin main        NOT blocked
+    live   echo ok && git push --force ...     NOT blocked
+    direct same commands, installed hook       rc=2, blocks all three
+
+The command literally starts with the gated prefix, so this is not a narrow-glob
+problem — the field appears to stop the hook running at all. Both guards have
+therefore been inert on every classic install since 6fc897b, which is when the
+filter was added.
+
+Same class as v2.24.5, where a bare mcp__ matcher silently killed 13 registrations
+including mcp-egress-guard: a declared filter that matches nothing fires nothing and
+errors nothing. My own memory of that incident says to verify hooks FIRE rather than
+inspect the registration, and this was found only because a perf question sent me
+looking at what `if` was doing.
+
+Fixed by REMOVING the field from both, not by narrowing it. Cost is two more hooks
+per Bash call; the alternative is two security guards that do not run. The emitter
+still supports `if` — a new test asserts nothing USES it until someone demonstrates
+on a live session that a gated hook actually runs.
+
+FOUND WHILE INVESTIGATING SOMETHING ELSE, and that matters for what to do next: the
+perf premise I had been repeating was wrong. The prompt path makes 16 interpreter
+forks at runtime, not the 64 I had quoted from a static grep of source mentions.
+Halving them takes ~29 processes to ~21. Fork reduction is worth doing and is NOT
+the large lever I called it.
+
++1 test, and the flag-survival test it replaces was pinning a feature that does not
+work. Suite 3575 -> 3576.. 3576 tests passing.
 - [2.26.84] - 2026-08-11 — fix(windows): a credential dir reached through an expanded home path was not blocked
 
 Found by triaging the 202 failures left after v2.26.83. Most are platform artefacts;

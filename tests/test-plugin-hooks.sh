@@ -50,15 +50,37 @@ TUPLES=$(SUPERCHARGER_EMIT_ALL=1 get_hooks_for_mode "full" "true" '"${CLAUDE_PLU
 ENTRIES=$(python3 -c "import sys, json; d=json.load(open(sys.argv[1])); print(sum(len(v) for v in d['hooks'].values()))" "$HOOKS_JSON")
 if [ "$TUPLES" = "$ENTRIES" ]; then pass; else fail "tuples=$TUPLES json=$ENTRIES"; fi
 
-begin_test "hooks.json: async / asyncRewake / if flags survive the emit"
+begin_test "hooks.json: async / asyncRewake flags survive the emit"
 if python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 flat=[h for es in d['hooks'].values() for e in es for h in e.get('hooks',[])]
 assert any(h.get('async') for h in flat), 'no async'
 assert any(h.get('asyncRewake') for h in flat), 'no asyncRewake'
-assert any(h.get('if') for h in flat), 'no if'
-" 2>/dev/null; then pass; else fail "a flag class was dropped in emit"; fi
+" "$HOOKS_JSON" 2>/dev/null; then pass; else fail "a flag class was dropped in emit"; fi
+
+begin_test "no registration uses the 'if' field — it stops the hook firing at all"
+# v2.26.85: `if` was dropped from the two git registrations, and this asserts it
+# stays dropped rather than asserting the emitter can still produce it.
+#
+# Measured against a live Claude Code session: a hook registered with `if` NEVER
+# FIRES. `git push --force origin main` — a command that literally starts with the
+# gated prefix — was not blocked, while the same installed hook invoked directly
+# returns rc=2. git-safety (force-push) and git-remote-guard (remote exfiltration)
+# had both been inert on every classic install since 6fc897b.
+#
+# Same class as v2.24.5, where a bare `mcp__` matcher silently killed 13
+# registrations: a filter that matches nothing fires nothing and errors nothing.
+# The emitter still SUPPORTS the field; nothing may use it until someone
+# demonstrates, on a live session, that a gated hook actually runs.
+GATED=$(python3 -c "
+import json, sys
+d=json.load(open(sys.argv[1]))
+print(' '.join(h.get('command','?').split('/')[-1].split()[0]
+                for es in d['hooks'].values() for e in es for h in e.get('hooks',[])
+                if h.get('if')))
+" "$HOOKS_JSON" 2>/dev/null)
+[ -z "$GATED" ] && pass || fail "if-gated (and therefore inert) registrations: $GATED"
 
 begin_test "hooks.json: every hook carries a timeout (CC defaults to 600s)"
 # The default is ten minutes, so an unbounded hook that wedges freezes a tool call

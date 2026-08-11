@@ -241,12 +241,23 @@ get_hooks_for_mode() {
     hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
-    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh||git *")
+    # v2.26.85: the `if` field is REMOVED, not narrowed. Measured against a live
+    # Claude Code session: a hook registered with `if` never fires. A plain
+    # `git push --force origin main` -- a command that literally starts with the
+    # gated prefix -- was NOT blocked, while the same installed hook invoked
+    # directly returns rc=2. Both guards had therefore been inert on every classic
+    # install since 6fc897b.
+    #
+    # Same class as v2.24.5, where a bare `mcp__` matcher silently killed 13
+    # registrations: a declared filter that matches nothing fires nothing and
+    # errors nothing. Cost of removing it is two extra hooks per Bash call; the
+    # alternative is two security guards that do not run.
+    hooks+=("PreToolUse|Bash|${hooks_dir}/git-safety.sh")
     # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —
     # asks before pushing the whole repo to a non-origin host or hijacking origin's
     # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
     # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
-    hooks+=("PreToolUse|Bash|${hooks_dir}/git-remote-guard.sh||git *")
+    hooks+=("PreToolUse|Bash|${hooks_dir}/git-remote-guard.sh")
     # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash
     # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
     # bypasses ALL of it. Asks (not deny) ONLY when the target is git-tracked, once

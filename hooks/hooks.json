@@ -357,8 +357,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-safety.sh",
-            "timeout": 15,
-            "if": "git *"
+            "timeout": 15
           }
         ],
         "matcher": "Bash"
@@ -368,8 +367,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-remote-guard.sh",
-            "timeout": 15,
-            "if": "git *"
+            "timeout": 15
           }
         ],
         "matcher": "Bash"
