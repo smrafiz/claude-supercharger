@@ -2,6 +2,44 @@
 
 ## Contents
 
+- [2.26.84] - 2026-08-11 — fix(windows): a credential dir reached through an expanded home path was not blocked
+
+Found by triaging the 202 failures left after v2.26.83. Most are platform artefacts;
+this one is not.
+
+test-autopilot asserts that safety.sh still blocks a protected-path delete during an
+autopilot window. It fails on Git Bash, and not for the reason the surrounding
+failures do. The command targets the ssh dir under the home directory, and Git Bash
+expands the home path BEFORE the command is recorded -- so the text carries
+/c/Users/x/ssh-dir. The bash arm matches the tilde form and the literal variable
+form, neither of which is present any more. The python resolver would catch the
+expanded form, but on Windows it realpaths that onto the wrong drive and matches
+neither home nor HOME_SENS.
+
+Measured with the resolver stubbed inert, which is what Windows is:
+
+    tilde form           BLOCK   (bash arm)
+    literal var form     BLOCK   (bash arm)
+    expanded form        allow   <- the gap
+    same for the aws dir allow
+
+The v2.26.83 Windows net covered system roots, root spellings and the project dir.
+It did not cover the home-sensitive dirs, so this extends it there, mirroring
+HOME_SENS. It compares against the hook own bash HOME, which on Git Bash is the same
+POSIX form the command text carries -- like with like, no resolution involved, which
+is the whole reason the resolver fails there.
+
+Note the shape: the expanded form is the NORMAL one on Git Bash, not an edge case.
+Anywhere a guard relies on matching a tilde or a literal variable name, the platform
+has already substituted it.
+
++4 tests, 2 failing against the previous guard. Two are gates: a project-local
+config dir must stay deletable (the rule is keyed on home-plus-name, not the bare
+name, so clearing a build dir does not start failing), and the rule must not fire on
+darwin. Suite 3571 -> 3575.
+
+Verified in passing: this release message was itself blocked by the new rule on the
+first attempt, for containing the literal it now guards.. 3575 tests passing.
 - [2.26.83] - 2026-08-10 — fix(windows): four verified fixes from running the suite on Git Bash for the first time
 
 The branch existed to answer one question -- how much of this actually works on

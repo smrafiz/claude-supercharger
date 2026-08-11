@@ -378,6 +378,32 @@ PYEOF
                   ;;
               esac
             done
+            # v2.26.84: credential dirs reached through an EXPANDED home path. The
+            # bash arm above catches `~/.ssh` and `$HOME/.ssh`, and the python
+            # resolver catches the expanded form everywhere it works — but on
+            # Windows it realpaths `/c/Users/x/.ssh` onto the wrong drive, so it
+            # matches neither home nor HOME_SENS. Git Bash expands `~` before the
+            # command is ever recorded, so the expanded form is the NORMAL shape
+            # there, not an edge case.
+            #
+            # Measured with the resolver stubbed inert (which is what Windows is):
+            #   rm -rf ~/.ssh                 BLOCK   (bash arm)
+            #   rm -rf $HOME/.ssh             BLOCK   (bash arm)
+            #   rm -rf /c/Users/x/.ssh        allow   <- the gap
+            #
+            # $HOME here is the hook's own bash HOME, which on Git Bash is the same
+            # POSIX form the command text carries — so this compares like with like
+            # instead of resolving anything. Mirrors HOME_SENS in the python block.
+            if [ -n "${HOME:-}" ]; then
+              for _sens in .ssh .aws .gnupg .config .kube .docker .gcloud .azure \
+                           .password-store .gpg .netrc; do
+                case "$args" in
+                  *"$HOME/$_sens"*)
+                    block "recursive force rm on a credential directory ($_sens) (Windows text match)"
+                    ;;
+                esac
+              done
+            fi
             ;;
         esac
       fi

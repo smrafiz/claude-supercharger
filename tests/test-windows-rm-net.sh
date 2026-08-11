@@ -106,6 +106,56 @@ done
 [ -z "$R" ] && pass || fail "the net fired on linux — the gate leaks:$R"
 
 # --- ordinary work must survive on Windows ----------------------------------
+# --- v2.26.84: credential dirs reached through an EXPANDED home path -----------
+# The bash arm catches `~/.ssh` and `$HOME/.ssh`; the python resolver catches the
+# expanded form everywhere it works. On Windows it realpaths /c/Users/x/.ssh onto
+# the wrong drive and matches neither home nor HOME_SENS. Git Bash expands `~`
+# before a command is recorded, so the expanded form is the NORMAL shape there.
+#
+# Needs its own probe: the shared one above pins HOME to its own sandbox, and this
+# rule is defined relative to HOME, so the test must control it.
+hprobe() { # home, command, ostype -> BLOCK|allow
+  local home="$1" cmd="$2" ost="$3" st rc
+  st=$(mktemp -d); mkdir -p "$st/scope"
+  CMD="$cmd" ST="$st" python3 -c '
+import json, os
+print(json.dumps({"tool_name": "Bash", "tool_input": {"command": os.environ["CMD"]},
+                  "cwd": os.environ["ST"]}))' \
+    | env PATH="$STUBDIR:$PATH" HOME="$home" SUPERCHARGER_STATE="$st" OSTYPE="$ost" \
+      bash "$REPO_DIR/hooks/safety.sh" >/dev/null 2>&1
+  rc=$?
+  rm -rf "$st"
+  [ "$rc" -eq 2 ] && printf 'BLOCK' || printf 'allow'
+}
+
+HHOME=$(mktemp -d)
+
+begin_test "an expanded home path to .ssh blocks on Windows"
+mkdir -p "$HHOME/.ssh"
+[ "$(hprobe "$HHOME" "rm -rf $HHOME/.ssh" msys)" = "BLOCK" ] \
+  && pass || fail "expanded ~/.ssh still allowed — the resolver cannot catch it there"
+
+begin_test "the other credential dirs are covered, not just .ssh"
+BADD=""
+for d in .aws .gnupg .kube .docker .netrc; do
+  mkdir -p "$HHOME/$d"
+  [ "$(hprobe "$HHOME" "rm -rf $HHOME/$d" msys)" = "BLOCK" ] || BADD="$BADD $d"
+done
+[ -z "$BADD" ] && pass || fail "not covered:$BADD"
+
+begin_test "GATE: a same-named dir OUTSIDE home is not caught by this rule"
+# Keyed on $HOME/<name>, so a project-local .config stays deletable — otherwise
+# clearing a build directory would start failing.
+OTHERD=$(mktemp -d); mkdir -p "$OTHERD/.config"
+[ "$(hprobe "$HHOME" "rm -rf $OTHERD/.config" msys)" = "allow" ] \
+  && pass || fail "a project-local .config was blocked — the rule is too broad"
+rm -rf "$OTHERD"
+
+begin_test "GATE: the credential rule is inert on darwin"
+[ "$(hprobe "$HHOME" "rm -rf $HHOME/.ssh" darwin20)" = "allow" ] \
+  && pass || fail "the Windows-gated rule fired on darwin"
+rm -rf "$HHOME"
+
 begin_test "ordinary deletions still allowed on Windows"
 R=""
 for c in 'rm -rf build/' 'rm -rf ./dist' 'rm -rf node_modules' 'rm -rf target'; do
