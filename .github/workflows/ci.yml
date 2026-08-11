@@ -587,12 +587,23 @@ jobs:
           # all, not even on stderr. So it dies before detection, on something the
           # macOS run does not even reach: the same invocation returns rc=0 with
           # correct vue output there. A trace is the only thing that names it.
-          echo "--- xtrace: the last 25 lines before it gives up ---"
+          # SUPERCHARGER_NO_DEDUP=1, exactly as the tests set it. Without it the
+          # previous probe traced the WRONG path: the first call had already
+          # recorded the content hash, so the traced call took the suppression
+          # branch and exited 0 having never reached the failing code. The tests
+          # disable dedup, so they take the EMIT path, which is where 127 lives.
+          echo "--- xtrace of the EMIT path: last 30 lines ---"
           P2=$(mktemp -d)
           echo '{"dependencies":{"vue":"3.4.0"}}' > "$P2/package.json"
           printf '{"cwd":"%s"}' "$P2" \
-            | SUPERCHARGER_TIER=lean bash -x hooks/standards-inject.sh 2>&1 >/dev/null \
-            | tail -25
+            | SUPERCHARGER_TIER=lean SUPERCHARGER_NO_DEDUP=1 \
+              bash -x hooks/standards-inject.sh 2>&1 >/dev/null \
+            | tail -30
+          echo "  (rc of that run, dedup off, stderr discarded)"
+          printf '{"cwd":"%s"}' "$P2" \
+            | SUPERCHARGER_TIER=lean SUPERCHARGER_NO_DEDUP=1 \
+              bash hooks/standards-inject.sh >/dev/null 2>&1
+          echo "  rc=$?"
           rm -rf "$P2"
 
           echo "--- what jq extracts, and what python then sees ---"
