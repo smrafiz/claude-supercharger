@@ -40,12 +40,12 @@ rm -rf "$D"
 
 begin_test "plugin.json: userConfig declares role/economy_tier/mcp_profile with defaults"
 MISS=$(python3 -c "
-import json
-u=json.load(open('$PJ')).get('userConfig',{})
+import json, sys
+u=json.load(open(sys.argv[1])).get('userConfig',{})
 need=['role','economy_tier','mcp_profile']
 bad=[k for k in need if k not in u or 'default' not in u[k] or u[k].get('type')!='string']
 print(','.join(bad))
-" 2>/dev/null)
+" "$PJ" 2>/dev/null)
 [ -z "$MISS" ] && pass || fail "userConfig missing/malformed: $MISS"
 
 begin_test "plugin.json: userConfig keys match the CLAUDE_PLUGIN_OPTION_* the seeder reads"
@@ -62,13 +62,13 @@ if grep -q 'CLAUDE_PLUGIN_OPTION_ROLE' "$REPO_DIR/hooks/prompt-layer-inject.sh" 
 
 begin_test "marketplace.json: no invalid 'id' / 'metadata.homepage' fields"
 BAD=$(python3 -c "
-import json
-m=json.load(open('$MJ'))
+import json, sys
+m=json.load(open(sys.argv[1]))
 bad=[]
 if 'id' in m: bad.append('id')
 if 'homepage' in m.get('metadata',{}): bad.append('metadata.homepage')
 print(','.join(bad))
-" 2>/dev/null)
+" "$MJ" 2>/dev/null)
 [ -z "$BAD" ] && pass || fail "invalid marketplace fields present: $BAD"
 
 # 2.17: installer-promotion nudge (plugin edition can't set the status line) fires

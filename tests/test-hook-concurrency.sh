@@ -21,13 +21,13 @@ echo "=== Hook Concurrency Tool Tests ==="
 
 # Real hook names for the event, so the tool's hooks.json filter matches.
 NAMES=$(python3 -c "
-import json
-d=json.load(open('$REPO_DIR/hooks/hooks.json'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 out=[]
 for e in d['hooks']['UserPromptSubmit']:
     for h in e['hooks']:
         out.append(h['command'].split('/hooks/')[-1].split()[0].replace('.sh',''))
-print(' '.join(out[:4]))")
+print(' '.join(out[:4]))" "$REPO_DIR/hooks/hooks.json")
 
 write_log() {  # $1=mode (overlap|serial)
   : > "$TD/audit/$DATE.jsonl"

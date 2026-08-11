@@ -127,11 +127,11 @@ rm -rf "$TD"
 begin_test "the plugin ships MCP servers via the manifest (mcpServers key)"
 python3 -c "
 import json, os, sys
-p = json.load(open(os.path.join('$REPO_DIR', '.claude-plugin', 'plugin.json')))
+p = json.load(open(os.path.join(sys.argv[1], '.claude-plugin', 'plugin.json')))
 ref = p.get('mcpServers')
 if not ref: sys.exit(1)
-path = os.path.join('$REPO_DIR', ref.lstrip('./'))
+path = os.path.join(sys.argv[1], ref.lstrip('./'))
 d = json.load(open(path))
-sys.exit(0 if d.get('mcpServers') else 1)" && pass || fail "plugin.json has no working mcpServers reference"
+sys.exit(0 if d.get('mcpServers') else 1)" "$REPO_DIR" && pass || fail "plugin.json has no working mcpServers reference"
 
 report

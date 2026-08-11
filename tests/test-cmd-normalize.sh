@@ -109,13 +109,13 @@ ERR=$(split_segments 'echo a; echo b' 2>&1 >/dev/null)
 
 begin_test "cmd-normalize: no UNESCAPED backtick inside the python3 -c \"...\" block"
 RAW=$(python3 -c "
-import re
-s=open('$REPO_DIR/hooks/cmd-normalize.sh').read()
+import re, sys
+s=open(sys.argv[1]).read()
 bad=0
 for b in re.findall(r'python3 -c \"(.*?)\"\s', s, re.S):
     bad += sum(1 for i,ch in enumerate(b) if ch=='\`' and (i==0 or b[i-1]!='\\\\'))
 print(bad)
-" 2>/dev/null)
+" "$REPO_DIR/hooks/cmd-normalize.sh" 2>/dev/null)
 [ "$RAW" = "0" ] && pass || fail "unescaped backtick(s) in a -c block: $RAW (shell will command-substitute them)"
 
 report

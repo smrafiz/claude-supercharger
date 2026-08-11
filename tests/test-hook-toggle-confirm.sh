@@ -95,20 +95,20 @@ begin_test "hook-toggle honours SUPERCHARGER_SETTINGS_FILE (testable without liv
 TD=$(mktemp -d)
 python3 -c "
 import json,sys
-json.dump({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/h/hooks/safety.sh #supercharger'}]}]}}, open('$TD/s.json','w'))"
+json.dump({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/h/hooks/safety.sh #supercharger'}]}]}}, open(sys.argv[1],'w'))" "$TD/s.json"
 SUPERCHARGER_SETTINGS_FILE="$TD/s.json" bash "$REPO_DIR/tools/hook-toggle.sh" safety off >/dev/null 2>&1
 python3 -c "
 import json,sys
-d=json.load(open('$TD/s.json'))
+d=json.load(open(sys.argv[1]))
 cmd=d['hooks']['PreToolUse'][0]['hooks'][0]['command']
-sys.exit(0 if cmd.strip().startswith('#') else 1)" && pass || fail "override ignored — cannot test without touching live config"
+sys.exit(0 if cmd.strip().startswith('#') else 1)" "$TD/s.json" && pass || fail "override ignored — cannot test without touching live config"
 rm -rf "$TD"
 
 begin_test "hook-toggle WARNS a human disabling a security guard"
 TD=$(mktemp -d)
 python3 -c "
-import json
-json.dump({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/h/hooks/safety.sh #supercharger'}]}]}}, open('$TD/s.json','w'))"
+import json, sys
+json.dump({'hooks':{'PreToolUse':[{'matcher':'Bash','hooks':[{'type':'command','command':'/h/hooks/safety.sh #supercharger'}]}]}}, open(sys.argv[1],'w'))" "$TD/s.json"
 OUT=$(SUPERCHARGER_SETTINGS_FILE="$TD/s.json" bash "$REPO_DIR/tools/hook-toggle.sh" safety off 2>&1)
 printf '%s' "$OUT" | grep -qi 'security guard' && pass || fail "no warning for a human: $OUT"
 rm -rf "$TD"

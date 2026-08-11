@@ -139,9 +139,9 @@ rec "$RST" rs1 | grep -q 'recC' && fail "session rs2 leaked into rs1" || pass
 
 begin_test "record: bounded so a fan-out cannot grow it without limit"
 python3 -c "
-import os
-p = os.path.join('$RST','scope','.subagent-report-rs1')
-open(p,'w').write('\n'.join('[2026-01-01 00:00] filler %d' % i for i in range(400)) + '\n')"
+import os, sys
+p = os.path.join(sys.argv[1],'scope','.subagent-report-rs1')
+open(p,'w').write('\n'.join('[2026-01-01 00:00] filler %d' % i for i in range(400)) + '\n')" "$RST"
 printf '%s' '{"agent_id":"recD","agent_name":"N","last_assistant_message":"Ready.","session_id":"rs1","cwd":"."}' \
   | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
 N=$(rec "$RST" rs1 | wc -l | tr -d ' ')

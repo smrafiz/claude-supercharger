@@ -151,11 +151,11 @@ begin_test "committed baseline carries BOTH the chain and statusline sections"
 # --write-baseline runs once per target, so the second write must merge rather than
 # overwrite; a plain write would silently drop whichever section ran first.
 python3 -c "
-import json
-d=json.load(open('$REPO_DIR/docs/perf-baseline.json'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 assert 'payloads' in d and d['payloads'], 'chain section missing'
 assert 'statusline' in d and d['statusline']['cold_render']['mean_ms']>0, 'statusline section missing'
 print('ok')
-" >/dev/null 2>&1 && pass || fail "baseline lost a section"
+" "$REPO_DIR/docs/perf-baseline.json" >/dev/null 2>&1 && pass || fail "baseline lost a section"
 
 report

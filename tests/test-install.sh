@@ -283,10 +283,10 @@ chmod +x "$SLT/.claude/supercharger/hooks/statusline.sh"
 SL_CMD=$(python3 -c "
 import json, os, sys
 try:
-    d = json.load(open(os.path.join('$SLT', '.claude', 'settings.json')))
+    d = json.load(open(os.path.join(sys.argv[1], '.claude', 'settings.json')))
 except Exception:
     print(''); sys.exit(0)
-print((d.get('statusLine') or {}).get('command', ''))" 2>/dev/null)
+print((d.get('statusLine') or {}).get('command', ''))" "$SLT" 2>/dev/null)
 rm -rf "$SLT"
 case "$SL_CMD" in
   "")     fail "statusLine was not written at all — the path now resolves to nothing" ;;
@@ -334,12 +334,12 @@ begin_test "install: no bare python3 gate before detect_platform"
 # re-introduce the exact bug: the shim becomes unreachable again.
 python3 -c "
 import re, sys
-src = open('$REPO_DIR/install.sh').read()
+src = open(sys.argv[1]).read()
 dp = src.find('\ndetect_platform')
 if dp < 0:
     print('detect_platform never called'); sys.exit(1)
 head = src[:dp]
-sys.exit(1 if re.search(r'command -v python3.*\n.*exit 1', head, re.S) else 0)" 2>/dev/null \
+sys.exit(1 if re.search(r'command -v python3.*\n.*exit 1', head, re.S) else 0)" "$REPO_DIR/install.sh" 2>/dev/null \
   && pass || fail "a python3 gate runs before detect_platform — the Windows py-launcher shim is unreachable"
 
 begin_test "install: detect_platform is called exactly once"

@@ -41,17 +41,17 @@ echo "survived"
 begin_test "update.sh's curl SHA lookup carries the guard"
 python3 -c "
 import re, sys
-src = open('$REPO_DIR/tools/update.sh').read()
+src = open(sys.argv[1]).read()
 m = re.search(r'EXPECTED_SHA=\\\$\(curl.*?\)\n', src, re.S)
 if not m:
     print('curl SHA branch not found'); sys.exit(1)
 sys.exit(0 if '|| echo' in m.group(0) else 1)
-" && pass || fail "curl branch can still abort the updater"
+" "$REPO_DIR/tools/update.sh" && pass || fail "curl branch can still abort the updater"
 
 begin_test "all three SHA branches degrade to empty, none abort"
 python3 -c "
 import re, sys
-src = open('$REPO_DIR/tools/update.sh').read()
+src = open(sys.argv[1]).read()
 i = src.find('EXPECTED_SHA=\"\"')
 seg = src[i:i+1600]
 bad = []
@@ -67,7 +67,7 @@ if pi != -1:
     body = seg[pi:seg.find('2>/dev/null)', pi) + 12]
     if 'except' not in body and '|| echo' not in body: bad.append('python')
 print('UNGUARDED: ' + ','.join(bad) if bad else 'OK')
-" | grep -q '^OK$' && pass || fail "a sibling branch lacks the guard"
+" "$REPO_DIR/tools/update.sh" | grep -q '^OK$' && pass || fail "a sibling branch lacks the guard"
 
 begin_test "a fetched-but-MISMATCHED sha still aborts (fail-closed preserved)"
 grep -q 'EXPECTED_SHA' "$REPO_DIR/tools/update.sh" \

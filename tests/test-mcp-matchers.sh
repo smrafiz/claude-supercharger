@@ -44,8 +44,8 @@ echo "=== MCP Matcher Normalization Tests ==="
 
 begin_test "mcp matchers: no emitted matcher is a bare mcp__ prefix (the inert form)"
 BAD=$(python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))['hooks']
+import json,sys
+d=json.load(open(sys.argv[1]))['hooks']
 bad=[]
 for ev,entries in d.items():
     for e in entries:
@@ -56,13 +56,13 @@ for ev,entries in d.items():
             if tok.startswith('mcp__') and '.' not in tok and '*' not in tok:
                 bad.append(ev+':'+m)
 print('; '.join(sorted(set(bad))))
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ -z "$BAD" ]; then pass; else fail "bare mcp__ matcher (will never fire): $BAD"; fi
 
 begin_test "mcp matchers: every mcp__ token ends in .* so mcp__<server>__<tool> matches"
 BAD=$(python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))['hooks']
+import json,sys
+d=json.load(open(sys.argv[1]))['hooks']
 bad=[]
 for ev,entries in d.items():
     for e in entries:
@@ -71,16 +71,16 @@ for ev,entries in d.items():
             if tok.startswith('mcp__') and not tok.endswith('.*'):
                 bad.append(tok)
 print('; '.join(sorted(set(bad))))
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ -z "$BAD" ]; then pass; else fail "mcp token without .* suffix: $BAD"; fi
 
 begin_test "mcp matchers: regex actually matches a real mcp__<server>__<tool> name"
 # The whole point — verify against concrete tool names seen in the wild rather
 # than trusting the shape of the string.
 RES=$(python3 -c "
-import json,re
+import json,re,sys
 $CC_MATCH_PY
-d=json.load(open('$HOOKS_JSON'))['hooks']
+d=json.load(open(sys.argv[1]))['hooks']
 samples={
  'mcp__context7__supercharger__resolve-library-id':'generic mcp',
  'mcp__github__create_or_update_file':'github write gate',
@@ -98,15 +98,15 @@ for ev,entries in d.items():
             if cc_matches(m,name): hit[name]=True
 miss=[samples[k] for k,v in hit.items() if not v]
 print('UNMATCHED: '+', '.join(sorted(miss)) if miss else 'OK')
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 
 begin_test "mcp matchers: plain tool lists stay EXACT (regex mode would over-match)"
 # Bash,PowerShell must not become a regex — unanchored it would also match
 # BashOutput and friends, silently widening hooks that were never scoped to them.
 BAD=$(python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))['hooks']
+import json,sys
+d=json.load(open(sys.argv[1]))['hooks']
 bad=[]
 for ev,entries in d.items():
     for e in entries:
@@ -117,16 +117,16 @@ for ev,entries in d.items():
         if '*' in m:
             bad.append(ev+':'+m)
 print('; '.join(sorted(set(bad))))
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ -z "$BAD" ]; then pass; else fail "non-mcp matcher gained regex metachars: $BAD"; fi
 
 begin_test "mcp matchers: mixed lists keep their non-mcp tools matching"
 # output-secrets-scanner is Bash,Read,WebFetch,WebSearch + mcp__. Turning it into
 # a regex must not cost it the Bash arm.
 RES=$(python3 -c "
-import json,re
+import json,re,sys
 $CC_MATCH_PY
-d=json.load(open('$HOOKS_JSON'))['hooks']
+d=json.load(open(sys.argv[1]))['hooks']
 need=[('Bash','output-secrets-scanner.sh'),('Read','prompt-injection-scanner.sh'),
       ('WebFetch','output-secrets-scanner.sh'),('Bash','safety.sh')]
 bad=[]
@@ -138,7 +138,7 @@ for tool,script in need:
             if cc_matches(e.get('matcher',''),tool): ok=True
     if not ok: bad.append(tool+' -> '+script)
 print('LOST: '+'; '.join(bad) if bad else 'OK')
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 
 # v2.26.48: coverage that exists only because a SIBLING token forced regex mode.
@@ -154,9 +154,9 @@ if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 # quietly. This pins the outcome rather than the spelling.
 begin_test "mcp matchers: MCP resource reads are actually scanned (regex-mode side effect)"
 RES=$(python3 -c "
-import json
+import json,sys
 $CC_MATCH_PY
-d=json.load(open('$HOOKS_JSON'))['hooks']
+d=json.load(open(sys.argv[1]))['hooks']
 # tool -> the scanners that must see it
 need=[('ReadMcpResourceTool','prompt-injection-scanner.sh'),
       ('ReadMcpResourceTool','output-secrets-scanner.sh')]
@@ -169,16 +169,16 @@ for tool,script in need:
             if cc_matches(e.get('matcher',''),tool): ok=True
     if not ok: bad.append(tool+' -> '+script)
 print('UNSCANNED: '+'; '.join(bad) if bad else 'OK')
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 
 begin_test "mcp matchers: the scanner matchers are in regex mode, not exact"
 # The assertion above passes ONLY in regex mode. State the precondition too, so a
 # failure says WHY coverage was lost rather than just that it was.
 RES=$(python3 -c "
-import json,re
+import json,re,sys
 SIMPLE=re.compile(r'^[A-Za-z0-9_,| -]*\$')
-d=json.load(open('$HOOKS_JSON'))['hooks']
+d=json.load(open(sys.argv[1]))['hooks']
 bad=[]
 for ev,entries in d.items():
     for e in entries:
@@ -189,7 +189,7 @@ for ev,entries in d.items():
                 if m not in ('','*') and SIMPLE.match(m):
                     bad.append(ev+':'+m)
 print('EXACT-MODE: '+'; '.join(sorted(set(bad))) if bad else 'OK')
-" 2>&1)
+" "$HOOKS_JSON" 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "scanner matcher fell back to exact mode, losing substring coverage: $RES"; fi
 
 begin_test "mcp matchers: both emitters agree (settings.json vs plugin hooks.json)"
@@ -216,7 +216,7 @@ else
     merge_hooks_into_settings "full" "true"
   ) >/dev/null 2>&1
 RES=$(python3 -c "
-import json
+import json,sys
 def mats(path,key):
     d=json.load(open(path))['hooks']
     out=set()
@@ -226,13 +226,13 @@ def mats(path,key):
             if 'mcp__' in m: out.add(ev+'::'+m)
     return out
 try:
-    a=mats('$SETTINGS','x'); b=mats('$HOOKS_JSON','x')
+    a=mats(sys.argv[1],'x'); b=mats(sys.argv[2],'x')
 except Exception as ex:
     print('ERR '+str(ex)); raise SystemExit
 if a==b: print('OK')
 else:
     print('DRIFT only-installer='+str(sorted(a-b))[:200]+' only-plugin='+str(sorted(b-a))[:200])
-" 2>&1)
+" "$SETTINGS" "$HOOKS_JSON" 2>&1)
   teardown_test_home
   if [ "$RES" = "OK" ]; then pass; else fail "$RES"; fi
 fi

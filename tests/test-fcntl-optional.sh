@@ -101,8 +101,8 @@ rm -rf "$ST"
 begin_test "the token count is the same with and without fcntl"
 # Degrading the LOCK must not degrade the ACCOUNTING.
 A=$(run_budget_cap 0); B=$(run_budget_cap 1)
-TA=$(python3 -c "import json,glob;print(json.load(open(glob.glob('$A/scope/.main-tokens-*')[0]))['new_tokens'])" 2>/dev/null)
-TB=$(python3 -c "import json,glob;print(json.load(open(glob.glob('$B/scope/.main-tokens-*')[0]))['new_tokens'])" 2>/dev/null)
+TA=$(python3 -c "import json,glob,sys;print(json.load(open(glob.glob(sys.argv[1]+'/scope/.main-tokens-*')[0]))['new_tokens'])" "$A" 2>/dev/null)
+TB=$(python3 -c "import json,glob,sys;print(json.load(open(glob.glob(sys.argv[1]+'/scope/.main-tokens-*')[0]))['new_tokens'])" "$B" 2>/dev/null)
 [ -n "$TA" ] && [ "$TA" = "$TB" ] && pass || fail "token totals differ: with=$TA without=$TB"
 rm -rf "$A" "$B"
 

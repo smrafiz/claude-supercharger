@@ -29,15 +29,15 @@ emit() { # platform, override -> "<sync-timeouts> | <async-timeouts>"
     merge_hooks_into_settings "full" "true"
   ) >/dev/null 2>&1
   out=$(python3 -c "
-import json
-d=json.load(open('$HOME/.claude/settings.json'))['hooks']
+import json, sys
+d=json.load(open(sys.argv[1]))['hooks']
 sync=set(); asyn=set()
 for ev,entries in d.items():
     for e in entries:
         for h in e.get('hooks',[]):
             (asyn if h.get('async') or h.get('asyncRewake') else sync).add(h.get('timeout'))
 print(','.join(str(x) for x in sorted(sync))+' | '+','.join(str(x) for x in sorted(asyn)))
-" 2>/dev/null)
+" "$HOME/.claude/settings.json" 2>/dev/null)
   teardown_test_home >/dev/null 2>&1
   printf '%s' "$out"
 }

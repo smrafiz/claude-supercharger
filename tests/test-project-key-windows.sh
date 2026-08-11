@@ -26,7 +26,7 @@ bkey() { sc_project_key "$1"; printf '%s' "$SC_PROJECT_KEY"; }
 pkey() { PD="$1" python3 -c "
 import os,re,sys
 sys.path.insert(0,'.')
-src=open('$REPO_DIR/hooks/project-config.sh').read()
+src=open(sys.argv[1]).read()
 m=re.search(r'def _project_key.*?return k or .root.', src, re.S)
 ns={}
 exec(m.group(0).replace('    ','',1).replace('\n    ','\n'), ns) if False else None
@@ -34,7 +34,7 @@ exec(m.group(0).replace('    ','',1).replace('\n    ','\n'), ns) if False else N
 body=m.group(0)
 exec(body, ns)
 print(ns['_project_key'](os.environ['PD']))
-"; }
+" "$REPO_DIR/hooks/project-config.sh"; }
 
 echo "=== Project-Key Windows Tests ==="
 

@@ -35,10 +35,10 @@ elif [ ! -f "$SCOPE_DIR/.session-cost" ]; then
   fail ".session-cost not created"
 else
   TOTAL=$(python3 -c "
-import json
-d = json.load(open('$SCOPE_DIR/.session-cost'))
+import json, sys
+d = json.load(open(sys.argv[1]))
 print('ok' if abs(d.get('total_usd',0) - 0.008475) < 0.000001 else f'bad:{d.get(\"total_usd\")}')
-" 2>/dev/null || echo "parse-error")
+" "$SCOPE_DIR/.session-cost" 2>/dev/null || echo "parse-error")
   [ "$TOTAL" = "ok" ] && pass || fail "expected total≈0.008475, got $TOTAL"
 fi
 teardown_test_home
@@ -65,12 +65,12 @@ TR="$SCOPE_DIR/transcript.jsonl"
 PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 CHECK=$(python3 -c "
-import json
-d = json.load(open('$SCOPE_DIR/.session-cost'))
+import json, sys
+d = json.load(open(sys.argv[1]))
 total=d.get('total_usd',0); turns=d.get('turn_count',0); avg=d.get('avg_per_turn',0)
 exp = total/turns if turns>0 else 0
 print('ok' if abs(avg-exp) < 0.000001 else f'bad:{avg} vs {exp}')
-" 2>/dev/null || echo "parse-error")
+" "$SCOPE_DIR/.session-cost" 2>/dev/null || echo "parse-error")
 [ "$CHECK" = "ok" ] && pass || fail "avg_per_turn mismatch: $CHECK"
 teardown_test_home
 
@@ -141,10 +141,10 @@ PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","tr
 for i in $(seq 1 10); do echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1 & done
 wait
 RES=$(python3 -c "
-import json
-d = json.load(open('$SCOPE_DIR/.session-cost'))
+import json, sys
+d = json.load(open(sys.argv[1]))
 print('ok' if abs(d.get('main_total',0) - 0.030) < 0.000001 and d.get('turn_count',0) == 10 else f'bad:main={d.get(\"main_total\")} turns={d.get(\"turn_count\")}')
-" 2>/dev/null || echo "parse-error")
+" "$SCOPE_DIR/.session-cost" 2>/dev/null || echo "parse-error")
 [ "$RES" = "ok" ] && pass || fail "concurrent writers miscounted: $RES (want main=0.030 turns=10)"
 teardown_test_home
 
@@ -278,12 +278,12 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
 TR="$SCOPE_DIR/trM.jsonl"
 asst_msg 1000 0 0 4000 > "$TR"        # cost = (1000*3 + 4000*15)/1e6 = 0.063
 SZ=$(wc -c < "$TR" | tr -d ' ')
-python3 -c "import json;json.dump({'total_usd':0.063,'main_total':0.063,'turn_count':1,'main_offset':$SZ,'first_updated':'x','last_updated':'x','subagent_total':0.0}, open('$SCOPE_DIR/.session-cost','w'))"
+python3 -c "import json,sys;json.dump({'total_usd':0.063,'main_total':0.063,'turn_count':1,'main_offset':$SZ,'first_updated':'x','last_updated':'x','subagent_total':0.0}, open(sys.argv[1],'w'))" "$SCOPE_DIR/.session-cost"
 printf '{"tool_name":"Write","session_id":"sM","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1  # no new lines
 RES=$(python3 -c "
-import json; d=json.load(open('$SCOPE_DIR/.session-cost'))
+import json, sys; d=json.load(open(sys.argv[1]))
 mt=d.get('main_total',0); has=isinstance(d.get('main_offsets'),dict)
-print('ok' if abs(mt-0.063)<1e-6 and has else f'bad:main_total={mt} map={has}')" 2>/dev/null)
+print('ok' if abs(mt-0.063)<1e-6 and has else f'bad:main_total={mt} map={has}')" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 [ "$RES" = "ok" ] && pass || fail "legacy migration wrong: $RES (want main_total≈0.063, main_offsets present)"
 teardown_test_home
 
@@ -298,7 +298,7 @@ TR="$SCOPE_DIR/transcript.jsonl"
 asst_msg 1000 0 0 0 > "$TR"
 PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 # Background holder grabs the lock and keeps it for 6s (> the 2s acquire budget).
-python3 -c "import fcntl,time; f=open('$SCOPE_DIR/.session-cost.lock','w'); fcntl.flock(f, fcntl.LOCK_EX); time.sleep(6)" &
+python3 -c "import fcntl,sys,time; f=open(sys.argv[1],'w'); fcntl.flock(f, fcntl.LOCK_EX); time.sleep(6)" "$SCOPE_DIR/.session-cost.lock" &
 HOLDER=$!
 sleep 1  # let the holder acquire before we race it
 START=$(date +%s)

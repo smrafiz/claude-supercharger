@@ -20,8 +20,8 @@ fi
 
 begin_test "hooks.json: every command uses \${CLAUDE_PLUGIN_ROOT}, none reference \$HOME"
 BAD=$(python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 bad=[]
 for ev,entries in d['hooks'].items():
     for e in entries:
@@ -30,17 +30,17 @@ for ev,entries in d['hooks'].items():
             if '\${CLAUDE_PLUGIN_ROOT}' not in c or '/.claude/supercharger' in c or '\$HOME' in c:
                 bad.append(ev+': '+c)
 print('\n'.join(bad))
-" 2>/dev/null)
+" "$HOOKS_JSON" 2>/dev/null)
 if [ -z "$BAD" ]; then pass; else fail "bad commands: $BAD"; fi
 
 begin_test "hooks.json: \${CLAUDE_PLUGIN_ROOT} is double-quoted for space-safety"
 UNQUOTED=$(python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 bad=[c for ev,es in d['hooks'].items() for e in es for h in e.get('hooks',[])
      for c in [h.get('command','')] if c and '\"\${CLAUDE_PLUGIN_ROOT}\"' not in c]
 print('\n'.join(bad))
-" 2>/dev/null)
+" "$HOOKS_JSON" 2>/dev/null)
 if [ -z "$UNQUOTED" ]; then pass; else fail "unquoted plugin-root: $UNQUOTED"; fi
 
 begin_test "hooks.json: registration count matches get_hooks_for_mode (no drift)"
@@ -96,26 +96,26 @@ begin_test "hooks.json: every hook carries a timeout (CC defaults to 600s)"
 # for that long with no indication why. Asserting on EVERY entry, not on presence
 # somewhere: one un-timed hook on the hot path is the whole problem.
 if python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 flat=[h for es in d['hooks'].values() for e in es for h in e.get('hooks',[])]
 missing=[h['command'] for h in flat if not isinstance(h.get('timeout'), int)]
 assert not missing, 'no timeout on: %s' % missing[:3]
-" 2>/dev/null; then pass; else fail "at least one hook has no timeout"; fi
+" "$HOOKS_JSON" 2>/dev/null; then pass; else fail "at least one hook has no timeout"; fi
 
 begin_test "hooks.json: blocking hooks get the tight cap, async hooks the loose one"
 # Two tiers because they fail differently — a blocking hook stalls the user, an
 # async one stalls nobody. A single value would either strangle the async scanners
 # or leave the hot path effectively unbounded.
 if python3 -c "
-import json
-d=json.load(open('$HOOKS_JSON'))
+import json, sys
+d=json.load(open(sys.argv[1]))
 flat=[h for es in d['hooks'].values() for e in es for h in e.get('hooks',[])]
 for h in flat:
     want = 120 if (h.get('async') or h.get('asyncRewake')) else 15
     assert h.get('timeout') == want, (h['command'], h.get('timeout'), want)
 assert any(h['timeout'] == 15 for h in flat) and any(h['timeout'] == 120 for h in flat)
-" 2>/dev/null; then pass; else fail "timeout tier wrong for at least one hook"; fi
+" "$HOOKS_JSON" 2>/dev/null; then pass; else fail "timeout tier wrong for at least one hook"; fi
 
 # The real CLI validator only runs where it is installed — but the ASSERTION is
 # always emitted. v2.24.11: `begin_test` used to live inside the `if`, so on a

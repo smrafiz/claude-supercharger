@@ -56,14 +56,14 @@ elif [ ! -f "$JSONL_FILE" ]; then
   fail "JSONL file not created: $JSONL_FILE"
 else
   HAS_AGENT=$(python3 -c "
-import json
-with open('$JSONL_FILE') as f:
+import json, sys
+with open(sys.argv[1]) as f:
     for line in f:
         d = json.loads(line.strip())
         if d.get('agent_id') == 'abc123':
             print('ok')
             break
-" 2>/dev/null || echo "")
+" "$JSONL_FILE" 2>/dev/null || echo "")
   if [ "$HAS_AGENT" = "ok" ]; then
     pass
   else
@@ -119,11 +119,11 @@ PAYLOAD='{"agent_id":"abc123","agent_name":"code-helper","session_id":"sess1","c
 echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
 
 NEW_TOTAL=$(python3 -c "
-import json
-with open('$SCOPE_DIR/.session-cost') as f:
+import json, sys
+with open(sys.argv[1]) as f:
     d = json.load(f)
 print(d.get('total_usd', 0))
-" 2>/dev/null || echo "0")
+" "$SCOPE_DIR/.session-cost" 2>/dev/null || echo "0")
 
 RESULT=$(python3 -c "print('ok' if float('$NEW_TOTAL') > 1.0 else 'bad')" 2>/dev/null || echo "bad")
 if [ "$RESULT" = "ok" ]; then
@@ -243,11 +243,11 @@ echo "$PAYLOAD" | bash "$HOOK" stop >/dev/null 2>&1
 echo '{"agent_id":"agX","session_id":"clob"}' | bash "$HOOK" stop >/dev/null 2>&1
 F="$SCOPE_DIR/.subagent-costs-clob.jsonl"
 RES=$(python3 -c "
-import json
-rows=[json.loads(l) for l in open('$F') if l.strip()]
+import json, sys
+rows=[json.loads(l) for l in open(sys.argv[1]) if l.strip()]
 r=[x for x in rows if x['agent_id']=='agX'][-1]
 print('ok' if r['agent_name']=='general-purpose' and r['cost_usd']>0 else f'bad:{r[\"agent_name\"]}/{r[\"cost_usd\"]}')
-" 2>/dev/null || echo parse-error)
+" "$F" 2>/dev/null || echo parse-error)
 [ "$RES" = "ok" ] && pass || fail "data-less re-fire clobbered the good row: $RES"
 teardown_test_home
 

@@ -215,7 +215,7 @@ fi
 if [ "$TARGET" = "all" ]; then
   EVENTS=$(python3 -c "
 import json,sys
-print('\n'.join(sorted(json.load(open('$REPO/hooks/hooks.json'))['hooks'])))")
+print('\n'.join(sorted(json.load(open(sys.argv[1]))['hooks'])))" "$REPO/hooks/hooks.json")
   echo "Hook cost by event — every registered event, worst BLOCKING first  (${ITERS} iters each)"
   echo ""
   printf '  %-22s %6s %11s %9s  %s\n' "event" "hooks" "blocking ms" "sum ms" "slowest blocking hook"

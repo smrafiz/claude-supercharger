@@ -26,10 +26,10 @@ grep -q 'prompt-validator.sh|async' "$REPO_DIR/lib/hooks.sh" && pass \
 begin_test "prompt-validator is async in the generated plugin hooks.json"
 python3 -c "
 import json, sys
-d = json.load(open('$REPO_DIR/hooks/hooks.json'))
+d = json.load(open(sys.argv[1]))
 ok = any(h.get('async') for ms in d.get('hooks', {}).values() for m in ms
          for h in m.get('hooks', []) if 'prompt-validator' in h.get('command', ''))
-sys.exit(0 if ok else 1)" && pass || fail "hooks.json is generated — run tools/gen-plugin-hooks.sh"
+sys.exit(0 if ok else 1)" "$REPO_DIR/hooks/hooks.json" && pass || fail "hooks.json is generated — run tools/gen-plugin-hooks.sh"
 
 # --- the invariant that makes async correct ---------------------------------
 begin_test "prompt-validator cannot block (no exit 2, no deny/ask)"
@@ -65,8 +65,8 @@ printf '{"prompt":"yes"}' | bash "$REPO_DIR/hooks/prompt-validator.sh" >/dev/nul
 #     exit 2 there is the mechanism working, not a hole.
 begin_test "no async-ONLY hook can block"
 BAD=$(python3 -c "
-import json, os, re, collections
-d = json.load(open('$REPO_DIR/hooks/hooks.json'))
+import json, os, re, sys, collections
+d = json.load(open(sys.argv[1]))
 mode = collections.defaultdict(set)
 for ev, ms in d.get('hooks', {}).items():
     for m in ms:
@@ -78,13 +78,13 @@ bad = []
 for n, modes in mode.items():
     if modes != {'async'}:
         continue
-    p = os.path.join('$REPO_DIR', 'hooks', n)
+    p = os.path.join(sys.argv[2], 'hooks', n)
     if not os.path.isfile(p):
         continue
     s = open(p).read()
     if re.search(r'^\s*exit 2\b', s, re.M) or 'permissionDecision' in s:
         bad.append(n)
-print(' '.join(sorted(bad)))")
+print(' '.join(sorted(bad)))" "$REPO_DIR/hooks/hooks.json" "$REPO_DIR")
 [ -z "$BAD" ] && pass || fail "async-only hooks that can block: $BAD"
 
 report

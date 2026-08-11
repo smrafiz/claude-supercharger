@@ -115,7 +115,7 @@ bash "$TOOL" test-new-nom PostToolUse --register >/dev/null 2>&1
 # matcher key should NOT be present for this entry
 python3 -c "
 import json, sys
-s = json.load(open('$HOME/.claude/settings.json'))
+s = json.load(open(sys.argv[1]))
 for entries in s.get('hooks', {}).values():
     for entry in entries:
         for h in entry.get('hooks', []):
@@ -125,7 +125,7 @@ for entries in s.get('hooks', {}).values():
                 else:
                     sys.exit(1)
 sys.exit(1)
-" && pass || fail "matcher key should be absent for no-matcher hook"
+" "$HOME/.claude/settings.json" && pass || fail "matcher key should be absent for no-matcher hook"
 cleanup_hook "test-new-nom"
 teardown_test_home
 
@@ -145,15 +145,15 @@ cleanup_hook "test-new-idem"
 bash "$TOOL" test-new-idem PostToolUse Bash --register >/dev/null 2>&1
 # Re-register: hook file already exists → should error, so test via python directly
 python3 -c "
-import json
-s = json.load(open('$HOME/.claude/settings.json'))
+import json, sys
+s = json.load(open(sys.argv[1]))
 count = sum(1 for entries in s.get('hooks',{}).values()
             for entry in entries
             for h in entry.get('hooks',[])
             if 'test-new-idem' in h.get('command',''))
 assert count == 1, f'expected 1 entry, got {count}'
 print('ok')
-" 2>&1 | grep -q "ok" && pass || fail "duplicate entries found"
+" "$HOME/.claude/settings.json" 2>&1 | grep -q "ok" && pass || fail "duplicate entries found"
 cleanup_hook "test-new-idem"
 teardown_test_home
 

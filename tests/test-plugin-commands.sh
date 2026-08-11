@@ -47,12 +47,12 @@ done
 
 begin_test "plugin.json: agents[] matches configs/agents/*.md exactly (no drift)"
 DRIFT=$(python3 -c "
-import json, glob, os
-p = json.load(open('$REPO_DIR/.claude-plugin/plugin.json'))
+import json, glob, os, sys
+p = json.load(open(sys.argv[1]))
 listed = sorted(os.path.basename(a) for a in p.get('agents', []))
-ondisk = sorted(os.path.basename(f) for f in glob.glob('$REPO_DIR/configs/agents/*.md'))
+ondisk = sorted(os.path.basename(f) for f in glob.glob(sys.argv[2]))
 print('' if listed == ondisk else 'listed=%s ondisk=%s' % (listed, ondisk))
-" 2>/dev/null)
+" "$REPO_DIR/.claude-plugin/plugin.json" "$REPO_DIR/configs/agents/*.md" 2>/dev/null)
 [ -z "$DRIFT" ] && pass || fail "plugin.json agents[] out of sync: $DRIFT"
 
 begin_test "gen-plugin-commands: --check detects drift"

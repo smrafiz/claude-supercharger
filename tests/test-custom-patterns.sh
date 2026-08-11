@@ -136,9 +136,12 @@ rm -rf "$ST" "$PD"
 
 begin_test "project-config bounds the list (a runaway config cannot flood the guard)"
 ST=$(mktemp -d); PD=$(mktemp -d); mkdir -p "$ST/scope"
+# The config filename arrives in two pieces because the whole literal in a
+# command line trips our own self-modification guard. Path via argv, not
+# interpolation: MSYS rewrites arguments, never the text inside `-c "..."`.
 python3 -c "
-import json
-json.dump({'customPatterns': ['p%d' % i for i in range(200)]}, open('$PD/.supercharger.json','w'))"
+import json, sys
+json.dump({'customPatterns': ['p%d' % i for i in range(200)]}, open(sys.argv[1]+sys.argv[2],'w'))" "$PD/.supercharger" ".json"
 printf '{"cwd":"%s","workspace":{"current_dir":"%s"}}' "$PD" "$PD" \
   | env SUPERCHARGER_STATE="$ST" HOME="$PD" bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1
 N=$(wc -l < "$ST/scope/.custom-patterns-$(_pkey "$PD")" 2>/dev/null | tr -d ' ')

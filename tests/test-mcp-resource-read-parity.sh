@@ -143,25 +143,25 @@ print(json.dumps({"tool_name":"Read","tool_input":{"file_path":"/home/u/p/main.p
 begin_test "the env-file-guard matcher selects all three read tools"
 RES=$(python3 -c "
 $CC_MATCH_PY
-import re
-src=open('$REPO_DIR/lib/hooks.sh').read()
+import re, sys
+src=open(sys.argv[1]).read()
 m=re.search(r'PreToolUse\|([^|]*)\|\\\$\{hooks_dir\}/env-file-guard\.sh', src)
 matcher=m.group(1) if m else ''
 bad=[t for t in ('Read','ReadMcpResourceTool','ReadMcpResourceDirTool')
      if not cc_matches(matcher,t)]
-print('MISSING: '+','.join(bad) if bad else 'OK')")
+print('MISSING: '+','.join(bad) if bad else 'OK')" "$REPO_DIR/lib/hooks.sh")
 [ "$RES" = "OK" ] && pass || fail "$RES"
 
 begin_test "cron-discovery's matcher selects ScheduleWakeup"
 RES=$(python3 -c "
 $CC_MATCH_PY
-import re
-src=open('$REPO_DIR/lib/hooks.sh').read()
+import re, sys
+src=open(sys.argv[1]).read()
 m=re.search(r'PreToolUse\|([^|]*)\|\\\$\{hooks_dir\}/cron-discovery\.sh', src)
 matcher=m.group(1) if m else ''
 bad=[t for t in ('CronCreate','CronDelete','CronList','ScheduleWakeup')
      if not cc_matches(matcher,t)]
-print('MISSING: '+','.join(bad) if bad else 'OK')")
+print('MISSING: '+','.join(bad) if bad else 'OK')" "$REPO_DIR/lib/hooks.sh")
 [ "$RES" = "OK" ] && pass || fail "$RES"
 
 begin_test "cron-discovery stays observation-only (never blocks)"

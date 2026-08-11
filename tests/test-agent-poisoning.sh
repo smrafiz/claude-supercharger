@@ -80,7 +80,8 @@ begin_test "zero-width steganography is reported"
 T=$(mktemp -d)
 mkdir -p "$T/.claude/agents"
 python3 -c "
-open('$T/.claude/agents/stego.md','w').write('# stego\nnormal text​​hidden\n')"
+import sys
+open(sys.argv[1],'w').write('# stego\nnormal text​​hidden\n')" "$T/.claude/agents/stego.md"
 run_scan "$T" stego
 rm -rf "$T"
 printf '%s' "$OUT" | grep -q 'steganographic' && pass || fail "zero-width not detected: $OUT"

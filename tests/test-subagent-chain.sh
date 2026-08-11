@@ -190,7 +190,7 @@ printf '%s' "$CHAIN_OUT" | grep -q 'subagent-report.sh' && pass || fail "empty r
 
 begin_test "chain: a HUGE report is capped, not dumped whole"
 ST=$(mktemp -d); mkdir -p "$ST/scope/subagent-reports"
-python3 -c "open('$ST/scope/subagent-reports/ag1.md','w').write('X'*100000)"
+python3 -c "import sys; open(sys.argv[1],'w').write('X'*100000)" "$ST/scope/subagent-reports/ag1.md"
 run_chain "$(payload "Ready.")" "$ST" stop
 LEN=${#CHAIN_OUT}
 rm -rf "$ST"
