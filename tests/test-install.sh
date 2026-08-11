@@ -308,10 +308,7 @@ gate_out() { # OSTYPE, path-dir -> installer stderr+stdout, first lines
 }
 mk_pathdir() { # tools... -> echoes a bin dir containing only those
   local d; d=$(mktemp -d); mkdir -p "$d/bin" "$d/home"
-  local c s
-  for c in "$@"; do
-    s=$(command -v "$c" 2>/dev/null) && [ -n "$s" ] && ln -sf "$s" "$d/bin/$c" 2>/dev/null
-  done
+  shim_tools "$d/bin" "$@"
   printf '%s' "$d/bin"
 }
 

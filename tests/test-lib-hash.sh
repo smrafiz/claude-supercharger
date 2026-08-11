@@ -27,10 +27,28 @@ with_tools() { # "tool1 tool2 ..." , input -> digest
   local tools="$1" input="$2" bindir
   bindir=$(mktemp -d)/bin; mkdir -p "$bindir"
   # Core shell utilities every tier needs.
+  #
+  # EXEC SHIMS, not symlinks. `ln -s` on Git Bash needs either developer mode or
+  # admin rights and degrades silently without them, leaving $bindir empty — so
+  # every tier returned "" and the suite reported "0 distinct digests" instead of
+  # naming the cause. A two-line shim needs no privileges anywhere.
+  #
+  # The shebang is an ABSOLUTE /bin/sh on purpose: PATH is about to be replaced
+  # by $bindir, and a `#!/usr/bin/env bash` shim named bash would re-enter itself.
   local t src
   for t in cut sed printf env bash python3 $tools; do
-    src=$(command -v "$t" 2>/dev/null) && [ -n "$src" ] && ln -sf "$src" "$bindir/$t" 2>/dev/null
+    src=$(command -v "$t" 2>/dev/null) || continue
+    [ -n "$src" ] || continue
+    printf '#!/bin/sh\nexec "%s" "$@"\n' "$src" > "$bindir/$t" && chmod +x "$bindir/$t"
   done
+  # A harness that cannot build its own sandbox must say so. Silently producing
+  # an empty digest looks identical to a broken sc_md5, which is what sent the
+  # first read of this failure to the wrong layer.
+  if ! printf 'x' | "$bindir/cut" -c1 >/dev/null 2>&1; then
+    echo "HARNESS-BROKEN: cannot build a shim PATH in $bindir" >&2
+    rm -rf "$(dirname "$bindir")"
+    return 0
+  fi
   # python3 is only linked when explicitly requested OR needed as the last tier.
   case " $tools " in *" python3 "*) ;; *) rm -f "$bindir/python3" ;; esac
   ( export PATH="$bindir"; . "$LIB"; printf '%s' "$input" | sc_md5 )

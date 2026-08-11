@@ -169,6 +169,39 @@ run_hook() {
   return $?
 }
 
+# Put real tools on a synthetic PATH, for tests that need a tool to be ABSENT.
+#
+# Shims, not symlinks. `ln -s` on Git Bash needs developer mode or admin rights
+# and degrades SILENTLY without them: $dir ends up empty, every command in it is
+# missing, and the test reports whatever the code under test does with no tools
+# at all. That reads as a product bug — test-lib-hash spent a recon cycle looking
+# like a broken sc_md5 when the harness had simply failed to build its sandbox.
+#
+# The shebang is an absolute /bin/sh because callers replace PATH with $dir; a
+# `#!/usr/bin/env bash` shim named bash would re-enter itself.
+#
+# Returns 1 (and says so) when the sandbox cannot be built, so a harness failure
+# never again masquerades as a behaviour failure.
+shim_tools() { # <dir> <tool>...
+  local dir="$1"; shift
+  local t src
+  mkdir -p "$dir" || return 1
+  for t in "$@"; do
+    src=$(command -v "$t" 2>/dev/null) || continue
+    [ -n "$src" ] || continue
+    printf '#!/bin/sh\nexec "%s" "$@"\n' "$src" > "$dir/$t" && chmod +x "$dir/$t"
+  done
+  # Prove the sandbox actually executes something, rather than assuming it did.
+  for t in "$@"; do
+    [ -x "$dir/$t" ] || continue
+    "$dir/$t" </dev/null >/dev/null 2>&1
+    # Any exit status means it RAN; 126/127 mean it could not be executed.
+    case $? in 126|127) ;; *) return 0 ;; esac
+  done
+  echo "HARNESS-BROKEN: no runnable shim in $dir (symlink/exec unavailable?)" >&2
+  return 1
+}
+
 report() {
   local total=$((TESTS_PASSED + TESTS_FAILED))
   echo ""

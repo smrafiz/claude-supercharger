@@ -25,18 +25,10 @@ run_with() { # $1=state dir, $2=fake bin dir ("" = real PATH), rest = env
 # A bin dir exposing only the named tools (symlinked from the real ones).
 mk_bin() {
   local dir="$1"; shift
-  mkdir -p "$dir"
-  local t src
-  for t in "$@"; do
-    src=$(command -v "$t" 2>/dev/null) && ln -sf "$src" "$dir/$t"
-  done
   # The hook still needs ordinary coreutils to write its marker. Omitting them made
   # the "warns once" case fail for the wrong reason: mkdir was unavailable, so the
   # marker was never created and it warned every run.
-  local need
-  for need in bash uname mkdir tr date rm ls cat sed grep; do
-    src=$(command -v "$need" 2>/dev/null) && ln -sf "$src" "$dir/$need"
-  done
+  shim_tools "$dir" "$@" bash uname mkdir tr date rm ls cat sed grep
 }
 
 echo "=== Dependency Preflight Tests ==="

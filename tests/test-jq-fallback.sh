@@ -51,9 +51,8 @@ begin_test "context-advisor: python fallback still works when jq is genuinely mi
 # The half that must not regress. Without this, 'optimising' the fallback away
 # entirely would pass every assertion above.
 FAKE=$(mktemp -d)
-for b in bash sh printf cat sed grep awk python3 date mkdir tr head tail wc cut sort uniq stat rm touch mv cp ln chmod ls expr test env git dirname basename; do
-  ln -sf "$(command -v "$b")" "$FAKE/$b" 2>/dev/null
-done
+shim_tools "$FAKE" bash sh printf cat sed grep awk python3 date mkdir tr head tail wc \
+  cut sort uniq stat rm touch mv cp ln chmod ls expr test env git dirname basename
 # Allocate the state dir BEFORE stripping PATH — `mktemp` is not in $FAKE, so doing
 # it inline made the subshell print "mktemp: command not found" and hand the hook an
 # empty SUPERCHARGER_STATE. The assertion still passed, for the wrong reason.
