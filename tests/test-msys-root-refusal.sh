@@ -51,30 +51,56 @@ verdict() { # root, extra-env... -> BLOCK|allow
 }
 
 root_of() { # extra-env... -> the msys_root the guard derives
+  # "$@" comes FIRST so a caller can pass `-u MSYSTEM`: env stops treating words
+  # as options at the first assignment, so an option after HOME=... would be read
+  # as the command name.
   local st; st=$(mktemp -d); mkdir -p "$st/free" "$st/home"
   printf '{"additionalRoots":["%s"]}' "$MROOT" > "$st/free/$CFG"
   printf '{"tool_name":"Write","tool_input":{"file_path":"%s/etc/x","content":"x"},"cwd":"%s"}' \
     "$MROOT" "$st/free" \
-    | env HOME="$st/home" SUPERCHARGER_STATE="$st" SC_PATHGUARD_DEBUG=1 "$@" \
+    | env "$@" HOME="$st/home" SUPERCHARGER_STATE="$st" SC_PATHGUARD_DEBUG=1 \
       bash "$REPO_DIR/hooks/path-guard.sh" 2>&1 >/dev/null \
     | grep -oE "msys_root='[^']*'" | head -1 | sed "s/msys_root='//; s/'$//"
   rm -rf "$st"
 }
 
-echo "=== MSYS root refusal (inertness off Windows) ==="
+# The header above said the POSITIVE case could not be exercised here. That is
+# true off Windows and false on the runner, where these same three checks were
+# asserting inertness on the one platform the feature is supposed to work — so
+# the recon reported "derived a root off Windows: 'C:\Program Files\Git'" three
+# times, which is the feature working, reported as a defect.
+case "$OSTYPE" in
+  msys*|cygwin*|win32*) ON_WINDOWS=1 ;;
+  *)                    ON_WINDOWS=0 ;;
+esac
+echo "=== MSYS root refusal ($([ "$ON_WINDOWS" = 1 ] && echo 'live on Git Bash' || echo 'inertness off Windows')) ==="
 
-begin_test "GATE: nothing is derived on this platform, even with MSYSTEM set"
-# os.name is 'posix' here, so the branch must not run at all.
-[ -z "$(root_of MSYSTEM=MINGW64)" ] \
-  && pass || fail "derived a root off Windows: '$(root_of MSYSTEM=MINGW64)'"
+begin_test "the MSYS root is derived on Windows, and nowhere else"
+DERIVED=$(root_of MSYSTEM=MINGW64)
+if [ "$ON_WINDOWS" = 1 ]; then
+  # os.name == 'nt': the branch runs and must find the install the shell came from.
+  [ -n "$DERIVED" ] && pass || fail "no MSYS root derived on Git Bash — the refusal cannot fire"
+else
+  # os.name is 'posix' here, so the branch must not run at all.
+  [ -z "$DERIVED" ] && pass || fail "derived a root off Windows: '$DERIVED'"
+fi
 
-begin_test "GATE: an MSYS-shaped bash layout does not trigger it either"
+begin_test "GATE: an MSYS-shaped bash layout does not decide it"
 # The exact shape that broke ubuntu: <root>/usr/bin/bash is where Linux keeps bash.
-[ -z "$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")" ] \
-  && pass || fail "the /usr/bin/bash layout derived a root: '$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")'"
+DERIVED=$(root_of MSYSTEM=MINGW64 PATH="$MROOT/usr/bin:$PATH")
+if [ "$ON_WINDOWS" = 1 ]; then
+  # A planted layout must not REDIRECT the derivation to itself.
+  [ "$DERIVED" != "$MROOT" ] && pass || fail "a planted /usr/bin/bash captured the derivation"
+else
+  [ -z "$DERIVED" ] && pass || fail "the /usr/bin/bash layout derived a root: '$DERIVED'"
+fi
 
-begin_test "GATE: nothing is derived when MSYSTEM is unset"
-[ -z "$(root_of)" ] && pass || fail "derived a root with MSYSTEM unset: '$(root_of)'"
+begin_test "nothing is derived when MSYSTEM is genuinely unset"
+# `env -u`, because Git Bash sets MSYSTEM for real: the old version inherited it
+# and so never tested the condition it named. Same contract on both platforms —
+# the guard requires os.name == 'nt' AND MSYSTEM.
+DERIVED=$(root_of -u MSYSTEM)
+[ -z "$DERIVED" ] && pass || fail "derived a root with MSYSTEM unset: '$DERIVED'"
 
 begin_test "GATE: an ordinary directory is still a valid project root"
 # The refusal must not leak into macOS/Linux, where this is just a directory.
