@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.87] - 2026-08-11 — windows: four tools were silently broken by a path baked into python -c; swept 44 more sites in tests and added a scanner so the class cannot come back one file at a time. 3581 tests passing.
 - [2.26.86] - 2026-08-11 — docs(hooks): correct v2.26.85 — the if field is not broken, our syntax was wrong
 
 v2.26.85 said "a hook registered with if never fires". That is FALSE about Claude
