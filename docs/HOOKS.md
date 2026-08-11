@@ -162,7 +162,7 @@ Run any of these manually:
 | `tools/claude-check.sh` | Claude Supercharger — Installation Health Check |
 | `tools/compress-memory.sh` | Claude Supercharger — Memory File Compressor |
 | `tools/config-health.sh` | Claude Supercharger — Scored Installation Health Check |
-| `tools/economy-switch.sh` | Resolve source directory (tools/ → repo root) |
+| `tools/economy-switch.sh` | Claude Supercharger — Economy Tier Switcher |
 | `tools/gen-plugin-commands.sh` | Claude Supercharger — Plugin commands/ generator |
 | `tools/gen-plugin-hooks.sh` | Claude Supercharger — Plugin hooks.json generator |
 | `tools/hook-concurrency.sh` | Claude Supercharger — Hook concurrency reconstructor |
@@ -173,7 +173,7 @@ Run any of these manually:
 | `tools/list-hooks.sh` | Claude Supercharger — Hook Catalog Generator |
 | `tools/mcp-custom.sh` | Claude Supercharger — Custom MCP servers, profile-aware |
 | `tools/mcp-profile.sh` | Claude Supercharger — MCP Profile Switcher |
-| `tools/mcp-setup.sh` | set -eo pipefail |
+| `tools/mcp-setup.sh` | Claude Supercharger — MCP Server Setup |
 | `tools/memory-prune.sh` | Claude Supercharger — Memory Auto-Pruner (v2.19.0) |
 | `tools/notify-toggle.sh` | Claude Supercharger — Desktop Notification Toggle |
 | `tools/perf-report.sh` | Claude Supercharger — Perf report (HOOK-LATENCY-PLAN Phase 3) |
@@ -190,7 +190,7 @@ Run any of these manually:
 | `tools/token-report.sh` | Claude Supercharger — Session Token Report |
 | `tools/trust-mcp.sh` | Claude Supercharger — Trust an MCP server for Elicitation credential prompts |
 | `tools/update.sh` | Claude Supercharger — Smart Updater |
-| `tools/webhook-setup.sh` | set -eo pipefail |
+| `tools/webhook-setup.sh` | Claude Supercharger — Webhook Setup |
 
 ---
 

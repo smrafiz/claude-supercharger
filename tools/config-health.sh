@@ -2,6 +2,14 @@
 # Claude Supercharger — Scored Installation Health Check
 set -euo pipefail
 
+# Windows python defaults stdout to the ANSI codepage (cp1252) and raises
+# UnicodeEncodeError on the box-drawing and arrow characters this tool prints,
+# losing ALL of its output. Hooks get this from hooks/lib-paths.sh; tools do not
+# reach that file, so they set it themselves. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 HOOKS_DIR="$HOME/.claude/supercharger/hooks"
 TOOLS_DIR="$HOME/.claude/supercharger/tools"
 SETTINGS="$HOME/.claude/settings.json"

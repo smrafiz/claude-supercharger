@@ -106,6 +106,41 @@ N=$(render "$SL" cp1252 2>/dev/null | wc -l | tr -d ' ')
 [ "${N:-0}" -ge 3 ] && pass || fail "expected >=3 lines, got ${N:-0}"
 rm -rf "$SL"
 
+# --- the same crash, in tools/ ------------------------------------------------
+# v2.26.71 fixed this for HOOKS via hooks/lib-paths.sh, the one file every hook
+# reaches. Nothing covered tools/, and the v2.26.87 Windows diagnostic caught the
+# consequence directly:
+#
+#   UnicodeEncodeError: 'charmap' codec can't encode characters in position 0-59
+#
+# tools/hook-perf.sh died there and took the entire chain report with it — nine
+# test-perf-chain failures from one uncaught codec. Every one of these tools
+# prints box-drawing characters or arrows, so the exposure is uniform.
+#
+# Asserted as a SCAN over the directory rather than a list of known files: the
+# hook-side fix worked precisely because one file covered everything, and the
+# tools cannot have that (only 9 of 23 even have a REPO_DIR to source from), so
+# the scan is what stops this being partially applied.
+begin_test "every python-forking tool sets a UTF-8 stdout encoding"
+MISSING=""
+for f in "$REPO_DIR"/tools/*.sh; do
+  grep -q 'python3' "$f" || continue
+  grep -q 'PYTHONIOENCODING' "$f" || MISSING="$MISSING $(basename "$f")"
+done
+[ -z "$MISSING" ] && pass || fail "tools fork python without a UTF-8 stdout:$MISSING"
+
+begin_test "the tools honour an explicit encoding rather than forcing utf-8"
+# `:=` not `=`. A user who deliberately sets an encoding must keep it, and the
+# regression test for the Windows default cannot run here anyway — python on
+# macOS/Linux already defaults to UTF-8 (PEP 538/540), so forcing cp1252 would
+# only prove that an override works.
+BAD=""
+for f in "$REPO_DIR"/tools/*.sh; do
+  grep -q 'PYTHONIOENCODING' "$f" || continue
+  grep -q ': "${PYTHONIOENCODING:=' "$f" || BAD="$BAD $(basename "$f")"
+done
+[ -z "$BAD" ] && pass || fail "tools overwrite an explicit PYTHONIOENCODING:$BAD"
+
 # --- CRLF: the OTHER half of Windows python output ---------------------------
 # print() on Windows terminates lines with CRLF. bash splits on \n alone, so any
 # hook that reads a MULTI-LINE python result into shell variables keeps a trailing

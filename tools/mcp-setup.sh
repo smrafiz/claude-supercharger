@@ -1,5 +1,15 @@
 #!/usr/bin/env bash
+# Claude Supercharger — MCP Server Setup
+# Interactive installer for the bundled MCP server profiles.
 set -eo pipefail
+
+# Windows python defaults stdout to the ANSI codepage (cp1252) and raises
+# UnicodeEncodeError on the box-drawing and arrow characters this tool prints,
+# losing ALL of its output. Hooks get this from hooks/lib-paths.sh; tools do not
+# reach that file, so they set it themselves. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
 umask 077
 
 GREEN='\033[0;32m'

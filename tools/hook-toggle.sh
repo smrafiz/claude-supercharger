@@ -5,6 +5,14 @@
 
 set -euo pipefail
 
+# Windows python defaults stdout to the ANSI codepage (cp1252) and raises
+# UnicodeEncodeError on the box-drawing and arrow characters this tool prints,
+# losing ALL of its output. Hooks get this from hooks/lib-paths.sh; tools do not
+# reach that file, so they set it themselves. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 # v2.26.23: honour an explicit override so this can be exercised without touching live
 # config. It was hardcoded to $HOME, and SUPERCHARGER_STATE does NOT redirect it — a
 # probe run with an isolated state dir silently commented safety.sh, git-safety.sh and

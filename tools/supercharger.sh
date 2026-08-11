@@ -2,6 +2,14 @@
 # Claude Supercharger — Capability Overview
 # Shows everything Supercharger can do in one screen.
 
+# Windows python defaults stdout to the ANSI codepage (cp1252) and raises
+# UnicodeEncodeError on the box-drawing and arrow characters this tool prints,
+# losing ALL of its output. Hooks get this from hooks/lib-paths.sh; tools do not
+# reach that file, so they set it themselves. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
