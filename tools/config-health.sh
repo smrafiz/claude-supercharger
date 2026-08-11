@@ -19,9 +19,9 @@ score_hooks() {
   # settings.json exists and has hooks key
   if [ -f "$SETTINGS" ] && python3 -c "
 import json, sys
-with open('$SETTINGS') as f: s = json.load(f)
+with open(sys.argv[1]) as f: s = json.load(f)
 sys.exit(0 if 'hooks' in s else 1)
-" 2>/dev/null; then
+" "$SETTINGS" 2>/dev/null; then
     pts=$((pts + 5)); marks="${marks}${PASS}"
   else
     marks="${marks}${FAIL}"
@@ -32,11 +32,11 @@ sys.exit(0 if 'hooks' in s else 1)
   local hook_count=0
   if [ -f "$SETTINGS" ]; then
     hook_count=$(python3 -c "
-import json
-with open('$SETTINGS') as f: s = json.load(f)
+import json, sys
+with open(sys.argv[1]) as f: s = json.load(f)
 total = sum(len(v) for v in s.get('hooks', {}).values())
 print(total)
-" 2>/dev/null || echo 0)
+" "$SETTINGS" 2>/dev/null || echo 0)
   fi
   if [ "$hook_count" -ge 10 ]; then
     pts=$((pts + 5)); marks="${marks}${PASS}"

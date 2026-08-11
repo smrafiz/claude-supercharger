@@ -28,7 +28,7 @@ detect_test_cmd() {
   local dir="${1:-.}"
   if [ -f "$dir/package.json" ]; then
     # Check for test script in package.json
-    if python3 -c "import json; d=json.load(open('$dir/package.json')); exit(0 if 'test' in d.get('scripts',{}) else 1)" 2>/dev/null; then
+    if python3 -c "import json,sys; d=json.load(open(sys.argv[1])); exit(0 if 'test' in d.get('scripts',{}) else 1)" "$dir/package.json" 2>/dev/null; then
       # Detect package manager
       if [ -f "$dir/pnpm-lock.yaml" ]; then echo "pnpm test"
       elif [ -f "$dir/bun.lockb" ]; then echo "bun test"

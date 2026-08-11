@@ -46,15 +46,15 @@ if [ ! -f "$SETTINGS" ]; then
 fi
 
 HOOK_COUNT=$(python3 -c "
-import json
-with open('$SETTINGS') as f:
+import json, sys
+with open(sys.argv[1]) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
 count = sum(1 for event in hooks.values() for entry in event
             for h in entry.get('hooks', [])
             if '#supercharger' in h.get('command', '') or '#supercharger' in h.get('prompt', ''))
 print(count)
-" 2>/dev/null || echo "0")
+" "$SETTINGS" 2>/dev/null || echo "0")
 
 $QUIET || echo -e "${BOLD}Checking $HOOK_COUNT registered supercharger hooks...${NC}"
 $QUIET || echo ""
@@ -70,7 +70,7 @@ _HOOK_ISSUE_FILE=$(mktemp)
 python3 -c "
 import json, sys
 
-with open('$SETTINGS') as f:
+with open(sys.argv[1]) as f:
     s = json.load(f)
 
 hooks = s.get('hooks', {})
@@ -83,7 +83,7 @@ for event, entries in hooks.items():
             script_and_args = cmd.replace(' #supercharger', '').strip()
             script = script_and_args.split()[0]
             print(f'{event}|{script}')
-" 2>/dev/null | sort -u | while IFS='|' read -r event script; do
+" "$SETTINGS" 2>/dev/null | sort -u | while IFS='|' read -r event script; do
   CHECKED=$((CHECKED + 1))
   NAME=$(basename "$script")
 

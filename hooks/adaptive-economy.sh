@@ -68,11 +68,11 @@ if [ -f "$PROJECT_DIR/.supercharger.json" ]; then
   AUTO_OK=$(python3 -c "
 import json, sys
 try:
-  d = json.load(open('$PROJECT_DIR/.supercharger.json'))
+  d = json.load(open(sys.argv[1]))
   print('false' if d.get('autoEconomy') is False else 'true')
 except Exception:
   print('true')
-" 2>/dev/null || echo "true")
+" "$PROJECT_DIR/.supercharger.json" 2>/dev/null || echo "true")
   if [ "$AUTO_OK" = "false" ]; then
     exit 0
   fi
