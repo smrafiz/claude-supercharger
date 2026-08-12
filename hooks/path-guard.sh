@@ -495,7 +495,14 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     # is used so an in-path symlink escaping the store can't abuse the allowance.
     _mem_root = os.path.join(os.path.realpath((os.environ.get('HOME') or os.path.expanduser('~'))), '.claude', 'projects')
     _rp = os.path.realpath(p)
-    if _rp.startswith(_mem_root + os.sep) and '/memory/' in _rp and _rp.endswith('.md'):
+    # Compared with forward slashes on both sides. realpath returns BACKSLASHES on
+    # Windows, so the literal '/memory/' could never match there and the allowance
+    # never fired: /remember and auto-memory were blocked on Windows for the same
+    # reason this block was written to unblock them on POSIX. os.sep on the
+    # startswith side had the same flaw in reverse.
+    _rp_n = _rp.replace(os.sep, '/')
+    _mem_n = _mem_root.replace(os.sep, '/')
+    if _rp_n.startswith(_mem_n + '/') and '/memory/' in _rp_n and _rp_n.endswith('.md'):
         sys.exit(0)
     # v2.26.66: allow the harness's own per-session scratchpad, for the same reason
     # as the memory store above. Claude Code's system prompt directs ALL temp files
@@ -510,19 +517,31 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     _sid = os.environ.get('SID', '')
     if _sid and ('/' + _sid + '/scratchpad/') in (_rp + '/'):
         sys.exit(0)
+    # Built and compared with FORWARD slashes on both sides.
+    #
+    # Two faults compounded here on Windows, and between them the credential
+    # block never fired:
+    #   1. expanduser('~/.ssh/') substitutes the profile path (backslashes) and
+    #      leaves the rest verbatim -> 'C:\Users\x/.ssh/', mixed separators.
+    #   2. `p` is all backslashes by this point, so startswith could not match.
+    # And expanduser ignores bash's $HOME on Windows, so even the prefix could be
+    # the wrong user's home. On POSIX os.sep is '/' and HOME == expanduser('~'),
+    # so every line below is byte-identical to what it replaced.
+    _home_n = (os.environ.get('HOME') or os.path.expanduser('~')).replace(os.sep, '/').rstrip('/')
     abs_blocked = [
-        os.path.expanduser('~/.ssh/'),
-        os.path.expanduser('~/.aws/'),
-        os.path.expanduser('~/.config/'),
-        os.path.expanduser('~/.npmrc'),
-        os.path.expanduser('~/.gitconfig'),
-        os.path.expanduser('~/.bashrc'),
-        os.path.expanduser('~/.zshrc'),
+        _home_n + '/.ssh/',
+        _home_n + '/.aws/',
+        _home_n + '/.config/',
+        _home_n + '/.npmrc',
+        _home_n + '/.gitconfig',
+        _home_n + '/.bashrc',
+        _home_n + '/.zshrc',
         '/etc/',
         '/usr/local/etc/',
     ]
+    _p_n = p.replace(os.sep, '/')
     for blk in abs_blocked:
-        if p.startswith(blk) or p == blk.rstrip('/'):
+        if _p_n.startswith(blk) or _p_n == blk.rstrip('/'):
             print('write to ' + blk + ' — credential or system config persistence risk; opt out via disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
     # Generic: absolute path resolves outside project

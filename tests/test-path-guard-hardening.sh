@@ -10,6 +10,17 @@ PROJ=$(mktemp -d); OUT=$(mktemp -d)
 ln -s "$OUT/authorized_keys" "$PROJ/innocent.json"   # basename symlink → outside
 ln -s ".git" "$PROJ/g"                                # dir alias → .git
 
+# Every assertion below needs a REAL symlink to escape through. Git Bash cannot
+# create one without developer mode or admin rights, and `ln -s` silently copies
+# instead — so the guard is handed an ordinary file, correctly allows it, and the
+# recon reported "symlink escape allowed" as though the guard had a hole.
+#
+# Detected rather than assumed: if the link is not a link, the precondition does
+# not exist and there is nothing to assert. Reported, not silent, and still
+# passing so the suite total stays identical across platforms.
+SYMLINKS_WORK=1
+[ -L "$PROJ/innocent.json" ] && [ -L "$PROJ/g" ] || SYMLINKS_WORK=0
+
 # deny? <file_path> → DENY|ALLOW  (file_path may be relative to PROJ or absolute)
 verdict() {
   local j; j=$(printf '{"tool_name":"Write","cwd":"%s","tool_input":{"file_path":"%s","content":"x"}}' "$PROJ" "$1")
@@ -28,11 +39,14 @@ begin_test "path-guard: .NEXT/ artifact (case) is denied"
 
 # ---- symlink-redirected writes (must DENY) ----
 begin_test "path-guard: absolute basename symlink to outside is denied"
-[ "$(verdict "$PROJ/innocent.json")" = DENY ] && pass || fail "basename symlink escape allowed"
+if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: Git Bash created no symlink — nothing to escape through)"; pass
+else [ "$(verdict "$PROJ/innocent.json")" = DENY ] && pass || fail "basename symlink escape allowed"; fi
 begin_test "path-guard: relative dir-alias g/config (→.git) is denied"
-[ "$(verdict "g/config")" = DENY ] && pass || fail "dir-alias to .git allowed (rel)"
+if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: no symlink — see above)"; pass
+else [ "$(verdict "g/config")" = DENY ] && pass || fail "dir-alias to .git allowed (rel)"; fi
 begin_test "path-guard: absolute dir-alias g/config (→.git) is denied"
-[ "$(verdict "$PROJ/g/config")" = DENY ] && pass || fail "dir-alias to .git allowed (abs)"
+if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: no symlink — see above)"; pass
+else [ "$(verdict "$PROJ/g/config")" = DENY ] && pass || fail "dir-alias to .git allowed (abs)"; fi
 
 # ---- regressions: still deny the lowercase forms ----
 begin_test "path-guard: plain .git/config still denied"
