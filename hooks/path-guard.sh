@@ -430,7 +430,15 @@ if 'git-internals' not in disabled:
             print('write to git internals (' + pat + ') — repo integrity risk; opt out via disableSecurityCategories: ["git-internals"]')
             sys.exit(0)
     home = (os.environ.get('HOME') or os.path.expanduser('~'))
-    if p.startswith(os.path.join(home, '.claude', 'hooks')) or p.startswith(os.path.join(home, '.claude', 'supercharger', 'hooks')):
+    # Normalised on both sides. os.path.join builds with backslashes on Windows
+    # while a payload may legitimately spell the same path with forward slashes
+    # (C:/Users/... is valid there), and startswith between the two forms matches
+    # nothing — this guard blocks writes to the hooks dir, so a miss here is a
+    # write that disables every other check. Same fault found three times
+    # elsewhere in this file; fixed here before it is found a fourth.
+    _pn = p.replace(os.sep, '/')
+    _hn = home.replace(os.sep, '/').rstrip('/')
+    if _pn.startswith(_hn + '/.claude/hooks') or _pn.startswith(_hn + '/.claude/supercharger/hooks'):
         print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
         sys.exit(0)
 
@@ -514,8 +522,13 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     # immediately followed by `scratchpad`, so it names one ephemeral directory that
     # is already writable through the Bash channel. Narrower than the memory-store
     # allowance above, which permits any projects/**/memory/*.md.
+    # _rp_n, not _rp: realpath returns backslashes on Windows, so this
+    # forward-slash test could never match there and the allowance never fired.
+    # Claude Code's prompt sends ALL temp files to the scratchpad, so the Write
+    # tool was denied for the one directory it is told to use — the same
+    # separator fault as the memory store above, with a louder consequence.
     _sid = os.environ.get('SID', '')
-    if _sid and ('/' + _sid + '/scratchpad/') in (_rp + '/'):
+    if _sid and ('/' + _sid + '/scratchpad/') in (_rp_n + '/'):
         sys.exit(0)
     # Built and compared with FORWARD slashes on both sides.
     #
