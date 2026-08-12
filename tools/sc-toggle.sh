@@ -86,6 +86,66 @@ MCP_FILES="$HOME/.claude.json
 $HOME/.claude/settings.json"
 MCP_STASH="$STATE_DIR/mcp-servers.json"
 
+# --- ~/.claude/rules/*.md -----------------------------------------------------
+# Claude Code auto-loads this directory (lib/roles.sh:57 says so in as many
+# words), with no import anywhere in CLAUDE.md. So stripping the CLAUDE.md block
+# was only HALF the prompt layer: `off` left ~9KB of Supercharger instructions —
+# the universal rules, the guardrails, the economy tier and the active role —
+# entering every session. The command promised "default Claude Code behavior"
+# and delivered the role and workflow rules anyway.
+#
+# Only files Supercharger OWNS are moved. A role file is ours when a file of the
+# same name exists in supercharger/roles/, which is where the installer copies
+# every role from; the other four are installer-deployed by name. Anything else
+# in rules/ is the user's and is left exactly where it is — `off` means default
+# Claude, not "lose your own config".
+RULES_DIR="$HOME/.claude/rules"
+RULES_STASH="$STATE_DIR/rules"
+RULES_MANIFEST="$STATE_DIR/rules-moved.txt"
+
+_sc_owned_rules() {   # -> one filename per line, only those present on disk
+  local f
+  for f in supercharger.md guardrails.md economy.md anti-patterns.yml; do
+    [ -f "$RULES_DIR/$f" ] && printf '%s\n' "$f"
+  done
+  # Roles: identified against the installed role sources, so a same-named file
+  # the user wrote themselves is never taken.
+  for f in "$HOME/.claude/supercharger/roles/"*.md; do
+    [ -f "$f" ] || continue
+    f=${f##*/}
+    [ -f "$RULES_DIR/$f" ] && printf '%s\n' "$f"
+  done
+}
+
+_rules_off() {   # move ours aside -> echoes how many
+  local n=0 f
+  mkdir -p "$RULES_STASH" 2>/dev/null || return 0
+  : > "$RULES_MANIFEST" 2>/dev/null || true
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    if mv "$RULES_DIR/$f" "$RULES_STASH/$f" 2>/dev/null; then
+      printf '%s\n' "$f" >> "$RULES_MANIFEST" 2>/dev/null || true
+      n=$((n + 1))
+    fi
+  done <<EOF
+$(_sc_owned_rules)
+EOF
+  [ "$n" -gt 0 ] && printf '%s' "$n"
+}
+
+_rules_on() {    # put back exactly what we took -> echoes how many
+  local n=0 f
+  [ -f "$RULES_MANIFEST" ] || return 0
+  mkdir -p "$RULES_DIR" 2>/dev/null || true
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    # Never clobber: if something now occupies the name, leave the user's file.
+    [ -e "$RULES_DIR/$f" ] && continue
+    mv "$RULES_STASH/$f" "$RULES_DIR/$f" 2>/dev/null && n=$((n + 1))
+  done < "$RULES_MANIFEST"
+  [ "$n" -gt 0 ] && printf '%s' "$n"
+}
+
 _mcp_off() {   # extract tagged servers from every settings file -> stash
   SC_FILES="$MCP_FILES" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
 import json, os, sys
@@ -197,6 +257,11 @@ case "${1:-status}" in
     # cost. Runs before the flag write; failure here must not abort the toggle.
     _MCP_MOVED=$(_mcp_off || true)
 
+    # Same for the rules/ half of the prompt layer. After the CLAUDE.md strip, so
+    # a failure here cannot leave the block removed AND the rules gone with no
+    # record; both are restored from STATE_DIR by `on`.
+    _RULES_MOVED=$(_rules_off || true)
+
     # Kill-switch — write to EVERY scope dir a hook might read (classic + plugin),
     # else the flag lands where the running hooks never look and off is a no-op.
     _FLAG_BODY=$(printf 'disabled_at %s\nbackup %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo now)" "$BDIR")
@@ -215,7 +280,12 @@ EOF
     echo "     You are on stock Claude Code with no safety net until you re-enable."
     echo ""
     echo "  • Hooks: off immediately (next tool call)."
-    echo "  • Prompt rules: the CLAUDE.md block was removed; takes effect next session."
+    if [ -n "${_RULES_MOVED:-}" ] && [ "${_RULES_MOVED:-0}" != "0" ]; then
+      echo "  • Prompt rules: the CLAUDE.md block and ${_RULES_MOVED} rules/ file(s) were"
+      echo "    removed; takes effect next session. Your own rules/ files were left alone."
+    else
+      echo "  • Prompt rules: the CLAUDE.md block was removed; takes effect next session."
+    fi
     if [ -n "${_MCP_MOVED:-}" ] && [ "${_MCP_MOVED:-0}" != "0" ]; then
       echo "  • MCP servers: ${_MCP_MOVED} Supercharger-registered server(s) moved aside, so they"
       echo "    stop loading (and stop costing context) — restored by /sc on. Next session."
@@ -237,12 +307,18 @@ EOF
     done <<EOF
 $(_flag_dirs)
 EOF
-    # Restore the MCP servers we moved aside (before STATE_DIR, which holds them).
+    # Restore the MCP servers and rules we moved aside. Both read from STATE_DIR,
+    # so they must run BEFORE it is deleted.
     _MCP_BACK=$(_mcp_on || true)
+    _RULES_BACK=$(_rules_on || true)
     rm -rf "$STATE_DIR" 2>/dev/null || true
     echo ""
     echo "  Supercharger is now ON — hooks active again, guards restored."
-    echo "  CLAUDE.md rules restored; they re-enter context on your next session."
+    if [ -n "${_RULES_BACK:-}" ] && [ "${_RULES_BACK:-0}" != "0" ]; then
+      echo "  CLAUDE.md and ${_RULES_BACK} rules/ file(s) restored; they re-enter context next session."
+    else
+      echo "  CLAUDE.md rules restored; they re-enter context on your next session."
+    fi
     if [ -n "${_MCP_BACK:-}" ] && [ "${_MCP_BACK:-0}" != "0" ]; then
       echo "  ${_MCP_BACK} MCP server(s) restored; they load again next session."
     fi

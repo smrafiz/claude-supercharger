@@ -233,4 +233,67 @@ printf 'disabled_at test\n' > "$HOME/$PDATA_REL/scope/.supercharger-disabled"
 bash "$TOGGLE" status 2>/dev/null | grep -qi "DISABLED" && pass || fail "status missed the plugin-only flag"
 teardown_test_home
 
+# --- rules/ is the OTHER half of the prompt layer ----------------------------
+# Claude Code auto-loads ~/.claude/rules/*.md — lib/roles.sh:57 says so, and no
+# import exists in CLAUDE.md. `off` stripped only the CLAUDE.md block, so the
+# universal rules, guardrails, economy tier and active role kept entering every
+# session: roughly 9KB of Supercharger instructions while it claimed to be OFF.
+# Reported from a real install, where /sc off still showed rules/developer.md and
+# rules/supercharger.md loading.
+_setup_rules() {
+  _setup
+  mkdir -p "$HOME/.claude/rules" "$HOME/.claude/supercharger/roles"
+  printf 'universal\n'  > "$HOME/.claude/rules/supercharger.md"
+  printf 'guards\n'     > "$HOME/.claude/rules/guardrails.md"
+  printf 'tier\n'       > "$HOME/.claude/rules/economy.md"
+  printf 'role rules\n' > "$HOME/.claude/rules/developer.md"
+  printf 'role rules\n' > "$HOME/.claude/supercharger/roles/developer.md"  # marks it ours
+  printf 'MY OWN NOTES\n' > "$HOME/.claude/rules/my-notes.md"              # the user's
+}
+
+begin_test "sc-toggle: off removes the Supercharger rules/ files too"
+_setup_rules
+bash "$TOGGLE" off >/dev/null 2>&1
+LEFT=$(ls -A "$HOME/.claude/rules" 2>/dev/null | grep -c 'supercharger.md\|guardrails.md\|economy.md\|developer.md')
+[ "$LEFT" = "0" ] && pass || fail "rules still present after off: $(ls -A "$HOME/.claude/rules" | tr '\n' ' ')"
+teardown_test_home
+
+begin_test "sc-toggle: off does NOT touch a rules file the user wrote"
+# `off` means default Claude, not "lose your own config". A role file is only
+# taken when a same-named source exists in supercharger/roles/.
+_setup_rules
+bash "$TOGGLE" off >/dev/null 2>&1
+if [ -f "$HOME/.claude/rules/my-notes.md" ] \
+   && grep -q 'MY OWN NOTES' "$HOME/.claude/rules/my-notes.md"; then pass
+else fail "the user's own rules file was moved or altered"; fi
+teardown_test_home
+
+begin_test "sc-toggle: on restores every rules file byte-identically"
+_setup_rules
+SUM_BEFORE=$(cat "$HOME/.claude/rules/supercharger.md" "$HOME/.claude/rules/developer.md" 2>/dev/null)
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+SUM_AFTER=$(cat "$HOME/.claude/rules/supercharger.md" "$HOME/.claude/rules/developer.md" 2>/dev/null)
+if [ "$SUM_BEFORE" = "$SUM_AFTER" ] && [ -f "$HOME/.claude/rules/economy.md" ]; then pass
+else fail "restore lost or changed a rules file"; fi
+teardown_test_home
+
+begin_test "sc-toggle: on does not clobber a file that reappeared while off"
+# If something recreated the name while Supercharger was off, that file wins —
+# restoring over it would silently destroy whatever replaced it.
+_setup_rules
+bash "$TOGGLE" off >/dev/null 2>&1
+printf 'WROTE THIS WHILE OFF\n' > "$HOME/.claude/rules/developer.md"
+bash "$TOGGLE" on >/dev/null 2>&1
+grep -q 'WROTE THIS WHILE OFF' "$HOME/.claude/rules/developer.md" \
+  && pass || fail "restore clobbered a file created while off"
+teardown_test_home
+
+begin_test "sc-toggle: off is safe when there is no rules/ directory at all"
+_setup
+rm -rf "$HOME/.claude/rules"
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/$FLAG_REL" ] && pass || fail "off failed when rules/ was absent"
+teardown_test_home
+
 report
