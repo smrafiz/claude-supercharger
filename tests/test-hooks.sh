@@ -56,7 +56,14 @@ DATE_STR=$(date +%Y-%m-%d)
 AUDIT_FILE="$AUDIT_DIR/${DATE_STR}.jsonl"
 PRE_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
 PRE_LINES=${PRE_LINES##* }
-echo '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/tmp"}' | bash "$REPO_DIR/hooks/git-safety.sh" >/dev/null 2>&1
+# The threshold is raised out of reach on purpose. lib-timing AUTO-records any
+# hook slower than 40ms on bash 5+, with no sentinel — that is documented
+# behaviour, not a leak. macOS ships bash 3.2, where auto-timing is off, so this
+# passed there while the Windows runner (bash 5.3, and slow) correctly recorded
+# an entry and the test read it as the sentinel having failed. Pinning the
+# threshold isolates what this test is actually about: the SENTINEL.
+echo '{"tool_name":"Bash","tool_input":{"command":"git status"},"cwd":"/tmp"}' \
+  | SUPERCHARGER_PERF_THRESHOLD_MS=999999 bash "$REPO_DIR/hooks/git-safety.sh" >/dev/null 2>&1
 POST_LINES=$(wc -l < "$AUDIT_FILE" 2>/dev/null || echo 0)
 POST_LINES=${POST_LINES##* }
 [ "$POST_LINES" = "$PRE_LINES" ] && pass || fail "expected no audit entry without sentinel; pre=$PRE_LINES post=$POST_LINES"
@@ -1050,8 +1057,16 @@ export HOME="$AUDIT_DIR"
 mkdir -p "$HOME/.claude/supercharger/audit"
 echo '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}' | bash "$AUDIT_HOOK" 2>/dev/null
 TODAY=$(date -u +"%Y-%m-%d")
-if [ -f "$HOME/.claude/supercharger/audit/$TODAY.jsonl" ]; then
-  fail "read-only command should not be audited"
+# Assert no AUDIT row, not "no file". lib-timing writes a TIMING row to this same
+# file for any hook slower than 40ms (SUPERCHARGER_PERF_THRESHOLD_MS), so two
+# writers share it. On the Windows runner audit-trail itself exceeds 40ms, the
+# file therefore exists, and this failed with "read-only command should not be
+# audited" while nothing had been audited. macOS passed it only by being fast
+# enough that no timing row was ever written — a green that depended on speed.
+# A timing row is {"hook":...,"elapsed_ms":...}; an audit row names the command.
+_AF="$HOME/.claude/supercharger/audit/$TODAY.jsonl"
+if [ -f "$_AF" ] && grep -q 'ls -la' "$_AF" 2>/dev/null; then
+  fail "read-only command should not be audited: $(cat "$_AF")"
 else
   pass
 fi
