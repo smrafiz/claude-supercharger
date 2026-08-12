@@ -151,14 +151,14 @@ if [ "$TARGET" = "statusline" ]; then
 
   COLD="$COLD" WARM="$WARM" ITERS="$ITERS" JSON="$JSON" \
   WRITE_BASELINE="$WRITE_BASELINE" BASELINE_FILE="$BASELINE_FILE" python3 - <<'PY'
-import os, json, sys
+import os, json, sys, platform
 def stats(s):
     v = [float(x) * 1000.0 for x in s.split() if x]
     return {"mean_ms": round(sum(v) / len(v), 1), "min_ms": round(min(v), 1),
             "max_ms": round(max(v), 1), "samples": len(v)} if v else {}
 cold, warm = stats(os.environ["COLD"]), stats(os.environ["WARM"])
 report = {"target": "statusline", "iterations": int(os.environ["ITERS"]),
-          "platform": os.uname().sysname,
+          "platform": platform.system(),
           "cold_render": cold, "warm_render": warm}
 if cold and warm and warm["mean_ms"] > 0:
     report["cache_speedup"] = round(cold["mean_ms"] / warm["mean_ms"], 2)
@@ -316,7 +316,7 @@ NHOOKS="$NHOOKS" ITERS="$ITERS" EVENT="$EVENT" TOOL="$TOOL" JSON="$JSON" \
 FLOOR_TOTAL="$FLOOR_TOTAL" \
 WRITE_BASELINE="$WRITE_BASELINE" BASELINE_FILE="$BASELINE_FILE" \
 python3 - "$DATA" <<'PY'
-import os, sys, json, collections
+import os, sys, json, collections, platform
 rows = [l.rstrip("\n").split("\t") for l in open(sys.argv[1]) if l.strip()]
 iters = int(os.environ["ITERS"]); nh = int(os.environ["NHOOKS"])
 labels = []
@@ -330,7 +330,7 @@ for label, hook, sec in rows:
 # written on a dev mac and a reading taken on an ubuntu runner differ by more than
 # any regression would, and a delta computed across the two means nothing.
 report = {"event": os.environ["EVENT"], "tool": os.environ["TOOL"],
-          "hooks": nh, "iterations": iters, "platform": os.uname().sysname,
+          "hooks": nh, "iterations": iters, "platform": platform.system(),
           "payloads": {}}
 
 # Median, not mean: process spawn is occasionally interrupted by scheduling and a
