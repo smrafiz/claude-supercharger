@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.27.4] - 2026-08-12 — windows: path-guard denied Claude's own scratchpad and could miss a write to the hooks dir, both from comparing forward slashes against a backslash path; nine more expanduser sites the previous sweep's pattern missed. 3615 tests passing.
 - [2.27.3] - 2026-08-12 — windows: os.rename discarded every state write after the first, freezing budget-cap and failing the subagent circuit-breaker OPEN; two test harnesses resolved home differently from the hooks they were testing. 3614 tests passing.
 - [2.27.2] - 2026-08-12 — windows: os.uname does not exist there and killed the whole perf-chain harness; two separator assumptions left ~/.ssh writes allowed and memory writes blocked; four symlink assertions and two audit assertions were harness limits, not product bugs. 3613 tests passing.
 - [2.27.1] - 2026-08-12 — windows: a Git Bash drive path resolved onto the wrong drive so the credential guard never fired; expanduser ignored bash HOME at all 28 sites; hook-doctor reported every healthy Windows install as broken. 3613 tests passing.
