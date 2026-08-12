@@ -703,6 +703,38 @@ jobs:
           rm -rf "$SG"
 
           echo ""
+          echo "=== budget-cap: turn_count stuck at 1 ==="
+          # Four failures, all in the INCREMENTAL path: the first call is right and
+          # every later one adds nothing. Not the offset/CRLF class — v2.7.17
+          # already reads the transcript in binary mode — and not persistence,
+          # since the total_usd assertions now pass, which means the state file is
+          # written and read back. So this walks it by hand: two calls over a
+          # growing transcript, printing the state between them.
+          BC=$(mktemp -d); mkdir -p "$BC/scope"
+          TR="$BC/t.jsonl"
+          emit() { printf '{"type":"assistant","message":{"model":"claude-opus-4","usage":{"input_tokens":1000,"output_tokens":%s,"cache_creation_input_tokens":0,"cache_read_input_tokens":0}}}\n' "$1" >> "$TR"; }
+          show() { python3 - "$BC/scope/.session-cost" <<'PYEOF'
+          import json, os, sys
+          p = sys.argv[1]
+          if not os.path.isfile(p):
+              print("    (no state file)"); raise SystemExit
+          d = json.load(open(p))
+          print("    turn_count=%s total=%s offsets=%s"
+                % (d.get("turn_count"), d.get("total_usd"), d.get("main_offsets")))
+          PYEOF
+          }
+          emit 4000
+          printf '{"tool_name":"Write","session_id":"bcs","transcript_path":"%s"}' "$TR" \
+            | env SUPERCHARGER_STATE="$BC" SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash hooks/budget-cap.sh >/dev/null 2>&1
+          echo "  after call 1 (1 turn in transcript, size=$(wc -c < "$TR" | tr -d ' ')):"; show
+          emit 4000
+          printf '{"tool_name":"Write","session_id":"bcs","transcript_path":"%s"}' "$TR" \
+            | env SUPERCHARGER_STATE="$BC" SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash hooks/budget-cap.sh >/dev/null 2>&1
+          echo "  after call 2 (2 turns in transcript, size=$(wc -c < "$TR" | tr -d ' ')):"; show
+          echo "  transcript line count: $(wc -l < "$TR" | tr -d ' ')"
+          rm -rf "$BC"
+
+          echo ""
           echo "--- the clock the harness depends on ---"
           echo "  BASH_VERSION     = $BASH_VERSION"
           echo "  EPOCHREALTIME    = ${EPOCHREALTIME:-<unset>}"
