@@ -128,7 +128,17 @@ begin_test "path-guard: relative path via symlink escaping project is blocked (w
 PROJ=$(mktemp -d); ln -s /etc "$PROJ/escape"
 INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"escape/pwned.conf","content":"x"},"cwd":"%s"}' "$PROJ")
 echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
-[ "$?" -eq 2 ] && pass || fail "relative symlink escape not blocked"
+_RC=$?
+# Needs a REAL symlink to escape through. Git Bash silently copies instead of
+# linking without developer mode, so the guard is handed an ordinary relative
+# path, correctly allows it, and the recon reads "escape not blocked" as a hole.
+# Detected, not assumed — see test-path-guard-hardening.sh for the same gate.
+if [ ! -L "$PROJ/escape" ]; then
+  echo "    (skipped: Git Bash created no symlink — nothing to escape through)"
+  pass
+else
+  [ "$_RC" -eq 2 ] && pass || fail "relative symlink escape not blocked"
+fi
 # legit relative write inside the project still allowed
 INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"src/app.js","content":"x"},"cwd":"%s"}' "$PROJ")
 echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1
@@ -175,7 +185,13 @@ rm -rf "$PROJ"
 
 # v2.8.11: Claude Code's own file-memory store must be writable (was blocked by
 # abs-path, silently breaking /remember + auto-memory under Supercharger).
-HOME_R=$(python3 -c "import os;print(os.path.realpath(os.path.expanduser('~')))")
+# Resolved in BASH, the way the hook resolves it. python's expanduser returns
+# %USERPROFILE% on Windows and ignores the HOME this suite sandboxes, so the test
+# built a path under the real user's home while the guard was protecting the
+# sandbox — two different homes, no match, and both assertions below reported the
+# guard as failing to block. `cd && pwd -P` resolves symlinks without a fork into
+# an interpreter that disagrees about what home means.
+HOME_R=$(cd "$HOME" 2>/dev/null && pwd -P)
 begin_test "path-guard: allows write to ~/.claude/projects/*/memory/*.md (v2.8.11)"
 PROJ=$(mktemp -d)
 INPUT=$(printf '{"tool_name":"Write","tool_input":{"file_path":"%s/.claude/projects/-enc/memory/note.md","content":"x"},"cwd":"%s"}' "$HOME_R" "$PROJ")
