@@ -169,6 +169,19 @@ run_hook() {
   return $?
 }
 
+# Windows python defaults stdout AND file writes to the ANSI codepage (cp1252).
+# Tests build fixtures containing characters it cannot encode — the zero-width
+# steganography decoy in test-agent-poisoning is U+200B — so `open(f,'w').write()`
+# raised UnicodeEncodeError, the fixture was never created, and the scanner
+# correctly found nothing in a file that did not exist. The failure read as
+# "zero-width not detected", pointing at the scanner rather than at the harness.
+#
+# Set here because helpers.sh is the one file every test sources, the same reason
+# hooks get it from lib-paths.sh. `:=` honours an explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 # The per-project scope key, derived the way the READERS derive it (python).
 #
 # Tests kept their own copies of this — four of them, already diverged: some

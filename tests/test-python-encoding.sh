@@ -137,6 +137,14 @@ for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$RE
 done
 [ -z "$MISSING" ] && pass || fail "forks python without a UTF-8 stdout:$MISSING"
 
+begin_test "the test harness itself sets a UTF-8 encoding"
+# Tests build fixtures with characters cp1252 cannot encode (U+200B in the
+# agent-poisoning decoy). Without this the write raised UnicodeEncodeError on
+# Windows, the fixture never existed, and the miss was reported against the
+# SCANNER — a harness failure wearing the costume of a product bug.
+grep -q 'PYTHONIOENCODING' "$REPO_DIR/tests/helpers.sh" \
+  && pass || fail "helpers.sh no longer exports a UTF-8 encoding for test pythons"
+
 begin_test "the tools honour an explicit encoding rather than forcing utf-8"
 # `:=` not `=`. A user who deliberately sets an encoding must keep it, and the
 # regression test for the Windows default cannot run here anyway — python on

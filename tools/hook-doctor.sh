@@ -107,11 +107,22 @@ for event, entries in hooks.items():
     continue
   fi
 
-  if [ ! -x "$script" ]; then
-    warn "NOT EXECUTABLE: $NAME ($event) — run: chmod +x $script"
-    echo "issue" >> "$_HOOK_ISSUE_FILE"
-    continue
-  fi
+  # NTFS carries no executable bit, and Claude Code invokes every hook as
+  # `bash <script>` regardless — so -x means nothing on Git Bash. Unguarded it
+  # warned for EVERY registered hook, which pushed ISSUES above zero and made
+  # the doctor exit 1 on a perfectly healthy Windows install. The `continue`
+  # then skipped the shebang check for all of them too, so the one check that
+  # IS meaningful there never ran.
+  case "$OSTYPE" in
+    msys*|cygwin*|win32*) : ;;
+    *)
+      if [ ! -x "$script" ]; then
+        warn "NOT EXECUTABLE: $NAME ($event) — run: chmod +x $script"
+        echo "issue" >> "$_HOOK_ISSUE_FILE"
+        continue
+      fi
+      ;;
+  esac
 
   SHEBANG=$(head -1 "$script" 2>/dev/null || echo "")
   if ! printf '%s\n' "$SHEBANG" | grep -qE '^#!.*(bash|sh|python|python3)'; then

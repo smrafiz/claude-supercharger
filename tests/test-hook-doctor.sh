@@ -66,8 +66,24 @@ chmod 644 "$SCRIPT"
 make_settings "$TMP" "$SCRIPT"
 make_sc_dirs "$TMP"
 run_doctor "$TMP"
-echo "$OUTPUT" | grep -qi "NOT EXECUTABLE\|executable" && [ "$EXIT" -eq 1 ] && pass || fail "expected NOT EXECUTABLE report; exit=$EXIT"
+case "$OSTYPE" in
+  msys*|cygwin*|win32*)
+    # NTFS has no executable bit and Claude Code runs hooks as `bash <script>`,
+    # so this check is deliberately skipped there — see tools/hook-doctor.sh.
+    echo "    (skipped on Git Bash: the exec bit is not meaningful on NTFS)"
+    pass ;;
+  *)
+    echo "$OUTPUT" | grep -qi "NOT EXECUTABLE\|executable" && [ "$EXIT" -eq 1 ] && pass || fail "expected NOT EXECUTABLE report; exit=$EXIT" ;;
+esac
 rm -rf "$TMP"
+
+begin_test "hook-doctor: the exec-bit check is gated to platforms that have one"
+# The gate itself, asserted at source level: unguarded, `-x` warned for EVERY
+# registered hook on Git Bash, so ISSUES was never zero and the doctor exited 1
+# on a healthy install — and its `continue` skipped the shebang check for all of
+# them, losing the one check that IS meaningful there.
+grep -q 'msys\*|cygwin\*|win32\*' "$REPO_DIR/tools/hook-doctor.sh" \
+  && pass || fail "the exec-bit check is no longer platform-gated"
 
 begin_test "hook-doctor: reports bad shebang"
 TMP=$(mktemp -d)
