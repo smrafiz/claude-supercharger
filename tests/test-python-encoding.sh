@@ -137,6 +137,25 @@ for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$RE
 done
 [ -z "$MISSING" ] && pass || fail "forks python without a UTF-8 stdout:$MISSING"
 
+# --- os.rename is not atomic-overwrite on Windows ----------------------------
+# It RAISES when the target exists, where os.replace overwrites. The failure is
+# invisible until the second write: the first succeeds because nothing is there,
+# and every one after it silently does nothing, so state freezes at its initial
+# value. Measured exactly that way — budget-cap's turn_count sat at 1 while the
+# transcript grew, and a probe proved python could read the new bytes perfectly.
+# The walk ran; the write was thrown away.
+#
+# Documented in the port notes as "fix: os.replace everywhere" and then applied
+# to one file, leaving four sites across three hooks. Scanned, not listed, for
+# the same reason as the UTF-8 check above.
+begin_test "no hook uses os.rename (not atomic-overwrite on Windows)"
+BAD=""
+for f in "$REPO_DIR"/hooks/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/tools/*.sh; do
+  [ -f "$f" ] || continue
+  grep -q 'os\.rename(' "$f" && BAD="$BAD $(basename "$f")"
+done
+[ -z "$BAD" ] && pass || fail "os.rename silently no-ops on an existing target:$BAD"
+
 begin_test "the test harness itself sets a UTF-8 encoding"
 # Tests build fixtures with characters cp1252 cannot encode (U+200B in the
 # agent-poisoning decoy). Without this the write raised UnicodeEncodeError on

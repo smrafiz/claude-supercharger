@@ -287,7 +287,7 @@ tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
 try:
     with open(tmp, 'w') as f:
         json.dump(result, f)
-    os.rename(tmp, cost_file)
+    os.replace(tmp, cost_file)
 except Exception:
     try: os.remove(tmp)
     except Exception: pass

@@ -284,7 +284,7 @@ try:
     tmp_jsonl = jsonl_file + f'.{os.getpid()}.tmp'
     with open(tmp_jsonl, 'w') as f:
         f.write('\n'.join(kept_lines) + '\n')
-    os.rename(tmp_jsonl, jsonl_file)
+    os.replace(tmp_jsonl, jsonl_file)
 except Exception:
     pass
 
@@ -352,7 +352,7 @@ try:
     try:
         with open(tmp_file, 'w') as f:
             json.dump(new_state, f)
-        os.rename(tmp_file, cost_file)
+        os.replace(tmp_file, cost_file)
     except Exception:
         pass
 finally:

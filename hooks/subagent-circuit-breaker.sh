@@ -68,7 +68,7 @@ try:
     tmp = state_file + f'.{os.getpid()}.tmp'
     with open(tmp, 'w') as f:
         json.dump(spawns, f)
-    os.rename(tmp, state_file)
+    os.replace(tmp, state_file)
 except Exception:
     pass
 
