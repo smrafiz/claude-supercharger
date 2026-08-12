@@ -752,6 +752,29 @@ jobs:
           rm -rf "$BC"
 
           echo ""
+          echo "=== session-checkpoint writes only its timestamp ==="
+          # The checkpoint comes out as 'ckpt:<ts>' with branch and file list
+          # empty, and _g() swallows every failure into ''. Hypothesis: python is
+          # NATIVE here, so `git -C /tmp/...` gets no MSYS conversion and git.exe
+          # cannot resolve an MSYS mount path. Asserting that before fixing it,
+          # because two strong hypotheses have already been wrong today.
+          CKR=$(mktemp -d); (cd "$CKR" && git init -q 2>/dev/null && git commit -q --allow-empty -m x 2>/dev/null)
+          echo "  bash sees a repo at: $CKR"
+          echo "  git -C from BASH   : $(git -C "$CKR" rev-parse --abbrev-ref HEAD 2>&1 | head -1)"
+          CKR="$CKR" python3 - <<'PYEOF'
+          import os, subprocess
+          d = os.environ['CKR']
+          print('  path as python sees it: %r  isdir=%s' % (d, os.path.isdir(d)))
+          try:
+              out = subprocess.check_output(['git', '-C', d, 'rev-parse', '--abbrev-ref', 'HEAD'],
+                                            stderr=subprocess.STDOUT).decode().strip()
+              print('  git -C from PYTHON : %r' % out)
+          except Exception as e:
+              print('  git -C from PYTHON FAILED: %s' % e)
+          PYEOF
+          rm -rf "$CKR"
+
+          echo ""
           echo "--- the clock the harness depends on ---"
           echo "  BASH_VERSION     = $BASH_VERSION"
           echo "  EPOCHREALTIME    = ${EPOCHREALTIME:-<unset>}"
