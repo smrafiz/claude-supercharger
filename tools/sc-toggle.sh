@@ -214,6 +214,176 @@ if back: print(back)
 PY
 }
 
+# --- settings.json: hook registrations + statusLine ---------------------------
+# The kill-switch is read INSIDE the hook body, so with it set every hook still
+# SPAWNS, sources lib-suppress, reads the flag and exits. The work stops; the
+# fork does not — ~18 process spawns on a Bash tool call, whose measured floor is
+# bash startup alone. `off` promised default Claude and still cost that on every
+# call, so the registrations come out too.
+#
+# ONLY entries tagged `#supercharger` are touched — the same marker hook-doctor
+# keys on. A hook the user registered themselves stays exactly where it is. The
+# statusLine is removed only when it points at our own script.
+#
+# The flag is still written: a PLUGIN install registers through the plugin's own
+# hooks.json, which this tool cannot edit, so the flag remains the only thing
+# that stops those.
+SETTINGS_JSON="$HOME/.claude/settings.json"
+HOOKS_STASH="$STATE_DIR/settings-hooks.json"
+
+_hooks_off() {   # strip tagged registrations -> echoes how many were removed
+  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$HOOKS_STASH" python3 - <<'PY' 2>/dev/null || true
+import json, os
+p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
+if not os.path.isfile(p):
+    raise SystemExit(0)
+try:
+    with open(p) as f: s = json.load(f)
+except Exception:
+    raise SystemExit(0)
+
+def ours(h):
+    c = h.get("command", "") or h.get("prompt", "") or ""
+    return "#supercharger" in c
+
+saved, removed = {"hooks": {}, "statusLine": None}, 0
+hooks = s.get("hooks") or {}
+for ev in list(hooks):
+    kept_entries = []
+    for entry in hooks[ev]:
+        mine = [h for h in entry.get("hooks", []) if ours(h)]
+        rest = [h for h in entry.get("hooks", []) if not ours(h)]
+        if mine:
+            saved["hooks"].setdefault(ev, []).append(
+                {"matcher": entry.get("matcher"), "hooks": mine})
+            removed += len(mine)
+        if rest:
+            e = dict(entry); e["hooks"] = rest
+            kept_entries.append(e)
+    if kept_entries: hooks[ev] = kept_entries
+    else: del hooks[ev]
+if hooks: s["hooks"] = hooks
+else: s.pop("hooks", None)
+
+sl = s.get("statusLine")
+if isinstance(sl, dict) and "supercharger" in json.dumps(sl).lower():
+    saved["statusLine"] = sl
+    s.pop("statusLine", None)
+
+if not removed and saved["statusLine"] is None:
+    raise SystemExit(0)
+# Stash BEFORE rewriting: a crash between the two must never lose the originals.
+tmp = stash + ".tmp"
+with open(tmp, "w") as f: json.dump(saved, f, indent=2)
+os.replace(tmp, stash)
+tmp = p + ".sctmp"
+with open(tmp, "w") as f: json.dump(s, f, indent=2)
+os.replace(tmp, p)
+print(removed)
+PY
+}
+
+_hooks_on() {    # put them back -> echoes how many, or FAIL:<want>:<got>
+  SC_SETTINGS="$SETTINGS_JSON" SC_STASH="$HOOKS_STASH" python3 - <<'PY' 2>/dev/null || true
+import json, os
+p, stash = os.environ["SC_SETTINGS"], os.environ["SC_STASH"]
+if not os.path.isfile(stash):
+    raise SystemExit(0)
+try:
+    with open(stash) as f: saved = json.load(f)
+except Exception:
+    raise SystemExit(0)
+try:
+    with open(p) as f: s = json.load(f)
+except Exception:
+    s = {}
+
+want = sum(len(e.get("hooks", [])) for ev in saved.get("hooks", {}).values() for e in ev)
+hooks = s.get("hooks") or {}
+back = 0
+for ev, entries in saved.get("hooks", {}).items():
+    cur = hooks.setdefault(ev, [])
+    for entry in entries:
+        match = next((c for c in cur if c.get("matcher") == entry.get("matcher")), None)
+        if match is None:
+            cur.append(entry)
+        else:
+            have = {json.dumps(h, sort_keys=True) for h in match.get("hooks", [])}
+            for h in entry.get("hooks", []):
+                if json.dumps(h, sort_keys=True) not in have:
+                    match.setdefault("hooks", []).append(h)
+        back += len(entry.get("hooks", []))
+if hooks: s["hooks"] = hooks
+if saved.get("statusLine") and "statusLine" not in s:
+    s["statusLine"] = saved["statusLine"]
+
+tmp = p + ".sctmp"
+with open(tmp, "w") as f: json.dump(s, f, indent=2)
+os.replace(tmp, p)
+
+# Verify against the file just written, not against intent. A restore that
+# silently drops registrations leaves the user unguarded while reporting success.
+try:
+    with open(p) as f: after = json.load(f)
+except Exception:
+    print("FAIL:%d:0" % want); raise SystemExit(0)
+now = sum(1 for ev in (after.get("hooks") or {}).values() for e in ev
+          for h in e.get("hooks", [])
+          if "#supercharger" in (h.get("command", "") or h.get("prompt", "") or ""))
+print(("%d" % back) if now >= want else ("FAIL:%d:%d" % (want, now)))
+PY
+}
+
+# --- ~/.claude/agents/*.md ----------------------------------------------------
+# Agent definitions do not RUN while off — nothing invokes them once the hooks
+# are gone — but their frontmatter is listed to the model every session: ~2970
+# tokens of Supercharger agents in a session that is supposed to be stock Claude.
+# That is more residual context than the rules files, so it comes out too.
+#
+# Ownership is exact: an agent is ours only when the installed source of the same
+# name exists in supercharger/agents/ (install.sh keeps that reference copy for
+# exactly this, the way it already does for roles). Anything the user wrote stays.
+# On an install predating that copy the dir is absent and this moves NOTHING —
+# degrading to the old behaviour beats guessing at someone else's agent file.
+#
+# The 48 slash commands are deliberately NOT touched. /sc itself is one of them,
+# so removing commands could strand a user with no way to type `/sc on`, and the
+# whole set is worth ~650 tokens — a special case that buys little and can strand.
+AGENTS_DIR="$HOME/.claude/agents"
+AGENTS_SRC="$HOME/.claude/supercharger/agents"
+AGENTS_STASH="$STATE_DIR/agents"
+AGENTS_MANIFEST="$STATE_DIR/agents-moved.txt"
+
+_agents_off() {   # move ours aside -> echoes how many
+  local n=0 f base
+  [ -d "$AGENTS_DIR" ] || return 0
+  mkdir -p "$AGENTS_STASH" 2>/dev/null || return 0
+  : > "$AGENTS_MANIFEST" 2>/dev/null || true
+  for f in "$AGENTS_SRC"/*.md; do
+    [ -f "$f" ] || continue
+    base=${f##*/}
+    [ -f "$AGENTS_DIR/$base" ] || continue
+    if mv "$AGENTS_DIR/$base" "$AGENTS_STASH/$base" 2>/dev/null; then
+      printf '%s\n' "$base" >> "$AGENTS_MANIFEST" 2>/dev/null || true
+      n=$((n + 1))
+    fi
+  done
+  [ "$n" -gt 0 ] && printf '%s' "$n"
+}
+
+_agents_on() {    # put back exactly what we took -> echoes how many
+  local n=0 f
+  [ -f "$AGENTS_MANIFEST" ] || return 0
+  mkdir -p "$AGENTS_DIR" 2>/dev/null || true
+  while IFS= read -r f; do
+    [ -n "$f" ] || continue
+    # Never clobber something that claimed the name while off.
+    [ -e "$AGENTS_DIR/$f" ] && continue
+    mv "$AGENTS_STASH/$f" "$AGENTS_DIR/$f" 2>/dev/null && n=$((n + 1))
+  done < "$AGENTS_MANIFEST"
+  [ "$n" -gt 0 ] && printf '%s' "$n"
+}
+
 _backup() {
   local ts bdir
   ts=$(date '+%Y%m%d-%H%M%S' 2>/dev/null || echo "manual")
@@ -235,9 +405,20 @@ case "${1:-status}" in
 
     # Save + strip the CLAUDE.md managed block (first marker → EOF). Saving the
     # WHOLE file lets `on` restore byte-exactly regardless of install mode.
+    #
+    # Three things are saved, because `on` has to tell apart "nothing happened
+    # while off" from "the user edited this file". Restoring the whole saved copy
+    # unconditionally DESTROYED anything written in between — reported, and
+    # reproduced: text appended to CLAUDE.md while off vanished on the next `on`.
+    #   claude-md.txt        the file as it was, for the untouched case
+    #   claude-md-block.txt  just the managed block, to re-append if it changed
+    #   claude-md-left.txt   what we left behind, the yardstick for "changed"
     if [ -f "$CLAUDE_MD" ]; then
       cp "$CLAUDE_MD" "$STATE_DIR/claude-md.txt" 2>/dev/null || true
       ML=$(_marker_line)
+      if [ -n "$ML" ]; then
+        tail -n "+$ML" "$CLAUDE_MD" > "$STATE_DIR/claude-md-block.txt" 2>/dev/null || true
+      fi
       if [ -n "$ML" ]; then
         if [ "$ML" -le 1 ]; then
           # Whole file is Supercharger (deploy mode) → default Claude has none.
@@ -251,6 +432,9 @@ case "${1:-status}" in
             && mv "$CLAUDE_MD.sctmp" "$CLAUDE_MD"
         fi
       fi
+      # Record exactly what off leaves behind, so `on` can tell whether the file
+      # was touched since.
+      cp "$CLAUDE_MD" "$STATE_DIR/claude-md-left.txt" 2>/dev/null || true
     fi
 
     # Move Supercharger's own MCP servers aside so `off` also drops their context
@@ -261,6 +445,12 @@ case "${1:-status}" in
     # a failure here cannot leave the block removed AND the rules gone with no
     # record; both are restored from STATE_DIR by `on`.
     _RULES_MOVED=$(_rules_off || true)
+    _AGENTS_MOVED=$(_agents_off || true)
+
+    # Registrations last: everything above is recoverable from STATE_DIR and the
+    # timestamped backup, and this is the one edit that touches the file holding
+    # every hook the user has.
+    _HOOKS_MOVED=$(_hooks_off || true)
 
     # Kill-switch — write to EVERY scope dir a hook might read (classic + plugin),
     # else the flag lands where the running hooks never look and off is a no-op.
@@ -279,12 +469,21 @@ EOF
     echo "     credential/env-file guards, git-safety — none of them will run."
     echo "     You are on stock Claude Code with no safety net until you re-enable."
     echo ""
-    echo "  • Hooks: off immediately (next tool call)."
+    if [ -n "${_HOOKS_MOVED:-}" ] && [ "${_HOOKS_MOVED:-0}" != "0" ]; then
+      echo "  • Hooks: ${_HOOKS_MOVED} registration(s) removed from settings.json, so they no"
+      echo "    longer even spawn. Your own hooks were left registered."
+    else
+      echo "  • Hooks: off immediately (next tool call)."
+    fi
     if [ -n "${_RULES_MOVED:-}" ] && [ "${_RULES_MOVED:-0}" != "0" ]; then
       echo "  • Prompt rules: the CLAUDE.md block and ${_RULES_MOVED} rules/ file(s) were"
       echo "    removed; takes effect next session. Your own rules/ files were left alone."
     else
       echo "  • Prompt rules: the CLAUDE.md block was removed; takes effect next session."
+    fi
+    if [ -n "${_AGENTS_MOVED:-}" ] && [ "${_AGENTS_MOVED:-0}" != "0" ]; then
+      echo "  • Agents: ${_AGENTS_MOVED} definition(s) moved aside so they stop being listed"
+      echo "    to the model. Your own agents were left in place."
     fi
     if [ -n "${_MCP_MOVED:-}" ] && [ "${_MCP_MOVED:-0}" != "0" ]; then
       echo "  • MCP servers: ${_MCP_MOVED} Supercharger-registered server(s) moved aside, so they"
@@ -297,9 +496,25 @@ EOF
 
   on)
     if ! _any_flag; then echo "Supercharger is already ON."; exit 0; fi
-    # Restore the exact CLAUDE.md we saved at off-time.
+    # Restore CLAUDE.md — byte-exact when untouched, MERGED when the user wrote
+    # to it while off. The old code copied the saved file back unconditionally,
+    # which silently destroyed anything added in between.
+    _CMD_MERGED=0
     if [ -f "$STATE_DIR/claude-md.txt" ]; then
-      cp "$STATE_DIR/claude-md.txt" "$CLAUDE_MD" 2>/dev/null || true
+      if [ -f "$STATE_DIR/claude-md-left.txt" ] && [ -f "$STATE_DIR/claude-md-block.txt" ] \
+         && ! cmp -s "$CLAUDE_MD" "$STATE_DIR/claude-md-left.txt"; then
+        # Changed while off: keep what is there now and put the block back after
+        # it, rather than reinstating a stale copy of the whole file.
+        {
+          cat "$CLAUDE_MD" 2>/dev/null
+          printf '\n'
+          cat "$STATE_DIR/claude-md-block.txt"
+        } > "$CLAUDE_MD.sctmp" 2>/dev/null \
+          && mv "$CLAUDE_MD.sctmp" "$CLAUDE_MD" 2>/dev/null \
+          && _CMD_MERGED=1
+      else
+        cp "$STATE_DIR/claude-md.txt" "$CLAUDE_MD" 2>/dev/null || true
+      fi
     fi
     # Clear the flag from EVERY scope dir it may have been written to.
     while IFS= read -r _d; do
@@ -311,13 +526,41 @@ EOF
     # so they must run BEFORE it is deleted.
     _MCP_BACK=$(_mcp_on || true)
     _RULES_BACK=$(_rules_on || true)
+    _AGENTS_BACK=$(_agents_on || true)
+    _HOOKS_BACK=$(_hooks_on || true)
+    # A restore that dropped registrations must NOT delete the stash and must not
+    # report success — that would leave the user unguarded and with nothing to
+    # recover from. Bail loudly and keep STATE_DIR intact.
+    case "${_HOOKS_BACK:-}" in
+      FAIL:*)
+        echo ""
+        echo "  ⚠  Hook registrations were NOT fully restored"
+        echo "     (expected ${_HOOKS_BACK#FAIL:} — shown as expected:found)."
+        echo "     settings.json has been left as-is and the saved copy is kept at:"
+        echo "       $HOOKS_STASH"
+        echo "     A timestamped backup from 'off' is under ~/.claude/backups/."
+        echo "     Supercharger stays OFF until this is resolved — re-run 'on' after"
+        echo "     checking settings.json, or restore it from the backup."
+        exit 1
+        ;;
+    esac
     rm -rf "$STATE_DIR" 2>/dev/null || true
     echo ""
     echo "  Supercharger is now ON — hooks active again, guards restored."
+    if [ -n "${_HOOKS_BACK:-}" ] && [ "${_HOOKS_BACK:-0}" != "0" ]; then
+      echo "  ${_HOOKS_BACK} hook registration(s) restored to settings.json."
+    fi
+    if [ -n "${_AGENTS_BACK:-}" ] && [ "${_AGENTS_BACK:-0}" != "0" ]; then
+      echo "  ${_AGENTS_BACK} agent definition(s) restored."
+    fi
     if [ -n "${_RULES_BACK:-}" ] && [ "${_RULES_BACK:-0}" != "0" ]; then
       echo "  CLAUDE.md and ${_RULES_BACK} rules/ file(s) restored; they re-enter context next session."
     else
       echo "  CLAUDE.md rules restored; they re-enter context on your next session."
+    fi
+    if [ "${_CMD_MERGED:-0}" = "1" ]; then
+      echo "  CLAUDE.md had been edited while off — your changes were KEPT and the"
+      echo "  Supercharger block re-appended below them."
     fi
     if [ -n "${_MCP_BACK:-}" ] && [ "${_MCP_BACK:-0}" != "0" ]; then
       echo "  ${_MCP_BACK} MCP server(s) restored; they load again next session."

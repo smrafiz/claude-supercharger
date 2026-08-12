@@ -468,6 +468,15 @@ success "Anti-patterns library installed (rules/)"
 if [ -d "$SCRIPT_DIR/configs/agents" ]; then
   mkdir -p "$HOME/.claude/agents"
   cp "$SCRIPT_DIR/configs/agents/"*.md "$HOME/.claude/agents/" 2>/dev/null || true
+  # A reference copy alongside roles/, so tooling can tell OUR agents from the
+  # user's. `/sc off` moves agent definitions aside — they cost ~2970 tokens of
+  # listing per session — and without this there is no way to know which of
+  # ~/.claude/agents/*.md we installed: a user's own writer.md looks identical to
+  # ours. Mirrors deploy_roles(), which keeps supercharger/roles/ for the same
+  # reason. On an install that pre-dates this, the dir is simply absent and
+  # `off` moves nothing rather than guessing.
+  mkdir -p "$HOME/.claude/supercharger/agents"
+  cp "$SCRIPT_DIR/configs/agents/"*.md "$HOME/.claude/supercharger/agents/" 2>/dev/null || true
   AGENT_COUNT=$(ls "$SCRIPT_DIR/configs/agents/"*.md 2>/dev/null | wc -l | tr -d ' ')
   success "${AGENT_COUNT} agent(s) installed"
 fi

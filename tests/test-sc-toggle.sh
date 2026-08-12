@@ -296,4 +296,179 @@ bash "$TOGGLE" off >/dev/null 2>&1
 [ -f "$HOME/$FLAG_REL" ] && pass || fail "off failed when rules/ was absent"
 teardown_test_home
 
+# --- registrations: off must stop them SPAWNING, not just acting --------------
+# The kill-switch is read inside the hook body, so a disabled hook still forks,
+# sources lib-suppress and exits — about 18 spawns per Bash tool call, whose
+# floor is bash startup alone. `off` claimed default Claude and charged that on
+# every call, so the tagged registrations come out of settings.json too.
+_settings_with_hooks() {
+  python3 - "$HOME/.claude/settings.json" <<'PY'
+import json, sys
+json.dump({
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Bash", "hooks": [
+        {"type": "command", "command": "/h/safety.sh #supercharger"},
+        {"type": "command", "command": "/user/own-hook.sh"}]},
+      {"matcher": "Write", "hooks": [
+        {"type": "command", "command": "/h/path-guard.sh #supercharger"}]}],
+    "Stop": [
+      {"matcher": "", "hooks": [{"type": "command", "command": "/h/stop.sh #supercharger"}]}]},
+  "statusLine": {"type": "command", "command": "/h/supercharger/statusline.sh"},
+  "env": {"KEEP": "me"},
+}, open(sys.argv[1], "w"), indent=2)
+PY
+}
+_count_tagged() {
+  python3 - "$HOME/.claude/settings.json" <<'PY'
+import json, sys
+try: d = json.load(open(sys.argv[1]))
+except Exception: print(0); raise SystemExit
+print(sum(1 for ev in (d.get("hooks") or {}).values() for e in ev
+          for h in e.get("hooks", []) if "#supercharger" in h.get("command", "")))
+PY
+}
+
+begin_test "sc-toggle: off removes the tagged hook registrations"
+_setup; _settings_with_hooks
+bash "$TOGGLE" off >/dev/null 2>&1
+[ "$(_count_tagged)" = "0" ] && pass || fail "tagged hooks still registered: $(_count_tagged)"
+teardown_test_home
+
+begin_test "sc-toggle: off leaves a hook the USER registered"
+# The single most damaging thing this could get wrong.
+_setup; _settings_with_hooks
+bash "$TOGGLE" off >/dev/null 2>&1
+grep -q 'own-hook.sh' "$HOME/.claude/settings.json" && pass || fail "the user's own hook was removed"
+teardown_test_home
+
+begin_test "sc-toggle: off keeps unrelated settings keys intact"
+_setup; _settings_with_hooks
+bash "$TOGGLE" off >/dev/null 2>&1
+grep -q '"KEEP"' "$HOME/.claude/settings.json" && pass || fail "an unrelated settings key was lost"
+teardown_test_home
+
+begin_test "sc-toggle: off removes our statusLine"
+_setup; _settings_with_hooks
+bash "$TOGGLE" off >/dev/null 2>&1
+grep -q 'statusLine' "$HOME/.claude/settings.json" && fail "statusLine survived off" || pass
+teardown_test_home
+
+begin_test "sc-toggle: on restores every registration it removed"
+_setup; _settings_with_hooks
+BEFORE=$(_count_tagged)
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+AFTER=$(_count_tagged)
+if [ "$BEFORE" = "$AFTER" ] && grep -q 'own-hook.sh' "$HOME/.claude/settings.json" \
+   && grep -q 'statusLine' "$HOME/.claude/settings.json"; then pass
+else fail "restore mismatch: before=$BEFORE after=$AFTER"; fi
+teardown_test_home
+
+begin_test "sc-toggle: on does not duplicate registrations when run twice"
+# Restoring into a settings.json that already has them must be idempotent, or a
+# double toggle silently doubles the hook chain.
+_setup; _settings_with_hooks
+BEFORE=$(_count_tagged)
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+[ "$(_count_tagged)" = "$BEFORE" ] && pass || fail "duplicated: before=$BEFORE now=$(_count_tagged)"
+teardown_test_home
+
+# --- agents: listed to the model even when nothing can invoke them ------------
+# Agent definitions do not RUN once the hooks are gone, but their frontmatter is
+# listed every session — ~2970 tokens, more residual context than the rules files.
+# Ownership comes from the reference copy install.sh keeps in supercharger/agents/,
+# the same trick roles/ uses; without it a user's own writer.md is indistinguishable
+# from ours, so an install predating that copy must move NOTHING rather than guess.
+_setup_agents() {
+  _setup
+  mkdir -p "$HOME/.claude/agents" "$HOME/.claude/supercharger/agents"
+  printf 'ours\n'  > "$HOME/.claude/agents/reviewer.md"
+  printf 'ours\n'  > "$HOME/.claude/supercharger/agents/reviewer.md"
+  printf 'ours\n'  > "$HOME/.claude/agents/writer.md"
+  printf 'ours\n'  > "$HOME/.claude/supercharger/agents/writer.md"
+  printf 'MINE\n'  > "$HOME/.claude/agents/my-agent.md"
+}
+
+begin_test "sc-toggle: off moves the Supercharger agents aside"
+_setup_agents
+bash "$TOGGLE" off >/dev/null 2>&1
+if [ ! -f "$HOME/.claude/agents/reviewer.md" ] && [ ! -f "$HOME/.claude/agents/writer.md" ]; then
+  pass
+else fail "agents still present: $(ls -A "$HOME/.claude/agents" | tr '\n' ' ')"; fi
+teardown_test_home
+
+begin_test "sc-toggle: off leaves an agent the USER wrote"
+_setup_agents
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/.claude/agents/my-agent.md" ] && grep -q 'MINE' "$HOME/.claude/agents/my-agent.md" \
+  && pass || fail "the user's own agent was moved"
+teardown_test_home
+
+begin_test "sc-toggle: on restores the agents it moved"
+_setup_agents
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+if [ -f "$HOME/.claude/agents/reviewer.md" ] && [ -f "$HOME/.claude/agents/writer.md" ] \
+   && [ -f "$HOME/.claude/agents/my-agent.md" ]; then pass
+else fail "agents not restored: $(ls -A "$HOME/.claude/agents" | tr '\n' ' ')"; fi
+teardown_test_home
+
+begin_test "sc-toggle: an install with no agents source copy moves nothing"
+# The degrade path. Guessing at someone else's agent file is worse than doing
+# nothing, so an older install must simply keep its agents.
+_setup_agents
+rm -rf "$HOME/.claude/supercharger/agents"
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/.claude/agents/reviewer.md" ] && pass \
+  || fail "moved agents without a source copy to identify them"
+teardown_test_home
+
+# --- edits made WHILE off must survive `on` ----------------------------------
+# `on` used to restore CLAUDE.md with a wholesale copy of the file saved at
+# off-time, so anything written in between was silently destroyed. Everything
+# else already merged; this one clobbered. Now it compares against what `off`
+# actually left behind and, if that changed, keeps the current file and
+# re-appends the managed block instead of reinstating a stale copy.
+begin_test "sc-toggle: text added to CLAUDE.md while off survives on"
+_setup
+bash "$TOGGLE" off >/dev/null 2>&1
+printf '\n# ADDED WHILE OFF\nAlways use pnpm.\n' >> "$HOME/.claude/CLAUDE.md"
+bash "$TOGGLE" on >/dev/null 2>&1
+if grep -q 'ADDED WHILE OFF' "$HOME/.claude/CLAUDE.md" \
+   && grep -q 'Use tabs' "$HOME/.claude/CLAUDE.md" \
+   && grep -q 'Managed block' "$HOME/.claude/CLAUDE.md"; then pass
+else fail "lost an edit or the block: $(cat "$HOME/.claude/CLAUDE.md")"; fi
+teardown_test_home
+
+begin_test "sc-toggle: an untouched CLAUDE.md is restored byte-exactly"
+# The merge path must not fire when nothing happened — that would reorder a file
+# the user never touched.
+_setup
+BEFORE=$(cat "$HOME/.claude/CLAUDE.md")
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+[ "$BEFORE" = "$(cat "$HOME/.claude/CLAUDE.md")" ] && pass \
+  || fail "untouched file changed on the round trip"
+teardown_test_home
+
+begin_test "sc-toggle: the managed block is not duplicated by the merge path"
+_setup
+bash "$TOGGLE" off >/dev/null 2>&1
+printf '\n# ADDED WHILE OFF\n' >> "$HOME/.claude/CLAUDE.md"
+bash "$TOGGLE" on >/dev/null 2>&1
+N=$(grep -c 'Claude Supercharger' "$HOME/.claude/CLAUDE.md")
+[ "$N" = "1" ] && pass || fail "managed block appears $N times"
+teardown_test_home
+
+begin_test "sc-toggle: off is safe when settings.json has no hooks at all"
+_setup
+printf '{"env":{"A":"B"}}' > "$HOME/.claude/settings.json"
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/$FLAG_REL" ] && grep -q '"A"' "$HOME/.claude/settings.json" \
+  && pass || fail "off mishandled a settings.json with no hooks"
+teardown_test_home
+
 report
