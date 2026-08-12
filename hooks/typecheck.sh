@@ -65,7 +65,13 @@ _typecheck_hash() {
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
+# CR strip: Windows python print() ends lines with CRLF and $(...) removes
+# only the newline, so this hash carried a carriage return into the CACHE
+# FILENAME below. CR is illegal in a Windows filename, the write failed, and
+# the cache never hit — tsc and lint re-ran on every single write, platform
+# wide, with nothing reporting it. A digest cannot legitimately contain a CR.
 PROJ_HASH=$(echo -n "$PROJECT_ROOT" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])" 2>/dev/null || echo "default")
+PROJ_HASH=${PROJ_HASH//$'\r'/}
 TC_CACHE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"
 
 FILE_HASH=$(_typecheck_hash "$FILE_PATH")

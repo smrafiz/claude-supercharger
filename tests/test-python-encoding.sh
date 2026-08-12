@@ -137,7 +137,36 @@ for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$RE
 done
 [ -z "$MISSING" ] && pass || fail "forks python without a UTF-8 stdout:$MISSING"
 
-# --- expanduser ignores bash $HOME on Windows (Fact B) -----------------------
+# --- a python value that becomes a FILENAME must have its CR stripped --------
+# Windows python print() ends every line with CRLF. `$(...)` removes the trailing
+# newline and leaves the carriage return; `read` strips \n and leaves \r. Either
+# way the value carries a CR, and CR is ILLEGAL in a Windows filename — so the
+# write fails and the hook records nothing, silently.
+#
+# Three sites so far, each found by a different symptom: tool-history-tracker
+# (no history at all), hook-doctor (a present file reported MISSING), and
+# human-approval-gate (the gate could not remember it had already asked). The
+# last two were found after the class was "fixed", which is why it is scanned.
+#
+# Deliberately narrow: only values interpolated into a PATH matter. A CR inside
+# JSON handed back to python is whitespace and harmless, which is why most
+# $(python3 ...) captures need nothing.
+begin_test "python values used in filenames strip CR"
+BAD=""
+for f in "$REPO_DIR"/hooks/*.sh "$REPO_DIR"/tools/*.sh; do
+  [ -f "$f" ] || continue
+  # A var assigned from a python capture, then used inside a path-building string.
+  vars=$(grep -oE '^[A-Z_]+=\$\(.*python3' "$f" 2>/dev/null | cut -d= -f1)
+  [ -n "$vars" ] || continue
+  for v in $vars; do
+    grep -q "SCOPE_DIR/[^\"]*\${$v}\|SCOPE_DIR/[^\"]*\$$v" "$f" 2>/dev/null || continue
+    grep -q "$v=\${$v//\$'\\\\r'/}\|$v=\$(.*tr -d" "$f" 2>/dev/null \
+      || BAD="$BAD $(basename "$f"):$v"
+  done
+done
+[ -z "$BAD" ] && pass || fail "python capture used in a filename without a CR strip:$BAD"
+
+# --- expanduser ignores bash \$HOME on Windows (Fact B) -----------------------
 # It returns %USERPROFILE%. Every hook that resolves state through it reads a
 # different home from the ones that use $HOME, and under a sandboxed HOME it
 # reads the real user's files. Fixed at 28 sites in v2.27.1 — and that sweep was

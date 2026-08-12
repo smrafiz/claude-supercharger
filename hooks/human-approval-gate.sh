@@ -208,8 +208,16 @@ fi
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
 
-# Hash the command for a stable pending-file name
+# Hash the command for a stable pending-file name.
+#
+# The CR strip is load-bearing. Windows python print() ends every line with
+# CRLF, and $(...) removes the trailing newline but NOT the carriage return —
+# so the hash carried one into the FILENAME below, where CR is illegal on
+# Windows and the write simply fails. That leaves this gate unable to record
+# that it already asked, which is the same mechanism that silenced
+# tool-history-tracker. A digest can never legitimately contain a CR.
 CMD_HASH=$(printf '%s' "$COMMAND" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null || printf '%s' "$COMMAND" | cksum | cut -d' ' -f1)
+CMD_HASH=${CMD_HASH//$'\r'/}
 # 2.21.4: scope the pending-approval marker to THIS session. Keyed on the
 # command hash alone, a second concurrent session (or another project) running
 # the same high-risk command found session A's "already asked" marker, consumed

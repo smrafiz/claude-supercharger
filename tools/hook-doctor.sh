@@ -91,7 +91,7 @@ for event, entries in hooks.items():
             script_and_args = cmd.replace(' #supercharger', '').strip()
             script = script_and_args.split()[0]
             print(f'{event}|{script}')
-" "$SETTINGS" 2>/dev/null | sort -u | while IFS='|' read -r event script; do
+" "$SETTINGS" 2>/dev/null | tr -d '\r' | sort -u | while IFS='|' read -r event script; do
   CHECKED=$((CHECKED + 1))
   NAME=$(basename "$script")
 
