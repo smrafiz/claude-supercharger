@@ -122,6 +122,57 @@ begin_test "GATE: the filesystem root is still refused"
 # The original check must keep working — this fix adds to it, not replaces it.
 [ "$(verdict "/")" = "allow" ] && fail "'/' was accepted as a root" || pass
 
+# --- Git Bash drive paths must resolve to the drive, not the CWD's drive ------
+# Native Windows python resolves a leading-slash path against the CURRENT DRIVE.
+# Measured on a runner whose workspace sits on D:
+#   realpath('/')                -> 'D:\'
+#   realpath('/c/Users/me/.ssh') -> 'D:\c\Users\me\.ssh'
+# The second equals nothing, so a write to the real ~/.ssh compared as unrelated
+# and the credential protection never fired. Git Bash hands out exactly that
+# spelling, so the guard normalises it rather than assuming which form arrives.
+#
+# Extracted from the hook and driven directly, because the rewrite is gated on
+# os.name and cannot execute here — the same reason the refusal itself is only
+# assertable for inertness off Windows.
+begin_test "the MSYS drive-path normaliser maps /c/... to C:\\... and nothing else"
+RES=$(python3 - "$REPO_DIR/hooks/path-guard.sh" <<'PYEOF'
+import re, sys
+src = open(sys.argv[1]).read()
+m = re.search(r'def _msys_path\(x\):.*?\n(?=\n\np = _msys_path)', src, re.S)
+if not m:
+    print('EXTRACT-FAILED'); raise SystemExit
+ns = {'os': type('O', (), {'name': 'nt'})(), 're': re}
+exec(m.group(0), ns)
+f = ns['_msys_path']
+want = {
+    '/c/Users/me/.ssh/id_rsa': 'C:\\Users\\me\\.ssh\\id_rsa',
+    '/d/a/repo':               'D:\\a\\repo',
+    '/etc/hosts':              '/etc/hosts',      # multi-char segment: not a drive
+    '/cats/file.txt':          '/cats/file.txt',  # must NOT become C:\ats
+    'C:\\Users\\me':           'C:\\Users\\me',   # already native
+    '':                        '',
+}
+bad = [f'{k!r}->{f(k)!r} want {v!r}' for k, v in want.items() if f(k) != v]
+print('; '.join(bad) if bad else 'OK')
+PYEOF
+)
+[ "$RES" = "OK" ] && pass || fail "normaliser wrong: $RES"
+
+begin_test "GATE: the normaliser is inert when os.name is not nt"
+# A POSIX box has legitimate /c directories. Rewriting one in a security guard
+# would be worse than the bug this fixes.
+RES=$(python3 - "$REPO_DIR/hooks/path-guard.sh" <<'PYEOF'
+import re, sys
+src = open(sys.argv[1]).read()
+m = re.search(r'def _msys_path\(x\):.*?\n(?=\n\np = _msys_path)', src, re.S)
+ns = {'os': type('O', (), {'name': 'posix'})(), 're': re}
+exec(m.group(0), ns)
+f = ns['_msys_path']
+print('OK' if f('/c/Users/me') == '/c/Users/me' else 'REWROTE: ' + f('/c/Users/me'))
+PYEOF
+)
+[ "$RES" = "OK" ] && pass || fail "$RES"
+
 begin_test "the guard keys on os.name, not on MSYSTEM or a path layout"
 # Pins the discriminator itself, since the two weaker ones each shipped and each
 # was wrong. Source-level because the behaviour it guards cannot run here.

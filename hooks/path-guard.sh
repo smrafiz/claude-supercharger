@@ -135,6 +135,37 @@ p = os.environ.get('FILE_PATH', '')
 proj = os.environ.get('PROJECT_DIR', '')
 disabled = set(c.strip() for c in os.environ.get('DISABLED', '').split(',') if c.strip())
 
+
+def _msys_path(x):
+    """Git Bash's /c/Users/... -> C:\\Users\\..., on Windows only.
+
+    Native Windows python resolves a leading-slash path against the CURRENT
+    DRIVE, so on a runner whose workspace sits on D: the diagnostic measured:
+
+        realpath('/')                    -> 'D:\\'
+        realpath('/etc/hosts')           -> 'D:\\etc\\hosts'
+        realpath('/c/Users/me/.ssh')     -> 'D:\\c\\Users\\me\\.ssh'
+
+    That last one is the problem: it equals nothing, so a write to the real
+    ~/.ssh compared as unrelated and the credential protection did not fire.
+    Git Bash hands out exactly that spelling, and whether a payload carries it
+    or the native form depends on which side produced the path — so the guard
+    normalises instead of assuming.
+
+    Gated on os.name, so POSIX is provably untouched: there, a directory named
+    /c is a legitimate path and must never be rewritten.
+    """
+    if os.name != 'nt' or not x:
+        return x
+    m = re.match(r'^/([A-Za-z])(/|$)', x)
+    if not m:
+        return x
+    return m.group(1).upper() + ':\\' + x[3:].replace('/', '\\')
+
+
+p = _msys_path(p)
+proj = _msys_path(proj)
+
 # v2.26.83: opt-in trace, inert unless SC_PATHGUARD_DEBUG is set. Added because
 # five separate probes each answered ONE input to this guard and none identified
 # why a POSIX-form absolute path is allowed on Windows while a drive-letter one is
@@ -253,7 +284,7 @@ def _extra_roots(proj_real):
     _dbg('roots-raw', raw=raw, msys_root=_msys_root)
     if raw:
         try:
-            home = os.path.realpath(os.path.expanduser('~'))
+            home = os.path.realpath((os.environ.get('HOME') or os.path.expanduser('~')))
         except Exception:
             home = ''
         claude_dir = os.path.join(home, '.claude') if home else ''
@@ -398,7 +429,7 @@ if 'git-internals' not in disabled:
         if re.search(pat, p, re.IGNORECASE):
             print('write to git internals (' + pat + ') — repo integrity risk; opt out via disableSecurityCategories: ["git-internals"]')
             sys.exit(0)
-    home = os.path.expanduser('~')
+    home = (os.environ.get('HOME') or os.path.expanduser('~'))
     if p.startswith(os.path.join(home, '.claude', 'hooks')) or p.startswith(os.path.join(home, '.claude', 'supercharger', 'hooks')):
         print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
         sys.exit(0)
@@ -409,7 +440,7 @@ if 'git-internals' not in disabled:
 # sandboxes by reasoning about and modifying the blocker. These writes are the
 # tool-call channel for the same attack.
 if 'selfmod' not in disabled:
-    home = os.path.expanduser('~')
+    home = (os.environ.get('HOME') or os.path.expanduser('~'))
     selfmod_targets = [
         os.path.join(home, '.claude', 'supercharger', 'scope', '.disabled-security-categories'),
         os.path.join(home, '.claude', 'supercharger', 'scope', '.disabled-hooks'),
@@ -462,7 +493,7 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     # permits only the LOCATION (narrow: under projects/, in a memory/ dir, .md);
     # the CONTENT is still scanned by memory-write-guard for poisoning. realpath
     # is used so an in-path symlink escaping the store can't abuse the allowance.
-    _mem_root = os.path.join(os.path.realpath(os.path.expanduser('~')), '.claude', 'projects')
+    _mem_root = os.path.join(os.path.realpath((os.environ.get('HOME') or os.path.expanduser('~'))), '.claude', 'projects')
     _rp = os.path.realpath(p)
     if _rp.startswith(_mem_root + os.sep) and '/memory/' in _rp and _rp.endswith('.md'):
         sys.exit(0)
