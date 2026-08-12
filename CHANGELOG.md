@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.26.90] - 2026-08-12 — windows: shasum does not exist on Git Bash and killed standards-inject on every session, while typecheck and quality-gate silently ran with their caches off; six diverged copies of the project key folded into one shared helper. 3590 tests passing.
 - [2.26.89] - 2026-08-11 — windows: the cp1252 fix reached only tools/, six more files needed it; bash and python keyed the same project differently, so per-project settings silently did nothing; two test harnesses could not construct the state they asserted. 3589 tests passing.
 - [2.26.88] - 2026-08-11 — windows: 23 tools died on a cp1252 stdout mid-report; the rm net guarded the hook's cwd instead of the session's project; a trailing CR made the tool-history filename illegal; nine failures were tests asserting the wrong thing on Git Bash. 3587 tests passing.
 - [2.26.87] - 2026-08-11 — windows: four tools were silently broken by a path baked into python -c; swept 44 more sites in tests and added a scanner so the class cannot come back one file at a time. 3581 tests passing.
