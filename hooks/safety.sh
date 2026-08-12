@@ -287,7 +287,7 @@ if _cat_enabled "filesystem"; then
 import os, shlex, sys
 args = os.environ.get('ARGS','')
 cwd  = os.path.realpath(os.environ.get('CWD','/') or '/')
-home = os.path.realpath(os.path.expanduser('~'))
+home = os.path.realpath((os.environ.get('HOME') or os.path.expanduser('~')))
 SYS_ROOTS = ('/etc','/usr','/bin','/sbin','/lib','/lib64','/boot','/sys','/dev',
              '/proc','/root','/System','/Library','/private/etc')
 # NB: deliberately NOT /var or /private/var — macOS temp dirs (mktemp -d ->

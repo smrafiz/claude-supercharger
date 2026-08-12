@@ -165,7 +165,7 @@ except Exception:
 _trust_roots = []
 _pd = os.environ.get('CLAUDE_PLUGIN_DATA') or ''
 _st = os.environ.get('SUPERCHARGER_STATE') or ''
-for _r in (_st, _pd, os.path.join(os.path.expanduser('~'), '.claude', 'supercharger')):
+for _r in (_st, _pd, os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger')):
     if _r and _r not in _trust_roots:
         _trust_roots.append(_r)
 for _r in _trust_roots:
@@ -183,7 +183,7 @@ is_trusted = bool(server_l) and server_l in trusted
 
 def audit(action):
     try:
-        d = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', 'audit')
+        d = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'audit')
         os.makedirs(d, exist_ok=True)
         rec = {
             'ts': datetime.datetime.utcnow().strftime('%Y-%m-%dT%H:%M:%SZ'),

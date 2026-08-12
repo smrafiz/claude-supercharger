@@ -112,7 +112,7 @@ welcome_flag = os.environ['WELCOME_FLAG']
 # made per-project disableHooks / disableSecurityCategories / profile / budget silently
 # no-op on plugin installs (readers looked at $CLAUDE_PLUGIN_DATA/scope).
 _SCOPE = os.path.join(
-    os.environ.get('SUPERCHARGER_STATE') or os.path.join(os.path.expanduser('~'), '.claude', 'supercharger'),
+    os.environ.get('SUPERCHARGER_STATE') or os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger'),
     'scope')
 
 parts = []
@@ -399,7 +399,7 @@ try:
     scope_dir = _SCOPE
     tier_file = os.path.join(scope_dir, '.economy-tier')
     if not os.path.isfile(tier_file):
-        economy_md = os.path.join(os.path.expanduser('~'), '.claude', 'rules', 'economy.md')
+        economy_md = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'rules', 'economy.md')
         if os.path.isfile(economy_md):
             with open(economy_md) as f:
                 for ln in f:
@@ -413,7 +413,7 @@ except Exception:
     pass
 
 # --- Last session cost feedback ---
-cost_file = os.path.join(os.path.expanduser('~'), '.claude', 'supercharger', '.last-session-cost')
+cost_file = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', '.last-session-cost')
 if os.path.isfile(cost_file):
     try:
         cost_data = {}
