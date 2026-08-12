@@ -758,19 +758,38 @@ jobs:
           # NATIVE here, so `git -C /tmp/...` gets no MSYS conversion and git.exe
           # cannot resolve an MSYS mount path. Asserting that before fixing it,
           # because two strong hypotheses have already been wrong today.
-          CKR=$(mktemp -d); (cd "$CKR" && git init -q 2>/dev/null && git commit -q --allow-empty -m x 2>/dev/null)
+          # -c user.* inline: the runner has no global git identity, so a bare
+          # `git commit` fails and the previous version's 2>/dev/null hid it.
+          # Both channels then failed with "ambiguous argument 'HEAD'" — a repo
+          # with no commits — and the probe proved nothing about the mechanism.
+          # Errors are shown now rather than discarded, for the same reason this
+          # whole investigation kept finding swallowed failures.
+          CKR=$(mktemp -d)
+          ( cd "$CKR" \
+            && git init -q \
+            && git -c user.email=ci@example.invalid -c user.name=ci \
+                   commit -q --allow-empty -m x ) || echo "  FIXTURE FAILED to build a repo"
           echo "  bash sees a repo at: $CKR"
           echo "  git -C from BASH   : $(git -C "$CKR" rev-parse --abbrev-ref HEAD 2>&1 | head -1)"
-          CKR="$CKR" python3 - <<'PYEOF'
-          import os, subprocess
-          d = os.environ['CKR']
-          print('  path as python sees it: %r  isdir=%s' % (d, os.path.isdir(d)))
-          try:
-              out = subprocess.check_output(['git', '-C', d, 'rev-parse', '--abbrev-ref', 'HEAD'],
-                                            stderr=subprocess.STDOUT).decode().strip()
-              print('  git -C from PYTHON : %r' % out)
-          except Exception as e:
-              print('  git -C from PYTHON FAILED: %s' % e)
+          # BOTH spellings, because the channel changes the input. An env var is
+          # MSYS-converted in transit (C:/Users/...), but the hook reads cwd from
+          # the payload JSON, which is NOT converted (/tmp/...). The first probe
+          # passed the path via env and so tested a spelling the hook never sees.
+          # stdin is the untouched channel, so the POSIX form arrives intact.
+          printf '%s\n' "$CKR" | CKR="$CKR" python3 - <<'PYEOF'
+          import os, subprocess, sys
+          posix = sys.stdin.readline().rstrip('\r\n')   # as the hook receives it
+          conv  = os.environ['CKR']                     # MSYS-converted in transit
+          for label, d in (('payload form (POSIX)', posix), ('env form (converted)', conv)):
+              print('  %-22s %r  isdir=%s' % (label, d, os.path.isdir(d)))
+              try:
+                  out = subprocess.check_output(['git', '-C', d, 'rev-parse', '--abbrev-ref', 'HEAD'],
+                                                stderr=subprocess.STDOUT).decode().strip()
+                  print('      git -C -> %r' % out)
+              except subprocess.CalledProcessError as e:
+                  print('      git -C FAILED rc=%s out=%r' % (e.returncode, e.output.decode()[:120]))
+              except Exception as e:
+                  print('      git -C FAILED %s' % e)
           PYEOF
           rm -rf "$CKR"
 
