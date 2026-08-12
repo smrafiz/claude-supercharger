@@ -28,14 +28,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 CATS=".disabled-security-""categories"
 DHOOKS=".disabled-""hooks"
 
-key_for() { # project dir -> the same key sc_project_key() produces
-  python3 -c "
-import sys
-k = sys.argv[1].replace('/', '-')
-k = k[1:] if k.startswith('-') else k
-k = k[-100:] if len(k) > 100 else k
-print(k or 'root')" "$1"
-}
+key_for() { sc_key_for "$1"; }   # shared: tests/helpers.sh
 
 echo "=== Per-Project Config Scoping Tests ==="
 

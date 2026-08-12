@@ -85,12 +85,7 @@ teardown_test_home; rm -rf "$TMP"
 # one global file let a project's config overwrite another's). Resolve the name
 # the same way sc_project_key() does.
 _pkey() {
-  python3 -c "
-import sys
-k = sys.argv[1].replace('/', '-')
-k = k[1:] if k.startswith('-') else k
-k = k[-100:] if len(k) > 100 else k
-print(k or 'root')" "$1"
+  sc_key_for "$1"   # shared: tests/helpers.sh
 }
 begin_test "project-config: profile from main repo written to scope (worktree)"
 setup_test_home

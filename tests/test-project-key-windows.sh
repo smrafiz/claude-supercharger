@@ -23,7 +23,12 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 . "$REPO_DIR/hooks/lib-paths.sh"
 
 bkey() { sc_project_key "$1"; printf '%s' "$SC_PROJECT_KEY"; }
-pkey() { PD="$1" python3 -c "
+# The path goes in on STDIN, not in an env var. MSYS respells a single-path env
+# var in transit, so on Git Bash `PD=/Users/me/repo` reached python as
+# 'C:/Program Files/Git/Users/me/repo' and the fallback keyed off THAT — the
+# harness manufacturing the very disagreement it was written to detect. stdin is
+# the one channel MSYS leaves alone. Same repair as tests/test-windows-rm-net.sh.
+pkey() { printf '%s\n' "$1" | python3 -c "
 import os,re,sys
 sys.path.insert(0,'.')
 src=open(sys.argv[1]).read()
@@ -38,7 +43,7 @@ exec(body, ns)
 # Unset so this exercises the fallback derivation, which is the half that has to
 # stay byte-identical to sc_project_key. The supplied-key path is asserted below.
 os.environ.pop('SC_PROJECT_KEY', None)
-print(ns['_project_key'](os.environ['PD']))
+print(ns['_project_key'](sys.stdin.readline().rstrip('\r\n')))
 " "$REPO_DIR/hooks/project-config.sh"; }
 
 echo "=== Project-Key Windows Tests ==="
@@ -110,13 +115,16 @@ B=$(bkey '/'); P=$(pkey '/')
 # A key has no separators left, so it crosses unchanged. These pin that python
 # HONOURS it rather than re-deriving.
 pkey_supplied() { # path, supplied-key -> the key python actually uses
-  PD="$1" SC_PROJECT_KEY="$2" python3 -c "
+  # Path on stdin for the reason above; SC_PROJECT_KEY stays an env var because
+  # that is how the hook really passes it, and a key has no separators for MSYS
+  # to act on.
+  printf '%s\n' "$1" | SC_PROJECT_KEY="$2" python3 -c "
 import os,re,sys
 src=open(sys.argv[1]).read()
 m=re.search(r'def _project_key.*?return k or .root.', src, re.S)
 ns={'os': os}
 exec(m.group(0), ns)
-print(ns['_project_key'](os.environ['PD']))
+print(ns['_project_key'](sys.stdin.readline().rstrip('\r\n')))
 " "$REPO_DIR/hooks/project-config.sh"
 }
 

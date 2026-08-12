@@ -31,14 +31,7 @@ ALLOW=".allow-""patterns"
 CUSTOM=".custom-""patterns"
 SELFMOD_CMD="echo x > ~/.claude/set""tings.json"
 
-key_for() {
-  python3 -c "
-import sys
-k = sys.argv[1].replace('/', '-')
-k = k[1:] if k.startswith('-') else k
-k = k[-100:] if len(k) > 100 else k
-print(k or 'root')" "$1"
-}
+key_for() { sc_key_for "$1"; }   # shared: tests/helpers.sh
 
 ST=$(mktemp -d); mkdir -p "$ST/scope"
 PJ=$(mktemp -d)

@@ -169,6 +169,27 @@ run_hook() {
   return $?
 }
 
+# The per-project scope key, derived the way the READERS derive it (python).
+#
+# Tests kept their own copies of this — four of them, already diverged: some
+# folded '\' and ':' as sc_project_key does, some did not, so one expected a
+# filename with a drive colon in it that no writer ever produces.
+#
+# The path goes in on STDIN. Passed as argv or in an env var, MSYS respells it in
+# transit on Git Bash, so '/Users/me/proj' arrived as
+# 'C:/Program Files/Git/Users/me/proj' and the test reported a channel
+# disagreement it had manufactured itself. Neither stdin nor `-c` text is
+# converted.
+sc_key_for() { # project dir -> the key sc_project_key()/_project_key() produce
+  printf '%s\n' "$1" | python3 -c "
+import sys
+k = sys.stdin.readline().rstrip('\r\n')
+k = k.replace('/', '-').replace('\\\\', '-').replace(':', '-')
+k = k[1:] if k.startswith('-') else k
+k = k[-100:] if len(k) > 100 else k
+print(k or 'root')"
+}
+
 # Put real tools on a synthetic PATH, for tests that need a tool to be ABSENT.
 #
 # Shims, not symlinks. `ln -s` on Git Bash needs developer mode or admin rights

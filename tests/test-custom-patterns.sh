@@ -21,12 +21,7 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 # Fixture-based tests below still use the un-suffixed name on purpose: that
 # exercises the legacy-global fallback.
 _pkey() {
-  python3 -c "
-import sys
-k = sys.argv[1].replace('/', '-')
-k = k[1:] if k.startswith('-') else k
-k = k[-100:] if len(k) > 100 else k
-print(k or 'root')" "$1"
+  sc_key_for "$1"   # shared: tests/helpers.sh
 }
 
 HOOK="$REPO_DIR/hooks/safety.sh"
