@@ -11,6 +11,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-hash.sh
+. "$HOOKS_DIR/lib-hash.sh" 2>/dev/null || true
 # These dirs may be missing on installs that pre-date the rules/stacks copy
 # (the install.sh fix landed alongside this hardening). Skip cleanly when
 # nothing is available rather than crashing the SessionStart hook.
@@ -148,10 +150,15 @@ hook_already_emitted "standards-inject" "$SESSION_ID" "$MSG" && exit 0
 # last 24h. Saves ~425 tokens × N sessions/day per project (react+nextjs).
 TTL_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$TTL_DIR" 2>/dev/null
-PROJECT_HASH=$(printf '%s' "$PROJECT_DIR" | shasum 2>/dev/null | cut -c1-12)
+# sc_md5, not shasum. Git Bash ships neither shasum nor md5sum, and under
+# `set -euo pipefail` a missing command in this pipeline exits 127 and takes the
+# whole hook with it — which is why standards-inject produced NOTHING on every
+# Windows session, SessionStart included. `2>/dev/null` hid the message, not the
+# exit status. lib-hash exists for exactly this and ends in a python3 tier.
+PROJECT_HASH=$(printf '%s' "$PROJECT_DIR" | sc_md5 2>/dev/null | cut -c1-12)
 if [ -n "$PROJECT_HASH" ]; then
   TTL_FILE="$TTL_DIR/.standards-inject-${PROJECT_HASH}"
-  MSG_HASH=$(printf '%s' "$MSG" | shasum 2>/dev/null | cut -c1-12)
+  MSG_HASH=$(printf '%s' "$MSG" | sc_md5 2>/dev/null | cut -c1-12)
   if [ -f "$TTL_FILE" ]; then
     LAST=$(cat "$TTL_FILE" 2>/dev/null | head -1)
     LAST_TS="${LAST%% *}"; LAST_HASH="${LAST##* }"

@@ -36,7 +36,9 @@ _qg_hash() {
   elif command -v shasum &>/dev/null; then
     shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
   else
-    echo ""
+    # Git Bash has NEITHER, and an empty key never matches, so the lint cache was
+    # silently off for the whole platform. See _typecheck_hash for the same fix.
+    python3 -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1" 2>/dev/null || echo ""
   fi
 }
 

@@ -55,7 +55,11 @@ _typecheck_hash() {
   elif command -v shasum &>/dev/null; then
     shasum -a 256 "$1" 2>/dev/null | cut -d' ' -f1
   else
-    echo ""
+    # Git Bash has NEITHER. Returning "" here meant the cache key was empty, so
+    # it never matched and tsc re-ran on every single write — the cache was
+    # silently off for the whole platform. python3 is already a hard install
+    # requirement, so this adds no dependency (same reasoning as lib-hash.sh).
+    python3 -c 'import sys,hashlib; print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1" 2>/dev/null || echo ""
   fi
 }
 

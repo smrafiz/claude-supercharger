@@ -146,4 +146,36 @@ OUT=$(printf '{"cwd":"%s"}' "$PROJ" | bash "$HOOK" 2>/dev/null)
 rm -rf "$PROJ"
 teardown_test_home
 
+# --- the digest tool this hook needs is absent on Git Bash --------------------
+# Measured on the runner: the hook exited 127 having printed nothing, on every
+# Windows session, SessionStart included. The TTL cache hashed the project path
+# with `shasum`, which Git Bash does not ship — and under `set -euo pipefail` a
+# missing command in that pipeline takes the whole hook down. The `2>/dev/null`
+# suppressed the message, never the exit status, so it failed in total silence.
+#
+# Same class as v2.26.50, where md5sum AND md5 both turned out to be missing
+# there; lib-hash.sh's sc_md5 exists for it and ends in a python3 tier.
+#
+# Every assertion above passes with the bug present, because macOS has shasum.
+# Only removing the tool reproduces the platform, which is why this is a
+# PATH-sandbox test rather than another content assertion.
+begin_test "still emits when no shasum/md5sum exists (the Git Bash shape)"
+setup_test_home
+SB=$(mktemp -d)/bin
+shim_tools "$SB" bash sh printf cat sed grep awk python3 date mkdir tr head tail \
+  wc cut sort uniq stat rm touch mv cp chmod ls env jq dirname basename openssl
+rm -f "$SB/shasum" "$SB/md5sum" "$SB/md5"
+PROJ=$(mktemp -d)
+echo '{"dependencies":{"vue":"3.4.0"}}' > "$PROJ/package.json"
+OUT=$(printf '{"cwd":"%s"}' "$PROJ" \
+  | env PATH="$SB" SUPERCHARGER_TIER=lean SUPERCHARGER_NO_DEDUP=1 bash "$HOOK" 2>&1)
+RC=$?
+rm -rf "$PROJ" "$(dirname "$SB")"
+teardown_test_home
+if [ "$RC" = "0" ] && printf '%s' "$OUT" | grep -qi 'vue'; then
+  pass
+else
+  fail "hook died without a digest tool: rc=$RC out=$(printf '%s' "$OUT" | head -c 120)"
+fi
+
 report
