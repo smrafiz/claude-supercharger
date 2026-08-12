@@ -732,6 +732,23 @@ jobs:
             | env SUPERCHARGER_STATE="$BC" SUPERCHARGER_BUDGET_DEBOUNCE_SECS=0 bash hooks/budget-cap.sh >/dev/null 2>&1
           echo "  after call 2 (2 turns in transcript, size=$(wc -c < "$TR" | tr -d ' ')):"; show
           echo "  transcript line count: $(wc -l < "$TR" | tr -d ' ')"
+          # The first round ruled out the two obvious causes: offset < size so the
+          # reset path is not taken, and 168*2 == 336 exactly so the lines are LF,
+          # not CRLF. What is left is either the walk being skipped, or python
+          # seeing a different file from the one bash just appended to. This asks
+          # python directly, through the SAME env-var channel the hook uses.
+          echo "  --- what python sees for that same path ---"
+          TRANSCRIPT="$TR" python3 - <<'PYEOF'
+          import os
+          p = os.environ['TRANSCRIPT']
+          print('    path as python sees it = %r' % p)
+          print('    exists=%s  getsize=%s' % (os.path.isfile(p), os.path.getsize(p) if os.path.isfile(p) else 'n/a'))
+          with open(p, 'rb') as f:
+              f.seek(168)
+              rest = f.read()
+          print('    bytes after seek(168) = %d' % len(rest))
+          print('    parses as assistant?   = %s' % (b'"assistant"' in rest))
+          PYEOF
           rm -rf "$BC"
 
           echo ""
