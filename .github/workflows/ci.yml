@@ -654,9 +654,55 @@ jobs:
 
           echo ""
           echo "=== perf chain: why no chain-sum ==="
-          echo "--- tools/hook-perf.sh --chain, stderr visible ---"
-          bash tools/hook-perf.sh --chain 2>&1 | head -25
+          # The previous round pointed this at `hook-perf.sh --chain`. That flag
+          # does not exist — hook-perf's parser rejects unknown args and fell
+          # through to the ordinary report, so the probe answered a question
+          # nobody asked while the real harness went unexamined. The chain lives
+          # in tests/perf-chain.sh.
+          #
+          # It prints its early bailouts ("No hooks fire for <event>/<tool>") to
+          # STDERR and exits 1, and the test captures stdout only — which is
+          # exactly how a failure shows up as EMPTY output rather than as a
+          # message. So stderr is what matters here.
+          echo "--- tests/perf-chain.sh --iterations 1, stderr visible ---"
+          bash tests/perf-chain.sh --iterations 1 2>&1 | head -25
           echo "  rc=${PIPESTATUS[0]}"
+          echo "--- does the harness see any hooks at all? ---"
+          # If this prints 0, the bailout above is the whole story and the cause
+          # is hook DISCOVERY, not measurement.
+          python3 - hooks/hooks.json <<'PYEOF'
+          import json, re, sys
+          d = json.load(open(sys.argv[1]))
+          n = 0
+          for entry in d.get("hooks", {}).get("PreToolUse", []):
+              mt = entry.get("matcher", "")
+              ok = (not mt) or mt == "*" or "Bash" in [t.strip() for t in mt.split(",")]
+              if not ok:
+                  continue
+              for h in entry.get("hooks", []):
+                  if re.search(r'/hooks/([A-Za-z0-9_.-]+\.sh)(.*)$', h.get("command", "")):
+                      n += 1
+          print("  PreToolUse/Bash hooks discovered: %d" % n)
+          PYEOF
+          echo ""
+          echo "=== scope-guard writes no contract file ==="
+          # Six failures whose values all come back EMPTY, which means the file
+          # was never created rather than created wrong. scope-guard has no
+          # digest or lock tool to be missing — the shape that explained
+          # standards-inject — so this prints what it actually does.
+          SG=$(mktemp -d); mkdir -p "$SG/.claude/supercharger/scope"
+          echo '{"session_id":"s2","prompt":"fix the typo in Header.tsx only"}' \
+            | env HOME="$SG" bash hooks/scope-guard.sh contract
+          echo "  rc=$?"
+          echo "  files written:"
+          ls -A "$SG/.claude/supercharger/scope" 2>/dev/null | sed 's/^/    /' || echo "    (none)"
+          echo "  where it thinks its scope dir is:"
+          echo '{"session_id":"s2","prompt":"x"}' \
+            | env HOME="$SG" bash -x hooks/scope-guard.sh contract 2>&1 >/dev/null \
+            | grep -iE "SCOPE_DIR=|SUPERCHARGER_DIR=|CONTRACT_FILE=" | head -4
+          rm -rf "$SG"
+
+          echo ""
           echo "--- the clock the harness depends on ---"
           echo "  BASH_VERSION     = $BASH_VERSION"
           echo "  EPOCHREALTIME    = ${EPOCHREALTIME:-<unset>}"
