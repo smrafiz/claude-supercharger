@@ -137,6 +137,32 @@ for f in "$REPO_DIR"/tools/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/install.sh "$RE
 done
 [ -z "$MISSING" ] && pass || fail "forks python without a UTF-8 stdout:$MISSING"
 
+# --- expanduser ignores bash $HOME on Windows (Fact B) -----------------------
+# It returns %USERPROFILE%. Every hook that resolves state through it reads a
+# different home from the ones that use $HOME, and under a sandboxed HOME it
+# reads the real user's files. Fixed at 28 sites in v2.27.1 — and that sweep was
+# itself partial, because it matched only the bare expanduser('~') and missed
+# nine sites spelling the subpath inside the call, expanduser('~/.claude/...').
+# That is the third time this repo has recorded a fix as complete while leaving
+# instances behind, so it is scanned rather than remembered.
+#
+# Two sites are deliberately exempt and named here rather than pattern-excluded:
+#   safety.sh       expands a USER-SUPPLIED token (`rm -rf ~/x`), where the
+#                   POSIX meaning of ~ is what the operator typed
+#   workflow-guard  same, for a user-supplied script path
+begin_test "no hook resolves home through a bare expanduser"
+BAD=""
+for f in "$REPO_DIR"/hooks/*.sh "$REPO_DIR"/lib/*.sh "$REPO_DIR"/tools/*.sh "$REPO_DIR"/install.sh; do
+  [ -f "$f" ] || continue
+  case "$(basename "$f")" in safety.sh|workflow-guard.sh) continue ;; esac
+  # Comment lines are documentation about this very rule, not code.
+  if grep -n "expanduser(" "$f" | grep -v "environ.get('HOME')" \
+       | grep -vE '^[0-9]+: *#' | grep -q .; then
+    BAD="$BAD $(basename "$f")"
+  fi
+done
+[ -z "$BAD" ] && pass || fail "expanduser without a \$HOME fallback (reads the wrong home on Windows):$BAD"
+
 # --- os.rename is not atomic-overwrite on Windows ----------------------------
 # It RAISES when the target exists, where os.replace overwrites. The failure is
 # invisible until the second write: the first succeeds because nothing is there,

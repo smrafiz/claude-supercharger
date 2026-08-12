@@ -40,7 +40,7 @@ if not project_dir:
 home_dir = os.environ.get('HOME_DIR', '')
 
 warnings = []
-debug_on = (os.path.isfile(os.path.expanduser('~/.claude/supercharger/scope/.debug-hooks'))
+debug_on = (os.path.isfile(os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude/supercharger/scope/.debug-hooks'))
             or os.path.isfile('.supercharger-debug'))
 
 # --- Injection patterns in CLAUDE.md + .claude/*.md ---

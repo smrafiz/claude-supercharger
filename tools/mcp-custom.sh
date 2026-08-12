@@ -60,7 +60,7 @@ name, profiles = os.environ["SC_NAME"], os.environ["SC_PROFILES"]
 reg_path, tag = os.environ["SC_REG"], os.environ["SC_TAG"]
 # Find the server in either config file; accept a tagged or untagged key.
 entry = None
-for p in (os.path.expanduser("~/.claude.json"), os.path.expanduser("~/.claude/settings.json")):
+for p in (os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), ".claude.json"), os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), ".claude/settings.json")):
     if not os.path.isfile(p):
         continue
     try:
@@ -89,7 +89,7 @@ os.replace(tmp, reg_path)
 # server configured twice (untagged + tagged) — loaded twice, double context cost —
 # and the profile filter would never actually hide it. The full config now lives in
 # the registry, and `remove` puts the untagged entry back.
-for p in (os.path.expanduser("~/.claude.json"), os.path.expanduser("~/.claude/settings.json")):
+for p in (os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), ".claude.json"), os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), ".claude/settings.json")):
     if not os.path.isfile(p):
         continue
     try:
@@ -158,7 +158,7 @@ os.replace(tmp, p)
 # the managed copy, so unregistering never loses a server the user configured.
 entry = (spec or {}).get("entry")
 tag = os.environ.get("SC_TAG", "#supercharger")
-cfg = os.path.expanduser("~/.claude.json")
+cfg = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), ".claude.json")
 if isinstance(entry, dict):
     try:
         with open(cfg) as f: s = json.load(f) or {}
