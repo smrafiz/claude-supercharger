@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.27.9] - 2026-08-13 — perf: quality-gate ran the linter twice on every clean file — the final re-check re-derived a verdict the fix loop had just computed, at the cost of another cold interpreter start. 3623 tests passing.
 - [2.27.8] - 2026-08-13 — perf: typecheck blocked every edit for a 10.6s median to report findings it can deliver asynchronously — 37 minutes of blocking in 30 days; quality-gate stays synchronous because it rewrites the edited file. 3623 tests passing.
 - [2.27.7] - 2026-08-13 — perf: stop-verify ran a project verify script unbounded inside a 15s hook, and safety.sh's promised 500ms cap did not exist on macOS — 41 hook timeouts in 30 days, each blocking and producing nothing. 3621 tests passing.
 - [2.27.6] - 2026-08-13 — a hook was registered on DirectoryAdded, an event Claude Code does not dispatch, so path-guard never honoured in-session /add-dir; every registered event is now validated against Claude Code's own list. 3621 tests passing.
