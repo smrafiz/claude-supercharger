@@ -7,6 +7,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-bounded-run.sh
+. "$HOOKS_DIR/lib-bounded-run.sh"
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
@@ -108,14 +110,12 @@ if [ -z "$TSC" ]; then
   TSC="npx --no-install tsc"
 fi
 
-# Timeout: prefer gtimeout (macOS coreutils), then timeout
-if command -v gtimeout &>/dev/null; then
-  TIMEOUT_CMD="gtimeout 30"
-elif command -v timeout &>/dev/null; then
-  TIMEOUT_CMD="timeout 30"
-else
-  TIMEOUT_CMD=""
-fi
+# Bound the tsc run. This used to fall back to an EMPTY prefix wherever GNU
+# coreutils is absent — macOS and Git Bash both — so the 30s cap the source
+# advertises did not exist on the platform this is developed on. See
+# lib-bounded-run.sh; the hook is asyncRewake, but an unbounded tsc still holds
+# a slot until the harness's 120s async limit.
+TIMEOUT_CMD="sc_bounded_run ${SUPERCHARGER_TSC_BUDGET_S:-30}"
 
 # Run type check (timed — feeds the slow-typecheck nudge below)
 _TC_T0=$(date +%s 2>/dev/null || echo 0)

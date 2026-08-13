@@ -25,6 +25,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-suppress.sh"
 # shellcheck source=hooks/lib-hash.sh
 . "$HOOKS_DIR/lib-hash.sh" 2>/dev/null || true
+# shellcheck source=hooks/lib-bounded-run.sh
+. "$HOOKS_DIR/lib-bounded-run.sh"
 init_hook_suppress "$PROJECT_ROOT"
 check_hook_disabled "quality-gate" && exit 0
 hook_profile_skip "quality-gate" && exit 0
@@ -74,14 +76,12 @@ MAX_ITERATIONS=2
 ITERATION=0
 HAD_ISSUES=false
 
-# Resolve timeout command: prefer gtimeout (macOS coreutils), then timeout, else plain execution
-if command -v gtimeout &>/dev/null; then
-  TIMEOUT_CMD="gtimeout 30"
-elif command -v timeout &>/dev/null; then
-  TIMEOUT_CMD="timeout 30"
-else
-  TIMEOUT_CMD=""
-fi
+# Bound every linter/formatter run. The old `else TIMEOUT_CMD=""` branch made
+# this wrapper a no-op on any host without GNU coreutils — macOS and Git Bash,
+# i.e. two of the three platforms — so eslint/prettier/ruff ran unbounded and a
+# hung toolchain took this blocking hook to its 15s harness timeout. Resolution
+# (real binary vs shell fallback) now lives in the lib; see lib-bounded-run.sh.
+TIMEOUT_CMD="sc_bounded_run ${SUPERCHARGER_LINT_BUDGET_S:-30}"
 
 lint_and_fix() {
   local file="$1"
