@@ -165,27 +165,50 @@ while [ $ITERATION -lt $MAX_ITERATIONS ]; do
 done
 
 # Re-hash after potential auto-fix modifications
+QG_PRE_HASH="$QG_FILE_HASH"
 QG_FILE_HASH=$(_qg_hash "$FILE_PATH")
+
+# Skip the re-check when nothing could have changed the answer.
+#
+# The re-check below is a SECOND full linter invocation, and on the common path —
+# a file that was already clean — it re-derives a verdict the loop just computed.
+# Each one is a cold node/interpreter start, and this hook runs on every Write and
+# Edit: measured on a real install at 1423 runs, 1.77s median, 53 minutes over 30
+# days. Roughly half of that is this duplicate.
+#
+# Two conditions must BOTH hold to skip, because either alone is not enough:
+#   - the loop found no issues, so there is nothing that a fix could have left over
+#   - the file is byte-identical, so the formatter did not rewrite it after the
+#     lint (prettier can reformat a clean file, and in principle change what a
+#     linter says about it)
+# If the hash is unavailable for any reason, the condition is false and the
+# re-check runs — this may only ever skip work that is provably redundant.
+QG_SKIP_RECHECK=false
+if ! $HAD_ISSUES && [ -n "$QG_FILE_HASH" ] && [ "$QG_FILE_HASH" = "$QG_PRE_HASH" ]; then
+  QG_SKIP_RECHECK=true
+fi
 
 # Final re-check: inject any remaining unfixed issues as systemMessage
 REMAINING=""
-case "$EXT" in
-  py)
-    if command -v ruff &>/dev/null; then
-      REMAINING=$($TIMEOUT_CMD ruff check "$FILE_PATH" 2>&1) || true
-    fi
-    ;;
-  js|jsx|ts|tsx|mjs|cjs)
-    if command -v eslint &>/dev/null && { ls "$PROJECT_ROOT"/.eslintrc* &>/dev/null 2>&1 || ls "$PROJECT_ROOT"/eslint.config* &>/dev/null 2>&1; }; then
-      REMAINING=$($TIMEOUT_CMD eslint "$FILE_PATH" 2>&1) || true
-    fi
-    ;;
-  go)
-    if command -v golangci-lint &>/dev/null; then
-      REMAINING=$($TIMEOUT_CMD golangci-lint run "$FILE_PATH" 2>&1) || true
-    fi
-    ;;
-esac
+if ! $QG_SKIP_RECHECK; then
+  case "$EXT" in
+    py)
+      if command -v ruff &>/dev/null; then
+        REMAINING=$($TIMEOUT_CMD ruff check "$FILE_PATH" 2>&1) || true
+      fi
+      ;;
+    js|jsx|ts|tsx|mjs|cjs)
+      if command -v eslint &>/dev/null && { ls "$PROJECT_ROOT"/.eslintrc* &>/dev/null 2>&1 || ls "$PROJECT_ROOT"/eslint.config* &>/dev/null 2>&1; }; then
+        REMAINING=$($TIMEOUT_CMD eslint "$FILE_PATH" 2>&1) || true
+      fi
+      ;;
+    go)
+      if command -v golangci-lint &>/dev/null; then
+        REMAINING=$($TIMEOUT_CMD golangci-lint run "$FILE_PATH" 2>&1) || true
+      fi
+      ;;
+  esac
+fi
 
 if [ -n "$REMAINING" ]; then
   TRUNCATED=$(printf '%.1500s' "$REMAINING")
