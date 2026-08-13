@@ -799,6 +799,26 @@ jobs:
           echo "  EPOCHREALTIME    = ${EPOCHREALTIME:-<unset>}"
           echo "  date +%s%N       = $(date +%s%N 2>&1)"
 
+      # "Is Windows fast enough to use?" has been an open question for the whole
+      # port and was never answerable from macOS — hook cost there is dominated by
+      # process creation, and Windows process creation is not Unix's. The ubuntu
+      # job already measures the chain; this runs the SAME harness on Git Bash so
+      # the two numbers sit in one summary and the question stops being a guess.
+      # Report-only, like its ubuntu counterpart: runner variance is larger than
+      # the regressions worth gating on.
+      - name: Hook chain latency on Git Bash (report-only)
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          echo "## Windows (Git Bash) hook latency" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          echo "bash $BASH_VERSION" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/perf-chain.sh --iterations 5 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          bash tests/perf-chain.sh --target all --iterations 3 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
