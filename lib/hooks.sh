@@ -455,7 +455,21 @@ get_hooks_for_mode() {
     hooks+=("SubagentStop||${hooks_dir}/subagent-cost.sh stop|")
     if [[ "$has_developer" == "true" ]]; then
       hooks+=("PostToolUse|Write,Edit|${hooks_dir}/quality-gate.sh|")
-      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|")
+      # asyncRewake, not blocking. Measured on a real install: typecheck ran 150
+      # times at a 10.6s median (p90 23.9s, max 229s) — 37 MINUTES of blocking in
+      # 30 days, all of it after an edit the model was waiting to continue past.
+      #
+      # It is the same shape as the scanners already on asyncRewake above: it only
+      # READS (`tsc --noEmit`), and its whole output is findings to inject. So the
+      # model can proceed and be woken when errors arrive, which is strictly better
+      # than holding the loop for ten seconds to say the same thing.
+      #
+      # quality-gate stays SYNCHRONOUS on purpose, despite costing more in total
+      # (1423 runs, 53 min): it MUTATES the file — eslint --fix, prettier --write,
+      # ruff format. Async would let those writes land after the model had moved
+      # on, racing its next edit. Cost is not the only axis; a hook that rewrites
+      # files has to finish before the next one starts.
+      hooks+=("PostToolUse|Write,Edit|${hooks_dir}/typecheck.sh|asyncRewake")
       hooks+=("PreToolUse|Write,Edit|${hooks_dir}/design-context.sh|async")
     fi
   fi

@@ -807,7 +807,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/typecheck.sh",
-            "timeout": 15
+            "asyncRewake": true,
+            "timeout": 120
           }
         ],
         "matcher": "Write,Edit"

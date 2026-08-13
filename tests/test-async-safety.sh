@@ -87,4 +87,53 @@ for n, modes in mode.items():
 print(' '.join(sorted(bad)))" "$REPO_DIR/hooks/hooks.json" "$REPO_DIR")
 [ -z "$BAD" ] && pass || fail "async-only hooks that can block: $BAD"
 
+# --- a hook that REWRITES files must stay synchronous -------------------------
+# typecheck went asyncRewake because it only reads (`tsc --noEmit`) and its whole
+# output is findings — 150 runs at a 10.6s median was 37 minutes of blocking for
+# information the model could just as well be woken with.
+#
+# quality-gate costs MORE in total (1423 runs, 53 min) and is deliberately NOT
+# async, so this pins the reason before someone optimises the bigger number: it
+# runs `eslint --fix`, `prettier --write`, `ruff format`. Async would let those
+# writes land after the model moved on, racing its next edit against a rewrite of
+# the same file. Cost is not the only axis.
+begin_test "file-mutating PostToolUse hooks are not async"
+BAD=$(python3 - "$REPO_DIR/hooks/hooks.json" "$REPO_DIR" <<'PYEOF'
+import json, os, re, sys
+d = json.load(open(sys.argv[1]))
+repo = sys.argv[2]
+# An in-place rewrite of the edited file, not merely writing state of its own.
+MUTATES = re.compile(r'--fix\b|--write\b|\bruff format\b|\bgofmt -w\b|\brustfmt\b|\bblack -q\b')
+bad = []
+for ev, entries in (d.get('hooks') or {}).items():
+    if not ev.startswith('PostToolUse'):
+        continue
+    for e in entries:
+        for h in e.get('hooks', []):
+            if not (h.get('async') or h.get('asyncRewake')):
+                continue
+            name = os.path.basename(h.get('command', '').replace(' #supercharger', '').split()[0])
+            p = os.path.join(repo, 'hooks', name)
+            try:
+                src = open(p, errors='ignore').read()
+            except Exception:
+                continue
+            if MUTATES.search(src):
+                bad.append(name)
+print(' '.join(sorted(set(bad))))
+PYEOF
+)
+[ -z "$BAD" ] && pass || fail "async hook rewrites the edited file — its write can race the model's next edit: $BAD"
+
+begin_test "typecheck is asyncRewake (read-only, so it must not block)"
+python3 - "$REPO_DIR/hooks/hooks.json" <<'PYEOF'
+import json, sys
+d = json.load(open(sys.argv[1]))
+ok = any(h.get('asyncRewake')
+         for ev, es in (d.get('hooks') or {}).items() if ev.startswith('PostToolUse')
+         for e in es for h in e.get('hooks', []) if 'typecheck.sh' in h.get('command', ''))
+sys.exit(0 if ok else 1)
+PYEOF
+[ $? -eq 0 ] && pass || fail "typecheck is blocking again — 10.6s median on every edit"
+
 report
