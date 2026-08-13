@@ -165,6 +165,55 @@ begin_test "a bounded read keeps a complete payload and discards a truncated one
 EOF_R=$(printf '{"a":1}' | bash -c 'IFS= read -r -d "" -t 5 V || [ $? -le 128 ] || V=""; printf "%s" "$V"')
 [ "$EOF_R" = '{"a":1}' ] && pass || fail "EOF path lost the payload: '$EOF_R'"
 
+# The clearing half of the idiom, on the only bash that can exercise it.
+#
+# `read -t` saves what it consumed into the variable on bash 4.2+; bash 3.2 (the
+# macOS system shell) discards it. So on macOS the `|| _INPUT=""` branch is
+# correct by construction and UNOBSERVABLE — the variable was already empty. On
+# bash 5 it is the difference between a hook parsing a complete payload and a
+# hook parsing the first half of one and acting on it. This asserts the real
+# behaviour where the platform can show it, and asserts the 3.2 behaviour where
+# it cannot, rather than silently testing nothing on either.
+begin_test "a timed-out read leaves no partial payload behind"
+_PF=$(mktemp -u)
+mkfifo "$_PF"
+# >&9, not plain printf: the first draft wrote the partial payload to STDOUT
+# instead of into the pipe, so the reader saw nothing, timed out on an empty
+# stream, and the test passed without ever exercising the branch.
+( exec 9>"$_PF"; printf '{"tool_name":"Ba' >&9; sleep 4 ) &
+_PW=$!
+disown "$_PW" 2>/dev/null || true
+_PARTIAL=$(IFS= read -r -d '' -t 1 V <"$_PF" || [ $? -le 128 ] || V=""; printf '%s' "$V")
+kill "$_PW" 2>/dev/null || true
+rm -f "$_PF"
+if [ -z "$_PARTIAL" ]; then
+  pass
+else
+  fail "a truncated payload survived the timeout: '$_PARTIAL' (bash ${BASH_VERSINFO:-?})"
+fi
+
+# ...and the paired control, so the assertion above is not tautological. On bash
+# 3.2 the variable is empty with or without the guard, which means a green run on
+# macOS proves nothing about the guard. On 4.2+ the UNGUARDED form keeps the
+# fragment — that is the bug the branch exists to prevent, and this pins that the
+# difference is real rather than assumed.
+begin_test "the guard is what empties it (bash 4.2+ keeps the fragment without it)"
+_PF2=$(mktemp -u)
+mkfifo "$_PF2"
+( exec 9>"$_PF2"; printf '{"tool_name":"Ba' >&9; sleep 4 ) &
+_PW2=$!
+disown "$_PW2" 2>/dev/null || true
+_UNGUARDED=$(IFS= read -r -d '' -t 1 V <"$_PF2" || true; printf '%s' "$V")
+kill "$_PW2" 2>/dev/null || true
+rm -f "$_PF2"
+if [ "${BASH_VERSINFO:-0}" -ge 5 ] || { [ "${BASH_VERSINFO:-0}" -eq 4 ] && [ "${BASH_VERSINFO[1]:-0}" -ge 2 ]; }; then
+  [ -n "$_UNGUARDED" ] && pass \
+    || fail "expected bash ${BASH_VERSINFO:-?} to keep the partial read — if that changed, the guard's rationale needs rechecking"
+else
+  [ -z "$_UNGUARDED" ] && pass \
+    || fail "bash ${BASH_VERSINFO:-?} kept a partial read it is documented to discard"
+fi
+
 begin_test "a hook whose stdin never reaches EOF exits at its bound, not the harness timeout"
 _SF=$(mktemp -u)
 mkfifo "$_SF"
