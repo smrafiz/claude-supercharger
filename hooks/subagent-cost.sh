@@ -19,7 +19,7 @@ mkdir -p "$SCOPE_DIR"
 # ── Start (SubagentStart) ─────────────────────────────────────────────────────
 if [[ "$MODE" == "start" ]]; then
   # v2.26.80: fork-free stdin read — see budget-cap.sh; same missed sibling.
-  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+  IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
@@ -72,7 +72,7 @@ fi
 # ── Stop (SubagentStop) ───────────────────────────────────────────────────────
 if [[ "$MODE" == "stop" ]]; then
   # v2.26.80: fork-free stdin read — see budget-cap.sh; same missed sibling.
-  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+  IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   # v2.6.23: one python3 fork does everything for stop mode. Was 12 forks
   # (1 for cwd, 1 for agent fields, 2 for active-file reads, 1 for NOW, 1 for

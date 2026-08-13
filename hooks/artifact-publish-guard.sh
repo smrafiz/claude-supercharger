@@ -29,7 +29,7 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 [ "${SUPERCHARGER_ARTIFACT_GUARD:-1}" = "0" ] && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # Fast path: nothing to do unless this is a publish with a file.
 case "$_INPUT" in *file_path*) ;; *) exit 0 ;; esac

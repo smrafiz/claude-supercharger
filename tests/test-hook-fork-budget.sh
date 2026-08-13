@@ -24,7 +24,10 @@ OFFENDERS=$(grep -lE '^[A-Za-z_][A-Za-z0-9_]*=\$\(cat\)$' "$REPO_DIR"/hooks/*.sh
 [ -z "$OFFENDERS" ] && pass || fail "forking cat to read stdin: $(printf '%s' "$OFFENDERS" | tr '\n' ' ')"
 
 begin_test "the fork-free read is the one actually in use"
-grep -q "IFS= read -r -d '' _INPUT" "$REPO_DIR/hooks/safety.sh" && pass \
+# The read gained a `-t` bound in v2.27.10 (see test-async-safety.sh) — the
+# variable no longer follows the flags, so match the two halves separately.
+grep -q "IFS= read -r -d ''" "$REPO_DIR/hooks/safety.sh" \
+  && grep -q "read -r -d '' .*_INPUT" "$REPO_DIR/hooks/safety.sh" && pass \
   || fail "safety.sh no longer uses the builtin read"
 
 # The read must stay byte-identical to $(cat), including trailing-newline

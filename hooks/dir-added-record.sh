@@ -37,7 +37,7 @@ check_hook_disabled "dir-added-record" && exit 0
 [ "${SUPERCHARGER_DIR_ADDED_RECORD:-1}" = "0" ] && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 SID="${CLAUDE_CODE_SESSION_ID:-}"
 [ -z "$SID" ] && exit 0

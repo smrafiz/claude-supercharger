@@ -46,7 +46,7 @@ if [[ "$MODE" == "accumulate" ]]; then
   # expensive hook on the Bash PreToolUse chain, so it was the worst place to
   # leave one. Byte-identical to $(cat): the trailing strip reproduces its
   # newline handling.
-  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+  IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   # v2.7.15: CC's PostToolUse payload carries NO token usage (verified: tool_response
   # = {interrupted,isImage,noOutputExpected,stderr,stdout}), so the old payload-usage
@@ -346,7 +346,7 @@ if [[ "$MODE" == "check" ]]; then
   # expensive hook on the Bash PreToolUse chain, so it was the worst place to
   # leave one. Byte-identical to $(cat): the trailing strip reproduces its
   # newline handling.
-  IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+  IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
   # Bash fast-path: skip the python3 fork entirely when no budget cap is
   # configured (the common case — most users don't set one). Walks up at most

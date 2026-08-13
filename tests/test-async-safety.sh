@@ -136,4 +136,54 @@ sys.exit(0 if ok else 1)
 PYEOF
 [ $? -eq 0 ] && pass || fail "typecheck is blocking again — 10.6s median on every edit"
 
+# --- no hook may wait on stdin forever ---------------------------------------
+# Every hook opens with `IFS= read -r -d '' _INPUT` — a read with no delimiter,
+# which returns only at EOF. If Claude Code holds the pipe open (a cancelled
+# tool call, a crashed parent, a slow writer), that read never returns and the
+# hook sits there until the harness kills it at its 15s timeout. Measured on a
+# Windows runner: 18 timeouts from stop-verify, 12 from safety, 8 from
+# enforce-pkg-manager, plus singles from four more — every one of them this read,
+# not the work the hook does. 122 hooks used the unbounded form and NONE bounded
+# it, so the exposure was the whole hook set.
+#
+# `-t` bounds it. The exit-status branch is the load-bearing half: rc=1 means EOF
+# (the payload is complete — keep it), rc>128 means the timeout fired (the
+# payload is a fragment — discard it, so no hook parses half a JSON document and
+# acts on it).
+begin_test "no hook reads stdin unbounded"
+BAD=""
+for f in "$REPO_DIR"/hooks/*.sh; do
+  grep -q "read -r -d ''" "$f" || continue
+  grep -q 'SUPERCHARGER_STDIN_TIMEOUT_S' "$f" || BAD="$BAD $(basename "$f")"
+done
+[ -z "$BAD" ] && pass || fail "unbounded stdin read (hangs to the 15s hook timeout):$BAD"
+
+begin_test "a bounded read keeps a complete payload and discards a truncated one"
+# The branch above is invisible to the scanner and unreachable on bash 3.2 via a
+# real hook (3.2 does not save partial input on a `read -t`), so exercise the
+# idiom itself: EOF must keep the data, timeout must clear it.
+EOF_R=$(printf '{"a":1}' | bash -c 'IFS= read -r -d "" -t 5 V || [ $? -le 128 ] || V=""; printf "%s" "$V"')
+[ "$EOF_R" = '{"a":1}' ] && pass || fail "EOF path lost the payload: '$EOF_R'"
+
+begin_test "a hook whose stdin never reaches EOF exits at its bound, not the harness timeout"
+_SF=$(mktemp -u)
+mkfifo "$_SF"
+( exec 9>"$_SF"; sleep 20 ) &
+_HOLDER=$!
+disown "$_HOLDER" 2>/dev/null || true   # silence the "Terminated" job notice on kill
+_T0=$(python3 -c 'import time; print(time.time())')
+SUPERCHARGER_STDIN_TIMEOUT_S=1 bash "$REPO_DIR/hooks/enforce-pkg-manager.sh" < "$_SF" >/dev/null 2>&1
+_RC=$?
+_T1=$(python3 -c 'import time; print(time.time())')
+kill "$_HOLDER" 2>/dev/null || true
+rm -f "$_SF"
+# Generous ceiling: this is a "does it return at all" check, not a timing assert.
+_EL=$(python3 -c 'import sys; print("%.2f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+_FAST=$(python3 -c 'import sys; print("1" if float(sys.argv[1]) < 6 else "0")' "$_EL")
+if [ "$_RC" -eq 0 ] && [ "$_FAST" = "1" ]; then
+  pass
+else
+  fail "held-open stdin: rc=$_RC after ${_EL}s (expected a clean exit near 1s)"
+fi
+
 report

@@ -18,7 +18,7 @@ mkdir -p "$SCOPE_DIR"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # v2.7.48: one jq extracts both single-line fields (session_id + project_dir) via
 # @tsv instead of two separate forks; split with fork-free parameter expansion.
 # The multi-line prompt is read in its own jq so a newline in it can't corrupt the

@@ -44,7 +44,7 @@ check_hook_disabled "sendmessage-guard" 2>/dev/null && exit 0
 [ "${SUPERCHARGER_SENDMESSAGE_GUARD:-1}" = "0" ] && exit 0
 
 # Fork-free stdin read (v2.26.35 convention).
-IFS= read -r -d '' _INPUT || true; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 _SM_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 _SM_LEDGER="$_SM_STATE/scope/.blocked-commands"
