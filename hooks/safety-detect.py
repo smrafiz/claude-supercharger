@@ -11,6 +11,28 @@ import os
 import re
 import shlex
 import sys
+import threading
+
+# Self-imposed wall-clock cap, because the caller's cap does not exist on macOS.
+#
+# safety.sh wraps this in `gtimeout 0.5` / `timeout 0.5` and falls back to NO
+# wrapper when neither is installed — which is the default macOS state, since
+# `timeout` ships with GNU coreutils and macOS has neither. So the comment there
+# promises a 500ms cap that, on a stock Mac, does not exist: this scanner runs
+# unbounded and a pathological regex runs until Claude Code kills the whole hook.
+# Measured on a real install: 12 safety.sh timeouts in 30 days, each burning the
+# full 15s registered timeout and blocking the tool call behind it.
+#
+# A thread-based watchdog needs no external binary and works on every platform,
+# unlike signal.SIGALRM which does not exist on Windows. os._exit(0) is abrupt on
+# purpose: exit 0 with no output is exactly the fail-OPEN contract safety.sh
+# already relies on (`|| PY_REASON=""`), so an overrun degrades to the regex
+# verdict already computed above it rather than to a phantom deny.
+_BUDGET_S = float(os.environ.get("SUPERCHARGER_DETECT_BUDGET_S", "0.5"))
+if _BUDGET_S > 0:
+    _wd = threading.Timer(_BUDGET_S, lambda: os._exit(0))
+    _wd.daemon = True
+    _wd.start()
 
 cmd = os.environ.get("CMD", "")
 if not cmd:
