@@ -407,10 +407,23 @@ printf '{"directory":"%s"}' "$W/pro" | CLAUDE_CODE_SESSION_ID="" SUPERCHARGER_ST
 [ -z "$(ls -A "$ST/scope" 2>/dev/null)" ] && pass || fail "wrote without a session id"
 rm -rf "$ST" "$(dirname "$W")"
 
-begin_test "recorder is registered on DirectoryAdded and executable"
-grep -q 'DirectoryAdded|\*|.*dir-added-record.sh' "$REPO_DIR/lib/hooks.sh" \
-  && grep -q 'dir-added-record' "$REPO_DIR/hooks/hooks.json" \
-  && [ -x "$RECORDER" ] && pass || fail "registration or exec bit missing"
+begin_test "the recorder is NOT registered — DirectoryAdded is not a real event"
+# This test used to assert the opposite, and passing is exactly what hid the bug:
+# it checked that the registration was WRITTEN, never that Claude Code dispatches
+# the event. It does not — CC names the valid set in its own error and
+# DirectoryAdded is absent — so the hook never fired and path-guard's in-session
+# `/add-dir` support never worked, for four releases, with this test green.
+#
+# The registration is gone (see lib/hooks.sh). The script stays: its logic is
+# tested above and is ready if CC ever ships such an event. What must not come
+# back is the REGISTRATION, so that is what this pins.
+# Event names are validated wholesale in tests/test-hook-events.sh.
+if grep -q 'DirectoryAdded' "$REPO_DIR/lib/hooks.sh" \
+   && grep -qE 'hooks\+=\("DirectoryAdded' "$REPO_DIR/lib/hooks.sh"; then
+  fail "DirectoryAdded registration is back — the hook cannot fire on that event"
+else
+  pass
+fi
 
 begin_test "session root and additionalRoots compose"
 W=$(newlayout); OTHER=$(mktemp -d); OTHER=$(cd "$OTHER" && pwd -P); mkdir -p "$OTHER/third"

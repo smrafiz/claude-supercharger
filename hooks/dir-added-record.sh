@@ -1,6 +1,17 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Record /add-dir Directories
-# Event: DirectoryAdded | Matcher: (none)
+# Event: NONE — PARKED, NOT REGISTERED
+#
+# This was registered on "DirectoryAdded" from v2.26.43. Claude Code has no such
+# event: it enumerates the valid set when it rejects one, and DirectoryAdded is
+# not among them. So this never ran, and the in-session `/add-dir` support below
+# never existed — while a test asserting the registration passed throughout.
+# Reported by a user whose /doctor flagged the dead entry.
+#
+# Kept because the logic is sound and unit-tested (tests/test-additional-roots.sh)
+# and would work unchanged if such an event ships. Do NOT re-register it without
+# first confirming on a LIVE session that the event fires — reading a
+# registration proves it is written, never that it is dispatched.
 #
 # Claude Code has three ways to put a directory in the workspace: the `--add-dir`
 # launch flag, the `/add-dir` in-session command, and the

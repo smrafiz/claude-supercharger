@@ -28,6 +28,7 @@ cmd-normalize.sh	sourced by safety/commit-guard/git-safety, not a hook itself
 notify-helper.sh	sourced by elicitation-guard/notify-permission/notify-stop
 detect-stack.sh	standalone CLI utility (tools/claude-check.sh, docs/HOOKS.md)
 statusline.sh	registered as settings.json statusLine via lib/hooks.sh, not hooks.json
+dir-added-record.sh	parked: Claude Code has no DirectoryAdded event, so nothing can dispatch it (see tests/test-hook-events.sh)
 "
 
 # tests/*.sh not matched by run.sh's test-*.sh glob.

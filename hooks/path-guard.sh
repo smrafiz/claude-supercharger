@@ -89,10 +89,14 @@ fi
 # this guard still denied the write. That is a false block on explicit consent,
 # and it is the answer we should have given before inventing `additionalRoots`.
 #
-# Two sources, matching CC's two mechanisms:
+# Two sources were intended; only the first works:
 #   - settings.json permissions.additionalDirectories  (static; user + project)
-#   - .session-dirs-<sid>, appended by dir-added-record.sh on DirectoryAdded
-#     (dynamic; the in-session `/add-dir`)
+#   - .session-dirs-<sid>, appended by dir-added-record.sh — NEVER WRITTEN.
+#     That hook was registered on "DirectoryAdded", which Claude Code does not
+#     dispatch, so the in-session `/add-dir` half has never been honoured. The
+#     read below stays because the file is still the right contract if such an
+#     event ships; today it simply never exists. A user running `/add-dir` mid
+#     session is still denied here, which is a known gap, not a silent one.
 # Both go through the SAME refusals as a configured root — CC granting read
 # access to $HOME must not silently make the home directory writable here.
 CC_DIRS=""

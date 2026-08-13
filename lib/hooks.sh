@@ -407,10 +407,31 @@ get_hooks_for_mode() {
     # correct event and covers strictly more — a plain cd into any repo, not just a
     # new worktree.
     hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
-    # v2.26.43: record `/add-dir` so path-guard honours Claude Code's own
-    # directory authorisation. Without it, a directory the user explicitly added
-    # to the workspace is still denied by our boundary check.
-    hooks+=("DirectoryAdded|*|${hooks_dir}/dir-added-record.sh|")
+    # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
+    # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
+    # valid set in its own error, and DirectoryAdded is not among them:
+    #
+    #   Unknown hook event "DirectoryAdded" was ignored. Valid events: PreToolUse,
+    #   PostToolUse, PostToolUseFailure, PostToolBatch, Notification,
+    #   UserPromptSubmit, UserPromptExpansion, SessionStart, SessionEnd, Stop,
+    #   StopFailure, SubagentStart, SubagentStop, PreCompact, PostCompact,
+    #   PermissionRequest, PermissionDenied, Setup, TeammateIdle, TaskCreated,
+    #   TaskCompleted, Elicitation, ElicitationResult, ConfigChange,
+    #   WorktreeCreate, WorktreeRemove, InstructionsLoaded, CwdChanged,
+    #   FileChanged, MessageDisplay
+    #
+    # So the hook never fired, .session-dirs-<sid> was never written, and the
+    # in-session `/add-dir` half of that feature has never worked — while the
+    # test asserted the REGISTRATION existed and passed throughout. Third time
+    # this repo has shipped a filter in a dialect the harness ignores, after the
+    # bare `mcp__` matcher (v2.24.5) and the `if` field (v2.26.85): declared,
+    # silent, inert. Now scanned in tests/test-hook-events.sh.
+    #
+    # Reported by a user whose /doctor flagged it. The registration is removed
+    # rather than renamed: no event in the valid set means "a directory was added
+    # to the workspace" (WorktreeCreate is git worktrees, a different trigger).
+    # The STATIC half still works — path-guard reads
+    # permissions.additionalDirectories from settings.json directly.
     # v2.26.8: slash-command expansion is a third channel by which untrusted text
     # becomes instructions — a command body can come from a plugin or a shared repo.
     # Same hook, same pattern list as the Read/WebFetch/MCP channel: a second scanner
