@@ -68,5 +68,51 @@ run_event_logger "subagent_stop" '{"agent_id":"a1","stop_hook_active":true}'
 N=$(grep -c "subagent_stop" "$LOG_FILE" 2>/dev/null || echo 0)
 [ "$N" = "1" ] && pass || fail "expected 1 subagent_stop line (re-fire skipped), got $N"
 
+# --- the ledger's contract: one line per event ------------------------------
+# tool_failure truncated its message to 80 chars but never stripped newlines, so
+# a Bash failure carrying a traceback wrote those 80 characters ACROSS SEVERAL
+# LINES. The live log on this machine had 15 such orphans (a bare "20", a bare
+# `File "<stdin>", line 2, in <mod`). Every line-wise reader counts them as
+# events, and the 500-line rotation trims by line — so one noisy failure evicts
+# real history.
+begin_test "event-logger: a multi-line tool error stays one ledger line"
+: > "$LOG_FILE"
+run_event_logger "tool_failure" "$(python3 -c '
+import json
+print(json.dumps({"tool_name": "Bash",
+                  "error": "Exit code 1\nTraceback (most recent call last):\n  File \"x\", line 2\n    20\n"}))')"
+N=$(wc -l < "$LOG_FILE" | tr -d " ")
+[ "$N" = "1" ] && pass || fail "expected 1 line, got $N"
+
+begin_test "event-logger: the collapsed error is still readable"
+grep -q "tool=Bash error=Exit code 1 Traceback" "$LOG_FILE" \
+  && pass || fail "message lost in the collapse: $(cat "$LOG_FILE")"
+
+# --- an error message is a place credentials show up ------------------------
+# A failed curl echoes its URL; a driver prints its connection string. This file
+# is plaintext and long-lived, so it goes through the SAME secret list as tool
+# output, commits and cross-session messages (lib-secret-patterns.sh).
+begin_test "event-logger: a token in an error message is not written to the log"
+: > "$LOG_FILE"
+run_event_logger "tool_failure" "$(python3 -c '
+import json
+print(json.dumps({"tool_name": "Bash", "error": "auth failed for " + "ghp_" + "A" * 36}))')"
+grep -q "ghp_" "$LOG_FILE" && fail "token written to the ledger: $(cat "$LOG_FILE")" || pass
+
+begin_test "event-logger: credentials in a connection string are not written either"
+: > "$LOG_FILE"
+run_event_logger "tool_failure" "$(python3 -c '
+import json
+print(json.dumps({"tool_name": "Bash", "error": "connect: postgres://user:hunter2@db:5432/app refused"}))')"
+grep -q "hunter2" "$LOG_FILE" && fail "credential written to the ledger" || pass
+
+begin_test "event-logger: redaction says so rather than dropping the event"
+grep -q "redacted" "$LOG_FILE" && pass || fail "event vanished instead of being redacted"
+
+begin_test "event-logger: an ordinary error is NOT redacted"
+: > "$LOG_FILE"
+run_event_logger "tool_failure" '{"tool_name":"Bash","error":"plain failure, nothing secret"}'
+grep -q "error=plain failure" "$LOG_FILE" && pass || fail "false redaction: $(cat "$LOG_FILE")"
+
 teardown_test_home
 report
