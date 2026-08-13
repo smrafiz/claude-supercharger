@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.27.6] - 2026-08-13 — a hook was registered on DirectoryAdded, an event Claude Code does not dispatch, so path-guard never honoured in-session /add-dir; every registered event is now validated against Claude Code's own list. 3621 tests passing.
 - [2.27.5] - 2026-08-12 — windows: a carriage return landed in four filenames — no tool history, a present file reported missing, an approval gate that forgot, and the typecheck and lint caches off platform-wide. 3616 tests passing.
 - [2.27.4] - 2026-08-12 — windows: path-guard denied Claude's own scratchpad and could miss a write to the hooks dir, both from comparing forward slashes against a backslash path; nine more expanduser sites the previous sweep's pattern missed. 3615 tests passing.
 - [2.27.3] - 2026-08-12 — windows: os.rename discarded every state write after the first, freezing budget-cap and failing the subagent circuit-breaker OPEN; two test harnesses resolved home differently from the hooks they were testing. 3614 tests passing.
