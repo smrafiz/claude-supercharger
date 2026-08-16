@@ -59,7 +59,14 @@ COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/
 #      "failed 3x, try a different approach" nudge NEVER FIRED for multi-line
 #      commands. Measured: 3 identical multi-line failures produced 6 rows and no
 #      nudge; the same command on one line produced 3 rows and nudged.
-CMD_KEY="${COMMAND//$'\n'/ }"; CMD_KEY="${CMD_KEY//$'\r'/ }"; CMD_KEY="${CMD_KEY//$'\t'/ }"
+# Truncate BEFORE substituting: the key is cut to 100 characters on the next
+# line, so running three global substitutions over a whole command rebuilt every
+# byte past the cap for nothing. Bash substitution is superlinear (measured: 8KB
+# 646ms, 32KB 57.5s), and a failing command can be long — a wide file list, a
+# generated invocation. Replacement is 1:1 in length, so slicing first gives the
+# identical key. Same defect as learn-from-prompts (v2.27.19).
+CMD_KEY="${COMMAND:0:100}"
+CMD_KEY="${CMD_KEY//$'\n'/ }"; CMD_KEY="${CMD_KEY//$'\r'/ }"; CMD_KEY="${CMD_KEY//$'\t'/ }"
 CMD_KEY=$(printf '%.100s' "$CMD_KEY" | sed 's/[0-9]\{4,\}//g')
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
