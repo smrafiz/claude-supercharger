@@ -231,11 +231,27 @@ hook_already_emitted() {
   return 1
 }
 
-# Cache jq availability for this session — avoids repeated failed fork on jq-less systems
-if [ -z "${_JQ_AVAILABLE+set}" ]; then
-  command -v jq &>/dev/null && _JQ_AVAILABLE=1 || _JQ_AVAILABLE=0
-  export _JQ_AVAILABLE
-fi
+# v2.27.18: the jq-availability cache is GONE. It computed _JQ_AVAILABLE at source
+# time in all 100 hooks that source this file, and NOTHING in the product ever
+# read it — the only other reference in the repo is the design doc that proposed
+# a consumer (docs/superpowers/plans/2026-04-23-hook-performance-optimizations.md),
+# and the later dead-code cleanup took the reader without the writer.
+#
+# Removed as DEAD CODE, not as an optimisation. On macOS it costs nothing
+# measurable: same file, only this block differing, 120 iterations per arm,
+# deltas of -0.05, +0.28 and -0.08 ms across three rounds. An earlier single
+# unreplicated pair suggested ~9ms and that reading did not survive repetition.
+#
+# On WINDOWS it was worth 30ms PER HOOK. Measured on the Git Bash runner, same
+# file, only this block differing: sourcing this lib cost 60.3ms with it and
+# 30.0ms without, against 28.6ms for the comparable lib-paths and 28.7ms for bare
+# bash. So this one dead lookup WAS the entire gap between lib-suppress and the
+# floor, in the lib that 100 hooks source, on every tool call.
+#
+# The mechanism is the platform's file I/O, not the shell: `command -v` walks a
+# 30+ entry PATH, and a stat there costs 0.171ms against 0.048ms on macOS.
+#
+# If a consumer is ever wanted, compute it AT THE POINT OF USE.
 
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
 init_hook_suppress
