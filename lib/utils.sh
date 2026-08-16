@@ -9,7 +9,7 @@
 : "${PYTHONUTF8:=1}"
 export PYTHONIOENCODING PYTHONUTF8
 
-VERSION="2.27.21"
+VERSION="2.27.22"
 
 # Every scope dir a HOOK might read state from — classic install + any plugin install.
 # Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
@@ -19,6 +19,38 @@ VERSION="2.27.21"
 # So glob the plugin data dirs directly and act on ALL of them. See memory
 # sc-toggle-plugin-path-divergence. Usage: `while read -r d; do …; done < <(sc_scope_dirs)`
 # (or a heredoc loop for bash 3.2 process-substitution safety).
+# Is $1 a strictly NEWER version than $2? Numeric, field by field.
+#
+# Every version decision in this repo used to be a string test — `!=` to notify,
+# `=` to decide "already up to date". Different is not the same as newer, and the
+# gap has teeth: fetch_remote_version reads VERSION from lib/utils.sh on master
+# through the GitHub contents API, which is CDN-cached and DOES lag. It served
+# 2.27.14 while master was already ahead. Under a string test that made
+# `update.sh` treat an OLDER remote as an update and proceed — silently
+# DOWNGRADING the install and reverting shipped fixes — while the notifier
+# announced "v2.27.20 -> v2.27.14".
+#
+# Lexical order is wrong for versions too: "2.27.9" sorts after "2.27.10", so a
+# string compare hid real updates as readily as it invented fake ones.
+#
+# hooks/update-check.sh carries its own copy (_sc_newer_than) because hooks do not
+# source lib/; tests/test-version-compare-parity.sh runs BOTH over one case table
+# so the two cannot drift.
+sc_version_newer() {
+  [ "$1" = "$2" ] && return 1
+  local _a="$1" _b="$2" _x _y
+  while [ -n "$_a$_b" ]; do
+    _x="${_a%%.*}"; _y="${_b%%.*}"
+    case "$_x" in ''|*[!0-9]*) _x=0 ;; esac
+    case "$_y" in ''|*[!0-9]*) _y=0 ;; esac
+    [ "$_x" -gt "$_y" ] && return 0
+    [ "$_x" -lt "$_y" ] && return 1
+    case "$_a" in *.*) _a="${_a#*.}" ;; *) _a="" ;; esac
+    case "$_b" in *.*) _b="${_b#*.}" ;; *) _b="" ;; esac
+  done
+  return 1
+}
+
 sc_scope_dirs() {
   # If CLAUDE_PLUGIN_DATA is explicitly set, that IS the state root — use only it.
   # Two reasons this is right, not a special case:

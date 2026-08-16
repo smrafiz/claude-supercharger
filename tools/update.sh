@@ -25,6 +25,30 @@ REPO_URL="https://github.com/smrafiz/claude-supercharger"
 RULES_DIR="$HOME/.claude/rules"
 ALL_ROLES=("developer" "writer" "student" "data" "pm" "designer" "devops" "researcher")
 
+# Shared helpers (sc_version_newer). Sourced defensively: this file also runs from
+# an install directory, where lib/ sits beside tools/, and a missing lib must not
+# take the updater down — the fallback below keeps version comparison working.
+if [ -f "$REPO_DIR/lib/utils.sh" ]; then
+  # shellcheck source=lib/utils.sh
+  . "$REPO_DIR/lib/utils.sh" 2>/dev/null || true
+fi
+if ! command -v sc_version_newer >/dev/null 2>&1; then
+  sc_version_newer() {
+    [ "$1" = "$2" ] && return 1
+    local _a="$1" _b="$2" _x _y
+    while [ -n "$_a$_b" ]; do
+      _x="${_a%%.*}"; _y="${_b%%.*}"
+      case "$_x" in ''|*[!0-9]*) _x=0 ;; esac
+      case "$_y" in ''|*[!0-9]*) _y=0 ;; esac
+      [ "$_x" -gt "$_y" ] && return 0
+      [ "$_x" -lt "$_y" ] && return 1
+      case "$_a" in *.*) _a="${_a#*.}" ;; *) _a="" ;; esac
+      case "$_b" in *.*) _b="${_b#*.}" ;; *) _b="" ;; esac
+    done
+    return 1
+  }
+fi
+
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 RED='\033[0;31m'
@@ -152,8 +176,15 @@ if [[ "${1:-}" == "--check" ]]; then
     echo -e "${YELLOW}could not reach GitHub${NC}"
     exit 0
   fi
-  if [ "$LOCAL" = "$REMOTE" ]; then
-    echo -e "${GREEN}up to date (v${LOCAL})${NC}"
+  if ! sc_version_newer "$REMOTE" "$LOCAL"; then
+    # Equal, or the published version is older than what is installed (the API
+    # lags after a release). Neither is an update; saying so kept users chasing a
+    # notice that pointed backwards.
+    if [ "$LOCAL" = "$REMOTE" ]; then
+      echo -e "${GREEN}up to date (v${LOCAL})${NC}"
+    else
+      echo -e "${GREEN}up to date (v${LOCAL}; published: v${REMOTE})${NC}"
+    fi
   else
     echo -e "${YELLOW}update available: v${LOCAL} → v${REMOTE}${NC}"
     echo ""
@@ -200,6 +231,19 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   fi
   if [ "$LOCAL" = "$REMOTE" ]; then
     echo -e "${GREEN}already up to date (v${LOCAL})${NC}"
+    exit 0
+  fi
+  # REFUSE to move backwards. This used to be `if equal then stop` and otherwise
+  # proceed, so a remote OLDER than the install counted as an update and was
+  # applied — a silent downgrade that reverts shipped fixes. The remote version
+  # comes from the GitHub contents API, which is CDN-cached and does lag: it
+  # served 2.27.14 while master was already ahead. Anyone updating inside that
+  # window, or running a build ahead of master, would have been rolled back.
+  if ! sc_version_newer "$REMOTE" "$LOCAL"; then
+    echo -e "${YELLOW}installed v${LOCAL} is newer than the published v${REMOTE} — not downgrading.${NC}"
+    echo -e "  This is normal right after a release (the GitHub API lags) or on a development build."
+    echo -e "  To install the published version deliberately, check it out and run its installer:"
+    echo -e "    git -C <your-clone> checkout v${REMOTE} && bash <your-clone>/install.sh"
     exit 0
   fi
   echo -e "${YELLOW}v${LOCAL} → v${REMOTE}${NC}"

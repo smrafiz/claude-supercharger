@@ -19,7 +19,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-VERSION="2.27.21"
+VERSION="2.27.22"
 RULES_DIR="$HOME/.claude/rules"
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SETTINGS="$HOME/.claude/settings.json"
@@ -319,7 +319,30 @@ except Exception:
     print('')
 " 2>/dev/null)
 
-if [ -n "$REMOTE_VERSION" ] && [ "$REMOTE_VERSION" != "$VERSION" ]; then
+# Newer, not merely different — a string test announced downgrades too.
+# sc_version_newer, defined here rather than assumed: this script does not source
+# lib/utils.sh, and calling an undefined function inside `if !` silently makes the
+# condition true — which is how update.sh came to HIDE a real update while
+# reporting "up to date". Same numeric comparison as lib/utils.sh; the parity test
+# keeps the copies honest.
+if ! command -v sc_version_newer >/dev/null 2>&1; then
+  sc_version_newer() {
+    [ "$1" = "$2" ] && return 1
+    local _a="$1" _b="$2" _x _y
+    while [ -n "$_a$_b" ]; do
+      _x="${_a%%.*}"; _y="${_b%%.*}"
+      case "$_x" in ''|*[!0-9]*) _x=0 ;; esac
+      case "$_y" in ''|*[!0-9]*) _y=0 ;; esac
+      [ "$_x" -gt "$_y" ] && return 0
+      [ "$_x" -lt "$_y" ] && return 1
+      case "$_a" in *.*) _a="${_a#*.}" ;; *) _a="" ;; esac
+      case "$_b" in *.*) _b="${_b#*.}" ;; *) _b="" ;; esac
+    done
+    return 1
+  }
+fi
+
+if [ -n "$REMOTE_VERSION" ] && sc_version_newer "$REMOTE_VERSION" "$VERSION"; then
   echo -e "${YELLOW}  Update available: v${VERSION} → v${REMOTE_VERSION}${NC}"
   echo -e "${DIM}  Run: bash ~/.claude/supercharger/tools/update.sh${NC}"
   echo ""
