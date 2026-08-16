@@ -36,6 +36,24 @@ _json_fast_str() {
   _JSON_FAST_VAL=""
   [ -n "$key" ] && [ -n "$body" ] || return 1
 
+  # SIZE GATE. This function exists to avoid a jq fork, and below a few KB it does
+  # — but its slicing is greedy parameter expansion over the WHOLE payload, which
+  # is quadratic, while jq is flat. Measured on macOS, extracting one key:
+  #
+  #     payload    this      jq
+  #      2.4 KB    12 ms   20 ms   <- fork-free wins
+  #      6.7 KB    23 ms   17 ms   <- crossover
+  #     73.9 KB  4842 ms   17 ms   <- 280x SLOWER than the fork it replaced
+  #
+  # safety.sh calls this up to five times per invocation, so a long Bash command
+  # (a wide `prettier --write` list, a generated command) took the top security
+  # hook to 19.7s at 62KB and 102s at 126KB — past the harness's 15s kill, which
+  # means the guard was being killed mid-check rather than returning a verdict.
+  #
+  # Refusing above the crossover hands the caller back to its jq/python fallback,
+  # which every caller already has. Tune with SUPERCHARGER_JSON_FAST_MAX.
+  [ "${#body}" -gt "${SUPERCHARGER_JSON_FAST_MAX:-4096}" ] && return 1
+
   # The key must appear exactly once in the whole payload, else we can't be sure
   # which occurrence owns the value we're about to slice.
   rest="${body#*\"$key\"}"

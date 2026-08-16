@@ -49,8 +49,19 @@ PROJ_HASH="${PROJ_HASH:0:8}"
 # Truncating alone does not help: the newline sits inside the first 200 chars.
 # Collapsing here (not at each writer) also fixes the dedup below, which passes
 # the snippet to `grep -qF` — a multi-line pattern there matches line-by-line.
-SNIPPET="${PROMPT//$'\n'/ }"; SNIPPET="${SNIPPET//$'\r'/ }"; SNIPPET="${SNIPPET//$'\t'/ }"
-SNIPPET=$(printf '%.200s' "$SNIPPET")
+# TRUNCATE FIRST, then substitute. These three global substitutions used to run
+# over the ENTIRE prompt to build a snippet that is capped at 200 characters two
+# lines later — so every byte past the cap was rebuilt for nothing. Bash pattern
+# substitution is superlinear, and "for nothing" turned into hours: measured on
+# macOS, 16KB took 5.6s and 64KB took 454.8s (7.6 minutes). A prompt with a
+# pasted file in it therefore pinned a core; one such process was found running
+# 4h46m at 94% CPU, on the UserPromptSubmit path, where it delays the prompt.
+#
+# Replacement is 1:1 in length, so truncating first is not merely an
+# approximation — the first 200 characters of the substituted string are exactly
+# the substitution of the first 200 characters.
+SNIPPET="${PROMPT:0:200}"
+SNIPPET="${SNIPPET//$'\n'/ }"; SNIPPET="${SNIPPET//$'\r'/ }"; SNIPPET="${SNIPPET//$'\t'/ }"
 
 # --- Corrections (negative feedback) ---
 # Only match if prompt is short (<500 chars) and starts with correction language.

@@ -856,18 +856,27 @@ case "$CMD" in
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
 esac
 
-if [ "$_NEED_PY" = "true" ] && [ -x "$(command -v python3 2>/dev/null)" ]; then
-  # Cap Python fork at 500ms — defensive against runaway regex / deep traversal.
-  if command -v gtimeout >/dev/null 2>&1; then _TIMEOUT="gtimeout 0.5"
-  elif command -v timeout >/dev/null 2>&1; then _TIMEOUT="timeout 0.5"
-  else _TIMEOUT=""
-  fi
+# `command -v python3` without the $( ) — the command substitution forked a
+# subshell on the hottest hook in the product to learn something the builtin
+# already reports through its exit status.
+if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
+  # v2.27.19: the gtimeout/timeout probing is GONE. It cost two PATH walks —
+  # ~13-30ms EACH on Git Bash, where a stat is 0.171ms and PATH has 30+ entries —
+  # and on the two platforms where that hurts it found nothing: neither macOS nor
+  # Git Bash ships either binary, so _TIMEOUT resolved to the empty string and the
+  # cap it advertised never existed there.
+  #
+  # The cap is now where it works on every platform: safety-detect.py arms a
+  # thread watchdog with the same 0.5s budget (v2.27.7, SUPERCHARGER_DETECT_BUDGET_S).
+  # Residual gap, stated rather than hidden: the watchdog arms after the imports,
+  # so a hang during interpreter startup is no longer bounded here. That case was
+  # only ever covered on Linux, and the `|| PY_REASON=""` below still fails open.
   # `|| PY_REASON=""` (2.17.3): the deep scanner is defense-in-depth ON TOP of the
   # regex checks already run above. If it exits non-zero for ANY reason — missing
   # file (python exits 2), crash, or the 0.5s timeout — `set -e` would otherwise
   # kill this hook with empty stderr, which CC renders as a phantom
   # "hook error: No stderr output" deny. Fail OPEN to the regex verdict instead.
-  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" $_TIMEOUT python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi
