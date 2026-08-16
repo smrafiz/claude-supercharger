@@ -29,6 +29,28 @@ CACHE_TTL=86400  # 24 hours
 
 LOCAL=$(cat "$VERSION_FILE")
 
+# Is $1 strictly newer than $2, comparing numerically field by field? A plain
+# `!=` was used here, and it announced an "update" whenever the two strings
+# merely DIFFERED — including when the local install was NEWER. That is not a
+# corner case: the cache below holds the last-seen remote version for 24 hours,
+# so after any successful update the notice pointed BACKWARDS at the version the
+# user had just left, for the rest of the day. A notifier that cries wolf gets
+# ignored, which is how an install ends up twenty releases behind.
+_sc_newer_than() {
+  [ "$1" = "$2" ] && return 1
+  _a="$1"; _b="$2"
+  while [ -n "$_a$_b" ]; do
+    _x="${_a%%.*}"; _y="${_b%%.*}"
+    case "$_x" in ''|*[!0-9]*) _x=0 ;; esac
+    case "$_y" in ''|*[!0-9]*) _y=0 ;; esac
+    [ "$_x" -gt "$_y" ] && return 0
+    [ "$_x" -lt "$_y" ] && return 1
+    case "$_a" in *.*) _a="${_a#*.}" ;; *) _a="" ;; esac
+    case "$_b" in *.*) _b="${_b#*.}" ;; *) _b="" ;; esac
+  done
+  return 1
+}
+
 # Use cached result if fresh
 if [ -f "$CACHE_FILE" ]; then
   # v2.6.78: GNU-first stat order with numeric guard. Linux `stat -f` returns
@@ -40,7 +62,7 @@ if [ -f "$CACHE_FILE" ]; then
   CACHE_AGE=$(( $(date +%s) - CACHE_MTIME ))
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     REMOTE=$(cat "$CACHE_FILE")
-    if [ -n "$REMOTE" ] && [ "$REMOTE" != "$LOCAL" ]; then
+    if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
       echo "╔══════════════════════════════════════════════╗" >&2
       echo "║  Supercharger update: v${LOCAL} → v${REMOTE}" >&2
       echo "║  Run: bash ~/.claude/supercharger/tools/update.sh" >&2
@@ -70,7 +92,7 @@ except Exception:
 
   [ -n "$REMOTE" ] && echo "$REMOTE" > "$CACHE_FILE"
 
-  if [ -n "$REMOTE" ] && [ "$REMOTE" != "$LOCAL" ]; then
+  if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
     echo "╔══════════════════════════════════════════════╗" >&2
     echo "║  Supercharger update: v${LOCAL} → v${REMOTE}" >&2
     echo "║  Run: bash ~/.claude/supercharger/tools/update.sh" >&2
