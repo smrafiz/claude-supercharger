@@ -91,12 +91,13 @@ fi
 #
 # Two sources were intended; only the first works:
 #   - settings.json permissions.additionalDirectories  (static; user + project)
-#   - .session-dirs-<sid>, appended by dir-added-record.sh — NEVER WRITTEN.
-#     That hook was registered on "DirectoryAdded", which Claude Code does not
-#     dispatch, so the in-session `/add-dir` half has never been honoured. The
-#     read below stays because the file is still the right contract if such an
-#     event ships; today it simply never exists. A user running `/add-dir` mid
-#     session is still denied here, which is a known gap, not a silent one.
+#   - .session-dirs-<sid>, appended by dir-added-record.sh — WORKING as of
+#     v2.27.23. That hook was registered on "DirectoryAdded", which Claude Code
+#     did not dispatch when this was written, so the in-session `/add-dir` half
+#     went unhonoured and the file never existed. Claude Code shipped the event
+#     since: 2.1.219 added it, 2.1.233 wired it to `/add-dir` and the SDK
+#     register_repo_root request. Verified end to end — a write to a sibling
+#     directory is denied, and allowed once DirectoryAdded records it.
 # Both go through the SAME refusals as a configured root — CC granting read
 # access to $HOME must not silently make the home directory writable here.
 CC_DIRS=""

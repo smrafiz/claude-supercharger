@@ -53,6 +53,44 @@ DIR=$(printf '%s\n' "$_INPUT" | jq -r '
   .tool_input.directory //
   .tool_input.path //
   empty' 2>/dev/null || true)
+
+# Last resort, independent of field NAMING: the payload carries an absolute path
+# to a directory that exists and is not the session cwd. Claude Code documents
+# the event but not its schema, and a seventh field name would otherwise make
+# this hook exit 0 in silence — the failure mode that left /add-dir unhonoured
+# for months the first time (registered on an event that did not yet exist).
+if [ -z "$DIR" ]; then
+  DIR=$(printf '%s\n' "$_INPUT" | python3 -c "
+import json, os, sys
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    sys.exit(0)
+cwd = os.path.realpath(d.get('cwd') or '') if d.get('cwd') else ''
+def walk(v):
+    if isinstance(v, str):
+        yield v
+    elif isinstance(v, dict):
+        for x in v.values():
+            yield from walk(x)
+    elif isinstance(v, list):
+        for x in v:
+            yield from walk(x)
+for s in walk(d):
+    if not s.startswith('/') or len(s) < 2:
+        continue
+    if not os.path.isdir(s):
+        continue
+    if cwd and os.path.realpath(s) == cwd:
+        continue
+    print(s)
+    break
+" 2>/dev/null || true)
+  # Say so when it happens: a schema change should be visible, not absorbed.
+  if [ -n "$DIR" ] && [ "${HOOK_SUPPRESS:-true}" = "false" ]; then
+    echo "[Supercharger] dir-added-record: no known field matched; used a path found in the payload ($DIR)" >&2
+  fi
+fi
 [ -z "$DIR" ] && exit 0
 
 case "$DIR" in

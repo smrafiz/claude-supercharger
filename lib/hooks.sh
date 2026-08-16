@@ -432,6 +432,21 @@ get_hooks_for_mode() {
     # to the workspace" (WorktreeCreate is git worktrees, a different trigger).
     # The STATIC half still works — path-guard reads
     # permissions.additionalDirectories from settings.json directly.
+    #
+    # v2.27.23: RESTORED. Claude Code shipped the event after that removal —
+    # 2.1.219 added DirectoryAdded, and 2.1.233 extended it to `/add-dir` and the
+    # SDK register_repo_root control request. Verified against the installed
+    # binary rather than the changelog: it exports executeDirectoryAddedHooks and
+    # its hook registry maps DirectoryAdded to a dispatcher. So the in-session
+    # half of `/add-dir` can finally be honoured, and a user who authorises a
+    # sibling directory through the product's own front door stops being denied
+    # writes to it by path-guard.
+    #
+    # The removal was right for its time and the note above is kept: what changed
+    # is the platform, not the reasoning. The events test now derives its valid
+    # set from the INSTALLED Claude Code where it can, so this cannot silently
+    # rot in either direction again.
+    hooks+=("DirectoryAdded|*|${hooks_dir}/dir-added-record.sh|")
     # v2.26.8: slash-command expansion is a third channel by which untrusted text
     # becomes instructions — a command body can come from a plugin or a shared repo.
     # Same hook, same pattern list as the Read/WebFetch/MCP channel: a second scanner

@@ -1502,6 +1502,18 @@
         ]
       }
     ],
+    "DirectoryAdded": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/dir-added-record.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "*"
+      }
+    ],
     "UserPromptExpansion": [
       {
         "hooks": [

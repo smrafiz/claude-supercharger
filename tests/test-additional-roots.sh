@@ -407,22 +407,23 @@ printf '{"directory":"%s"}' "$W/pro" | CLAUDE_CODE_SESSION_ID="" SUPERCHARGER_ST
 [ -z "$(ls -A "$ST/scope" 2>/dev/null)" ] && pass || fail "wrote without a session id"
 rm -rf "$ST" "$(dirname "$W")"
 
-begin_test "the recorder is NOT registered — DirectoryAdded is not a real event"
-# This test used to assert the opposite, and passing is exactly what hid the bug:
-# it checked that the registration was WRITTEN, never that Claude Code dispatches
-# the event. It does not — CC names the valid set in its own error and
-# DirectoryAdded is absent — so the hook never fired and path-guard's in-session
-# `/add-dir` support never worked, for four releases, with this test green.
+begin_test "the recorder IS registered on DirectoryAdded"
+# This assertion has now been correct in both directions, which is the point.
+# It first pinned that the registration EXISTED, and passed for four releases
+# while the hook never fired, because Claude Code did not dispatch the event —
+# checking that a line was written proves nothing about whether it runs. It was
+# then flipped to pin the ABSENCE of the registration, which was right until
+# CC 2.1.219 shipped DirectoryAdded and 2.1.233 wired it to /add-dir.
 #
-# The registration is gone (see lib/hooks.sh). The script stays: its logic is
-# tested above and is ready if CC ever ships such an event. What must not come
-# back is the REGISTRATION, so that is what this pins.
-# Event names are validated wholesale in tests/test-hook-events.sh.
-if grep -q 'DirectoryAdded' "$REPO_DIR/lib/hooks.sh" \
-   && grep -qE 'hooks\+=\("DirectoryAdded' "$REPO_DIR/lib/hooks.sh"; then
-  fail "DirectoryAdded registration is back — the hook cannot fire on that event"
-else
+# So neither direction is a property of THIS repo alone: it depends on the
+# installed Claude Code. tests/test-hook-events.sh derives the valid set from
+# the binary and is the authority on whether the event exists; this test only
+# pins that the recorder is wired to it, and the end-to-end behaviour below
+# (deny without the record, allow with it) is what proves it fires.
+if grep -qE 'hooks\+=\("DirectoryAdded' "$REPO_DIR/lib/hooks.sh"; then
   pass
+else
+  fail "dir-added-record is not registered on DirectoryAdded — /add-dir is unhonoured again"
 fi
 
 begin_test "session root and additionalRoots compose"
