@@ -806,6 +806,88 @@ jobs:
       # the two numbers sit in one summary and the question stops being a guess.
       # Report-only, like its ubuntu counterpart: runner variance is larger than
       # the regressions worth gating on.
+      # WHY the chain costs 155-170ms here when ubuntu costs 9.4ms. The obvious
+      # answer — hooks fork, forks are expensive on Windows — was measured on
+      # macOS and did NOT survive: tool-preferences forks ZERO times and
+      # budget-cap forks ONCE, yet both cost 140+ms on this runner. Sourcing
+      # three libs is 1.7ms on macOS, nowhere near enough either, and the jq
+      # fallback theory died too (jq is present here — the install step is a
+      # no-op). Every remaining explanation is a guess about a platform macOS
+      # cannot answer, so measure the unit prices where they apply.
+      #
+      # What this prints: the cost of each primitive a hook can pay for, and the
+      # per-hook wall time + actual fork count for the three most expensive hooks
+      # on this platform. With unit prices in hand the chain cost is arithmetic
+      # rather than hypothesis.
+      - name: DIAGNOSTIC — unit fork prices and per-hook cost on Git Bash
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          SHIM="$RUNNER_TEMP/forkshim"
+          rm -rf "$SHIM"; mkdir -p "$SHIM"
+          # Shims MUST exec an absolute path. A first draft execed by NAME, so
+          # each shim re-entered itself through PATH — a fork bomb that presented
+          # as "the hook hangs".
+          SHIMDIR="$SHIM" python3 - <<'PY'
+          import os, shutil
+          shim = os.environ['SHIMDIR']
+          for b in ("python3", "jq", "git", "grep", "sed", "awk", "tr", "cut", "date", "dirname"):
+              real = shutil.which(b)
+              if not real or os.path.realpath(os.path.dirname(real)) == os.path.realpath(shim):
+                  continue
+              p = os.path.join(shim, b)
+              with open(p, "w") as f:
+                  f.write('#!/bin/sh\nprintf "%s\\n" "' + b + '" >> "$FORKLOG"\nexec "' + real + '" "$@"\n')
+              os.chmod(p, 0o755)
+          print("shims:", sorted(os.listdir(shim)))
+          PY
+
+          echo "=== unit prices (ms per invocation, 20 iterations) ==="
+          printf 'exit 0\n' > "$RUNNER_TEMP/empty.sh"
+          printf '. hooks/lib-suppress.sh 2>/dev/null; . hooks/lib-paths.sh 2>/dev/null; . hooks/lib-json-fast.sh 2>/dev/null; exit 0\n' > "$RUNNER_TEMP/libs.sh"
+          price() {
+            python3 - "$1" "$2" <<'PY'
+          import subprocess, sys, time
+          label, cmd = sys.argv[1], sys.argv[2]
+          t0 = time.time()
+          for _ in range(20):
+              subprocess.run(cmd, shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          print("  %-26s %7.1f ms" % (label, (time.time() - t0) * 1000 / 20))
+          PY
+          }
+          price "bash -c exit"        "bash $RUNNER_TEMP/empty.sh"
+          price "bash + 3 libs"       "bash $RUNNER_TEMP/libs.sh"
+          price "python3 -c pass"     "python3 -c pass"
+          price "jq --version"        "jq --version"
+          price "git --version"       "git --version"
+          price "grep on a string"    "printf x | grep -q x"
+
+          echo ""
+          echo "=== per-hook: wall time and REAL fork count ==="
+          PAY_NPM=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PWD")
+          PAY_TF=$(printf '{"tool_name":"Bash","tool_input":{"command":"terraform destroy"},"cwd":"%s"}' "$PWD")
+          for spec in "tool-preferences|$PAY_NPM" "budget-cap|$PAY_NPM" "human-approval-gate|$PAY_NPM" "human-approval-gate|$PAY_TF"; do
+            hook="${spec%%|*}"; pay="${spec#*|}"
+            printf '%s' "$pay" > "$RUNNER_TEMP/pay.json"
+            : > "$RUNNER_TEMP/forks.log"
+            FORKLOG="$RUNNER_TEMP/forks.log" PATH="$SHIM:$PATH" \
+              bash "hooks/$hook.sh" < "$RUNNER_TEMP/pay.json" >/dev/null 2>&1
+            N=$(wc -l < "$RUNNER_TEMP/forks.log" | tr -d ' ')
+            KINDS=$(sort "$RUNNER_TEMP/forks.log" | uniq -c | sort -rn | awk '{printf "%sx%s ", $1, $2}')
+            MS=$(SC_HOOK="hooks/$hook.sh" SC_PAY="$RUNNER_TEMP/pay.json" python3 - <<'PY'
+          import os, subprocess, time
+          h, p = os.environ['SC_HOOK'], os.environ['SC_PAY']
+          data = open(p, 'rb').read()
+          t0 = time.time()
+          for _ in range(5):
+              subprocess.run(['bash', h], input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          print("%.1f" % ((time.time() - t0) * 1000 / 5))
+          PY
+          )
+            printf '  %-22s %8s ms  %3s forks  %s\n' "$hook" "$MS" "$N" "$KINDS"
+          done
+
       - name: Hook chain latency on Git Bash (report-only)
         continue-on-error: true
         shell: bash
