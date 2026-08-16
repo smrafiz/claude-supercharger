@@ -905,6 +905,22 @@ jobs:
           price "source a 1-line file"  "bash $RUNNER_TEMP/src_tiny.sh"
           price "source lib-paths only" "bash $RUNNER_TEMP/src_paths.sh"
 
+          # Opens are free (a 1-line file and the 92-line lib-paths both cost the
+          # same as bare bash), stats are 0.171ms and comments are free — yet
+          # lib-suppress costs ~33ms more than bare bash. The one thing it does at
+          # source time that searches the FILESYSTEM BY PATH is `command -v jq`,
+          # and a Windows PATH has 30+ entries to probe. Price the lookup itself,
+          # and a copy of the lib with that block removed, before deleting it:
+          # _JQ_AVAILABLE has no consumer anywhere in the product (the only other
+          # reference is the design doc that proposed one), so the deletion is
+          # justified either way — but the CLAIM about what it costs is not.
+          price "command -v jq"        "command -v jq"
+          price "command -v absent"    "command -v definitely-not-installed-xyz"
+          sed '/_JQ_AVAILABLE/d' hooks/lib-suppress.sh > "$RUNNER_TEMP/nojq-lib-suppress.sh"
+          cp hooks/lib-paths.sh "$RUNNER_TEMP/" 2>/dev/null || true
+          printf '. "%s/nojq-lib-suppress.sh"\nexit 0\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/src_nojq.sh"
+          price "  lib-suppress no-jq"  "bash $RUNNER_TEMP/src_nojq.sh"
+
           echo ""
           echo "=== per-hook: wall time and REAL fork count ==="
           PAY_NPM=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PWD")
