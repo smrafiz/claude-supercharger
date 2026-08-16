@@ -32,6 +32,13 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 
 check_hook_disabled "human-approval-gate" && exit 0
 
+# The skip list is CONFIG state, so it starts empty and only .supercharger.json
+# (or the namespaced override below) may fill it. Without this line an inherited
+# environment variable seeded it: `SKIP_CATS` is a plausible name for someone's
+# own shell variable, and exporting it silently switched off whole categories of
+# a security gate. Every other switch here is SUPERCHARGER_*; this one was not.
+SKIP_CATS=""
+
 # v2.7.42 perf: this gate only ever acts on a fixed set of high-risk commands
 # (SQL DDL, terraform/kubectl/helm, git reset --hard, publish, redis flush, dd/
 # mkfs, docker prune, ...). If the raw payload contains NONE of their trigger
@@ -62,28 +69,40 @@ except Exception:
   # — Python parse-error silently disabled the gate for that project.
   for _ in 1 2 3 4 5; do
     if [ -f "$SEARCH_DIR/.supercharger.json" ]; then
-      GATE_ENABLED=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
+      # ONE fork reads both keys. This was two python3 interpreters opening and
+      # parsing the SAME file back to back — and python3 is the dearest fork this
+      # hook makes (23.1ms measured on macOS, and this platform is the cheap one).
+      # Line 1 = gate flag, line 2 = skip categories. Same shape as path-guard's
+      # config read.
+      _HAG_CFG=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
 import json, os
 try:
     with open(os.environ['SC_CFG']) as f:
         d = json.load(f)
     print('1' if d.get('humanApprovalGate') else '')
-except Exception:
-    print('')
-" 2>/dev/null || echo "")
-      SKIP_CATS=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
-import json, os
-try:
-    with open(os.environ['SC_CFG']) as f:
-        d = json.load(f)
     cats = d.get('humanApprovalGateSkip', [])
-    print(','.join(cats))
+    print(','.join(c for c in cats if isinstance(c, str)))
 except Exception:
-    print('')
-" 2>/dev/null || echo "")
+    print(''); print('')
+" 2>/dev/null || printf '\n\n')
+      GATE_ENABLED=${_HAG_CFG%%$'\n'*}
+      SKIP_CATS=${_HAG_CFG#*$'\n'}
+      SKIP_CATS=${SKIP_CATS%%$'\n'*}
       break
     fi
-    PARENT=$(dirname "$SEARCH_DIR")
+    # Parameter expansion, not `dirname`: this loop forked up to FIVE times to do
+    # string manipulation bash can do without leaving the process. Trailing
+    # slashes are stripped first so `/a/b/` walks to `/a`, not to `/a/b`.
+    while [ "${SEARCH_DIR%/}" != "$SEARCH_DIR" ] && [ "$SEARCH_DIR" != "/" ]; do
+      SEARCH_DIR="${SEARCH_DIR%/}"
+    done
+    case "$SEARCH_DIR" in
+      */*) PARENT="${SEARCH_DIR%/*}"; [ -z "$PARENT" ] && PARENT="/" ;;
+      # A path with no slash: dirname answers "." and so must this, or a
+      # single-component relative dir would stop the walk one directory early.
+      .|"") PARENT="$SEARCH_DIR" ;;
+      *)   PARENT="." ;;
+    esac
     [ "$PARENT" = "$SEARCH_DIR" ] && break
     SEARCH_DIR="$PARENT"
   done
@@ -129,13 +148,27 @@ except Exception:
 CMD_NORM=$(printf '%s\n' "$COMMAND" | tr '[:upper:]' '[:lower:]' | tr -s ' \t' ' ' | sed 's/^ //; s/ $//')
 
 # ── Pattern matching ──────────────────────────────────────────────────────────
-SKIP_CATS="${SKIP_CATS:-}"
+# Config wins; the namespaced env var is the documented override.
+SKIP_CATS="${SKIP_CATS:-${SUPERCHARGER_HUMAN_GATE_SKIP:-}}"
 MATCH_REASON=""
 MATCH_CAT=""
 
+# Eight categories each ran TWO greps — one to test the skip list, one to match
+# the command — so a gated command forked grep up to 16 times to do work bash
+# does natively. Measured on the terraform payload: 24 forks, 187.9ms on macOS,
+# and this is the cheap platform (Git Bash pays ~29ms just to start a process).
+#
+# `_hag_re` takes the pattern as an ARGUMENT and matches through an unquoted
+# variable: in bash 3.2+ a quoted right-hand side of =~ is a literal string, not
+# a regex, so `[[ $s =~ "$re" ]]` would silently stop matching anything. Both
+# engines are POSIX ERE, so the patterns are unchanged — verified case by case
+# against the grep implementation before this landed.
+_hag_skipped() { case ",$SKIP_CATS," in *",$1,"*) return 0 ;; esac; return 1; }
+_hag_re() { local _s="$1" _re="$2"; [[ $_s =~ $_re ]]; }
+
 # SQL — DROP/TRUNCATE/ALTER TABLE DATABASE SCHEMA
-if ! printf ',%s,' "$SKIP_CATS" | grep -q ',sql,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qiE '(drop[[:space:]]+(table|database|schema|index)|truncate[[:space:]]+(table[[:space:]]+)?[a-z_]|alter[[:space:]]+table[[:space:]]+[a-z_]+[[:space:]]+drop)'; then
+if ! _hag_skipped sql; then
+  if _hag_re "$CMD_NORM" '(drop[[:space:]]+(table|database|schema|index)|truncate[[:space:]]+(table[[:space:]]+)?[a-z_]|alter[[:space:]]+table[[:space:]]+[a-z_]+[[:space:]]+drop)'; then
     MATCH_REASON="SQL destructive operation"
     MATCH_CAT="sql"
   fi
@@ -145,58 +178,58 @@ fi
 # list (line ~102) but had NO precise matcher, so the gate turned ON and then
 # every category missed → the flagship "unrecoverable" commands were never
 # actually blocked. Unanchored so a leading prefix can't dodge it.
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',migration,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(prisma[[:space:]]+migrate[[:space:]]+reset|prisma[[:space:]]+db[[:space:]]+push[[:space:]][^&|;]*--force-reset|drizzle-kit[[:space:]]+push[[:space:]][^&|;]*--force)'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped migration; then
+  if _hag_re "$CMD_NORM" '(prisma[[:space:]]+migrate[[:space:]]+reset|prisma[[:space:]]+db[[:space:]]+push[[:space:]][^&|;]*--force-reset|drizzle-kit[[:space:]]+push[[:space:]][^&|;]*--force)'; then
     MATCH_REASON="destructive database migration reset"
     MATCH_CAT="migration"
   fi
 fi
 
 # Git — reset --hard, branch -D, tag -d, reflog delete
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',git,'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped git; then
   # Git flags are case-sensitive (-d safe vs -D force); match against original
   # COMMAND not lowercased CMD_NORM.
-  if printf '%s\n' "$COMMAND" | grep -qE '(^|[[:space:]&|;])git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
+  if _hag_re "$COMMAND" '(^|[[:space:]&|;])git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
     MATCH_REASON="destructive git operation"
     MATCH_CAT="git"
   fi
 fi
 
 # Infra — kubectl delete, terraform destroy, helm uninstall
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',infra,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(kubectl[[:space:]]+delete|terraform[[:space:]]+destroy|helm[[:space:]]+(uninstall|delete))'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped infra; then
+  if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])(kubectl[[:space:]]+delete|terraform[[:space:]]+destroy|helm[[:space:]]+(uninstall|delete))'; then
     MATCH_REASON="infrastructure destructive operation"
     MATCH_CAT="infra"
   fi
 fi
 
 # Publish — npm publish, pip upload, cargo publish, docker push to prod
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',publish,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(npm[[:space:]]+publish|twine[[:space:]]+upload|cargo[[:space:]]+publish|gem[[:space:]]+push)'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped publish; then
+  if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])(npm[[:space:]]+publish|twine[[:space:]]+upload|cargo[[:space:]]+publish|gem[[:space:]]+push)'; then
     MATCH_REASON="package registry publish"
     MATCH_CAT="publish"
   fi
 fi
 
 # Database tools — redis FLUSHALL/FLUSHDB, mongo drop, psql DROP
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',db,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(redis-cli[[:space:]]+(flushall|flushdb)|mongosh?[[:space:]].*\.drop\(\)|psql[[:space:]].*-c[[:space:]].*drop)'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped db; then
+  if _hag_re "$CMD_NORM" '(redis-cli[[:space:]]+(flushall|flushdb)|mongosh?[[:space:]].*\.drop\(\)|psql[[:space:]].*-c[[:space:]].*drop)'; then
     MATCH_REASON="database destructive operation"
     MATCH_CAT="db"
   fi
 fi
 
 # Docker — system prune, rm all containers, volume rm
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',docker,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])docker[[:space:]]+(system[[:space:]]+prune|volume[[:space:]]+(rm|prune)|rm[[:space:]]+-f)'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped docker; then
+  if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])docker[[:space:]]+(system[[:space:]]+prune|volume[[:space:]]+(rm|prune)|rm[[:space:]]+-f)'; then
     MATCH_REASON="Docker destructive operation"
     MATCH_CAT="docker"
   fi
 fi
 
 # Disk — dd, mkfs, fdisk, parted
-if [ -z "$MATCH_REASON" ] && ! printf ',%s,' "$SKIP_CATS" | grep -q ',disk,'; then
-  if printf '%s\n' "$CMD_NORM" | grep -qE '(^|[[:space:]&|;])(dd[[:space:]]+if=|mkfs\.|fdisk[[:space:]]|parted[[:space:]]|diskutil[[:space:]]+(erase|format|partition))'; then
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped disk; then
+  if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])(dd[[:space:]]+if=|mkfs\.|fdisk[[:space:]]|parted[[:space:]]|diskutil[[:space:]]+(erase|format|partition))'; then
     MATCH_REASON="disk operation"
     MATCH_CAT="disk"
   fi
