@@ -894,6 +894,17 @@ jobs:
           price "source lib-suppress"   "bash $RUNNER_TEMP/src_full.sh"
           price "  comment-stripped"    "bash $RUNNER_TEMP/src_strip.sh"
 
+          # If it is neither stats nor bytes, the remaining candidate is the OPEN
+          # itself — a Defender-scanned file open, paid once per sourced file.
+          # lib-suppress sources lib-paths internally, so every hook that sources
+          # it opens two files. These three readings price an open directly: an
+          # empty file, one real lib, and the pair.
+          printf ': \n' > "$RUNNER_TEMP/tiny.sh"
+          printf '. "%s/tiny.sh"\nexit 0\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/src_tiny.sh"
+          printf '. "%s/hooks/lib-paths.sh"\nexit 0\n' "$PWD" > "$RUNNER_TEMP/src_paths.sh"
+          price "source a 1-line file"  "bash $RUNNER_TEMP/src_tiny.sh"
+          price "source lib-paths only" "bash $RUNNER_TEMP/src_paths.sh"
+
           echo ""
           echo "=== per-hook: wall time and REAL fork count ==="
           PAY_NPM=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PWD")
