@@ -51,26 +51,51 @@ sc_bounded_run() {
   # capture pipe — so `issues=$(sc_bounded_run 2 eslint …)` sat for the full 20s
   # of the grandchild even though the child had been signalled. Negating the pid
   # signals the group.
+  # The killer STAMPS A MARKER before it signals, and the marker — not the
+  # killer's liveness — is what says a timeout happened.
+  #
+  # The first version inferred it from `kill -0 $_kpid`: killer still alive =>
+  # still sleeping => the command must have finished on its own. That is a race,
+  # and a loaded CI runner lost it: the killer had already fired and had not yet
+  # exited, so an overrun was reported as the command's own status (rc=143,
+  # SIGTERM) instead of 124. It passed on an idle laptop every time.
+  #
+  # Stamping BEFORE the signal makes the marker's presence a fact rather than a
+  # guess: if the command died from our TERM, the file was written first.
+  # A temp DIRECTORY, so the marker path does not exist until the killer writes
+  # it — `mktemp` alone creates its file, which would make the marker true from
+  # the start and report every run as a timeout.
+  local _mdir="" _mark=""
+  _mdir=$(mktemp -d 2>/dev/null) || _mdir=""
+  [ -n "$_mdir" ] && _mark="$_mdir/fired"
+
   set -m 2>/dev/null || true
   "$@" &
   local _cpid=$!
   set +m 2>/dev/null || true
-  ( sleep "$_secs"; kill -TERM -"$_cpid" 2>/dev/null || kill -TERM "$_cpid" 2>/dev/null ) &
+  ( sleep "$_secs"
+    [ -n "$_mark" ] && : > "$_mark" 2>/dev/null
+    kill -TERM -"$_cpid" 2>/dev/null || kill -TERM "$_cpid" 2>/dev/null ) &
   local _kpid=$!
 
   local _rc=0
   wait "$_cpid" 2>/dev/null || _rc=$?
 
-  # Killer still sleeping => the command finished on its own.
-  if kill -0 "$_kpid" 2>/dev/null; then
-    kill "$_kpid" 2>/dev/null || true
-    wait "$_kpid" 2>/dev/null || true
-    return "$_rc"
-  fi
-
+  kill "$_kpid" 2>/dev/null || true
   wait "$_kpid" 2>/dev/null || true
-  # Killer had already fired. A non-zero status here is the kill, not the work.
-  [ "$_rc" -gt 128 ] && return 124
+
+  local _fired=1
+  if [ -n "$_mark" ] && [ -e "$_mark" ]; then
+    _fired=0
+  fi
+  [ -n "$_mdir" ] && rm -rf "$_mdir" 2>/dev/null
+
+  # Timeout only when the killer stamped AND the command died from a signal.
+  # Without mktemp there is no marker, so fall back to the command's own status
+  # rather than claiming a timeout that cannot be evidenced.
+  if [ "$_fired" -eq 0 ] && [ "$_rc" -gt 128 ]; then
+    return 124
+  fi
   return "$_rc"
 }
 

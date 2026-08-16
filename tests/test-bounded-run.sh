@@ -81,6 +81,44 @@ else
 fi
 rm -rf "$_BD"
 
+# --- the timeout verdict must not depend on scheduling ----------------------
+# v2.27.11 decided "did the bound fire?" by asking whether the killer subprocess
+# was still alive: alive => still sleeping => the command finished on its own.
+# That is a race. On a loaded macOS CI runner the killer had already SIGTERMed
+# the command and simply had not exited yet, so an overrun was reported as the
+# command's own status — rc=143 instead of 124 — and callers cannot tell a
+# timeout from a command that happened to be signalled.
+#
+# It passed 15/15 on an idle laptop even under eight CPU loaders, so a plain
+# repetition test would not have caught it and does not protect against its
+# return. Instead this INJECTS the losing schedule: a copy of the library whose
+# killer lingers after firing. Against the old liveness check that fails every
+# time; against the marker it is irrelevant, which is the property being pinned.
+begin_test "an overrun still reports 124 when the killer outlives the signal"
+_INJ=$(mktemp -d)
+sed 's|kill -TERM "$_cpid" 2>/dev/null ) &|kill -TERM "$_cpid" 2>/dev/null; sleep 0.3 ) \&|' \
+  "$REPO_DIR/hooks/lib-bounded-run.sh" > "$_INJ/lib.sh"
+if ! grep -q 'sleep 0.3' "$_INJ/lib.sh"; then
+  rm -rf "$_INJ"
+  fail "injection point missing — this test no longer exercises the race"
+else
+  # A fresh shell: the real library is already sourced in this one, and the
+  # double-source guard would ignore the injected copy.
+  cat > "$_INJ/run.sh" <<'INJEOF'
+. "$1/lib.sh"
+sc_bounded_run 1 sleep 9 >/dev/null 2>&1
+echo $?
+INJEOF
+  _RC1=$(bash "$_INJ/run.sh" "$_INJ")
+  _RC2=$(bash "$_INJ/run.sh" "$_INJ")
+  rm -rf "$_INJ"
+  if [ "$_RC1" = "124" ] && [ "$_RC2" = "124" ]; then
+    pass
+  else
+    fail "timeout misreported when the killer lingers: got $_RC1, $_RC2 (want 124)"
+  fi
+fi
+
 # --- the hooks that had the empty fallback ----------------------------------
 begin_test "no hook resolves its timeout wrapper to an empty string"
 BAD=""
