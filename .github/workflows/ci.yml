@@ -867,7 +867,15 @@ jobs:
           echo "=== per-hook: wall time and REAL fork count ==="
           PAY_NPM=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PWD")
           PAY_TF=$(printf '{"tool_name":"Bash","tool_input":{"command":"terraform destroy"},"cwd":"%s"}' "$PWD")
-          for spec in "tool-preferences|$PAY_NPM" "budget-cap|$PAY_NPM" "human-approval-gate|$PAY_NPM" "human-approval-gate|$PAY_TF"; do
+          # Order matters and the first reading proved it: the previous run put
+          # tool-preferences first and measured 823.1ms for a hook that forks ONCE
+          # and exits early, while the two hooks measured after it came in at 38ms.
+          # That is the cold cost of first touching bash, the libs and the
+          # interpreter on this filesystem, charged to whoever runs first — not a
+          # property of the hook. So: warm up before timing, and measure the same
+          # hook in BOTH positions. If tool-preferences is cheap second but dear
+          # first, the number belongs to the platform, not the hook.
+          for spec in "tool-preferences|$PAY_NPM" "budget-cap|$PAY_NPM" "human-approval-gate|$PAY_NPM" "human-approval-gate|$PAY_TF" "tool-preferences|$PAY_NPM"; do
             hook="${spec%%|*}"; pay="${spec#*|}"
             printf '%s' "$pay" > "$RUNNER_TEMP/pay.json"
             : > "$RUNNER_TEMP/forks.log"
@@ -875,13 +883,30 @@ jobs:
               bash "hooks/$hook.sh" < "$RUNNER_TEMP/pay.json" >/dev/null 2>&1
             N=$(wc -l < "$RUNNER_TEMP/forks.log" | tr -d ' ')
             KINDS=$(sort "$RUNNER_TEMP/forks.log" | uniq -c | sort -rn | awk '{printf "%sx%s ", $1, $2}')
-            MS=$(SC_HOOK="hooks/$hook.sh" SC_PAY="$RUNNER_TEMP/pay.json" python3 - <<'PY'
+            MS=$(SC_HOOK="hooks/$hook.sh" SC_PAY="$RUNNER_TEMP/pay.json" SC_TMP="$RUNNER_TEMP" python3 - <<'PY'
           import os, subprocess, time
           h, p = os.environ['SC_HOOK'], os.environ['SC_PAY']
           data = open(p, 'rb').read()
+
+          def run(tag):
+              # A FRESH state dir per run. Without this, human-approval-gate wrote
+              # its pending file on the first call and every later call took the
+              # "already asked, allow through" path — so the previous reading timed
+              # the fast path and reported it as the cost of a gated command.
+              env = dict(os.environ,
+                         SUPERCHARGER_STATE=os.path.join(os.environ['SC_TMP'], 'st', tag),
+                         SUPERCHARGER_HUMAN_GATE='1')
+              subprocess.run(['bash', h], input=data,
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
+
+          # Warm the interpreter, the libs and the filesystem cache BEFORE timing.
+          # Without this the first hook measured absorbs the cold cost of the whole
+          # platform and reports it as its own (823ms for a hook that exits early).
+          for i in range(2):
+              run('warm%d' % i)
           t0 = time.time()
-          for _ in range(5):
-              subprocess.run(['bash', h], input=data, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          for i in range(5):
+              run('t%d' % i)
           print("%.1f" % ((time.time() - t0) * 1000 / 5))
           PY
           )
