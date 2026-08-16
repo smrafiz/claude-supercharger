@@ -864,6 +864,37 @@ jobs:
           price "grep on a string"    "printf x | grep -q x"
 
           echo ""
+          echo "=== where the per-hook FLOOR goes ==="
+          # Sourcing three libs costs ~40ms here against ~2ms on macOS, and no lib
+          # forks anything at source time — so the floor is either parse cost or
+          # filesystem calls, and those need very different fixes. On macOS a stat
+          # is ~15us and the cost is function-definition parsing; if Windows stats
+          # are the expensive half instead, the fix is fewer stats, not less code.
+          # lib-suppress is the one that matters: 100 hooks source it, it stats SIX
+          # paths at source time, and 58 hooks then call init_hook_suppress again.
+          printf 'for i in $(seq 1 200); do [ -f /definitely/not/here ]; done\nexit 0\n' > "$RUNNER_TEMP/stat200.sh"
+          printf 'exit 0\n' > "$RUNNER_TEMP/nostat.sh"
+          price "200 absent-file stats" "bash $RUNNER_TEMP/stat200.sh"
+          price "  (same, no stats)"    "bash $RUNNER_TEMP/nostat.sh"
+
+          # Comment-stripped copy: if parse cost tracks bytes, this is cheaper.
+          python3 - "$RUNNER_TEMP" <<'PY'
+          import os, sys
+          tmp = sys.argv[1]
+          src = open("hooks/lib-suppress.sh").read().splitlines()
+          out = [ln for i, ln in enumerate(src)
+                 if i == 0 or (ln.strip() and not ln.lstrip().startswith("#"))]
+          open(os.path.join(tmp, "lib-suppress.sh"), "w").write("\n".join(out) + "\n")
+          import shutil
+          shutil.copy("hooks/lib-paths.sh", os.path.join(tmp, "lib-paths.sh"))
+          print("  stripped %d -> %d lines" % (len(src), len(out)))
+          PY
+          printf '. "%s/hooks/lib-suppress.sh"\nexit 0\n' "$PWD" > "$RUNNER_TEMP/src_full.sh"
+          printf '. "%s/lib-suppress.sh"\nexit 0\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/src_strip.sh"
+          price "source lib-suppress"   "bash $RUNNER_TEMP/src_full.sh"
+          price "  comment-stripped"    "bash $RUNNER_TEMP/src_strip.sh"
+
+          echo ""
           echo "=== per-hook: wall time and REAL fork count ==="
           PAY_NPM=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm install lodash"},"cwd":"%s"}' "$PWD")
           PAY_TF=$(printf '{"tool_name":"Bash","tool_input":{"command":"terraform destroy"},"cwd":"%s"}' "$PWD")
