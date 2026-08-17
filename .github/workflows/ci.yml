@@ -281,7 +281,13 @@ jobs:
           echo "--- what git says the attributes are, ON THIS RUNNER ---"
           git check-attr text eol -- hooks/safety.sh .gitattributes 2>&1 || true
           echo "--- index vs worktree endings (the decisive check) ---"
-          git ls-files --eol hooks/safety.sh .gitattributes tests/run.sh 2>&1 || true
+          git ls-files --eol hooks/safety.sh .gitattributes tests/run.sh assets/demo/try.sh 2>&1 || true
+          # assets/demo/try.sh is the ONE file the CRLF test flags on this runner,
+          # and it was never sampled here. Its blob and worktree are clean on macOS
+          # (0 CR bytes) and it carries the same attrs as hooks/safety.sh, so the
+          # cause has to be visible on the runner or not at all.
+          printf '  CR bytes in worktree copy: '
+          python3 -c "import sys;d=open('assets/demo/try.sh','rb').read();print(d.count(b'\\r'))" 2>&1 || true
           echo "--- raw first line of a checked-out hook ---"
           head -c 60 hooks/safety.sh | od -An -c | head -3
 
