@@ -75,6 +75,32 @@ def scan_text(text, fname):
     return findings, critical
 
 
+def msys_path(x):
+    """Git Bash's /c/Users/... -> C:\\Users\\..., on Windows only.
+
+    Claude Code launches hooks through Git Bash on Windows, so a payload `cwd`
+    arrives POSIX-shaped: /d/a/repo. Native Windows python resolves a
+    leading-slash path against the CURRENT DRIVE, so that becomes D:\\d\\a\\repo
+    — a path that does not exist. Every `is_dir()` below then returns False, the
+    base is skipped, and the scanner reports CLEAN having looked at nothing.
+    Silent, and on a security scanner.
+
+    Same normalisation, and the same reasoning, as path-guard's _msys_path;
+    that one carries the measurements taken on a windows-latest runner.
+
+    Gated on os.name so POSIX is provably untouched: there, a directory named
+    /c is legitimate and must never be rewritten.
+    """
+    import os as _os
+    import re as _re
+    if _os.name != 'nt' or not x or not isinstance(x, str):
+        return x
+    m = _re.match(r'^/([A-Za-z])(/|$)', x)
+    if not m:
+        return x
+    return m.group(1).upper() + ':\\' + x[3:].replace('/', '\\')
+
+
 def resolve_agent_defs(agent, home_dir, cwd):
     """Map an agent name to the definition file(s) on disk. Deduped, existing.
 
@@ -107,6 +133,12 @@ def resolve_agent_defs(agent, home_dir, cwd):
             '%s.md' % nm, '*/%s.md' % nm, '*/*/%s.md' % nm,
             '%s/AGENT.md' % nm, '*/%s/AGENT.md' % nm,
         ]
+
+    # Normalise BEFORE building the bases — a Git Bash cwd is POSIX-shaped and
+    # would otherwise resolve to a non-existent path, skipping the project-level
+    # scan without saying so.
+    home_dir = msys_path(home_dir)
+    cwd = msys_path(cwd)
 
     out, seen = [], set()
     for base in (Path(home_dir) / '.claude' / 'agents', Path(cwd) / '.claude' / 'agents'):

@@ -42,6 +42,22 @@ if not skill:
 
 cwd = data.get('cwd') or pwd_dir
 
+# v2.27.32: Git Bash hands paths POSIX-shaped (/d/a/repo). Native Windows python
+# resolves a leading-slash path against the CURRENT DRIVE, so that becomes
+# D:\\d\\a\\repo, every is_dir() below is False, the project-level base is
+# skipped, and the scanner reports CLEAN having looked at nothing. Same
+# normalisation as path-guard's _msys_path, which carries the runner
+# measurements. Gated on os.name, so POSIX is provably untouched.
+def _msys(x):
+    if os.name != 'nt' or not x or not isinstance(x, str):
+        return x
+    _m = re.match(r'^/([A-Za-z])(/|$)', x)
+    return (_m.group(1).upper() + ':\\' + x[3:].replace('/', '\\')) if _m else x
+
+home_dir = _msys(home_dir)
+cwd = _msys(cwd)
+
+
 # Find skill definition files. Match only the skill's own file, not random
 # READMEs that happen to contain the skill name.
 scan_paths = []
