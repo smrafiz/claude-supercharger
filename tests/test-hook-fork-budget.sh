@@ -161,4 +161,43 @@ case "$LAST" in
 esac
 rm -rf "$SHIM" "$TD"
 
+# bash-output-compactor's @tsv extraction carried a 4th field holding the ENTIRE
+# stdout, which no line ever read — @tsv escapes newlines, so it was unusable as
+# output anyway and the raw stdout is re-extracted separately. Every byte of a
+# long test run was therefore escaped by jq, copied into a shell variable, and
+# piped through three awk forks that only wanted fields 1 to 3. Cost scaled with
+# output size: 1.10x on 80 lines, 1.35x on 3000 (158ms to 117ms).
+begin_test "bash-output-compactor splits its fields without forking awk"
+SHIM=$(mktemp -d); FORKLOG="$SHIM/calls.log"
+for _t in awk; do
+  _real=$(command -v "$_t" 2>/dev/null || true)
+  [ -n "$_real" ] || continue
+  printf '#!/bin/bash\necho %s >> "%s"\nexec %s "$@"\n' "$_t" "$FORKLOG" "$_real" > "$SHIM/$_t"
+  chmod +x "$SHIM/$_t"
+done
+TD=$(mktemp -d); mkdir -p "$TD/scope"; : > "$FORKLOG"
+BOC_PAY=$(python3 -c "
+import json,os
+print(json.dumps({'session_id':'v1','cwd':os.getcwd(),'tool_name':'Bash',
+ 'tool_input':{'command':'git log --oneline'},
+ 'tool_response':{'stdout':'\n'.join('commit %d msg'%i for i in range(80))}}))")
+BOC_OUT=$(printf '%s' "$BOC_PAY" | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" \
+  bash "$REPO_DIR/hooks/bash-output-compactor.sh" 2>/dev/null || true)
+AWKF=$(grep -c awk "$FORKLOG" 2>/dev/null | tr -d ' '); AWKF=${AWKF:-0}
+[ "$AWKF" -eq 0 ] && pass || fail "awk forked $AWKF time(s) to split a 3-field tsv"
+
+# The other half: dropping the field must not stop the hook compacting.
+begin_test "and still compacts a long git log"
+case "$BOC_OUT" in
+  *hookSpecificOutput*|*systemMessage*) pass ;;
+  *) fail "no compaction emitted for an 80-line git log: $BOC_OUT" ;;
+esac
+
+# The unread field is the whole point — pin it so it cannot drift back in.
+begin_test "the tsv extraction does not carry tool_response.stdout"
+if grep -q 'tool_response.stdout // .tool_response.output // ""\] | @tsv' "$REPO_DIR/hooks/bash-output-compactor.sh"; then
+  fail "the whole stdout is back in the @tsv field list"
+else pass; fi
+rm -rf "$SHIM" "$TD"
+
 report

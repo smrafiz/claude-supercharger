@@ -44,16 +44,31 @@ esac
 # workspace.current_dir instead of .cwd (the v2.6.57 drift). This consolidated
 # @tsv extraction (added in the perf sweep) had dropped the fallback → empty
 # PROJECT_DIR → wrong project-scoped debug/profile detection.
-FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "", .tool_name // "", .tool_input.command // "", .tool_response.stdout // .tool_response.output // ""] | @tsv' 2>/dev/null || true)
-PROJECT_DIR=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $1}'); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.27.29: the 4th field was the ENTIRE stdout and was never read. @tsv escapes
+# newlines, so it could not be used as output anyway — which is why the raw
+# stdout is re-extracted with its own jq below. Meanwhile every byte of a long
+# test run was escaped by jq, copied into a shell variable, and then piped
+# through THREE separate awk forks that only ever wanted fields 1 to 3. Dropping
+# it leaves FIELDS a few hundred bytes instead of the whole run.
+FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "", .tool_name // "", .tool_input.command // ""] | @tsv' 2>/dev/null || true)
+# Split with parameter expansion instead of three awk forks. `%%` and `#` are
+# single scans and stay linear; `//` is deliberately not used here. @tsv has
+# already escaped any literal tab or newline inside the values, so splitting on
+# the raw tabs is lossless.
+_rest="$FIELDS"
+PROJECT_DIR="${_rest%%$'\t'*}"; _rest="${_rest#*$'\t'}"
+TOOL_NAME="${_rest%%$'\t'*}";   _rest="${_rest#*$'\t'}"
+CMD="${_rest%%$'\t'*}"
+# jq emits 2 tabs for 3 columns; none at all means jq failed and FIELDS is empty
+# or garbage — blank the fields rather than mirroring it into every one.
+case "$FIELDS" in *$'\t'*) ;; *) PROJECT_DIR=""; TOOL_NAME=""; CMD="" ;; esac
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "bash-output-compactor" && exit 0
 hook_profile_skip "bash-output-compactor" && exit 0
 
-TOOL_NAME=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $2}')
 [ "$TOOL_NAME" != "Bash" ] && exit 0
 
-CMD=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $3}')
 [ -z "$CMD" ] && exit 0
 
 # Detect verbose pattern type — fast bash regex, no fork.
