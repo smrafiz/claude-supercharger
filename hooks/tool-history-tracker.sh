@@ -19,11 +19,92 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
+# v2.27.27: fork-free fast path for the SUCCESS case, which is almost every call.
+# This hook cannot be pre-gated — confidence-gate needs every call recorded — so
+# the python fork below was paid on EVERY PostToolUse, for every tool, measured
+# at 42ms against a 2ms floor and the most expensive hook on the chain.
+#
+# The split is deliberately lopsided. The fast path handles only payloads that
+# are unambiguously successful and plainly shaped; ANYTHING failure-shaped or
+# unusual falls through to the python below, which stays the authority. The
+# marker test is a fail-safe SUPERSET of python's failure logic (interrupted,
+# either error key, and every stderr marker it greps), tested against the WHOLE
+# payload rather than the extracted stderr — so a marker anywhere, even in a
+# command string or in ordinary output, costs one python fork and the exact
+# answer. Only the total absence of any of them takes the shortcut.
+#
+# Extraction refuses rather than guesses: a key that is absent, that occurs
+# twice, whose value carries a backslash escape, or that runs past 200 chars
+# hands back to python. `#` and `%%` are single scans and stay linear on a large
+# payload; `//` is used ONLY on the already-bounded session id.
+_THK_VAL=""
+_thk_str() { # $1=key -> _THK_VAL. rc 0 ok, 1 not confident, 2 key absent
+  local key="$1" rest after val
+  _THK_VAL=""
+  rest="${_INPUT#*\"$key\":}"
+  [ "$rest" = "$_INPUT" ] && return 2
+  case "$rest" in *"\"$key\":"*) return 1 ;; esac
+  after="${rest#"${rest%%[![:space:]]*}"}"
+  case "$after" in \"*) after="${after#\"}" ;; *) return 1 ;; esac
+  val="${after%%\"*}"
+  case "$val" in *\\*) return 1 ;; esac
+  [ "${#val}" -gt 200 ] && return 1
+  _THK_VAL="$val"
+  return 0
+}
+
+RESULT=""
+_thk_fast=0
+case "$_INPUT" in
+  '{'*'}')
+    case "$_INPUT" in
+      *'"interrupted": true'*|*'"interrupted":true'*|*'"error"'*|\
+      *'command not found'*|*'Traceback'*|*'fatal:'*|*'ModuleNotFoundError'*|\
+      *'No such file or directory'*|*'Permission denied'*|*'npm ERR!'*|\
+      *'error:'*|*'panic:'*) ;;
+      *) _thk_fast=1 ;;
+    esac
+    ;;
+esac
+
+if [ "$_thk_fast" = 1 ]; then
+  _thk_sid_raw=""; _thk_tool=""
+  # set -e is on: capture the rc through `||`, never as a bare statement.
+  _thk_rc=0; _thk_str session_id || _thk_rc=$?
+  case "$_thk_rc" in
+    0) _thk_sid_raw="$_THK_VAL" ;;
+    2) _thk_sid_raw="default" ;;      # python: str(sid or 'default')
+    *) _thk_fast=0 ;;
+  esac
+  if [ "$_thk_fast" = 1 ]; then
+    if _thk_str tool_name; then _thk_tool="$_THK_VAL"; else _thk_fast=0; fi
+  fi
+  # The tool name goes into JSON unescaped, so accept only names that need no
+  # escaping. Real names are identifiers (Bash, Read, mcp__server__tool).
+  case "$_thk_tool" in
+    ''|*[!A-Za-z0-9_-]*) _thk_fast=0 ;;
+  esac
+fi
+
+if [ "$_thk_fast" = 1 ]; then
+  # Identical to python's re.sub(r'[^a-zA-Z0-9_-]','',...)[:64] or 'default'.
+  # Safe to use // here: the value is capped at 200 chars by _thk_str above.
+  _thk_sid="${_thk_sid_raw//[^a-zA-Z0-9_-]/}"
+  _thk_sid="${_thk_sid:0:64}"
+  [ -z "$_thk_sid" ] && _thk_sid="default"
+  if [ -n "${EPOCHSECONDS:-}" ]; then _thk_ts="$EPOCHSECONDS"; else _thk_ts=$(date +%s); fi
+  # Spacing matches json.dumps exactly — confidence-gate substring-matches
+  # '"success": false', so the separators are part of the contract.
+  RESULT=$(printf '%s\n{"session_id": "%s", "tool": "%s", "success": true, "ts": %s}' \
+    "$_thk_sid" "$_thk_sid" "$_thk_tool" "$_thk_ts")
+fi
+
 # v2.7.58: ONE python fork does both the session-id sanitize AND the entry build.
 # Was jq (session_id) + python (entry) = 2 forks on EVERY PostToolUse — the
 # highest-frequency event, and this hook can't be pre-gated (it must record every
 # call for the confidence-gate). python already parsed the payload, so the jq was
 # pure redundancy. Line 1 = sanitized session id, line 2 = entry JSON.
+if [ -z "$RESULT" ]; then
 RESULT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json, time, re
 try:
@@ -49,6 +130,7 @@ if isinstance(resp, dict):
 print(sid)
 print(json.dumps({'session_id': sid, 'tool': tool, 'success': success, 'ts': int(time.time())}))
 " 2>/dev/null)
+fi
 
 [ -z "$RESULT" ] && exit 0
 # Windows python print() terminates every line with CRLF, and bash splits on \n

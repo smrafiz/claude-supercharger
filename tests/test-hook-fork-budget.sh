@@ -113,4 +113,52 @@ OUT=$(printf '{"session_id":"s1","tool_name":"Bash","context_window":{"used_perc
 case "$OUT" in *systemMessage*compact*) pass ;; *) fail "no compact advice at 85%: $OUT" ;; esac
 rm -rf "$SHIM" "$TD"
 
+# tool-history-tracker cannot be pre-gated — confidence-gate needs every call
+# recorded — so its python fork was paid on EVERY PostToolUse, for every tool:
+# 42ms against a 2ms floor, the most expensive hook on the chain. v2.27.27 added
+# a fork-free path for the success case and left python as the authority for
+# anything failure-shaped. Both halves are asserted, because either one silently
+# ceasing to hold is a real defect: no fast path means the cost is back, and a
+# fast path that swallows failures would feed confidence-gate a clean history
+# forever and quietly disable it.
+begin_test "tool-history-tracker records an ordinary success without forking python"
+SHIM=$(mktemp -d); FORKLOG="$SHIM/calls.log"
+for _t in python3 jq; do
+  _real=$(command -v "$_t" 2>/dev/null || true)
+  [ -n "$_real" ] || continue
+  printf '#!/bin/bash\necho %s >> "%s"\nexec %s "$@"\n' "$_t" "$FORKLOG" "$_real" > "$SHIM/$_t"
+  chmod +x "$SHIM/$_t"
+done
+TD=$(mktemp -d); mkdir -p "$TD/scope"; : > "$FORKLOG"
+printf '{"session_id":"s1","tool_name":"Bash","tool_input":{"command":"ls"},"tool_response":{"stdout":"a","stderr":"","interrupted":false}}' \
+  | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" bash "$REPO_DIR/hooks/tool-history-tracker.sh" >/dev/null 2>&1
+FORKS=$(grep -c python3 "$FORKLOG" 2>/dev/null | tr -d ' '); FORKS=${FORKS:-0}
+ENTRY=$(cat "$TD/scope/.tool-history-s1" 2>/dev/null || true)
+case "$FORKS:$ENTRY" in
+  0:*'"session_id": "s1"'*'"tool": "Bash"'*'"success": true'*) pass ;;
+  *) fail "forks=$FORKS entry=$ENTRY" ;;
+esac
+
+# The entry format is a CONTRACT, not a detail: confidence-gate substring-matches
+# the literal '"success": false', so json.dumps spacing has to be reproduced.
+begin_test "a failure still routes through python and is recorded as success:false"
+: > "$FORKLOG"
+printf '{"session_id":"s1","tool_name":"Bash","tool_response":{"stderr":"bash: x: command not found"}}' \
+  | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" bash "$REPO_DIR/hooks/tool-history-tracker.sh" >/dev/null 2>&1
+LAST=$(tail -1 "$TD/scope/.tool-history-s1" 2>/dev/null || true)
+case "$LAST" in
+  *'"success": false'*) pass ;;
+  *) fail "failure not recorded as success:false: $LAST" ;;
+esac
+
+begin_test "an interrupted call is recorded as a failure too"
+printf '{"session_id":"s1","tool_name":"Bash","tool_response":{"interrupted":true}}' \
+  | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" bash "$REPO_DIR/hooks/tool-history-tracker.sh" >/dev/null 2>&1
+LAST=$(tail -1 "$TD/scope/.tool-history-s1" 2>/dev/null || true)
+case "$LAST" in
+  *'"success": false'*) pass ;;
+  *) fail "interrupted not recorded as a failure: $LAST" ;;
+esac
+rm -rf "$SHIM" "$TD"
+
 report
