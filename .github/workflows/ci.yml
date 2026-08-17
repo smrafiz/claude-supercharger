@@ -1013,6 +1013,49 @@ jobs:
           bash tests/perf-chain.sh --target all --iterations 3 2>&1 | tee -a "$GITHUB_STEP_SUMMARY"
           echo '```' >> "$GITHUB_STEP_SUMMARY"
 
+      # scope-guard is the single biggest failure cluster in the recon: 6 of 29,
+      # every one contract-related, with ".contract-<sid>: No such file". A MISSING
+      # file (not an empty one) means the hook exited before its redirect, and the
+      # only early exit on that path is `[ -z "$PROMPT" ] && exit 0` — so prompt
+      # extraction returns empty here and not on macOS.
+      #
+      # Two local reproductions failed (isolated HOME; git user.useConfigOnly), so
+      # this asks the runner instead of guessing a third time. The git identity
+      # error in that block is real but UNPROVEN as the cause — the fixture now
+      # passes an identity explicitly, which removes it as a confound either way.
+      - name: DIAGNOSTIC — why scope-guard writes no contract on Git Bash
+        continue-on-error: true
+        shell: bash
+        run: |
+          set +e
+          ST=$(mktemp -d); SID="diag$$"
+          export SUPERCHARGER_STATE="$ST" CLAUDE_CODE_SESSION_ID="$SID"
+          printf '{"prompt":"fix only the login bug in src/auth/login.ts","cwd":"%s"}' "$PWD" > "$ST/pay.json"
+          echo "payload bytes: $(wc -c < "$ST/pay.json")"
+          echo "--- does _json_get find the prompt at all? ---"
+          . hooks/lib-json-fast.sh 2>/dev/null || echo "  (lib-json-fast did not source)"
+          if command -v _json_fast_str >/dev/null 2>&1; then
+            if _json_fast_str prompt "$(cat "$ST/pay.json")"; then
+              echo "  _json_fast_str: OK -> ${_JSON_FAST_VAL:0:50}"
+            else
+              echo "  _json_fast_str: REFUSED (size gate or no match) — falls back"
+            fi
+          else
+            echo "  _json_fast_str: NOT DEFINED"
+          fi
+          echo "--- python fallback in isolation ---"
+          cat "$ST/pay.json" | python3 -c "import sys,json; print(repr(json.load(sys.stdin).get('prompt','')))" 2>&1 | head -2
+          echo "--- run the hook and look for the file ---"
+          bash hooks/scope-guard.sh contract < "$ST/pay.json"; echo "  hook rc=$?"
+          ls -la "$ST/scope" 2>/dev/null | head -5
+          if [ -f "$ST/scope/.contract-$SID" ]; then
+            echo "  CONTRACT WRITTEN: $(cat "$ST/scope/.contract-$SID")"
+          else
+            echo "  NO CONTRACT FILE — reproduced the recon failure"
+            echo "--- xtrace of the contract path (last 25 lines) ---"
+            bash -x hooks/scope-guard.sh contract < "$ST/pay.json" 2>&1 | tail -25
+          fi
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash

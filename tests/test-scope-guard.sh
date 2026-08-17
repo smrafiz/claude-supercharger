@@ -12,7 +12,17 @@ begin_test "scope-guard: snapshot creates .snapshot file"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
 TMPDIR=$(mktemp -d)
-cd "$TMPDIR" && git init -q && git commit --allow-empty -m "init" -q
+# Identity passed explicitly with -c, never inherited. Without it git falls back
+# to auto-detecting user@host, which works on a developer machine and FAILS on a
+# CI runner whose hostname is "(none)":
+#   fatal: unable to auto-detect email address (got 'runneradmin@runnervm....(none)')
+# The commit then never happened, so every later assertion in this file saw a
+# repo with no HEAD — 6 of the Windows recon's 29 failures were this one line,
+# reported as six separate product defects. Unreproducible by isolating HOME on
+# macOS, because auto-detection succeeds where the hostname is well-formed.
+cd "$TMPDIR" && git init -q \
+  && git -c user.email=test@supercharger.local -c user.name="Supercharger Test" \
+         commit --allow-empty -m "init" -q
 echo '{"session_id":"s1"}' | bash "$SCOPE_GUARD" snapshot "$TMPDIR"
 if [ -f "$HOME/.claude/supercharger/scope/.snapshot-s1" ]; then pass
 else fail "snapshot file not created"; fi

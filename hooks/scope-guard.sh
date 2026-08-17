@@ -25,6 +25,27 @@ _INPUT=$(cat 2>/dev/null || echo "")
 # `|| true` keeps the pipeline from tripping `set -e` under `pipefail` when jq
 # parse-fails on malformed JSON (head closes the pipe early → jq exits non-zero).
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
+# jq is not guaranteed. Every other hook that reads a payload field falls back to
+# python3; this one did not, and the failure is silent and shared: with no id,
+# EVERY session writes .contract-default and .snapshot-default, so two concurrent
+# sessions overwrite each other's scope contract. That is the per-session-file
+# leak class this repo has hit before, not a cosmetic default.
+#
+# Suspected in 6 of the 29 Windows recon failures, which all report a missing
+# .contract-<sid> and one of which reports "concurrent sessions collided: A= B=" —
+# exactly what a shared "default" produces. Fixed here on its own merits; the CI
+# diagnostic confirms whether it is also the Windows cause.
+if [ -z "$SID" ]; then
+  SID=$(printf '%s\n' "$_INPUT" | python3 -c "
+import sys, json, re
+try:
+    v = json.load(sys.stdin).get('session_id') or ''
+except Exception:
+    v = ''
+print(re.sub(r'[^a-zA-Z0-9_-]', '', str(v))[:64])
+" 2>/dev/null || true)
+  SID=${SID//$'\r'/}
+fi
 [ -z "$SID" ] && SID="default"
 
 SNAPSHOT_FILE="$SCOPE_DIR/.snapshot-${SID}"
