@@ -45,7 +45,27 @@ echo "[Supercharger] context-advisor: ${PCT}% used" >&2
 # fires right after a compaction (when the peak file exists).
 SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
 SESSION_ID="default"
-case "$_INPUT" in *'"session_id"'*) SESSION_ID="${_INPUT##*\"session_id\":\"}"; SESSION_ID="${SESSION_ID%%\"*}" ;; esac
+# v2.27.30: the guard tested for `"session_id"`, which matches a spaced payload,
+# but the strip below required the compact `"session_id":"` spelling. On a spaced
+# payload the strip therefore matched nothing and returned the WHOLE payload,
+# and `%%\"*` then cut it to a bare `{` — so every session shared one peak file,
+# `.ctx-advisor-peak-{`. That is the per-session-scoping collision class, not a
+# cosmetic default, and it failed silently. Now: match the colon, skip
+# whitespace, require a quoted value, and refuse anything that is not a plausible
+# id rather than letting it become a filename. First occurrence, not last (`#`
+# rather than `##`) — the top-level key is the one that owns the session, and a
+# later copy inside a prompt or transcript path must not win.
+case "$_INPUT" in *'"session_id"'*)
+  _ca_after="${_INPUT#*\"session_id\":}"
+  if [ "$_ca_after" != "$_INPUT" ]; then
+    _ca_after="${_ca_after#"${_ca_after%%[![:space:]]*}"}"
+    case "$_ca_after" in
+      \"*) _ca_after="${_ca_after#\"}"; SESSION_ID="${_ca_after%%\"*}" ;;
+    esac
+  fi
+  case "$SESSION_ID" in ''|*[!A-Za-z0-9._-]*) SESSION_ID="default" ;; esac
+  ;;
+esac
 PEAK_FILE="$SCOPE_DIR/.ctx-advisor-peak-${SESSION_ID}"
 
 if [ "$PCT" -lt 70 ]; then

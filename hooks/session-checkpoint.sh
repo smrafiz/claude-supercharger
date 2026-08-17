@@ -28,9 +28,21 @@ hook_profile_skip "session-checkpoint" && exit 0
 _CKPT_DEBOUNCE="${SUPERCHARGER_CHECKPOINT_DEBOUNCE_SECS:-10}"
 case "$_CKPT_DEBOUNCE" in ''|*[!0-9]*) _CKPT_DEBOUNCE=10 ;; esac
 if [ "$_CKPT_DEBOUNCE" -gt 0 ]; then
-  _SID_AFTER="${_INPUT#*\"session_id\":\"}"
+  # v2.27.30: match `"session_id":` and skip whitespace, rather than requiring
+  # the compact `"session_id":"` spelling. With the old literal, ANY payload
+  # carrying a space after the colon failed the match, the whole debounce below
+  # was skipped, and this hook went back to 4 git subprocesses plus a python
+  # fork on EVERY Write/Edit/Bash — measured 0 forks over 3 calls on compact
+  # JSON against 15 on spaced. A performance gate that silently disables itself
+  # on a serialiser change is worse than none, because nothing reports it.
+  # lib-json-fast already accepts both spellings for exactly this reason.
+  _SID_AFTER="${_INPUT#*\"session_id\":}"
   if [ "$_SID_AFTER" != "$_INPUT" ]; then
-    _CKPT_SID="${_SID_AFTER%%\"*}"
+    _SID_AFTER="${_SID_AFTER#"${_SID_AFTER%%[![:space:]]*}"}"
+    case "$_SID_AFTER" in
+      \"*) _SID_AFTER="${_SID_AFTER#\"}"; _CKPT_SID="${_SID_AFTER%%\"*}" ;;
+      *)   _CKPT_SID="" ;;
+    esac
     case "$_CKPT_SID" in ''|*[!A-Za-z0-9._-]*) _CKPT_SID="" ;; esac
     if [ -n "$_CKPT_SID" ]; then
       _NOW_EPOCH=$(date +%s 2>/dev/null || echo 0)
