@@ -84,4 +84,33 @@ awk '/COMBINED_PATTERN=/{seen=1} /grep -qE "\$COMBINED_PATTERN"/{if(seen) hit=1}
   "$REPO_DIR/hooks/prompt-secret-guard.sh" && pass \
   || fail "the partition loop runs before the combined-pattern pre-filter"
 
+# auto-compact is registered on PostToolUse with NO matcher, so it fires on every
+# tool call — but the percentage it reads only rides along on payloads carrying a
+# context_window. Before v2.27.26 it forked jq (session id) AND python3 (the
+# percentage) on every call, then read an empty value and exited two lines later:
+# +35ms on the hottest event in the system to learn there was nothing to do.
+# Asserted by BEHAVIOUR through a PATH shim, not by grepping for the guard — a
+# grep passes just as happily when the guard has been moved below the forks.
+begin_test "auto-compact reads no percentage without forking when the payload has none"
+SHIM=$(mktemp -d); FORKLOG="$SHIM/calls.log"
+for _t in python3 jq; do
+  _real=$(command -v "$_t" 2>/dev/null || true)
+  [ -n "$_real" ] || continue
+  printf '#!/bin/bash\necho %s >> "%s"\nexec %s "$@"\n' "$_t" "$FORKLOG" "$_real" > "$SHIM/$_t"
+  chmod +x "$SHIM/$_t"
+done
+TD=$(mktemp -d); mkdir -p "$TD/scope"; : > "$FORKLOG"
+printf '{"session_id":"s1","tool_name":"Bash","tool_input":{"command":"ls"},"tool_response":{"stdout":"x"}}' \
+  | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" bash "$REPO_DIR/hooks/auto-compact.sh" >/dev/null 2>&1
+FORKS=$(wc -l < "$FORKLOG" | tr -d ' ')
+[ "$FORKS" -eq 0 ] && pass || fail "auto-compact forked $FORKS time(s) on a payload with no context_window"
+
+# The other half of the contract: the bail-out must not swallow the real case.
+begin_test "auto-compact still advises when the payload does carry a percentage"
+: > "$FORKLOG"
+OUT=$(printf '{"session_id":"s1","tool_name":"Bash","context_window":{"used_percentage":85}}' \
+  | PATH="$SHIM:$PATH" SUPERCHARGER_STATE="$TD" bash "$REPO_DIR/hooks/auto-compact.sh" 2>/dev/null || true)
+case "$OUT" in *systemMessage*compact*) pass ;; *) fail "no compact advice at 85%: $OUT" ;; esac
+rm -rf "$SHIM" "$TD"
+
 report

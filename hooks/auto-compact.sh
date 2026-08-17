@@ -20,6 +20,17 @@ check_hook_disabled "auto-compact" && exit 0
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+
+# v2.27.26 perf: fork-free bail-out BEFORE the jq and python3 forks below.
+# This hook is registered on PostToolUse with no matcher, so it fires on every
+# tool call — but `used_percentage` only rides along on payloads that carry a
+# context_window. Without this guard the common case forked jq (session id) AND
+# python3 (percentage) only to read an empty PCT and exit 0 two lines later,
+# measured at +35ms on every PostToolUse:Bash call. If the key is not in the
+# payload at all, PCT was always going to be empty, so exiting here is the same
+# behaviour minus the two forks.
+case "$_INPUT" in *'"used_percentage"'*) ;; *) exit 0 ;; esac
+
 # 2.21.12: session-scope the compaction debounce band. The context window is
 # per-session, but .compact-last-band was global — one session at 85% wrote
 # band 80 and suppressed another session's 70/80 warning, and dropping below 70

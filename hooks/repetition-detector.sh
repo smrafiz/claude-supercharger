@@ -34,9 +34,24 @@ FIELDS=$(printf '%s\n' "$_INPUT" | jq -r '[.cwd // .workspace.current_dir // "",
 # non-whitespace so empty columns survive; @tsv already escaped any literal
 # tab/newline in the values, so this is lossless. session_id (field 5) now
 # reads correctly, so no separate awk extraction is needed.
-IFS=$'\037' read -r PROJECT_DIR TOOL_NAME F_CMD F_FPATH SID_RAW <<EOF_FIELDS
-$(printf '%s' "$FIELDS" | tr '\t' '\037')
-EOF_FIELDS
+# v2.27.26 perf: split the @tsv line with parameter expansion instead of
+# `$(printf | tr)` + heredoc. That cost a `tr` fork plus a command-substitution
+# subshell on EVERY Bash and Read call — this hook is the hottest in the system
+# (35.8k recorded PostToolUse:Bash fires) and measured +44ms over a bare bash.
+# `%%`/`#` are single-scan strips and stay LINEAR; `${v//x/y}` is NOT used here
+# on purpose — it rebuilds the string and goes quadratic on long commands.
+# @tsv has already escaped any literal tab/newline inside the values, so
+# splitting on the raw tabs is lossless and empty columns survive (the \037
+# dance from 2.21.14 existed only because `read` collapses IFS-whitespace).
+_rest="$FIELDS"
+PROJECT_DIR="${_rest%%$'\t'*}"; _rest="${_rest#*$'\t'}"
+TOOL_NAME="${_rest%%$'\t'*}";   _rest="${_rest#*$'\t'}"
+F_CMD="${_rest%%$'\t'*}";       _rest="${_rest#*$'\t'}"
+F_FPATH="${_rest%%$'\t'*}";     _rest="${_rest#*$'\t'}"
+SID_RAW="${_rest%%$'\t'*}"
+# jq emits 4 tabs for 5 @tsv columns; no tab at all means jq failed and FIELDS
+# is empty/garbage — blank the fields rather than mirroring it into every one.
+case "$FIELDS" in *$'\t'*) ;; *) PROJECT_DIR=""; TOOL_NAME=""; F_CMD=""; F_FPATH=""; SID_RAW="" ;; esac
 SID="${SID_RAW//[^a-zA-Z0-9_-]/}"; SID="${SID:0:64}"; [ -z "$SID" ] && SID="default"
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
@@ -66,16 +81,27 @@ if [ -n "$FINGERPRINT" ]; then
   HASH=$(printf '%s' "$FINGERPRINT" | sc_md5 2>/dev/null || true)
   if [ -n "$HASH" ]; then
     # tail-then-awk; awk always emits the count, no shell-exit-status games
+    # v2.27.26 perf: one fork-free pass replaces `tail -20 | awk` AND the
+    # separate `wc -l` below — 4 forks (tail, awk, wc, tr) on every fire, on a
+    # file the trim logic caps at 50 lines. Reading it in bash is cheaper than
+    # spawning one process, let alone four.
     COUNT=0
+    LINES=0
     if [ -f "$LOOP_FILE" ]; then
-      COUNT=$(tail -20 "$LOOP_FILE" 2>/dev/null | awk -v h="$HASH" '$0==h{c++} END{print c+0}' || echo 0)
-      [ -z "$COUNT" ] && COUNT=0
+      _hist=()
+      while IFS= read -r _l || [ -n "$_l" ]; do _hist+=("$_l"); done < "$LOOP_FILE"
+      LINES=${#_hist[@]}
+      _i=$(( LINES > 20 ? LINES - 20 : 0 ))
+      while [ "$_i" -lt "$LINES" ]; do
+        if [ "${_hist[$_i]}" = "$HASH" ]; then COUNT=$((COUNT + 1)); fi
+        _i=$((_i + 1))
+      done
     fi
     echo "$HASH" >> "$LOOP_FILE" 2>/dev/null || true
 
-    # Trim loop history
+    # Trim loop history (LINES is the pre-append count; +1 for the line just added)
     if [ -f "$LOOP_FILE" ]; then
-      LINES=$(wc -l < "$LOOP_FILE" | tr -d ' ')
+      LINES=$((LINES + 1))
       if [ "$LINES" -gt 50 ]; then
         tail -30 "$LOOP_FILE" > "$LOOP_FILE.$$.tmp" 2>/dev/null && mv "$LOOP_FILE.$$.tmp" "$LOOP_FILE" 2>/dev/null || true
       fi
@@ -93,15 +119,19 @@ fi
 
 # ── Re-read detection (Read only) ──
 if [ "$TOOL_NAME" = "Read" ]; then
-  FILE_PATH=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $4}')
+  # v2.27.26 perf: reuse the fields split above instead of re-parsing FIELDS
+  # with a fresh `printf | awk` (2 forks) for a value we already hold.
+  FILE_PATH="$F_FPATH"
   if [ -n "$FILE_PATH" ] && [ -f "$FILE_PATH" ]; then
     # v2.8.14: session-scope the read history. It was GLOBAL, so reads from every
     # past session/project accumulated forever — a fresh session got false "you
     # already read X" tips, and (worse) confidence-gate's read-before-write check
     # saw those stale reads and silently stopped firing on real blind edits. Now
     # keyed by session like .tool-history-<sid> / .repetition-flag-<sid>.
-    SID_RR=$(printf '%s' "$FIELDS" | awk -F'\t' '{print $5}' | tr -cd 'a-zA-Z0-9_-' | head -c 64)
-    [ -z "$SID_RR" ] && SID_RR="default"
+    # v2.27.26 perf: SID above is the identical sanitize (strip to
+    # [a-zA-Z0-9_-], cap 64, default "default") already applied to field 5 —
+    # this repeated it through printf|awk|tr|head, 4 forks, for the same value.
+    SID_RR="$SID"
     READS_FILE="$SCOPE_DIR/.read-history-${SID_RR}"
     # v2.6.78: GNU-first + numeric guard for Linux stat-f portability
     CURRENT_MTIME=$(stat -c '%Y' "$FILE_PATH" 2>/dev/null || stat -f '%m' "$FILE_PATH" 2>/dev/null || echo "")
