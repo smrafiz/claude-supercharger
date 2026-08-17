@@ -81,6 +81,37 @@ else
 fi
 rm -rf "$_BD"
 
+# --- a bound must not cost the budget on SUCCESS ----------------------------
+# The killer subshell used to inherit the caller's stdout. When that stdout is a
+# command-substitution pipe — which is how quality-gate calls this,
+# issues=$(sc_bounded_run 30 eslint "$f") — bash cannot see EOF until every fd
+# holder closes, and killing the subshell leaves its `sleep` orphaned to init,
+# still holding the pipe. So a command that exited instantly stalled the capture
+# for the ENTIRE budget: 30.2s at budget 30, 5.2s at budget 5.
+#
+# The existing latency test above called sc_bounded_run DIRECTLY and passed
+# throughout, because without a capture there is no pipe to hold. Anything that
+# only manifests through $( ) has to be tested through $( ).
+begin_test "a captured call returns as soon as the command does, not at the budget"
+_T0=$(python3 -c 'import time; print(time.time())')
+_OUT=$(sc_bounded_run 20 echo captured-ok)
+_T1=$(python3 -c 'import time; print(time.time())')
+_EL=$(python3 -c 'import sys; print("%.2f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+_FAST=$(python3 -c 'import sys; print("1" if float(sys.argv[1]) < 5 else "0")' "$_EL")
+if [ "$_FAST" = "1" ] && [ "$_OUT" = "captured-ok" ]; then
+  pass
+else
+  fail "captured call took ${_EL}s with a 20s budget (out='$_OUT') — the killer is holding the pipe"
+fi
+
+begin_test "the same holds when the bound wraps a silent command"
+_T0=$(python3 -c 'import time; print(time.time())')
+_OUT=$(sc_bounded_run 20 true)
+_T1=$(python3 -c 'import time; print(time.time())')
+_EL=$(python3 -c 'import sys; print("%.2f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+_FAST=$(python3 -c 'import sys; print("1" if float(sys.argv[1]) < 5 else "0")' "$_EL")
+[ "$_FAST" = "1" ] && pass || fail "captured silent call took ${_EL}s with a 20s budget"
+
 # --- the timeout verdict must not depend on scheduling ----------------------
 # v2.27.11 decided "did the bound fire?" by asking whether the killer subprocess
 # was still alive: alive => still sleeping => the command finished on its own.
@@ -96,7 +127,9 @@ rm -rf "$_BD"
 # time; against the marker it is irrelevant, which is the property being pinned.
 begin_test "an overrun still reports 124 when the killer outlives the signal"
 _INJ=$(mktemp -d)
-sed 's|kill -TERM "$_cpid" 2>/dev/null ) &|kill -TERM "$_cpid" 2>/dev/null; sleep 0.3 ) \&|' \
+# The injection point moved when the killer gained its own redirections; the test
+# FAILED LOUDLY rather than passing vacuously, which is the property it was given.
+sed 's|kill -TERM "$_cpid" 2>/dev/null ) \\|kill -TERM "$_cpid" 2>/dev/null; sleep 0.3 ) \\|' \
   "$REPO_DIR/hooks/lib-bounded-run.sh" > "$_INJ/lib.sh"
 if ! grep -q 'sleep 0.3' "$_INJ/lib.sh"; then
   rm -rf "$_INJ"

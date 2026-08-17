@@ -73,9 +73,22 @@ sc_bounded_run() {
   "$@" &
   local _cpid=$!
   set +m 2>/dev/null || true
+  # The killer gets NO stdio of its own. Without these redirections it inherits
+  # the caller's stdout, and when that stdout is a command-substitution pipe —
+  # `issues=$(sc_bounded_run 30 eslint "$f")`, which is how quality-gate calls
+  # this — bash cannot see EOF until every fd holder closes. Killing the subshell
+  # leaves its `sleep` orphaned to init, still holding the pipe, so the capture
+  # stalled for the WHOLE budget: measured 30.2s at budget 30 and 5.2s at budget
+  # 5, with the command itself exiting instantly.
+  #
+  # It is timing-dependent (the orphan only matters if it outlives the kill),
+  # which is why a direct call measured 0.02s and the suite stayed green while
+  # every captured call could hang. A hook that waits its own timeout on success
+  # is worse than no bound at all.
   ( sleep "$_secs"
     [ -n "$_mark" ] && : > "$_mark" 2>/dev/null
-    kill -TERM -"$_cpid" 2>/dev/null || kill -TERM "$_cpid" 2>/dev/null ) &
+    kill -TERM -"$_cpid" 2>/dev/null || kill -TERM "$_cpid" 2>/dev/null ) \
+      >/dev/null 2>&1 </dev/null &
   local _kpid=$!
 
   local _rc=0
