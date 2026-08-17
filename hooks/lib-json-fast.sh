@@ -95,10 +95,41 @@ _json_fast_str() {
 # but it is a real difference from the code this replaced, so it is closed rather
 # than documented. Counting braces in the PREFIX is fork-free and cheap for a
 # top-level key, because the prefix is short exactly when the answer is yes.
+#
+# v2.27.28 PREFIX RETRY. The size gate above sends every large payload to jq —
+# correct for _json_fast_str's own quadratic slicing, but wasteful here, because
+# these callers all want a TOP-LEVEL field and Claude Code puts those at the
+# FRONT (session_id, transcript_path, cwd, then the bulky tool_input /
+# tool_response). A PostToolUse payload carrying a few KB of stdout is past the
+# gate, so a hook needing only the session id forked jq on every call.
+#
+# So when the body is past the gate, retry the fork-free read against a bounded
+# PREFIX. That respects the gate's reason for existing — the slicing runs over
+# 2KB, not 70KB — and keeps the depth check, so a nested key still cannot be
+# mistaken for a top-level one. If the field is not in the prefix, jq runs
+# exactly as before; this only ever ADDS a fast path.
+#
+# TRUNCATION GUARD. Cutting a payload mid-string can leave a value with no
+# closing quote, and _json_fast_str's `%%\"*` would then hand back the truncated
+# remainder AS IF it were the whole value — a silently wrong session id or cwd,
+# which is the file-scoping bug class this repo keeps hitting. So a value read
+# out of a truncated body is only trusted when the body still contains it in
+# fully QUOTED form: if the closing quote was cut off, that match cannot occur
+# and the read is discarded in favour of jq.
 _json_get() { # var, key, payload, jq_filter
-  local __val="" __pre __o __c
-  if _json_fast_str "$2" "$3" 2>/dev/null; then
-    __pre="${3%%\"$2\"*}"
+  local __val="" __pre __o __c __body="$3" __cut=0
+  if [ "${#3}" -gt "${SUPERCHARGER_JSON_FAST_MAX:-4096}" ]; then
+    __body="${3:0:${SUPERCHARGER_JSON_FAST_PREFIX:-2048}}"
+    __cut=1
+  fi
+  if _json_fast_str "$2" "$__body" 2>/dev/null; then
+    if [ "$__cut" = 1 ]; then
+      case "$__body" in
+        *"\"$_JSON_FAST_VAL\""*) ;;
+        *) _JSON_FAST_VAL="" ;;
+      esac
+    fi
+    __pre="${__body%%\"$2\"*}"
     __o="${__pre//[^\{]/}"
     __c="${__pre//[^\}]/}"
     # Exactly one unclosed brace before the key == top level.

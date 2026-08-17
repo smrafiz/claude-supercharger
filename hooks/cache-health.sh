@@ -7,6 +7,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-json-fast.sh
+. "$HOOKS_DIR/lib-json-fast.sh"
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
@@ -15,12 +17,20 @@ mkdir -p "$SCOPE_DIR"
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+# v2.27.28: both fields via the fork-free reader (jq fallback intact). This hook
+# does real work only every 5th call, but BOTH jq forks were paid on every call,
+# before the counter gate below — i.e. 4 calls in 5 forked jq twice purely to
+# build two filenames and then exit. PostToolUse payloads carry tool output and
+# routinely sit past _json_fast_str's size gate, so the prefix retry added to
+# _json_get in this release is what makes the fork-free path reachable here.
+_json_get PROJECT_DIR cwd "$_INPUT" '.cwd // .workspace.current_dir // empty'
+[ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 # 2.21.12: session-scope the counter / rolling-window / dedup files. They were
 # global, so concurrent sessions shared the every-5th counter and mixed their
 # hit-rate windows → false "degraded" warnings or masked real degradation.
-SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
+_json_get SID session_id "$_INPUT" '.session_id // empty'
+[ -z "$SID" ] && SID="default"
 
 # ── Step 1: Counter — only proceed every 5th call ───────────────────────────
 COUNTER_FILE="$SCOPE_DIR/.cache-health-counter-${SID}"

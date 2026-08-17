@@ -68,4 +68,42 @@ if _json_fast_str command '{"command":"outer","tool_input":{"command":"inner"}}'
   fail "claimed '$_JSON_FAST_VAL' from an ambiguous payload"
 else pass; fi
 
+# --- v2.27.28 prefix retry ----------------------------------------------------
+# _json_fast_str's size gate sent every large payload to jq, but these callers
+# want TOP-LEVEL fields and Claude Code puts those at the FRONT — so a hook that
+# needed only the session id forked jq on every call with tool output attached.
+# _json_get now retries on a bounded prefix. jq stays the oracle in all three.
+begin_test "a top-level field in a LARGE payload is read without forking jq"
+BIG=$(python3 -c "import json,sys;print(json.dumps({'session_id':'sess-abc','cwd':'/repo/proj','tool_response':{'stdout':'z'*20000}}))")
+SHIM=$(mktemp -d); JQLOG="$SHIM/jq.log"
+printf '#!/bin/bash\necho jq >> "%s"\nexec %s "$@"\n' "$JQLOG" "$(command -v jq)" > "$SHIM/jq"
+chmod +x "$SHIM/jq"; : > "$JQLOG"
+GOT=$(PATH="$SHIM:$PATH" bash -c '. "$1"; _json_get V session_id "$2" ".session_id // empty"; printf "%s" "$V"' \
+  _ "$REPO_DIR/hooks/lib-json-fast.sh" "$BIG")
+NF=$(grep -c jq "$JQLOG" 2>/dev/null | tr -d ' '); NF=${NF:-0}
+[ "$GOT" = "sess-abc" ] && [ "$NF" -eq 0 ] && pass || fail "value='$GOT' jq_forks=$NF (expected sess-abc / 0)"
+
+# The guard that makes truncation safe: cutting mid-string can leave a value with
+# no closing quote, and the slicer would hand back the fragment AS IF whole — a
+# silently wrong session id, i.e. the per-session-file scoping bug class again.
+begin_test "a value straddling the prefix boundary is NOT truncated — it defers to jq"
+BAD=""
+for PADLEN in 1900 1980 2000 2040 2047 2048 2049 2100; do
+  P=$(python3 -c "
+import json,sys
+pad='p'*int(sys.argv[1])
+print(json.dumps({'pad':pad,'cwd':'v'*300,'session_id':'straddle','tool_response':{'stdout':'q'*9000}}))" "$PADLEN")
+  TRUTH=$(printf '%s' "$P" | jq -r '.cwd // empty')
+  GOT=$(bash -c '. "$1"; _json_get V cwd "$2" ".cwd // empty"; printf "%s" "$V"' _ "$REPO_DIR/hooks/lib-json-fast.sh" "$P")
+  [ "$GOT" = "$TRUTH" ] || BAD="$BAD [pad=$PADLEN got ${#GOT} chars, want ${#TRUTH}]"
+done
+[ -z "$BAD" ] && pass || fail "truncated value accepted:$BAD"
+
+begin_test "the depth check still holds on the prefix path (nested key not mistaken for top level)"
+NEST=$(python3 -c "import json;print(json.dumps({'other':{'cwd':'/nested'},'workspace':{'current_dir':'/correct'},'blob':'b'*9000}))")
+GOT=$(bash -c '. "$1"; _json_get V cwd "$2" ".cwd // .workspace.current_dir // empty"; printf "%s" "$V"' \
+  _ "$REPO_DIR/hooks/lib-json-fast.sh" "$NEST")
+[ "$GOT" = "/correct" ] && pass || fail "took '$GOT', expected /correct (the nested cwd must not win)"
+rm -rf "$SHIM"
+
 report
