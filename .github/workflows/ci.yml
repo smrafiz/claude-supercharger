@@ -445,14 +445,31 @@ jobs:
       # harness breakage as product failure.
       # continue-on-error so the recon run cannot turn master red. Once the
       # failure list is triaged this becomes a curated TEST_GLOB subset, gating.
-      # The recon showed path-guard REFUSING NOTHING on Windows ("$HOME accepted
-      # as a root: rc=0") — i.e. the whole home directory becomes in-project and
-      # writable. The suspected cause is a FORM mismatch, not a logic error: Git
-      # Bash hands paths as /c/Users/..., while Windows python's expanduser('~')
-      # returns C:\Users\..., and realpath cannot reconcile the two — so
-      # `rp == home` is False and the refusal is skipped.
-      # This step PROVES or DISPROVES that before a security hook is patched on a
-      # hypothesis. Nothing Windows is answerable from macOS.
+      #
+      # RESOLVED v2.27.27 — this block used to say path-guard was "REFUSING
+      # NOTHING on Windows ($HOME accepted as a root: rc=0)", i.e. the whole home
+      # directory in-project and writable. That was the v2.26.83 recon and it is
+      # no longer true: the _msys_path / _msys_root work in path-guard closed it,
+      # and the steps below now measure the refusals firing on the runner —
+      # root "/" writing /etc/hosts rc=2, root $HOME writing into $HOME rc=2,
+      # scp-of-key rc=2, expanded $HOME rc=2. The claim is kept here in the past
+      # tense rather than deleted because a stale "this security hook is broken"
+      # comment is worse than none: read as current, it invites a patch to a
+      # guard that is already correct.
+      #
+      # The steps are KEPT as regression evidence, not because the bug is open.
+      # Read their output before concluding anything about Windows path handling.
+      #
+      # CAVEAT on the diagnostic immediately below — it cannot answer the
+      # question it appears to ask. It prints realpath() of the HOME env var, but
+      # MSYS rewrites a single-path env var in transit, so python receives
+      # C:\Users\... and never sees the /c/Users/... form the test is about. Its
+      # "MATCH ... True" therefore proves only that MSYS converted the variable.
+      # path-guard's own _msys_path docstring records the real measurement:
+      # realpath('/c/Users/me/.ssh') -> 'D:\c\Users\me\.ssh'. To probe the POSIX
+      # form, hardcode it as a python string LITERAL — anything arriving by env
+      # or argv has already been converted. Nothing Windows is answerable from
+      # macOS, and a diagnostic that measures the harness is worse than none.
       - name: DIAGNOSTIC — POSIX vs Windows path forms
         continue-on-error: true
         shell: bash
@@ -476,6 +493,23 @@ jobs:
           print('home realpath      =', home)
           print('REFUSAL WOULD FIRE (rp == home)?', rp == home)
           print('ancestor form: home.startswith(rp + sep)?', home.startswith(rp + os.sep))
+
+          # The lines above CANNOT answer the POSIX-form question: MSYS rewrites a
+          # single-path env var in transit, so `hb` already arrived as C:\Users\...
+          # and the /c/Users/... spelling was never tested. Build it as a string
+          # LITERAL here — nothing in env or argv survives the conversion.
+          print('--- POSIX form, constructed in-process (MSYS cannot touch it) ---')
+          if os.name != 'nt' or len(home) < 2 or home[1] != ':':
+              print('(skipped — only meaningful for a drive-lettered Windows home)')
+          else:
+              posix = '/' + home[0].lower() + home[2:].replace('\\', '/')
+              print('synthesised POSIX form   =', posix)
+              print('realpath(POSIX form)     =', os.path.realpath(posix))
+              print('resolves to home?        =', os.path.realpath(posix) == home)
+              print('isdir(POSIX form)?       =', os.path.isdir(posix))
+          # If this prints False/False on Windows, a root configured in Git Bash
+          # spelling is silently dropped as "not a directory" rather than honoured
+          # — fail-CLOSED, so not a hole, but additionalRoots would not work.
           PY
 
       # The suite recon reports test-additional-roots refusals failing on Windows:
