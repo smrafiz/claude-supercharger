@@ -1096,6 +1096,30 @@ jobs:
             bash -x hooks/scope-guard.sh contract < "$ST/pay.json" 2>&1 | tail -25
           fi
 
+      # The CRLF test fails in the recon naming assets/demo/try.sh, yet the
+      # line-ending diagnostic earlier in THIS SAME JOB reads that file as having
+      # zero CR bytes, and it is clean in the repo and on macOS. So either
+      # something between the two steps rewrites it — install.sh and update.sh
+      # both run in between and both touch the tree — or the suite corrupts it
+      # while running, which matters far more: the recon runs with TEST_JOBS=4
+      # in the workspace root, so a parallel test writing to a TRACKED file would
+      # do exactly this and would also mean the suite cannot be trusted to leave
+      # the tree alone. Sampling either side of the run separates the two without
+      # guessing, and the isolated run says whether the test even fails alone.
+      - name: DIAGNOSTIC — when does try.sh gain a CR byte?
+        continue-on-error: true
+        shell: bash
+        run: |
+          crcount() { python3 -c "import sys;print(open(sys.argv[1],'rb').read().count(b'\r'))" "$1" 2>&1 || echo ERR; }
+          echo "BEFORE the suite:"
+          echo "  try.sh CR bytes        : $(crcount assets/demo/try.sh)"
+          echo "  git ls-files --eol     : $(git ls-files --eol assets/demo/try.sh)"
+          echo "  tracked files modified : $(git status --porcelain | wc -l)"
+          echo "--- the CRLF test run ALONE (no parallel jobs) ---"
+          bash tests/test-line-endings.sh 2>&1 | tail -12 || true
+          echo "--- any tracked .sh/.py with a CR, checked directly ---"
+          git ls-files -z '*.sh' '*.py' | xargs -0 grep -lU $'\r' 2>/dev/null || echo "  (none)"
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
@@ -1126,6 +1150,13 @@ jobs:
           for f,c in sorted(fails.items(), key=lambda x:-x[1]):
               print(f"  {c:4d}/{tot.get(f,0):<4d}  {f}")
           PY
+          # Second half of the try.sh sampling: if the CR appears only here, the
+          # suite itself wrote it, and the culprit is a parallel test mutating a
+          # TRACKED file rather than anything about Windows line endings.
+          echo "=== AFTER the suite ==="
+          echo "  try.sh CR bytes        : $(python3 -c "print(open('assets/demo/try.sh','rb').read().count(b'\r'))" 2>&1 || echo ERR)"
+          echo "  tracked files modified : $(git status --porcelain | wc -l)"
+          git status --porcelain | head -20
 
       - name: RECON — upload the full suite log
         if: always()
