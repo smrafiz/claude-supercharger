@@ -242,16 +242,21 @@ hook_already_emitted() {
 # deltas of -0.05, +0.28 and -0.08 ms across three rounds. An earlier single
 # unreplicated pair suggested ~9ms and that reading did not survive repetition.
 #
-# On WINDOWS it was worth 30ms PER HOOK. Measured on the Git Bash runner, same
-# file, only this block differing: sourcing this lib cost 60.3ms with it and
-# 30.0ms without, against 28.6ms for the comparable lib-paths and 28.7ms for bare
-# bash. So this one dead lookup WAS the entire gap between lib-suppress and the
-# floor, in the lib that 100 hooks source, on every tool call.
+# CORRECTION (v2.27.25). v2.27.18 claimed this was worth 30ms PER HOOK on Git
+# Bash. IT WAS NOT — that number came from a broken measurement and does not
+# reproduce. The probe built its "without" arm with `sed '/_JQ_AVAILABLE/d'`,
+# which deletes the three lines CONTAINING that string and leaves the block's
+# closing `fi` dangling. The result is a syntax error, so bash abandoned the file
+# immediately; 30.0ms was the cost of a file that FAILED TO PARSE, not of this
+# lib without the lookup.
 #
-# The mechanism is the platform's file I/O, not the shell: `command -v` walks a
-# 30+ entry PATH, and a stat there costs 0.171ms against 0.048ms on macOS.
+# The post-removal runner disagrees with the claim, which is how it was caught:
+# sourcing this lib still costs 57.3ms against 29.0ms for bare bash (+28.3ms),
+# statistically unchanged from the +31.6ms measured before the removal.
 #
-# If a consumer is ever wanted, compute it AT THE POINT OF USE.
+# So: the deletion stands on DEAD CODE grounds only — nothing in the product ever
+# read _JQ_AVAILABLE — and the Windows per-hook floor remains UNEXPLAINED. Do not
+# cite a saving here. If a consumer is ever wanted, compute it AT THE POINT OF USE.
 
 # Default initialisation (no project dir yet — hooks should re-call after reading input)
 init_hook_suppress

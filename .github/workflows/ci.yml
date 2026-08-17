@@ -916,10 +916,39 @@ jobs:
           # justified either way — but the CLAIM about what it costs is not.
           price "command -v jq"        "command -v jq"
           price "command -v absent"    "command -v definitely-not-installed-xyz"
-          sed '/_JQ_AVAILABLE/d' hooks/lib-suppress.sh > "$RUNNER_TEMP/nojq-lib-suppress.sh"
+          # ANY variant built for a timing comparison must PARSE, or the number is
+          # the cost of bash giving up. The original probe used
+          # `sed '/_JQ_AVAILABLE/d'`, which deleted the three lines containing that
+          # string and left the block's closing `fi` dangling — a syntax error. It
+          # reported 30.0ms, that was read as a 30ms-per-hook saving, and it shipped
+          # in a changelog and a code comment before the post-fix runner disagreed.
+          sed '/_JQ_AVAILABLE/,/^fi$/d' hooks/lib-suppress.sh > "$RUNNER_TEMP/nojq-lib-suppress.sh"
+          if ! bash -n "$RUNNER_TEMP/nojq-lib-suppress.sh" 2>/dev/null; then
+            echo "  SKIP no-jq arm: the stripped copy does not parse — any timing would be meaningless"
+            rm -f "$RUNNER_TEMP/nojq-lib-suppress.sh"
+          fi
           cp hooks/lib-paths.sh "$RUNNER_TEMP/" 2>/dev/null || true
           printf '. "%s/nojq-lib-suppress.sh"\nexit 0\n' "$RUNNER_TEMP" > "$RUNNER_TEMP/src_nojq.sh"
           price "  lib-suppress no-jq"  "bash $RUNNER_TEMP/src_nojq.sh"
+
+          echo ""
+          echo "=== hook INVOCATION form: shell vs exec ==="
+          # hooks.json registers commands in SHELL form (a bare path). Claude Code
+          # runs that through Git Bash, which then execs the script — two processes
+          # where exec form ("command": "bash", "args": [path]) needs one. Each
+          # avoided process is ~27ms here, and there are 18 hooks on PreToolUse:Bash.
+          #
+          # Whether that refactor is worth doing depends ENTIRELY on this number:
+          # it would mean redesigning the #supercharger marker across 42 references
+          # (in shell form it is a comment; in exec form it becomes a positional
+          # argument, and several hooks read $1), and the plugin channel cannot use
+          # exec form at all because args are LITERAL — verified live, no variable
+          # expansion, so ${CLAUDE_PLUGIN_ROOT} would never resolve.
+          printf '#!/usr/bin/env bash\nexit 0\n' > "$RUNNER_TEMP/probe_hook.sh"
+          chmod +x "$RUNNER_TEMP/probe_hook.sh"
+          price "shell form: bash -c path"  "bash -c $RUNNER_TEMP/probe_hook.sh"
+          price "exec form:  bash path"     "bash $RUNNER_TEMP/probe_hook.sh"
+          price "direct (shebang env+bash)" "$RUNNER_TEMP/probe_hook.sh"
 
           echo ""
           echo "=== per-hook: wall time and REAL fork count ==="
