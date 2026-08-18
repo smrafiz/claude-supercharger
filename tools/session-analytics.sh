@@ -33,7 +33,8 @@ while [[ $# -gt 0 ]]; do
 done
 
 # v2.27.39: report what was actually inspected when the answer is "nothing".
-# There are TWO exits that print "No session data found" and v2.27.38
+# There are THREE exits that print "No session data found" — two here and
+# one inside the python block below (zero counted sessions). v2.27.38
 # instrumented only the second — the Windows runner takes the FIRST, so the
 # release produced no new information at all. Both call this now.
 _sa_why_empty() {
@@ -49,6 +50,19 @@ _sa_why_empty() {
     echo "  jsonl nonempty : $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -not -empty 2>/dev/null | wc -l | tr -d ' ')"
   } >&2
 }
+
+# v2.27.43: convert to a native path BEFORE find runs, so every path it emits is
+# one python can stat. find is an MSYS binary and resolves /c/... or /tmp/... just
+# fine, but the file list it produces is handed to python through an environment
+# variable holding MANY paths, and MSYS only rewrites SINGLE-path variables — so
+# python received MSYS paths, os.path.getmtime skipped every one of them, and the
+# report came back with zero sessions. That is a real defect for Windows users,
+# not just the suite: the default projects directory is under $HOME, which Git
+# Bash spells /c/Users/... . Converting the root once is cheaper and safer than
+# converting N file paths afterwards. No-op wherever cygpath does not exist.
+if command -v cygpath >/dev/null 2>&1; then
+  PROJECTS_DIR=$(cygpath -m "$PROJECTS_DIR" 2>/dev/null || printf '%s' "$PROJECTS_DIR")
+fi
 
 SESSION_SKIP=false
 if [ ! -d "$PROJECTS_DIR" ]; then
@@ -161,15 +175,22 @@ def add_to(row, t, cost, saved):
 by_date    = {}
 by_project = {}
 
+# v2.27.43: count what gets dropped. An unstat-able file was silently skipped,
+# which is how a report of zero sessions gave no hint that python could not see
+# the files at all — the case that cost two releases of guessing.
+_n_seen = _n_unstatable = _n_too_old = 0
 for line in file_raw.splitlines():
     line = line.strip()
     if not line or '|' not in line:
         continue
     slug, path = line.split('|', 1)
+    _n_seen += 1
     try:
         if os.path.getmtime(path) < cutoff:
+            _n_too_old += 1
             continue
     except OSError:
+        _n_unstatable += 1
         continue
     t, ts_start = parse_session(path)
     if t['turns'] == 0:
@@ -195,6 +216,12 @@ for r in by_date.values():
 
 if grand['sessions'] == 0:
     print('No session data found')
+    if os.environ.get('SUPERCHARGER_ANALYTICS_DEBUG') or os.environ.get('CI'):
+        sys.stderr.write(
+            '  files in list  : %d\n'
+            '  unstat-able    : %d   <- python cannot see these paths at all\n'
+            '  older than cut : %d\n'
+            '  cutoff (days)  : %d\n' % (_n_seen, _n_unstatable, _n_too_old, days))
     sys.exit(0)
 
 label = f"last {days} day{'s' if days != 1 else ''}"
