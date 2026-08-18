@@ -458,6 +458,11 @@ case "${1:-status}" in
     while IFS= read -r _d; do
       mkdir -p "$_d" 2>/dev/null || true
       printf '%s\n' "$_FLAG_BODY" > "$_d/.supercharger-disabled" 2>/dev/null || true
+      # One-shot marker for sc-toggle-notice.sh. The rules files are moved off
+      # disk below, but a session ALREADY RUNNING has them in context and cannot
+      # unread them, so the notice states the override on the next prompt. It is
+      # deleted on read: off must not keep talking every turn.
+      printf 'off\n' > "$_d/.sc-toggle-announce" 2>/dev/null || true
     done <<EOF
 $(_flag_dirs)
 EOF
@@ -519,6 +524,10 @@ EOF
     # Clear the flag from EVERY scope dir it may have been written to.
     while IFS= read -r _d; do
       rm -f "$_d/.supercharger-disabled" 2>/dev/null || true
+      # Symmetric with off. Without this, off is instant while on silently waits
+      # for a restart, which is the more surprising of the two.
+      mkdir -p "$_d" 2>/dev/null || true
+      printf 'on\n' > "$_d/.sc-toggle-announce" 2>/dev/null || true
     done <<EOF
 $(_flag_dirs)
 EOF

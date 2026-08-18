@@ -471,4 +471,92 @@ bash "$TOGGLE" off >/dev/null 2>&1
   && pass || fail "off mishandled a settings.json with no hooks"
 teardown_test_home
 
+# --- v2.27.35: mid-session toggle notice ------------------------------------
+# Rules in ~/.claude/rules/ are read once at session start, so moving them off
+# disk cannot unload them from a conversation already running. The notice states
+# the override on the next prompt instead. It is the ONE hook that must keep
+# working while the kill-switch is set, which is exactly what makes it fragile:
+# adding the "missing" lib-suppress source line would look like a tidy-up and
+# would silently disable it in the only case it exists for.
+
+begin_test "sc-toggle: off writes the one-shot announce marker"
+_setup
+bash "$TOGGLE" off >/dev/null 2>&1
+[ -f "$HOME/.claude/supercharger/scope/.sc-toggle-announce" ] && pass || fail "no marker written by off"
+teardown_test_home
+
+begin_test "sc-toggle: on writes the marker too (off is instant, on must be as well)"
+_setup
+bash "$TOGGLE" off >/dev/null 2>&1
+rm -f "$HOME/.claude/supercharger/scope/.sc-toggle-announce"
+bash "$TOGGLE" on >/dev/null 2>&1
+[ -f "$HOME/.claude/supercharger/scope/.sc-toggle-announce" ] && pass || fail "no marker written by on"
+teardown_test_home
+
+begin_test "notice hook: silent when no toggle has happened"
+_setup
+OUT=$(SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$REPO_DIR/hooks/sc-toggle-notice.sh" </dev/null 2>&1)
+[ -z "$OUT" ] && pass || fail "spoke without a marker: $OUT"
+teardown_test_home
+
+begin_test "notice hook: announces off, and is ONE-SHOT"
+_setup
+printf 'off\n' > "$HOME/.claude/supercharger/scope/.sc-toggle-announce"
+OUT1=$(SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$REPO_DIR/hooks/sc-toggle-notice.sh" </dev/null 2>&1)
+OUT2=$(SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$REPO_DIR/hooks/sc-toggle-notice.sh" </dev/null 2>&1)
+case "$OUT1:$OUT2" in
+  *DEACTIVATED*:) pass ;;
+  *) fail "first=$OUT1 second=$OUT2 (expected announce then silence)" ;;
+esac
+teardown_test_home
+
+begin_test "notice hook: announces on"
+_setup
+printf 'on\n' > "$HOME/.claude/supercharger/scope/.sc-toggle-announce"
+OUT=$(SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$REPO_DIR/hooks/sc-toggle-notice.sh" </dev/null 2>&1)
+case "$OUT" in *REACTIVATED*) pass ;; *) fail "expected reactivation notice, got: $OUT" ;; esac
+teardown_test_home
+
+# THE point of the hook. Every other hook exits here; this one must not.
+begin_test "notice hook: STILL announces while the kill-switch is set"
+_setup
+bash "$TOGGLE" off >/dev/null 2>&1
+OUT=$(SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$REPO_DIR/hooks/sc-toggle-notice.sh" </dev/null 2>&1)
+case "$OUT" in
+  *DEACTIVATED*) pass ;;
+  *) fail "the kill-switch swallowed the notice - off can no longer announce itself: $OUT" ;;
+esac
+teardown_test_home
+
+begin_test "notice hook: does not source the kill-switch libs (that would disable it)"
+# Assert the file EXISTS first: grep on a missing file also returns non-zero, so
+# without this the check passes happily after someone deletes the hook.
+if [ ! -f "$REPO_DIR/hooks/sc-toggle-notice.sh" ]; then
+  fail "sc-toggle-notice.sh is missing entirely"
+elif grep -qE '^[[:space:]]*\.[[:space:]].*lib-(suppress|timing)' "$REPO_DIR/hooks/sc-toggle-notice.sh"; then
+  fail "sources a lib that exits on the kill-switch - the hook is now inert when off"
+else pass; fi
+
+# --- v2.27.35: the behavioural rules must not be path-scoped ----------------
+# With `paths:` frontmatter Claude Code loads a rules file lazily, only once a
+# matching file is touched - so the Verification Gate and Scope Discipline were
+# silently absent until a session happened to open a code file.
+begin_test "supercharger.md is NOT path-scoped (it is universal behaviour)"
+if head -1 "$REPO_DIR/configs/universal/supercharger.md" | grep -q '^---$'; then
+  fail "supercharger.md has frontmatter again - if it declares paths: it goes back to loading lazily"
+else pass; fi
+
+# developer.md stays scoped deliberately: code output style and stack detection
+# only matter once there is code, so it costs nothing in a non-coding session.
+# Not every role is scoped, and that is correct rather than an oversight - pm,
+# student and writer are non-code roles, and scoping them by .ts/.py globs would
+# mean they never loaded for the work they exist for.
+begin_test "developer.md IS still path-scoped (code guidance, code sessions)"
+if head -1 "$REPO_DIR/configs/roles/developer.md" | grep -q '^---$' \
+   && awk '/^---$/{n++;next} n==1' "$REPO_DIR/configs/roles/developer.md" | grep -q '^paths:'; then
+  pass
+else
+  fail "developer.md lost its paths: scoping - it is now resident in every session, coding or not"
+fi
+
 report

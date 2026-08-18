@@ -163,6 +163,11 @@ get_hooks_for_mode() {
   # No-ops under the installer, where the same content is persistent files.
   hooks+=("SessionStart||${hooks_dir}/prompt-layer-inject.sh|")
   hooks+=("Stop|*|${hooks_dir}/lesson-record.sh|async")
+  # FIRST in the UserPromptSubmit chain on purpose: when /sc off has just run,
+  # this states the override before any other hook injects anything, and it is
+  # the ONE hook that must keep working while the kill-switch is set. See the
+  # header of sc-toggle-notice.sh for why it does not source lib-suppress.
+  hooks+=("UserPromptSubmit||${hooks_dir}/sc-toggle-notice.sh|")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")
   hooks+=("PreToolUse|Edit,Write,Bash,MultiEdit,NotebookEdit|${hooks_dir}/confidence-gate.sh|")

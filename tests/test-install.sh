@@ -102,10 +102,10 @@ print(count)
 # Full mode + developer = 119 hooks total (118 after thinking-budget removal in 2.18.0; +redirect-clobber-guard in 2.20.0) — was previously redundant
 # with native Claude effort levels + adaptive reasoning). commit-* trio consolidated into commit-guard;
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 149 ]; then
+if [ "$HOOK_COUNT" -eq 150 ]; then
   pass
 else
-  fail "expected 149 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 150 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -192,10 +192,10 @@ print(count)
 # Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner
 # + per-MCP guards + memory-guard + mcp-provenance + elicitation-guard + prompt-layer-inject
 # + plugin-config-seed + readonly-guard + critical-infra-guard + webfetch-egress-guard = 30
-if [ "$HOOK_COUNT" -eq 41 ]; then
+if [ "$HOOK_COUNT" -eq 42 ]; then
   pass
 else
-  fail "expected 41 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 42 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -225,10 +225,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 119 hooks (thinking-budget removed 2.18.0; +redirect-clobber-guard 2.20.0; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 149 ]; then
+if [ "$HOOK_COUNT" -eq 150 ]; then
   pass
 else
-  fail "expected 149 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 150 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

@@ -1,14 +1,9 @@
----
-paths:
-  - "**/*.{ts,tsx,js,jsx,mjs,cjs}"
-  - "**/*.{py,go,rs,rb,php,java,kt,swift,c,cpp,h}"
-  - "**/*.{sh,bash}"
-  - "**/*.{yml,yaml}"
-  - "**/*.{css,scss,sass}"
-  - "package.json"
-  - "Cargo.toml"
-  - "go.mod"
----
+<!-- No `paths:` frontmatter, deliberately. A rules file WITH `paths:` is
+     path-scoped: Claude Code loads it lazily, only once a matching file is
+     touched. This file carries the Verification Gate, Scope Discipline,
+     Error Recovery and Forbidden Patterns — none of which are specific to
+     code files, and all of which were silently inactive until a session
+     happened to open one. Role files stay scoped; this one must not be. -->
 
 # Supercharger Rules
 
