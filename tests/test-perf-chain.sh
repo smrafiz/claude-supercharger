@@ -105,11 +105,20 @@ begin_test "--target all sweeps every registered event and ranks by BLOCKING cos
 # the statusline, so a 27.7ms blocking hook on every assistant message stayed
 # invisible for four releases and surfaced only because someone asked. Measuring one
 # hot path is how you miss the next one.
-AOUT=$(bash "$HARNESS" --target all --iterations 1 2>/dev/null)
+# v2.27.44: keep stderr instead of discarding it. The sweep reports WHY an event
+# produced no row on stderr, and this line was throwing that away — so the
+# diagnostic added for exactly this failure could never reach the log. Checking
+# that a diagnostic prints locally is not the same as checking it reaches the
+# observer, which is the mistake this makes for the fourth time.
+ASKIP=$(mktemp)
+AOUT=$(bash "$HARNESS" --target all --iterations 1 2>"$ASKIP")
+ASKIPPED=$(head -12 "$ASKIP"); rm -f "$ASKIP"
 { printf '%s' "$AOUT" | grep -q 'blocking ms' \
   && printf '%s' "$AOUT" | grep -q 'PreToolUse' \
   && printf '%s' "$AOUT" | grep -q 'UserPromptSubmit'; } \
-  && pass || fail "sweep missing events or the blocking column: $AOUT"
+  && pass || fail "sweep missing events or the blocking column: $AOUT
+--- events the sweep skipped, and why ---
+$ASKIPPED"
 
 begin_test "--target all ranks on blocking cost, not the sequential sum"
 # Ranking by sum would send the reader optimising async hooks nobody waits for —
