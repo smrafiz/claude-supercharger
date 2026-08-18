@@ -180,8 +180,12 @@ grep -q 'PreToolUse|Workflow|.*workflow-guard.sh|"' "$REPO_DIR/lib/hooks.sh" \
 
 # --- the shared resolver must serve BOTH channels ---
 begin_test "resolve_agent_defs is shared, not copied into each scanner"
-python3 -c "
-import sys; sys.path.insert(0, '$REPO_DIR/hooks')
+# The path is INTERPOLATED into the python source, so it is neither an env var
+# nor an argument — MSYS converts neither, and native Windows python cannot
+# resolve the POSIX form. Pass it through cygpath first.
+SC_HOOKS_NATIVE=$(native_path "$REPO_DIR/hooks")
+SC_HOOKS_NATIVE="$SC_HOOKS_NATIVE" python3 -c "
+import os, sys; sys.path.insert(0, os.environ['SC_HOOKS_NATIVE'])
 from lib_poison_patterns import resolve_agent_defs, scan_text
 " 2>/dev/null && pass || fail "shared resolver not importable"
 

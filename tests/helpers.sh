@@ -242,3 +242,22 @@ report() {
   echo -e "${GREEN}$TESTS_PASSED passed${NC}, ${RED}$TESTS_FAILED failed${NC} ($total total)"
   return $TESTS_FAILED
 }
+
+# v2.27.36: return a path that NATIVE Windows tools can resolve.
+#
+# Claude Code launches hooks through Git Bash, and MSYS rewrites paths passed as
+# ENV VARS in transit — but not string content inside a JSON payload. So a test
+# that puts `mktemp -d` into a payload's `cwd` field hands native Windows python
+# an MSYS virtual path like /tmp/tmp.XXXX, which it cannot resolve: the scanner
+# finds nothing and reports clean. The same directory passed via HOME works,
+# because that one IS converted — which is why two tests using the identical
+# mktemp call disagreed on Windows, and why it looked like a product bug for two
+# releases. cygpath is the documented MSYS conversion tool and ships with Git for
+# Windows; off Windows this is a no-op passthrough.
+native_path() {
+  if command -v cygpath >/dev/null 2>&1; then
+    cygpath -m "$1" 2>/dev/null || printf '%s' "$1"
+  else
+    printf '%s' "$1"
+  fi
+}

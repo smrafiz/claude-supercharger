@@ -31,7 +31,12 @@ mkagent() { # home, name, body
 # substitution runs the function in a subshell, so an RC assigned inside it never
 # reaches the caller — every exit-code assertion silently compared against "".
 run_scan() { # home, agent_name, [cwd]
-  local h="$1" a="$2" c="${3:-/nonexistent}"
+  # cwd travels as JSON CONTENT, which MSYS does not rewrite, so a Git Bash
+  # mktemp path reaches native Windows python as /tmp/... and cannot be resolved.
+  # home is an ENV VAR and IS rewritten, which is why the home-based tests passed
+  # on Windows while the cwd-based one failed on the very same directory.
+  local h="$1" a="$2" c
+  c=$(native_path "${3:-/nonexistent}")
   OUT=$(printf '{"tool_name":"Agent","tool_input":{"subagent_type":"%s"},"cwd":"%s"}' "$a" "$c" \
     | HOME="$h" bash "$SCANNER" 2>&1)
   RC=$?
