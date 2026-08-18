@@ -110,8 +110,15 @@ if [[ "${1:-}" == "--check" ]]; then
     echo "hooks/hooks.json is missing — run: bash tools/gen-plugin-hooks.sh" >&2
     exit 1
   fi
-  if ! diff -q <(printf '%s\n' "$GENERATED") "$OUT" >/dev/null 2>&1; then
+  # v2.27.37: show WHAT differs, not just that something does. This check
+  # fails only on the Windows runner, where the diff is the whole question and
+  # a bare 'stale' is unactionable from another platform. Bounded so a large
+  # divergence cannot flood the log.
+  _GPH_DIFF=$(diff <(printf '%s\n' "$GENERATED") "$OUT" 2>&1 | head -40 || true)
+  if [ -n "$_GPH_DIFF" ]; then
     echo "hooks/hooks.json is stale — regenerate: bash tools/gen-plugin-hooks.sh" >&2
+    echo "--- diff: generated (<) vs committed (>) , first 40 lines ---" >&2
+    printf '%s\n' "$_GPH_DIFF" >&2
     exit 1
   fi
   echo "hooks/hooks.json is up to date."

@@ -87,6 +87,8 @@ if $CHECK; then
     exit 1
   fi
   # Compare set + content. Any diff (missing, extra, or changed file) => stale.
+  _GPC_DIFF=$(diff -r "$TMP" "$OUT_DIR" 2>&1 | head -40 || true)
+  [ -n "$_GPC_DIFF" ] && { echo "--- diff: generated vs committed, first 40 lines ---" >&2; printf '%s\n' "$_GPC_DIFF" >&2; }
   if ! diff -rq "$TMP" "$OUT_DIR" >/dev/null 2>&1; then
     echo "commands/ is stale — regenerate: bash tools/gen-plugin-commands.sh" >&2
     exit 1
