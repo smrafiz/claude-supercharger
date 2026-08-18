@@ -253,7 +253,18 @@ bsum = sum(v for k, v in per.items() if k in blocking)
 bslow = max(((k, v) for k, v in per.items() if k in blocking), key=lambda kv: kv[1], default=('-', 0.0))
 print('%09.3f|  %-22s %6d %11.1f %9.1f  %s @ %.1f ms' % (
     bsum, d['event'], d['hooks'], bsum, p['chain_sum_ms'], bslow[0], bslow[1]))" 2>/dev/null)
-    [ -n "$line" ] && printf '%s\n' "$line"
+    # v2.27.42: say WHY an event produced no row. Both stderr streams here were
+    # sent to /dev/null, so an event whose sub-run failed was silently dropped
+    # from the table and the sweep still looked healthy — on the Windows runner
+    # that left ONE row of nine, which reads as "sweep missing events" with no
+    # indication of what happened. The note goes to stderr so the table itself,
+    # and anything parsing --json, is unchanged.
+    if [ -n "$line" ]; then
+      printf '%s\n' "$line"
+    else
+      _why=$(EVENT="$ev" bash "${BASH_SOURCE[0]}" --event "$ev" --iterations "$ITERS" --json 2>&1 >/dev/null | head -2)
+      printf '  [skipped] %-22s no row — sub-run said: %s\n' "$ev" "${_why:-<no stderr, empty stdout>}" >&2
+    fi
   done | sort -rn | cut -d'|' -f2-
   echo ""
   echo "blocking ms = the hooks the user actually waits behind. This is the ranking column."
