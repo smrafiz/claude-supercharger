@@ -46,13 +46,19 @@ done
 [ -z "$MISSING" ] && pass || fail "missing generated commands:$MISSING"
 
 begin_test "plugin.json: agents[] matches configs/agents/*.md exactly (no drift)"
+# The second argument used to carry a GLOB. A plain path argument is rewritten by
+# MSYS on the way to native Windows python, but one containing a wildcard is not,
+# so glob.glob got an MSYS path, matched nothing, and every agent read as drift —
+# note the failure showed listed=[...] populated, i.e. plugin.json itself loaded
+# fine. Pass the DIRECTORY (converted) and build the pattern inside python.
+AGENTS_DIR_NATIVE=$(native_path "$REPO_DIR/configs/agents")
 DRIFT=$(python3 -c "
 import json, glob, os, sys
 p = json.load(open(sys.argv[1]))
 listed = sorted(os.path.basename(a) for a in p.get('agents', []))
-ondisk = sorted(os.path.basename(f) for f in glob.glob(sys.argv[2]))
+ondisk = sorted(os.path.basename(f) for f in glob.glob(os.path.join(sys.argv[2], '*.md')))
 print('' if listed == ondisk else 'listed=%s ondisk=%s' % (listed, ondisk))
-" "$REPO_DIR/.claude-plugin/plugin.json" "$REPO_DIR/configs/agents/*.md" 2>/dev/null)
+" "$REPO_DIR/.claude-plugin/plugin.json" "$AGENTS_DIR_NATIVE" 2>/dev/null)
 [ -z "$DRIFT" ] && pass || fail "plugin.json agents[] out of sync: $DRIFT"
 
 begin_test "gen-plugin-commands: --check detects drift"
