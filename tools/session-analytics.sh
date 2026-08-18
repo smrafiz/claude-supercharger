@@ -32,10 +32,29 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# v2.27.39: report what was actually inspected when the answer is "nothing".
+# There are TWO exits that print "No session data found" and v2.27.38
+# instrumented only the second — the Windows runner takes the FIRST, so the
+# release produced no new information at all. Both call this now.
+_sa_why_empty() {
+  [ -n "${SUPERCHARGER_ANALYTICS_DEBUG:-}" ] || [ -n "${CI:-}" ] || return 0
+  {
+    echo "  projects arg   : ${PROJECTS_DIR}"
+    echo "  test -d        : $([ -d "$PROJECTS_DIR" ] && echo yes || echo NO)"
+    echo "  test -e        : $([ -e "$PROJECTS_DIR" ] && echo yes || echo NO)"
+    echo "  test -r        : $([ -r "$PROJECTS_DIR" ] && echo yes || echo NO)"
+    echo "  ls -d          : $(ls -d "$PROJECTS_DIR" 2>&1 | head -1)"
+    echo "  subdirs seen   : $(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+    echo "  jsonl seen     : $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')"
+    echo "  jsonl nonempty : $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -not -empty 2>/dev/null | wc -l | tr -d ' ')"
+  } >&2
+}
+
 SESSION_SKIP=false
 if [ ! -d "$PROJECTS_DIR" ]; then
   if [ "$SHOW_SUBAGENTS" = false ]; then
     echo "No session data found"
+    _sa_why_empty
     exit 0
   fi
   SESSION_SKIP=true
@@ -54,20 +73,7 @@ fi
 
 if [ -z "$FILE_LIST" ] && [ "$SHOW_SUBAGENTS" = false ]; then
   echo "No session data found"
-  # v2.27.38: say WHAT was looked at. This message is the entire failure signal on
-  # the Windows runner, where two assertions report it and there is no way to tell
-  # from another platform whether the directory was missing, unreadable, empty, or
-  # simply full of files the -not -empty filter skipped. Same reasoning as the
-  # generator --check diffs: an unactionable message invites a guessed fix.
-  if [ -n "${SUPERCHARGER_ANALYTICS_DEBUG:-}" ] || [ -n "${CI:-}" ]; then
-    {
-      echo "  projects dir : $PROJECTS_DIR"
-      echo "  is a dir     : $([ -d "$PROJECTS_DIR" ] && echo yes || echo NO)"
-      echo "  subdirs seen : $(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
-      echo "  jsonl seen   : $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')"
-      echo "  jsonl nonempty: $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -not -empty 2>/dev/null | wc -l | tr -d ' ')"
-    } >&2
-  fi
+  _sa_why_empty
   exit 0
 fi
 
