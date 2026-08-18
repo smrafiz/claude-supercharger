@@ -47,7 +47,12 @@ FAKE_HOME=$(mktemp -d)
 # Create a staged file so it shows in modified files list
 touch "$PROJ/changed.ts"
 git -C "$PROJ" add "$PROJ/changed.ts" 2>/dev/null || true
-INPUT="{\"session_id\":\"ckpt-fields\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/changed.ts\"},\"cwd\":\"$PROJ\"}"
+# cwd travels as JSON content, which MSYS does not rewrite, so on Git Bash a raw
+# mktemp path reaches the hook as /tmp/... . session-checkpoint then runs git -C
+# on it FROM PYTHON, where no argument translation happens either, so git cannot
+# resolve the repo and the branch/files fields come back empty.
+PROJ_NATIVE=$(native_path "$PROJ")
+INPUT="{\"session_id\":\"ckpt-fields\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/changed.ts\"},\"cwd\":\"$PROJ_NATIVE\"}"
 (export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK") 2>/dev/null
 SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"
 CONTENT=$(cat "$SCOPE_DIR/.checkpoint-ckpt-fields" 2>/dev/null || echo "")

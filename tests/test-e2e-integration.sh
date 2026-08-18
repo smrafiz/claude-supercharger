@@ -54,7 +54,9 @@ FILES=(src/app.ts src/auth.ts src/db.ts src/api.ts src/utils.ts)
 
 # Simulate 5 Write tool calls
 for fp in "${FILES[@]}"; do
-  INPUT="{\"session_id\":\"$SESSION_ID\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/$fp\"},\"cwd\":\"$PROJ\"}"
+  # See test-session-checkpoint: payload cwd is not MSYS-translated, and the
+  # hook shells out to git from python, so a POSIX path yields no branch/files.
+  INPUT="{\"session_id\":\"$SESSION_ID\",\"tool_name\":\"Write\",\"tool_input\":{\"file_path\":\"$PROJ/$fp\"},\"cwd\":\"$(native_path "$PROJ")\"}"
   (export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/session-checkpoint.sh") 2>/dev/null
 done
 

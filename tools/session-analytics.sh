@@ -54,6 +54,20 @@ fi
 
 if [ -z "$FILE_LIST" ] && [ "$SHOW_SUBAGENTS" = false ]; then
   echo "No session data found"
+  # v2.27.38: say WHAT was looked at. This message is the entire failure signal on
+  # the Windows runner, where two assertions report it and there is no way to tell
+  # from another platform whether the directory was missing, unreadable, empty, or
+  # simply full of files the -not -empty filter skipped. Same reasoning as the
+  # generator --check diffs: an unactionable message invites a guessed fix.
+  if [ -n "${SUPERCHARGER_ANALYTICS_DEBUG:-}" ] || [ -n "${CI:-}" ]; then
+    {
+      echo "  projects dir : $PROJECTS_DIR"
+      echo "  is a dir     : $([ -d "$PROJECTS_DIR" ] && echo yes || echo NO)"
+      echo "  subdirs seen : $(find "$PROJECTS_DIR" -mindepth 1 -maxdepth 1 -type d 2>/dev/null | wc -l | tr -d ' ')"
+      echo "  jsonl seen   : $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' 2>/dev/null | wc -l | tr -d ' ')"
+      echo "  jsonl nonempty: $(find "$PROJECTS_DIR" -maxdepth 2 -name '*.jsonl' -not -empty 2>/dev/null | wc -l | tr -d ' ')"
+    } >&2
+  fi
   exit 0
 fi
 
