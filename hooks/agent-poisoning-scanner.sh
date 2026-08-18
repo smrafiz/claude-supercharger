@@ -75,6 +75,14 @@ cwd = _msys(cwd)
 # Shared pattern set. Falls back to a built-in copy if the asset is missing —
 # v2.17.3 shipped a hook whose python asset the installer never copied, and the
 # hook died with "No stderr output" instead of degrading.
+# v2.27.33: normalise BEFORE putting it on sys.path. HOOKS_DIR is a CUSTOM
+# env var, and MSYS only rewrites the ones it recognises — so this arrives
+# POSIX-shaped (/d/a/repo/hooks), Windows python resolves it against the
+# current drive, the directory does not exist, and the import below fails
+# silently into the inline fallback. That is what the recon reports as
+# "shared resolver not importable". v2.27.32 normalised cwd and home_dir
+# but missed this one, which is why that release did not move the needle.
+hooks_dir = _msys(hooks_dir)
 sys.path.insert(0, hooks_dir)
 try:
     from lib_poison_patterns import scan_text, resolve_agent_defs

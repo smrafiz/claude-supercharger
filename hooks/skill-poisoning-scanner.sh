@@ -122,7 +122,12 @@ if not scan_paths:
 # because the installer never copied hooks/*.py) and must stay in step.
 _shared_scan = None
 try:
-    sys.path.insert(0, os.environ.get('HOOKS_DIR_PY', ''))
+    # v2.27.33: normalise first — HOOKS_DIR_PY is a CUSTOM env var and MSYS only
+    # rewrites the ones it recognises, so on Git Bash this arrives POSIX-shaped,
+    # Windows python resolves it against the current drive, and the import fails
+    # silently into the fallback. Reported by the recon as the shared resolver
+    # not being importable.
+    sys.path.insert(0, _msys(os.environ.get('HOOKS_DIR_PY', '')))
     from lib_poison_patterns import scan_text as _shared_scan
 except Exception:
     _shared_scan = None
