@@ -37,8 +37,31 @@ grep -qE '^\*\.png[[:space:]]+binary' "$GA" && pass || fail "binary assets unpro
 
 begin_test "no tracked shell or python file actually contains CRLF"
 # The policy is checkout-time; this asserts the committed content is clean now.
+#
+# v2.27.34: counted in python rather than with `grep -lU`. On Git Bash that grep
+# flagged essentially EVERY tracked shell file — try.sh, tools/*.sh, uninstall.sh
+# — while a byte-level read of the same files found zero CR bytes, before and
+# after the suite, in the same job. So the detector disagreed with the bytes on
+# exactly the one platform this test exists to protect, and the failure it
+# reported was its own. It passed on ubuntu and macOS throughout, which is how a
+# broken Windows check stayed invisible.
+#
+# A test whose subject is raw bytes should read raw bytes. python opens 'rb' and
+# counts, with no text-mode translation and no platform-specific grep flag in the
+# path — the same method the CI diagnostic used to prove the files were clean.
 BAD=$(cd "$REPO_DIR" && git ls-files -z '*.sh' '*.py' 2>/dev/null \
-  | xargs -0 grep -lU $'\r' 2>/dev/null || true)
+  | python3 -c "
+import sys
+names = [n for n in sys.stdin.buffer.read().split(b'\0') if n]
+bad = []
+for n in names:
+    try:
+        if b'\r' in open(n, 'rb').read():
+            bad.append(n.decode('utf-8', 'replace'))
+    except OSError:
+        pass
+print(' '.join(bad))
+" 2>/dev/null || true)
 [ -z "$BAD" ] && pass || fail "CRLF present in: $BAD"
 
 # --- G3: flock removal --------------------------------------------------------
