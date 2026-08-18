@@ -29,6 +29,18 @@
 # chain because safety.sh & friends bail early on trivially-safe commands).
 set -uo pipefail
 
+# v2.27.39: Windows python defaults stdout to the ANSI codepage (cp1252) and
+# raises UnicodeEncodeError on the em dashes and box characters this harness
+# prints, losing ALL of its output — which is why the --target all assertions
+# fail on the Git Bash runner reporting a missing blocking column while the
+# same sweep is fine everywhere else. gen-plugin-hooks, hook-perf and
+# session-analytics already set this; this harness was the one that did not,
+# and the runner log shows its em dash arriving mojibaked. `:=` honours an
+# explicit setting.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 EVENT="PreToolUse"; TOOL="Bash"; CMD=""; ITERS=5; JSON=0; WRITE_BASELINE=0
 TARGET="chain"

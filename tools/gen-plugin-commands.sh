@@ -61,7 +61,12 @@ subs = [
 for pat, repl in subs:
     text = re.sub(pat, repl, text)
 
-sys.stdout.write(text)
+# v2.27.39: write BYTES, not text. Windows python's text-mode stdout translates
+# every newline to CRLF on the way out, so the generated form differed from the
+# committed LF file on EVERY line — which is exactly what the runner's staleness
+# diff showed (1,29c1,29 with visually identical content). The read side already
+# normalises via universal newlines; it was only the write that re-added the CR.
+sys.stdout.buffer.write(text.encode('utf-8'))
 PYEOF
 }
 
