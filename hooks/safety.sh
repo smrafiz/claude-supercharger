@@ -487,7 +487,18 @@ DESTRUCT_PATTERNS=(
   'parted[[:space:]][^;&|]*(mklabel|mkpart|resizepart|[[:space:]]rm[[:space:]])'
 )
 NETWORK_PATTERNS=(
-  'curl.*\|.*bash' 'curl.*\|.*sh' 'wget.*\|.*bash' 'wget.*\|.*sh'
+  # v2.28.2: these four were substring matches — curl anywhere, then any bytes,
+  # then a pipe, then 'sh' anywhere. None of the three parts had to be what it
+  # looked like. Measured false positive from real work in another repo:
+  #   grep -rn "getBundleTypeDocUrl\\|HELP_CENTER_URL" features shared app
+  # supplies 'curl' from the c+Url inside an identifier, the pipe from an ESCAPED
+  # alternation inside a quoted grep pattern, and 'sh' from the word 'shared'.
+  # Renaming the identifier alone makes it stop matching, which is the tell.
+  # Every sibling hook already required the shell to sit right after a real pipe
+  # (shell-escape-advisor, destructive-prompt-scanner, the three poisoning
+  # scanners); safety.sh, the most-fired hook in the product, kept the loosest
+  # form. Same drift class as the v2.24.6 tightening four lines below.
+  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
   # v2.24.6: this was a blanket "any pipe into a shell". It also caught
   # `printf '{...}' | bash ./hooks/statusline.sh`, where the piped bytes are the
   # script's stdin DATA and the code being run is a named local file — the pipe
