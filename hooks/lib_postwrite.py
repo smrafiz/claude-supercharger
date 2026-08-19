@@ -96,6 +96,17 @@ def check_validity(path, text):
 
 # --- shebang without executable bit ----------------------------------------
 def check_shebang(path, first_line, mode):
+    # v2.28.4: POSIX only. On Windows python's os.stat() does not carry POSIX
+    # permission bits — st_mode is derived from the read-only attribute, and the
+    # execute bits are set only for extensions Windows considers executable
+    # (.exe/.bat/.cmd). A .sh file therefore NEVER reads as executable there, so
+    # this advisory fired on every shebang file a Windows user wrote, told them
+    # to run chmod +x, and then fired again identically after they did. Wrong
+    # and unactionable: Git Bash runs the script from its shebang regardless.
+    # The Windows recon surfaced it as "shebang already +x — expected SILENT got
+    # WARN"; the test was reporting a real defect, not a harness artifact.
+    if os.name == "nt":
+        return None
     if not first_line.startswith("#!") or mode is None or (mode & 0o111):
         return None
     interp = first_line[2:].strip()[:60] or "a shebang"

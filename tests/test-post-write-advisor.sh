@@ -39,8 +39,21 @@ check "valid json"             SILENT .json 644 '{"a":1,"b":2}'
 check "jsonc tsconfig"         SILENT .json 644 $'{\n  // c\n  "x": true,\n}'
 
 # --- shebang-exec check ---
-check "shebang 0644"           WARN   .sh   644 $'#!/usr/bin/env bash\necho hi\n'
-check "shebang already +x"     SILENT .sh   755 $'#!/usr/bin/env bash\necho hi\n'
+# The advisory is POSIX-only as of v2.28.4. Windows python os.stat() carries no
+# POSIX permission bits, so a .sh file can never read as executable there and the
+# hook cannot tell 0644 from 0755 - it used to warn for BOTH, which is why the
+# runner reported "shebang already +x - expected SILENT got WARN". Asserting the
+# POSIX expectations on Windows would just move the failure to the other case.
+case "$OSTYPE" in
+  msys*|cygwin*|win32*)
+    check "shebang 0644 (POSIX-only advisory)"           SILENT .sh   644 $'#!/usr/bin/env bash\necho hi\n'
+    check "shebang already +x (POSIX-only advisory)"     SILENT .sh   755 $'#!/usr/bin/env bash\necho hi\n'
+    ;;
+  *)
+    check "shebang 0644"           WARN   .sh   644 $'#!/usr/bin/env bash\necho hi\n'
+    check "shebang already +x"     SILENT .sh   755 $'#!/usr/bin/env bash\necho hi\n'
+    ;;
+esac
 
 # --- combined: a .json with conflict markers = BOTH conflict + invalid-json warnings ---
 n=$((n+1)); mkf "$TMP/c$n" "$TMP/both.json" 644 "$CONFLICT"
