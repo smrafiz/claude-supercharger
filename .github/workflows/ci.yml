@@ -1223,7 +1223,10 @@ jobs:
               # test-post-write-advisor REMOVED v2.28.6: the POSIX-only gating of the
               # shebang advisory in v2.28.4 made it clean on Windows, and the gate
               # asked for it back — second time it has caught its own list going stale.
-              'test-generated-file-guard', 'test-hooks',
+              # test-generated-file-guard REMOVED v2.28.9: the runner confirms it clean
+              # after the native-path fix in v2.28.5 — the gate asked, which is the
+              # third time it has caught its own list going stale.
+              'test-hooks',
               'test-sc-toggle', 'test-subagent-cost',
               'test-tool-call-limiter',
           }
