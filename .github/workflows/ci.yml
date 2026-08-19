@@ -1220,8 +1220,11 @@ jobs:
               # test-perf-chain REMOVED v2.28.3: the CR fix in v2.28.1 made it pass on
               # Windows, and the gate reddened the build to say so on its second run —
               # which is the stale-exemption case it exists for. It is gated again now.
+              # test-post-write-advisor REMOVED v2.28.6: the POSIX-only gating of the
+              # shebang advisory in v2.28.4 made it clean on Windows, and the gate
+              # asked for it back — second time it has caught its own list going stale.
               'test-generated-file-guard', 'test-hooks',
-              'test-post-write-advisor', 'test-sc-toggle', 'test-subagent-cost',
+              'test-sc-toggle', 'test-subagent-cost',
               'test-tool-call-limiter',
           }
           try:

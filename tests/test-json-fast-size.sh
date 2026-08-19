@@ -86,17 +86,29 @@ bash "$REPO_DIR/hooks/safety.sh" < "$JF/benign.json" >/dev/null 2>&1
 begin_test "the size gate makes safety.sh markedly faster on a large command"
 mkpay 2000 "$JF/timing.json"
 
-_T0=$(python3 -c 'import time; print(time.time())')
-SUPERCHARGER_JSON_FAST_MAX=100000000 bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
-_T1=$(python3 -c 'import time; print(time.time())')
-_UNGATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+# v2.28.6: MEDIAN of three paired rounds, not one sample of each arm. A single
+# pair flaked on the Git Bash runner at 1.30x against this 1.5x bound while the
+# gate was working fine — the same measurement swung to 1.95x on an earlier run,
+# so that is load noise, not the platform compression the comment above describes.
+# Lowering the bound a second time would only move the next flake further out; a
+# median over paired rounds removes the noise without weakening the assertion.
+# This assertion now GATES on Windows, and a flaky gate is one people learn to
+# ignore, which is the whole reason it is worth fixing properly.
+_RATIOS=""
+for _round in 1 2 3; do
+  _T0=$(python3 -c 'import time; print(time.time())')
+  SUPERCHARGER_JSON_FAST_MAX=100000000 bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
+  _T1=$(python3 -c 'import time; print(time.time())')
+  _UNGATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
 
-_T0=$(python3 -c 'import time; print(time.time())')
-bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
-_T1=$(python3 -c 'import time; print(time.time())')
-_GATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+  _T0=$(python3 -c 'import time; print(time.time())')
+  bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
+  _T1=$(python3 -c 'import time; print(time.time())')
+  _GATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
 
-_RATIO=$(python3 -c 'import sys; g=float(sys.argv[1]); print("%.2f" % ((float(sys.argv[2])/g) if g > 0 else 0))' "$_GATED" "$_UNGATED")
+  _RATIOS="$_RATIOS $(python3 -c 'import sys; g=float(sys.argv[1]); print("%.2f" % ((float(sys.argv[2])/g) if g > 0 else 0))' "$_GATED" "$_UNGATED")"
+done
+_RATIO=$(python3 -c 'import sys,statistics; print("%.2f" % statistics.median(float(x) for x in sys.argv[1].split()))' "$_RATIOS")
 # Bound is 1.5x, not 2x. The first version required 2.0x from the macOS ratio
 # (~3.4x) and duly failed on the Git Bash runner at 1.95x — the fix WAS working
 # there, but the ratio compresses on Windows because a fixed ~27ms per process
