@@ -195,7 +195,17 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
 echo '{"subagent_id":"dur9","subagent_type":"Sherlock Holmes (Detective)","session_id":"durses"}' | bash "$HOOK" start >/dev/null 2>&1
 # Backdate the active file 5s so duration is measurable
 PAST=$(python3 -c "from datetime import datetime,timezone,timedelta; print((datetime.now(timezone.utc)-timedelta(seconds=5)).strftime('%Y-%m-%dT%H:%M:%SZ'))")
-python3 -c "import json; p='$SCOPE_DIR/.subagent-active-dur9'; d=json.load(open(p)); d['started_at']='$PAST'; json.dump(d,open(p,'w'))"
+# v2.28.7: the path goes through the ENVIRONMENT, not interpolated into the
+# program text. MSYS rewrites env vars in transit but not a path pasted into a
+# python -c source string, so on Git Bash this open() was handed /c/Users/...,
+# the backdate silently never happened, started_at stayed at "now", and the
+# duration came back as 0-1s against a >=4s bound. That is what the recon has
+# been reporting as a subagent-duration failure.
+SC_ACTIVE="$SCOPE_DIR/.subagent-active-dur9" SC_PAST="$PAST" python3 -c "
+import json, os
+p = os.environ['SC_ACTIVE']
+d = json.load(open(p)); d['started_at'] = os.environ['SC_PAST']
+json.dump(d, open(p, 'w'))"
 echo '{"agent_id":"dur9","agent_type":"Sherlock Holmes (Detective)","session_id":"durses"}' | bash "$HOOK" stop >/dev/null 2>&1
 DUR=$(tail -1 "$SCOPE_DIR/.subagent-costs-durses.jsonl" 2>/dev/null | python3 -c "import sys,json; print(json.load(sys.stdin)['duration_s'])" 2>/dev/null)
 python3 -c "import sys; sys.exit(0 if float('$DUR' or 0)>=4 else 1)" && pass || fail "expected duration>=4s, got $DUR"
