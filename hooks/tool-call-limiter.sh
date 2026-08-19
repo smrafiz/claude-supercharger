@@ -55,11 +55,18 @@ else
       # 2.21.13: pass the path via env, not string-interpolation. A project dir
       # containing a single quote (e.g. o'malley) broke the python string literal
       # → SyntaxError → CAP empty → the limiter silently disabled itself.
-      CAP=$(SC_CFG="$SEARCH_DIR/.supercharger.json" python3 -c "
-import json, os
+      # v2.28.8: pass the CONTENT, not the path. bash has already read the file into
+      # _TCL_CFG_BODY two lines above, so handing python a path made it re-open a
+      # file we hold in memory — and made the read depend on that path surviving the
+      # trip. The recon has this failing on Git Bash for a directory containing an
+      # apostrophe while the identical case with an ordinary name passes, i.e.
+      # something about the path is not arriving intact. Rather than guess which
+      # layer mangles it, the dependency is removed: there is no path to convert,
+      # no second open, and one less fork's worth of filesystem work.
+      CAP=$(printf '%s' "$_TCL_CFG_BODY" | python3 -c "
+import json, sys
 try:
-    with open(os.environ['SC_CFG']) as f:
-        d = json.load(f)
+    d = json.load(sys.stdin)
     v = d.get('maxToolCalls', '')
     print(str(int(v)) if v else '')
 except Exception:
