@@ -106,9 +106,25 @@ run_one() {
 # product failure. Default is unchanged, so mac/Linux keep running everything.
 TEST_GLOB="${TEST_GLOB:-test-*.sh}"
 
+# v2.27.46: TEST_SKIP excludes named files from an otherwise complete run. A glob
+# can select a subset but cannot express "everything except these", and that is
+# exactly what the Windows job needs to become GATING: 219 of 226 files already
+# pass there, and the 7 that do not are known and tracked. Excluding those by
+# name lets the other 219 fail the build, which is the whole point — a glob
+# allowlist would silently drop every NEW test file out of Windows coverage,
+# while a denylist puts new files under the gate by default. Space or newline
+# separated basenames, with or without the .sh suffix.
+_skip_this() {
+  case " ${TEST_SKIP:-} " in
+    *" $1 "*|*" $1.sh "*) return 0 ;;
+  esac
+  return 1
+}
+
 running=0
 for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   [ -f "$test_file" ] || continue
+  _skip_this "$(basename "$test_file" .sh)" && continue
   run_one "$test_file" &
   running=$((running + 1))
   if [ "$running" -ge "$TEST_JOBS" ]; then
@@ -124,6 +140,8 @@ wait
 for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   [ -f "$test_file" ] || continue
   test_name=$(basename "$test_file" .sh)
+  # Same exclusion as the run loop, or the replay reports files that never ran.
+  _skip_this "$test_name" && continue
   echo "--- $test_name ---"
 
   output=$(cat "$RESULT_DIR/$test_name.out" 2>/dev/null || true)

@@ -1198,6 +1198,65 @@ jobs:
           echo "  tracked files modified : $(git status --porcelain | wc -l)"
           git status --porcelain | head -20
 
+      # v2.27.46: THE GATE. This is what the recon was always for — its own comment
+      # said "once the failure list is triaged this becomes a curated subset,
+      # gating". 219 of the 226 test files now pass on Git Bash; the 7 that do not
+      # are named below and stay visible in the report above.
+      #
+      # It reads the log the recon ALREADY produced rather than running the suite a
+      # second time, which would double a job that already takes most of an hour.
+      #
+      # A DENYLIST, deliberately, not an allowlist of the 219: a new test file is
+      # then covered by Windows from the moment it is added, and a glob allowlist
+      # would silently drop it out of coverage instead. The check also fails when a
+      # listed file starts passing, because a stale exemption is how a fixed
+      # platform quietly stops being tested.
+      - name: Windows gate — no failures outside the known list
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import re, sys
+          KNOWN = {
+              'test-generated-file-guard', 'test-hooks', 'test-perf-chain',
+              'test-post-write-advisor', 'test-sc-toggle', 'test-subagent-cost',
+              'test-tool-call-limiter',
+          }
+          try:
+              raw = open('win-suite.log', encoding='utf-8', errors='replace').read()
+          except OSError as e:
+              print('cannot read the recon log: %s' % e); sys.exit(1)
+          txt = re.sub(r'\x1b\[[0-9;]*m', '', raw)
+          cur, files = None, {}
+          for line in txt.splitlines():
+              m = re.match(r'^--- (\S+) ---\s*$', line.strip())
+              if m:
+                  cur = m.group(1); files.setdefault(cur, [0, 0]); continue
+              t = line.strip()
+              if not cur: continue
+              if t.startswith('PASS'): files[cur][0] += 1
+              elif t.startswith('FAIL'): files[cur][1] += 1
+          if not files:
+              print('the recon log contained no test sections - refusing to pass vacuously')
+              sys.exit(1)
+          failing = {k for k, v in files.items() if v[1]}
+          unexpected = sorted(failing - KNOWN)
+          fixed = sorted(k for k in (KNOWN & set(files)) if k not in failing)
+          print('files: %d   clean: %d   failing: %d'
+                % (len(files), len(files) - len(failing), len(failing)))
+          if fixed:
+              print('\nThese are in the known-failing list but now PASS on Windows.')
+              print('Remove them from KNOWN in ci.yml so they are gated again:')
+              for k in fixed: print('   %s' % k)
+          if unexpected:
+              print('\nFAILURES OUTSIDE THE KNOWN LIST - this breaks Windows:')
+              for k in unexpected:
+                  print('   %-40s %d pass / %d fail' % (k, files[k][0], files[k][1]))
+              sys.exit(1)
+          if fixed:
+              sys.exit(1)
+          print('\nno failures outside the known list')
+          PY
+
       - name: RECON — upload the full suite log
         if: always()
         uses: actions/upload-artifact@v4
