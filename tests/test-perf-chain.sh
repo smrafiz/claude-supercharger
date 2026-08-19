@@ -112,7 +112,11 @@ begin_test "--target all sweeps every registered event and ranks by BLOCKING cos
 # observer, which is the mistake this makes for the fourth time.
 ASKIP=$(mktemp)
 AOUT=$(bash "$HARNESS" --target all --iterations 1 2>"$ASKIP")
-ASKIPPED=$(head -12 "$ASKIP"); rm -f "$ASKIP"
+# 40, not 12: events are swept in alphabetical order, so a low cap truncates
+# exactly at P — hiding PreToolUse, PostToolUse, SessionStart and Stop, which
+# are the only ones this assertion cares about. The first cap showed twelve
+# legitimate skips and none of the interesting ones.
+ASKIPPED=$(head -40 "$ASKIP"); rm -f "$ASKIP"
 { printf '%s' "$AOUT" | grep -q 'blocking ms' \
   && printf '%s' "$AOUT" | grep -q 'PreToolUse' \
   && printf '%s' "$AOUT" | grep -q 'UserPromptSubmit'; } \
