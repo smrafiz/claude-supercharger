@@ -1217,7 +1217,10 @@ jobs:
           python3 - <<'PY'
           import re, sys
           KNOWN = {
-              'test-generated-file-guard', 'test-hooks', 'test-perf-chain',
+              # test-perf-chain REMOVED v2.28.3: the CR fix in v2.28.1 made it pass on
+              # Windows, and the gate reddened the build to say so on its second run —
+              # which is the stale-exemption case it exists for. It is gated again now.
+              'test-generated-file-guard', 'test-hooks',
               'test-post-write-advisor', 'test-sc-toggle', 'test-subagent-cost',
               'test-tool-call-limiter',
           }
