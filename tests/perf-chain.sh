@@ -225,9 +225,17 @@ fi
 # This sweeps every event registered in hooks.json and ranks them worst-first, so
 # a new recurring cost has to be looked at rather than found.
 if [ "$TARGET" = "all" ]; then
+  # v2.27.46: write BYTES. print() goes through text-mode stdout, and on Windows
+  # that turns every newline into CRLF — so each event name arrived with a
+  # trailing carriage return, bash's IFS does not split on CR, and the lookup
+  # `hooks[$ev]` missed for EVERY event. The whole sweep collapsed to a single row
+  # and reported "no hooks fire" for PreToolUse, which is plainly false. The
+  # evidence was in the log all along: the message renders as
+  # "No hooks fire for PreToolUse\r/Bash", with the tool on the next line.
+  # Same class as the two generators fixed in v2.27.39.
   EVENTS=$(python3 -c "
 import json,sys
-print('\n'.join(sorted(json.load(open(sys.argv[1]))['hooks'])))" "$REPO/hooks/hooks.json")
+sys.stdout.buffer.write(('\n'.join(sorted(json.load(open(sys.argv[1]))['hooks']))+'\n').encode('utf-8'))" "$REPO/hooks/hooks.json")
   echo "Hook cost by event — every registered event, worst BLOCKING first  (${ITERS} iters each)"
   echo ""
   printf '  %-22s %6s %11s %9s  %s\n' "event" "hooks" "blocking ms" "sum ms" "slowest blocking hook"
