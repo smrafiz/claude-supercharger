@@ -1395,6 +1395,18 @@ CACHE_FILE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"
 echo "{\"$TMPDIR_TC/src/foo.ts\": \"$HASH\"}" > "$CACHE_FILE"
 INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_TC/src/foo.ts")
 OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/typecheck.sh" 2>&1)
+# v2.28.16: snapshot BEFORE cleanup. The previous diagnostic reported the cache
+# file as absent, which was true only because the rm below had already run — it
+# was measuring the wrong moment, not the wrong key. Capture the state as the
+# hook left it, then clean up.
+_TC_DIAG_EXISTS=$([ -f "$CACHE_FILE" ] && echo yes || echo no)
+# find, not `ls -1`: every cache file starts with a dot and ls hides those, so the
+# listing said <none> while the file was demonstrably there. This line exists to
+# reveal a SECOND cache file written under a different key, which is exactly what
+# it would have concealed.
+_TC_DIAG_LIST=$(find "$SCOPE_DIR" -maxdepth 1 -name '.typecheck-cache-*' 2>/dev/null | sed 's|.*/||' || true)
+[ -z "$_TC_DIAG_LIST" ] && _TC_DIAG_LIST='<none>' 
+_TC_DIAG_BODY=$(head -c 300 "$CACHE_FILE" 2>/dev/null || echo '<unreadable>')
 rm -f "$CACHE_FILE"
 rm -rf "$TMPDIR_TC"
 # v2.28.14: on failure, say what the two sides actually keyed on. The CR-alignment
@@ -1406,12 +1418,12 @@ rm -rf "$TMPDIR_TC"
 if [ -z "$OUT" ]; then pass
 else
   fail "expected empty output on cache hit, got: $OUT
---- cache file the TEST wrote: $CACHE_FILE (exists: $([ -f "$CACHE_FILE" ] && echo yes || echo no))
---- cache files present in scope dir ---
-$(ls -1 "$SCOPE_DIR" 2>&1 | grep typecheck-cache || echo '<none>')
+--- cache file the TEST wrote: $CACHE_FILE (existed after the hook ran: $_TC_DIAG_EXISTS)
+--- typecheck cache files in the scope dir, as the hook left them ---
+$_TC_DIAG_LIST
 --- test PROJ_HASH=$PROJ_HASH  file hash=${HASH:0:16}...
---- cache contents ---
-$(cat "$CACHE_FILE" 2>&1 | head -3)"
+--- cache contents at that moment ---
+$_TC_DIAG_BODY"
 fi
 teardown_test_home
 
