@@ -3004,12 +3004,27 @@ EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 with no logs, got exit=$EXIT out=$OUT"
 
 begin_test "learn-from-blocks: injects context when blocked-commands log exists"
-echo "[2026-04-26] rm -rf /tmp/foo" > "$SCOPE_DIR_LB/.blocked-commands"
+# v2.28.11: the fixture was "[2026-04-26] rm -rf /tmp/foo" and produced NOTHING.
+# Two independent reasons, both invisible because the assertion only required the
+# output to be non-empty and the hook reads FOUR logs — corrections and failures
+# left in the shared test home by earlier cases supplied output, so this passed
+# while the blocked-commands path contributed zero. On a fresh runner home those
+# other logs do not exist, which is why Windows saw the empty result the assertion
+# was always one step away from.
+#   1. The entry regex requires "[YYYY-MM-DD HH:MM]"; the fixture carried a date
+#      with no time, so it never parsed.
+#   2. The hook rotates entries older than 30 days, and a hardcoded 2026 date
+#      ages out. A fixture with a fixed date is a timer, not a test.
+# Both fixed: the timestamp is generated, and the assertion now requires the
+# output to actually mention the blocks it claims to be injecting.
+LB_NOW=$(date -u +"%Y-%m-%d %H:%M")
+echo "[$LB_NOW] self-modification — agent edited a guardrail file" > "$SCOPE_DIR_LB/.blocked-commands"
 INPUT=$(python3 -c "import json; print(json.dumps({'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$LEARN_BLOCKS" 2>/dev/null)
 EXIT=$?
 rm -f "$SCOPE_DIR_LB/.blocked-commands"
-[ "$EXIT" -eq 0 ] && [ -n "$OUT" ] && pass || fail "expected output from blocked-commands, got exit=$EXIT out=$OUT"
+if [ "$EXIT" -eq 0 ] && printf '%s' "$OUT" | grep -qi 'block'; then pass
+else fail "expected blocked-commands context, got exit=$EXIT out=$OUT"; fi
 
 begin_test "learn-from-blocks: injects context when corrections log exists"
 TMPDIR_LB=$(mktemp -d)
