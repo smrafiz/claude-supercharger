@@ -82,6 +82,14 @@ _marker_line() {
 # ~/.claude/settings.json as legacy — a real install can have tagged servers in
 # either or both, so handling only one leaves them loading. The stash is keyed by
 # file so `on` restores each entry to the file it came from.
+# v2.28.17: an ARRAY, passed as separate arguments. This used to be a
+# newline-separated list in ONE environment variable, and MSYS applies its
+# single-path conversion to the leading portion of such a value: on Git Bash the
+# FIRST path arrived converted and every later one stayed POSIX, so python could
+# not stat them and skipped them silently. That is exactly what the runner shows
+# — ~/.claude.json cleaned, ~/.claude/settings.json untouched, no error, by the
+# same loop. Plain path ARGUMENTS are converted individually.
+MCP_FILES_ARR=("$HOME/.claude.json" "$HOME/.claude/settings.json")
 MCP_FILES="$HOME/.claude.json
 $HOME/.claude/settings.json"
 MCP_STASH="$STATE_DIR/mcp-servers.json"
@@ -152,11 +160,11 @@ _mcp_off() {   # extract tagged servers from every settings file -> stash
   # be seen — the fifth time in this sequence a diagnostic was written into a
   # stream its caller throws away. The block below is small and self-contained, so
   # anything it prints on stderr is worth surfacing, including a traceback.
-  SC_FILES="$MCP_FILES" SC_STASH="$MCP_STASH" python3 - <<'PY' || true
+  SC_STASH="$MCP_STASH" python3 - "${MCP_FILES_ARR[@]}" <<'PY' || true
 import json, os, sys
 stash = os.environ["SC_STASH"]
 saved, moved = {}, 0
-for p in [x for x in os.environ["SC_FILES"].split("\n") if x.strip()]:
+for p in [x for x in sys.argv[1:] if x.strip()]:
     if not os.path.isfile(p):
         continue
     try:

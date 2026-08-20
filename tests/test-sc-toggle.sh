@@ -204,6 +204,27 @@ bash "$TOGGLE" on >/dev/null 2>&1
   || fail "round-trip wrong — primary:[$(_keys_of "$HOME/.claude.json")] legacy:[$(_mcp_keys)]"
 teardown_test_home
 
+# v2.28.17: the LAST file in the list must be processed even when the first has
+# nothing to remove. The paths used to travel as one newline-separated env var,
+# and MSYS converts only the leading path of such a value - so on Git Bash the
+# first file was cleaned and every later one was silently skipped, with no error,
+# by the same loop. Every existing assertion here put a tagged server in BOTH
+# files, so all of them passed on the first file alone and none could see it.
+begin_test "sc-toggle: off cleans the LAST settings file when the first needs no change"
+_setup
+mkdir -p "$HOME/.claude"
+python3 -c '
+import json,sys
+json.dump({"mcpServers":{"my-own-primary":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude.json"
+python3 -c '
+import json,sys
+json.dump({"mcpServers":{"context7 #supercharger":{"command":"npx"},
+  "my-own-legacy":{"command":"node"}}}, open(sys.argv[1],"w"), indent=2)' "$HOME/.claude/settings.json"
+bash "$TOGGLE" off >/dev/null 2>&1
+if [ "$(_mcp_keys)" = "my-own-legacy" ]; then pass
+else fail "last file not processed when the first was a no-op, got: $(_mcp_keys)"; fi
+teardown_test_home
+
 begin_test "sc-toggle: settings.json with no mcpServers key still toggles cleanly"
 _setup; printf '{"model":"opus"}\n' > "$HOME/.claude/settings.json"
 { bash "$TOGGLE" off >/dev/null 2>&1 && bash "$TOGGLE" on >/dev/null 2>&1; } && pass || fail "toggle failed without mcpServers"
