@@ -147,7 +147,12 @@ _rules_on() {    # put back exactly what we took -> echoes how many
 }
 
 _mcp_off() {   # extract tagged servers from every settings file -> stash
-  SC_FILES="$MCP_FILES" SC_STASH="$MCP_STASH" python3 - <<'PY' 2>/dev/null || true
+  # v2.28.14: stderr is NOT discarded here. v2.28.13 added a message naming any
+  # settings file whose rewrite failed, and this 2>/dev/null meant it could never
+  # be seen — the fifth time in this sequence a diagnostic was written into a
+  # stream its caller throws away. The block below is small and self-contained, so
+  # anything it prints on stderr is worth surfacing, including a traceback.
+  SC_FILES="$MCP_FILES" SC_STASH="$MCP_STASH" python3 - <<'PY' || true
 import json, os, sys
 stash = os.environ["SC_STASH"]
 saved, moved = {}, 0

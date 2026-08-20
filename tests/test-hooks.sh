@@ -1397,7 +1397,22 @@ INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_TC/src/foo.ts")
 OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/typecheck.sh" 2>&1)
 rm -f "$CACHE_FILE"
 rm -rf "$TMPDIR_TC"
-[ -z "$OUT" ] && pass || fail "expected empty output on cache hit, got: $OUT"
+# v2.28.14: on failure, say what the two sides actually keyed on. The CR-alignment
+# fix in v2.28.12 did not clear this, so the cache-key hypothesis was wrong and the
+# next step must be a measurement rather than a third guess. If the hook keyed
+# differently there will be TWO cache files in the scope dir with different
+# suffixes; if it keyed the same, the miss is in the file-hash comparison instead,
+# and these two listings separate those cases without another round trip.
+if [ -z "$OUT" ]; then pass
+else
+  fail "expected empty output on cache hit, got: $OUT
+--- cache file the TEST wrote: $CACHE_FILE (exists: $([ -f "$CACHE_FILE" ] && echo yes || echo no))
+--- cache files present in scope dir ---
+$(ls -1 "$SCOPE_DIR" 2>&1 | grep typecheck-cache || echo '<none>')
+--- test PROJ_HASH=$PROJ_HASH  file hash=${HASH:0:16}...
+--- cache contents ---
+$(cat "$CACHE_FILE" 2>&1 | head -3)"
+fi
 teardown_test_home
 
 # v2.20.1: slow-typecheck discoverability nudge — fires ONCE per repo (stderr only)

@@ -167,8 +167,20 @@ print(",".join(sorted(m)))' "$1" 2>/dev/null; }
 _mcp_keys() { _keys_of "$HOME/.claude/settings.json"; }
 
 begin_test "sc-toggle: off removes tagged MCP servers from the LEGACY settings.json"
-_mcp_setup; bash "$TOGGLE" off >/dev/null 2>&1
-[ "$(_mcp_keys)" = "my-own-legacy" ] && pass || fail "expected only the user's server, got: $(_mcp_keys)"
+# v2.28.14: KEEP stderr. v2.28.13 added a message naming any settings file whose
+# rewrite failed, and this line was discarding it — so the one diagnostic built
+# for this failure could never reach the log. The runner still reports the tagged
+# server surviving, and now it can say why.
+_mcp_setup
+_MCP_ERR=$(bash "$TOGGLE" off 2>&1 >/dev/null)
+if [ "$(_mcp_keys)" = "my-own-legacy" ]; then pass
+else
+  fail "expected only the user's server, got: $(_mcp_keys)
+--- sc-toggle stderr ---
+${_MCP_ERR:-<none>}
+--- legacy settings.json on disk ---
+$(cat "$HOME/.claude/settings.json" 2>&1 | head -12)"
+fi
 
 begin_test "sc-toggle: off removes tagged MCP servers from ~/.claude.json (primary)"
 [ "$(_keys_of "$HOME/.claude.json")" = "my-own-primary" ] && pass || fail "primary file not cleaned: $(_keys_of "$HOME/.claude.json")"
