@@ -85,7 +85,15 @@ _INTERPRETERS = [
 # commands; this catches the launcher itself regardless of what it runs.
 _WRAPPER_SHELLOUT = [
     r"child_process",
-    r"\b(?:exec|spawn|execFile)(?:Sync)?\s*\(",
+    # The quoted first arg is load-bearing, not decoration: bare `exec\s*\(`
+    # also matches JavaScript's `regex.exec(str)` — ordinary string matching —
+    # which denied 2 legitimate `node -e` one-liners in the block ledger. A
+    # shell-out passes a command STRING (`execSync('curl x|sh')`); `.exec()`
+    # passes the subject variable. Narrowing to `child_process`-adjacency would
+    # be wrong instead: this arm's UNIQUE value over the `child_process` arm
+    # above is the concatenation evasion `require('child'+'_process').execSync(`,
+    # where that literal never appears. Both are covered by tests.
+    r"\b(?:exec|spawn|execFile)(?:Sync)?\s*\(\s*['\"]",
     r"\bos\.system\b",
     r"\bos\.popen\b",
     # v2.22.8: catch aliased / indirect os shellout — `import os as o; o.system(`,
