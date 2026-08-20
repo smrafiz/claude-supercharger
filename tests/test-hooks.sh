@@ -1392,7 +1392,15 @@ mkdir -p "$SCOPE_DIR"
 PROJ_HASH=$(echo -n "$TMPDIR_TC" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])")
 PROJ_HASH=${PROJ_HASH//$'\r'/}
 CACHE_FILE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"
-echo "{\"$TMPDIR_TC/src/foo.ts\": \"$HASH\"}" > "$CACHE_FILE"
+# v2.28.18: seed the key the way the HOOK will look it up. typecheck.sh passes
+# FILE_PATH to python through an ENVIRONMENT VARIABLE, which MSYS converts on Git
+# Bash, so the hook looks up a drive-lettered path while this test was storing the
+# raw POSIX one from the payload. Same cache file, same project hash — the
+# diagnostic confirmed both — and a lookup that could never match, so the cache
+# always missed and tsc really ran. The hook is self-consistent in real use
+# because it WRITES through that same converted variable; only the seeded fixture
+# was out of step. native_path is a no-op off Windows.
+echo "{\"$(native_path "$TMPDIR_TC/src/foo.ts")\": \"$HASH\"}" > "$CACHE_FILE"
 INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_TC/src/foo.ts")
 OUT=$(printf '%s' "$INPUT" | bash "$REPO_DIR/hooks/typecheck.sh" 2>&1)
 # v2.28.16: snapshot BEFORE cleanup. The previous diagnostic reported the cache
