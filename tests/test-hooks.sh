@@ -1383,7 +1383,14 @@ echo 'const x: number = 1;' > "$TMPDIR_TC/src/foo.ts"
 HASH=$(sha256sum "$TMPDIR_TC/src/foo.ts" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$TMPDIR_TC/src/foo.ts" 2>/dev/null | cut -d' ' -f1 || echo "")
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-PROJ_HASH=$(echo -n "$TMPDIR_TC" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:8])")
+# v2.28.12: derive the key EXACTLY as the hook does — bytes, not a text-mode read,
+# and CR-stripped. typecheck.sh was fixed for this in its own PROJ_HASH (its
+# comment records a carriage return reaching the cache filename); the test kept
+# the old text-mode form, so on Git Bash the two sides could compute different
+# hashes, land on different cache files, and the "cache hit" case ran tsc for real
+# — which is the 8s run the runner reported instead of silence.
+PROJ_HASH=$(echo -n "$TMPDIR_TC" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.buffer.read()).hexdigest()[:8])")
+PROJ_HASH=${PROJ_HASH//$'\r'/}
 CACHE_FILE="$SCOPE_DIR/.typecheck-cache-${PROJ_HASH}"
 echo "{\"$TMPDIR_TC/src/foo.ts\": \"$HASH\"}" > "$CACHE_FILE"
 INPUT=$(printf '{"tool_input":{"file_path":"%s"}}' "$TMPDIR_TC/src/foo.ts")
