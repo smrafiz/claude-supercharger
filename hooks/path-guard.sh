@@ -494,7 +494,15 @@ if 'selfmod' not in disabled:
     _norm = p.replace('\\', '/')
     if (os.path.basename(p).lower() in ('.supercharger.json', '.mcp.json')
             or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', _norm, re.IGNORECASE)):
-        print('self-modification — agent should not edit project guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
+        # v2.28.15: say WHO can lift this. The opt-out lives inside the very file
+        # the rule protects, so the agent cannot apply it — that circularity is
+        # deliberate (an agent able to grant itself an exemption has none), but the
+        # old wording read like an action the agent could take, which turns a
+        # correct block into a confusing one.
+        print('self-modification — agent should not edit project guardrail config ('
+              + os.path.basename(p) + '). This is deliberate: the agent cannot edit '
+              'the file that governs it. YOU can, by hand — add '
+              'disableSecurityCategories: ["selfmod"] to .supercharger.json yourself.')
         sys.exit(0)
 
 # --- 3.4 Absolute-path writes outside project root ---
