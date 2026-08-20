@@ -165,13 +165,32 @@ for p in [x for x in os.environ["SC_FILES"].split("\n") if x.strip()]:
     for k in tagged: del m[k]
     if m: s["mcpServers"] = m
     else: s.pop("mcpServers", None)
+    # v2.28.13: an in-place fallback, and never a SILENT skip. The write was
+    # temp-file-plus-replace with a bare except that swallowed any failure and
+    # moved on, so a file that could not be replaced simply kept its tagged
+    # servers and `off` reported success. Windows is where that bites: it locks
+    # files far more readily than POSIX, and the recon has the legacy
+    # settings.json keeping its tagged server while the primary file beside it is
+    # cleaned by the identical code. Replace is still preferred — it is atomic —
+    # but if it fails the content is written in place rather than abandoned, and
+    # if BOTH fail the user is told which file still holds Supercharger servers
+    # instead of being left to discover it.
     tmp = p + ".sctmp"
+    written = False
     try:
         with open(tmp, "w") as f: json.dump(s, f, indent=2)
         os.replace(tmp, p)
+        written = True
     except Exception:
         try: os.unlink(tmp)
         except Exception: pass
+        try:
+            with open(p, "w") as f: json.dump(s, f, indent=2)
+            written = True
+        except Exception as e:
+            sys.stderr.write("sc-toggle: could not rewrite %s (%s) - it still "
+                             "holds Supercharger MCP servers\n" % (p, e))
+    if not written:
         continue
     saved[p] = tagged
     moved += len(tagged)
