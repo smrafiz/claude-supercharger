@@ -1229,8 +1229,10 @@ jobs:
               # v2.28.10: subagent-cost and tool-call-limiter removed — the runner
               # confirms both clean after the env-transport fix (v2.28.7) and the
               # parse-the-content-you-already-read fix (v2.28.8). Two left.
+              # v2.28.19: test-sc-toggle REMOVED — the runner confirms it clean after
+              # the multi-path env-var fix in v2.28.17. Sixth time the gate has
+              # caught its own list going stale. ONE file left.
               'test-hooks',
-              'test-sc-toggle',
           }
           try:
               raw = open('win-suite.log', encoding='utf-8', errors='replace').read()
