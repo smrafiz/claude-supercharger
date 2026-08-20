@@ -1226,9 +1226,11 @@ jobs:
               # test-generated-file-guard REMOVED v2.28.9: the runner confirms it clean
               # after the native-path fix in v2.28.5 — the gate asked, which is the
               # third time it has caught its own list going stale.
+              # v2.28.10: subagent-cost and tool-call-limiter removed — the runner
+              # confirms both clean after the env-transport fix (v2.28.7) and the
+              # parse-the-content-you-already-read fix (v2.28.8). Two left.
               'test-hooks',
-              'test-sc-toggle', 'test-subagent-cost',
-              'test-tool-call-limiter',
+              'test-sc-toggle',
           }
           try:
               raw = open('win-suite.log', encoding='utf-8', errors='replace').read()
