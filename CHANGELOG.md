@@ -2,6 +2,35 @@
 
 ## Contents
 
+- [2.29.2] - 2026-08-21 — fix(hooks): comma-separated matchers are rewritten to pipes, so the guardrails are not silently inert on Claude Code before 2.1.191
+
+Claude Code decides matcher mode from the matcher's own characters: one made
+only of [A-Za-z0-9_,| -] is an exact match, optionally a list separated by
+either a comma or a pipe. The two separators mean the same thing, but only one
+of them carries a version floor — 'Comma separators and the surrounding
+whitespace tolerance require Claude Code v2.1.191 or later'. Below that
+version 'Bash,PowerShell' is read as one literal tool name, which no tool has.
+
+Supercharger emitted 35 such matchers and pins no minimum Claude Code version,
+so on an older build safety.sh, the write guards, the CronCreate gate and the
+secret scanners all selected nothing. An unmatched matcher fires nothing and
+errors nothing, so the entire layer was absent with no in-product signal — the
+same silent-failure class as the bare mcp__ matcher in v2.24.5. Upstream fixed
+the parser in 2.1.191 (anthropics/claude-code#69970), but a user who has not
+updated still gets the dead layer, and we are the ones who chose the comma.
+
+The rewrite runs at emit time in both emitters, after the record is split on
+'|' — the source tuple is pipe-delimited, so the commas have to stay there and
+only the emitted matcher changes. It is gated to PreToolUse and PostToolUse,
+because FileChanged matches file PATHS and Notification has its own vocabulary,
+and gated again on the exact-match charset, because in a regex matcher '|' is
+alternation rather than a list separator and the rewrite would change meaning.
+
+The new test asserts the selected TOOL SET is unchanged rather than asserting
+the new spelling, which is the only version of this check worth having: a
+rewrite that quietly widened coverage — 'Bash|PowerShell' slipping into regex
+mode and firing on BashOutput — would be a worse bug than the one being fixed.
+It fails against the pre-fix hooks.json and names all 16 dead matchers. 3780 tests passing.
 - [2.29.1] - 2026-08-20 — fix(safety): the shell-out guard no longer denies JavaScript's regex.exec()
 
 The wrapper arm that catches an interpreter one-liner shelling out to the OS

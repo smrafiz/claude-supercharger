@@ -65,12 +65,41 @@ def normalize_mcp_matcher(m):
     return '|'.join(t + '.*' if t.startswith('mcp__') else t for t in toks)
 
 
+EXACT_MATCHER_CHARS = set(
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_,| -')
+
+
+def commas_to_pipes(event, m):
+    """v2.29.2 — comma matcher lists are inert before Claude Code v2.1.191.
+
+    Comma and pipe are the same exact-list mode, but the docs put a version
+    floor on the comma form only ("Comma separators and the surrounding
+    whitespace tolerance require Claude Code v2.1.191 or later"). Below that,
+    every comma-list matcher we emit selects nothing and reports nothing —
+    the guardrails vanish silently (anthropics/claude-code#69970).
+
+    Rewriting to pipes is back-compat only; semantics are unchanged.
+
+    Only PreToolUse/PostToolUse — FileChanged matches file PATHS and
+    Notification has its own vocabulary. The charset test keeps this off
+    regex matchers, where | is alternation rather than a list separator.
+
+    Logic-identical to the copy in lib/hooks.sh; tests assert the emitters agree.
+    """
+    if event not in ('PreToolUse', 'PostToolUse'):
+        return m
+    if ',' not in m or set(m) - EXACT_MATCHER_CHARS:
+        return m
+    return '|'.join(t.strip() for t in m.split(',') if t.strip())
+
+
 for line in hooks_input.strip().split('\n'):
     if not line.strip():
         continue
     parts = line.split('|', 4)
     event = parts[0]
-    matcher = normalize_mcp_matcher(parts[1] if len(parts) > 1 else '')
+    matcher = commas_to_pipes(
+        event, normalize_mcp_matcher(parts[1] if len(parts) > 1 else ''))
     command = parts[2] if len(parts) > 2 else ''
     flags = parts[3] if len(parts) > 3 else ''
     if_pattern = parts[4] if len(parts) > 4 else ''

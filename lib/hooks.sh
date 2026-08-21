@@ -680,6 +680,38 @@ def normalize_mcp_matcher(m):
     toks = [t for t in m.split(',') if t]
     return '|'.join(t + '.*' if t.startswith('mcp__') else t for t in toks)
 
+
+# v2.29.2 - comma matcher lists are inert before Claude Code v2.1.191.
+#
+# The docs are explicit: a matcher of only [A-Za-z0-9_,| -] is an EXACT match,
+# and 'Exact string, or list of exact strings separated by | or , with optional
+# surrounding whitespace'  -- but 'Comma separators and the surrounding
+# whitespace tolerance require Claude Code v2.1.191 or later.' The PIPE form
+# carries no such version floor.
+#
+# So on CC < 2.1.191 every comma-list matcher we emit selects nothing, fires
+# nothing and errors nothing: safety.sh, the write guards, the secret scanners
+# all silently gone, with no in-product signal. That is anthropics/claude-code
+# #69970, fixed upstream in 2.1.191 - but a user on an older build still gets
+# the dead layer, and we do not pin a minimum CC version.
+#
+# Both forms are the SAME exact-list mode, so this changes nothing on a current
+# build. It is a pure back-compat rewrite, not a semantic one.
+#
+# Only PreToolUse/PostToolUse: FileChanged matches FILE PATHS and Notification
+# has its own vocabulary, so their commas are not tool-name list separators.
+# The charset test also keeps us off regex matchers, where | IS alternation.
+EXACT_MATCHER_CHARS = set(
+    'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789_,| -')
+
+
+def commas_to_pipes(event, m):
+    if event not in ('PreToolUse', 'PostToolUse'):
+        return m
+    if ',' not in m or set(m) - EXACT_MATCHER_CHARS:
+        return m
+    return '|'.join(t.strip() for t in m.split(',') if t.strip())
+
 if os.path.exists(settings_file):
     with open(settings_file, 'r') as f:
         try:
@@ -708,7 +740,8 @@ for line in hooks_input.strip().split('\n'):
         continue
     parts = line.split('|', 4)
     event = parts[0]
-    matcher = normalize_mcp_matcher(parts[1] if len(parts) > 1 else '')
+    matcher = commas_to_pipes(
+        event, normalize_mcp_matcher(parts[1] if len(parts) > 1 else ''))
     command = parts[2] if len(parts) > 2 else ''
     flags = parts[3] if len(parts) > 3 else ''
     if_pattern = parts[4] if len(parts) > 4 else ''

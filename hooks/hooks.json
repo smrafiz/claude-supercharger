@@ -19,7 +19,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read,ReadMcpResourceTool,ReadMcpResourceDirTool"
+        "matcher": "Read|ReadMcpResourceTool|ReadMcpResourceDirTool"
       },
       {
         "hooks": [
@@ -29,7 +29,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -39,7 +39,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -49,7 +49,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -59,7 +59,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit,Bash"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash"
       },
       {
         "hooks": [
@@ -69,7 +69,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -90,7 +90,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -150,7 +150,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -160,7 +160,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -190,7 +190,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "WebFetch,WebSearch"
+        "matcher": "WebFetch|WebSearch"
       },
       {
         "hooks": [
@@ -210,7 +210,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Edit,Write,Bash,MultiEdit,NotebookEdit"
+        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -220,7 +220,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -230,7 +230,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -240,7 +240,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit,NotebookEdit"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -250,7 +250,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -260,7 +260,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -270,7 +270,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -280,7 +280,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Edit,MultiEdit,Write"
+        "matcher": "Edit|MultiEdit|Write"
       },
       {
         "hooks": [
@@ -300,7 +300,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -310,7 +310,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -320,7 +320,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -330,7 +330,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -461,7 +461,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "CronCreate,CronDelete,CronList,ScheduleWakeup"
+        "matcher": "CronCreate|CronDelete|CronList|ScheduleWakeup"
       },
       {
         "hooks": [
@@ -489,7 +489,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -510,7 +510,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit"
+        "matcher": "Write|Edit"
       }
     ],
     "PermissionRequest": [
@@ -544,7 +544,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash,PowerShell,Write,Edit,NotebookEdit"
+        "matcher": "Bash|PowerShell|Write|Edit|NotebookEdit"
       },
       {
         "hooks": [
@@ -651,7 +651,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -662,7 +662,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit,MultiEdit"
+        "matcher": "Write|Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -684,7 +684,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit"
+        "matcher": "Write|Edit"
       },
       {
         "hooks": [
@@ -695,7 +695,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Edit,MultiEdit"
+        "matcher": "Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -706,7 +706,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Edit,MultiEdit"
+        "matcher": "Edit|MultiEdit"
       },
       {
         "hooks": [
@@ -759,7 +759,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash,Read"
+        "matcher": "Bash|Read"
       },
       {
         "hooks": [
@@ -790,7 +790,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit,Bash"
+        "matcher": "Write|Edit|Bash"
       },
       {
         "hooks": [
@@ -800,7 +800,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write,Edit"
+        "matcher": "Write|Edit"
       },
       {
         "hooks": [
@@ -811,7 +811,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write,Edit"
+        "matcher": "Write|Edit"
       }
     ],
     "Elicitation": [

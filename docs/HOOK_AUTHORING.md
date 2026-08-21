@@ -183,7 +183,7 @@ Hooks are registered in `~/.claude/settings.json` under the `hooks` key. The key
   "hooks": {
     "PreToolUse": [
       {
-        "matcher": "Bash,PowerShell",
+        "matcher": "Bash|PowerShell",
         "hooks": [
           {
             "type": "command",
@@ -198,7 +198,13 @@ Hooks are registered in `~/.claude/settings.json` under the `hooks` key. The key
 
 **Fields:**
 
-- `matcher` — comma-separated tool names (e.g. `"Bash,Write"`) or glob patterns. Omit to match all tools for that event.
+- `matcher` — a list of exact tool names separated by `|` (e.g. `"Bash|Write"`), or a regex. Omit to match all tools for that event.
+  Claude Code picks the mode from the matcher's own characters: one made only of `[A-Za-z0-9_,| -]` is an **exact** match (optionally a list);
+  anything else is an **unanchored regex**, so an MCP prefix needs `mcp__server__.*` rather than a bare `mcp__`.
+  **Separate with `|`, not `,`.** Both mean the same thing, but the comma form requires Claude Code v2.1.191+ — on older builds
+  `"Bash,PowerShell"` parses as one literal tool name, matches nothing, and the hook is silently inert with no error
+  ([claude-code#69970](https://github.com/anthropics/claude-code/issues/69970)). The pipe form has no version floor.
+  Hyphenated names (`code-reviewer`) need v2.1.195+ to exact-match; below that they act as an unanchored regex.
 - `type` — always `"command"` for shell hooks.
 - `command` — the shell command to run. Receives JSON on stdin.
 - `async: true` — hook runs in the background. Claude doesn't wait for it and it cannot communicate back.
@@ -345,7 +351,10 @@ Supercharger manages its hooks in `lib/hooks.sh`. The format is pipe-delimited:
 ```
 
 - `FLAGS`: `async`, `asyncRewake`, or empty
-- `MATCHER`: comma-separated tool names, or empty to match all
+- `MATCHER`: comma-separated tool names, or empty to match all.
+  Commas here are **required** — the record itself is `|`-delimited, so a `|` inside this field would corrupt the split.
+  They are rewritten to `|` at emit time (`commas_to_pipes()` in `lib/hooks.sh`), which is why the tuple and the emitted
+  `settings.json` differ. Write commas in the tuple; expect pipes in the output.
 
 Example line inside `get_hooks_for_mode()`:
 
