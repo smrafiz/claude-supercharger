@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — WebFetch Egress Guard
-# Event: PreToolUse | Matcher: WebFetch,WebSearch
+# Event: PreToolUse | Matcher: WebFetch,WebSearch,Monitor
 # The native WebFetch tool is an un-guarded network-egress channel: an indirect
 # prompt-injection can steer the agent into `WebFetch http://169.254.169.254/…`
 # (cloud instance-metadata credential theft) or `WebFetch http://10.0.0.5/admin`
@@ -32,7 +32,7 @@ except Exception:
     sys.exit(0)
 
 tool = str(d.get('tool_name') or '')
-if tool not in ('WebFetch', 'WebSearch'):
+if tool not in ('WebFetch', 'WebSearch', 'Monitor'):
     sys.exit(0)
 
 # Scan the FETCH TARGET only: WebFetch url. A WebSearch query is topic text routed
@@ -41,7 +41,22 @@ if tool not in ('WebFetch', 'WebSearch'):
 # wrongly blocked). WebFetch prompt is processing instructions, not a target. WebSearch
 # has no fetch target here, so it is a no-op.
 ti = d.get('tool_input') or {}
-blob = str(ti.get('url') or '') if (tool == 'WebFetch' and isinstance(ti, dict)) else ''
+blob = ''
+if isinstance(ti, dict):
+    if tool == 'WebFetch':
+        blob = str(ti.get('url') or '')
+    elif tool == 'Monitor':
+        # v2.29.10: Monitor's ws form opens a WebSocket to an arbitrary host and
+        # was the last unguarded egress channel. v2.29.7 put the 16 Bash guards
+        # on its command field, but the ws form carries no command at all, so
+        # guards had nothing to inspect and every egress hook returned allow -
+        # verified against safety, bulk-exfil-guard, mcp-egress-guard and this
+        # one before the change. The URL is a fetch target in exactly the sense
+        # WebFetch's is, including for exfiltration: the data rides in the query
+        # string. Only ws.url is read here; the command channel is already
+        # covered and re-scanning it would double-report.
+        ws = ti.get('ws')
+        blob = str((ws or {}).get('url') or '') if isinstance(ws, dict) else ''
 if not blob:
     sys.exit(0)
 # v2.22.5: percent-decode before matching. The tool decodes the URL before the

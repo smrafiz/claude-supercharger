@@ -82,4 +82,45 @@ begin_test "webfetch-egress: SUPERCHARGER_WEBFETCH_EGRESS=0 disables it"
 RC=$(printf '{"tool_name":"WebFetch","tool_input":{"url":"http://169.254.169.254/"}}' | SUPERCHARGER_WEBFETCH_EGRESS=0 bash "$GUARD" >/dev/null 2>&1; echo $?)
 [ "$RC" = "0" ] && pass || fail "kill switch did not disable (rc=$RC)"
 
+# --- Monitor ws: the last unguarded egress channel (v2.29.10) ---
+# v2.29.7 put the 16 Bash guards on Monitor's `command` field, but its `ws` form
+# carries no command at all, so those guards had nothing to inspect: safety,
+# bulk-exfil-guard, mcp-egress-guard and this hook all returned allow for a
+# wss:// URL. A WebSocket URL is a fetch target in the same sense WebFetch's is,
+# exfiltration included, since the data rides in the query string.
+rc_for_ws() { printf '{"tool_name":"Monitor","tool_input":{"ws":{"url":"%s"},"description":"d"}}' "$1" | bash "$GUARD" >/dev/null 2>&1; echo $?; }
+
+begin_test "monitor-ws: DENY cloud metadata endpoint over ws"
+[ "$(rc_for_ws 'ws://169.254.169.254/latest/meta-data/iam/')" = "2" ] && pass || fail "ws metadata not blocked"
+
+begin_test "monitor-ws: DENY GCP metadata host over wss"
+[ "$(rc_for_ws 'wss://metadata.google.internal/computeMetadata/v1/')" = "2" ] && pass || fail "gcp ws metadata not blocked"
+
+begin_test "monitor-ws: DENY chat webhook host over wss"
+[ "$(rc_for_ws 'wss://discord.com/api/webhooks/123/abc')" = "2" ] && pass || fail "ws webhook not blocked"
+
+begin_test "monitor-ws: DENY percent-encoded metadata host over ws"
+# Parity with the WebFetch decode path — the URL is decoded before connecting.
+[ "$(rc_for_ws 'ws://169.254.169.254%2Flatest%2Fmeta-data%2F')" = "2" ] && pass || fail "encoded ws metadata not blocked"
+
+begin_test "monitor-ws: a legitimate event stream is NOT blocked"
+# The shape from Monitor's own documented example. A guard that blocks this is a
+# guard people switch off.
+[ "$(rc_for_ws 'wss://events.example.com/stream')" != "2" ] && pass || fail "false positive on a normal ws stream"
+
+begin_test "monitor-ws: the command form is left to the Bash guards"
+# Re-scanning `command` here would double-report what the 16 guards already cover.
+RC=$(printf '{"tool_name":"Monitor","tool_input":{"command":"tail -f app.log","description":"d"}}' | bash "$GUARD" >/dev/null 2>&1; echo $?)
+[ "$RC" = "0" ] && pass || fail "command form should be a no-op for this hook (rc=$RC)"
+
+begin_test "monitor-ws: guard is registered on Monitor"
+python3 - "$REPO_DIR" <<'PYEOF' && pass || fail "webfetch-egress-guard not registered on Monitor"
+import json,re,sys,pathlib
+d=json.loads((pathlib.Path(sys.argv[1])/"hooks/hooks.json").read_text())["hooks"]
+ok=any('Monitor' in [t.strip() for t in re.split(r'[|,]', g.get('matcher',''))]
+       and any('webfetch-egress-guard' in h.get('command','') for h in g.get('hooks',[]))
+       for g in d.get('PreToolUse',[]))
+sys.exit(0 if ok else 1)
+PYEOF
+
 report

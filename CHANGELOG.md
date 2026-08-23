@@ -2,6 +2,41 @@
 
 ## Contents
 
+- [2.29.10] - 2026-08-23 — fix(egress): scan Monitor ws URLs — the last unguarded egress channel
+
+v2.29.7 put the 16 Bash guards on Monitor's command field, but the ws
+form carries no command at all, so those guards had nothing to inspect.
+Verified before changing anything: safety, bulk-exfil-guard,
+mcp-egress-guard and webfetch-egress-guard ALL returned allow for
+Monitor with a wss URL, and webfetch-egress-guard was registered on
+WebFetch and WebSearch only. A WebSocket URL is a fetch target in
+exactly the sense WebFetch's is, exfiltration included, since the data
+rides in the query string.
+
+Extended the existing guard rather than adding a new hook: same egress
+class, same shared lib-egress-patterns.sh, one place to change. Only
+ws.url is read - the command channel is already covered and re-scanning
+it would double-report. This closes the gap v2.29.7 explicitly recorded
+as still open rather than leaving that note to become permanent debt.
+
+Two mistakes worth recording, both caught by tests rather than by
+reading the diff.
+
+The first attempt did nothing at all. The python gate gated on
+tool not in (WebFetch, WebSearch) and exited before reaching the new
+branch, so the four DENY assertions failed while the two
+allow-shaped ones passed - a reminder that a passing allow case proves
+nothing when the hook is inert. Widening that tuple was the actual fix.
+
+The second was mine and older than this repo's patience for it: the
+comment I added used backticks around two field names, INSIDE a
+double-quoted python3 -c block, where bash performs command
+substitution before python ever sees the text.
+tests/test-interp-block-safety.sh exists precisely for that class and
+caught it at line 51. The guard against it is scoped to the -c block,
+since backticks in the bash header comments above are ordinary text.
+
+3843 tests passing.. 3843 tests passing.
 - [2.29.9] - 2026-08-23 — feat(hooks): scan DesignSync uploads, the one egress path nothing else can see
 
 DesignSync had no guards. It is an egress primitive and belongs to the

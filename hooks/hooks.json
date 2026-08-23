@@ -190,7 +190,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "WebFetch|WebSearch"
+        "matcher": "WebFetch|WebSearch|Monitor"
       },
       {
         "hooks": [

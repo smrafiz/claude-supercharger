@@ -145,7 +145,7 @@ get_hooks_for_mode() {
   # this on Bash and mcp-egress-guard on MCP; this is the un-mirrored WebFetch
   # sibling (cross-channel parity). Only fires on WebFetch/WebSearch → ~zero hot-path
   # cost. Fail-open. Disable: SUPERCHARGER_WEBFETCH_EGRESS=0.
-  hooks+=("PreToolUse|WebFetch,WebSearch|${hooks_dir}/webfetch-egress-guard.sh|")
+  hooks+=("PreToolUse|WebFetch,WebSearch,Monitor|${hooks_dir}/webfetch-egress-guard.sh|")
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
