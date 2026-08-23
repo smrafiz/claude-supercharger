@@ -2,6 +2,39 @@
 
 ## Contents
 
+- [2.29.4] - 2026-08-23 — test(version-floor): pin the cache-invalidation fixture's mtimes
+
+The cache-invalidation test was timing-dependent and went red on
+ubuntu-latest while passing on macOS. CI ground truth:
+
+  FAIL cache invalidates when the claude binary changes -- forks=1
+
+The version cache is keyed on the claude binary's path, mtime and size.
+mtime has whole-second granularity, and the two stand-in binaries the
+test writes are both exactly 124 bytes -- '2.1.100' and '2.1.240' are
+the same length -- so size never distinguished them. On a fast runner
+both writes land inside one second, the key does not change, the hook
+correctly reuses its cache, and the test's expectation of a re-detect
+fails. On the slower macOS run the second boundary happened to fall
+between the writes, which is the only reason it ever passed.
+
+Reproduced locally before changing anything, by forcing the two writes
+to share an mtime: the hook then reported cached_before=2.1.100 and
+cached_after=2.1.100 with forks=1 -- the CI symptom exactly. The first
+attempt to reproduce it did NOT fail, because the wall clock ticked
+between the writes; that near-miss is precisely the flakiness at issue.
+
+Fixed in the fixture, not the product. A real Claude Code upgrade
+changes the binary's size and does not land in the same second as an
+earlier probe, so the key is sound for the case it exists to cover;
+hardening it against a same-second same-size replacement would add
+platform-divergent sub-second stat handling for a scenario that does
+not occur. The fixture now sets explicit mtimes (12:00 and 13:00),
+which is what a real upgrade looks like, so the key differs by
+construction rather than by machine speed. Verified stable over 5
+consecutive local runs.
+
+3796 tests passing.. 3796 tests passing.
 - [2.29.3] - 2026-08-23 — feat(hooks): warn when Claude Code predates a hook event we register
 
 Claude Code silently ignores a hook registered on an event it does not

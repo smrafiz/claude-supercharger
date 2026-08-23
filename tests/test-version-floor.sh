@@ -72,9 +72,16 @@ OUT=$(SUPERCHARGER_STATE="$S" SUPERCHARGER_CC_BIN="$(_fake_cc 2.0.50)" \
 [ -z "$OUT" ] && pass || fail "opt-out ignored: $OUT"
 
 begin_test "version is cached — no second 'claude --version' fork"
+# mtimes are FORCED here rather than left to wall-clock. The cache key is
+# path+mtime+size, and mtime has whole-second granularity: on a fast runner the
+# rewrite below lands in the same second as the first write, and the two fake
+# binaries are the same byte length, so the key would not change and the
+# invalidation test would fail purely on machine speed. It passed on macOS and
+# failed on ubuntu-latest for exactly that reason. A real upgrade changes both
+# the timestamp and the size, which is what these explicit mtimes model.
 T=$(mktemp -d); S=$(mktemp -d)
 printf '#!/bin/sh\necho called >> %s/calls\necho "2.1.100 (Claude Code)"\n' "$T" > "$T/claude"
-chmod +x "$T/claude"; : > "$T/calls"
+chmod +x "$T/claude"; touch -t 202601011200.00 "$T/claude"; : > "$T/calls"
 for _ in 1 2 3; do
   SUPERCHARGER_STATE="$S" SUPERCHARGER_CC_BIN="$T/claude" bash "$HOOK" </dev/null >/dev/null 2>&1 || true
 done
@@ -83,7 +90,7 @@ CALLS=$(wc -l < "$T/calls" | tr -d ' ')
 
 begin_test "cache invalidates when the claude binary changes"
 printf '#!/bin/sh\necho called >> %s/calls\necho "2.1.240 (Claude Code)"\n' "$T" > "$T/claude"
-chmod +x "$T/claude"
+chmod +x "$T/claude"; touch -t 202601011300.00 "$T/claude"
 SUPERCHARGER_STATE="$S" SUPERCHARGER_CC_BIN="$T/claude" bash "$HOOK" </dev/null >/dev/null 2>&1 || true
 CALLS=$(wc -l < "$T/calls" | tr -d ' ')
 [ "$CALLS" = "2" ] && pass || fail "upgrade should re-detect; forks=$CALLS"
