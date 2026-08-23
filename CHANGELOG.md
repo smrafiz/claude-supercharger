@@ -2,6 +2,42 @@
 
 ## Contents
 
+- [2.29.12] - 2026-08-23 — fix(designsync): resolve localPath against the plan's approved dir, and stop skipping silently
+
+Closes the gap flagged in v2.29.11's own release notes rather than
+leaving it as a standing inconsistency: the hook ASKED when a batch
+exceeded its 128-file scan cap, but silently skipped any file it could
+not locate - the same silent-cap shape, decided the other way.
+
+The cause was structural. write_files carries a planId, not the localDir
+that finalize_plan approved, so the guard resolved relative localPaths
+against cwd and hoped. When a bundle is built anywhere other than the
+session's cwd, every file in it resolved nowhere and was passed over
+without a word - and since these bytes never enter the session, nothing
+downstream would check them either.
+
+finalize_plan is now INSPECTED (never gated) to record the localDir it
+approves, keyed per session, and write_files resolves each localPath
+against the explicit localDir, then that remembered one, then cwd. A file
+that resolves nowhere is counted and ASKED about.
+
+Proven, not assumed. The new test plants a secret in a file under a
+finalize_plan localDir that differs from cwd; against the pre-fix guard
+it returns passthrough - a real credential uploaded unchecked - and
+against the fixed one it denies. The unresolvable-file test likewise
+fails pre-fix.
+
+Behaviour change worth stating: a localPath that resolves nowhere used to
+pass through and now asks. For a file that genuinely does not exist the
+upload would fail anyway, so the prompt is mild; for one that exists
+somewhere we did not look, it is the whole point.
+
+A contract test caught the header edit: the kill-switch line must sit
+within the first 40 lines and my longer comment pushed it to 42, so a
+documented switch became undocumented. Header condensed rather than the
+test relaxed.
+
+3844 tests passing.. 3844 tests passing.
 - [2.29.11] - 2026-08-23 — test(designsync): pass a native path in the payload, not an MSYS one
 
 The DesignSync guard's three localPath assertions failed on Windows and

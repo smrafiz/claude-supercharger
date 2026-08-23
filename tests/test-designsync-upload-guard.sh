@@ -90,9 +90,28 @@ t=sys.stdin.read().strip()
 print('passthrough' if not t else json.loads(t)['hookSpecificOutput']['permissionDecision'])")
 [ "$R" = "ask" ] && pass || fail "expected ask for an over-cap batch, got $R"
 
-begin_test "a missing localPath fails open rather than blocking the call"
+begin_test "a localPath that resolves nowhere is ASKED about, not skipped"
+# v2.29.12: this used to pass through. Skipping a file we cannot locate is the
+# same silent gap the >128 branch already refuses to take - the bytes never enter
+# the session, so nothing downstream checks them either.
 R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"c/x.js\",\"localPath\":\"does-not-exist.js\"}]}")
-[ "$R" = "passthrough" ] && pass || fail "expected passthrough, got $R"
+[ "$R" = "ask" ] && pass || fail "expected ask, got $R"
+
+begin_test "finalize_plan's localDir is remembered and used by a later write_files"
+# write_files carries only a planId, so without this the relative localPath below
+# resolves against cwd - a different directory - and the secret goes unseen.
+SUB=$(mktemp -d); printf 'const K = "AKIA%s";\n' "IOSFODNN7EXAMPLE" > "$SUB/hidden.js"
+SUB_N=$(native_path "$SUB")
+SID="ds-memo-test"
+printf '{"tool_name":"DesignSync","tool_input":{"method":"finalize_plan","projectId":"p","localDir":"%s","writes":["c/**"]},"cwd":"%s","session_id":"%s"}' "$SUB_N" "$WORK_N" "$SID" \
+  | bash "$HOOK" >/dev/null 2>&1
+R=$(printf '{"tool_name":"DesignSync","tool_input":{"method":"write_files","planId":"p1","files":[{"path":"c/h.js","localPath":"hidden.js"}]},"cwd":"%s","session_id":"%s"}' "$WORK_N" "$SID" \
+  | bash "$HOOK" 2>/dev/null | python3 -c "
+import json,sys
+t=sys.stdin.read().strip()
+print('passthrough' if not t else json.loads(t)['hookSpecificOutput']['permissionDecision'])")
+rm -rf "$SUB"
+[ "$R" = "deny" ] && pass || fail "expected deny via the remembered localDir, got $R"
 
 begin_test "opt-out env var disables the guard"
 R=$(printf '{"tool_name":"DesignSync","tool_input":{"method":"write_files","planId":"p","localDir":"%s","files":[{"path":"a","localPath":"leaky.js"}]},"cwd":"%s"}' "$WORK_N" "$WORK_N" \

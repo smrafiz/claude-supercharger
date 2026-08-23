@@ -24,10 +24,13 @@
 # than warn, for the same asymmetry: an upload to a shared project is not
 # reversible by us, and other org members can read it.
 #
-# Scope is deliberately narrow — only write_files, the one method that moves
-# local bytes outward. The read methods (list_projects, get_project, list_files,
-# get_file) send nothing and are untouched, as are finalize_plan and the asset
-# registration calls.
+# Only write_files moves local bytes outward; the read methods and the asset
+# registration calls are untouched. finalize_plan is INSPECTED but never gated
+# (v2.29.12): it alone states which directory uploads may be read from, and
+# write_files carries a planId instead, so without recording it the guard
+# resolved relative localPaths against cwd and guessed — quietly, which is the
+# very silent-skip this hook exists to prevent. A file that resolves nowhere is
+# now counted and asked about.
 #
 # NOT covered here, and not implied to be: delete_files removes files from a
 # shared remote project, which is destructive but not exfiltration. Left for a
@@ -46,8 +49,9 @@ check_hook_disabled "designsync-upload-guard" 2>/dev/null && exit 0
 # Fork-free stdin read (v2.26.35 convention).
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
-# Fast path: only write_files moves bytes outward.
-case "$_INPUT" in *write_files*) ;; *) exit 0 ;; esac
+# Fast path: write_files moves the bytes; finalize_plan is read only to learn the
+# localDir it approves, which write_files itself does not carry.
+case "$_INPUT" in *write_files*|*finalize_plan*) ;; *) exit 0 ;; esac
 
 # Single source of truth, shared with output-secrets-scanner, commit-guard and
 # artifact-publish-guard. Add a pattern THERE, never here (v2.9.8 parity drift).
@@ -55,7 +59,8 @@ case "$_INPUT" in *write_files*) ;; *) exit 0 ;; esac
 . "$HOOKS_DIR/lib-secret-patterns.sh" 2>/dev/null || true
 _DS_PATTERNS=$(printf '%s\n' "${SECRET_PATTERNS[@]:-}" 2>/dev/null || true)
 
-RESULT=$(HOOK_INPUT="$_INPUT" PATTERNS="$_DS_PATTERNS" python3 <<'PYEOF' 2>/dev/null
+_DS_SCOPE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope"
+RESULT=$(HOOK_INPUT="$_INPUT" PATTERNS="$_DS_PATTERNS" SC_SCOPE="$_DS_SCOPE" python3 <<'PYEOF' 2>/dev/null
 import json, os, re, sys
 
 # NOTE: this heredoc lives inside RESULT=$(...). Keep every quote character
@@ -67,7 +72,26 @@ except Exception:
     sys.exit(0)
 
 ti = data.get('tool_input') or {}
-if ti.get('method') != 'write_files':
+method = ti.get('method')
+scope = os.environ.get('SC_SCOPE') or ''
+sid = str(data.get('session_id') or 'nosid')
+memo = os.path.join(scope, '.designsync-localdir-' + re.sub(r'[^A-Za-z0-9_-]', '', sid)) if scope else ''
+
+# finalize_plan is the ONLY call that states which directory uploads may be read
+# from. write_files carries a planId instead, so without this the guard would be
+# resolving relative localPaths against cwd and guessing. Record and move on.
+if method == 'finalize_plan':
+    ld = ti.get('localDir')
+    if memo and isinstance(ld, str) and ld:
+        try:
+            os.makedirs(scope, exist_ok=True)
+            with open(memo, 'w', encoding='utf-8') as fh:
+                fh.write(ld)
+        except Exception:
+            pass
+    sys.exit(0)
+
+if method != 'write_files':
     sys.exit(0)
 
 files = ti.get('files')
@@ -87,7 +111,16 @@ if not pats:
     sys.exit(0)
 
 cwd = data.get('cwd') or (data.get('workspace') or {}).get('current_dir') or os.getcwd()
-localdir = ti.get('localDir') or cwd
+remembered = ''
+if memo:
+    try:
+        with open(memo, encoding='utf-8') as fh:
+            remembered = fh.read().strip()
+    except Exception:
+        remembered = ''
+# Most specific first: an explicit localDir, then the one finalize_plan approved,
+# then cwd as the last resort.
+cands = [d for d in (ti.get('localDir'), remembered, cwd) if isinstance(d, str) and d]
 
 MAX_BYTES = 262144      # same bound artifact-publish-guard uses
 MAX_FILES = 128         # see the unscanned-tail branch below
@@ -97,6 +130,7 @@ def hit(text):
 
 flagged = None
 scanned = 0
+unresolved = 0
 
 for ent in files[:MAX_FILES]:
     if not isinstance(ent, dict):
@@ -111,12 +145,22 @@ for ent in files[:MAX_FILES]:
     lp = ent.get('localPath')
     if not isinstance(lp, str) or not lp:
         continue
-    full = lp if os.path.isabs(lp) else os.path.join(localdir, lp)
-    try:
-        with open(full, 'rb') as fh:
-            blob = fh.read(MAX_BYTES)
-    except Exception:
-        continue                      # unreadable or absent - fail open
+    if os.path.isabs(lp):
+        tries = [lp]
+    else:
+        tries = [os.path.join(d, lp) for d in cands]
+    blob, full = None, None
+    for cand in tries:
+        try:
+            with open(cand, 'rb') as fh:
+                blob = fh.read(MAX_BYTES)
+            full = cand
+            break
+        except Exception:
+            continue
+    if blob is None:
+        unresolved += 1               # cannot vouch for it - counted, not ignored
+        continue
     scanned += 1
     if hit(blob.decode('utf-8', 'replace')):
         flagged = (ent.get('path') or lp, full)
@@ -143,6 +187,16 @@ if flagged:
 
 # No silent caps: if the call carries more entries than were scanned, say so
 # rather than return a clean verdict that only covered part of the batch.
+if unresolved:
+    emit('ask',
+         '%d of %d files in this DesignSync upload could not be located, so they '
+         'were not scanned for credentials. Their contents never enter the '
+         'session either, so nothing else will check them. This usually means '
+         'the upload reads from a directory other than the one this session is '
+         'in. Confirm you want to upload the unchecked files.'
+         % (unresolved, len(files)))
+    sys.exit(0)
+
 if len(files) > MAX_FILES:
     emit('ask',
          'This DesignSync call uploads %d files; only the first %d were scanned '
