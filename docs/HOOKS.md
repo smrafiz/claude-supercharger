@@ -46,6 +46,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
 | `dependency-preflight` | SessionStart | — | install.sh refuses to proceed without `jq` and `python3` (install.sh:8, :25). A |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
+| `designsync-upload-guard` | PreToolUse | DesignSync | DesignSync had no guards — found by the coverage-diff sweep that also produced |
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Helper: not a registered hook — Shared stack detection sourced by hooks that vary behaviour per project type. |
 | `dir-added-record` | NONE — PARKED, NOT REGISTERED | # Event: NONE — PARKED, NOT REGISTERED | This was registered on "DirectoryAdded" from v2.26.43. Claude Code has no such |

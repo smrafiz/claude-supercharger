@@ -345,6 +345,12 @@ get_hooks_for_mode() {
     # so this is a real guard rather than another discovery log. Blocking, not
     # async: an ask cannot gate a tool call from a detached hook.
     hooks+=("PreToolUse|RemoteTrigger|${hooks_dir}/remote-trigger-guard.sh|")
+    # v2.29.9: DesignSync write_files uploads local files by path - the tool
+    # reads them from disk itself, so per its own description the "contents never
+    # enter your context". Every other secret check we own runs on text that
+    # passed through the session, so this hook is the only layer that can see
+    # those bytes at all. Egress-family parity with artifact-publish-guard.
+    hooks+=("PreToolUse|DesignSync|${hooks_dir}/designsync-upload-guard.sh|")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an
     # observational one: CC delegates worktree creation to the registered hook and

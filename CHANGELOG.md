@@ -2,6 +2,45 @@
 
 ## Contents
 
+- [2.29.9] - 2026-08-23 — feat(hooks): scan DesignSync uploads, the one egress path nothing else can see
+
+DesignSync had no guards. It is an egress primitive and belongs to the
+family that already covers every other one - artifact-publish-guard,
+bulk-exfil-guard, mcp-egress-guard, sendmessage-guard,
+webfetch-egress-guard - so this was the third parity gap from the same
+coverage-diff sweep, after Monitor (v2.29.7) and RemoteTrigger (v2.29.8).
+
+It is the worst case in that family, for a reason the tool states about
+itself: write_files takes a localPath and the tool reads from disk,
+encodes and uploads so that contents never enter your context. Every
+other credential check we own runs on text that passed through the
+session - the output scanners, the commit guard, the artifact guard.
+These bytes never do. Upload a .env or a private key this way and no
+other layer could notice, because nothing ever sees it. That is the
+argument for the hook existing: not that another check might miss it,
+but that no other check can run at all.
+
+So it reads the file itself, exactly as artifact-publish-guard reads the
+page it is about to publish, and DENIES on a credential match. Deny
+rather than warn, for the same asymmetry: the project is readable by
+other org members and the upload is not reversible from here. Inline
+data is scanned too, so the two shapes of the same call cannot disagree
+about what counts as a secret. Patterns come from the shared
+lib-secret-patterns.sh, never a local copy.
+
+Scope is narrow on purpose: only write_files. The read methods send
+nothing, and finalize_plan moves no bytes, so neither is touched.
+
+No silent cap. The scan is bounded at 128 files and 256KB each to stay
+responsive, and a batch larger than that ASKS rather than returning a
+clean verdict that only covered part of it - a pass there would be a lie,
+since nothing downstream can check the remainder either.
+
+NOT covered, and not implied to be: delete_files removes files from a
+shared remote project. Destructive, but not exfiltration, and left for a
+separate decision rather than folded in quietly.
+
+3836 tests passing.. 3836 tests passing.
 - [2.29.8] - 2026-08-23 — feat(hooks): guard RemoteTrigger, the cloud sibling of the Cron* tools
 
 RemoteTrigger had no guards at all. Cron* does have one (cron-discovery),

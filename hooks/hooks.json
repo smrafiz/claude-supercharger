@@ -477,6 +477,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/designsync-upload-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "DesignSync"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh check",
             "timeout": 15
           }
