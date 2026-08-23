@@ -2,6 +2,41 @@
 
 ## Contents
 
+- [2.29.11] - 2026-08-23 — test(designsync): pass a native path in the payload, not an MSYS one
+
+The DesignSync guard's three localPath assertions failed on Windows and
+reddened v2.29.9. Ground truth from the CI log:
+
+  FAIL a secret in a file uploaded BY PATH is denied - expected deny, got passthrough
+  FAIL an absolute localPath is resolved too - expected deny, got passthrough
+  FAIL the leaky file is found even when it is not the first entry - expected deny, got passthrough
+
+The split is the diagnosis: the INLINE data assertion passed, and so did
+every assertion that never opens a file. Only the ones that read a path
+failed, and they failed OPEN.
+
+This is the MSYS transport rule the v2.27-2.29 Windows arc was built on.
+MSYS rewrites paths passed as environment variables and as plain
+arguments, but NOT string content inside a JSON payload. The test put an
+mktemp path into the payload's cwd and localDir, so native Windows python
+received /tmp/tmp.XXXX, open() raised, and the guard did what it is
+supposed to do with an unreadable file - skip it - which reads as
+passthrough. Nothing was wrong with the product: real Claude Code hands
+Windows hooks a drive-lettered path.
+
+Fixed with native_path (cygpath -m) from helpers.sh, the same fix this
+repo already uses for the typecheck cache key, and a plain passthrough
+off Windows. The fixture files are still CREATED through the mktemp path,
+which bash resolves correctly; only the payload-embedded copies change.
+
+Separately noted, not fixed here: write_files carries a planId rather
+than the localDir that finalize_plan approved, so the guard resolves
+relative localPaths against cwd as a best guess. If those differ, it can
+fail to find a file the tool will happily upload, and skip it silently -
+the same silent-cap shape the >128-file branch already asks about. Worth
+a decision rather than a reflex.
+
+3843 tests passing.. 3843 tests passing.
 - [2.29.10] - 2026-08-23 — fix(egress): scan Monitor ws URLs — the last unguarded egress channel
 
 v2.29.7 put the 16 Bash guards on Monitor's command field, but the ws

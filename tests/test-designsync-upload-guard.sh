@@ -18,6 +18,15 @@ HOOK="$REPO_DIR/hooks/designsync-upload-guard.sh"
 echo "=== DesignSync upload guard ==="
 
 WORK=$(mktemp -d)
+# The guard opens localPath from inside python, so the payload must carry a path
+# NATIVE python can resolve. MSYS rewrites paths passed as env vars and plain
+# arguments, but NOT string content inside a JSON payload - so an mktemp path
+# reaches Windows python as /tmp/tmp.XXXX, open() throws, the guard fails open,
+# and all three localPath assertions reported passthrough on the runner while
+# passing on macOS. Same transport rule that produced the v2.27-2.29 Windows arc;
+# native_path (cygpath -m) is the fix already in helpers.sh, and is a plain
+# passthrough off Windows.
+WORK_N=$(native_path "$WORK")
 # An AWS-shaped key, assembled here rather than written as one literal: the
 # credential guards block such a literal on a command line, and splicing it to
 # dodge that check has hidden a real bug in this repo before.
@@ -25,7 +34,7 @@ printf 'const AWS_KEY = "AKIA%s";\n' "IOSFODNN7EXAMPLE" > "$WORK/leaky.js"
 printf 'export const Button = () => null;\n' > "$WORK/clean.js"
 
 _decide() {  # $1 = tool_input JSON -> decision or "passthrough"
-  printf '{"tool_name":"DesignSync","tool_input":%s,"cwd":"%s"}' "$1" "$WORK" \
+  printf '{"tool_name":"DesignSync","tool_input":%s,"cwd":"%s"}' "$1" "$WORK_N" \
     | bash "$HOOK" 2>/dev/null | python3 -c "
 import json,sys
 t=sys.stdin.read().strip()
@@ -34,15 +43,15 @@ print('passthrough' if not t else json.loads(t)['hookSpecificOutput']['permissio
 
 begin_test "a secret in a file uploaded BY PATH is denied"
 # The whole point: these bytes never reach the session, so no other check exists.
-R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK\",\"files\":[{\"path\":\"c/leaky.js\",\"localPath\":\"leaky.js\"}]}")
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"c/leaky.js\",\"localPath\":\"leaky.js\"}]}")
 [ "$R" = "deny" ] && pass || fail "expected deny, got $R"
 
 begin_test "a clean file uploaded by path is allowed"
-R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK\",\"files\":[{\"path\":\"c/clean.js\",\"localPath\":\"clean.js\"}]}")
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"c/clean.js\",\"localPath\":\"clean.js\"}]}")
 [ "$R" = "passthrough" ] && pass || fail "expected passthrough, got $R"
 
 begin_test "an absolute localPath is resolved too"
-R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"files\":[{\"path\":\"c/x.js\",\"localPath\":\"$WORK/leaky.js\"}]}")
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"files\":[{\"path\":\"c/x.js\",\"localPath\":\"$WORK_N/leaky.js\"}]}")
 [ "$R" = "deny" ] && pass || fail "expected deny for absolute path, got $R"
 
 begin_test "a secret in INLINE data is denied as well"
@@ -52,7 +61,7 @@ R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"files\":[{\"path\":
 
 begin_test "the leaky file is found even when it is not the first entry"
 # An early clean file must not short-circuit the scan.
-R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK\",\"files\":[{\"path\":\"a\",\"localPath\":\"clean.js\"},{\"path\":\"b\",\"localPath\":\"leaky.js\"}]}")
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"a\",\"localPath\":\"clean.js\"},{\"path\":\"b\",\"localPath\":\"leaky.js\"}]}")
 [ "$R" = "deny" ] && pass || fail "expected deny, got $R"
 
 begin_test "read methods send nothing and are untouched"
@@ -69,12 +78,12 @@ R=$(_decide '{"method":"finalize_plan","projectId":"p","writes":["a/**"]}')
 begin_test "a batch larger than the scan cap ASKS rather than passing silently"
 # A clean verdict that only covered part of the batch would be a silent cap, and
 # nothing downstream can check the remainder.
-BIG=$(WORK="$WORK" python3 -c "
+BIG=$(WORK="$WORK_N" python3 -c "
 import json,os
 w=os.environ['WORK']
 print(json.dumps({'method':'write_files','planId':'p1','localDir':w,
                   'files':[{'path':'c/%d.js'%i,'localPath':'clean.js'} for i in range(200)]}))")
-R=$(printf '{"tool_name":"DesignSync","tool_input":%s,"cwd":"%s"}' "$BIG" "$WORK" \
+R=$(printf '{"tool_name":"DesignSync","tool_input":%s,"cwd":"%s"}' "$BIG" "$WORK_N" \
   | bash "$HOOK" 2>/dev/null | python3 -c "
 import json,sys
 t=sys.stdin.read().strip()
@@ -82,11 +91,11 @@ print('passthrough' if not t else json.loads(t)['hookSpecificOutput']['permissio
 [ "$R" = "ask" ] && pass || fail "expected ask for an over-cap batch, got $R"
 
 begin_test "a missing localPath fails open rather than blocking the call"
-R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK\",\"files\":[{\"path\":\"c/x.js\",\"localPath\":\"does-not-exist.js\"}]}")
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"c/x.js\",\"localPath\":\"does-not-exist.js\"}]}")
 [ "$R" = "passthrough" ] && pass || fail "expected passthrough, got $R"
 
 begin_test "opt-out env var disables the guard"
-R=$(printf '{"tool_name":"DesignSync","tool_input":{"method":"write_files","planId":"p","localDir":"%s","files":[{"path":"a","localPath":"leaky.js"}]},"cwd":"%s"}' "$WORK" "$WORK" \
+R=$(printf '{"tool_name":"DesignSync","tool_input":{"method":"write_files","planId":"p","localDir":"%s","files":[{"path":"a","localPath":"leaky.js"}]},"cwd":"%s"}' "$WORK_N" "$WORK_N" \
   | SUPERCHARGER_DESIGNSYNC_GUARD=0 bash "$HOOK" 2>/dev/null)
 [ -z "$R" ] && pass || fail "opt-out ignored: $R"
 
