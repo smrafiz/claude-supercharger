@@ -26,10 +26,13 @@ _fake_cc() {  # $1 = version -> prints path to the fake binary
 }
 
 # Run the hook against a reported version, in a throwaway state dir.
-_run_at() {  # $1 = version -> stderr on stdout
+# Captures STDOUT: the hook speaks via a systemMessage JSON object, because a
+# hook's stderr lands in the debug log as an unhandled bare line while stdout
+# JSON is parsed and shown to the user.
+_run_at() {  # $1 = version -> the hook's stdout
   _s=$(mktemp -d)
   SUPERCHARGER_STATE="$_s" SUPERCHARGER_CC_BIN="$(_fake_cc "$1")" \
-    bash "$HOOK" </dev/null 2>&1 >/dev/null || true
+    bash "$HOOK" </dev/null 2>/dev/null || true
 }
 
 begin_test "current Claude Code produces no warning"
@@ -45,8 +48,10 @@ OUT=$(_run_at "2.1.100")
 echo "$OUT" | grep -q "needs 2.1.219" && pass || fail "missing the floor version: $OUT"
 
 begin_test "an older build flags strictly more events"
-N_NEW=$(_run_at "2.1.100" | grep -c "needs ")
-N_OLD=$(_run_at "2.0.50"  | grep -c "needs ")
+# grep -o, not grep -c: the whole message is now a single JSON line, so counting
+# LINES would report 1 for every version and the test would pass vacuously.
+N_NEW=$(_run_at "2.1.100" | grep -o "needs " | wc -l | tr -d " ")
+N_OLD=$(_run_at "2.0.50"  | grep -o "needs " | wc -l | tr -d " ")
 [ "$N_OLD" -gt "$N_NEW" ] && pass || fail "2.0.50 flagged $N_OLD, 2.1.100 flagged $N_NEW"
 
 begin_test "numeric compare: 2.1.9 is older than 2.1.10, not newer"
@@ -68,7 +73,7 @@ echo "$OUT" | grep -q "Core protection is unaffected" && pass || fail "missing t
 begin_test "opt-out env var silences it"
 S=$(mktemp -d)
 OUT=$(SUPERCHARGER_STATE="$S" SUPERCHARGER_CC_BIN="$(_fake_cc 2.0.50)" \
-      SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1 bash "$HOOK" </dev/null 2>&1 >/dev/null || true)
+      SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1 bash "$HOOK" </dev/null 2>/dev/null || true)
 [ -z "$OUT" ] && pass || fail "opt-out ignored: $OUT"
 
 begin_test "version is cached — no second 'claude --version' fork"
@@ -98,8 +103,8 @@ CALLS=$(wc -l < "$T/calls" | tr -d ' ')
 begin_test "warns at most once a day for the same version"
 T2=$(mktemp -d); S2=$(mktemp -d)
 printf '#!/bin/sh\necho "2.0.50 (Claude Code)"\n' > "$T2/claude"; chmod +x "$T2/claude"
-A=$(SUPERCHARGER_STATE="$S2" SUPERCHARGER_CC_BIN="$T2/claude" bash "$HOOK" </dev/null 2>&1 >/dev/null || true)
-B=$(SUPERCHARGER_STATE="$S2" SUPERCHARGER_CC_BIN="$T2/claude" bash "$HOOK" </dev/null 2>&1 >/dev/null || true)
+A=$(SUPERCHARGER_STATE="$S2" SUPERCHARGER_CC_BIN="$T2/claude" bash "$HOOK" </dev/null 2>/dev/null || true)
+B=$(SUPERCHARGER_STATE="$S2" SUPERCHARGER_CC_BIN="$T2/claude" bash "$HOOK" </dev/null 2>/dev/null || true)
 [ -n "$A" ] && [ -z "$B" ] && pass || fail "throttle broken (first='$A' second='$B')"
 
 begin_test "fails open when claude is not on PATH"
@@ -113,6 +118,24 @@ T4=$(mktemp -d); S4=$(mktemp -d)
 printf '#!/bin/sh\necho "not-a-version"\n' > "$T4/claude"; chmod +x "$T4/claude"
 OUT=$(SUPERCHARGER_STATE="$S4" SUPERCHARGER_CC_BIN="$T4/claude" bash "$HOOK" </dev/null 2>&1); RC=$?
 [ "$RC" = "0" ] && [ -z "$OUT" ] && pass || fail "should be silent+0, got rc=$RC out=$OUT"
+
+begin_test "speaks via a parseable systemMessage, not raw stderr"
+# The failure this hook reports is "a message that never reaches anyone"; it must
+# not ship on that same channel. stdout JSON is what Claude Code parses.
+OUT=$(_run_at "2.1.100")
+echo "$OUT" | python3 -c "
+import json,sys
+d=json.load(sys.stdin)
+assert 'systemMessage' in d, d
+assert 'DirectoryAdded' in d['systemMessage']
+" 2>/dev/null && pass || fail "not valid systemMessage JSON: $OUT"
+
+begin_test "emits nothing on stdout when the build is current"
+# A stray non-JSON byte on stdout would be parsed as a hook response every
+# session, so silence has to mean actually silent.
+S9=$(mktemp -d)
+OUT=$(SUPERCHARGER_STATE="$S9" SUPERCHARGER_CC_BIN="$(_fake_cc 2.1.240)" bash "$HOOK" </dev/null 2>/dev/null || true)
+[ -z "$OUT" ] && pass || fail "expected empty stdout, got: $OUT"
 
 # ── Drift guard ───────────────────────────────────────────────────────────────
 # Every event we register must be either in the hook's floor table or on the

@@ -129,20 +129,23 @@ if [ -z "$CC_VER" ]; then
 fi
 
 # ── Collect what this build cannot fire ───────────────────────────────────────
+# Built with literal \n separators, not real newlines: this string becomes a JSON
+# string value below. The content is entirely ours (event names, dotted versions
+# and fixed ASCII descriptions, all guarded by the drift test), so there is
+# nothing here that needs quote or backslash escaping.
 inert=""
 n=0
 while IFS='|' read -r ev floor lost; do
   [ -n "$ev" ] || continue
   if _sc_older_than "$CC_VER" "$floor"; then
-    inert="${inert}    ${ev} (needs ${floor}) — ${lost}
-"
+    inert="${inert}\\n    ${ev} (needs ${floor}) - ${lost}"
     n=$((n + 1))
   fi
 done <<EOF
 $_FLOORS
 EOF
 
-[ "$n" -gt 0 ] || exit 0            # current build — the common case, stay silent
+[ "$n" -gt 0 ] || exit 0            # current build - the common case, stay silent
 
 # ── Warn at most once a day per version ───────────────────────────────────────
 # A user pinned to an old build on purpose should not be nagged every session,
@@ -155,19 +158,14 @@ fi
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 printf '%s\n' "$_stamp" > "$WARNED_FILE" 2>/dev/null || true
 
-{
-  echo "╔══════════════════════════════════════════════════════════════╗"
-  echo "║  Claude Code ${CC_VER} predates ${n} hook event(s) Supercharger uses."
-  echo "║  These hooks are registered but WILL NOT FIRE, silently:"
-  echo "║"
-  printf '%s' "$inert"
-  echo "║"
-  echo "║  Core protection is unaffected — the guards on PreToolUse and"
-  echo "║  PostToolUse (safety, path, secret and injection scanning) run"
-  echo "║  on events that every supported build has."
-  echo "║"
-  echo "║  Fix: upgrade Claude Code. Silence: SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1"
-  echo "╚══════════════════════════════════════════════════════════════╝"
-} >&2
+# systemMessage, NOT stderr. Measured against a live 2.1.240 with `--debug hooks`:
+# a hook's stderr arrives in the debug log as a bare unhandled line, while stdout
+# JSON is logged as "Parsed initial response" and rendered to the user. A warning
+# on the channel nobody reads is the exact failure this hook exists to report, so
+# it must not ship on that channel itself. Registered BLOCKING for the same
+# reason - the steady-state cost is one stat, so there is nothing to gain by
+# going async and detaching the output.
+printf '{"systemMessage":"Claude Code %s predates %d hook event(s) Supercharger uses.\\nThese hooks are registered but WILL NOT FIRE, and Claude Code reports no error for them:\\n%s\\n\\nCore protection is unaffected: the guards on PreToolUse and PostToolUse (safety, path, secret and injection scanning) run on events every supported build has.\\n\\nFix: upgrade Claude Code.  Silence: SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1"}\n' \
+  "$CC_VER" "$n" "$inert"
 
 exit 0

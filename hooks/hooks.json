@@ -926,8 +926,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/version-floor-check.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ]
       },

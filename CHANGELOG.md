@@ -2,6 +2,38 @@
 
 ## Contents
 
+- [2.29.5] - 2026-08-23 — fix(version-floor): warn on systemMessage, the channel Claude Code actually reads
+
+The hook shipped in v2.29.3 announced its warning on stderr. Measured
+against a live 2.1.240 with --debug hooks, a hook's stderr arrives in the
+debug log as a bare unhandled line, while stdout JSON is logged as
+'Parsed initial response' and rendered to the user. So the hook whose
+entire purpose is to report a failure nobody can see was itself
+reporting on a channel nobody sees.
+
+Found by testing the assumption rather than trusting the precedent it
+was copied from. The first probe was inconclusive in a way worth
+recording: in -p mode NEITHER stderr nor systemMessage reached stdout,
+which looked like 'stderr is fine, headless just shows nothing'. Running
+all four combinations (stderr/systemMessage x sync/async) under
+--debug hooks separated them - systemMessage was parsed in both modes,
+stderr was inert in both.
+
+Also switched from async to blocking. async was inherited from
+update-check, which is async because it makes a network call; this hook's
+steady state is a single stat, so there is nothing to gain by detaching
+its output from the response the parser reads.
+
+Two new tests: the output must parse as JSON carrying systemMessage, and
+stdout must be EMPTY on a current build - a stray non-JSON byte there
+would be read as a hook response every session.
+
+One of the existing tests was silently weakened by the change and is now
+fixed: it counted flagged events with grep -c, which counts LINES. The
+whole message is a single JSON line now, so it returned 1 for every
+version and would have passed no matter what the hook did.
+
+3798 tests passing.. 3798 tests passing.
 - [2.29.4] - 2026-08-23 — test(version-floor): pin the cache-invalidation fixture's mtimes
 
 The cache-invalidation test was timing-dependent and went red on
