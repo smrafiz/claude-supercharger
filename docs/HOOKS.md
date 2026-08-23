@@ -110,6 +110,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `readonly-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit,Bash | While a read-only window is active (/sc-readonly), blocks every file edit and every |
 | `redirect-clobber-guard` | PreToolUse | Bash | The Write/Edit review path is guarded (path-guard, confidence-gate, scope-guard), |
 | `reentry-detector` | UserPromptSubmit | (none) | Detects when system output (hook messages, [MEM], [CTX]) gets pasted back |
+| `remote-trigger-guard` | PreToolUse | RemoteTrigger | RemoteTrigger had NO guards at all — found by the coverage-diff sweep that also |
 | `repetition-detector` | PostToolUse | Bash,Read | Merged from loop-detector.sh + reread-detector.sh |
 | `safety` | PreToolUse | Bash, PowerShell | Per-category toggles: disable specific security categories via |
 | `sc-toggle-notice` | UserPromptSubmit | (none) | Announces a /sc off or /sc on that happened MID-SESSION, once. |

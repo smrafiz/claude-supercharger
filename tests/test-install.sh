@@ -102,10 +102,10 @@ print(count)
 # Full mode + developer = 119 hooks total (118 after thinking-budget removal in 2.18.0; +redirect-clobber-guard in 2.20.0) — was previously redundant
 # with native Claude effort levels + adaptive reasoning). commit-* trio consolidated into commit-guard;
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 151 ]; then
+if [ "$HOOK_COUNT" -eq 152 ]; then
   pass
 else
-  fail "expected 151 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 152 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -225,10 +225,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 119 hooks (thinking-budget removed 2.18.0; +redirect-clobber-guard 2.20.0; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 151 ]; then
+if [ "$HOOK_COUNT" -eq 152 ]; then
   pass
 else
-  fail "expected 151 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 152 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

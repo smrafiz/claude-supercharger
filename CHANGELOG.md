@@ -2,6 +2,50 @@
 
 ## Contents
 
+- [2.29.8] - 2026-08-23 — feat(hooks): guard RemoteTrigger, the cloud sibling of the Cron* tools
+
+RemoteTrigger had no guards at all. Cron* does have one (cron-discovery),
+so this was a straight parity gap: the local scheduler was covered and
+the remote one was not. Found by the same coverage-diff sweep as the
+Monitor bypass in v2.29.7.
+
+What makes it worth a real guard rather than another discovery log is the
+consequence. Every other channel Supercharger protects executes HERE,
+where PreToolUse hooks run. A routine created through this tool executes
+LATER, in the cloud, with repository access and the user's OAuth token
+attached in-process - where not one Supercharger guard applies. Creating
+one is a decision to move work outside the enforcement layer, and that is
+the user's call rather than the agent's. Unlike Cron*, whose schema was
+undocumented when cron-discovery was written, RemoteTrigger's is fully
+specified, so the guard can act on the action rather than just record it.
+
+Two checks, both parity with existing channels:
+
+(A) A credential in the routine body is DENIED. The body is stored
+    server-side and replayed on every future run, so a secret there
+    outlives the session that leaked it - worse than the transient case
+    sendmessage-guard already denies. Patterns come from the shared
+    lib-secret-patterns.sh, never a local copy.
+
+(B) create, update, run and create_webhook_trigger ASK.
+    create_webhook_trigger gets its own reason text because it wires an
+    EXTERNAL event source to fire the routine: after that, something off
+    this machine decides when the agent runs.
+
+The four read actions - list, get, list_runs, get_run_log - pass through
+untouched. A guard that prompts on list is a guard people switch off.
+
+Verified rather than assumed: the deny path was confirmed to come from
+the shared pattern list by running the hook against a copied hooks dir
+with that file emptied, where it correctly degrades to ask instead of
+denying. An earlier probe of the same claim was meaningless - it set env
+var names that do not exist, so it proved nothing while appearing to
+pass.
+
+Unknown future actions fall through rather than being treated as safe
+mutations, and that choice is asserted in a test so it stays deliberate.
+
+3822 tests passing.. 3822 tests passing.
 - [2.29.7] - 2026-08-23 — fix(hooks): Monitor is a shell channel and now carries the Bash guards
 
 Monitor executes shell - its own description says the script 'runs in the

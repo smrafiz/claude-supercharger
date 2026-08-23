@@ -467,6 +467,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/remote-trigger-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "RemoteTrigger"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh check",
             "timeout": 15
           }

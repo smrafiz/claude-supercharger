@@ -339,6 +339,12 @@ get_hooks_for_mode() {
     # The hook is schema-agnostic (it dumps tool_input verbatim), so this needs no
     # logic change — which is the point of having built it as pure observation.
     hooks+=("PreToolUse|CronCreate,CronDelete,CronList,ScheduleWakeup|${hooks_dir}/cron-discovery.sh|async")
+    # v2.29.8: RemoteTrigger is the CLOUD sibling of the Cron* tools above, and
+    # had nothing at all - a straight parity gap found by the same coverage-diff
+    # sweep as the Monitor bypass. Unlike Cron*, its schema is fully documented,
+    # so this is a real guard rather than another discovery log. Blocking, not
+    # async: an ask cannot gate a tool call from a detached hook.
+    hooks+=("PreToolUse|RemoteTrigger|${hooks_dir}/remote-trigger-guard.sh|")
     # v2.7.27: do NOT register any hook on WorktreeCreate/WorktreeRemove. Despite
     # being in CC's valid-events list, WorktreeCreate is a PROVIDER hook, not an
     # observational one: CC delegates worktree creation to the registered hook and
