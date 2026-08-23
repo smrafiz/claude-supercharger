@@ -2,6 +2,46 @@
 
 ## Contents
 
+- [2.29.6] - 2026-08-23 — test(json-fast-size): time the arms with a fork-free clock
+
+The size-gate timing assertion flaked on the v2.29.5 Windows run and,
+now that Windows gates with an empty exemption list, reddened master.
+Nothing in the JSON path changed in that release - it touched the
+version-floor hook, its test and the generated artifacts - so the test
+was measuring the runner, not the code.
+
+The ROUNDS were never the problem; the CLOCK was. Each arm was timed by
+forking python twice to read time.time(), six forks per round, on the
+same contended runner whose contention the median was meant to average
+out. A process spawn on Git Bash is ~27ms and swings widely under load,
+so the instrument cost about as much as the effect it was measuring.
+This is the third attempt at this assertion - the bound was cut 2.0x to
+1.5x, then one sample was replaced by a median of three - and the
+comment added with the second fix already predicted this one: lowering
+the bound again would only move the next flake further out.
+
+So the bound is unchanged at 1.5x and the measurement is what changed.
+EPOCHREALTIME is a bash 5 builtin costing no fork - the same clock
+hooks/lib-timing.sh already uses - which removes all six forks per round
+on Git Bash and ubuntu. macOS ships bash 3.2, has no such variable, and
+keeps the python clock; macOS is not where this flakes. Rounds go 3 to 5
+because they are nearly free once the forks are gone, and a round whose
+gated arm measures 0ms is skipped rather than scored as 0.00, since that
+would mean the clock is too coarse to divide by.
+
+EPOCHREALTIME renders its separator per locale, so under a comma-decimal
+locale the dot-strip would leave a comma and the arithmetic would produce
+a confidently wrong number. It is checked numeric before it is trusted,
+falling back to the python clock otherwise - verified by simulating both
+separators.
+
+Honest limit: this machine has only bash 3.2, so the EPOCHREALTIME branch
+itself could not be executed locally. Its arithmetic was verified against
+known values (0.25s -> 250ms, ratio math exact) and the locale fallback
+was verified directly, but the branch first runs on CI - where ubuntu
+exercises it in minutes, well before the Windows job.
+
+3798 tests passing.. 3798 tests passing.
 - [2.29.5] - 2026-08-23 — fix(version-floor): warn on systemMessage, the channel Claude Code actually reads
 
 The hook shipped in v2.29.3 announced its warning on stderr. Measured

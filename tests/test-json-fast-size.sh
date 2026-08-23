@@ -86,29 +86,57 @@ bash "$REPO_DIR/hooks/safety.sh" < "$JF/benign.json" >/dev/null 2>&1
 begin_test "the size gate makes safety.sh markedly faster on a large command"
 mkpay 2000 "$JF/timing.json"
 
-# v2.28.6: MEDIAN of three paired rounds, not one sample of each arm. A single
-# pair flaked on the Git Bash runner at 1.30x against this 1.5x bound while the
-# gate was working fine — the same measurement swung to 1.95x on an earlier run,
-# so that is load noise, not the platform compression the comment above describes.
-# Lowering the bound a second time would only move the next flake further out; a
-# median over paired rounds removes the noise without weakening the assertion.
-# This assertion now GATES on Windows, and a flaky gate is one people learn to
-# ignore, which is the whole reason it is worth fixing properly.
+# v2.29.6: the ROUNDS were never the problem - the CLOCK was. This measured each
+# arm by forking python twice to read time.time(), six forks per round, on the
+# same contended runner whose contention it was trying to average out. On Git
+# Bash a process spawn is ~27ms and highly variable under load, so the
+# instrument's own cost was comparable to the effect being measured. It has been
+# hardened twice already - the bound cut 2.0x -> 1.5x, then a single sample
+# replaced by a median of three - and it flaked again on the v2.29.5 run at a
+# point where nothing in the JSON path had changed at all.
+#
+# EPOCHREALTIME is a bash 5 builtin and costs no fork, which is the same clock
+# hooks/lib-timing.sh already uses for its own timing. macOS ships bash 3.2 and
+# has no such variable, so it keeps the python clock - and macOS is not where
+# this flakes. Rounds go 3 -> 5 because they are nearly free once the forks are
+# gone.
+_now_ms() {
+  if [ -n "${EPOCHREALTIME:-}" ]; then
+    # EPOCHREALTIME is "seconds.microseconds", but the separator follows the
+    # locale: under a comma-decimal locale the dot removal above leaves a comma
+    # and the arithmetic would silently produce nonsense. Verified numeric before
+    # it is trusted, with the python clock as the fallback either way.
+    _er="${EPOCHREALTIME/./}"
+    case "$_er" in
+      ''|*[!0-9]*) : ;;
+      *) echo $(( _er / 1000 )); return ;;
+    esac
+  fi
+  python3 -c 'import time; print(int(time.time()*1000))'
+}
+
 _RATIOS=""
-for _round in 1 2 3; do
-  _T0=$(python3 -c 'import time; print(time.time())')
+for _round in 1 2 3 4 5; do
+  _T0=$(_now_ms)
   SUPERCHARGER_JSON_FAST_MAX=100000000 bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
-  _T1=$(python3 -c 'import time; print(time.time())')
-  _UNGATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+  _T1=$(_now_ms)
+  _UNGATED_MS=$(( _T1 - _T0 ))
 
-  _T0=$(python3 -c 'import time; print(time.time())')
+  _T0=$(_now_ms)
   bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
-  _T1=$(python3 -c 'import time; print(time.time())')
-  _GATED=$(python3 -c 'import sys; print("%.3f" % (float(sys.argv[2]) - float(sys.argv[1])))' "$_T0" "$_T1")
+  _T1=$(_now_ms)
+  _GATED_MS=$(( _T1 - _T0 ))
 
-  _RATIOS="$_RATIOS $(python3 -c 'import sys; g=float(sys.argv[1]); print("%.2f" % ((float(sys.argv[2])/g) if g > 0 else 0))' "$_GATED" "$_UNGATED")"
+  # Integer hundredths, so no fork is needed to divide. A zero-length gated arm
+  # would be a clock too coarse to measure with; skip that round rather than
+  # score it as 0.00 and drag the median down.
+  if [ "$_GATED_MS" -gt 0 ]; then
+    _RATIOS="$_RATIOS $(( _UNGATED_MS * 100 / _GATED_MS ))"
+  fi
 done
-_RATIO=$(python3 -c 'import sys,statistics; print("%.2f" % statistics.median(float(x) for x in sys.argv[1].split()))' "$_RATIOS")
+_UNGATED="${_UNGATED_MS}ms"; _GATED="${_GATED_MS}ms"
+
+_RATIO=$(python3 -c 'import sys,statistics; v=[int(x) for x in sys.argv[1].split()]; print("%.2f" % (statistics.median(v)/100) if v else "0.00")' "$_RATIOS")
 # Bound is 1.5x, not 2x. The first version required 2.0x from the macOS ratio
 # (~3.4x) and duly failed on the Git Bash runner at 1.95x — the fix WAS working
 # there, but the ratio compresses on Windows because a fixed ~27ms per process
