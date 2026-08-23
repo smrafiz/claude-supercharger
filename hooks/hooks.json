@@ -9,7 +9,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell|mcp__desktop-commander__.*|mcp__mcp-server-commands__.*|mcp__iterm__.*|mcp__iterm-mcp__.*|mcp__ssh__.*|mcp__shell__.*|mcp__terminal__.*|mcp__windows-cli__.*|mcp__cli-mcp-server__.*"
+        "matcher": "Bash|Monitor|PowerShell|mcp__desktop-commander__.*|mcp__mcp-server-commands__.*|mcp__iterm__.*|mcp__iterm-mcp__.*|mcp__ssh__.*|mcp__shell__.*|mcp__terminal__.*|mcp__windows-cli__.*|mcp__cli-mcp-server__.*"
       },
       {
         "hooks": [
@@ -29,7 +29,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell"
+        "matcher": "Bash|Monitor|PowerShell"
       },
       {
         "hooks": [
@@ -59,7 +59,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash"
+        "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|Monitor"
       },
       {
         "hooks": [
@@ -79,7 +79,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -150,7 +150,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell"
+        "matcher": "Bash|Monitor|PowerShell"
       },
       {
         "hooks": [
@@ -160,7 +160,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell"
+        "matcher": "Bash|Monitor|PowerShell"
       },
       {
         "hooks": [
@@ -170,7 +170,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -180,7 +180,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -210,7 +210,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Edit|Write|Bash|MultiEdit|NotebookEdit"
+        "matcher": "Edit|Write|Bash|Monitor|MultiEdit|NotebookEdit"
       },
       {
         "hooks": [
@@ -290,7 +290,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -360,7 +360,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -370,7 +370,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -380,7 +380,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -390,7 +390,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -400,7 +400,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|Monitor"
       },
       {
         "hooks": [
@@ -489,7 +489,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell"
+        "matcher": "Bash|Monitor|PowerShell"
       },
       {
         "hooks": [

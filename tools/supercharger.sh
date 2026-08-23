@@ -19,7 +19,7 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-VERSION="2.29.6"
+VERSION="2.29.7"
 RULES_DIR="$HOME/.claude/rules"
 SUPERCHARGER_DIR="$HOME/.claude/supercharger"
 SETTINGS="$HOME/.claude/settings.json"
