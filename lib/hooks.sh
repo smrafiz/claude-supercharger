@@ -296,6 +296,13 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/project-config.sh|")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot|async")
     hooks+=("SessionStart||${hooks_dir}/update-check.sh|async")
+    # v2.29.3: Claude Code silently ignores a hook registered on an event it does
+    # not know — no fire, no warning, no error (verified on 2.1.240 against a
+    # deliberately bogus event name). 18 of the events below carry a version
+    # floor, the highest being 2.1.219, so on an older build those hooks are
+    # simply absent and nothing says so. Advisory stderr, always exits 0 — async,
+    # same shape as update-check above it.
+    hooks+=("SessionStart||${hooks_dir}/version-floor-check.sh|async")
     hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh|async")
     hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
     hooks+=("PostToolUse||${hooks_dir}/auto-compact.sh|async")

@@ -2,6 +2,50 @@
 
 ## Contents
 
+- [2.29.3] - 2026-08-23 — feat(hooks): warn when Claude Code predates a hook event we register
+
+Claude Code silently ignores a hook registered on an event it does not
+know. It does not fire it, does not warn, and does not error — verified
+on 2.1.240 by registering a deliberately bogus event name and reading
+the --debug hooks log, which showed the hook subsystem running normally
+with no mention of the bogus event anywhere in the log or on stdout.
+
+18 of the 28 events Supercharger registers carry a version floor, the
+highest being DirectoryAdded at 2.1.219. On a build older than that, 19
+hooks are registered and simply absent, with nothing anywhere saying so
+— the same silent-failure shape as the comma matchers fixed in v2.29.2,
+found by asking what else that bug's class covered.
+
+It cannot be fixed the way v2.29.2 was. A comma matcher had an older
+equivalent spelling to fall back to; an event that does not exist yet
+has none, so the only honest move is to say so. A SessionStart hook now
+compares the running version against the floor table and names exactly
+which hooks are inert and what each one does.
+
+The message also says plainly that core protection is unaffected, which
+is true and load-bearing: every guard on PreToolUse and PostToolUse —
+safety, path, secret and injection scanning — sits on baseline events
+that predate every supported build. Only advisory and telemetry hooks
+are floored, three of them security-relevant (secret redaction in
+displayed messages, the config-weakening notice, the elicitation guard).
+
+Cost was measured, not assumed: claude --version is 89-117ms, far too
+much per session, so it is cached against the binary path, mtime AND
+size. Steady state is one stat; an upgrade invalidates the cache by
+itself. Size is in the key because mtime alone is whole-second and a
+binary replaced within the same second kept the stale version — the
+drift test caught that. lastOnboardingVersion in ~/.claude.json looked
+like a free version source and was rejected: it read 2.1.212 on a
+machine running 2.1.240, which would have produced false warnings.
+
+Fails open everywhere — no claude on PATH, unparseable version, all
+silent and exit 0. Warns at most once a day per version so a
+deliberately pinned build does not nag every session.
+
+The load-bearing test is the drift guard: it fails when an event we
+register is absent from both the floor table and the baseline list, so
+adopting a newly-shipped event cannot silently reopen this hole. Proven
+to bite by removing an entry and watching it name the offender.. 3796 tests passing.
 - [2.29.2] - 2026-08-21 — fix(hooks): comma-separated matchers are rewritten to pipes, so the guardrails are not silently inert on Claude Code before 2.1.191
 
 Claude Code decides matcher mode from the matcher's own characters: one made
