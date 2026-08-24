@@ -440,6 +440,13 @@ DB_PATTERNS=(
   'typeorm[[:space:]]+schema:drop'
   'sequelize[[:space:]]+db:drop'
   'knex[[:space:]]+migrate:rollback[[:space:]]+([^&|;]*[[:space:]])?--all([[:space:]]|$)'
+  # v2.29.19: `supabase db reset` drops and recreates the local database from
+  # migrations — same class as `prisma migrate reset` above, which was already
+  # here. Any data seeded or entered by hand since the last migration is gone.
+  # Anchored on the two-word subcommand so `supabase db diff`/`db pull` (both
+  # read-only) never match. From the Clear-Capabilities/agentic-security
+  # destructive-pattern overlap audit.
+  'supabase[[:space:]]+db[[:space:]]+reset([[:space:]]|$)'
   # v2.10.5: TRUNCATE (always destructive; Postgres allows the TABLE keyword to be
   # omitted). The leading letter/quote after the space avoids colliding with the
   # unix `truncate -s 0` command (already caught by DESTRUCT_PATTERNS), whose next
@@ -471,6 +478,14 @@ DESTRUCT_PATTERNS=(
   # images/stopped containers. (from mafiaguy/claude-security-guardrails)
   'docker[[:space:]]+volume[[:space:]]+(rm|prune)([[:space:]]|$)'
   'docker[[:space:]]+system[[:space:]]+prune[^;&|]*--volumes'
+  # v2.29.19: `-a`/`--all` completes the pattern above. It is NOT the plain
+  # `system prune` the comment deliberately allows: -a removes every unused
+  # IMAGE, not just dangling ones, so the next build re-pulls and rebuilds the
+  # whole dependency chain. No data loss, unlike --volumes, but expensive and
+  # not undoable from local state — hence blocked here rather than left alone.
+  # Verified against the deployed hook first: --volumes and `volume prune` both
+  # returned rc=2 while -a passed clean. (Clear-Capabilities/agentic-security)
+  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-a([[:space:]]|$)|--all([[:space:]]|$))'
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.

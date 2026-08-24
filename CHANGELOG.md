@@ -2,6 +2,47 @@
 
 ## Contents
 
+- [2.29.19] - 2026-08-24 — feat(safety): block docker system prune -a and supabase db reset
+
+Two destructive commands found by overlap-auditing
+Clear-Capabilities/agentic-security, the first repo in a long sweep whose
+own PreToolUse guards actually cleared both the hooks pre-check and the
+defensive-framing test. Its pre-bash-guard lists 13 destructive patterns;
+ten were already covered here. Three were not, and one of those was
+declined as a workflow command rather than a destructive one (vercel
+--prod is a deploy, and gating a normal deploy is friction, not safety).
+
+Every candidate was checked against the DEPLOYED hooks with literal
+payloads before anything was written, which mattered: my first probe
+reported `aws s3 rm --recursive` as an uncovered gap because it only read
+exit codes, and cloud-cli-destructive-guard answers that one with a
+permissionDecision:ask (rc=0 plus JSON) rather than exit 2. It was
+covered all along. Reading the output instead of the exit code is what
+kept a false gap out of this commit.
+
+docker system prune -a: DESTRUCT_PATTERNS already blocked
+`system prune --volumes` and `volume prune`, and its comment deliberately
+LEFT plain `system prune` allowed since that only clears dangling images
+and stopped containers. -a/--all is neither: it removes every unused
+image, so the next build re-pulls and rebuilds the whole dependency
+chain. No data loss, unlike --volumes, but expensive and not undoable
+from local state. Completing the pattern rather than contradicting the
+existing decision, which stays intact and is asserted in a test.
+
+supabase db reset: drops and recreates the local database from
+migrations, losing anything seeded or entered by hand since the last one.
+Same class as the prisma reset pattern DB_PATTERNS has carried since
+v2.10.5, so it belongs in that family. Anchored on the two-word
+subcommand so the read-only `supabase db diff` and `db pull` never match.
+
+6 tests. Bisected against the pre-fix hook: all four block assertions
+fail there and both allow assertions pass on either side, since those
+assert the absence of a block and cannot distinguish. The allow cases are
+the load-bearing half here -- plain `docker system prune` must stay
+allowed, and `echo docker system prune -a` must not be blocked for
+merely mentioning the command.
+
+3866 tests passing.. 3866 tests passing.
 - [2.29.18] - 2026-08-24 — fix(tool-preferences): the fail-open test asserted a fact about ubuntu-latest, not about the hook
 
 v2.29.16 reddened ubuntu-latest CI. Ground truth from the job log:

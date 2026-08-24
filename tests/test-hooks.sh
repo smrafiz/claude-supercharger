@@ -90,6 +90,23 @@ begin_test "safety: docker system prune --volumes is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker system prune -a --volumes"},"cwd":"/tmp"}' && pass || fail "docker system prune --volumes not blocked"
 begin_test "safety: plain docker system prune (no --volumes) still allowed"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker system prune -f"},"cwd":"/tmp"}' && pass || fail "plain docker system prune wrongly blocked"
+# v2.29.19: -a/--all removes every unused IMAGE, not just dangling ones, so the
+# next build re-pulls the whole dependency chain. Distinct from the plain prune
+# allowed just above, and from --volumes (which loses data) just above that.
+begin_test "safety: docker system prune -a is blocked (v2.29.19)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker system prune -a"},"cwd":"/tmp"}' && pass || fail "docker system prune -a not blocked"
+begin_test "safety: docker system prune --all is blocked (v2.29.19)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker system prune --all -f"},"cwd":"/tmp"}' && pass || fail "docker system prune --all not blocked"
+begin_test "safety: a docker prune -a MENTION is not blocked (v2.29.19)"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"echo docker system prune -a"},"cwd":"/tmp"}' && pass || fail "echoing the command wrongly blocked"
+# v2.29.19: supabase db reset drops and recreates the local DB from migrations —
+# same class as `prisma migrate reset`, which DB_PATTERNS already covered.
+begin_test "safety: supabase db reset is blocked (v2.29.19)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"supabase db reset"},"cwd":"/tmp"}' && pass || fail "supabase db reset not blocked"
+begin_test "safety: supabase db reset --linked is blocked (v2.29.19)"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"supabase db reset --linked"},"cwd":"/tmp"}' && pass || fail "supabase db reset --linked not blocked"
+begin_test "safety: read-only supabase db subcommands still allowed (v2.29.19)"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"supabase db diff"},"cwd":"/tmp"}' && pass || fail "supabase db diff wrongly blocked"
 begin_test "safety: shutdown is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"shutdown -h now"},"cwd":"/tmp"}' && pass || fail "shutdown not blocked"
 begin_test "safety: sudo reboot is blocked"
