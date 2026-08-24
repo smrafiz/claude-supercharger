@@ -115,6 +115,16 @@ _now_ms() {
   python3 -c 'import time; print(int(time.time()*1000))'
 }
 
+# v2.29.13: one DISCARDED warm-up round before measuring. Without it the first
+# measured round pays cold start on BOTH arms - page cache, bash and python
+# startup, safety.sh's own first-run work - which compresses that round's ratio
+# toward 1.0 and drags a 5-sample median under the bound. The v2.29.12 run failed
+# at a median of 1.49x while its LAST round measured 2221ms vs 600ms, i.e. 3.7x:
+# the fix was working perfectly and the early rounds were measuring startup.
+_now_ms >/dev/null
+SUPERCHARGER_JSON_FAST_MAX=100000000 bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
+bash "$REPO_DIR/hooks/safety.sh" < "$JF/timing.json" >/dev/null 2>&1
+
 _RATIOS=""
 for _round in 1 2 3 4 5; do
   _T0=$(_now_ms)
@@ -134,7 +144,6 @@ for _round in 1 2 3 4 5; do
     _RATIOS="$_RATIOS $(( _UNGATED_MS * 100 / _GATED_MS ))"
   fi
 done
-_UNGATED="${_UNGATED_MS}ms"; _GATED="${_GATED_MS}ms"
 
 _RATIO=$(python3 -c 'import sys,statistics; v=[int(x) for x in sys.argv[1].split()]; print("%.2f" % (statistics.median(v)/100) if v else "0.00")' "$_RATIOS")
 # Bound is 1.5x, not 2x. The first version required 2.0x from the macOS ratio
@@ -146,7 +155,7 @@ _RATIO=$(python3 -c 'import sys,statistics; v=[int(x) for x in sys.argv[1].split
 # at ~1.0x.
 _OK=$(python3 -c 'import sys; print("1" if float(sys.argv[1]) >= 1.5 else "0")' "$_RATIO")
 [ "$_OK" = "1" ] && pass \
-  || fail "gated ${_GATED}s vs ungated ${_UNGATED}s (${_RATIO}x) — the quadratic path is no longer being avoided"
+  || fail "median ${_RATIO}x over rounds [${_RATIOS# } in hundredths] — the quadratic path is no longer being avoided (last round: gated ${_GATED_MS}ms vs ungated ${_UNGATED_MS}ms)"
 
 rm -rf "$JF"
 

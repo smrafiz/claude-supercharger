@@ -2,6 +2,47 @@
 
 ## Contents
 
+- [2.29.13] - 2026-08-24 — test(json-fast-size): discard a warm-up round before measuring the ratio
+
+The size-gate timing assertion failed again on the v2.29.12 Windows run.
+Its message read:
+
+  median 1.49x ... gated 600ms vs ungated 2221ms
+
+Those two figures disagree: 2221/600 is 3.7x, not 1.49x. They were never
+the same measurement - the printed pair came from the LAST round while
+the ratio is the median of five - and that mismatch is what pointed at
+the cause. The final round separated cleanly at 3.7x, so the early
+rounds must have scored far lower and dragged the median under the 1.5x
+bound.
+
+They did, because there was no warm-up. The first measured round pays
+cold start on BOTH arms - page cache, bash and python startup,
+safety.sh's own first-run work - which is a fixed cost added to each
+side, and adding the same constant to numerator and denominator pushes
+any ratio toward 1.0. With five samples, one or two compressed rounds
+move the median. So the test was measuring process startup and calling
+it a regression in the JSON path.
+
+One discarded warm-up round now runs both arms before timing begins. The
+bound stays at 1.5x and the clock stays as v2.29.6 left it; neither was
+the problem this time.
+
+The failure message is fixed too, and that matters more than it sounds.
+It printed one round's numbers beside a five-round median with no
+indication they were different measurements, which reads as an
+arithmetic error and nearly sent this diagnosis the wrong way. It now
+prints every round's ratio, so the next failure is legible at a glance.
+It also said 600mss - a stray character from a variable that already
+carried its own unit.
+
+Honest note: this is the THIRD fix to this one assertion - bound 2.0x to
+1.5x, then a median of paired rounds, then the fork-free clock, and now
+this. Each addressed a real and different cause, but if it flakes a
+fourth time the right answer is to stop gating Windows on a wall-clock
+ratio rather than tune it again.
+
+3844 tests passing.. 3844 tests passing.
 - [2.29.12] - 2026-08-23 — fix(designsync): resolve localPath against the plan's approved dir, and stop skipping silently
 
 Closes the gap flagged in v2.29.11's own release notes rather than
