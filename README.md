@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-2.29.15-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3850%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-2.29.16-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-3860%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -137,7 +137,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`
 - **9 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
-- **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers
+- **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers. `preferGhCli: true` opt-in redirects GitHub curl/wget/WebFetch to the matching `gh` subcommand — real auth token, not just style
 - **Per-subagent cost breakdown** — `/sc-status` shows which agent burned the budget
 - **Time-boxed modes** — auto-expiring session controls (per-session by default, `global` opt-in, 2h cap, statusline indicator, no daemon). One governing rule: **tighten beats loosen**
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction

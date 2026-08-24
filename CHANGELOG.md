@@ -2,6 +2,57 @@
 
 ## Contents
 
+- [2.29.16] - 2026-08-24 — feat(hooks): opt-in gh-cli redirect for GitHub curl/wget/WebFetch, plus a Monitor regression fix
+
+Adapted from trailofbits/skills gh-cli plugin, which unconditionally
+denies curl/wget/WebFetch to any GitHub URL for everyone with gh
+installed. Here it is opt-in via a new config flag, same shape as the
+existing tool-preferences map — this is a workflow opinion, not a safety
+rule, and an always-on hard deny is real friction for anyone who has not
+asked for it. The payoff is real though: gh carries the authenticated
+token, so unauthenticated curl hits the 60/hr GitHub rate limit and
+cannot reach private repos at all.
+
+Covers curl/wget on Bash and Monitor, and WebFetch to the same four
+GitHub hosts, with a per-endpoint suggestion (pr/issue/release list, repo
+clone for raw file fetches and the contents API - explicitly steering
+away from fetch-and-base64-decode a single file when a clone is cheaper).
+Fails open when gh is not on PATH, checked once per call before any fork.
+
+Found and fixed in passing: the hook was registered on Bash and Monitor
+since v2.29.7, but its own tool-name gate still hard-exited on anything
+but literal Bash - so Monitor got zero preference coverage for two
+releases despite the registration saying otherwise. Verified live before
+fixing: an npm command routed through Monitor produced no suggestion
+while the identical Bash command did. Widening this exact gate to add
+WebFetch is what surfaced it; fixing it here rather than filing it
+separately, since leaving a known-dead gate in the same function I am
+editing would be negligent.
+
+The same defect class recurs one file over: confidence-gate is
+registered on six tool names but its internal gate accepts only three,
+so two of those tool types have never been covered (predates this
+session) and Monitor is dead there too. NOT fixed here - that hook can
+deny, unlike this one, and deserves its own dedicated verification rather
+than a scope-creep fix bundled into an unrelated feature. Reported to the
+user, not silently expanded into.
+
+Real bug caught by bash -n before shipping, worth recording since I
+referenced the exact rule in my own comment and broke it anyway: a python
+heredoc with a quoted terminator does NOT shield backtick balance from
+the outer bash parser - verified empirically, since this contradicts
+normal heredoc-quoting semantics. A sibling hook already follows the real
+rule (zero literal backticks inside the heredoc body); the fix here was
+to match that convention, not to chase byte-level parity across 200
+lines by hand.
+
+18 new tests. The load-bearing ones are the deny-side cases: bisected
+against the pre-fix hook, every deny assertion fails there (Monitor
+suggestion silent, every redirect a passthrough) while the
+passthrough-side assertions correctly pass on both, since those assert
+absence of a block rather than presence of the fix.
+
+3860 tests passing.. 3860 tests passing.
 - [2.29.15] - 2026-08-24 — fix(artifact): guard reply and room_send, not just publish
 
 The Artifact guard fast-pathed on file_path, so two outbound-TEXT actions

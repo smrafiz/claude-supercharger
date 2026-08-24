@@ -77,7 +77,7 @@ get_hooks_for_mode() {
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.
   hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|")
-  hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  hooks+=("PreToolUse|Bash,Monitor,WebFetch|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   # v2.23.5: a Jupyter cell shells out through the kernel (!cmd, %%bash, %pip,
   # os.system, subprocess) and never hits the Bash matcher — safety.sh never sees
   # it. Route the cell's shell content through safety.sh (parity, no drift) and ask
