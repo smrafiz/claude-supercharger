@@ -108,8 +108,13 @@ B=$(SUPERCHARGER_STATE="$S2" SUPERCHARGER_CC_BIN="$T2/claude" bash "$HOOK" </dev
 [ -n "$A" ] && [ -z "$B" ] && pass || fail "throttle broken (first='$A' second='$B')"
 
 begin_test "fails open when claude is not on PATH"
+# v2.29.20: forced via an explicitly-empty SUPERCHARGER_CC_BIN, which the hook
+# now honours (`+set`). This used to also narrow PATH to /usr/bin:/bin, which
+# was the real mechanism — making the assertion a fact about the host rather
+# than about the hook. PATH is deliberately left ALONE here: if the override
+# works, PATH is irrelevant, and leaving it untouched proves that.
 S3=$(mktemp -d)
-OUT=$(PATH=/usr/bin:/bin SUPERCHARGER_STATE="$S3" SUPERCHARGER_CC_BIN="" \
+OUT=$(SUPERCHARGER_STATE="$S3" SUPERCHARGER_CC_BIN="" \
       /bin/bash "$HOOK" </dev/null 2>&1); RC=$?
 [ "$RC" = "0" ] && [ -z "$OUT" ] && pass || fail "should be silent+0, got rc=$RC out=$OUT"
 

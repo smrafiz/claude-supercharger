@@ -36,7 +36,10 @@ begin_test "eval: aborts when the claude CLI is absent (does not report 9 failur
 SB=$(sandbox)
 printf '{"scenarios":[{"name":"s","prompt":"p","must_contain":["x"],"must_not_contain":[]}]}' \
   > "$SB/tests/eval-prompts/debugger.json"
-OUT=$(PATH=/usr/bin:/bin bash "$SB/tests/eval-agents.sh" --agent debugger 2>&1); RC=$?
+# v2.29.20: forced via the explicit override, not a narrowed PATH. PATH is left
+# alone deliberately — if the override works, PATH is irrelevant, and leaving it
+# untouched is what proves the assertion is about the script, not the host.
+OUT=$(SUPERCHARGER_EVAL_CLAUDE_BIN="" bash "$SB/tests/eval-agents.sh" --agent debugger 2>&1); RC=$?
 if [ "$RC" = "3" ] && printf '%s' "$OUT" | grep -q 'claude CLI is not on PATH'; then
   pass
 else

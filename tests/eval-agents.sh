@@ -50,7 +50,18 @@ trap cleanup EXIT
 # reporting a missing hook as a 100% bypass rate (2.26.4).
 #
 # Check before spending money: a full run is up to ~$3.60 in budgeted API calls.
-if ! command -v claude >/dev/null 2>&1; then
+# v2.29.20: SUPERCHARGER_EVAL_CLAUDE_BIN lets the harness's own test force the
+# absent branch deterministically. Its test previously simulated absence by
+# narrowing PATH to /usr/bin:/bin, which asserts a fact about the host rather
+# than about this script — the identical shape that broke test-tool-preferences
+# on ubuntu-latest, where gh ships in /usr/bin. `+set` (not `:-`) so an
+# explicitly-empty value means "absent" rather than falling through to PATH.
+if [ -n "${SUPERCHARGER_EVAL_CLAUDE_BIN+set}" ]; then
+  _EVAL_CLAUDE="$SUPERCHARGER_EVAL_CLAUDE_BIN"
+else
+  _EVAL_CLAUDE="$(command -v claude 2>/dev/null || true)"
+fi
+if [ -z "$_EVAL_CLAUDE" ]; then
   echo "ABORT: the claude CLI is not on PATH — every scenario would score FAIL," >&2
   echo "       which is indistinguishable from every agent having regressed." >&2
   exit 3

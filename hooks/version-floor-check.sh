@@ -104,7 +104,19 @@ _sc_sig() { stat -c "%Y:%s" "$1" 2>/dev/null || stat -f "%m:%z" "$1" 2>/dev/null
 # the cache on its own. `lastOnboardingVersion` in ~/.claude.json looked like a free
 # alternative and is NOT one: it read 2.1.212 on a machine actually running
 # 2.1.240, which would have produced confident false warnings.
-CC_BIN="${SUPERCHARGER_CC_BIN:-$(command -v claude 2>/dev/null || true)}"
+# v2.29.20: `+set`, not `:-`. With `:-` an explicitly-EMPTY SUPERCHARGER_CC_BIN
+# fell through to the PATH lookup, so a test setting it to "" to simulate an
+# absent claude was really asserting that `claude` is not in the PATH it
+# narrowed to — a fact about the host, not about this hook. Proven by placing a
+# fake claude on that PATH: the same assertion flipped from silent to warning.
+# It only passed because GitHub runners do not ship claude in /usr/bin; the
+# identical shape DID break test-tool-preferences on ubuntu-latest, which ships
+# gh there. Same override semantics as SUPERCHARGER_GH_BIN in tool-preferences.sh.
+if [ -n "${SUPERCHARGER_CC_BIN+set}" ]; then
+  CC_BIN="$SUPERCHARGER_CC_BIN"
+else
+  CC_BIN="$(command -v claude 2>/dev/null || true)"
+fi
 [ -n "$CC_BIN" ] || exit 0          # not on PATH (plugin sandbox, odd install) — say nothing
 
 CC_KEY="$CC_BIN:$(_sc_sig "$CC_BIN")"

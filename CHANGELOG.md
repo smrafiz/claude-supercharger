@@ -2,6 +2,51 @@
 
 ## Contents
 
+- [2.29.20] - 2026-08-24 — fix(tests): two more fixtures asserted facts about the host, not the code
+
+Proactive audit for the defect class that cost two red builds today: a
+fixture that controls its variable through the ENVIRONMENT (wall clock,
+PATH) instead of a direct override, and therefore breaks the moment a CI
+runner differs from the machine it was written on. test-json-fast-size
+(warm-up) and test-tool-preferences (gh at /usr/bin on ubuntu) were the
+two that actually failed. Grepping for the same three signatures across
+the suite found two more, both latent.
+
+test-version-floor: its "fails open when claude is not on PATH" case set
+SUPERCHARGER_CC_BIN="" AND narrowed PATH to /usr/bin:/bin. The override
+looked load-bearing and was not: the hook read it with ${VAR:-default},
+and `:-` treats empty as UNSET, so it fell straight through to the PATH
+lookup. The narrowed PATH was doing all the work. Proven rather than
+assumed -- dropping a fake claude onto that PATH flipped the same
+assertion from silent to warning. It passes today only because GitHub
+runners do not ship claude in /usr/bin, which is the identical accident
+that made the gh version pass locally and fail on ubuntu.
+
+tests/eval-agents.sh + test-eval-harness: same shape, asserting the
+"claude CLI absent" abort via a narrowed PATH. Added
+SUPERCHARGER_EVAL_CLAUDE_BIN so the harness test can force that branch.
+
+Both now use `+set`, not `:-`, so an explicitly-empty value means absent
+rather than falling through -- matching SUPERCHARGER_GH_BIN from earlier
+today. All three hooks now share one override convention instead of three
+different accidents.
+
+Verified three ways for the version-floor fix: with claude absent from
+PATH, present on PATH, and on the full real PATH, all three now produce
+an identical verdict. Plus a control confirming the hook still detects an
+old claude when NOT overridden, so the fix removes host-dependence
+without weakening detection.
+
+Two greps matched and were deliberately left alone: fuzz-safety and
+test-cmd-normalize both contain PATH=/usr/bin, but as string DATA being
+fuzzed or normalized, not as a narrowing of their own environment.
+
+Scope honestly stated: this audits ONE class, found by grepping three
+known signatures. A fixture depending on the environment some other way
+-- a hardcoded /tmp assumption, a locale, filesystem case-sensitivity --
+would not appear in that search.
+
+3866 tests passing.. 3866 tests passing.
 - [2.29.19] - 2026-08-24 — feat(safety): block docker system prune -a and supabase db reset
 
 Two destructive commands found by overlap-auditing
