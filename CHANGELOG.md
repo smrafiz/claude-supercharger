@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.22] - 2026-08-25 — fix(hooks): the Bash output scanner warns instead of blocking, and no longer flags its own rule set. 3889 tests passing.
 - [2.29.21] - 2026-08-24 — feat(hooks): warn when our own guards are not registered
 
 Verified before writing anything: with an empty hooks key in

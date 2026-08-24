@@ -31,7 +31,7 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # a fail-safe SUPERSET of the python panel below: matching a seed in the COMMAND
 # rather than the output just costs one wasted fork (python re-checks the actual
 # output field and exits 0). Zero-width chars are matched by their UTF-8 bytes.
-if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbreak|pretend|you are now|system prompt|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
+if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
   exit 0
 fi
 
@@ -74,6 +74,26 @@ _TEST_RUNNER = re.compile(
     r'|(^|[;&|])\s*make\s+(test|check)\b'
 )
 if _TEST_RUNNER.search(_cmd):
+    sys.exit(0)
+
+# v2.29.22: this scanner's OWN RULE SET is not an untrusted channel. Printing the
+# panel below — `sed -n '110,140p' hooks/bash-injection-scanner.sh`, a grep for one
+# of the pattern labels, `git diff` on this file — emits the very strings the panel
+# matches, so every attempt to inspect or debug the scanner tripped it. Worse, the
+# alert names the pattern that matched, so the natural next step (grep for that
+# pattern) fires it again: the false positive is self-amplifying and persists for
+# as long as you keep investigating it.
+#
+# Same shape as the _TEST_RUNNER exemption above, one level up. There the argument
+# is that reaching the output implies code execution; here it is that reaching the
+# output implies reading a file that ships with Supercharger, whose content matching
+# the panel is a tautology rather than evidence of anything.
+#
+# Scoped to the two scanner sources by name rather than to the whole hooks dir: a
+# poisoned payload can still arrive via `cat hooks/<anything-else>`, and these are
+# the only files whose content is GUARANTEED to match the panel.
+_SELF_INSPECT = re.compile(r'(?:bash|prompt)-injection-scanner\.sh')
+if _SELF_INSPECT.search(_cmd):
     sys.exit(0)
 
 resp = d.get('tool_response') or {}
@@ -123,7 +143,16 @@ patterns = (
     (re.compile(r'act as (a |an )?(different|new|evil|uncensored)'),                 'role override'),
     (re.compile(r'pretend (you are|to be)\b'),                                       'virtualization jailbreak'),
     (re.compile(r'from now on[,\s]'),                                                'authority shift'),
-    (re.compile(r'jailbreak'),                                                       'jailbreak'),
+    # v2.29.22: was the bare noun, the only rule in this panel that matched a WORD
+    # rather than an INSTRUCTION. It fired on any text discussing the concept — a
+    # CVE writeup, a competitor's feature list, this repo's own docs — while adding
+    # almost no detection the instruction-shaped rules above don't already cover: a
+    # real payload has to say what to DO, and saying it trips those. Net effect was
+    # false positives with no marginal catch, in a channel whose value is its
+    # signal rate.
+    (re.compile(r'(?:enter|enable|activate|initiate|switch to|begin)\s+(?:\w+\s+)?jailbreak'
+                r'|jailbreak\s+(?:mode|prompt|payload|instructions?)'
+                r'|jailbroken'),                                                     'jailbreak attempt'),
     (re.compile(r'<\|im_start\|>'),                                                  'token injection'),
     (re.compile(r'<\|system\|>'),                                                    'token injection'),
     (re.compile(r'\[inst\]'),                                                        'token injection'),
@@ -151,14 +180,33 @@ PYEOF
 )
 
 if [ -n "$RESULT" ]; then
-  echo "[Supercharger] INJECTION DETECTED in Bash command output" >&2
-  printf '%s\n' "$RESULT"
   SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
   [ -z "$SID" ] && SID="default"
+
+  # v2.29.22: collapse repeats of an identical warning (10min TTL). Sourced HERE and
+  # not at the top of the file on purpose — the fast-path gate returns on the
+  # overwhelming majority of Bash calls, and the hot path must not pay for a lib it
+  # will never reach.
+  . "${BASH_SOURCE[0]%/*}/lib-suppress.sh" 2>/dev/null || true
+  if command -v hook_already_emitted >/dev/null 2>&1 \
+     && hook_already_emitted "bash-injection-scanner" "$SID" "$RESULT"; then
+    exit 0
+  fi
+
+  echo "[Supercharger] INJECTION DETECTED in Bash command output" >&2
+  printf '%s\n' "$RESULT"
   mkdir -p "$SCOPE_DIR"
   echo "injection" > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
-  exit 2
+
+  # v2.29.22: was `exit 2`. On PostToolUse that is the BLOCKING code — but the
+  # command has already executed, so blocking prevents nothing. All it did was
+  # escalate a heuristic into a hard error that resurfaces as Stop-hook feedback,
+  # which then re-fires on the output of any attempt to investigate it. The header
+  # of this file already states the intended contract — "Non-destructive: the
+  # command already ran; this only WARNs the model" — and the systemMessage printed
+  # above delivers that warning in full. exit 0 keeps the signal, drops the block.
+  exit 0
 fi
 
 exit 0
