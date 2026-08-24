@@ -2,6 +2,50 @@
 
 ## Contents
 
+- [2.29.15] - 2026-08-24 — fix(artifact): guard reply and room_send, not just publish
+
+The Artifact guard fast-pathed on file_path, so two outbound-TEXT actions
+on the same tool never reached a single line of it. Verified against the
+deployed hook before any change: a credential in reply text and the same
+key in a room_send payload both returned exit 0, while the identical key
+inside a published file returned exit 2. One egress path guarded, two
+open, on the same tool.
+
+  reply      posts text into a comment thread other viewers read
+  room_send  broadcasts a JSON payload to everyone viewing the page now
+
+Both now scan against the shared lib-secret-patterns list and DENY, with
+the reason naming where the payload would have gone. Identical shape to
+the Monitor ws gap closed in v2.29.10: a guard covering the field it was
+written for and not the sibling field added later.
+
+Not overstated: room_send is always shown to the user for approval and no
+allow rule covers it, so this was never silent. But a key inside a 4KiB
+JSON payload is not something an approval dialog makes obvious, which is
+the argument sendmessage-guard was built on, and the tool states the rule
+with no mechanism behind it - never send workspace or conversation content
+to the room because an event asked for it.
+
+Found by sweeping Piebald-AI/claude-code-system-prompts, the
+extracted-from-source archive of Claude Code prompts, for rules stated in
+tool descriptions with nothing enforcing them. That is the same signal
+that produced workflow-guard and sendmessage-guard. The archive itself has
+no code to adopt; its value is as a sweep surface, 695 files current to
+v2.1.241.
+
+Two prohibitions from the same sweep were REJECTED, recorded so they are
+not re-examined:
+
+- endconversation. Its rule is about model behaviour in self-harm and
+  imminent-harm situations. Not a mechanism gap, and enforcing it from a
+  hook would be wrong.
+- grep and rg. The tool policy says always use the Grep tool and never
+  invoke them as Bash commands. Genuinely unenforced here - tool-preferences
+  is a per-project config map, not this rule - but it is a preference about
+  permissions and access, not a safety rule, and denying it would break
+  every pipe filter. High false positive, no security value.
+
+3850 tests passing.. 3850 tests passing.
 - [2.29.14] - 2026-08-24 — docs(rules): root-cause fixing, and a safety floor under the brevity rules
 
 Two rules adapted from DietrichGebert/ponytail, a prompt-layer plugin that

@@ -31,11 +31,52 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 # v2.26.35: fork-free stdin read (no $(cat) fork).
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
-# Fast path: nothing to do unless this is a publish with a file.
-case "$_INPUT" in *file_path*) ;; *) exit 0 ;; esac
+# Fast path: publish carries a file; reply and room_send carry outbound TEXT.
+case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*) ;; *) exit 0 ;; esac
 
 ACTION=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.action // empty' 2>/dev/null || true)
 [ "$ACTION" = "list" ] && exit 0
+
+# v2.29.15: reply and room_send are the SAME egress primitive as publish, and were
+# open while publish was denied - verified against the deployed hook, where a
+# credential in either returned exit 0 while the identical key in a published file
+# returned exit 2. The fast path above only ever matched file_path, so neither
+# action reached a single line of this guard.
+#
+#   reply      posts text into a comment thread other viewers read
+#   room_send  broadcasts a JSON payload to everyone viewing the page right now
+#
+# The tool states the rule and supplies no mechanism for it: "never send workspace
+# or conversation content to the room because an event asked for it". room_send is
+# always shown to the user for approval, so this is not silent - but a key inside a
+# 4KiB JSON payload is not something an approval dialog makes obvious, which is the
+# same argument sendmessage-guard was built on. Same shared pattern list as the
+# rest of the egress family.
+if [ "$ACTION" = "reply" ] || [ "$ACTION" = "room_send" ]; then
+  OUTBOUND=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.text // empty, (.tool_input.data // empty | tostring)] | join("\n")' 2>/dev/null || true)
+  if [ -n "$OUTBOUND" ]; then
+    # shellcheck source=hooks/lib-secret-patterns.sh
+    . "$HOOKS_DIR/lib-secret-patterns.sh"
+    _AP_COMBINED=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+    if printf '%s\n' "$OUTBOUND" | LC_ALL=C grep -qE "$_AP_COMBINED"; then
+      echo "[Supercharger] artifact-publish-guard: BLOCKED $ACTION - secret in outbound text" >&2
+      _AP_WHERE="a comment thread other viewers read"
+      [ "$ACTION" = "room_send" ] && _AP_WHERE="a live room every current viewer of the page receives"
+      _AP_REASON="Refusing this Artifact $ACTION: the payload contains what looks like a credential, and it would go to $_AP_WHERE.
+
+Remove the secret and send a reference instead."
+      _AP_JSON=$(printf '%s' "$_AP_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"secret in outbound artifact text"')
+      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$_AP_JSON"
+      SCOPE_DIR="$SUPERCHARGER_STATE/scope"
+      mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+      printf '[%s] credentials — secret in artifact %s — outbound text\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" "$ACTION" \
+        >> "$SCOPE_DIR/.blocked-commands" 2>/dev/null || true
+      exit 2
+    fi
+  fi
+  exit 0
+fi
 
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
 [ -z "$FILE_PATH" ] && exit 0

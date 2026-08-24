@@ -143,4 +143,50 @@ printf '{"tool_name":"Artifact","tool_input":{"file_path":"%s"},"cwd":"/tmp"}' "
 grep -q 'credentials' "$ST/scope/.blocked-commands" 2>/dev/null && pass || fail "not written to the block ledger"
 rm -rf "$ST" "$(dirname "$F")"
 
+# --- reply / room_send: the same egress primitive as publish (v2.29.15) ---
+# The guard fast-pathed on file_path only, so neither outbound-TEXT action ever
+# reached a line of it: a credential in either returned 0 while the identical key
+# in a published file returned 2. Found by sweeping the extracted CC tool
+# descriptions for rules stated with no mechanism behind them — the same signal
+# that produced workflow-guard and sendmessage-guard.
+AWSSUF="IOSFODNN7EXAMPLE"
+
+_art_rc() {  # $1 = action, $2 = payload value -> guard exit code
+  ART_A="$1" ART_V="$2" python3 -c "
+import json,os
+a=os.environ['ART_A']; v=os.environ['ART_V']
+ti={'action':a,'url':'https://claude.ai/code/artifact/x'}
+ti.update({'thread_id':'t1','text':v} if a=='reply' else {'topic':'sync','data':{'k':v}})
+print(json.dumps({'tool_name':'Artifact','tool_input':ti}))" \
+    | bash "$GUARD" >/dev/null 2>&1
+  echo $?
+}
+
+begin_test "artifact-reply: DENY a credential posted into a comment thread"
+[ "$(_art_rc reply "token AKIA$AWSSUF")" = "2" ] && pass || fail "credential in reply text not blocked"
+
+begin_test "artifact-room_send: DENY a credential broadcast to live viewers"
+# room_send reaches everyone viewing the page right now, and the tool's own rule
+# ("never send workspace or conversation content to the room") has no mechanism.
+[ "$(_art_rc room_send "token AKIA$AWSSUF")" = "2" ] && pass || fail "credential in room_send data not blocked"
+
+begin_test "artifact-reply: a clean reply is allowed"
+[ "$(_art_rc reply 'just a status note')" = "0" ] && pass || fail "clean reply was blocked"
+
+begin_test "artifact-room_send: a clean broadcast is allowed"
+[ "$(_art_rc room_send 'build finished')" = "0" ] && pass || fail "clean room_send was blocked"
+
+begin_test "artifact: the publish path is unchanged by the reply/room_send branch"
+# The new branch returns before the file-reading code; publish must still deny.
+PF=$(mktemp -d)/p.html; printf 'const K = "AKIA%s";\n' "$AWSSUF" > "$PF"
+printf '{"tool_name":"Artifact","tool_input":{"file_path":"%s"},"cwd":"/tmp"}' "$PF" \
+  | bash "$GUARD" >/dev/null 2>&1
+RC=$?; rm -rf "$(dirname "$PF")"
+[ "$RC" = "2" ] && pass || fail "publish regressed, rc=$RC"
+
+begin_test "artifact: an outbound action with no text or data is a no-op"
+RC=$(printf '{"tool_name":"Artifact","tool_input":{"action":"room_send","url":"u","topic":"t"}}' \
+  | bash "$GUARD" >/dev/null 2>&1; echo $?)
+[ "$RC" = "0" ] && pass || fail "bodyless room_send should pass, rc=$RC"
+
 report
