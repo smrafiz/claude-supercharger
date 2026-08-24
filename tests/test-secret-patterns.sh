@@ -54,6 +54,24 @@ catches "ghp""_AbCdEf0123456789AbCdEf0123456789ABCD" && pass || fail "ghp_ regre
 begin_test "secret: uppercase AWS_SECRET_ACCESS_KEY still caught"
 catches "AWS""_SECRET_ACCESS_KEY=${AWS40}" && pass || fail "uppercase aws regressed"
 
+# ---- v2.29.21: secrets-manager service account token (dwarvesf overlap audit) ----
+# A credential that reads OTHER credentials, so a leak is a master key rather
+# than one service's access. 11 of that repo's 13 patterns were already covered;
+# this was the only genuine gap.
+begin_test "secret: ops_ service account token is caught"
+catches "ops""_$(printf 'A%.0s' $(seq 1 45))" && pass || fail "ops_ token evades"
+
+begin_test "secret: a short ops_ lookalike does NOT fire"
+# The {40,} floor keeps ordinary words starting with the prefix out.
+catches "ops""_notatoken" && fail "FP on a short ops_ string" || pass
+
+# The 64-hex "private key" pattern from the same repo was deliberately NOT
+# adopted: it matches any SHA-256 digest, and v2.26.29 already resolved that
+# ambiguity here (block on output channels, warn on the prompt channel). This
+# asserts the decision still holds rather than silently regressing to a block.
+begin_test "secret: a bare SHA-256 digest is not treated as an ops_ token"
+catches "ops""_$(printf 'b94d27b9934d3e08a52e52d7da7dabfa')" && fail "short hex matched ops_" || pass
+
 # ---- must NOT false-positive on plain text ----
 begin_test "secret: plain prose does not fire"
 catches "the quick brown fox jumps over the lazy dog" && fail "FP on prose" || pass

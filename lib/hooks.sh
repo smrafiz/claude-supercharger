@@ -313,6 +313,16 @@ get_hooks_for_mode() {
     # while stdout JSON is parsed and shown, and the steady-state cost here is a
     # single stat, so there is nothing to gain by detaching it.
     hooks+=("SessionStart||${hooks_dir}/version-floor-check.sh|")
+    # v2.29.22: verify our guards are actually REGISTERED. An install that stops
+    # registering is indistinguishable from a working one, and project-config
+    # announces "Guardrails are on" regardless — measured with an empty hooks
+    # key, every other SessionStart hook stayed silent. setup-check.sh does this
+    # correctly but is registered on `Setup`, which a normal session never fires,
+    # and costs 96ms. This is the fork-free subset: one builtin read and a case
+    # test, exiting immediately under a plugin runtime where registration comes
+    # from the plugin's own hooks.json instead. Warn-only, blocking (an ask
+    # cannot gate from a detached hook, and this must be seen).
+    hooks+=("SessionStart||${hooks_dir}/guard-registration-check.sh|")
     hooks+=("SessionStart||${hooks_dir}/learn-from-blocks.sh|async")
     hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
     hooks+=("PostToolUse||${hooks_dir}/auto-compact.sh|async")

@@ -67,6 +67,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `git-config-exec-guard` | PreToolUse | Bash | the next ordinary git command into arbitrary shell execution — core.fsmonitor, |
 | `git-remote-guard` | PreToolUse | Bash (git *) | git-safety.sh polices HOW you push (force, --no-verify, protected branch) but |
 | `git-safety` | PreToolUse | Bash (git *) | shellcheck source=hooks/lib-suppress.sh |
+| `guard-registration-check` | SessionStart | (none) | Verifies that Supercharger's hooks are actually REGISTERED, because an install |
 | `harness-tamper-guard` | PreToolUse | Bash | Self-defense on the BASH channel. path-guard protects .claude/settings.json and |
 | `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
 | `install-script-guard` | PreToolUse | Write, Edit, MultiEdit | npm/pnpm/yarn/bun run lifecycle scripts automatically on `install` |

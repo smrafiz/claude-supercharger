@@ -2,6 +2,63 @@
 
 ## Contents
 
+- [2.29.21] - 2026-08-24 — feat(hooks): warn when our own guards are not registered
+
+Verified before writing anything: with an empty hooks key in
+settings.json, every SessionStart hook stayed silent EXCEPT
+project-config, which announced "Claude Supercharger is active.
+Guardrails are on - I will not make destructive changes without asking."
+A session with zero protection was being told it was protected. A false
+assurance is worse than no assurance.
+
+setup-check.sh already validates this correctly and thoroughly, but it is
+registered on the `Setup` event, which fires only for --init, --init-only
+and --maintenance. A normal session never triggers it, so the one check
+that would have caught this never ran in ordinary use. It also costs
+96.3ms measured over 10 runs, which is too much for SessionStart - twelve
+hooks already run there. Hence a separate minimal check rather than
+re-registering that one: 7.0ms measured, a single builtin read of
+settings.json and a case test against the #supercharger tag that every
+registered command carries.
+
+The false positive was the hard part, not the detection. A PLUGIN install
+registers hooks from the plugin own hooks.json and has no user
+settings.json entry at all, so a naive check warns at exactly the users
+who are fully protected. CLAUDE_PLUGIN_ROOT is the discriminator and is
+tested FIRST, before any file read. That is the plugin/installer path
+divergence that has produced silent no-ops in this repo before, and it is
+asserted in a test rather than left to a comment.
+
+Fails open everywhere else: an unreadable or absent settings.json is not
+evidence of a missing install, and warning without evidence is what
+trains people to disable a check.
+
+Speaks via systemMessage, not stderr - a hook stderr lands in the debug
+log as an unhandled line while stdout JSON is parsed and shown. A warning
+nobody sees would be the very failure this hook exists to report.
+
+Prompted by three independent instances of one class inside a week: a
+hook chain bricked by a vanished symlink target, another project guards
+silently never installing in a cloud session, and this repo own install
+sitting four releases behind with three shipped guards inactive and
+nothing saying so.
+
+Also in this release, from the dwarvesf/claude-guardrails overlap audit:
+an `ops_` secrets-manager service account token pattern added to the
+shared list. A credential that reads OTHER credentials, so a leak is a
+master key rather than one service access. 11 of that repo 13 patterns
+were already covered; this was the only genuine gap. Verified it
+propagates - one line in lib-secret-patterns.sh reaches nine hooks, and
+three separate channels were confirmed blocking it.
+
+Their 64-hex "private key" pattern was deliberately NOT taken. It matches
+any SHA-256 digest, which their own pattern name concedes, and v2.26.29
+already resolved that exact ambiguity here as block-on-output /
+warn-on-prompt. Measured: adopting it would fire on a plain shasum digest
+and on package-lock integrity lines, across all nine hooks. A test now
+asserts that decision holds rather than silently regressing.
+
+8 + 3 new tests. 3879 passing.. 3879 tests passing.
 - [2.29.20] - 2026-08-24 — fix(tests): two more fixtures asserted facts about the host, not the code
 
 Proactive audit for the defect class that cost two red builds today: a

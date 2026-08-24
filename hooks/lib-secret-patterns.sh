@@ -54,6 +54,15 @@ SECRET_PATTERNS=(
   'x(ox[baprs]|app)-[0-9A-Za-z-]{10,}'
   # HuggingFace
   'hf_[A-Za-z0-9]{30,}'
+  # Secrets-manager service account token (v2.29.21) — `ops_` + a long base64
+  # run. A credential that reads OTHER credentials, so a leak here is a master
+  # key rather than one service's access. Distinct fixed prefix, so no ambiguity
+  # and no false-positive surface. From the dwarvesf/claude-guardrails overlap
+  # audit: 11 of its 13 patterns were already covered, this was genuinely
+  # missing, and its 64-hex "private key" pattern was deliberately NOT taken —
+  # that one matches any SHA-256 digest, which v2.26.29 already resolved here as
+  # a block-on-output / warn-on-prompt split (tests/test-prompt-secret-ambiguous.sh).
+  'ops_[A-Za-z0-9+/=]{40,}'
   # GCP service account JSON
   '"private_key":[[:space:]]*"-----BEGIN'
   # GCP API key (Maps, Firebase, Translate, YouTube)
