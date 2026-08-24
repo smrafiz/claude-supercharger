@@ -80,12 +80,21 @@ echo "$OUT" | grep -q '"permissionDecision":"deny"' && pass || fail "Monitor did
 rm -rf "$PROJ"
 
 # --- preferGhCli (v2.29.16): opt-in GitHub curl/wget/WebFetch redirect to gh ---
-_tp_gh_decide() {  # $1=tool_name $2=tool_input-json $3=config-json $4=path-override(optional)
+_tp_gh_decide() {  # $1=tool_name $2=tool_input-json $3=config-json $4=force-gh-absent(optional, pass "1")
   local proj out
   proj=$(mktemp -d)
   printf '%s' "$3" > "$proj/.supercharger.json"
-  out=$(printf '{"tool_name":"%s","tool_input":%s,"cwd":"%s"}' "$1" "$2" "$proj" \
-    | env ${4:+PATH="$4"} bash "$HOOK" 2>/dev/null)
+  # $4 sets SUPERCHARGER_GH_BIN to a deterministic non-executable path rather
+  # than narrowing PATH — ubuntu-latest ships gh preinstalled at /usr/bin/gh,
+  # so a narrowed-but-still-containing-/usr/bin override does not actually
+  # simulate absence there. See hooks/tool-preferences.sh for the same fix.
+  if [ -n "${4:-}" ]; then
+    out=$(printf '{"tool_name":"%s","tool_input":%s,"cwd":"%s"}' "$1" "$2" "$proj" \
+      | SUPERCHARGER_GH_BIN="$proj/no-such-gh-binary" bash "$HOOK" 2>/dev/null)
+  else
+    out=$(printf '{"tool_name":"%s","tool_input":%s,"cwd":"%s"}' "$1" "$2" "$proj" \
+      | bash "$HOOK" 2>/dev/null)
+  fi
   rm -rf "$proj"
   if [ -z "$out" ]; then echo "passthrough"
   elif echo "$out" | grep -q '"permissionDecision":"deny"'; then echo "deny"
@@ -122,7 +131,7 @@ rm -rf "$PROJ"
 echo "$OUT" | grep -q 'gh repo clone foo/bar' && pass || fail "expected a clone suggestion: $OUT"
 
 begin_test "preferGhCli: fails open when gh is not on PATH"
-R=$(_tp_gh_decide Bash '{"command":"curl https://api.github.com/repos/foo/bar/pulls"}' '{"preferGhCli":true}' "/usr/bin:/bin")
+R=$(_tp_gh_decide Bash '{"command":"curl https://api.github.com/repos/foo/bar/pulls"}' '{"preferGhCli":true}' "1")
 [ "$R" = "passthrough" ] && pass || fail "expected passthrough without gh installed, got $R"
 
 begin_test "preferGhCli: an unrelated Bash command is untouched"

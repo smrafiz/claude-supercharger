@@ -86,8 +86,19 @@ fi
 
 # `gh` availability decides the whole preferGhCli branch, so it is checked once
 # here (cheap PATH lookup) rather than inside the python fork below.
+# SUPERCHARGER_GH_BIN lets a test force "gh absent" deterministically
+# (empty string) regardless of what the host actually has installed --
+# same override shape as SUPERCHARGER_CC_BIN in version-floor-check.sh. A
+# test tried to simulate absence via a narrowed PATH instead and broke on
+# ubuntu-latest, where gh ships preinstalled at /usr/bin/gh: the override
+# PATH still contained it, so the test asserted a fact about a GitHub
+# Actions image rather than about this hook.
 _TP_GH=0
-command -v gh >/dev/null 2>&1 && _TP_GH=1
+if [ -n "${SUPERCHARGER_GH_BIN+set}" ]; then
+  [ -n "$SUPERCHARGER_GH_BIN" ] && [ -x "$SUPERCHARGER_GH_BIN" ] && _TP_GH=1
+else
+  command -v gh >/dev/null 2>&1 && _TP_GH=1
+fi
 
 REASON=$(CMD="$CMD" URL="$URL" TOOL_NAME="$TOOL_NAME" CONFIG="$CONFIG" GH_AVAILABLE="$_TP_GH" python3 <<'PYEOF'
 import os, json, re, shlex, sys

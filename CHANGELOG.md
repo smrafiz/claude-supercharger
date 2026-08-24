@@ -2,6 +2,32 @@
 
 ## Contents
 
+- [2.29.18] - 2026-08-24 — fix(tool-preferences): the fail-open test asserted a fact about ubuntu-latest, not about the hook
+
+v2.29.16 reddened ubuntu-latest CI. Ground truth from the job log:
+
+  FAIL preferGhCli: fails open when gh is not on PATH -- expected passthrough, got deny
+
+The test simulated "gh not installed" by overriding PATH to /usr/bin:/bin,
+which works on macOS (no gh there) but not on GitHub Actions ubuntu-latest,
+which ships gh preinstalled at /usr/bin/gh. The override PATH still
+contained a real, working gh, so the hook correctly found it and denied --
+the test was wrong, not the hook.
+
+Reproduced locally before changing anything: placed a fake gh on PATH and
+confirmed the pre-fix hook denies with it present and passes through
+without it, so the mechanism itself was never broken. Fixed with
+SUPERCHARGER_GH_BIN, the same override shape version-floor-check.sh
+already uses for SUPERCHARGER_CC_BIN -- a test now forces "absent"
+deterministically via a genuinely nonexistent path instead of hoping a
+narrowed PATH excludes wherever gh happens to live on a given machine.
+
+Verified the fix actually closes the ubuntu gap, not just the local one:
+placed a real, findable fake gh on PATH and confirmed the override still
+forces passthrough despite gh being genuinely present -- the exact
+condition that broke CI.
+
+3860 tests passing.. 3860 tests passing.
 - [2.29.17] - 2026-08-24 — docs(security): add a reachability triage step and four missing categories
 
 Compared /security against agamm/claude-code-owasp, a Claude Code skill
