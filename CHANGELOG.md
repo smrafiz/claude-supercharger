@@ -2,6 +2,42 @@
 
 ## Contents
 
+- [2.29.17] - 2026-08-24 — docs(security): add a reachability triage step and four missing categories
+
+Compared /security against agamm/claude-code-owasp, a Claude Code skill
+(SKILL.md + reference docs, no hooks — pure prompt content, nothing to
+adapt as a hook). The comparison surfaced two real gaps in our own
+command, independent of whether their self-described "OWASP Top
+10:2025" label is an official Foundation release or the authors own
+extrapolation — not verified either way, and not asserted here.
+
+The larger gap was a missing STEP, not a missing category: the command
+had no reachability check before reporting a finding. A pattern match
+on a dangerous-looking string is not a vulnerability if the input is
+never attacker-controlled or the sink sits behind existing middleware.
+Added a three-part triage before any finding is written up: is the
+input actually attacker-controlled (traced to a real entry point, not
+a constant or trusted config), is the sink reachable past existing
+validation/auth, and what is the actual blast radius. This is the
+single highest-value borrow — it targets false positives, the exact
+failure mode that makes an automated review something people stop
+reading.
+
+Four categories added to the dimension list: insecure design (missing
+rate limiting, abuse controls, no threat model on a sensitive flow),
+integrity failures (insecure deserialization, missing SRI on CDN
+scripts, unverified auto-update/plugin mechanisms), logging and
+alerting failures (security events that go unlogged, or logged without
+enough context to investigate), and supply chain broadened beyond
+known-CVE dependency scanning to unpinned versions, uncommitted
+lockfiles, and curl-pipe-sh in build scripts.
+
+Not adopted: their category NUMBERING and the "2025" version label
+(unverifiable), and their LLM/Agentic-AI-specific section (out of scope
+for a general code-review command; the codebase under review may not
+use LLMs at all).
+
+3860 tests passing.. 3860 tests passing.
 - [2.29.16] - 2026-08-24 — feat(hooks): opt-in gh-cli redirect for GitHub curl/wget/WebFetch, plus a Monitor regression fix
 
 Adapted from trailofbits/skills gh-cli plugin, which unconditionally

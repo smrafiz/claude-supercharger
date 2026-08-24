@@ -17,6 +17,23 @@ For a diff scope, review **only the changed/added lines and the functions that c
 
 **Before starting:** read the files (or diff hunks) in scope. Do not review code you haven't read. All git/`gh` commands here are read-only — never modify the tree, stage, or commit.
 
+**Before reporting anything, confirm reachability.** A pattern match is not a finding —
+the most common failure mode in an automated security pass is reporting unreachable or
+already-mitigated code, which buries the real issues. Before writing up a finding, confirm:
+
+1. **Is the input actually attacker-controlled?** Trace it to a real entry point — a request
+   parameter, header, cookie, upload, webhook, queue message, or third-party API response. A
+   value that only ever comes from a constant, an enum, or trusted internal config is not an
+   injection source.
+2. **Is the sink reachable with that input?** Check for validation, an allowlist, an ORM, or a
+   framework control sitting between them — auth middleware, a base controller, a decorator —
+   before flagging a route as unprotected; enforcement is often centralized rather than per-route.
+3. **What is the blast radius?** Who can trigger it, what do they get, does it cross a trust
+   boundary? SSRF reaching cloud metadata is not the same finding as one reaching localhost only.
+
+State the concrete path — *this input reaches this sink* — for every finding. If reachability
+can't be determined from the code in scope, say that explicitly rather than asserting either way.
+
 **Dimensions to check (in order):**
 
 1. **Injection** — SQL, command, LDAP, XPath, template injection. Check string concatenation in queries, shell commands, eval/exec.
@@ -24,8 +41,11 @@ For a diff scope, review **only the changed/added lines and the functions that c
 3. **Sensitive data exposure** — secrets in code/config/logs, missing encryption at rest or in transit, PII in error messages.
 4. **Access control** — missing authorization checks, IDOR, privilege escalation, default-allow patterns.
 5. **Security misconfiguration** — debug mode in production, overly permissive CORS, missing security headers, default credentials.
-6. **Vulnerable dependencies** — run `npm audit` / `pip-audit` / `cargo audit` if applicable. Flag known CVEs.
+6. **Supply chain** — run `npm audit` / `pip-audit` / `cargo audit` if applicable and flag known CVEs, but also check beyond known-CVE matching: unpinned/floating dependency versions, missing lockfile commit, unsigned or unverified packages, `curl | sh` install scripts in the build pipeline.
 7. **Cryptography** — MD5/SHA1 for security, hardcoded IVs/keys, custom crypto implementations.
+8. **Insecure design** — missing rate limiting or abuse controls, security decisions left to the client, no threat model for a sensitive flow (payments, auth, data export).
+9. **Integrity failures** — insecure deserialization of untrusted data, missing Subresource Integrity on CDN-loaded scripts, auto-update or plugin mechanisms that don't verify signatures.
+10. **Logging & alerting** — security-relevant events (auth failures, access-control denials, admin actions) that aren't logged at all, or logged without enough context to investigate later.
 
 **For each finding:**
 
