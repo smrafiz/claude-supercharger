@@ -2,6 +2,61 @@
 
 ## Contents
 
+- [2.29.14] - 2026-08-24 — docs(rules): root-cause fixing, and a safety floor under the brevity rules
+
+Two rules adapted from DietrichGebert/ponytail, a prompt-layer plugin that
+pushes agents toward minimal solutions. Its mechanism is not adoptable:
+every hook it ships is context injection, and no PreToolUse guard blocks
+anything. But two of its written rules close real gaps here.
+
+ROOT CAUSE. Error Recovery said to read the actual error and try one
+focused fix; it never said WHERE. A report names a symptom, and the
+cheapest-looking fix is a guard on the path the report names, which
+leaves every sibling caller broken. Now: grep every caller of the
+function before editing, and prefer the one guard in the shared function,
+which is also the smaller diff. The smallest change in the wrong place is
+not economy, it is a second bug.
+
+SAFETY FLOOR. Scope Discipline told the agent to rewrite 200 lines into 50
+with no carve-out at all. Ponytail pairs its minimality push with an
+explicit never-simplify-away list, and the absence of one here was a
+genuine hole: input validation at trust boundaries, error handling that
+prevents data loss, security checks, accessibility basics, and anything
+explicitly requested are now named as never-shorten. Added alongside it:
+brevity applies to the solution, never to understanding the problem.
+
+Both go in the always-loaded rules rather than a skill, because both
+govern how work is done rather than being a procedure to invoke. 13 lines
+total, which is a real per-session token cost and the reason nothing else
+was taken.
+
+DELIBERATELY NOT TAKEN, with reasons, so this is not re-litigated:
+
+- The decision ladder (skip/reuse/stdlib/native/dep/one-line/minimal).
+  Good, but Scope Discipline already carries the thesis and the ladder
+  would cost more always-loaded tokens than it adds.
+- ponytail-review and ponytail-audit. Claude Code already SHIPS a simplify
+  skill that reviews changed code for reuse, simplification and efficiency
+  and then applies the fixes. Building our own would have duplicated the
+  platform, the exact mistake the coverage-diff method exists to prevent.
+  Our cleanup (dead code) and audit (consistency) sit on different axes
+  and stay as they are.
+- The ponytail: debt-marker convention and its ledger harvester. The
+  no-trigger flag is a nice idea, but a marker naming work for later is a
+  TODO comment, and the developer role rules forbid those outright. That
+  conflict is the user call, not a reflex adoption.
+- ponytail-gain. A scoreboard of published benchmark medians, not per-repo
+  numbers, and its figures do not match the README headline. sc-status
+  already reports real session figures.
+
+Their benchmark rig is the most interesting thing in the repo and is NOT
+adopted here: promptfoo, three arms by three models by five tasks, ten
+runs, median, plus a second agentic arm using real headless Claude Code
+sessions added to answer a critique of the first. We have no way to
+measure whether the rules layer earns its tokens. Worth building
+separately if that question ever matters.
+
+3844 tests passing.. 3844 tests passing.
 - [2.29.13] - 2026-08-24 — test(json-fast-size): discard a warm-up round before measuring the ratio
 
 The size-gate timing assertion failed again on the v2.29.12 Windows run.

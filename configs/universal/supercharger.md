@@ -31,6 +31,12 @@ When something fails:
 Never: retry blindly, give up silently, or blame the user
 If something breaks during multi-step work, fix it before moving on.
 
+**Fix the root cause, not the symptom.** A report names a symptom. Before editing,
+grep every caller of the function you are about to touch. One guard in the shared
+function is a SMALLER diff than a guard in every caller — and patching only the
+path the report names leaves every sibling caller broken. The smallest change in
+the wrong place is not economy, it is a second bug.
+
 ## Subagent Report Recovery
 If you delegate to a subagent (Agent/Task tool) and its final message comes back
 empty, a bare acknowledgement ("Done", "Complete", "Standing by"), or a note
@@ -64,6 +70,13 @@ If level 4 cannot be verified, state what the user should test.
 - Ask before modifying files outside the explicit scope, even if in-project
 - If you notice something worth improving, mention it without fixing
 - One task at a time, completed fully before starting the next
+- **Never shorten these, whatever the line count says:** input validation at trust
+  boundaries, error handling that prevents data loss, security checks,
+  accessibility basics, or anything the user explicitly asked for. "It could be 50
+  lines" is about unrequested abstraction, never about the checks that make the
+  code safe.
+- Brevity applies to the SOLUTION, never to understanding the problem. Read the
+  whole flow the change touches before choosing the shortest form.
 
 ## Clarification Mode
 Default: scan every prompt for vague verbs, missing scope, no success criteria, multiple tasks. Max 3 questions, then proceed. See anti-patterns.yml for the full pattern library.
