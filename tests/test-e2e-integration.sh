@@ -4,6 +4,16 @@
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# v2.29.24: this file keeps its own result()/PASS_COUNT machinery and so never
+# sourced helpers.sh — which left native_path() UNDEFINED. `$(native_path "$PROJ")`
+# therefore expanded to the empty string, the payload carried "cwd":"", and
+# session-checkpoint.sh fell back to `os.getcwd()` (this repo, on master, clean),
+# so the `files:` assertion failed on any clean checkout. Sourcing the helper is
+# the fix; its own counters are namespaced differently (TESTS_PASSED vs
+# PASS_COUNT), so nothing here collides.
+# shellcheck source=tests/helpers.sh
+. "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
+
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 CYAN='\033[0;36m'

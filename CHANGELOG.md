@@ -2,6 +2,50 @@
 
 ## Contents
 
+- [2.29.24] - 2026-08-25 — fix(tests): e2e suite passes on a clean tree — the cause was an unsourced helper
+
+Closes KNOWN-ISSUES #1. On a clean checkout the suite reported
+3893 passed, 1 failed; it now reports 3894 passed, 0 failed. Same tree
+state, measured before and after.
+
+THE RECORDED ROOT CAUSE WAS WRONG, and acting on it would have been the
+expensive mistake. KNOWN-ISSUES #1 said session-checkpoint.sh "resolves
+to the enclosing real repository rather than the payload cwd", and
+proposed changing that hook — one that fires on EVERY Write/Edit/Bash —
+noting it "wants its own release". The hook is not broken. It calls
+`git -C cwd` throughout and honours the payload correctly; an exact
+replication of the test setup, including the fresh HOME that run.sh
+imposes, PASSED.
+
+The real chain, verified end to end:
+
+  test-e2e-integration.sh never sources helpers.sh
+    -> native_path is an undefined function
+    -> $(native_path "$PROJ") expands to the empty string
+    -> the payload carries "cwd":""
+    -> the hook falls back to os.getcwd(), which is this repo
+    -> this repo is on master with a clean tree
+    -> no modified files, so no files: field, so the assertion fails
+
+`branch:master` in the failure output was the tell. Every temp repo the
+test builds reports `branch:main`, because run.sh gives each file a fresh
+HOME and git therefore never sees a user init.defaultBranch. A checkpoint
+naming master could only have come from this repository. After the fix it
+reads `branch:main commits:<sha>:chore: init` — the temp repo, as
+intended.
+
+The file kept its own result()/PASS_COUNT machinery and so never sourced
+helpers.sh, which is how a helper it calls came to be undefined. Sourcing
+it is the whole fix; the counters are namespaced differently
+(TESTS_PASSED vs PASS_COUNT) and nothing collides. Verified no other
+assertion regressed: 15/16 before, 16/16 after, standalone, then the full
+suite clean.
+
+KNOWN-ISSUES #1 updated to record the actual cause, since the entry
+exists so the next session does not re-derive a diagnosis — and a wrong
+one is worse than none. #2 stands unchanged and this strengthens it: the
+defect survived precisely because release.sh gates on a dirty tree, where
+this assertion passes for the wrong reason.. 3894 tests passing.
 - [2.29.23] - 2026-08-25 — fix(hooks): PowerShell parity — 5 of 16 PreToolUse guards to 14
 
 Coverage was INVERTED relative to the platform. On macOS and Linux, Bash is
