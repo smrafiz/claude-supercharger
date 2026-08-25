@@ -73,7 +73,13 @@ except Exception:
     sys.exit(0)
 
 tool = d.get('tool_name') or ''
-if tool not in ('Edit', 'Write', 'Bash'):
+# v2.29.22: the matcher registers six tool names but this gate accepted three,
+# so MultiEdit and NotebookEdit were never confidence-gated despite appearing in
+# the registration (predates this change), and Monitor/PowerShell were dead too.
+# A registration that names a tool the logic then discards is the same
+# silently-inert shape as an unmatched matcher.
+if tool not in ('Edit', 'Write', 'Bash', 'MultiEdit', 'NotebookEdit',
+                'PowerShell', 'Monitor'):
     sys.exit(0)
 
 session_id = d.get('session_id') or 'default'

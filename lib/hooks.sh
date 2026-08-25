@@ -73,11 +73,11 @@ get_hooks_for_mode() {
   # Read-only mode (/sc-readonly): time-boxed "look, don't touch". Near-zero overhead
   # when off (fast-path exits before parsing). A PreToolUse deny → beats autopilot's
   # auto-approve automatically (tighten > loosen).
-  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit,Bash,Monitor|${hooks_dir}/readonly-guard.sh|")  # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit,Bash,Monitor,PowerShell|${hooks_dir}/readonly-guard.sh|")  # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.
   hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|")
-  hooks+=("PreToolUse|Bash,Monitor,WebFetch|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell,WebFetch|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
   # v2.23.5: a Jupyter cell shells out through the kernel (!cmd, %%bash, %pip,
   # os.system, subprocess) and never hits the Bash matcher — safety.sh never sees
   # it. Route the cell's shell content through safety.sh (parity, no drift) and ask
@@ -114,8 +114,7 @@ get_hooks_for_mode() {
   # `-c core.hooksPath=` form. ASK (DENY fsmonitor + command-valued sshCommand);
   # value-shape gated so credential.helper=store/core.pager=less pass. /profile-gated.
   # Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/git-config-exec-guard.sh|")  # v2.23.24: code-injecting env var (LD_PRELOAD, DYLD_INSERT_LIBRARIES, BASH_ENV,
-  # NODE_OPTIONS --require, PYTHONSTARTUP, GIT_SSH_COMMAND, PERL5OPT/RUBYOPT, …) →
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-config-exec-guard.sh|")  # v2.23.24: code-injecting env var (LD_PRELOAD, DYLD_INSERT_LIBRARIES, BASH_ENV,  # NODE_OPTIONS --require, PYTHONSTARTUP, GIT_SSH_COMMAND, PERL5OPT/RUBYOPT, …) →
   # exec on the NEXT process spawn, sidestepping command-pattern guards. safety.sh
   # doesn't cover the env-preload class. ASK, value-shape gated (NODE_OPTIONS=
   # --max-old-space-size / LD_LIBRARY_PATH=/usr/local/lib pass). /profile-gated.
@@ -185,7 +184,7 @@ get_hooks_for_mode() {
   hooks+=("UserPromptSubmit||${hooks_dir}/sc-toggle-notice.sh|")
   hooks+=("UserPromptSubmit||${hooks_dir}/lesson-recall.sh|")
   hooks+=("PostToolUse||${hooks_dir}/tool-history-tracker.sh|async")
-  hooks+=("PreToolUse|Edit,Write,Bash,Monitor,MultiEdit,NotebookEdit|${hooks_dir}/confidence-gate.sh|")  hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
+  hooks+=("PreToolUse|Edit,Write,Bash,Monitor,PowerShell,MultiEdit,NotebookEdit|${hooks_dir}/confidence-gate.sh|")  hooks+=("PostToolUse||${hooks_dir}/cache-health.sh|async")
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
@@ -227,8 +226,7 @@ get_hooks_for_mode() {
     # `npm test || echo ok`, `make test; exit 0`) so a failing check reports green.
     # test-integrity guards test-FILE edits; this guards the command exit-mask that
     # defeats the same Verification Gate. Disable: SUPERCHARGER_TEST_MASK_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/test-mask-guard.sh|")    # v2.23.27: editing a GENERATED file (dist/build/__generated__, *_pb2.py, *.pb.go,
-    # *.min.js, or a @generated/DO NOT EDIT header) is wasted work — wiped on the next
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/test-mask-guard.sh|")    # v2.23.27: editing a GENERATED file (dist/build/__generated__, *_pb2.py, *.pb.go,    # *.min.js, or a @generated/DO NOT EDIT header) is wasted work — wiped on the next
     # codegen/build. ASK to redirect the edit to the source. Disable: SUPERCHARGER_GENERATED_FILE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/generated-file-guard.sh|")
     # v2.23.28: hallucinated LOCAL relative import (`./services/email` when the file
@@ -283,12 +281,10 @@ get_hooks_for_mode() {
     # Bash call. Anyone restoring it must verify on a LIVE session that the gated
     # hook actually fires -- reading the syntax off the docs is what produced the
     # original bug.
-    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/git-safety.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —
-    # asks before pushing the whole repo to a non-origin host or hijacking origin's
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-safety.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —    # asks before pushing the whole repo to a non-origin host or hijacking origin's
     # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
     # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/git-remote-guard.sh")    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash
-    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-remote-guard.sh")    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
     # bypasses ALL of it. Asks (not deny) ONLY when the target is git-tracked, once
     # per file per session. Fork-free fast-path; parser in redirect-clobber-detect.py.
     # Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0.
@@ -298,8 +294,7 @@ get_hooks_for_mode() {
     # three separate hooks (commit-secret-guard/commit-coauthor-guard/commit-check) to
     # drop 2 process forks from EVERY Bash call. Each check keeps its own runtime flag,
     # so opt-in semantics are preserved on both channels — always registered, self-gating.
-    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/commit-guard.sh|")    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/enforce-pkg-manager.sh|")    hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check|async")
-    hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/comment-replacement-check.sh|async")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/commit-guard.sh|")    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/enforce-pkg-manager.sh|")    hooks+=("PostToolUse|Write,Edit|${hooks_dir}/scope-guard.sh check|async")    hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/comment-replacement-check.sh|async")
     hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/lazy-refactor-check.sh|async")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh|")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot|async")

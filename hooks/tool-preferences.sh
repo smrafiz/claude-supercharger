@@ -70,7 +70,12 @@ TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null ||
 # suggestion while the identical Bash command did. Same failure shape as the
 # Monitor egress gap this file's own sweep exists to catch elsewhere.
 case "$TOOL_NAME" in
-  Bash|Monitor|WebFetch) ;;
+  # v2.29.22: +PowerShell. toolPreferences maps a BINARY name to a replacement
+  # (npm -> pnpm, jest -> vitest), and a binary is invoked by the same name in
+  # PowerShell as in bash — the preference is about which tool runs, not which
+  # shell runs it. On Windows PowerShell is the native shell, so this was the
+  # channel most likely to be used and least likely to be covered.
+  Bash|Monitor|PowerShell|WebFetch) ;;
   *) exit 0 ;;
 esac
 
@@ -124,7 +129,7 @@ except Exception:
 
 # -- toolPreferences: binary -> suggested replacement (Bash/Monitor only) ------
 prefs = d.get('toolPreferences') or {}
-if isinstance(prefs, dict) and prefs and tool_name in ('Bash', 'Monitor') and cmd:
+if isinstance(prefs, dict) and prefs and tool_name in ('Bash', 'Monitor', 'PowerShell') and cmd:
     try:
         tokens = shlex.split(cmd)
     except Exception:
@@ -150,7 +155,7 @@ if not (d.get('preferGhCli') is True and gh_available):
 GH_HOST_RE = re.compile(
     r'https?://(github\.com|api\.github\.com|raw\.githubusercontent\.com|gist\.github\.com)/\S*')
 
-if tool_name in ('Bash', 'Monitor'):
+if tool_name in ('Bash', 'Monitor', 'PowerShell'):
     if not re.search(r'(^|[\s;|&])(curl|wget)[\s]', cmd):
         sys.exit(0)
     m = GH_HOST_RE.search(cmd)

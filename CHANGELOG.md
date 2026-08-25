@@ -2,6 +2,60 @@
 
 ## Contents
 
+- [2.29.23] - 2026-08-25 — fix(hooks): PowerShell parity — 5 of 16 PreToolUse guards to 14
+
+Coverage was INVERTED relative to the platform. On macOS and Linux, Bash is
+the native shell and carried 16 PreToolUse guards. On Windows, PowerShell
+is the native shell and carried 5. The platform most likely to route
+commands through a channel was the one least protected on it. The gap had
+also just widened: Monitor went to 17 in v2.29.7 while PowerShell stayed
+at 5.
+
+Most of it was REGISTRATION, not logic. These guards key on command
+CONTENT — git commit, npm install, pytest — and those verbs are spelled
+identically whichever shell hosts them. git-safety proved it: its logic
+already fired correctly on a PowerShell payload while the matcher excluded
+the channel outright. Same shape as the Monitor bypass.
+
+The severe one is readonly-guard. It had `if [ "$TOOL" = "Bash" ]`, so
+/sc-readonly — a TIGHTENING control, which a user turns on precisely to
+stop mutations — did not apply to PowerShell at all. git commit, npm
+install and file mutations all passed through. A tightening control that
+silently skips a channel is worse than one never offered.
+
+Registration-only (matcher widened): git-safety, commit-guard,
+git-remote-guard, git-config-exec-guard, enforce-pkg-manager,
+test-mask-guard.
+
+Tool-gate widened in the hook itself: readonly-guard, confidence-gate,
+tool-preferences.
+
+tool-preferences needed TWO gates widened, not one — the visible outer
+case AND an inner python tool_name test. Fixing only the obvious one left
+the hook inert on the new channel, caught only because verification still
+showed ps=0 after the "fix". That is this pass own lesson repeating inside
+the pass itself.
+
+confidence-gate carried a separate pre-existing defect fixed here: it was
+registered on six tool names and gated to three, so MultiEdit and
+NotebookEdit had NEVER been confidence-gated. Found during the Monitor
+work and deliberately deferred until a change in the same class.
+
+Deliberately still Bash-only, with the reason recorded in the test:
+env-exec-guard (FOO=bar cmd is POSIX; PowerShell uses $env:) and
+redirect-clobber-guard (needs its own PS patterns). The parity assertion
+allows EXACTLY those two to be missing, so a third cannot appear quietly.
+
+Honest limit on the evidence: the git-safety assertion passes on BOTH
+sides of the bisect. Calling a hook directly bypasses the matcher, so it
+measures logic, not registration — it is a regression test for
+shell-agnostic logic. The matcher-coverage assertion is what proves the
+registration fix, and that one does fail pre-fix, along with three others.
+
+Measured on a dirty tree, per docs/KNOWN-ISSUES.md #2: 3894 passed, 0
+failed with these six files uncommitted. That proves these changes break
+nothing; it is NOT a claim that a clean checkout is green, which is the
+overclaim that file documents.. 3894 tests passing.
 - [2.29.22] - 2026-08-25 — fix(hooks): the Bash output scanner warns instead of blocking, and no longer flags its own rule set. 3889 tests passing.
 - [2.29.21] - 2026-08-24 — feat(hooks): warn when our own guards are not registered
 

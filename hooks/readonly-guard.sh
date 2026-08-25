@@ -64,7 +64,22 @@ case "$TOOL" in
   Write|Edit|MultiEdit|NotebookEdit) block "a file edit" ;;
 esac
 
-# Bash: block mutating commands; allow read-only ones.
+# Shell channels: block mutating commands; allow read-only ones.
+#
+# v2.29.22: PowerShell and Monitor join Bash here. Read-only mode is a
+# TIGHTENING control — a user who turns it on has asked for mutations to stop —
+# and a tightening control that silently does not apply to a channel is worse
+# than one that was never offered. On Windows PowerShell is the NATIVE shell, so
+# the platform most likely to use this channel was the one least covered by it.
+#
+# The command patterns below are verb-based (rm, git commit, npm install), and
+# every one of those verbs is spelled identically in PowerShell — `git commit`
+# and `npm install` do not change form with the host shell. PowerShell-native
+# destructive cmdlets (Remove-Item, Set-Content) are a separate surface and are
+# NOT claimed here; safety.sh already carries Remove-Item patterns from the
+# v2.22 parity pass, and adding cmdlet coverage to this hook is its own change
+# with its own false-positive surface.
+case "$TOOL" in Bash|PowerShell|Monitor) TOOL="Bash" ;; esac
 if [ "$TOOL" = "Bash" ]; then
   CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
   [ -z "$CMD" ] && exit 0
