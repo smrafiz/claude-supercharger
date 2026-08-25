@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **4 open** · Last updated: 2026-08-25 · Opened against v2.29.22
+Status: **3 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -9,41 +9,49 @@ for what is currently broken.
 
 | # | Issue | Severity | Blocks |
 |---|---|---|---|
-| 1 | `test-e2e-integration.sh` fails on a clean working tree | high | CI on a fresh clone |
+| ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | 2 | `release.sh` gates on a dirty tree | high | trustworthy release gating |
 | 3 | `claim-evidence-gate` matches substrings, not verdicts | medium | agent self-reporting |
 | 4 | `base64 -d` is still a bare-substring rule | low | scanner signal rate |
 
 ---
 
-## 1 — `test-e2e-integration.sh` fails on a clean working tree
+## 1 — `test-e2e-integration.sh` fails on a clean working tree — FIXED v2.29.24
 
-**Symptom.** `tests/run.sh` reports `3888 passed, 1 failed`, exit 1. The failure is
-`tests/test-e2e-integration.sh:85` — *"checkpoint contains files list"*.
+**Outcome.** Clean checkout went from `3893 passed, 1 failed` to
+`3894 passed, 0 failed`. Same tree state, measured before and after.
 
-**Root cause.** The test builds a `FAKE_HOME` and a temp project, but
-`hooks/session-checkpoint.sh` shells out to git and resolves to the **enclosing real
-repository** rather than the payload `cwd`. The `files:` field is emitted only when git
-reports modified files (`hooks/session-checkpoint.sh:128`), so on a clean tree the field
-is absent and the assertion fails. The `branch:` field is the tell — a bare temp dir
-would have produced no branch either.
+**The root cause recorded here was WRONG.** This entry originally blamed
+`hooks/session-checkpoint.sh` for resolving to the enclosing repository instead of
+the payload `cwd`, and proposed changing that hook — one that fires on every
+Write/Edit/Bash — noting it "wants its own release". The hook was never broken. It
+calls `git -C cwd` throughout and honours the payload correctly; an exact
+replication of the test setup, including the fresh `HOME` that `run.sh` imposes,
+passed.
 
-**Reproduction.** Nothing varies but the working tree:
+**Actual cause.** `tests/test-e2e-integration.sh` keeps its own `result()` /
+`PASS_COUNT` machinery and therefore never sourced `tests/helpers.sh` — which left
+`native_path()` undefined in that file:
 
 ```
-clean tree              → FAIL  checkpoint contains files list
-one untracked scratch   → PASS
+native_path undefined  →  $(native_path "$PROJ") == ""
+                       →  payload carries "cwd":""
+                       →  hook falls back to os.getcwd()  (this repo, master, clean)
+                       →  no modified files  →  no files: field  →  assertion fails
 ```
 
-**Not a regression.** Present before v2.29.22. Verified across three consecutive
-full-suite runs.
+**The tell was `branch:master`.** Every temp repo the test builds reports
+`branch:main`, because `run.sh` gives each file a fresh `HOME` so git never sees a
+user `init.defaultBranch`. A checkpoint naming `master` could only have come from
+this repository. After the fix it reads `branch:main commits:<sha>:chore: init`.
 
-**Proposed fix.** Resolve the project root from the payload `cwd` instead of inheriting
-git's discovery. Touches a hot-path hook, so it wants its own release.
+**Fix.** One `source` line. The counters are namespaced differently
+(`TESTS_PASSED` vs `PASS_COUNT`), so nothing collides.
 
-**Do not** diagnose this by running `test-e2e-integration.sh` standalone. Standalone does
-not reproduce `run.sh`'s environment and yields a different failure count (2 at v2.29.21,
-1 at v2.29.22) that means nothing. Only full-suite runs are valid signal.
+**Lesson worth keeping.** A wrong diagnosis in this file is more costly than none:
+it pointed at a hot-path hook and carried enough detail to look settled. Reproduce
+before acting on an entry here, and treat a field that names the *wrong repository*
+as a cwd-resolution question rather than a git-discovery one.
 
 ---
 
