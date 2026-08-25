@@ -59,5 +59,46 @@ printf '{"tool_name":"Read","tool_input":{"file_path":"a"}}' > "$TMP/nb.json"
 OUT=$(bash "$HOOK" < "$TMP/nb.json" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "should only act on Bash"
 
+# --- v2.29.28: destruction verbs and IaC state ops this guard did not cover ----
+# Found by diffing against hamzazulfiqar2/Devops-architect. The arms above key on
+# "delete" and "terminate"; AWS spells destruction several other ways, and none of
+# the IaC state verbs were covered at all. Probed against the real hook before the
+# fix: all eleven returned allow.
+#
+# KMS is the worst of them -- deleting a key makes every object encrypted under it
+# permanently unreadable, and nothing in the command shows that blast radius.
+check "aws-kms-schedule-deletion" "aws kms schedule-key-deletion --key-id abc"        ASK
+check "aws-kms-disable-key"       "aws kms disable-key --key-id abc"                  ASK
+check "aws-secret-delete"         "aws secretsmanager delete-secret --secret-id s"    ASK
+check "aws-ami-deregister"        "aws ec2 deregister-image --image-id ami-1"         ASK
+check "aws-sqs-purge"             "aws sqs purge-queue --queue-url u"                 ASK
+check "aws-ecr-batch-delete"      "aws ecr batch-delete-image --repository-name r"    ASK
+check "tf-state-rm"               "terraform state rm aws_db_instance.prod"          ASK
+check "tf-state-mv"               "terraform state mv a.b a.c"                       ASK
+check "tf-force-unlock"           "terraform force-unlock -force 1234"               ASK
+check "tf-taint"                  "terraform taint aws_instance.web"                 ASK
+check "kubectl-drain"             "kubectl drain node-1"                              ASK
+
+# --- the precision half: these must NOT fire -----------------------------------
+# Every one of these is routine work. A guard that fires here is a guard people
+# learn to click through, which costs exactly the signal it exists to give.
+check "tf-plan-allowed"           "terraform plan -out=tfplan"                       SILENT
+check "tf-state-list-allowed"     "terraform state list"                             SILENT
+check "tf-show-allowed"           "terraform show"                                   SILENT
+# cordon only marks a node unschedulable and uncordon reverses it; drain evicts.
+check "kubectl-cordon-allowed"    "kubectl cordon node-1"                             SILENT
+# Deliberately NOT a bare deregister- arm: this is a normal deploy step.
+check "ecs-deregister-taskdef-allowed" "aws ecs deregister-task-definition --task-definition t" SILENT
+check "aws-kms-describe-allowed"  "aws kms describe-key --key-id abc"                 SILENT
+
+# --- accepted, and asserted so it stays a DECISION rather than a surprise -------
+# The guard matches the verb wherever it appears, including inside a quoted string,
+# so prose mentioning a destructive command asks too. That is deliberate: stripping
+# quoted regions before matching (as the source repo does) is a BYPASS, because the
+# verb itself can be quoted -- "rm" -rf / runs perfectly well. The new patterns must
+# behave exactly like the pre-existing ones here, neither better nor worse.
+check "quoted-prose-preexisting"  "echo 'aws s3 rm s3://b --recursive'"               ASK
+check "quoted-prose-new-pattern"  "echo 'the runbook mentions terraform state rm'"   ASK
+
 rm -rf "$TMP"
 report
