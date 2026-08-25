@@ -1,9 +1,12 @@
 # Known Issues
 
-Status: **1 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24, #4 in v2.29.25, #2 in v2.29.26
+Status: **0 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · all four fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
+
+**Nothing is currently open.** Every entry below is closed; they are kept for the
+reproductions and for the bug classes they name, not as outstanding work.
 Per-release history lives in [`../CHANGELOG.md`](../CHANGELOG.md); this file is only
 for what is currently broken.
 
@@ -11,7 +14,7 @@ for what is currently broken.
 |---|---|---|---|
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
-| 3 | `claim-evidence-gate` matches substrings, not verdicts | medium | agent self-reporting |
+| ~~3~~ | ~~`claim-evidence-gate` matches substrings, not verdicts~~ | ~~medium~~ | **fixed v2.29.27** |
 | ~~4~~ | ~~`base64 -d` is still a bare-substring rule~~ | ~~low~~ | **fixed v2.29.25** |
 
 ---
@@ -87,7 +90,7 @@ and the gate falls back to in-place with a warning if the worktree cannot be cre
 
 ---
 
-## 3 — `claim-evidence-gate` matches substrings, not verdicts
+## 3 — `claim-evidence-gate` matches substrings, not verdicts — FIXED v2.29.27
 
 **Symptom.** The gate fires on statements that are not passing claims.
 
@@ -107,8 +110,24 @@ it, which costs exactly the signal the gate exists to provide. Note the gate was
 *substantively right* on the second firing — the suite did fail — which is what makes the
 false-positive mechanism easy to overlook.
 
-**Proposed fix.** Anchor the evidence scan on the fail marker rather than the word, and
-skip claim sentences carrying a negation.
+**Fixed in v2.29.27**, both halves separately.
+
+*Evidence scan.* Failure detection now runs per line and treats a line whose own verdict
+marker is `PASS`/`OK`/`✓` as green regardless of what its test NAME contains. ANSI is
+stripped first — the suite colours its markers, so a prefix match would otherwise never
+fire. This was worse than recorded: `FAIL_UPPER` matched `FAILED` inside the name on this
+repo's own green line, so a run reporting **0 failures** was read as failing, not merely
+mis-quoted.
+
+*Claim scan.* A new `DISCLAIM` pattern sits beside the existing `HEDGE` one. `HEDGE`
+covers conditionals ("once tests pass"); `DISCLAIM` covers retractions ("wrong",
+"inaccurate", "no longer", "does not hold").
+
+Both exemptions are bounded by an anti-bypass test: a red run containing `PASS` lines
+still blocks, and a retraction in one sentence does not excuse an unhedged claim in the
+next. Of the 5 new assertions, 3 fail against the pre-fix hook; the other 2 are those
+anti-bypass guards, which pass on both sides by design — an exemption test that failed
+before the exemption existed would be testing the wrong thing.
 
 ---
 

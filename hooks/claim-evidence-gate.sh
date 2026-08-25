@@ -84,6 +84,15 @@ HEDGE = re.compile(
     r"\b(if|once|when|after|assuming|unless|should|would|hope|expect|let'?s|need to|"
     r"make sure|verify that|check (that|whether)|to confirm)\b", re.I)
 
+# v2.29.27: a sentence that DISCLAIMS a figure is not a claim about it. The gate
+# fired on "...is accurate the way it was measured, and wrong in a clean checkout"
+# -- a sentence whose whole point was that the quoted number does not hold. HEDGE
+# covers conditionals ("once tests pass"); this covers retractions.
+DISCLAIM = re.compile(
+    r"\b(wrong|incorrect|inaccurate|misleading|stale|outdated|no longer|used to|"
+    r"overstated|does not hold|did not hold|not\s+(accurate|true|correct|the case))\b",
+    re.I)
+
 TEST_CMD = re.compile(
     r"\b(npm\s+(run\s+)?test|yarn\s+test|pnpm\s+(run\s+)?test|bun\s+test"
     r"|cargo\s+test|pytest|go\s+test|jest|vitest|mocha|rspec|phpunit"
@@ -100,8 +109,23 @@ FAIL_NUM = re.compile(
     r"(?<![\d,])(?!0\b)\d[\d,]*\s+(tests?\s+)?fail(ed|ures?)\b", re.I)
 FAIL_UPPER = re.compile(r"\bFAILED\b|\bFAIL\b|\bAssertionError\b|✗|✘")
 
+ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
+PASS_LINE = re.compile(r"^\s*(?:PASS|OK|ok|\u2713|\u2714)\b")
+
+# v2.29.27: a line whose OWN verdict marker is PASS is not failure evidence, no
+# matter what its test NAME contains. This repo's suite emits the green line
+#   PASS pytest FAILED markers are detected
+# and FAIL_UPPER matched "FAILED" inside that name -- so a fully green run read as
+# failing, and the block quoted a PASSING line as proof of failure. Strip ANSI
+# first: the suite colours its markers, so the prefix match would never fire.
+def _line_fails(line):
+    s = ANSI_RE.sub("", line)
+    if PASS_LINE.match(s):
+        return False
+    return bool(FAIL_NUM.search(s) or FAIL_UPPER.search(s))
+
 def is_failure(text):
-    return bool(FAIL_NUM.search(text) or FAIL_UPPER.search(text))
+    return any(_line_fails(ln) for ln in text.splitlines())
 
 def blocks(entry):
     msg = entry.get("message") or {}
@@ -123,7 +147,8 @@ for ln in lines:
             if b.get("type") == "text":
                 txt = b.get("text") or ""
                 for sent in re.split(r"(?<=[.!?\n])\s+", txt):
-                    if CLAIM.search(sent) and not HEDGE.search(sent):
+                    if CLAIM.search(sent) and not HEDGE.search(sent) \
+                            and not DISCLAIM.search(sent):
                         last_claim = sent.strip()[:180]
             elif b.get("type") == "tool_use" and b.get("name") == "Bash":
                 cmd = (b.get("input") or {}).get("command", "") or ""

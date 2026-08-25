@@ -175,5 +175,44 @@ begin_test "a REAL failure that was also killed still blocks"
 [ "$(rc_for failed_and_killed)" = "2" ] && pass \
   || fail "a genuine failure escaped the gate because the run was also killed"
 
+# --- v2.29.27: a PASS line is not failure evidence, whatever its NAME says ------
+# KNOWN-ISSUES #3, first false positive. FAIL_UPPER matched "FAILED" inside the
+# TEST NAME on this suite's own green line, so a run reporting 0 failures read as
+# failing and the block quoted a passing line as its proof. The marker is coloured
+# in real output, so the fixture carries ANSI too -- without stripping, the PASS
+# prefix never matches and this test would pass for the wrong reason.
+mk green_name_says_failed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "  \x1b[0;32mPASS\x1b[0m pytest FAILED markers are detected\nTotal: 3905 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "a green run whose test NAME contains FAILED does not block"
+[ "$(rc_for green_name_says_failed)" = "0" ] && pass \
+  || fail "blocked on a passing run: $(msg_for green_name_says_failed | head -3)"
+
+# The same shape must still block when the run ACTUALLY failed — the fix must not
+# turn the presence of any PASS line into a laundering route for a red run.
+mk real_fail_with_pass_lines 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "  \x1b[0;32mPASS\x1b[0m pytest FAILED markers are detected\n  \x1b[0;31mFAIL\x1b[0m the thing broke\nTotal: 3904 passed, 1 failed") + asst(text="All tests pass.")'
+begin_test "a red run containing PASS lines still blocks"
+[ "$(rc_for real_fail_with_pass_lines)" = "2" ] && pass \
+  || fail "a genuine failure was laundered by the PASS-line exemption"
+
+begin_test "the quoted evidence is a failing line, not a passing one"
+msg_for real_fail_with_pass_lines | grep -q 'FAILED markers are detected' \
+  && fail "quoted a PASSING line as proof of failure" || pass
+
+# --- v2.29.27: a sentence that DISCLAIMS a figure is not a claim ---------------
+# KNOWN-ISSUES #3, second false positive. The sentence's whole point was that the
+# quoted count does NOT hold on a clean checkout; the gate read it as an assertion
+# that it does. Note the gate was substantively right that the run was red, which
+# is what made the mechanism easy to overlook.
+mk disclaimed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 3888 passed, 1 failed\n  FAIL clean-tree only") + asst(text="The entry reads 3889 tests passing; that is accurate the way it was measured, and wrong in a clean checkout.")'
+begin_test "a sentence disclaiming a count is not treated as a passing claim"
+[ "$(rc_for disclaimed)" = "0" ] && pass \
+  || fail "fired on a sentence that retracted the figure"
+
+# The retraction exemption must not become a bypass: saying "wrong" anywhere in a
+# turn cannot excuse a separate, unhedged claim in its own sentence.
+mk disclaim_plus_claim 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 3888 passed, 1 failed\n  FAIL clean-tree only") + asst(text="My earlier count was wrong. All tests pass now.")'
+begin_test "a retraction elsewhere does not excuse a real claim"
+[ "$(rc_for disclaim_plus_claim)" = "2" ] && pass \
+  || fail "the disclaimer exemption leaked across sentences"
+
 rm -rf "$TD"
 report
