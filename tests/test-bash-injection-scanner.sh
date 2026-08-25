@@ -41,9 +41,17 @@ except Exception:
 }
 
 check() { # name  stdout  expected  [tool]
-  mkin "$TMP/$1.json" "$2" "${4:-Bash}"
+  # v2.29.25: the fixture filename is SLUGGED, not the raw test name. Two tests
+  # here are named "attempt: ..." and ':' is illegal in an NTFS filename, so on
+  # Git Bash mkin's open() raised, no fixture was written, the hook read nothing
+  # and reported SILENT -- the only 2 failures in the whole Windows suite, red
+  # since v2.29.22. The three "benign: ..." tests hit the SAME broken path but
+  # expect SILENT, so they passed vacuously and hid the cause. Same class as the
+  # drive-colon key this suite's sibling test-project-key-windows.sh covers.
+  local slug="${1//[^A-Za-z0-9]/_}"
+  mkin "$TMP/$slug.json" "$2" "${4:-Bash}"
   begin_test "$1"
-  local got; got=$(verdict "$TMP/$1.json")
+  local got; got=$(verdict "$TMP/$slug.json")
   [ "$got" = "$3" ] && pass || fail "expected $3, got $got"
 }
 
@@ -142,6 +150,26 @@ for c in 'cat hooks/safety.sh' 'cat ./cloned/bash-injection-notes.md'; do
   begin_test "self-exemption is not too wide: $c"
   [ "$(verdict "$TMP/self2.json")" = "WARN" ] && pass || fail "expected WARN — exemption is too wide"
 done
+
+# --- v2.29.25: the decode rule matches an EXECUTABLE construction, not a command name ---
+# Same class as v2.29.22's `jailbreak` fix, one rule over. The rule was the bare
+# token `base64 -d`, so it fired on any text that MENTIONED the command: a CVE
+# writeup, a runbook, this repo's own docs/KNOWN-ISSUES.md. Observed live -- reading
+# that file tripped the scanner, and the entry being read WAS the one describing
+# this defect. Decoded bytes are only dangerous once something EXECUTES them.
+# Assembled from a variable so this test file never contains a literal decode-to-shell.
+B="base""64"
+
+check "decode piped to sh"        "echo aGk= | $B -d | sh"                    WARN
+check "decode piped to bash"      "echo aGk= | $B --decode | bash"            WARN
+check "decode piped to zsh"       "$B -d payload.txt|zsh"                     WARN
+
+check "decode mentioned in prose" "The rule matches $B -d as a bare token."   SILENT
+check "decode in a runbook step"  "Decode the blob with $B -d and inspect it." SILENT
+check "decode to a file, no shell" "$B -d blob.txt > out.bin"                 SILENT
+
+# The live reproduction: this repo's own KNOWN-ISSUES entry must not trip the scanner.
+check "our own KNOWN-ISSUES text" "$(head -60 "$REPO_DIR/docs/KNOWN-ISSUES.md" 2>/dev/null)" SILENT
 
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 report

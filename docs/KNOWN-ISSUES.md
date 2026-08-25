@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **3 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24
+Status: **2 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24, #4 in v2.29.25
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -12,7 +12,7 @@ for what is currently broken.
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | 2 | `release.sh` gates on a dirty tree | high | trustworthy release gating |
 | 3 | `claim-evidence-gate` matches substrings, not verdicts | medium | agent self-reporting |
-| 4 | `base64 -d` is still a bare-substring rule | low | scanner signal rate |
+| ~~4~~ | ~~`base64 -d` is still a bare-substring rule~~ | ~~low~~ | **fixed v2.29.25** |
 
 ---
 
@@ -98,7 +98,7 @@ skip claim sentences carrying a negation.
 
 ---
 
-## 4 — `base64 -d` is still a bare-substring rule
+## 4 — `base64 -d` is still a bare-substring rule — FIXED v2.29.25
 
 **Location.** `hooks/bash-injection-scanner.sh`, patterns panel.
 
@@ -108,5 +108,26 @@ instruction, and is the same class of false positive: it fires on ordinary outpu
 mentions the command.
 
 Lower blast radius than the rule already fixed, because the panel scans command *output*
-rather than the command itself, so incidental hits are rarer. Same trade-off applies —
-tightening reduces catch rate on naive payloads.
+rather than the command itself, so incidental hits are rarer.
+
+**Reproduced live.** Reading this file tripped the scanner, and the entry being read was
+this one — the defect documented its own occurrence.
+
+**Fixed in v2.29.25.** The rule now requires the decode to be piped into a shell, which is
+the point at which decoded bytes actually execute. Bisected against the pre-fix hook; 5 of
+the 7 new assertions in `tests/test-bash-injection-scanner.sh` fail without the change.
+
+The predicted trade-off above did **not** materialise — catch rate went *up*, not down.
+The old rule was the literal string `base64 -d`, so it never matched `--decode` at all:
+
+| payload | pre-fix | post-fix |
+|---|---|---|
+| `-d` piped to `sh` | flagged | flagged |
+| `--decode` piped to `bash` | **missed** | **flagged** |
+| `-d` piped to `zsh` | flagged | flagged |
+| three prose/doc mentions | **flagged** (FP) | clean |
+| this file's own text | **flagged** (FP) | clean |
+
+Net: one payload class gained, four false positives dropped, no regression. The accepted
+cost is unchanged from v2.29.22's — a two-step payload that decodes to a file and runs it
+separately no longer matches *this* rule, and is left to the instruction-shaped rules.

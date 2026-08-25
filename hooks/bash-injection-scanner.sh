@@ -158,7 +158,22 @@ patterns = (
     (re.compile(r'\[inst\]'),                                                        'token injection'),
     (re.compile(r'<<sys>>'),                                                         'token injection'),
     (re.compile(r'aaaa[a-za-z0-9+/=]{20,}'),                                         'base64 payload'),
-    (re.compile(r'base64 -d'),                                                       'base64 decode'),
+    # v2.29.25: was the bare token, the last rule in this panel matching a
+    # COMMAND NAME rather than an executable construction -- the same class
+    # v2.29.22 fixed one rule above. It fired on any text mentioning the
+    # command: a CVE writeup, a runbook, this repo's own docs/KNOWN-ISSUES.md
+    # (observed live -- reading that file tripped this scanner, and the entry
+    # being read WAS the one describing this defect).
+    #
+    # Decoded bytes are only dangerous once something EXECUTES them, and in a
+    # one-liner that means piping into a shell. Requiring the pipe keeps every
+    # payload that could actually run and drops the mentions.
+    #
+    # Accepted cost, same as v2.29.22's: a two-step payload that decodes to a
+    # file and runs it separately no longer matches here. That shape has to
+    # say what to DO with the file, which the instruction-shaped rules above
+    # already cover.
+    (re.compile(r'base64\s+(?:-d|-D|--decode)\b[^|\n]*\|\s*(?:ba|z|k|da)?sh\b'),   'base64 decode to shell'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
 )
 

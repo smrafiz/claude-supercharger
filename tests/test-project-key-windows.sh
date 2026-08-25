@@ -140,4 +140,47 @@ begin_test "an empty supplied key falls back to deriving one"
 GOT=$(pkey_supplied '/Users/me/repo' '')
 [ "$GOT" = "$(bkey '/Users/me/repo')" ] && pass || fail "empty supplied key did not fall back: '$GOT'"
 
+# --- v2.29.25: the same drive-colon class, one layer up — in the TEST fixtures ---
+# test-bash-injection-scanner named its fixture files after the test name, and two
+# tests were named "attempt: ...". ':' is illegal in an NTFS filename, so on Git Bash
+# the fixture never got written, the hook read nothing and returned SILENT. Those were
+# the ONLY 2 failures in the entire Windows suite, red from v2.29.22 to v2.29.25 — and
+# three sibling tests with the same colon names expected SILENT, so they passed
+# VACUOUSLY and masked the cause. Discovered dynamically rather than by a fixed list,
+# so a new test file that adopts the name-as-filename pattern is covered too.
+begin_test "no test names a fixture file with a Windows-illegal character"
+_BAD=$(python3 - "$REPO_DIR" <<'PYEOF'
+import os, re, sys
+BAD = set('<>:"/\\|?*')
+root = os.path.join(sys.argv[1], "tests")
+# Files that build a fixture path out of a positional arg or a name variable.
+# RAW name straight into a fixture path. A helper that slugs first (the fix) is
+# fine and must NOT be flagged -- that is the whole point of slugging.
+PATTERN = re.compile(r'\$\{?TMP\}?/\$\{?(?:1|name)\}?\.|/\$\{?(?:1|name)\}?\.json')
+NAMED = re.compile(r'^\s*(?:check|expect|case)\w*\s+"([^"]+)"')
+out = []
+for fn in sorted(os.listdir(root)):
+    if not fn.endswith(".sh"):
+        continue
+    path = os.path.join(root, fn)
+    try:
+        txt = open(path, encoding="utf-8", errors="replace").read()
+    except OSError:
+        continue
+    if not PATTERN.search(txt):
+        continue
+    # This file uses a test name as a filename -- every name must be legal on NTFS.
+    for line in txt.splitlines():
+        m = NAMED.match(line)
+        if m and (set(m.group(1)) & BAD):
+            out.append("%s: %r" % (fn, m.group(1)))
+print("\n".join(out))
+PYEOF
+)
+if [ -z "$_BAD" ]; then
+  pass
+else
+  fail "test names used as fixture filenames contain NTFS-illegal characters (slug them in the helper): $_BAD"
+fi
+
 report
