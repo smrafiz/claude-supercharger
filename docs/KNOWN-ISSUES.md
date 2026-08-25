@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **2 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24, #4 in v2.29.25
+Status: **1 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · #1 fixed in v2.29.24, #4 in v2.29.25, #2 in v2.29.26
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -10,7 +10,7 @@ for what is currently broken.
 | # | Issue | Severity | Blocks |
 |---|---|---|---|
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
-| 2 | `release.sh` gates on a dirty tree | high | trustworthy release gating |
+| ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
 | 3 | `claim-evidence-gate` matches substrings, not verdicts | medium | agent self-reporting |
 | ~~4~~ | ~~`base64 -d` is still a bare-substring rule~~ | ~~low~~ | **fixed v2.29.25** |
 
@@ -55,7 +55,7 @@ as a cwd-resolution question rather than a git-discovery one.
 
 ---
 
-## 2 — `release.sh` gates on a dirty working tree
+## 2 — `release.sh` gates on a dirty working tree — FIXED v2.29.26
 
 **Symptom.** Issue 1 has never blocked a release, despite failing on any clean checkout.
 
@@ -68,8 +68,22 @@ match CI or a fresh clone.
 same conditions. The v2.29.22 entry reads *"3889 tests passing"*; a clean checkout of that
 same commit reports 3888 passed, 1 failed.
 
-**Proposed fix.** Run the gating suite against a clean checkout — a temporary worktree at
-the candidate commit is the cheapest route and needs no change to the tests themselves.
+**Fixed in v2.29.26.** The gate now builds a temporary detached worktree at `HEAD`,
+mirrors the working tree onto it (deletions, modifications, and untracked-but-not-ignored
+files), commits that state so the checkout is clean, and runs the suite there. The
+worktree is removed on exit, including on interrupt.
+
+What gets gated is the tree that is about to be **committed**: `release.sh` stages with
+`git add -A`, so untracked files are part of the candidate and are mirrored too. Ignored
+files are not, which is the point.
+
+Verified behaviourally rather than by inspection — the fixture's suite fails if the tree
+it runs in is dirty *and* fails if an untracked candidate file is missing, so one test
+proves both halves. Against the pre-fix script it fails with `the gate still ran in the
+dirty working tree`. `--dry-run` exits before the gate, so it never pays for a worktree.
+
+Escape hatch: `SUPERCHARGER_RELEASE_GATE_INPLACE=1` restores the old in-place behaviour,
+and the gate falls back to in-place with a warning if the worktree cannot be created.
 
 ---
 

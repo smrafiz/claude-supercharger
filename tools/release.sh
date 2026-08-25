@@ -112,14 +112,67 @@ fi
 # the CHANGELOG line. This used to be two full runs — one for the count, one to
 # gate — which turned a ~7-minute suite into a ~14-minute release and was a large
 # part of why this script went unused in favour of hand-rolled commits.
+# v2.29.26: gate on a CLEAN checkout, not on the release's own dirty tree.
+# The suite runs BEFORE the commit, so the tree always carried the candidate's
+# uncommitted changes at the moment tests executed. Any test whose outcome depends
+# on repo cleanliness was therefore evaluated under conditions that match neither CI
+# nor a fresh clone -- which is how KNOWN-ISSUES #1 failed every clean checkout while
+# never once blocking a release, and how each CHANGELOG test count was measured.
+#
+# What gets gated is the tree that is about to be COMMITTED: release.sh stages with
+# `git add -A`, so untracked-but-not-ignored files are part of the candidate and are
+# mirrored too. Ignored files are not, which is the point.
+GATE_DIR="$REPO_DIR"
+GATE_WT=""
+cleanup_gate_wt() {
+  [ -n "$GATE_WT" ] || return 0
+  git -C "$REPO_DIR" worktree remove --force "$GATE_WT" >/dev/null 2>&1 || rm -rf "$GATE_WT"
+  GATE_WT=""
+}
+trap cleanup_gate_wt EXIT INT TERM
+
+if [ "${SUPERCHARGER_RELEASE_GATE_INPLACE:-0}" != "1" ] \
+   && git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
+  _wt=$(mktemp -d); rm -rf "$_wt"
+  if git -C "$REPO_DIR" worktree add -q --detach "$_wt" HEAD >/dev/null 2>&1; then
+    GATE_WT="$_wt"
+    # Mirror the working tree onto the checkout: deletions first, then modified and
+    # untracked files. -z so paths with spaces or newlines survive.
+    while IFS= read -r -d '' f; do
+      rm -f "$_wt/$f"
+    done < <(git -C "$REPO_DIR" ls-files -z --deleted)
+    while IFS= read -r -d '' f; do
+      mkdir -p "$_wt/$(dirname "$f")"
+      cp -p "$REPO_DIR/$f" "$_wt/$f" 2>/dev/null || true
+    done < <(git -C "$REPO_DIR" ls-files -z --modified --others --exclude-standard)
+    # Commit so the gate sees a CLEAN tree -- the whole reason for the worktree.
+    git -C "$_wt" add -A >/dev/null 2>&1 || true
+    git -C "$_wt" -c user.email=release@local -c user.name=release \
+        commit -q -m "release candidate" >/dev/null 2>&1 || true
+    GATE_DIR="$_wt"
+  else
+    rm -rf "$_wt"
+    echo -e "${YELLOW}Could not create a worktree; gating in place.${NC}" >&2
+  fi
+fi
+
 echo ""
-echo -e "${BOLD}Running tests...${NC}"
-if ! TEST_OUTPUT=$(bash "$REPO_DIR/tests/run.sh" < /dev/null 2>&1); then
+if [ "$GATE_DIR" = "$REPO_DIR" ]; then
+  echo -e "${BOLD}Running tests...${NC} ${YELLOW}(in place -- tree is dirty)${NC}"
+else
+  echo -e "${BOLD}Running tests...${NC} (clean checkout of the candidate tree)"
+fi
+# cd INTO the gate dir: path-guard pins the project boundary to the session launch
+# directory, so running the worktree's suite from the original repo's cwd makes every
+# worktree path look like it is outside the project. Caught on this gate's first real
+# use -- test-project-config-scoping went 18/0 to 17/1 for exactly that reason.
+if ! TEST_OUTPUT=$(cd "$GATE_DIR" && bash tests/run.sh < /dev/null 2>&1); then
   printf '%s\n' "$TEST_OUTPUT" | tail -5
   echo -e "${RED}Tests failed. Aborting release.${NC}"
   exit 1
 fi
 printf '%s\n' "$TEST_OUTPUT" | tail -3
+cleanup_gate_wt
 
 # Last '<n> passed' in the output is the grand total (per-file totals precede it).
 TEST_COUNT=$(printf '%s\n' "$TEST_OUTPUT" | grep -oE '[0-9]+ passed' | grep -oE '[0-9]+' | tail -1 || echo "?")

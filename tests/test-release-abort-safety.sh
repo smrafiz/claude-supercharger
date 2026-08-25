@@ -109,4 +109,51 @@ bash "$FIX/tools/release.sh" patch -m "test" < /dev/null >/dev/null 2>&1 || true
   && pass || fail "released without an answer"
 rm -rf "$FIX"
 
+# --- v2.29.26: the gate runs against a CLEAN checkout of the candidate tree ---
+# KNOWN-ISSUES #2. The suite runs before the commit, so the tree always carried the
+# release's own uncommitted changes when tests executed -- conditions that match
+# neither CI nor a fresh clone. This fixture's suite FAILS if the tree it runs in is
+# dirty, and also requires an UNTRACKED candidate file to be present: together they
+# prove the gate sees a clean checkout that still contains everything about to be
+# committed (release.sh stages with add -A, so untracked files are part of the release).
+FIX=$(make_fixture)
+cat > "$FIX/tests/run.sh" <<'RUNEOF'
+#!/usr/bin/env bash
+R=$(cd "$(dirname "$0")/.." && pwd)
+if [ "$(pwd -P)" != "$(cd "$R" && pwd -P)" ]; then
+  echo "SUITE RAN FROM THE WRONG CWD: $(pwd -P) not $R"; echo "Total: 0 passed, 1 failed"; exit 1
+fi
+if [ -n "$(git -C "$R" status --porcelain 2>/dev/null)" ]; then
+  echo "SUITE SAW A DIRTY TREE"; echo "Total: 0 passed, 1 failed"; exit 1
+fi
+if [ ! -f "$R/candidate-new-file.txt" ]; then
+  echo "SUITE MISSING THE UNTRACKED CANDIDATE FILE"; echo "Total: 0 passed, 1 failed"; exit 1
+fi
+echo "Total: 42 passed, 0 failed"; exit 0
+RUNEOF
+git -C "$FIX" add -A >/dev/null 2>&1
+git -C "$FIX" commit -qm "gate fixture" >/dev/null 2>&1
+# Now dirty the tree exactly as a real release does: a tracked edit plus a new file.
+printf 'version-1.2.3-blue tests-10%%20passing\nlocal edit\n' > "$FIX/README.md"
+printf 'new hook shipped in this release\n' > "$FIX/candidate-new-file.txt"
+OUT=$(printf 'y\ny\n' | bash "$FIX/tools/release.sh" patch -m "clean gate" 2>&1) || true
+
+begin_test "release gate runs the suite against a clean checkout, not the dirty tree"
+if printf '%s' "$OUT" | grep -q 'SUITE SAW A DIRTY TREE'; then
+  fail "the gate still ran in the dirty working tree"
+elif printf '%s' "$OUT" | grep -q 'SUITE MISSING THE UNTRACKED CANDIDATE FILE'; then
+  fail "the clean checkout dropped an untracked file that is part of the release"
+else
+  grep -q 'VERSION="1.2.4"' "$FIX/lib/utils.sh" && pass \
+    || fail "release did not complete; output: $(printf '%s' "$OUT" | tail -5)"
+fi
+
+begin_test "the CHANGELOG test count comes from the clean run"
+grep -q '42 tests passing' "$FIX/CHANGELOG.md" && pass \
+  || fail "expected the clean-run count in CHANGELOG: $(grep -m1 '1.2.4' "$FIX/CHANGELOG.md")"
+
+begin_test "the gate worktree is removed after the release"
+_LEFT=$(git -C "$FIX" worktree list 2>/dev/null | wc -l | tr -d ' ')
+[ "${_LEFT:-0}" -eq 1 ] && pass || fail "expected only the main worktree, got $_LEFT: $(git -C "$FIX" worktree list)"
+
 report

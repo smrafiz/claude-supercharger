@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.26] - 2026-08-25 — gate the release suite on a clean checkout of the candidate tree instead of the release's own dirty working tree. 3905 tests passing.
 - [2.29.25] - 2026-08-25 — tighten the decode rule to require execution, and fix the Windows-only fixture-filename defect that kept the injection-scanner suite red since v2.29.22. 3902 tests passing.
 - [2.29.24] - 2026-08-25 — fix(tests): e2e suite passes on a clean tree — the cause was an unsourced helper
 
