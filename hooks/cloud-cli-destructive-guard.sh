@@ -10,7 +10,10 @@
 # So `aws ec2 terminate-instances`, `aws rds delete-db-instance`, `az group delete`,
 # `kubectl delete namespace`, `helm uninstall`, `gsutil rm -r`, `gcloud … delete`
 # slipped through. This ASKS (user confirms) on those — matching the MCP channel.
-# (terraform/tofu destroy is already blocked by safety.sh, so it is not covered here.)
+# (terraform/tofu DESTROY is already denied by human-approval-gate, so it is
+# not repeated here -- but v2.29.28 did add the IaC STATE verbs (state rm/mv,
+# force-unlock, taint), and v2.29.30 adds local `rsync --delete`. The scope is
+# now destructive bulk data/infra ops on the Bash channel, not cloud CLIs alone.)
 # Advisory + fail-open; disable with SUPERCHARGER_CLOUD_CLI_GUARD=0.
 # Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0
 set -uo pipefail
@@ -33,6 +36,7 @@ case "$_INPUT" in
   # a pattern added under a fast-path that cannot reach it is a silently inert
   # guard, which is exactly how tool-preferences shipped dead in v2.29.23.
   *terraform*|*tofu*|*terragrunt*) : ;;
+  *rsync*) : ;;
   *) exit 0 ;;
 esac
 
@@ -83,11 +87,19 @@ elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[[:sp
 # reverses it. drain EVICTS running pods -- without a PodDisruptionBudget that
 # can take every replica down at once.
 elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]drain([[:space:]]|$)';                       then op="kubectl drain (evicts running workloads)"
+# v2.29.30: rsync --delete turns a copy into a MIRROR -- every file in the target
+# that is absent from the source is removed. The classic loss is a trailing-slash
+# slip on the source path, which silently empties a live directory. ASK, not deny:
+# deletion is a MODE of rsync rather than its purpose, and it is routine in deploys,
+# so a hard block would fire on ordinary work. Same tier as aws s3 rm --recursive.
+# Covers the aliases too (--del is --delete-during); plain rsync never matches.
+elif printf '%s' "$CMD" | grep -Eq -- 'rsync[^;&|]*--del(ete(-(before|during|delay|after|excluded))?)?([[:space:]]|$)'; then op="rsync --delete (mirrors: removes target files missing from the source)"; op_reason="rsync is running in MIRROR mode: --delete removes every file in the destination that is not in the source. Check the SOURCE path trailing slash and confirm the destination is what you mean -- this is the shape that empties a live directory."
 fi
 
 [ -z "$op" ] && exit 0
 
-reason="destructive cloud operation via the native CLI: ${op}. This tears down cloud infrastructure/data and is typically irreversible — the same op is confirmed on the MCP channel (mcp-destructive-guard), so it is confirmed here too. Verify the target account/project/cluster and that this is intended."
+reason="${op_reason:-}"
+[ -z "$reason" ] && reason="destructive cloud operation via the native CLI: ${op}. This tears down cloud infrastructure/data and is typically irreversible — the same op is confirmed on the MCP channel (mcp-destructive-guard), so it is confirmed here too. Verify the target account/project/cluster and that this is intended."
 RSN=$(printf '%s' "$reason" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$reason")
 printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
 echo "[Supercharger] cloud-cli-destructive-guard: ASK on ${op}" >&2

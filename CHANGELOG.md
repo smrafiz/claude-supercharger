@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.30] - 2026-08-26 — guard local rsync --delete at ask tier, and stop gating the json-fast size-gate speedup on a wall-clock ratio on Windows, where per-process spawn cost dilutes it. 3951 tests passing.
 - [2.29.29] - 2026-08-26 — treat a test command that ran no tests as unevidenced rather than green: collect-only, fully deselected, passWithNoTests and zero-total runs no longer read as a passing suite. 3938 tests passing.
 - [2.29.28] - 2026-08-25 — cover the destruction verbs and IaC state operations cloud-cli-destructive-guard missed: KMS key deletion, secret deletion, AMI deregister, queue purge, ECR batch delete, terraform state rm/mv, force-unlock, taint, and kubectl drain. 3929 tests passing.
 - [2.29.27] - 2026-08-25 — make claim-evidence-gate match verdicts rather than substrings: a PASS line is not failure evidence whatever its test name says, and a sentence retracting a figure is not a claim about it. 3910 tests passing.

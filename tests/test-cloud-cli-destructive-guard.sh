@@ -100,5 +100,47 @@ check "aws-kms-describe-allowed"  "aws kms describe-key --key-id abc"           
 check "quoted-prose-preexisting"  "echo 'aws s3 rm s3://b --recursive'"               ASK
 check "quoted-prose-new-pattern"  "echo 'the runbook mentions terraform state rm'"   ASK
 
+# --- v2.29.30: rsync --delete ------------------------------------------------
+# --delete turns a copy into a MIRROR: every file in the destination that is
+# absent from the source is removed. The classic loss is a trailing-slash slip on
+# the source, which silently empties a live directory. Probed before the fix: the
+# LOCAL-target form was allowed outright; the remote form only tripped ASK by
+# accident, via bulk-exfil-guard, which is about exfiltration and not deletion.
+#
+# ASK, not deny: deletion is a MODE of rsync rather than its purpose, and mirroring
+# is routine in deploys -- a hard block would fire on ordinary work. Same tier as
+# aws s3 rm --recursive.
+check "rsync-delete-local"        "rsync -a --delete ./src/ /var/www/"          ASK
+check "rsync-delete-remote"       "rsync -av --delete-after ./b/ user@h:/srv/"  ASK
+check "rsync-delete-before"       "rsync -a --delete-before src/ dst/"          ASK
+check "rsync-delete-during"       "rsync -a --delete-during src/ dst/"          ASK
+check "rsync-delete-delay"        "rsync -a --delete-delay src/ dst/"           ASK
+check "rsync-delete-excluded"     "rsync -a --delete-excluded src/ dst/"        ASK
+# --del is rsync's documented alias for --delete-during; covering the long form
+# only would leave the short one silently unguarded.
+check "rsync-del-alias"           "rsync -a --del src/ dst/"                    ASK
+
+# --- precision: rsync WITHOUT --delete is an ordinary copy --------------------
+check "rsync-plain-local"         "rsync -a ./src/ ./backup/"                   SILENT
+check "rsync-plain-remote"        "rsync -avz src/ user@host:/srv/"             SILENT
+check "rsync-dry-run"             "rsync --dry-run -a src/ dst/"                SILENT
+check "rsync-help"                "rsync --help"                                SILENT
+# "deleted" in prose is not the --delete flag.
+check "rsync-word-deleted-prose"  "echo 'the deleted files are in deleted.txt'" SILENT
+
+# The reason must describe THIS operation. The shared cloud wording tells the user
+# to "verify the target account/project/cluster", which is meaningless for a local
+# directory sync and trains people to skim the prompt.
+mkcmd "$TMP/rsync-reason.json" "rsync -a --delete ./src/ /var/www/"
+begin_test "the rsync prompt explains mirroring, not cloud accounts"
+_RSN=$(bash "$HOOK" < "$TMP/rsync-reason.json" 2>/dev/null)
+if printf '%s' "$_RSN" | grep -q 'account/project/cluster'; then
+  fail "cloud wording leaked into a local rsync prompt"
+elif printf '%s' "$_RSN" | grep -q 'MIRROR mode'; then
+  pass
+else
+  fail "reason did not explain mirroring: $(printf '%s' "$_RSN" | head -c 120)"
+fi
+
 rm -rf "$TMP"
 report
