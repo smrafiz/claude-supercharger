@@ -98,6 +98,83 @@ sys.stdout.write('\n'.join(out))
 SCPYEOF
 }
 
+# v2.29.33: ONE implementation of the wrapper prelude, called from every path that
+# needs it. v2.29.32 fixed the copy in normalize_cmd and left three others -- the
+# split_segments fast path, and two regexes inside the python splitter -- all still
+# carrying the old narrow `sudo|command|env`. The result was a fix that held only
+# while the command had NO separator: `nohup rm -rf /` was blocked, `true; nohup
+# rm -rf /` was not, because a separator routes through the python splitter whose
+# own prefix rule had not been updated. Exactly the sibling-branch defect this
+# release set out to fix, committed while fixing it.
+#
+# Callers must never re-implement this. A second copy is a second bug.
+_sc_strip_wrapper_prelude() {
+  local cmd="$1"
+# v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
+# and that was two defects at once, both found by probing the live hooks against
+# kenryu42/cc-safety-net's wrapper-prelude analyzer:
+#
+#   1. The set was too small. `nohup rm -rf /`, `timeout 5 rm -rf /`,
+#      `setsid git push --force` -- none were stripped, so the first token seen
+#      was the wrapper and EVERY pattern in every guard sourcing this helper
+#      missed. Not one rule bypassed: all of them, uniformly.
+#   2. Of the three it did know, it only matched the BARE form. `sudo` stripped,
+#      `sudo -u root` did not. `env` stripped, `env -i` did not. Measured: 21 of
+#      21 wrapper/rule combinations bypassed on the option-carrying forms.
+#
+# Options are consumed per wrapper, because an option that TAKES A VALUE would
+# otherwise leave the value behind as the apparent command (`sudo -u root rm` ->
+# `root rm`). Value-taking sets mirror sudo(8)/env(1)/nice(1)/timeout(1).
+# Fork-free: this runs on every Bash tool call in the most-fired hook.
+#
+# NOT a weakening: no rule in the four guards that source this helper matches on
+# a wrapper word, so removing one can only expose the real command underneath.
+local _w _tok
+while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
+  _w="${BASH_REMATCH[1]}"
+  cmd="${cmd#${BASH_REMATCH[0]}}"
+  while :; do
+    cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+    case "$cmd" in
+      -*)
+        _tok="${cmd%%[[:space:]]*}"
+        cmd="${cmd#"$_tok"}"
+        # An option that takes a SEPARATE value: drop the value too, or it reads
+        # as the command. `--opt=value` is one token and needs no second drop.
+        case "${_w}:${_tok}" in
+          sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
+          env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
+          nice:-n|ionice:-c|ionice:-n|ionice:-p|\
+          timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
+          stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
+          xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
+          parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
+            cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+            _tok="${cmd%%[[:space:]]*}"
+            cmd="${cmd#"$_tok"}"
+            ;;
+        esac
+        continue
+        ;;
+    esac
+    # Positional numeric argument: `timeout 5 cmd`, `nice 10 cmd`, `taskset 0x3 cmd`.
+    # Only for wrappers that take one -- never for sudo/env, where the next token
+    # IS the command and dropping it would hide what actually runs.
+    case "$_w" in
+      timeout|nice|ionice|chrt|taskset)
+        _tok="${cmd%%[[:space:]]*}"
+        case "$_tok" in
+          ''|*[!0-9smhdx.+-]*) : ;;
+          *) cmd="${cmd#"$_tok"}"; continue ;;
+        esac
+        ;;
+    esac
+    break
+  done
+done
+  printf '%s' "$cmd"
+}
+
 normalize_cmd() {
   local cmd="$1"
   # Data-only heredoc bodies come out before any matching happens, so every guard
@@ -113,68 +190,7 @@ normalize_cmd() {
   cmd="${cmd%"${cmd##*[![:space:]]}"}"
   # Strip one leading backslash (was sed 's/^\\//').
   cmd="${cmd#\\}"
-  # v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
-  # and that was two defects at once, both found by probing the live hooks against
-  # kenryu42/cc-safety-net's wrapper-prelude analyzer:
-  #
-  #   1. The set was too small. `nohup rm -rf /`, `timeout 5 rm -rf /`,
-  #      `setsid git push --force` -- none were stripped, so the first token seen
-  #      was the wrapper and EVERY pattern in every guard sourcing this helper
-  #      missed. Not one rule bypassed: all of them, uniformly.
-  #   2. Of the three it did know, it only matched the BARE form. `sudo` stripped,
-  #      `sudo -u root` did not. `env` stripped, `env -i` did not. Measured: 21 of
-  #      21 wrapper/rule combinations bypassed on the option-carrying forms.
-  #
-  # Options are consumed per wrapper, because an option that TAKES A VALUE would
-  # otherwise leave the value behind as the apparent command (`sudo -u root rm` ->
-  # `root rm`). Value-taking sets mirror sudo(8)/env(1)/nice(1)/timeout(1).
-  # Fork-free: this runs on every Bash tool call in the most-fired hook.
-  #
-  # NOT a weakening: no rule in the four guards that source this helper matches on
-  # a wrapper word, so removing one can only expose the real command underneath.
-  local _w _tok
-  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
-    _w="${BASH_REMATCH[1]}"
-    cmd="${cmd#${BASH_REMATCH[0]}}"
-    while :; do
-      cmd="${cmd#"${cmd%%[![:space:]]*}"}"
-      case "$cmd" in
-        -*)
-          _tok="${cmd%%[[:space:]]*}"
-          cmd="${cmd#"$_tok"}"
-          # An option that takes a SEPARATE value: drop the value too, or it reads
-          # as the command. `--opt=value` is one token and needs no second drop.
-          case "${_w}:${_tok}" in
-            sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
-            env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
-            nice:-n|ionice:-c|ionice:-n|ionice:-p|\
-            timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
-            stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
-            xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
-            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
-              cmd="${cmd#"${cmd%%[![:space:]]*}"}"
-              _tok="${cmd%%[[:space:]]*}"
-              cmd="${cmd#"$_tok"}"
-              ;;
-          esac
-          continue
-          ;;
-      esac
-      # Positional numeric argument: `timeout 5 cmd`, `nice 10 cmd`, `taskset 0x3 cmd`.
-      # Only for wrappers that take one -- never for sudo/env, where the next token
-      # IS the command and dropping it would hide what actually runs.
-      case "$_w" in
-        timeout|nice|ionice|chrt|taskset)
-          _tok="${cmd%%[[:space:]]*}"
-          case "$_tok" in
-            ''|*[!0-9smhdx.+-]*) : ;;
-            *) cmd="${cmd#"$_tok"}"; continue ;;
-          esac
-          ;;
-      esac
-      break
-    done
-  done
+  cmd=$(_sc_strip_wrapper_prelude "$cmd")
   # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
   # Fuzz harness found this bypass: `env FOO=bar rm -rf /` stripped to
   # `FOO=bar rm -rf /` and the first token check saw `FOO=bar` instead of `rm`,
@@ -200,13 +216,16 @@ split_segments() {
   # those chars ANYWHERE (even inside quotes) falls through to the quote-aware
   # python splitter, so this can never mis-split a quoted separator.
   case "$cmd" in
-    *'&'*|*'|'*|*';'*) ;;
+    # v2.29.33: newline added. It is a shell separator like the rest, and
+    # omitting it sent `true<newline>nohup rm -rf /` down the single-segment
+    # path, where only the FIRST command had its wrapper stripped.
+    *'&'*|*'|'*|*';'*|*$'\n'*) ;;
     *)
       local seg="$cmd"
       # Mirror the python per-segment logic (strip() first, THEN prefixes) so the
       # fast-path is self-contained and order-identical to the fork path.
       seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
-      while [[ "$seg" =~ ^(sudo|command|env)[[:space:]]+ ]]; do seg="${seg#${BASH_REMATCH[0]}}"; done
+      seg=$(_sc_strip_wrapper_prelude "$seg")
       while [[ "$seg" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do seg="${seg#${BASH_REMATCH[0]}}"; done
       [ -n "$seg" ] && printf '%s\n' "$seg"
       return ;;
@@ -268,11 +287,12 @@ prefixes = re.compile(r'^(sudo|command|env)\s+')
 env_var = re.compile(r'^[A-Za-z_][A-Za-z0-9_]*=\S*\s+')
 for seg in segments:
     seg = seg.strip()
-    while True:
-        m = prefixes.match(seg)
-        if not m:
-            break
-        seg = seg[m.end():].lstrip()
+    # v2.29.33: prefix stripping REMOVED here on purpose. It handled only the
+    # bare forms, so an option-carrying wrapper came out with its OPTIONS left at
+    # the front -- no longer starting with a wrapper word, so the shared bash
+    # stripper below could not recognise it either. One stripper, one place:
+    # _sc_strip_wrapper_prelude. (No backticks in this block: bash would
+    # command-substitute them, as it did when this comment was first written.)
     while True:
         m = env_var.match(seg)
         if not m:
@@ -280,5 +300,11 @@ for seg in segments:
         seg = seg[m.end():].lstrip()
     if seg:
         print(seg)
-" 2>/dev/null
+" 2>/dev/null | while IFS= read -r _seg; do
+    # The python splitter strips only sudo/command/env (its own historical copy).
+    # Re-run every segment through the shared stripper so the separator path and
+    # the fork-free path cannot drift apart again.
+    _seg=$(_sc_strip_wrapper_prelude "$_seg")
+    [ -n "$_seg" ] && printf '%s\n' "$_seg"
+  done
 }

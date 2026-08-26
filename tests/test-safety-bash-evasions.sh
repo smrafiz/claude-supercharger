@@ -166,4 +166,38 @@ begin_test "safety: nohup around a server is allowed"
 begin_test "safety: xargs with a read-only downstream is allowed"
 [ "$(verdict "find . -name '*.md' | xargs wc -l")" = ALLOW ] && pass || fail "over-blocked xargs wc"
 
+# --- v2.29.33: the wrapper fix held ONLY without a separator -----------------
+# v2.29.32 updated normalize_cmd and left three other copies of the same rule --
+# the split_segments fast path and two regexes inside the python splitter. So
+# "nohup rm -rf /" was blocked while "true; nohup rm -rf /" was not: a separator
+# routes through the python splitter, whose prefix rule was still the old narrow
+# set. The fix that closed a sibling-branch defect contained one.
+#
+# Two further causes surfaced under test: the python splitter pre-stripped BARE
+# prefixes, leaving the OPTIONS of an option-carrying wrapper at the front of the
+# segment (so the real stripper no longer saw a wrapper word); and newline was
+# missing from the fast-path separator set, so a newline-separated command was
+# treated as ONE segment and only its first command was unwrapped.
+#
+# There is now one stripper, _sc_strip_wrapper_prelude, and every path calls it.
+for _sep in "true; " "true && " "false || " "true & " "echo hi | "; do
+  for _w in "nohup " "timeout 5 " "sudo -u root " "env -i " "nice -n 10 " "setsid "; do
+    begin_test "safety: separator '${_sep%% *}' + wrapper '${_w%% *}' still blocks rm"
+    [ "$(verdict "${_sep}${_w}rm -rf /")" = BLOCK ] && pass \
+      || fail "separator+wrapper bypass: ${_sep}${_w}rm -rf /"
+  done
+done
+
+# Newline is a separator too -- it was the one missing from the fast-path set.
+begin_test "safety: newline separator + wrapper still blocks"
+[ "$(verdict "$(printf 'true\nnohup rm -rf /')")" = BLOCK ] && pass || fail "newline+wrapper bypassed"
+begin_test "safety: newline separator + option-carrying wrapper still blocks"
+[ "$(verdict "$(printf 'true\nsudo -u root rm -rf /')")" = BLOCK ] && pass || fail "newline+sudo -u bypassed"
+
+# Precision: ordinary chained work must stay allowed.
+begin_test "safety: chained ordinary commands are allowed"
+[ "$(verdict "npm ci && timeout 300 npm test")" = ALLOW ] && pass || fail "over-blocked a chained test run"
+begin_test "safety: chained nohup server start is allowed"
+[ "$(verdict "cd app && nohup npm run dev")" = ALLOW ] && pass || fail "over-blocked a chained server start"
+
 report
