@@ -51,8 +51,15 @@ POLICY = {
     "LD_PRELOAD": "any", "DYLD_INSERT_LIBRARIES": "any",
     "BASH_ENV": "any", "ENV": "any", "PYTHONSTARTUP": "any",
     # Command-injection-shaped value only (a plain `ssh -i key` / `history -a` passes).
-    "PROMPT_COMMAND": "shaped", "GIT_SSH_COMMAND": "shaped",
-    "GIT_SSH": "shaped", "GIT_EXTERNAL_DIFF": "shaped",
+    "PROMPT_COMMAND": "shaped",
+    # v2.29.31: these three name a PROGRAM git will execute, so the value is a
+    # command by definition -- `GIT_SSH_COMMAND=id git fetch` runs id, with no shell
+    # gadget for the "shaped" test to find. "shaped" was too permissive: it only
+    # caught values carrying $( , a pipe, or a script suffix. The legitimate value is
+    # always some form of ssh, so the honest test is "does the first token invoke
+    # ssh". Found by diffing against kenryu42/cc-safety-net (git.ssh-env).
+    "GIT_SSH_COMMAND": "ssh-exec", "GIT_SSH": "ssh-exec",
+    "GIT_EXTERNAL_DIFF": "ssh-exec",
     "NODE_OPTIONS": "node", "PERL5OPT": "perl", "RUBYOPT": "ruby",
     "LD_LIBRARY_PATH": "writable", "DYLD_LIBRARY_PATH": "writable",
     "PYTHONPATH": "writable",
@@ -72,6 +79,17 @@ def dangerous(policy, val):
         return False
     if policy == "any":     return True
     if policy == "shaped":  return bool(SHAPED.search(v))
+    if policy == "ssh-exec":
+        # Anything shell-shaped is dangerous regardless of the program named.
+        if SHAPED.search(v):
+            return True
+        # Otherwise: flag unless the program actually is ssh. `ssh -i ~/.ssh/id`,
+        # `/usr/bin/ssh -o X=y` and `ssh.exe` all pass; `id`, `/tmp/x`, `curl` do not.
+        first = v.split()[0] if v.split() else ""
+        base = first.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
+        if base.endswith(".exe"):
+            base = base[:-4]
+        return base != "ssh"
     if policy == "writable":return bool(WRITABLE.search(v))
     if policy == "node":    return bool(NODE.search(v))
     if policy == "perl":    return bool(PERL.search(v))

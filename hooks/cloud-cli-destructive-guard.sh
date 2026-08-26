@@ -37,6 +37,8 @@ case "$_INPUT" in
   # guard, which is exactly how tool-preferences shipped dead in v2.29.23.
   *terraform*|*tofu*|*terragrunt*) : ;;
   *rsync*) : ;;
+  *xargs*) : ;;
+  *parallel*) : ;;
   *) exit 0 ;;
 esac
 
@@ -94,6 +96,25 @@ elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]drain([[:space:]
 # so a hard block would fire on ordinary work. Same tier as aws s3 rm --recursive.
 # Covers the aliases too (--del is --delete-during); plain rsync never matches.
 elif printf '%s' "$CMD" | grep -Eq -- 'rsync[^;&|]*--del(ete(-(before|during|delay|after|excluded))?)?([[:space:]]|$)'; then op="rsync --delete (mirrors: removes target files missing from the source)"; op_reason="rsync is running in MIRROR mode: --delete removes every file in the destination that is not in the source. Check the SOURCE path trailing slash and confirm the destination is what you mean -- this is the shape that empties a live directory."
+# v2.29.31: xargs turns its downstream tokens into a command, so a read-only-looking
+# producer becomes arbitrary execution: `find . -name '*.tmp' | xargs rm -rf`.
+# ggwhite/4x excludes xargs from its safe-filter allowlist for exactly this reason
+# (tee is the sibling case, handled in safety.sh).
+#
+# ASK, not deny, and that is a deliberate constraint: this repo has already decided
+# that `rm -rf <project subdir>` stays ALLOWED rather than becoming a false-positive
+# machine. Fanning that same operation out over find's results does not change its
+# nature, so blocking here would contradict that decision and fire on routine
+# cleanup. Confirming once is the honest tier.
+elif printf '%s' "$CMD" | grep -Eq -- 'xargs([[:space:]]+-[^[:space:]]+)*[[:space:]]+(sudo[[:space:]]+)?rm([[:space:]]+-[a-zA-Z]*[rf])'; then op="xargs rm -r/-f (deletes every path the upstream command produced)"; op_reason="This deletes every path the upstream command emits, and the list is not visible in the command itself. Run the producer alone first and read its output, then confirm the deletion." 
+# v2.29.31: GNU parallel is xargs' sibling -- it also turns downstream tokens into a
+# command, and it was left open when the xargs arm shipped earlier in this same
+# release. kenryu42/cc-safety-net lists parallel.* and xargs.* side by side, which is
+# what surfaced it. Covering one arm of a pair and not the other is the recurring
+# defect class here, so both now sit in the same place.
+# ASK for the same reason as xargs: this repo allows `rm -rf <project subdir>`.
+elif printf '%s' "$CMD" | grep -Eq -- 'parallel([[:space:]]+-[^[:space:]]+)*[[:space:]]+(sudo[[:space:]]+)?rm([[:space:]]+-[a-zA-Z]*[rf])'; then op="parallel rm -r/-f (deletes every path the upstream command produced)"; op_reason="GNU parallel runs the deletion once per input line, and that list is not visible in the command itself. Run the producer alone first and read its output, then confirm."
+elif printf '%s' "$CMD" | grep -Eq -- 'parallel([[:space:]]+-[^[:space:]]+)*[[:space:]]+(ba|z|k|da)?sh([[:space:]]|$)'; then op="parallel into a shell (runs an arbitrary command per input line)"; op_reason="GNU parallel is being handed a shell, so every line of upstream output becomes a command. Confirm the input is trusted and bounded." 
 fi
 
 [ -z "$op" ] && exit 0

@@ -273,6 +273,22 @@ while IFS= read -r seg; do
     block "git reflog expire --expire=now destroys the reflog — the safety net that makes reset --hard, branch -D and a bad rebase recoverable"
   fi
 
+  # v2.29.31: `reflog delete` is `reflog expire`'s sibling and removes individual
+  # entries -- the same recovery net, taken away one entry at a time. The rule above
+  # covered only `expire`, so this was open. From kenryu42/cc-safety-net's
+  # git.reflog-delete rule.
+  if [[ "$seg" =~ ^git\ reflog[[:space:]]+delete ]]; then
+    block "git reflog delete removes reflog entries — the safety net that makes reset --hard, branch -D and a bad rebase recoverable"
+  fi
+
+  # v2.29.31: `push --mirror` makes the remote match local EXACTLY -- every remote
+  # branch and tag absent locally is DELETED, without --force appearing anywhere, so
+  # the force-push rules above never saw it. One command, every colleague's branches.
+  # From kenryu42/cc-safety-net's git.push-mirror rule.
+  if [[ "$seg" =~ ^git\ push ]] && [[ "$seg" =~ (^|[[:space:]])--mirror([[:space:]]|$) ]]; then
+    block "git push --mirror force-updates the remote to match local exactly — every remote branch and tag you do not have locally is DELETED"
+  fi
+
   # Deleting a ref by hand bypasses every branch-deletion check above.
   if [[ "$seg" =~ ^git\ update-ref[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])-d([[:space:]]|$) ]]; then
     block "git update-ref -d deletes a ref directly, bypassing branch-deletion safety"

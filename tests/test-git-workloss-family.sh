@@ -126,4 +126,26 @@ for verb in switch reflog prune filter-branch filter-repo worktree rebase update
     || fail "gate drops $verb before any rule can see it"
 done
 
+# --- v2.29.31: two more arms of the same family -----------------------------
+# Found by diffing the live hooks against kenryu42/cc-safety-net's rule set. Both
+# are siblings of rules this file already owns, which is the exact pattern its
+# header describes.
+#
+# `reflog expire` was covered; `reflog delete` was not. Same recovery net, removed
+# one entry at a time instead of all at once.
+expect "git reflog delete HEAD@{0}" BLOCK
+expect "git reflog delete --rewrite HEAD@{1}" BLOCK
+
+# `push --force` was covered; `push --mirror` was not -- and --mirror needs no
+# force flag at all. It makes the remote match local EXACTLY, so every remote
+# branch and tag you do not have locally is deleted. One command, everyone's work.
+expect "git push --mirror origin" BLOCK
+expect "git push origin --mirror" BLOCK
+
+# Precision: ordinary pushes and reflog reads must stay out of the way.
+expect "git push origin main" allow
+expect "git push --tags origin" allow
+expect "git reflog" allow
+expect "git reflog show HEAD" allow
+
 report

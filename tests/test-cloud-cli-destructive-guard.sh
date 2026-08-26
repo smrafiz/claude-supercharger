@@ -142,5 +142,42 @@ else
   fail "reason did not explain mirroring: $(printf '%s' "$_RSN" | head -c 120)"
 fi
 
+# --- v2.29.31: xargs turns downstream tokens into a command ------------------
+# `find . -name '*.tmp' | xargs rm -rf` deletes every path the producer emits, and
+# that list is invisible in the command itself. ggwhite/4x excludes xargs from its
+# safe-filter allowlist for exactly this reason (tee is the sibling case, handled in
+# safety.sh).
+#
+# ASK, not deny, and the constraint is deliberate: this repo already decided that
+# `rm -rf <project subdir>` stays ALLOWED rather than becoming a false-positive machine.
+# Fanning that same operation over find's results does not change its nature, so a
+# block here would contradict that decision and fire on routine cleanup.
+check "xargs-rm-rf"            "find . -name '*.tmp' | xargs rm -rf"      ASK
+check "xargs-rm-r"             "git ls-files -d | xargs rm -r"           ASK
+check "xargs-rm-f"             "cat list.txt | xargs rm -f"              ASK
+check "xargs-flags-then-rm"    "find . | xargs -0 -n1 rm -rf"            ASK
+check "xargs-sudo-rm"          "find /srv | xargs sudo rm -rf"           ASK
+
+# --- precision: xargs with a read-only downstream is ordinary shell -----------
+check "xargs-ls-allowed"        "find . -name '*.pyc' | xargs ls -la"        SILENT
+check "xargs-grep-allowed"      "git ls-files | xargs grep -l TODO"          SILENT
+check "xargs-file-allowed"      "find . -name '*.o' | xargs file"            SILENT
+check "xargs-wc-allowed"        "find . -name '*.md' | xargs wc -l"          SILENT
+
+# --- v2.29.31: GNU parallel is xargs' sibling --------------------------------
+# The xargs arm shipped earlier in THIS release and left parallel open. cc-safety-net
+# lists parallel.* and xargs.* side by side, which is what surfaced it -- covering one
+# arm of a pair and not the other is the recurring defect class in this repo.
+check "parallel-rm-rf"         "cat list | parallel rm -rf {}"          ASK
+check "parallel-rm-r"          "find . | parallel rm -r {}"             ASK
+check "parallel-flags-then-rm" "cat l | parallel -j4 rm -rf {}"         ASK
+check "parallel-shell"          "cat list | parallel sh -c '{}'"          ASK
+check "parallel-bash-shell"     "cat list | parallel bash {}"             ASK
+
+# Precision: parallel with a read-only downstream is ordinary shell.
+check "parallel-curl-allowed"   "cat urls | parallel curl -sO {}"         SILENT
+check "parallel-wc-allowed"     "find . -name '*.md' | parallel wc -l"    SILENT
+check "parallel-grep-allowed"   "cat files | parallel grep -l TODO"       SILENT
+
 rm -rf "$TMP"
 report

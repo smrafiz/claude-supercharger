@@ -61,5 +61,24 @@ begin_test "malformed json fails open"
 out=$(printf '%s' 'not json {' | bash "$HOOK" 2>/dev/null)
 [ -z "$out" ] && pass || fail "expected fail-open silence"
 
+# --- v2.29.31: GIT_SSH_* names a PROGRAM, so the value is a command ----------
+# These were already in the policy table under "shaped", which only fires on a value
+# carrying $( , a pipe, a `sh -c`, or a script suffix. But `GIT_SSH_COMMAND=id git
+# fetch` runs id with none of those present -- the variable names the executable, so
+# any value is an invocation. The legitimate value is always some form of ssh, so
+# that is now the test. From kenryu42/cc-safety-net's git.ssh-env rule.
+check "git-ssh-bare-command"    "GIT_SSH_COMMAND=id git fetch origin"                    ASK
+check "git-ssh-quoted-command"  "GIT_SSH_COMMAND='id' git fetch origin"                  ASK
+check "git-ssh-abs-non-ssh"     "GIT_SSH_COMMAND=/tmp/payload git pull"                  ASK
+check "git-ssh-env-prefix"      "env GIT_SSH_COMMAND=id git fetch"                       ASK
+check "git-external-diff"       "GIT_EXTERNAL_DIFF=id git diff"                          ASK
+
+# Precision: the real reason "shaped" was permissive -- these are how people
+# legitimately use the variable, and they must not prompt.
+check "git-ssh-with-identity"   "GIT_SSH_COMMAND='ssh -i ~/.ssh/id_ed25519' git fetch"   ALLOW
+check "git-ssh-with-option"     "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone x" ALLOW
+check "git-ssh-absolute-ssh"    "GIT_SSH_COMMAND=/usr/bin/ssh git pull"                  ALLOW
+check "git-ssh-port-option"     "GIT_SSH_COMMAND='ssh -p 2222' git fetch"                ALLOW
+
 rm -rf "$TMP"
 report

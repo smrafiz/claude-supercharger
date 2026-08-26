@@ -461,6 +461,18 @@ DB_PATTERNS=(
 DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
 DESTRUCT_PATTERNS=(
+  # v2.29.31: deleting the .git directory destroys every commit, branch, stash and
+  # reflog at once -- strictly worse than any single command already blocked here,
+  # since the reflog rule in git-safety.sh exists precisely to keep those recoverable.
+  #
+  # This was the CONVOLUTED form's sibling: `find . -name .git -exec rm -rf {} +` was
+  # already caught, while the obvious `rm -rf .git` was not. Same asymmetry class as
+  # the tee rule fixed in this release, found by diffing against kenryu42/cc-safety-net
+  # (their rm.git-metadata / find.delete-git-metadata pair).
+  #
+  # Matches the directory itself and its internals (objects/, refs/, logs/), with or
+  # without a leading path. A trailing boundary keeps it off `.gitignore`/`.gitattributes`.
+  '(^|[[:space:];&|])rm[[:space:]]+(-[a-zA-Z]+[[:space:]]+|--force[[:space:]]+|--recursive[[:space:]]+)*[^;&|]*\.git([/][^[:space:];&|]*)?([[:space:]]|;|&|\||$)'
   'chmod[[:space:]]+(-R[[:space:]]+)?777'
   # v2.23.22: setuid/setgid bit — chmod 4755 / 6755 / 2755 / +s / u+s / g+s creates
   # a privilege-escalation / persistence binary. Only chmod 777 was caught before.
@@ -514,6 +526,16 @@ NETWORK_PATTERNS=(
   # scanners); safety.sh, the most-fired hook in the product, kept the loosest
   # form. Same drift class as the v2.24.6 tightening four lines below.
   '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
+  # v2.29.31: process substitution whose body IS a shell -- `tee >(sh) < payload`,
+  # `cat <(bash -c '...')`. Bash runs the substituted command, so this carries the
+  # same capability as the pipe-to-shell rule above, with no literal pipe-into-shell
+  # anywhere for that rule to match. Borrowed from ggwhite/4x's allowlist, which
+  # treats `<(` and `>(` as execution markers alongside `$(` and backticks.
+  #
+  # Deliberately NOT a blanket ban on `<(`/`>(`: `diff <(sort a) <(sort b)` is
+  # ordinary shell and must keep working. Only a SHELL as the substituted command
+  # matches.
+  '[<>]\([[:space:]]*(ba|z|k|da)?sh([[:space:]]|\)|$)'
   # v2.24.6: this was a blanket "any pipe into a shell". It also caught
   # `printf '{...}' | bash ./hooks/statusline.sh`, where the piped bytes are the
   # script's stdin DATA and the code being run is a named local file — the pipe
@@ -806,8 +828,18 @@ if _cat_enabled "persistence"; then
 
   # v2.6.77: tee -a bypass — `tee -a ~/.bashrc <<< 'x'` achieves the same
   # append without a `>` redirect, so the regex above missed it.
-  if [[ "$CMD" =~ tee[[:space:]]+(-[a-zA-Z]*a[a-zA-Z]*|--append)[[:space:]]+[^|]*\.(bashrc|zshrc|profile|bash_profile|zprofile) ]]; then
-    block "shell profile modification via tee -a — agent should not modify shell startup files"
+  #
+  # v2.29.31: the append flag is now OPTIONAL, and requiring it WAS the defect. The
+  # v2.6.77 rule demanded -a/--append because that was the form reported, so plain
+  # `tee ~/.zshrc` sailed through while `tee -a ~/.zshrc` was blocked -- backwards on
+  # severity, since without -a tee TRUNCATES the profile. Measured across all five
+  # profile targets: every one allowed the truncating form and denied the appending
+  # one. Same class as v2.25.2 -- the fix landed on the reported branch of a regex and
+  # left its sibling open. Flags are consumed generically so `tee -ai`, `tee -p` and
+  # bare `tee` all match; the leading boundary keeps it off `mytee`/`notee`.
+  _PROF_TEE="(^|[[:space:];&|])tee([[:space:]]+-[^[:space:]|;&]+)*[[:space:]]+[^|;&]*${_PROF_FILE}"
+  if [[ "$CMD" =~ $_PROF_TEE ]]; then
+    block "shell profile modification via tee — agent should not modify shell startup files"
   fi
 
   if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then

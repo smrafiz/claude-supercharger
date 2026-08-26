@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.31] - 2026-08-26 — close eight guard gaps found by diffing against ggwhite/4x and kenryu42/cc-safety-net: truncating tee to a shell profile, process substitution into a shell, xargs and GNU parallel as execution vectors, rm -rf .git, git reflog delete, git push --mirror, and GIT_SSH_COMMAND naming a non-ssh program. 4013 tests passing.
 - [2.29.30] - 2026-08-26 — guard local rsync --delete at ask tier, and stop gating the json-fast size-gate speedup on a wall-clock ratio on Windows, where per-process spawn cost dilutes it. 3951 tests passing.
 - [2.29.29] - 2026-08-26 — treat a test command that ran no tests as unevidenced rather than green: collect-only, fully deselected, passWithNoTests and zero-total runs no longer read as a passing suite. 3938 tests passing.
 - [2.29.28] - 2026-08-25 — cover the destruction verbs and IaC state operations cloud-cli-destructive-guard missed: KMS key deletion, secret deletion, AMI deregister, queue purge, ECR batch delete, terraform state rm/mv, force-unlock, taint, and kubectl drain. 3929 tests passing.
