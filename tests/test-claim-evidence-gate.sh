@@ -214,5 +214,60 @@ begin_test "a retraction elsewhere does not excuse a real claim"
 [ "$(rc_for disclaim_plus_claim)" = "2" ] && pass \
   || fail "the disclaimer exemption leaked across sentences"
 
+# --- v2.29.29: a test command that ran NOTHING is not evidence -----------------
+# From ggwhite/4x's ac_checks linter, which rejects `true`/`echo`/bare `grep` as
+# verification because a check must EXECUTE the thing under test. Our version of
+# that hole: an invocation that collects, deselects or finds nothing MATCHES
+# TEST_CMD, exits 0 and reports no failures -- so the gate read it as a green run.
+# Advisory tier, never a block: the run did not fail, it proved nothing, which is
+# the same standing as no run at all.
+zt() { # transcript name -> ADVISORY | SILENT | BLOCK
+  local rc msg
+  msg=$(msg_for "$1"); rc=$(rc_for "$1")
+  if [ "$rc" = "2" ]; then echo BLOCK
+  elif printf '%s' "$msg" | grep -q 'executed NO tests'; then echo ADVISORY
+  else echo SILENT; fi
+}
+
+mk zt_collect_only 'asst(cmd="pytest --collect-only", tid="t1") + res("t1", "collected 42 items\n\n42 tests collected in 0.12s") + asst(text="All tests pass.")'
+begin_test "pytest --collect-only is not evidence of a passing suite"
+[ "$(zt zt_collect_only)" = "ADVISORY" ] && pass || fail "got $(zt zt_collect_only)"
+
+mk zt_deselected 'asst(cmd="pytest -k nosuchtest", tid="t1") + res("t1", "collected 42 items / 42 deselected\n\n42 deselected in 0.10s") + asst(text="All tests pass.")'
+begin_test "a run where everything was deselected is not evidence"
+[ "$(zt zt_deselected)" = "ADVISORY" ] && pass || fail "got $(zt zt_deselected)"
+
+mk zt_go_norun 'asst(cmd="go test -run XXXNoSuchTest ./...", tid="t1") + res("t1", "ok  \tgithub.com/x/y\t0.002s [no tests to run]") + asst(text="All tests pass.")'
+begin_test "go test matching no tests is not evidence"
+[ "$(zt zt_go_norun)" = "ADVISORY" ] && pass || fail "got $(zt zt_go_norun)"
+
+mk zt_passwithnotests 'asst(cmd="npm test -- --passWithNoTests", tid="t1") + res("t1", "No tests found, exiting with code 0") + asst(text="All tests pass.")'
+begin_test "--passWithNoTests is not evidence"
+[ "$(zt zt_passwithnotests)" = "ADVISORY" ] && pass || fail "got $(zt zt_passwithnotests)"
+
+mk zt_zero_total 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 0 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "a suite reporting 0 passed 0 failed is not evidence"
+[ "$(zt zt_zero_total)" = "ADVISORY" ] && pass || fail "got $(zt zt_zero_total)"
+
+# --- precision: real runs, however small, must stay silent ---------------------
+mk zt_one_passed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 1 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "a genuine one-test run is still evidence"
+[ "$(zt zt_one_passed)" = "SILENT" ] && pass || fail "fired on a real run: $(zt zt_one_passed)"
+
+# Guards the lookbehind: "10 passed, 0 failed" contains the substring "0 passed".
+mk zt_ten_passed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 10 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "10 passed is not misread as 0 passed"
+[ "$(zt zt_ten_passed)" = "SILENT" ] && pass || fail "lookbehind failed: $(zt zt_ten_passed)"
+
+mk zt_real_green 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 3929 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "a real green suite stays silent"
+[ "$(zt zt_real_green)" = "SILENT" ] && pass || fail "fired on a green run"
+
+# --- anti-bypass: ran nothing AND failed is a FAILING run, not an advisory ------
+# The zero-test exemption must not become a way to soften a red run into a note.
+mk zt_zero_and_failed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 0 passed, 0 failed\n  FAIL the harness died") + asst(text="All tests pass.")'
+begin_test "a run that failed AND ran nothing still blocks"
+[ "$(zt zt_zero_and_failed)" = "BLOCK" ] && pass || fail "a red run was softened to advisory"
+
 rm -rf "$TD"
 report

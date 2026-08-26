@@ -127,6 +127,38 @@ def _line_fails(line):
 def is_failure(text):
     return any(_line_fails(ln) for ln in text.splitlines())
 
+# v2.29.29: a test command that ran NOTHING is not evidence of a passing suite.
+# Borrowed from ggwhite/4x's ac_checks linter, which rejects `true`, `echo` and
+# bare `grep` as verification on the principle that a check must EXECUTE the thing
+# under test. Our version of that hole is the invocation that collects, deselects
+# or finds nothing: it matches TEST_CMD, exits 0, and reports no failures, so the
+# gate read it as a green run. Probed before the fix -- all five shapes below were
+# waved through while the turn claimed "All tests pass."
+ZERO_OUT = re.compile(
+    r"\bcollected 0 items\b"
+    r"|\bno tests ran\b"
+    r"|\bno tests found\b"
+    r"|\bno tests to run\b"
+    r"|\bran 0 tests\b"
+    r"|\b0 tests? (?:ran|executed|passed|selected)\b"
+    # Exactly zero passed AND zero failed. The lookbehind stops this matching the
+    # "0 passed" inside "10 passed, 0 failed", which is a real (if small) run.
+    r"|(?<![\d,])0\s+passed,\s*0\s+failed\b"
+    # pytest: everything collected was deselected, so nothing executed.
+    r"|\bcollected (\d+) items? / \1 deselected\b",
+    re.I)
+# Command-side tells, for runners that print nothing conclusive.
+ZERO_CMD = re.compile(r"--collect-only|--passwithnotests|--list-tests|--dry-run", re.I)
+
+def zero_test_reason(cmd, text):
+    m = ZERO_CMD.search(cmd)
+    if m:
+        return "the command carried %s, which runs no tests" % m.group(0)
+    for ln in text.splitlines():
+        if ZERO_OUT.search(ln):
+            return ln.strip()[:160]
+    return ""
+
 def blocks(entry):
     msg = entry.get("message") or {}
     c = msg.get("content")
@@ -199,6 +231,16 @@ if is_error and not is_failure(out) and TERMINATED_RE.search(out):
     print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
     sys.exit(0)
 
+# Guarded on `not is_error and not is_failure`, not on position: a run that both
+# failed AND ran nothing is a FAILING run, and must fall through to the
+# contradicted block below rather than be softened to this advisory tier.
+if not is_error and not is_failure(out):
+    _zt = zero_test_reason(cmd, out)
+    if _zt:
+        print(json.dumps({"verdict": "zerotest", "claim": last_claim,
+                          "cmd": cmd[:120], "evidence": _zt}))
+        sys.exit(0)
+
 if is_error or is_failure(out):
     excerpt = ""
     for line in out.splitlines():
@@ -234,6 +276,21 @@ fi
 # Unevidenced: advisory only. The claim may legitimately be about a prior
 # session, a CI run, or something the user reported, and this must never hold a
 # session open on that guess.
+# Zero-test: advisory, never a block. The run did not FAIL -- it proved nothing,
+# which is the same standing as no run at all, so it gets the same soft tier.
+if [ "$KIND" = "zerotest" ]; then
+  CLAIM=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('claim',''))" 2>/dev/null || true)
+  CMD=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cmd',''))" 2>/dev/null || true)
+  EV=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('evidence',''))" 2>/dev/null || true)
+  {
+    echo "[Supercharger] claim-evidence-gate: you stated a passing result, but the last test run executed NO tests."
+    echo "  You wrote : ${CLAIM}"
+    echo "  Last ran  : ${CMD}"
+    echo "  It said   : ${EV}"
+    echo "  A run that collected, deselected or found nothing is not evidence. Run the real suite before restating this."
+  } >&2
+fi
+
 if [ "$KIND" = "unevidenced" ]; then
   echo "[Supercharger] claim-evidence-gate: a passing test result was stated, but no test command ran in this session. If the result is from earlier or from CI, say so; otherwise run it." >&2
 fi
