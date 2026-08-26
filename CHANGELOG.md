@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.34] - 2026-08-26 — strip the structural prelude so shell grouping no longer hides a command from the segment guards (256 of 288 structure/wrapper/separator combinations bypassed before), and quote the GIT_SSH_COMMAND fixture that Git Bash rewrites into an unquoted path with a space. 4090 tests passing.
 - [2.29.33] - 2026-08-26 — complete the wrapper-prelude fix: v2.29.32 updated one of four copies of the rule, so any shell separator routed around it. One shared stripper now serves every path, newline joins the separator set, and the python splitter no longer pre-strips bare prefixes. 4073 tests passing.
 - [2.29.32] - 2026-08-26 — strip the full wrapper prelude before matching so nohup/timeout/setsid/nice and option-carrying sudo/env can no longer hide a destructive command from every guard, and fix a GIT_SSH_COMMAND false positive on paths containing spaces. 4039 tests passing.
 - [2.29.31] - 2026-08-26 — close eight guard gaps found by diffing against ggwhite/4x and kenryu42/cc-safety-net: truncating tee to a shell profile, process substitution into a shell, xargs and GNU parallel as execution vectors, rm -rf .git, git reflog delete, git push --mirror, and GIT_SSH_COMMAND naming a non-ssh program. 4013 tests passing.

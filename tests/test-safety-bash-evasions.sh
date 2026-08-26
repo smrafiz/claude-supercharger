@@ -200,4 +200,43 @@ begin_test "safety: chained ordinary commands are allowed"
 begin_test "safety: chained nohup server start is allowed"
 [ "$(verdict "cd app && nohup npm run dev")" = ALLOW ] && pass || fail "over-blocked a chained server start"
 
+# --- v2.29.34: STRUCTURAL PRELUDE -- shell structure hid the verb -------------
+# The segment guards recognised a command only when the verb came FIRST, so any
+# grouping or control structure hid it. Measured before the fix across
+# structure x wrapper x separator x payload: 256 of 288 combinations bypassed --
+# only the bare-structure column blocked at all.
+#
+# The matrix was built BEFORE the fix this time, deliberately. The two defects
+# shipped earlier today (v2.29.31 ssh, v2.29.32 wrappers) both passed the checks
+# written alongside them and failed on a dimension those checks did not vary.
+for _s in "( %s )" "{ %s; }" "if true; then %s; fi" "for i in 1; do %s; done" \
+          "while false; do %s; done" "case x in x) %s;; esac" "f() { %s; }; f" \
+          "( ( %s ) )"; do
+  _cmd=$(printf "$_s" "rm -rf /")
+  begin_test "safety: structure '${_s%% *}' does not hide rm -rf /"
+  [ "$(verdict "$_cmd")" = BLOCK ] && pass || fail "structure bypass: $_cmd"
+done
+
+# Structure nested INSIDE a wrapper, and a wrapper inside structure. The first cut
+# handled only one order, because the structural logic existed twice and the second
+# copy was shortened -- the same duplication defect this release set out to fix.
+begin_test "safety: wrapper outside a case arm still blocks"
+[ "$(verdict "nohup case x in x) rm -rf /;; esac")" = BLOCK ] && pass || fail "wrapper+case bypassed"
+begin_test "safety: wrapper outside a function body still blocks"
+[ "$(verdict "nohup f() { rm -rf /; }; f")" = BLOCK ] && pass || fail "wrapper+function bypassed"
+begin_test "safety: separator + wrapper + structure still blocks"
+[ "$(verdict "true && sudo -u root ( rm -rf / )")" = BLOCK ] && pass || fail "sep+wrapper+structure bypassed"
+
+# --- precision: structure is how shell is WRITTEN, not an evasion -------------
+begin_test "safety: an ordinary for-loop is allowed"
+[ "$(verdict "for f in *.log; do gzip \$f; done")" = ALLOW ] && pass || fail "over-blocked a for-loop"
+begin_test "safety: an ordinary case dispatch is allowed"
+[ "$(verdict "case \$1 in start) npm start;; stop) npm stop;; esac")" = ALLOW ] && pass || fail "over-blocked a case dispatch"
+begin_test "safety: a subshell build is allowed"
+[ "$(verdict "( cd build && make )")" = ALLOW ] && pass || fail "over-blocked a subshell build"
+begin_test "safety: a function definition and call is allowed"
+[ "$(verdict "deploy() { npm ci && npm run build; }; deploy")" = ALLOW ] && pass || fail "over-blocked a function"
+begin_test "safety: an until-loop is allowed"
+[ "$(verdict "until nc -z localhost 5432; do sleep 1; done")" = ALLOW ] && pass || fail "over-blocked an until-loop"
+
 report

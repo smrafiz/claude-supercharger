@@ -77,7 +77,16 @@ check "git-external-diff"       "GIT_EXTERNAL_DIFF=id git diff"                 
 # legitimately use the variable, and they must not prompt.
 check "git-ssh-with-identity"   "GIT_SSH_COMMAND='ssh -i ~/.ssh/id_ed25519' git fetch"   ALLOW
 check "git-ssh-with-option"     "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=no' git clone x" ALLOW
-check "git-ssh-absolute-ssh"    "GIT_SSH_COMMAND=/usr/bin/ssh git pull"                  ALLOW
+# v2.29.34: QUOTED. Unquoted, Git Bash rewrites /usr/bin/ssh into a path
+# containing "Program Files", and an unquoted value with a space is no longer
+# one value -- the shell would set GIT_SSH_COMMAND=C:/Program and run the rest
+# as a command. The guard reading it that way is CORRECT, so the fixture was
+# asserting a shape that does not survive the platform. Failed the Windows job
+# on v2.29.31 and again on v2.29.32, where I "fixed" the hook instead.
+check "git-ssh-absolute-ssh"    "GIT_SSH_COMMAND='/usr/bin/ssh' git pull"                ALLOW
+# The unquoted-with-space form asks, and that is the right answer -- it is not
+# a single value at all. Asserted so it stays a decision rather than a puzzle.
+check "git-ssh-unquoted-space"  "GIT_SSH_COMMAND=C:/Program Files/Git/usr/bin/ssh git pull" ASK
 check "git-ssh-port-option"     "GIT_SSH_COMMAND='ssh -p 2222' git fetch"                ALLOW
 
 # --- v2.29.32: the program is not whitespace-delimited ----------------------

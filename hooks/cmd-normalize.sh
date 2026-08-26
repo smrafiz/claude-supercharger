@@ -110,68 +110,116 @@ SCPYEOF
 # Callers must never re-implement this. A second copy is a second bug.
 _sc_strip_wrapper_prelude() {
   local cmd="$1"
-# v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
-# and that was two defects at once, both found by probing the live hooks against
-# kenryu42/cc-safety-net's wrapper-prelude analyzer:
-#
-#   1. The set was too small. `nohup rm -rf /`, `timeout 5 rm -rf /`,
-#      `setsid git push --force` -- none were stripped, so the first token seen
-#      was the wrapper and EVERY pattern in every guard sourcing this helper
-#      missed. Not one rule bypassed: all of them, uniformly.
-#   2. Of the three it did know, it only matched the BARE form. `sudo` stripped,
-#      `sudo -u root` did not. `env` stripped, `env -i` did not. Measured: 21 of
-#      21 wrapper/rule combinations bypassed on the option-carrying forms.
-#
-# Options are consumed per wrapper, because an option that TAKES A VALUE would
-# otherwise leave the value behind as the apparent command (`sudo -u root rm` ->
-# `root rm`). Value-taking sets mirror sudo(8)/env(1)/nice(1)/timeout(1).
-# Fork-free: this runs on every Bash tool call in the most-fired hook.
-#
-# NOT a weakening: no rule in the four guards that source this helper matches on
-# a wrapper word, so removing one can only expose the real command underneath.
-local _w _tok
-while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
-  _w="${BASH_REMATCH[1]}"
-  cmd="${cmd#${BASH_REMATCH[0]}}"
+  local _before_struct
+  # v2.29.34: STRUCTURAL PRELUDE. A segment only had its verb recognised when the
+  # verb came first, so any shell structure hid it: `( rm -rf / )`, `{ rm -rf /; }`,
+  # `if true; then rm -rf /; fi`, for/while/case bodies, and function bodies. The
+  # segment then began with `(`, `{`, `then`, `do` or `name() {` and every rule in
+  # the segment-based guards missed. Measured before this change: 256 of 288
+  # structure x wrapper x separator x payload combinations bypassed -- only the
+  # bare-structure column blocked at all.
+  #
+  # These are shell KEYWORDS and grouping operators, never command names, so
+  # consuming them cannot hide a real command: whatever follows is the command that
+  # actually runs. Interleaved with the wrapper pass below in one loop because the
+  # two nest in both orders.
+  # v2.29.34: ONE outer loop, not two hand-copied passes. The first cut had a
+  # full structural pass before the wrapper pass and a SHORTENED copy after it,
+  # missing the case-arm and function rules -- so a wrapper sitting OUTSIDE a
+  # group (nohup, then a case arm) stripped the wrapper and stopped. Duplicated
+  # logic drifting apart is the same defect this release exists to fix, so the
+  # passes now alternate over one implementation until the string stabilises.
+  local _before_all
   while :; do
-    cmd="${cmd#"${cmd%%[![:space:]]*}"}"
-    case "$cmd" in
-      -*)
-        _tok="${cmd%%[[:space:]]*}"
-        cmd="${cmd#"$_tok"}"
-        # An option that takes a SEPARATE value: drop the value too, or it reads
-        # as the command. `--opt=value` is one token and needs no second drop.
-        case "${_w}:${_tok}" in
-          sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
-          env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
-          nice:-n|ionice:-c|ionice:-n|ionice:-p|\
-          timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
-          stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
-          xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
-          parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
-            cmd="${cmd#"${cmd%%[![:space:]]*}"}"
-            _tok="${cmd%%[[:space:]]*}"
-            cmd="${cmd#"$_tok"}"
-            ;;
-        esac
-        continue
-        ;;
-    esac
-    # Positional numeric argument: `timeout 5 cmd`, `nice 10 cmd`, `taskset 0x3 cmd`.
-    # Only for wrappers that take one -- never for sudo/env, where the next token
-    # IS the command and dropping it would hide what actually runs.
-    case "$_w" in
-      timeout|nice|ionice|chrt|taskset)
-        _tok="${cmd%%[[:space:]]*}"
-        case "$_tok" in
-          ''|*[!0-9smhdx.+-]*) : ;;
-          *) cmd="${cmd#"$_tok"}"; continue ;;
-        esac
-        ;;
-    esac
-    break
+    _before_all="$cmd"
+    while :; do
+      _before_struct="$cmd"
+      cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+      case "$cmd" in
+        '(('*)  cmd="${cmd#??}" ;;
+        '('*|'{'*) cmd="${cmd#?}" ;;
+      esac
+      if [[ "$cmd" =~ ^(if|then|elif|else|do|while|until|for|fi|done|time|!)[[:space:]]+ ]]; then
+        cmd="${cmd#"${BASH_REMATCH[0]}"}"
+      fi
+      # A case ARM puts its command after the pattern: `case x in pat) cmd` when the
+      # segment is unsplit, or a bare `pat) cmd` once ;; has split it. Only a case arm
+      # puts a close-paren before a command, so consuming it cannot hide anything.
+      if [[ "$cmd" =~ ^case[[:space:]][^\)]*\)[[:space:]]* ]]; then
+        cmd="${cmd#"${BASH_REMATCH[0]}"}"
+      elif [[ "$cmd" =~ ^[^\(\)[:space:]\;\&\|]+\)[[:space:]]+ ]]; then
+        cmd="${cmd#"${BASH_REMATCH[0]}"}"
+      fi
+      # A function definition puts the body's first command after `name() {`.
+      if [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*\(\)[[:space:]]*\{[[:space:]]* ]]; then
+        cmd="${cmd#"${BASH_REMATCH[0]}"}"
+      fi
+      [ "$cmd" = "$_before_struct" ] && break
+    done
+  # v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
+  # and that was two defects at once, both found by probing the live hooks against
+  # kenryu42/cc-safety-net's wrapper-prelude analyzer:
+  #
+  #   1. The set was too small. `nohup rm -rf /`, `timeout 5 rm -rf /`,
+  #      `setsid git push --force` -- none were stripped, so the first token seen
+  #      was the wrapper and EVERY pattern in every guard sourcing this helper
+  #      missed. Not one rule bypassed: all of them, uniformly.
+  #   2. Of the three it did know, it only matched the BARE form. `sudo` stripped,
+  #      `sudo -u root` did not. `env` stripped, `env -i` did not. Measured: 21 of
+  #      21 wrapper/rule combinations bypassed on the option-carrying forms.
+  #
+  # Options are consumed per wrapper, because an option that TAKES A VALUE would
+  # otherwise leave the value behind as the apparent command (`sudo -u root rm` ->
+  # `root rm`). Value-taking sets mirror sudo(8)/env(1)/nice(1)/timeout(1).
+  # Fork-free: this runs on every Bash tool call in the most-fired hook.
+  #
+  # NOT a weakening: no rule in the four guards that source this helper matches on
+  # a wrapper word, so removing one can only expose the real command underneath.
+  local _w _tok
+  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
+    _w="${BASH_REMATCH[1]}"
+    cmd="${cmd#${BASH_REMATCH[0]}}"
+    while :; do
+      cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+      case "$cmd" in
+        -*)
+          _tok="${cmd%%[[:space:]]*}"
+          cmd="${cmd#"$_tok"}"
+          # An option that takes a SEPARATE value: drop the value too, or it reads
+          # as the command. `--opt=value` is one token and needs no second drop.
+          case "${_w}:${_tok}" in
+            sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
+            env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
+            nice:-n|ionice:-c|ionice:-n|ionice:-p|\
+            timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
+            stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
+            xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
+            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
+              cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+              _tok="${cmd%%[[:space:]]*}"
+              cmd="${cmd#"$_tok"}"
+              ;;
+          esac
+          continue
+          ;;
+      esac
+      # Positional numeric argument: `timeout 5 cmd`, `nice 10 cmd`, `taskset 0x3 cmd`.
+      # Only for wrappers that take one -- never for sudo/env, where the next token
+      # IS the command and dropping it would hide what actually runs.
+      case "$_w" in
+        timeout|nice|ionice|chrt|taskset)
+          _tok="${cmd%%[[:space:]]*}"
+          case "$_tok" in
+            ''|*[!0-9smhdx.+-]*) : ;;
+            *) cmd="${cmd#"$_tok"}"; continue ;;
+          esac
+          ;;
+      esac
+      break
+    done
   done
-done
+    [ "$cmd" = "$_before_all" ] && break
+  done
   printf '%s' "$cmd"
 }
 
