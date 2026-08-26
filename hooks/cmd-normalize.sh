@@ -113,8 +113,67 @@ normalize_cmd() {
   cmd="${cmd%"${cmd##*[![:space:]]}"}"
   # Strip one leading backslash (was sed 's/^\\//').
   cmd="${cmd#\\}"
-  while [[ "$cmd" =~ ^(sudo|command|env)[[:space:]]+ ]]; do
+  # v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
+  # and that was two defects at once, both found by probing the live hooks against
+  # kenryu42/cc-safety-net's wrapper-prelude analyzer:
+  #
+  #   1. The set was too small. `nohup rm -rf /`, `timeout 5 rm -rf /`,
+  #      `setsid git push --force` -- none were stripped, so the first token seen
+  #      was the wrapper and EVERY pattern in every guard sourcing this helper
+  #      missed. Not one rule bypassed: all of them, uniformly.
+  #   2. Of the three it did know, it only matched the BARE form. `sudo` stripped,
+  #      `sudo -u root` did not. `env` stripped, `env -i` did not. Measured: 21 of
+  #      21 wrapper/rule combinations bypassed on the option-carrying forms.
+  #
+  # Options are consumed per wrapper, because an option that TAKES A VALUE would
+  # otherwise leave the value behind as the apparent command (`sudo -u root rm` ->
+  # `root rm`). Value-taking sets mirror sudo(8)/env(1)/nice(1)/timeout(1).
+  # Fork-free: this runs on every Bash tool call in the most-fired hook.
+  #
+  # NOT a weakening: no rule in the four guards that source this helper matches on
+  # a wrapper word, so removing one can only expose the real command underneath.
+  local _w _tok
+  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
+    _w="${BASH_REMATCH[1]}"
     cmd="${cmd#${BASH_REMATCH[0]}}"
+    while :; do
+      cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+      case "$cmd" in
+        -*)
+          _tok="${cmd%%[[:space:]]*}"
+          cmd="${cmd#"$_tok"}"
+          # An option that takes a SEPARATE value: drop the value too, or it reads
+          # as the command. `--opt=value` is one token and needs no second drop.
+          case "${_w}:${_tok}" in
+            sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
+            env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
+            nice:-n|ionice:-c|ionice:-n|ionice:-p|\
+            timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
+            stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
+            xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
+            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
+              cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+              _tok="${cmd%%[[:space:]]*}"
+              cmd="${cmd#"$_tok"}"
+              ;;
+          esac
+          continue
+          ;;
+      esac
+      # Positional numeric argument: `timeout 5 cmd`, `nice 10 cmd`, `taskset 0x3 cmd`.
+      # Only for wrappers that take one -- never for sudo/env, where the next token
+      # IS the command and dropping it would hide what actually runs.
+      case "$_w" in
+        timeout|nice|ionice|chrt|taskset)
+          _tok="${cmd%%[[:space:]]*}"
+          case "$_tok" in
+            ''|*[!0-9smhdx.+-]*) : ;;
+            *) cmd="${cmd#"$_tok"}"; continue ;;
+          esac
+          ;;
+      esac
+      break
+    done
   done
   # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
   # Fuzz harness found this bypass: `env FOO=bar rm -rf /` stripped to

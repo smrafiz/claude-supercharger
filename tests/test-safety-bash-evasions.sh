@@ -103,25 +103,67 @@ begin_test "safety: 'wc -l < <(grep X log)' is allowed"
 # kenryu42/cc-safety-net's rm.git-metadata / find.delete-git-metadata pair.
 # This is the command that makes every other git guard moot -- reset --hard and
 # branch -D are survivable BECAUSE .git still exists.
-begin_test "safety: '${RM} -rf .git' is blocked"
+begin_test "safety: 'rm -rf .git' is blocked"
 [ "$(verdict "rm -rf .git")" = BLOCK ] && pass || fail "rm -rf .git evaded"
-begin_test "safety: '${RM} -rf ./.git' is blocked"
+begin_test "safety: 'rm -rf ./.git' is blocked"
 [ "$(verdict "rm -rf ./.git")" = BLOCK ] && pass || fail "./.git form evaded"
-begin_test "safety: '${RM} -rf <abs>/.git' is blocked"
+begin_test "safety: 'rm -rf <abs>/.git' is blocked"
 [ "$(verdict "rm -rf /srv/repo/.git")" = BLOCK ] && pass || fail "absolute form evaded"
-begin_test "safety: '${RM} -r --force .git' is blocked (long flag)"
+begin_test "safety: 'rm -r --force .git' is blocked (long flag)"
 [ "$(verdict "rm -r --force .git")" = BLOCK ] && pass || fail "long flag form evaded"
-begin_test "safety: '${RM} -rf .git/objects' is blocked"
+begin_test "safety: 'rm -rf .git/objects' is blocked"
 [ "$(verdict "rm -rf .git/objects")" = BLOCK ] && pass || fail "internals form evaded"
 
 # Precision: several ordinary dotfiles START with .git and are routine to delete.
-begin_test "safety: '${RM} -rf .gitignore' is allowed"
+begin_test "safety: 'rm -rf .gitignore' is allowed"
 [ "$(verdict "rm -rf .gitignore")" = ALLOW ] && pass || fail "over-blocked .gitignore"
-begin_test "safety: '${RM} -f .gitattributes' is allowed"
+begin_test "safety: 'rm -f .gitattributes' is allowed"
 [ "$(verdict "rm -f .gitattributes")" = ALLOW ] && pass || fail "over-blocked .gitattributes"
-begin_test "safety: '${RM} .gitmodules' is allowed"
+begin_test "safety: 'rm .gitmodules' is allowed"
 [ "$(verdict "rm .gitmodules")" = ALLOW ] && pass || fail "over-blocked .gitmodules"
-begin_test "safety: '${RM} -rf node_modules' is allowed"
+begin_test "safety: 'rm -rf node_modules' is allowed"
 [ "$(verdict "rm -rf node_modules")" = ALLOW ] && pass || fail "over-blocked an ordinary dir"
+
+# --- v2.29.32: WRAPPER PRELUDE -- an axis, not a single rule ------------------
+# normalize_cmd stripped `sudo|command|env`, bare forms only. Everything else that
+# prefixes a command went straight through, so the first token every guard saw was
+# the wrapper and NO pattern matched -- not one rule bypassed, all of them at once.
+# Measured before the fix: 21 of 21 wrapper/rule combinations allowed. Found by
+# probing the live hooks against kenryu42/cc-safety-net's wrapper-prelude analyzer.
+#
+# Two defects: the set was too small (nohup/timeout/setsid/nice/stdbuf unknown),
+# and the three it knew were matched only bare -- `sudo` stripped, `sudo -u root`
+# did not, because an option that takes a VALUE left the value behind as the
+# apparent command.
+for _w in "nohup" "setsid" "timeout 5" "nice -n 10" "stdbuf -o0" "sudo -u root" \
+          "env -i" "ionice -c2" "doas" "taskset -c 0-3" "xargs -I{}"; do
+  begin_test "safety: wrapper '$_w' does not hide rm -rf /"
+  [ "$(verdict "$_w rm -rf /")" = BLOCK ] && pass || fail "wrapper '$_w' bypassed the rm rule"
+done
+
+# Stacked wrappers must unwind completely, not one layer.
+begin_test "safety: stacked wrappers unwind fully"
+[ "$(verdict "sudo -u root nohup timeout 5 rm -rf /")" = BLOCK ] && pass || fail "stacked wrappers bypassed"
+
+# The bare forms that already worked must keep working.
+for _w in "sudo" "env" "command"; do
+  begin_test "safety: bare wrapper '$_w' still blocked (no regression)"
+  [ "$(verdict "$_w rm -rf /")" = BLOCK ] && pass || fail "bare $_w regressed"
+done
+
+# --- precision: stripping must not invent a command that was never run --------
+# The value of a value-taking option is NOT the command. If `-u` did not consume
+# `root`, the normalizer would report `root ...` as the command -- wrong, and the
+# kind of wrong that produces confident false positives.
+begin_test "safety: an ordinary sudo build is allowed"
+[ "$(verdict "sudo -u builder make install")" = ALLOW ] && pass || fail "over-blocked an ordinary sudo build"
+begin_test "safety: timeout around a test run is allowed"
+[ "$(verdict "timeout 300 npm test")" = ALLOW ] && pass || fail "over-blocked a timed test run"
+begin_test "safety: nice around a build is allowed"
+[ "$(verdict "nice -n 19 make -j4")" = ALLOW ] && pass || fail "over-blocked a niced build"
+begin_test "safety: nohup around a server is allowed"
+[ "$(verdict "nohup npm run dev")" = ALLOW ] && pass || fail "over-blocked a backgrounded server"
+begin_test "safety: xargs with a read-only downstream is allowed"
+[ "$(verdict "find . -name '*.md' | xargs wc -l")" = ALLOW ] && pass || fail "over-blocked xargs wc"
 
 report

@@ -80,5 +80,20 @@ check "git-ssh-with-option"     "GIT_SSH_COMMAND='ssh -o StrictHostKeyChecking=n
 check "git-ssh-absolute-ssh"    "GIT_SSH_COMMAND=/usr/bin/ssh git pull"                  ALLOW
 check "git-ssh-port-option"     "GIT_SSH_COMMAND='ssh -p 2222' git fetch"                ALLOW
 
+# --- v2.29.32: the program is not whitespace-delimited ----------------------
+# v2.29.31 took value.split()[0] as the program. On Git Bash MSYS rewrites
+# /usr/bin/ssh to C:/Program Files/Git/usr/bin/ssh -- the SPACE made the program
+# "C:/Program", so an ordinary fetch prompted. The Windows job caught it; these
+# assertions make it catchable everywhere, because a path with a space is not a
+# Windows peculiarity (macOS has "Application Support").
+check "ssh-windows-path-space"  "GIT_SSH_COMMAND='C:/Program Files/Git/usr/bin/ssh' git pull"     ALLOW
+check "ssh-space-plus-option"   "GIT_SSH_COMMAND='/c/Program Files/Git/usr/bin/ssh -i k' git fetch" ALLOW
+check "ssh-bare"                "GIT_SSH_COMMAND=ssh git fetch"                                   ALLOW
+check "ssh-exe-suffix"          "GIT_SSH_COMMAND=ssh.exe git fetch"                               ALLOW
+
+# The space must not become a way to smuggle a non-ssh program past the check.
+check "non-ssh-path-with-space" "GIT_SSH_COMMAND='/tmp/my payload' git pull"                      ASK
+check "non-ssh-with-option"     "GIT_SSH_COMMAND='curl -s https://x.tld' git fetch"               ASK
+
 rm -rf "$TMP"
 report

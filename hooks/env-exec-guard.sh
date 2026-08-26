@@ -85,7 +85,15 @@ def dangerous(policy, val):
             return True
         # Otherwise: flag unless the program actually is ssh. `ssh -i ~/.ssh/id`,
         # `/usr/bin/ssh -o X=y` and `ssh.exe` all pass; `id`, `/tmp/x`, `curl` do not.
-        first = v.split()[0] if v.split() else ""
+        #
+        # v2.29.32: the program is NOT whitespace-delimited. Taking v.split()[0] broke
+        # on Windows, where MSYS rewrites `/usr/bin/ssh` to `C:/Program Files/Git/...`
+        # -- the space made the "program" `C:/Program`, so a perfectly ordinary fetch
+        # asked. Caught by the Windows job on v2.29.31; it is a real false positive,
+        # not just a fixture artifact, since that path is the DEFAULT ssh on Git Bash.
+        # Cut at the first option instead: everything before ` -` is the program.
+        prog = v.split(" -", 1)[0].strip()
+        first = prog if prog else ""
         base = first.rsplit("/", 1)[-1].rsplit("\\", 1)[-1].lower()
         if base.endswith(".exe"):
             base = base[:-4]
