@@ -905,6 +905,18 @@ case "$CMD" in
   # v2.10.1: terraform var / token-store files (from chuckreynolds secret-guardrails)
   *.tfvars*|*.tokens.json*) _NEED_PY=true ;;
   *kubeconfig*|*.kube/config*) _NEED_PY=true ;;
+  # v2.29.37: the gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE
+  # (see the note above) and it had drifted BELOW it. `.docker/config.json` and
+  # `pip.conf` were in the detector and NOT here, so _NEED_PY never flipped and the
+  # detector never ran -- rules written, reviewed and shipped that could not fire.
+  # Measured: every reader (cat/less/head/grep/tail/od) allowed ~/.docker/config.json.
+  # Same two-gate trap that shipped tool-preferences inert in v2.29.23.
+  *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
+  # v2.29.37: credential stores the panel did not know at all.
+  *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  # v2.29.37: php -r and awk system() are interpreters like the ones above; both
+  # execute arbitrary code and neither was in this gate.
+  *php*\ -r*|*awk*system*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;

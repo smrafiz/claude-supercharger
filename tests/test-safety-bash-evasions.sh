@@ -239,4 +239,43 @@ begin_test "safety: a function definition and call is allowed"
 begin_test "safety: an until-loop is allowed"
 [ "$(verdict "until nc -z localhost 5432; do sleep 1; done")" = ALLOW ] && pass || fail "over-blocked an until-loop"
 
+# --- v2.29.37: Bash-channel credential reads + php/awk launchers -------------
+# The Bash side of the same both-directions matrix. ~/.aws/credentials was missing
+# from the detector entirely while Read blocked it; .docker/config.json was IN the
+# detector but absent from safety.sh's fast-path gate, so _NEED_PY never flipped
+# and it could never run. Every ordinary reader allowed both.
+for _f in "$HOME/.aws/credentials" "$HOME/.docker/config.json" \
+          "$HOME/.config/gh/hosts.yml" "$HOME/.claude.json" \
+          "vault.kdbx" "server.keystore" "/etc/pip.conf"; do
+  for _rd in "cat" "less" "head -20" "grep -i token"; do
+    begin_test "safety: '$_rd' cannot read $(basename "$_f")"
+    [ "$(verdict "$_rd $_f")" = BLOCK ] && pass || fail "$_rd allowed $_f"
+  done
+done
+
+# php -r and awk are launchers like python -c / node -e. awk is matched on its
+# SHELL-OUT, never on a flag: `awk '{print $1}'` is one of the most common
+# commands in a terminal and must never prompt. The quoted argument is what
+# separates a launcher from a filter.
+begin_test "safety: php -r shell_exec is blocked"
+[ "$(verdict "php -r 'shell_exec(\"id\");'")" = BLOCK ] && pass || fail "php shell_exec evaded"
+begin_test "safety: php -r system() is blocked"
+[ "$(verdict "php -r 'system(\"id\");'")" = BLOCK ] && pass || fail "php system evaded"
+for _awk in awk gawk mawk; do
+  begin_test "safety: $_awk system() is blocked"
+  [ "$(verdict "$_awk 'BEGIN{system(\"id\")}'")" = BLOCK ] && pass || fail "$_awk system evaded"
+done
+
+# Precision: awk as a text filter and php as a CLI are everyday commands.
+begin_test "safety: awk field printing is allowed"
+[ "$(verdict "awk '{print \$1}' log.txt")" = ALLOW ] && pass || fail "over-blocked awk print"
+begin_test "safety: awk in a pipe is allowed"
+[ "$(verdict "ps aux | awk '{print \$2}'")" = ALLOW ] && pass || fail "over-blocked awk in a pipe"
+begin_test "safety: awk with an END block is allowed"
+[ "$(verdict "awk -F, '{s+=\$2} END{print s}' d.csv")" = ALLOW ] && pass || fail "over-blocked awk sum"
+begin_test "safety: php -v is allowed"
+[ "$(verdict "php -v")" = ALLOW ] && pass || fail "over-blocked php -v"
+begin_test "safety: php artisan is allowed"
+[ "$(verdict "php artisan migrate")" = ALLOW ] && pass || fail "over-blocked php artisan"
+
 report

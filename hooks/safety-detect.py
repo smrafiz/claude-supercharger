@@ -77,6 +77,13 @@ _INTERPRETERS = [
     (r"(?:^|[\s;&|])npx\s+(?:-[a-zA-Z]+\s+)*-c\s+", "npx -c"),
     (r"(?:^|[\s;&|])deno\s+eval\b", "deno eval"),
     (r"(?:^|[\s;&|])bun\s+(?:-e|--eval)\s+", "bun -e"),
+    # v2.29.37: php -r and awk are launchers like every entry above. Found by
+    # diffing against kenryu42/cc-safety-net (its awk.system-dynamic rule).
+    # awk is matched on its SHELL-OUT function rather than a flag: `awk '{print $1}'`
+    # is one of the most common commands in a terminal and must never prompt, so
+    # `system(` / `| "sh"` / `print | cmd` is what separates a launcher from a filter.
+    (r"(?:^|[\s;&|])php\s+(?:-[a-zA-Z]+\s+)*-r\s+", "php -r"),
+    (r"(?:^|[\s;&|])(?:g?awk|mawk)\s+", "awk"),
 ]
 
 # v2.7.3: an interpreter one-liner that shells out to the OS is the actual
@@ -95,6 +102,16 @@ _WRAPPER_SHELLOUT = [
     # where that literal never appears. Both are covered by tests.
     r"\b(?:exec|spawn|execFile)(?:Sync)?\s*\(\s*['\"]",
     r"\bos\.system\b",
+    # v2.29.37: php's equivalents. shell_exec/passthru/proc_open all hand a STRING
+    # to the OS, exactly like os.system and execSync above.
+    r"\bshell_exec\s*\(",
+    # v2.29.37: awk's and php's `system("cmd")`. The QUOTED argument is load-bearing
+    # for the same reason it is on the exec arm above: a shell-out passes a command
+    # STRING, while `system(cfg)` passes a variable and is ordinary code. Without the
+    # quote this would match any language's system() call in any pasted snippet.
+    # Verified: `gawk 'BEGIN{system("id")}'` blocks, `awk '{print $1}' log` does not.
+    r"\bsystem\s*\(\s*['\"]",
+    r"\b(?:passthru|proc_open|popen)\s*\(",
     r"\bos\.popen\b",
     # v2.22.8: catch aliased / indirect os shellout — `import os as o; o.system(`,
     # `__import__('os').system(`, `getattr(os,'system')(`. The `\bos\.system\b`
@@ -147,7 +164,18 @@ _SENSITIVE_NAME_RE = re.compile(
     r"(?<!process)(?<!meta)\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
-    r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|/)pip\.conf"
+    r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|[/\s])pip\.conf"
+    # v2.29.37: ~/.aws/credentials was NOT here. The gate lists *aws* so the detector
+    # ran, then matched nothing -- every reader allowed it while the Read channel
+    # blocked it. Cross-channel drift in the direction the first probe did not test.
+    r"|\.aws/credentials"
+    # Credential stores with distinctive extensions: a password database and a Java
+    # keystore are never anything else, so the extension alone is safe to match.
+    r"|[\w.*-]+\.(?:kdbx|keystore)"
+    # PATH-scoped, deliberately. hosts.yml / auth.json / config.json are generic
+    # names -- matching them by basename would fire on ordinary project files. The
+    # secret is the LOCATION, so that is what the pattern requires.
+    r"|\.config/gh/hosts\.yml|\.claude\.json|\.codex/auth\.json|\.cursor/config\.json"
     # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
     r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"

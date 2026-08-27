@@ -125,4 +125,39 @@ begin_test "env-guard: allows Read of kubeconfig.md doc (no false positive, v2.1
 run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/docs/kubeconfig.md"}}'
 [ "$?" = "0" ] && pass || fail "kubeconfig.md doc wrongly blocked"
 
+# --- v2.29.37: credential files, verified on BOTH channels -------------------
+# Three separate causes, all ending in "allowed", found by a matrix that tested
+# Bash and Read in BOTH directions. An earlier one-directional probe reported 8
+# gaps where there were 12.
+#
+#   DEAD RULES  .docker/config.json and pip.conf were in safety-detect.py's regex
+#               but NOT in safety.sh's fast-path gate, so _NEED_PY never flipped
+#               and the detector never ran -- written, reviewed, shipped and
+#               unreachable. Same two-gate trap that shipped tool-preferences inert.
+#   DRIFT       cargo/credentials.toml, secrets.yaml and credentials.json were
+#               blocked on Bash and allowed on Read -- the opposite direction to
+#               the docker/aws pair, which is why one-way probing missed them.
+#   NOT KNOWN   gh hosts.yml, *.kdbx, *.keystore, and the agent configs.
+#
+# Generic basenames (hosts.yml, auth.json, config.json) are matched by PATH, never
+# by basename: the secret is the LOCATION, and a basename rule would fire on every
+# project's config.json.
+for _f in "/home/u/.aws/credentials" "/home/u/.docker/config.json" \
+          "/home/u/.config/gh/hosts.yml" "/home/u/.claude.json" \
+          "/home/u/.codex/auth.json" "/home/u/.cursor/config.json" \
+          "/proj/vault.kdbx" "/proj/server.keystore" "/proj/credentials.toml" \
+          "/proj/secrets.yaml" "/proj/credentials.json" "/etc/pip.conf"; do
+  begin_test "env-guard: Read blocks credential file $(basename "$_f")"
+  run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}"
+  [ "$?" = "2" ] && pass || fail "Read allowed $_f"
+done
+
+# Ordinary project files carrying the same generic basenames must stay readable.
+for _f in "/proj/src/config.json" "/proj/package.json" "/proj/tsconfig.json" \
+          "/proj/docs/credentials-policy.md"; do
+  begin_test "env-guard: Read allows ordinary file $(basename "$_f")"
+  run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}"
+  [ "$?" = "0" ] && pass || fail "over-blocked $_f"
+done
+
 report

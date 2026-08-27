@@ -163,9 +163,9 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of .env file blocked — credentials likely present" "$FILE_PATH" ;;
     id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*)
       block "Read of SSH private key blocked ($base) — key material" "$FILE_PATH" ;;
-    *.pem|*.key|*.ppk|*.p12|*.pfx|*.crt|*.cer)
+    *.pem|*.key|*.ppk|*.p12|*.pfx|*.crt|*.cer|*.kdbx|*.keystore)
       block "Read of key/certificate file blocked ($base)" "$FILE_PATH" ;;
-    .npmrc|.pypirc|.pgpass|.netrc|.authinfo|.authinfo.gpg|.git-credentials|.my.cnf)
+    .npmrc|.pypirc|.pgpass|.netrc|.authinfo|.authinfo.gpg|.git-credentials|.my.cnf|credentials.toml|secrets.yaml|secrets.yml|credentials.json|pip.conf)
       block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
     wallet.dat|wallet.json|*.wallet|credentials)
       block "Read of wallet/credentials file blocked ($base)" "$FILE_PATH" ;;
@@ -174,7 +174,9 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   esac
   # credential paths not distinguished by basename alone
   case "$FILE_PATH" in
-    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config)
+    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config|\
+    */.config/gh/hosts.yml|*/.claude.json|*/.codex/auth.json|*/.cursor/config.json|\
+    */.cargo/credentials*|*/.gem/credentials|*/pip.conf)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
   esac
   shopt -u nocasematch
