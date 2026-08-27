@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.39] - 2026-08-27 — add generated matrices for credential access (target x reader x channel) and download-execute (shell x fetcher x syntax), so extending either is one word in a list rather than remembering a cross-product. 4894 tests passing.
 - [2.29.38] - 2026-08-27 — block the inverse process-substitution shape: a shell run over a fetched process substitution is a download-and-execute with different syntax, and all 35 shell/fetcher combinations bypassed every Bash gate. 4679 tests passing.
 - [2.29.37] - 2026-08-27 — close twelve credential-file gaps across both channels, including two detector rules the fast-path gate made unreachable, and treat php -r and awk system() as the command launchers they are. 4637 tests passing.
 - [2.29.36] - 2026-08-27 — match the keyword prelude with a case glob instead of a regex alternation containing bash reserved words, which did not fire on Git Bash, and log the stripper's real output so a Windows regression explains itself in the same run. 4583 tests passing.
