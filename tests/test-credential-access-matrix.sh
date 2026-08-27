@@ -112,4 +112,49 @@ for _b in "${BENIGN[@]}"; do
   fi
 done
 
+# --- v2.29.40: the read happens INSIDE a code string -------------------------
+# Every rule above pairs a shell READER (cat/head/grep) with a path. An interpreter
+# one-liner has no shell reader at all -- the read is a function call -- so the
+# whole target list above was reachable through python, node, ruby, perl and php
+# while `cat` on the same file was denied.
+#
+# A FILESYSTEM MARKER is required alongside the path, not the path alone: matching
+# a literal would fire on any one-liner mentioning something like config.key, the
+# same over-match that made `.keys()` a false positive historically.
+INTERP_READS=(
+  "python3 -c \"print(open('%s').read())\""
+  "python3 -c \"import pathlib;print(pathlib.Path('%s').read_text())\""
+  "node -e \"console.log(require('fs').readFileSync('%s','utf8'))\""
+  "ruby -e \"puts File.read('%s')\""
+  "php -r \"echo file_get_contents('%s');\""
+)
+for _tpl in "${INTERP_READS[@]}"; do
+  for _t in "/home/u/.aws/credentials" "/home/u/.ssh/id_rsa" "/proj/vault.kdbx"; do
+    # shellcheck disable=SC2059
+    _cmd=$(printf "$_tpl" "$_t")
+    begin_test "credential: ${_tpl%% *} cannot read $(basename "$_t") from code"
+    [ "$(bash_blocked "" "$_cmd")" = BLOCK ] && pass \
+      || fail "interpreter read bypass: $_cmd"
+  done
+done
+
+# --- precision: the marker is what gates it ---------------------------------
+# An ordinary one-liner that reads a NON-sensitive file, and a one-liner that
+# merely MENTIONS a sensitive path without reading it, must both stay allowed.
+INTERP_BENIGN=(
+  "python3 -c \"print(open('data.csv').read())\""
+  "python3 -c \"import json;print(json.load(open('package.json')))\""
+  "python3 -c \"d={};print(d.keys())\""
+  "node -e \"console.log(Object.keys(cfg))\""
+  "node -e \"console.log(require('fs').readFileSync('app.js','utf8'))\""
+  "ruby -e \"puts File.read('Gemfile')\""
+  "php -r \"echo file_get_contents('composer.json');\""
+  "python3 -c \"print('the dotenv file holds secrets')\""
+  "python3 -c \"print(2+2)\""
+)
+for _b in "${INTERP_BENIGN[@]}"; do
+  begin_test "credential: ordinary one-liner allowed: ${_b:0:44}"
+  [ "$(bash_blocked "" "$_b")" = allow ] && pass || fail "over-blocked one-liner: $_b"
+done
+
 report

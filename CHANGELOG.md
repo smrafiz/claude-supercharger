@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.40] - 2026-08-27 — block credential reads that happen inside an interpreter code string, where no shell reader appears for the existing rules to pair with a path; a filesystem marker is required alongside the path so ordinary one-liners stay untouched. 4918 tests passing.
 - [2.29.39] - 2026-08-27 — add generated matrices for credential access (target x reader x channel) and download-execute (shell x fetcher x syntax), so extending either is one word in a list rather than remembering a cross-product. 4894 tests passing.
 - [2.29.38] - 2026-08-27 — block the inverse process-substitution shape: a shell run over a fetched process substitution is a download-and-execute with different syntax, and all 35 shell/fetcher combinations bypassed every Bash gate. 4679 tests passing.
 - [2.29.37] - 2026-08-27 — close twelve credential-file gaps across both channels, including two detector rules the fast-path gate made unreachable, and treat php -r and awk system() as the command launchers they are. 4637 tests passing.

