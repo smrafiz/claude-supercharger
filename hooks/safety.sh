@@ -526,6 +526,24 @@ NETWORK_PATTERNS=(
   # scanners); safety.sh, the most-fired hook in the product, kept the loosest
   # form. Same drift class as the v2.24.6 tightening four lines below.
   '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
+  # v2.29.38: the INVERSE process-substitution shape. v2.29.31 covered a shell as
+  # the SUBSTITUTED command (tee into a process substitution running a shell); this
+  # is a shell as the OUTER command with a fetcher inside -- the same capability as
+  # piping a download into a shell, written differently. Measured before this rule:
+  # 35 of 35 shell x fetcher combinations bypassed all 18 Bash gates.
+  #
+  # Covering one arm of a construct and not the other is the recurring defect class
+  # here, and v2.29.31 committed it while fixing a different instance of it.
+  #
+  # source and . are included: both run the substituted output in the CURRENT
+  # shell, which is strictly worse than spawning one.
+  #
+  # A FETCHER inside is REQUIRED, deliberately. Executing local content
+  # (a process substitution running cat on a local file) is no different from
+  # running that script directly, which this repo allows; and comparing two sorted
+  # files with process substitution must keep working. The danger is remote code,
+  # not the syntax.
+  '(^|[^[:alnum:]_])(bash|sh|zsh|ksh|dash|source|\.)[[:space:]]+<\([^)]*(curl|wget|xh|xhs|http|https|fetch|aria2c|nc|ncat|netcat)[[:space:]]'
   # v2.29.31: process substitution whose body IS a shell -- `tee >(sh) < payload`,
   # `cat <(bash -c '...')`. Bash runs the substituted command, so this carries the
   # same capability as the pipe-to-shell rule above, with no literal pipe-into-shell

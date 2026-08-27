@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.38] - 2026-08-27 — block the inverse process-substitution shape: a shell run over a fetched process substitution is a download-and-execute with different syntax, and all 35 shell/fetcher combinations bypassed every Bash gate. 4679 tests passing.
 - [2.29.37] - 2026-08-27 — close twelve credential-file gaps across both channels, including two detector rules the fast-path gate made unreachable, and treat php -r and awk system() as the command launchers they are. 4637 tests passing.
 - [2.29.36] - 2026-08-27 — match the keyword prelude with a case glob instead of a regex alternation containing bash reserved words, which did not fire on Git Bash, and log the stripper's real output so a Windows regression explains itself in the same run. 4583 tests passing.
 - [2.29.35] - 2026-08-26 — add a generated command-prelude matrix: 493 structure x wrapper x separator combinations plus benign-shell controls, so a new wrapper or grouping form is covered by adding one word to a list instead of being remembered. 4583 tests passing.
