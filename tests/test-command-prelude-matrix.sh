@@ -28,6 +28,26 @@ RM="r""m"
 
 echo "=== Command prelude matrix (structure x wrapper x separator) ==="
 
+# --- diagnostic: what does the stripper actually RETURN for the keyword shapes? --
+# v2.29.36: the Windows job failed on exactly if/then, for/do and while/do while
+# every sibling structure passed. That is not reproducible on macOS or ubuntu, so
+# this prints the stripper's real output into the suite log. If the keyword rule
+# regresses again, the uploaded win-suite.log answers WHY on the same run instead
+# of costing another ~50-minute round trip to find out.
+if [ -f "$REPO_DIR/hooks/cmd-normalize.sh" ]; then
+  # shellcheck source=/dev/null
+  ( . "$REPO_DIR/hooks/cmd-normalize.sh" 2>/dev/null
+    if command -v _sc_strip_wrapper_prelude >/dev/null 2>&1; then
+      for _d in "then $RM -rf /" "do $RM -rf /" "if true" "for i in 1"; do
+        printf '      [prelude-diag] %-22s -> %s\n' "$_d" "$(_sc_strip_wrapper_prelude "$_d")"
+      done
+    else
+      printf '      [prelude-diag] _sc_strip_wrapper_prelude NOT DEFINED after sourcing\n'
+    fi
+    printf '      [prelude-diag] bash %s on %s\n' "${BASH_VERSION:-?}" "${OSTYPE:-?}"
+  ) >&2
+fi
+
 # verdict <hook> <command> -> BLOCK | allow
 verdict() {
   local j

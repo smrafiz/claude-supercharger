@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [2.29.36] - 2026-08-27 — match the keyword prelude with a case glob instead of a regex alternation containing bash reserved words, which did not fire on Git Bash, and log the stripper's real output so a Windows regression explains itself in the same run. 4583 tests passing.
 - [2.29.35] - 2026-08-26 — add a generated command-prelude matrix: 493 structure x wrapper x separator combinations plus benign-shell controls, so a new wrapper or grouping form is covered by adding one word to a list instead of being remembered. 4583 tests passing.
 - [2.29.34] - 2026-08-26 — strip the structural prelude so shell grouping no longer hides a command from the segment guards (256 of 288 structure/wrapper/separator combinations bypassed before), and quote the GIT_SSH_COMMAND fixture that Git Bash rewrites into an unquoted path with a space. 4090 tests passing.
 - [2.29.33] - 2026-08-26 — complete the wrapper-prelude fix: v2.29.32 updated one of four copies of the rule, so any shell separator routed around it. One shared stripper now serves every path, newline joins the separator set, and the python splitter no longer pre-strips bare prefixes. 4073 tests passing.

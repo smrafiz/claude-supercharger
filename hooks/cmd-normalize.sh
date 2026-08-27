@@ -139,9 +139,22 @@ _sc_strip_wrapper_prelude() {
         '(('*)  cmd="${cmd#??}" ;;
         '('*|'{'*) cmd="${cmd#?}" ;;
       esac
-      if [[ "$cmd" =~ ^(if|then|elif|else|do|while|until|for|fi|done|time|!)[[:space:]]+ ]]; then
-        cmd="${cmd#"${BASH_REMATCH[0]}"}"
-      fi
+      # v2.29.36: a `case` GLOB, not a regex. The regex form
+      #   [[ "$cmd" =~ ^(if|then|...|!)[[:space:]]+ ]]
+      # worked on macOS and ubuntu and did NOT fire on Git Bash: the Windows job
+      # failed on exactly the keyword structures (if/then, for/do, while/do) while
+      # the sibling rules below -- which are also =~ -- kept working, so it is this
+      # pattern and not the construct. The alternation contains bash RESERVED WORDS
+      # (`time`, `!`), which is the difference between this rule and its siblings.
+      #
+      # Rather than keep guessing at a platform I cannot run, this drops the regex
+      # for the one rule that needs none: glob-match the keyword, then cut through
+      # the first space. Same behaviour, no alternation to misparse.
+      case "$cmd" in
+        'if '*|'then '*|'elif '*|'else '*|'do '*|'while '*|'until '*|'for '*|\
+        'fi '*|'done '*|'time '*|'! '*)
+          cmd="${cmd#* }" ;;
+      esac
       # A case ARM puts its command after the pattern: `case x in pat) cmd` when the
       # segment is unsplit, or a bare `pat) cmd` once ;; has split it. Only a case arm
       # puts a close-paren before a command, so consuming it cannot hide anything.
