@@ -1,12 +1,12 @@
 # Known Issues
 
-Status: **0 open** · Last updated: 2026-08-25 · Opened against v2.29.22 · all four fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27
+Status: **1 open** · Last updated: 2026-08-27 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 opened 2026-08-27.
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
 
-**Nothing is currently open.** Every entry below is closed; they are kept for the
-reproductions and for the bug classes they name, not as outstanding work.
+One entry is open (#5). The rest are closed and kept for their reproductions and
+for the bug classes they name, not as outstanding work.
 Per-release history lives in [`../CHANGELOG.md`](../CHANGELOG.md); this file is only
 for what is currently broken.
 
@@ -15,6 +15,7 @@ for what is currently broken.
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
 | ~~3~~ | ~~`claim-evidence-gate` matches substrings, not verdicts~~ | ~~medium~~ | **fixed v2.29.27** |
+| 5 | a sensitive path bound to a variable is not tracked | low | credential-read coverage |
 | ~~4~~ | ~~`base64 -d` is still a bare-substring rule~~ | ~~low~~ | **fixed v2.29.25** |
 
 ---
@@ -164,3 +165,33 @@ The old rule was the literal string `base64 -d`, so it never matched `--decode` 
 Net: one payload class gained, four false positives dropped, no regression. The accepted
 cost is unchanged from v2.29.22's — a two-step payload that decodes to a file and runs it
 separately no longer matches *this* rule, and is left to the instruction-shaped rules.
+
+---
+
+## 5 — a sensitive path bound to a variable is not tracked
+
+**Reproduction.**
+
+```
+F=.env; cat $F        # allowed
+cat .env              # blocked
+```
+
+**Root cause.** The credential rules pair a reader command with a path that appears
+literally in the same segment. When the path is bound to a variable first, the
+reading segment contains only `$F`, and the assignment segment contains no reader.
+`kenryu42/cc-safety-net` handles this by capturing `VAR=value` bindings as candidate
+path targets.
+
+**Why it is open rather than fixed.** Adding variable tracking to a regex detector
+is where false positives come from — the value would have to be followed across
+segments, and any mis-tracking turns into a block on ordinary work. The shape is
+also a single contrived form rather than something that arises naturally.
+
+**Honest severity.** Low as an accident, higher as a deliberate evasion. Recorded
+here rather than left implicit, because v2.29.40 closed the interpreter-read axis
+and it would be easy to read that as "credential reads are now covered". They are
+covered for every literal form measured; this one is not.
+
+**Noted 2026-08-27**, after v2.29.40. I claimed in conversation to have recorded
+this at the time and had not — the entry exists now because that was checked.

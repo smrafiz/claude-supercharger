@@ -313,4 +313,46 @@ begin_test "safety: activating a venv is allowed"
 begin_test "safety: running a local build script is allowed"
 [ "$(verdict "bash ./scripts/build.sh")" = ALLOW ] && pass || fail "over-blocked a local script"
 
+# --- v2.29.41: persistence — one false positive and three siblings -----------
+# From kylemillerbuilds/agent-guardrails. Its Rule 4 warns on launchd plists; the
+# probe that checked our equivalent surfaced a FALSE POSITIVE first, which matters
+# more than the gaps.
+#
+# The rule was `(crontab[[:space:]]+-e|crontab[[:space:]]+-)` -- the second
+# alternative had NO terminator, so it matched the leading dash of ANY flag,
+# including `crontab -l`, which only PRINTS the current crontab. Blocking a
+# read-only listing is precisely the friction that teaches people to click through.
+#
+# The same probe found three siblings open while their partners were covered:
+# installing a crontab from a FILE (the command form was covered), systemd enable
+# (launchd was covered), and writing the cron SPOOL directly (which skips the
+# command entirely).
+begin_test "safety: 'crontab -l' is allowed (read-only listing)"
+[ "$(verdict "crontab -l")" = ALLOW ] && pass || fail "over-blocked a read-only crontab listing"
+begin_test "safety: 'crontab -u bob -l' is allowed"
+[ "$(verdict "crontab -u bob -l")" = ALLOW ] && pass || fail "over-blocked a per-user listing"
+begin_test "safety: 'launchctl list' is allowed"
+[ "$(verdict "launchctl list")" = ALLOW ] && pass || fail "over-blocked launchctl list"
+begin_test "safety: 'systemctl status' is allowed"
+[ "$(verdict "systemctl status mysvc")" = ALLOW ] && pass || fail "over-blocked systemctl status"
+begin_test "safety: 'systemctl daemon-reload' is allowed"
+[ "$(verdict "systemctl daemon-reload")" = ALLOW ] && pass || fail "over-blocked daemon-reload"
+
+begin_test "safety: 'crontab -e' is blocked"
+[ "$(verdict "crontab -e")" = BLOCK ] && pass || fail "crontab -e evaded"
+begin_test "safety: 'crontab -r' is blocked (removes every entry)"
+[ "$(verdict "crontab -r")" = BLOCK ] && pass || fail "crontab -r evaded"
+begin_test "safety: 'crontab <file>' is blocked (install from a file)"
+[ "$(verdict "crontab mine.txt")" = BLOCK ] && pass || fail "crontab from a file evaded"
+begin_test "safety: 'crontab -' is blocked (install from stdin)"
+[ "$(verdict "crontab -")" = BLOCK ] && pass || fail "crontab stdin evaded"
+begin_test "safety: 'systemctl enable' is blocked"
+[ "$(verdict "systemctl enable mysvc")" = BLOCK ] && pass || fail "systemctl enable evaded"
+begin_test "safety: 'systemctl --user enable' is blocked"
+[ "$(verdict "systemctl --user enable mysvc")" = BLOCK ] && pass || fail "user-scope enable evaded"
+begin_test "safety: writing the cron spool is blocked"
+[ "$(verdict "echo job >> /etc/cron.d/mine")" = BLOCK ] && pass || fail "cron spool write evaded"
+begin_test "safety: copying into cron.daily is blocked"
+[ "$(verdict "cp job /etc/cron.daily/")" = BLOCK ] && pass || fail "cron.daily copy evaded"
+
 report

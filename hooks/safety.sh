@@ -830,7 +830,28 @@ fi
 
 # --- Unauthorized persistence (category: persistence) ---
 if _cat_enabled "persistence"; then
-  if [[ "$CMD" =~ (crontab[[:space:]]+-e|crontab[[:space:]]+-) ]]; then
+  # v2.29.41: the second alternative used to be a bare `crontab[[:space:]]+-` with
+  # NO terminator, so it matched the leading dash of ANY flag -- including
+  # `crontab -l`, which only PRINTS the current crontab. A guard that blocks a
+  # read-only listing is the friction that teaches people to click through, and it
+  # was blocking one. Found by diffing against kylemillerbuilds/agent-guardrails.
+
+  # v2.29.41: systemd is the Linux sibling of the launchd rule above, and the cron
+  # SPOOL is the sibling of the crontab command -- writing the file directly skips
+  # the command entirely. Both were open while their siblings were covered.
+  if [[ "$CMD" =~ systemctl([[:space:]]+--user)?[[:space:]]+(enable|link)([[:space:]]|$) ]]; then
+    block "systemd unit enable — installs a service that starts automatically (persistence)"
+  fi
+  if [[ "$CMD" =~ (/var/spool/cron|/etc/cron\.(d|daily|hourly|weekly|monthly)|/etc/crontab) ]] \
+     && [[ "$CMD" =~ (>>?|tee|cp|mv|install)[[:space:]] ]]; then
+    block "cron spool/directory write — installs a scheduled job without invoking crontab (persistence)"
+  fi
+  #
+  # Now: -e (edit), -r (remove ALL entries), `-` alone (install from stdin), and a
+  # non-flag operand (install from a FILE, which was missed entirely). A `-u <user>`
+  # prefix is consumed so `crontab -u bob -l` stays a listing.
+  # Read-only forms (-l, -u <user> -l) are deliberately allowed.
+  if [[ "$CMD" =~ crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:]]|$)|-([[:space:]]|$)|[^-[:space:]][^[:space:]]*) ]]; then
     block "cron job modification — agent should not create persistent scheduled tasks"
   fi
 

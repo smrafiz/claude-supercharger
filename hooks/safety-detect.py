@@ -395,7 +395,8 @@ _CLOUD_UPLOADS = [
     (r"\bs3cmd\s+put\b", "s3cmd upload"),
 ]
 _NETWORK_UPLOADS = [
-    r"\bcurl\b.*(?:--data-binary|--upload-file|-F\s|--form\b|-d\s)",
+    r"\bcurl\b.*(?:--data-binary|--data-raw|--data-urlencode|--data\b|-d\s"
+    r"|--upload-file|-T\s|-F\s|--form\b)",
     r"\bwget\b.*--post-file=",
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",
