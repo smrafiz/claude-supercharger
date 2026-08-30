@@ -2,6 +2,13 @@ Generate a structured session handoff brief. Context: $ARGUMENTS
 
 This produces a machine-readable resume that can be pasted into the next session or consumed by session-memory-inject.
 
+**Modes.** Default is the terse brief below. If `$ARGUMENTS` contains `--deep`,
+`--full` or `deep`, ALSO do Step 4 (extended brief) and Step 5 (memory pass).
+Deep mode is for the end of a long or expensive session — one that burned hours,
+changed direction, or produced findings that would cost real money to rediscover.
+It is not the default because most sessions do not earn it, and a brief nobody
+reads is worse than a short one somebody does.
+
 **Step 1 — Gather state**
 Read git status, recent commits, modified files, and any .claude/supercharger-memory.md.
 
@@ -52,3 +59,65 @@ Output format:
  and the cause is unclear". Write "none" if nothing applies. Use /supercharger
  <situation> if you are unsure which command fits.]
 ```
+
+---
+
+## Deep mode only (`--deep` / `--full`)
+
+**Step 4 — Extended sections.** Append these to the brief above. Every one is
+for something a fresh agent CANNOT reconstruct from the repo. If a section has
+nothing real in it, write "none" and move on — padding a section is how these
+files stop being read.
+
+```
+### Measurements
+[Exact numbers with the fixture that produced them: "safety.sh 50ms at 43 bytes,
+ 1520ms at 41KB (scratchpad/safety-vs-len.py)". Never round, never paraphrase a
+ quantitative result. A number without its method is a rumour.]
+
+### Rejected — do not rebuild
+[Each approach that was considered and dropped, WITH the evidence that killed it.
+ "Structural injection slice: caught 4/4 injections, fired on 9/12 ordinary
+ command outputs — rejected." Without the measurement the next session re-derives
+ it and ships the thing that fails.]
+
+### Dead ends
+[Investigations that produced nothing, so they are not retried: paths searched,
+ tools that could not answer, hypotheses that were disproved and how.]
+
+### Open questions
+[What is genuinely unknown, and what evidence would settle it. Distinguish
+ "unverified" from "verified false" — they lead to different next moves.]
+
+### Reproduce
+[The exact commands to re-derive the session's key results: probe scripts, test
+ invocations, CI queries. Paths to scratchpad probes worth keeping.]
+```
+
+**Verify before you write.** Every claim in the brief must be something you
+checked this session, not something you believe. If you write "X is fixed",
+confirm it by behaviour first. A confidently wrong handoff is worse than a
+missing one, because the next session builds on it.
+
+**Step 5 — Memory pass.** The brief dies with the project directory; file-memory
+outlives it. For each durable lesson from this session:
+
+1. **Check for an existing entry first** — read the memory index and look for a
+   file that already covers it. Update that file rather than creating a near
+   duplicate; a second entry on the same lesson makes both weaker.
+2. **Only durable facts.** A lesson qualifies if it would change behaviour in a
+   FUTURE session on a different task. Skip anything the repo already records
+   (code structure, git history, CLAUDE.md) and anything true only of this
+   conversation.
+3. **Write the why.** A rule without its cause gets overridden the first time it
+   is inconvenient. Include the incident that produced it and the measurement if
+   there was one.
+4. **Convert relative dates to absolute** ("today" and "last week" rot).
+5. **Link related entries** so the next recall pulls the whole cluster.
+6. **Add one index line per new entry.** An entry the index does not point at is
+   an entry that never loads.
+
+State plainly in your reply which memory files you created or updated, and which
+lessons you deliberately did NOT save and why. Do not claim to have recorded
+something without checking that the file exists — that claim has been wrong
+before, and it is cheap to verify.

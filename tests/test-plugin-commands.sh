@@ -80,4 +80,19 @@ RC=$?
 rm -rf "$GEN_SANDBOX"
 [ "$RC" -ne 0 ] && pass || fail "--check did not flag an extra file as drift"
 
+begin_test "handoff carries its deep mode in BOTH the source and the generated copy"
+# The lockstep check above catches the two files disagreeing. It cannot catch the
+# feature being dropped from both at once, which is what a careless regeneration
+# or a bad merge does. Assert the contract itself: the mode trigger, the extended
+# sections, and the memory pass that makes --deep worth typing.
+_hd_ok=1
+for f in "$SRC_DIR/handoff.md" "$OUT_DIR/handoff.md"; do
+  [ -f "$f" ] || { _hd_ok=0; continue; }
+  for marker in -- '--deep' 'Memory pass' 'Rejected — do not rebuild' 'Dead ends' 'Reproduce'; do
+    [ "$marker" = "--" ] && continue
+    grep -qF -- "$marker" "$f" || _hd_ok=0
+  done
+done
+[ "$_hd_ok" = 1 ] && pass || fail "handoff lost its --deep contract (source or generated copy)"
+
 report
