@@ -33,10 +33,15 @@ BUMP_TYPE="patch"
 MESSAGE=""
 DRY_RUN=false
 ASSUME_YES=false
+EXPLICIT_VERSION=""
 
 while [ $# -gt 0 ]; do
   case "$1" in
     patch|minor|major) BUMP_TYPE="$1"; shift ;;
+    # An explicit X.Y.Z, for when the computed bump is not the version you want.
+    # The repo carries 53 orphaned v3.x tags from an earlier scheme (2026-04), so
+    # `major` off a 2.x version computes 3.0.0 and collides with a published tag.
+    [0-9]*.[0-9]*.[0-9]*) EXPLICIT_VERSION="$1"; shift ;;
     --message|-m)      MESSAGE="$2"; shift 2 ;;
     --dry-run)         DRY_RUN=true; shift ;;
     # v2.26.75: this script has TWO prompts and had no way to answer either from a
@@ -73,6 +78,29 @@ case "$BUMP_TYPE" in
 esac
 
 NEW="${MAJOR}.${MINOR}.${PATCH}"
+if [ -n "$EXPLICIT_VERSION" ]; then
+  case "$EXPLICIT_VERSION" in
+    [0-9]*.[0-9]*.[0-9]*) ;;
+    *) echo "Not a X.Y.Z version: $EXPLICIT_VERSION"; exit 1 ;;
+  esac
+  NEW="$EXPLICIT_VERSION"; BUMP_TYPE="explicit"
+fi
+
+# Refuse a version whose tag already exists, BEFORE the 7-minute test run and
+# before anything is written. Tagging is the last step (§ Commit, tag, push), so
+# a collision used to surface only after the suite had run and the version bump
+# and CHANGELOG entry were already committed.
+if git rev-parse "v$NEW" >/dev/null 2>&1; then
+  echo "Tag v$NEW already exists locally — pick another version."; exit 1
+fi
+# The remote check costs a network round trip, so it is skipped under --dry-run:
+# a dry run pushes nothing, and the tests exercise this path repeatedly. Making
+# the suite wait on (and depend on) the network to answer a question no dry run
+# can act on is a bad trade -- it added ~150s to a ~460s suite.
+if [ "$DRY_RUN" = false ] && git ls-remote --exit-code --tags origin "v$NEW" >/dev/null 2>&1; then
+  echo "Tag v$NEW already exists on origin — pick another version."; exit 1
+fi
+
 TODAY=$(date +%Y-%m-%d)
 
 echo -e "${CYAN}${BOLD}Claude Supercharger Release${NC}"
