@@ -3,7 +3,9 @@ Generate a structured session handoff brief. Context: $ARGUMENTS
 This produces a machine-readable resume that can be pasted into the next session or consumed by session-memory-inject.
 
 **Modes.** Default is the terse brief below. If `$ARGUMENTS` contains `--deep`,
-`--full` or `deep`, ALSO do Step 4 (extended brief) and Step 5 (memory pass).
+ALSO do Step 4 (extended brief) and Step 5 (memory pass). That exact spelling —
+no aliases.
+
 Deep mode is for the end of a long or expensive session — one that burned hours,
 changed direction, or produced findings that would cost real money to rediscover.
 It is not the default because most sessions do not earn it, and a brief nobody
@@ -62,7 +64,7 @@ Output format:
 
 ---
 
-## Deep mode only (`--deep` / `--full`)
+## Deep mode only (`--deep`)
 
 **Step 4 — Extended sections.** Append these to the brief above. Every one is
 for something a fresh agent CANNOT reconstruct from the repo. If a section has
