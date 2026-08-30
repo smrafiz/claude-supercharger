@@ -186,7 +186,7 @@ begin_test "the chain measures every hook that really fires, not just the comma-
 # fell from 17 hooks to 2 and the reported number got FASTER, which is why nobody
 # noticed. Assert the count against Claude Code's real matcher rule, not against
 # a literal, so this cannot drift back.
-python3 -c "
+DIAG=$(python3 -c "
 import json, re, subprocess, sys
 repo = sys.argv[1]
 SIMPLE = re.compile(r'^[A-Za-z0-9_,| -]*\$')
@@ -205,13 +205,26 @@ for e in d['hooks']['PreToolUse']:
         m = re.search(r'/hooks/([A-Za-z0-9_.-]+\.sh)', h.get('command',''))
         if m: expect.add(m.group(1))
 
-out = subprocess.run(['bash', repo + '/tests/perf-chain.sh', '--iterations', '1', '--json'],
-                     capture_output=True, text=True, timeout=600).stdout
-got = set(json.loads(out)['payloads']['fast-pathed']['per_hook_ms'])
-missing = expect - got
-assert not missing, 'chain skips hooks that fire for Bash: %s' % sorted(missing)
-assert len(expect) >= 10, 'expected a real chain, got %d' % len(expect)
+r = subprocess.run(['bash', repo + '/tests/perf-chain.sh', '--iterations', '1', '--json'],
+                   capture_output=True, text=True, timeout=600)
+try:
+    got = set(json.loads(r.stdout)['payloads']['fast-pathed']['per_hook_ms'])
+except Exception as e:
+    print('could not parse the chain JSON: %s; stderr=%.300s' % (e, r.stderr)); sys.exit(1)
+missing, extra = expect - got, got - expect
+if missing or extra:
+    print('expected %d hooks, measured %d' % (len(expect), len(got)))
+    if missing: print('  NOT measured: %s' % ' '.join(sorted(missing)))
+    if extra:   print('  measured but not expected: %s' % ' '.join(sorted(extra)))
+    sys.exit(1)
+if len(expect) < 10:
+    print('expected a real chain, got %d' % len(expect)); sys.exit(1)
 print('ok')
-" "$REPO_DIR" >/dev/null 2>&1 && pass || fail "perf-chain does not measure the whole Bash chain"
+" "$REPO_DIR" 2>&1)
+# The diff is folded into the failure message rather than discarded. The first
+# version of this test sent stdout to /dev/null, so when it failed on Windows
+# ONLY, the log said "does not measure the whole Bash chain" and nothing else —
+# a whole CI cycle to learn what a printed list would have said in the same run.
+[ $? -eq 0 ] && pass || fail "perf-chain does not measure the whole Bash chain — $DIAG"
 
 report
