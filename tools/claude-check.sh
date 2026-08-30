@@ -109,28 +109,63 @@ check_file "$HOME/.claude/rules/anti-patterns.yml" "rules/anti-patterns.yml"
 echo ""
 echo -e "${BLUE}Hooks:${NC}"
 if [ -f "$HOME/.claude/settings.json" ]; then
-  HOOK_COUNT=$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
+  # Also counts entries that are PRESENT but inert. `"matcher": null` is a shape
+  # hooks.json never writes for the events that take no matcher, and Claude Code
+  # ignores it — a /sc off + on before v4.0.1 produced 59 of them while every
+  # count still looked right. Present is not the same as working.
+  read -r HOOK_COUNT HOOK_INERT <<<"$(SETTINGS_PATH="$HOME/.claude/settings.json" python3 -c "
 import json, os
 with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 hooks = s.get('hooks', {})
-count = 0
+count = inert = 0
 for event in hooks.values():
     for entry in event:
+        mine = 0
         for h in entry.get('hooks', []):
             if 'supercharger' in h.get('command', ''):
-                count += 1
+                mine += 1
         if 'supercharger' in entry.get('command', ''):
-            count += 1
-print(count)
-" 2>/dev/null || echo "0")
+            mine += 1
+        count += mine
+        if 'matcher' in entry and entry['matcher'] is None:
+            inert += mine
+print(count, inert)
+" 2>/dev/null || echo "0 0")"
+  HOOK_COUNT=${HOOK_COUNT:-0}; HOOK_INERT=${HOOK_INERT:-0}
   echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
+
+  # Compare against what install.sh recorded leaving behind. Without a baseline
+  # a count is just a number: 122 looks fine until you know it should be 154.
+  HOOK_STAMP_FILE="$HOME/.claude/supercharger/.registration-count"
+  if [ -r "$HOOK_STAMP_FILE" ]; then
+    read -r HOOK_STAMP < "$HOOK_STAMP_FILE" 2>/dev/null || HOOK_STAMP=""
+    case "${HOOK_STAMP:-}" in
+      ''|*[!0-9]*) ;;
+      *) if [ "$HOOK_STAMP" -gt 0 ] && [ "$HOOK_COUNT" -lt "$HOOK_STAMP" ]; then
+           HOOK_SHORTFALL=$((HOOK_STAMP - HOOK_COUNT))
+           echo -e "  ${RED}✗${NC} ${HOOK_SHORTFALL} registration(s) MISSING — install left ${HOOK_STAMP}, found ${HOOK_COUNT}. Those guards are not running. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
+         fi ;;
+    esac
+  fi
+  if [ "${HOOK_INERT:-0}" -gt 0 ]; then
+    echo -e "  ${RED}✗${NC} ${HOOK_INERT} registration(s) present but INERT (null matcher) — counted above, but Claude Code ignores them. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
+  fi
   # Score: 5 for any hooks, +5 for 10+, +5 for 20+, +5 for 35+, +5 for 50+
   if [ "$HOOK_COUNT" -gt 0 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
   if [ "$HOOK_COUNT" -ge 10 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
   if [ "$HOOK_COUNT" -ge 20 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
   if [ "$HOOK_COUNT" -ge 35 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
   if [ "$HOOK_COUNT" -ge 50 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
+
+  # The bands top out at 50, so an install missing a third of its registrations
+  # still scored a perfect 25/25 while the lines above said "32 MISSING". A
+  # report that contradicts itself is worse than either half alone: the reader
+  # believes the number.
+  if [ "${HOOK_SHORTFALL:-0}" -gt 0 ] || [ "${HOOK_INERT:-0}" -gt 0 ]; then
+    SCORE_HOOKS=$((SCORE_HOOKS - 10))
+    [ "$SCORE_HOOKS" -lt 0 ] && SCORE_HOOKS=0
+  fi
 
   if [ -d "$HOME/.claude/supercharger/hooks" ]; then
     for hook in safety notify git-safety quality-gate enforce-pkg-manager audit-trail project-config prompt-validator compaction-backup; do

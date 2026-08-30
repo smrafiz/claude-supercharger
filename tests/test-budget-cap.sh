@@ -314,6 +314,13 @@ fi
 teardown_test_home
 
 # ── Debounce Tests (v2.23.2) ────────────────────────────────────────────────────
+# The window is 3600s, not the 4s default. These assert that a call INSIDE the
+# window is debounced, and a 4s window makes that a race the test can lose: under
+# parallel suite load the two calls landed >4s apart, the second was not
+# debounced, and turn_count came back 2. Observed 2026-08-30 — failed in the
+# suite, passed 22/0 in isolation, which is the signature of a timing race rather
+# than a real regression. The expiry case below forces expiry by DELETING the
+# marker, so it does not depend on the window being short.
 # The accumulate walk is incremental + additive, so it can be debounced to cut the
 # python cold-start on the majority of PostToolUse calls WITHOUT losing tokens —
 # a deferred walk is picked up (from the persisted offset) by the next walk.
@@ -325,10 +332,10 @@ TR="$SCOPE_DIR/dtr.jsonl"
 asst_msg 1000 0 0 500 > "$TR"
 P=$(printf '{"tool_name":"Write","session_id":"dsess","transcript_path":"%s"}' "$TR")
 # 4s window (default). Call 1 walks; append a turn; call 2 immediately → debounced.
-echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1
 T1=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 asst_msg 2000 0 0 1000 >> "$TR"
-echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1
 T2=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 if [ "$T1" = "1" ] && [ "$T2" = "1" ]; then pass; else fail "expected turn_count 1 then 1 (debounced), got $T1 then $T2"; fi
 teardown_test_home
@@ -339,12 +346,12 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
 TR="$SCOPE_DIR/dtr2.jsonl"
 asst_msg 1000 0 0 500 > "$TR"
 P=$(printf '{"tool_name":"Write","session_id":"dsess2","transcript_path":"%s"}' "$TR")
-echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1  # walk turn 1
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1  # walk turn 1
 asst_msg 2000 0 0 1000 >> "$TR"
-echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1  # debounced — turn 2 deferred
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1  # debounced — turn 2 deferred
 # expire the window (marker is keyed by transcript basename) → next call walks
 rm -f "$SCOPE_DIR"/.budget-walk-* 2>/dev/null
-echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+echo "$P" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1
 T=$(python3 -c "import sys, json;print(json.load(open(sys.argv[1]))['turn_count'])" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 [ "$T" = "2" ] && pass || fail "deferred turn lost: expected turn_count=2 after window expiry, got $T"
 teardown_test_home
@@ -370,8 +377,8 @@ asst_msg 1000 0 0 500 > "$TA"; asst_msg 1000 0 0 500 > "$TB"
 PA=$(printf '{"tool_name":"Write","session_id":"dsa","transcript_path":"%s"}' "$TA")
 PB=$(printf '{"tool_name":"Write","session_id":"dsb","transcript_path":"%s"}' "$TB")
 # A walks (writes A's marker). B must still walk — its own marker is absent.
-echo "$PA" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
-echo "$PB" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=4 bash "$HOOK" >/dev/null 2>&1
+echo "$PA" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1
+echo "$PB" | SUPERCHARGER_BUDGET_DEBOUNCE_SECS=3600 bash "$HOOK" >/dev/null 2>&1
 if [ -f "$SCOPE_DIR/.main-tokens-dsa" ] && [ -f "$SCOPE_DIR/.main-tokens-dsb" ]; then pass; else fail "B was wrongly debounced by A's marker"; fi
 teardown_test_home
 
