@@ -186,8 +186,15 @@ begin_test "the chain measures every hook that really fires, not just the comma-
 # fell from 17 hooks to 2 and the reported number got FASTER, which is why nobody
 # noticed. Assert the count against Claude Code's real matcher rule, not against
 # a literal, so this cannot drift back.
-DIAG=$(python3 -c "
-import json, re, subprocess, sys
+# Run the harness from BASH and hand the JSON to python, rather than having
+# python shell out to bash. The subprocess form passed on macOS and Linux and
+# produced empty stdout AND empty stderr on Git Bash, where the 13 sibling tests
+# in this file — all of which invoke perf-chain directly from bash — were fine.
+# A python->bash shell-out with a POSIX path is the MSYS path-translation class,
+# and there is no reason for this test to be the only one that takes that route.
+CHAIN_JSON=$(bash "$REPO_DIR/tests/perf-chain.sh" --iterations 1 --json 2>/dev/null)
+DIAG=$(printf '%s' "$CHAIN_JSON" | python3 -c "
+import json, re, sys
 repo = sys.argv[1]
 SIMPLE = re.compile(r'^[A-Za-z0-9_,| -]*\$')
 def cc_matches(m, tool):
@@ -205,12 +212,13 @@ for e in d['hooks']['PreToolUse']:
         m = re.search(r'/hooks/([A-Za-z0-9_.-]+\.sh)', h.get('command',''))
         if m: expect.add(m.group(1))
 
-r = subprocess.run(['bash', repo + '/tests/perf-chain.sh', '--iterations', '1', '--json'],
-                   capture_output=True, text=True, timeout=600)
+raw = sys.stdin.read()
+if not raw.strip():
+    print('the chain harness produced no output at all'); sys.exit(1)
 try:
-    got = set(json.loads(r.stdout)['payloads']['fast-pathed']['per_hook_ms'])
+    got = set(json.loads(raw)['payloads']['fast-pathed']['per_hook_ms'])
 except Exception as e:
-    print('could not parse the chain JSON: %s; stderr=%.300s' % (e, r.stderr)); sys.exit(1)
+    print('could not parse the chain JSON: %s; first 200 bytes=%.200r' % (e, raw)); sys.exit(1)
 missing, extra = expect - got, got - expect
 if missing or extra:
     print('expected %d hooks, measured %d' % (len(expect), len(got)))
