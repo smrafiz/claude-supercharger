@@ -346,7 +346,15 @@ json.dump({
       {"matcher": "Write", "hooks": [
         {"type": "command", "command": "/h/path-guard.sh #supercharger"}]}],
     "Stop": [
-      {"matcher": "", "hooks": [{"type": "command", "command": "/h/stop.sh #supercharger"}]}]},
+      {"matcher": "", "hooks": [{"type": "command", "command": "/h/stop.sh #supercharger"}]}],
+    # No matcher KEY at all -- the real shape hooks.json writes for the events
+    # that take no matcher. The fixture only ever had "matcher": "" (a string),
+    # so the round-trip that turned an absent key into "matcher": null went
+    # unnoticed while the registration count still matched.
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "/h/session-memory.sh #supercharger"}]}],
+    "UserPromptSubmit": [
+      {"hooks": [{"type": "command", "command": "/h/adaptive-economy.sh #supercharger"}]}]},
   "statusLine": {"type": "command", "command": "/h/supercharger/statusline.sh"},
   "env": {"KEEP": "me"},
 }, open(sys.argv[1], "w"), indent=2)
@@ -396,6 +404,41 @@ AFTER=$(_count_tagged)
 if [ "$BEFORE" = "$AFTER" ] && grep -q 'own-hook.sh' "$HOME/.claude/settings.json" \
    && grep -q 'statusLine' "$HOME/.claude/settings.json"; then pass
 else fail "restore mismatch: before=$BEFORE after=$AFTER"; fi
+teardown_test_home
+
+begin_test "sc-toggle: on restores the hooks section with its SHAPE intact, not just the count"
+# Counting registrations is not enough. The save path built saved entries as
+# {"matcher": entry.get("matcher"), ...}, so an entry with NO matcher key came
+# back as "matcher": null -- a shape hooks.json never writes. The count matched
+# (154 == 154) so `on` reported full success while every matcher-less event
+# (SessionStart, UserPromptSubmit, PostToolUse, PreCompact, SubagentStop) was
+# restored in an altered form. Compare the structure, not the tally.
+_setup; _settings_with_hooks
+cp "$HOME/.claude/settings.json" "$HOME/before.json"
+bash "$TOGGLE" off >/dev/null 2>&1
+bash "$TOGGLE" on  >/dev/null 2>&1
+python3 - "$HOME/before.json" "$HOME/.claude/settings.json" <<'PY' && pass || fail "on altered the hooks section shape"
+import json, sys
+a = json.load(open(sys.argv[1])).get("hooks", {})
+b = json.load(open(sys.argv[2])).get("hooks", {})
+
+def norm(d):
+    # (event, matcher-as-stored, command) -- a null matcher is NOT an absent one.
+    out = set()
+    for ev, entries in d.items():
+        for e in entries:
+            m = "<ABSENT>" if "matcher" not in e else repr(e["matcher"])
+            for h in e.get("hooks", []):
+                out.add((ev, m, h.get("command", "")))
+    return out
+
+na, nb = norm(a), norm(b)
+lost, gained = na - nb, nb - na
+assert not lost and not gained, "lost=%s gained=%s" % (sorted(lost), sorted(gained))
+nulls = [(ev, e) for ev, entries in b.items() for e in entries
+         if "matcher" in e and e["matcher"] is None]
+assert not nulls, "restore wrote null matchers: %s" % [ev for ev, _ in nulls]
+PY
 teardown_test_home
 
 begin_test "sc-toggle: on does not duplicate registrations when run twice"

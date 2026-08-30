@@ -286,8 +286,17 @@ for ev in list(hooks):
         mine = [h for h in entry.get("hooks", []) if ours(h)]
         rest = [h for h in entry.get("hooks", []) if not ours(h)]
         if mine:
-            saved["hooks"].setdefault(ev, []).append(
-                {"matcher": entry.get("matcher"), "hooks": mine})
+            # Only carry a matcher if the entry HAD one. entry.get() returns
+            # None for an absent key, which round-trips through JSON as
+            # "matcher": null -- a shape the canonical hooks.json never writes
+            # for the events that take no matcher (SessionStart,
+            # UserPromptSubmit, PostToolUse, PreCompact, SubagentStop, ...).
+            # `on` then restored 59 registrations in that altered shape while
+            # reporting the full count as success.
+            saved_entry = {"hooks": mine}
+            if entry.get("matcher") is not None:
+                saved_entry["matcher"] = entry["matcher"]
+            saved["hooks"].setdefault(ev, []).append(saved_entry)
             removed += len(mine)
         if rest:
             e = dict(entry); e["hooks"] = rest
