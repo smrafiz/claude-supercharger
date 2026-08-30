@@ -68,6 +68,16 @@ terraform destroy|infra
 helm uninstall myrelease|infra
 npm publish|publish
 twine upload dist/*|publish
+gh pr merge 123|merge
+gh pr merge 123 --admin --squash|merge
+gh pr merge --merge feature-x|merge
+gh api -X PUT repos/o/r/pulls/17/merge|merge
+cd /tmp && gh pr merge 9|merge
+gh pr view 123|allow
+gh pr merge-queue status|allow
+git merge feature-x|allow
+gh pr list --search merge|allow
+gh api repos/o/r/pulls/17|allow
 cargo publish|publish
 gem push mygem.gem|publish
 redis-cli flushall|db

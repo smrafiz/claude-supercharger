@@ -45,7 +45,11 @@ SKIP_CATS=""
 # keywords, exit BEFORE the python cwd-parse + 5-level parent-dir walk + config
 # reads (~149ms measured) that previously ran on EVERY Bash call. One cheap grep
 # vs 2-4 python forks. A keyword hit just proceeds to the precise checks below.
-if ! printf '%s' "$_INPUT" | grep -qiE 'terraform|prisma|drizzle|drop|kubectl|reset[[:space:]]+--hard|branch[[:space:]]+-D|reflog|tag[[:space:]]+-d|publish|twine|gem[[:space:]]+push|flushall|flushdb|\.drop\(|docker|dd[[:space:]]+if=|mkfs|fdisk|parted|diskutil|helm|truncate|alter[[:space:]]+table'; then
+# This list MUST stay a superset of every pattern the precise checks below look
+# for. A rule the gate does not let through is unreachable, and it fails silently
+# in exactly the direction that looks fine — the check appears present and never
+# fires. `merge` is here for the PR-merge category added in v4.0.2.
+if ! printf '%s' "$_INPUT" | grep -qiE 'terraform|prisma|drizzle|drop|kubectl|reset[[:space:]]+--hard|branch[[:space:]]+-D|reflog|tag[[:space:]]+-d|publish|twine|gem[[:space:]]+push|flushall|flushdb|\.drop\(|docker|dd[[:space:]]+if=|mkfs|fdisk|parted|diskutil|helm|truncate|alter[[:space:]]+table|merge'; then
   exit 0
 fi
 
@@ -208,6 +212,28 @@ if [ -z "$MATCH_REASON" ] && ! _hag_skipped publish; then
   if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])(npm[[:space:]]+publish|twine[[:space:]]+upload|cargo[[:space:]]+publish|gem[[:space:]]+push)'; then
     MATCH_REASON="package registry publish"
     MATCH_CAT="publish"
+  fi
+fi
+
+# Pull-request merge — landing code on a shared branch without a human saying so.
+# Same category as the force-push guard already here: outward-facing, visible to
+# everyone, and awkward to walk back once CI and deploys have reacted to it.
+# `--admin` is the sharp end — it explicitly overrides required reviews and
+# branch protection, which is the whole point of having them.
+#
+# ASK rather than DENY: merging is legitimate work a user may well want done,
+# just not decided unilaterally by the agent. Adopted after testing
+# issue-orchestrator's block-no-verify.sh against this repo's guards — its other
+# four shapes (--no-verify long/short/push, core.hooksPath both spellings) were
+# already covered here; this one was not.
+if [ -z "$MATCH_REASON" ] && ! _hag_skipped merge; then
+  if _hag_re "$CMD_NORM" '(^|[[:space:]&|;])gh[[:space:]]+pr[[:space:]]+merge([[:space:]]|$)'; then
+    MATCH_REASON="pull request merge"
+    MATCH_CAT="merge"
+  # The REST spelling of the same action: PUT/POST .../pulls/N/merge
+  elif _hag_re "$CMD_NORM" '(^|[[:space:]&|;])gh[[:space:]]+api[^|;&]*pulls/[0-9]+/merge'; then
+    MATCH_REASON="pull request merge via the API"
+    MATCH_CAT="merge"
   fi
 fi
 
