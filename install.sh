@@ -561,6 +561,16 @@ mkdir -p "$HOME/.claude/supercharger/scope"
 echo "$MCP_PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
 echo "$SELECTED_TIER" > "$HOME/.claude/supercharger/scope/.economy-tier"
 
+# How many tagged entries we left in settings.json. guard-registration-check
+# compares against this so it can see PARTIAL registration loss, not just the
+# total-absence case it caught before — 1-of-154 registered used to be silent.
+# Written last, after every settings write (hooks, statusLine, MCP), and with the
+# same expression the check uses, so the two are always the same metric.
+if [ -r "$HOME/.claude/settings.json" ]; then
+  grep -o -- '#supercharger' "$HOME/.claude/settings.json" 2>/dev/null | wc -l | tr -d ' ' \
+    > "$HOME/.claude/supercharger/.registration-count" 2>/dev/null || true
+fi
+
 echo -e "${CYAN}────────────────────────────────────────────${NC}"
 echo -e "${GREEN}  Done! Claude Supercharger v${VERSION} installed.${NC}"
 echo ""

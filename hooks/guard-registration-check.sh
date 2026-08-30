@@ -59,7 +59,33 @@ SETTINGS="$HOME/.claude/settings.json"
 # This is the whole steady-state cost of the check.
 _GRC_BODY=$(<"$SETTINGS") || exit 0
 case "$_GRC_BODY" in
-  *'#supercharger'*) exit 0 ;;   # registered — the overwhelmingly common case
+  *'#supercharger'*)
+    # Tagged entries exist, so registration happened at some point. That is NOT
+    # the same as "all of it is still there": on 2026-08-30 a /sc on restored 154
+    # registrations of which 59 came back in a shape Claude Code ignores, and this
+    # check stayed silent because the surviving 95 still carried the tag. Measured
+    # at the time: 1-of-154 registered was silent, and so was a tagged hook whose
+    # file did not exist. Presence is a proxy; the defect is partial loss.
+    #
+    # install.sh stamps the count it left behind, so compare against that. No
+    # stamp -> fail open to the old presence behaviour rather than guess a floor.
+    _GRC_STAMP="$HOME/.claude/supercharger/.registration-count"
+    [ -r "$_GRC_STAMP" ] || exit 0
+    read -r _GRC_WANT < "$_GRC_STAMP" 2>/dev/null || exit 0
+    case "$_GRC_WANT" in ''|*[!0-9]*) exit 0 ;; esac
+    [ "$_GRC_WANT" -gt 0 ] || exit 0
+
+    # Occurrences, not lines: sc-toggle rewrites this file and a reformat that put
+    # two tags on one line would make `grep -c` undercount and cry wolf. The stamp
+    # is written with this same expression, so the two are always the same metric.
+    _GRC_HAVE=$(grep -o -- '#supercharger' "$SETTINGS" 2>/dev/null | wc -l | tr -d ' ')
+    case "$_GRC_HAVE" in ''|*[!0-9]*) exit 0 ;; esac
+    [ "$_GRC_HAVE" -ge "$_GRC_WANT" ] && exit 0
+
+    printf '{"systemMessage":"[Supercharger] PARTIAL PROTECTION. %s of %s registrations are present in ~/.claude/settings.json — the rest are gone, so those guards are not running. A /sc off followed by /sc on before v4.0.0 could restore entries in a shape Claude Code ignores. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+      "$_GRC_HAVE" "$_GRC_WANT"
+    exit 0
+    ;;
 esac
 
 # Not registered. Say so once, plainly, and name the fix. Deliberately a
