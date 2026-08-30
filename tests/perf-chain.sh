@@ -66,10 +66,22 @@ _hooks_for() {
 import json, os, re, sys
 d = json.load(open(sys.argv[1]))
 event = os.environ["EVENT"]; tool = os.environ["TOOL"]
+# Claude Code's matcher rule, modelled exactly as tests/test-mcp-matchers.sh
+# does it: a matcher of only [A-Za-z0-9_,| -] is an exact comma/pipe list,
+# anything else is an unanchored regex. Splitting on "," alone silently dropped
+# every hook registered as "Bash|Monitor|PowerShell" -- which was 16 of the 18
+# hooks in this chain, including safety.sh -- and the baseline got FASTER when
+# they vanished, so nothing looked wrong.
+SIMPLE = re.compile(r'^[A-Za-z0-9_,| -]*$')
 def matches(mt):
-    if not mt or mt == "*":
+    if mt in ("", "*"):
         return True
-    return tool in [t.strip() for t in mt.split(",")]
+    if SIMPLE.match(mt):
+        return tool in [t.strip() for t in re.split(r'[,|]', mt) if t.strip()]
+    try:
+        return re.search(mt, tool) is not None
+    except re.error:
+        return False
 for entry in d.get("hooks", {}).get(event, []):
     if not matches(entry.get("matcher", "")):
         continue

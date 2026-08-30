@@ -179,4 +179,39 @@ assert 'statusline' in d and d['statusline']['cold_render']['mean_ms']>0, 'statu
 print('ok')
 " "$REPO_DIR/docs/perf-baseline.json" >/dev/null 2>&1 && pass || fail "baseline lost a section"
 
+begin_test "the chain measures every hook that really fires, not just the comma-matcher ones"
+# This harness modelled matcher semantics by hand and split matchers on "," only,
+# so every hook registered as "Bash|Monitor|PowerShell" was skipped — 16 of 18,
+# safety.sh (the most-fired guard, and the slowest) among them. The chain quietly
+# fell from 17 hooks to 2 and the reported number got FASTER, which is why nobody
+# noticed. Assert the count against Claude Code's real matcher rule, not against
+# a literal, so this cannot drift back.
+python3 -c "
+import json, re, subprocess, sys
+repo = sys.argv[1]
+SIMPLE = re.compile(r'^[A-Za-z0-9_,| -]*\$')
+def cc_matches(m, tool):
+    if m in ('', '*'): return True
+    if SIMPLE.match(m):
+        return tool in [t.strip() for t in re.split(r'[,|]', m) if t.strip()]
+    try: return re.search(m, tool) is not None
+    except re.error: return False
+
+d = json.load(open(repo + '/hooks/hooks.json'))
+expect = set()
+for e in d['hooks']['PreToolUse']:
+    if not cc_matches(e.get('matcher',''), 'Bash'): continue
+    for h in e.get('hooks', []):
+        m = re.search(r'/hooks/([A-Za-z0-9_.-]+\.sh)', h.get('command',''))
+        if m: expect.add(m.group(1))
+
+out = subprocess.run(['bash', repo + '/tests/perf-chain.sh', '--iterations', '1', '--json'],
+                     capture_output=True, text=True, timeout=600).stdout
+got = set(json.loads(out)['payloads']['fast-pathed']['per_hook_ms'])
+missing = expect - got
+assert not missing, 'chain skips hooks that fire for Bash: %s' % sorted(missing)
+assert len(expect) >= 10, 'expected a real chain, got %d' % len(expect)
+print('ok')
+" "$REPO_DIR" >/dev/null 2>&1 && pass || fail "perf-chain does not measure the whole Bash chain"
+
 report
