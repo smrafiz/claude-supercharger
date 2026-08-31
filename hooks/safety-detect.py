@@ -375,6 +375,35 @@ def check_secret_directory(c: str) -> str | None:
     return None
 
 
+# Archive creation: tar with a `c` mode, or zip. Extraction is deliberately NOT
+# matched -- `tar xzf` is ordinary work and denying it would be pure friction.
+_ARCHIVE_CREATE_RE = re.compile(
+    r"(?:^|[;&|]|\s)(?:tar\s+(?:-{0,2}[a-zA-Z-]*c[a-zA-Z-]*)|zip\b|7z\s+a)\b(?P<args>[^|;&]*)",
+    re.I)
+
+
+def check_archive_secrets(c: str) -> str | None:
+    """An archive being built that includes a secret directory or file."""
+    for m in _ARCHIVE_CREATE_RE.finditer(c):
+        for arg in m.group("args").split():
+            if arg.startswith("-"):
+                continue
+            bare = arg.rstrip("/")
+            # The archive's own name is an operand too; it is the destination,
+            # not a secret, and it is excluded by the same public list.
+            if _SECRET_DIR_PUBLIC.search(bare):
+                continue
+            hit = None
+            if any(bare.endswith(d.rstrip("/")) or (d in arg) for d in _SECRET_DIRS):
+                hit = bare
+            elif _SENSITIVE_NAME_RE.search(arg):
+                hit = _SENSITIVE_NAME_RE.search(arg).group(0)
+            if hit:
+                return (f"archiving secrets: {hit} — an archive puts every key "
+                        f"in one file under a name nothing downstream recognises")
+    return None
+
+
 def check_pipeline_bypass(c: str) -> str | None:
     """Detect pipeline-based bypasses of direct file-read protections.
 
@@ -569,6 +598,12 @@ if "credential_laundering" not in disabled:
 
 if "secret_directory" not in disabled:
     r = check_secret_directory(cmd)
+    if r:
+        print(r)
+        sys.exit(0)
+
+if "archive_secrets" not in disabled:
+    r = check_archive_secrets(cmd)
     if r:
         print(r)
         sys.exit(0)
