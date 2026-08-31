@@ -216,6 +216,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/task-poll-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Bash|Monitor|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/file-lease.sh",
             "timeout": 15
           }

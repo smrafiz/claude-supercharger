@@ -188,6 +188,7 @@ get_hooks_for_mode() {
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/task-poll-guard.sh|")  # Efficiency, not safety: polling a harness task file on a clock
     # v2.9.4: advisory concurrent-session write guard — warns (never denies) when a
     # peer live session holds a fresh lease on the same file. Fail-open, TTL-expiring.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/file-lease.sh|")
