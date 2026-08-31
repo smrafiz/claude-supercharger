@@ -324,6 +324,10 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
     hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh|async")
     hooks+=("PostToolUse|Bash|${hooks_dir}/dep-vuln-scanner.sh|async")
+    # async, and beside dep-vuln-scanner deliberately: both need a network
+    # round-trip after an install, and neither belongs on the PreToolUse path
+    # where the cost would land on every command.
+    hooks+=("PostToolUse|Bash|${hooks_dir}/package-credibility-guard.sh|async")
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")

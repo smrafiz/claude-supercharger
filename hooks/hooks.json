@@ -775,6 +775,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-credibility-guard.sh",
+            "async": true,
+            "timeout": 120
+          }
+        ],
+        "matcher": "Bash"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/repetition-detector.sh",
             "timeout": 15
           }

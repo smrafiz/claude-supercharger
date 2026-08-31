@@ -92,6 +92,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
+| `package-credibility-guard` | PostToolUse | Bash | Slopsquatting. An LLM asked for a package name that does not exist, someone |
 | `package-source-guard` | PreToolUse | Write, Edit, MultiEdit | Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
 | `permission-denied-advisor` | PermissionDenied | (none) | Injects context when user denies a permission, so Claude stops retrying |
