@@ -57,18 +57,35 @@ AGENT=""
 
 PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 
+# The Detective and Analyst rules below match on NOUNS (error, csv, report) and
+# sit near the front, so they used to capture prompts whose VERB states a
+# different intent. Measured: "explain how the error handling works" and
+# "document the error codes" both routed to the debugger; "fix the csv parser"
+# and "write a quarterly report" both routed to the analyst. The subject is the
+# noun; the task is the verb, and the verb wins when it leads the sentence.
+#
+# Deliberately anchored to the START of the prompt. A prompt that merely CONTAINS
+# "explain" ("the stack trace is hard to explain") is still a debugging request,
+# and only a leading verb is reliable evidence of intent.
+_PROSE_LED=0; _WORK_LED=0
+[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(explain|document|describe|summari[sz]e) ]] && _PROSE_LED=1
+[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(fix|write|draft|add|build|create|refactor|implement) ]] && _WORK_LED=1
+# "check my error handling" is a review request that happens to name an error.
+_REVIEW_LED=0
+[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(review|check\ my|critique|audit) ]] && _REVIEW_LED=1
+
 # Ordered by specificity — most specific first
-if [[ "$PROMPT_LOWER" =~ (error|exception|stack\ trace|not\ working|broken|failing|crash|null\ pointer|undefined\ is\ not|bug\ at\ line|segfault|traceback|exit\ code\ [0-9]) ]]; then
+if [[ "$_PROSE_LED" -eq 0 ]] && [[ "$_REVIEW_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (error|exception|stack\ trace|not\ working|broken|failing|crash|null\ pointer|undefined\ is\ not|bug\ at\ line|segfault|traceback|exit\ code\ [0-9]) ]]; then
   AGENT="Sherlock Holmes (Detective)"
 elif [[ "$PROMPT_LOWER" =~ (review|security\ issue|code\ smell|what\ do\ you\ think\ of|look\ at\ this|check\ my|critique|audit\ this|lgtm) ]]; then
   AGENT="Gordon Ramsay (Critic)"
-elif [[ "$PROMPT_LOWER" =~ (analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
+elif [[ "$_WORK_LED" -eq 0 ]] && [[ "$_PROSE_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
   AGENT="Albert Einstein (Analyst)"
 elif [[ "$PROMPT_LOWER" =~ (where\ (is|are|does|do)|which\ file|locate\ |find\ (the|all|every|where)|call\ ?sites|callers\ of|who\ calls|what\ calls|trace\ (the|this|through)|(where|how)\ (is|are).*(defined|implemented|used|handled|located|wired)|explore\ the\ (code|repo|codebase)|search\ the\ (code|codebase)|grep\ for|map\ the\ (code|codebase)) ]]; then
   AGENT="Ferdinand Magellan (Navigator)"
 elif [[ "$PROMPT_LOWER" =~ (write\ a\ function|write\ a\ test|write\ a\ class|write\ a\ script|write\ a\ method|write\ a\ module|write\ a\ component|write\ a\ hook|write\ a\ handler|write\ a\ parser) ]]; then
   AGENT="Tony Stark (Engineer)"
-elif [[ "$PROMPT_LOWER" =~ (write|draft|blog|readme|document|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (write|draft|blog|readme|document|describe|summari[sz]e|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
   AGENT="Ernest Hemingway (Writer)"
 elif [[ "$PROMPT_LOWER" =~ (design|architect|before\ we\ build|system\ design|how\ should\ i\ structure|adr|architecture\ decision|diagram) ]]; then
   AGENT="Leonardo da Vinci (Architect)"
