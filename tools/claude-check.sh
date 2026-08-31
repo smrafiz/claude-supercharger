@@ -147,6 +147,15 @@ print(count, inert)
            echo -e "  ${RED}✗${NC} ${HOOK_SHORTFALL} registration(s) MISSING — install left ${HOOK_STAMP}, found ${HOOK_COUNT}. Those guards are not running. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
          fi ;;
     esac
+  else
+    # No stamp: this install predates v4.0.1, so the count above cannot be
+    # compared against anything. SAY SO. A guard is right to fail open — do not
+    # block work you cannot assess — but this tool is an ORACLE: it prints a
+    # health score, and people run it to find out whether they are protected.
+    # Silence from a guard means "nothing to report"; silence from an oracle
+    # reads as "verified". Reporting a full hooks score while structurally
+    # unable to check completeness is a clean bill of health it cannot issue.
+    echo -e "  ${YELLOW}○${NC} Completeness unverified — no install stamp, so ${HOOK_COUNT} cannot be checked against what the install left behind. Re-run: bash ~/.claude/supercharger/tools/update.sh --yes"
   fi
   if [ "${HOOK_INERT:-0}" -gt 0 ]; then
     echo -e "  ${RED}✗${NC} ${HOOK_INERT} registration(s) present but INERT (null matcher) — counted above, but Claude Code ignores them. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"

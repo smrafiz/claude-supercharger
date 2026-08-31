@@ -87,4 +87,17 @@ H=$(_mkinstall 154 0 "not-a-number")
 _run "$H" | grep -q 'MISSING' && fail "acted on an unparseable stamp" || pass
 rm -rf "$H"
 
+begin_test "claude-check: SAYS SO when it cannot verify completeness"
+# The tool prints a health score, so people read it as a verdict. A guard is
+# right to fail open; an oracle that stays silent about what it could not check
+# is issuing a clean bill of health it was not able to issue.
+H=$(_mkinstall 154 0 "")
+_run "$H" | grep -q 'Completeness unverified' && pass || fail "silently omitted the completeness check"
+rm -rf "$H"
+
+begin_test "claude-check: does NOT say that when the stamp is present"
+H=$(_mkinstall 154 0 154)
+_run "$H" | grep -q 'Completeness unverified' && fail "claimed unverified with a stamp present" || pass
+rm -rf "$H"
+
 report
