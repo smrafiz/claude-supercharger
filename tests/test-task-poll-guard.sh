@@ -102,4 +102,20 @@ for ch in ('Bash','Monitor','PowerShell'):
     assert ch in m, 'missing channel ' + ch
 " "$REPO_DIR/hooks/hooks.json" && pass || fail "registration or matcher wrong"
 
+begin_test "poll: sweeps its OWN stale markers and nothing else"
+# One marker per session that trips the guard, and a crashed session never runs
+# cleanup — so the next firing is the only reliable moment. The sweep is bounded
+# to this hook's prefix; a guard that garbage-collects another hook's state is a
+# far worse bug than the leak it fixes.
+D=$(mktemp -d); mkdir -p "$D/scope"
+mkdir -p "$D/scope/.task-poll-warned-stale" "$D/scope/.task-poll-warned-fresh" "$D/scope/.other-hook-marker"
+touch -t 202501010000 "$D/scope/.task-poll-warned-stale" "$D/scope/.other-hook-marker" 2>/dev/null
+printf '{"session_id":"gc","cwd":"/tmp","tool_name":"Bash","tool_input":{"command":"until [ -s /x/tasks/a.output ]; do sleep 9; done"}}' \
+  | SUPERCHARGER_STATE="$D" bash "$HOOK" >/dev/null 2>&1
+if [ ! -d "$D/scope/.task-poll-warned-stale" ] \
+   && [ -d "$D/scope/.task-poll-warned-fresh" ] \
+   && [ -d "$D/scope/.other-hook-marker" ]; then pass
+else fail "sweep removed the wrong thing (stale kept, fresh gone, or foreign marker touched)"; fi
+rm -rf "$D"
+
 report

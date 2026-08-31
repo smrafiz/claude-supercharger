@@ -82,6 +82,11 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null 
 [ -z "$SESSION_ID" ] && SESSION_ID="default"
 STATE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
 mkdir -p "$STATE_DIR" 2>/dev/null || true
+# Sweep this guard's own stale markers. One marker is created per session that
+# trips the guard and nothing removes it — a session that crashes never runs any
+# cleanup, so the only reliable moment is the next time the guard fires. Bounded
+# to this hook's own prefix so it can never touch another hook's state.
+find "$STATE_DIR" -maxdepth 1 -name '.task-poll-warned-*' -mtime +7 -exec rm -rf {} + 2>/dev/null || true
 MARK="$STATE_DIR/.task-poll-warned-$SESSION_ID"
 
 # Already fired this session: step aside. mkdir is the claim — one syscall, so

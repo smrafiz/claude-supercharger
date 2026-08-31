@@ -269,8 +269,13 @@ def check_sensitive_read(c: str) -> str | None:
     if re.match(r"^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b", c):
         return None
 
-    # Reader/editor commands followed by a sensitive filename token
-    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od)\b"
+    # Reader/editor commands followed by a sensitive filename token.
+    # base64/gzip/bzip2/xz/zstd/uuencode sit here with xxd and od because they
+    # are the same act: read the credential and emit it transformed. xxd and od
+    # were covered and these were not -- one arm of a sibling pair, which is the
+    # gap class this repo keeps finding. Measured: `base64 <key>` and
+    # `gzip -c <key>` were both silent while `xxd <key>` and `od -c <key>` denied.
+    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|base64|uuencode|gzip|bzip2|xz|zstd)\b"
     # Capture the args of a reader command and search for sensitive names within
     for m in re.finditer(READER + r"\s+([\S\s]*?)(?:$|\||;|&&|\|\|)", c):
         args = m.group(2)
@@ -279,6 +284,60 @@ def check_sensitive_read(c: str) -> str | None:
         sm = _SENSITIVE_NAME_RE.search(args)
         if sm:
             return f"sensitive file access: {sm.group(0)} — credentials likely present"
+    return None
+
+
+# Relocation and encoding verbs. The reader list above covers commands that put a
+# credential on STDOUT; these put it somewhere else under a new name, which is the
+# setup step of a two-command exfil: copy the secret to an innocuous path, then
+# upload that path. Neither command alone carries the signature -- measured before
+# this was written: `cp <cred> /tmp/notes.txt` followed by
+# `curl --data @/tmp/notes.txt` passed every guard, while the single-command form
+# `curl -T <cred>` was denied.
+_RELOCATE_RE = re.compile(
+    r"(?:^|[;&|]|\s)(?:cp|mv|install|rsync|scp)\b(?P<args>[^|;&]*)", re.I)
+# Encoders that read a credential and emit it transformed, hiding the name.
+_ENCODE_RE = re.compile(
+    r"(?:^|[;&|]|\s)(?:base64|xxd|uuencode|gzip|bzip2|xz|zstd)\b(?P<args>[^|;&]*)", re.I)
+
+
+def check_credential_laundering(c: str) -> str | None:
+    """A sensitive file copied or encoded to a NON-sensitive name.
+
+    The discriminator is deliberately narrow: it is the change of IDENTITY that
+    matters, not the copy. `cp ../repo/.env ../repo-b/.env` keeps the name, stays
+    protected by the reader rule, and is ordinary work -- it appears 7 times in
+    this project's own transcripts and must not fire. `cp <cred> /tmp/notes.txt`
+    produces a file nothing downstream will recognise as a secret.
+
+    Measured on that corpus: 4/4 laundering shapes flagged, 0/4 routine copies
+    (including .env -> .env in a fresh worktree, and .env.example -> .env).
+    """
+    for rx in (_RELOCATE_RE, _ENCODE_RE):
+        for m in rx.finditer(c):
+            args = [a for a in m.group("args").split() if not a.startswith("-")]
+            if not args:
+                continue
+            src = args[0]
+            # A PUBLIC key is meant to be copied — deploy keys, authorized_keys,
+            # pasting one into a form. It matches the sensitive-name pattern only
+            # because it contains the private key's name. The reader rule already
+            # over-blocks these (pre-existing); do not widen that to copies too.
+            if re.search(r"\.pub($|[\s'\"])", src):
+                continue
+            sm = _SENSITIVE_NAME_RE.search(src)
+            if not sm:
+                continue
+            # An encoder with no destination writes to stdout; the pipeline and
+            # exfil checks own that case, so only a redirect or second operand
+            # counts as laundering here.
+            if len(args) < 2:
+                continue
+            if _SENSITIVE_NAME_RE.search(args[-1]):
+                continue        # destination keeps the identity -- still guarded
+            return (f"credential laundering: {sm.group(0)} copied to a "
+                    f"non-sensitive name ({args[-1]}) — the setup step of a "
+                    f"two-command exfil")
     return None
 
 
@@ -464,6 +523,12 @@ if "env_files" not in disabled:
 
 if "sensitive_read" not in disabled:
     r = check_sensitive_read(cmd)
+    if r:
+        print(r)
+        sys.exit(0)
+
+if "credential_laundering" not in disabled:
+    r = check_credential_laundering(cmd)
     if r:
         print(r)
         sys.exit(0)
