@@ -944,6 +944,11 @@ case "$CMD" in
   # v2.10.1: terraform var / token-store files (from chuckreynolds secret-guardrails)
   *.tfvars*|*.tokens.json*) _NEED_PY=true ;;
   *kubeconfig*|*.kube/config*) _NEED_PY=true ;;
+  # v4.0.7: secret DIRECTORIES. The globs above are filenames, so a private key
+  # called anything but id_rsa never flipped _NEED_PY and check_secret_directory
+  # could not run -- the rule was written, tested against the detector, and
+  # unreachable through the hook. Same two-gate trap as v2.29.37 and v2.29.23.
+  */.ssh/*|*/.gnupg/*|*/.aws/*) _NEED_PY=true ;;
   # v2.29.37: the gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE
   # (see the note above) and it had drifted BELOW it. `.docker/config.json` and
   # `pip.conf` were in the detector and NOT here, so _NEED_PY never flipped and the

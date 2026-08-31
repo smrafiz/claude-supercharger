@@ -283,7 +283,14 @@ def check_sensitive_read(c: str) -> str | None:
             args = _drop_first_operand(args)
         sm = _SENSITIVE_NAME_RE.search(args)
         if sm:
-            return f"sensitive file access: {sm.group(0)} — credentials likely present"
+            # A PUBLIC key matches only because it contains the private
+            # key's name. Reading one is what a public key is FOR:
+            # authorized_keys, a deploy-key field, a ticket. Denying it is
+            # over-blocking, and it trains people to switch the guard off.
+            # Only the exact suffix is skipped; the private key beside it
+            # is unaffected.
+            if not sm.group(0).endswith(".pub"):
+                return f"sensitive file access: {sm.group(0)} — credentials likely present"
     return None
 
 
@@ -338,6 +345,33 @@ def check_credential_laundering(c: str) -> str | None:
             return (f"credential laundering: {sm.group(0)} copied to a "
                     f"non-sensitive name ({args[-1]}) — the setup step of a "
                     f"two-command exfil")
+    return None
+
+
+# Directories whose contents are secret by LOCATION rather than by name. The
+# filename patterns above protect id_rsa and friends; a deploy key called
+# `github_ci` sitting beside it was completely unguarded, and custom key names
+# are ordinary practice.
+_SECRET_DIRS = ("/.ssh/", "/.gnupg/", "/.aws/")
+# Members of those directories that are NOT secrets and are read routinely. A
+# blanket directory rule without this list denies `cat ~/.ssh/config`, which is
+# how a guard earns a reputation for crying wolf and gets switched off.
+_SECRET_DIR_PUBLIC = re.compile(
+    r"(?:^|/)(?:known_hosts(?:\.old)?|config|authorized_keys(?:2)?|"
+    r"environment|rc|pubring\.[a-z]+|trustdb\.gpg|\S*\.pub)$", re.I)
+
+
+def check_secret_directory(c: str) -> str | None:
+    """A read of a file inside a secret directory, whatever it is called."""
+    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/)[\w.-]+)", c):
+        path = m.group(1)
+        if _SECRET_DIR_PUBLIC.search(path):
+            continue
+        # Already reported by the filename rules — do not double-report.
+        if _SENSITIVE_NAME_RE.search(path):
+            continue
+        return (f"secret directory access: {path} — files under "
+                f".ssh/.gnupg/.aws are credentials regardless of their name")
     return None
 
 
@@ -529,6 +563,12 @@ if "sensitive_read" not in disabled:
 
 if "credential_laundering" not in disabled:
     r = check_credential_laundering(cmd)
+    if r:
+        print(r)
+        sys.exit(0)
+
+if "secret_directory" not in disabled:
+    r = check_secret_directory(cmd)
     if r:
         print(r)
         sys.exit(0)
