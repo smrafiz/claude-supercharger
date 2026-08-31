@@ -92,6 +92,13 @@ release.keystore
 .cursor/config.json
 .cargo/credentials
 .gem/credentials
+# --- SECRET DIRECTORIES: a key is a secret by LOCATION, and none of
+# these match any filename glob in the gate. Added after the rule
+# shipped unreachable.
+.ssh/deploy_key
+.ssh/github_ci
+.gnupg/secring.gpg
+.aws/sso-cache.json
 credentials.toml
 secrets.yaml
 credentials.json
@@ -129,5 +136,28 @@ case "$ACTUAL" in
        fail "detector shrank to $ACTUAL literal tokens (pinned $PINNED). If a pattern was removed deliberately, re-pin."
      fi ;;
 esac
+
+begin_test "gate is a superset: a BARE secret directory reaches the detector"
+# `tar czf x.tgz /home/u/.ssh` names the directory with no trailing slash and no
+# filename at all, so neither the filename globs nor */.ssh/* matched it. The
+# NAMES loop above cannot express this case — every entry there is a file — so it
+# is asserted separately rather than assumed to be covered.
+_bare_hook() {
+  local d; d=$(mktemp -d)
+  printf '{"session_id":"gp2","cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"tar czf /tmp/x.tgz %s"}}' "$1" \
+    | SUPERCHARGER_STATE="$d" SUPERCHARGER_NO_DEDUP=1 bash "$SAFETY" >/dev/null 2>&1
+  local rc=$?; rm -rf "$d"
+  [ "$rc" = 2 ] && echo deny || echo open
+}
+_BARE_BAD=""
+for p in /home/u/.ssh /home/u/.gnupg /home/u/.aws; do
+  [ "$(_bare_hook "$p")" = "deny" ] || _BARE_BAD="$_BARE_BAD $p"
+done
+[ -z "$_BARE_BAD" ] && pass || fail "the gate swallows bare directories:$_BARE_BAD"
+
+begin_test "gate is a superset: ordinary archiving still passes"
+# The counterpart. A superset check that could be satisfied by widening the gate
+# to everything would be worthless, so pin the other side too.
+[ "$(_bare_hook ./src)" = "open" ] && pass || fail "ordinary archiving is now denied"
 
 report
