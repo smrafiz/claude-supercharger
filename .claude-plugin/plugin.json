@@ -1,7 +1,7 @@
 {
   "name": "supercharger",
   "description": "Shell-level guardrails for Claude Code. Command blocking, code security scanner, self-teaching, token economy, agent routing, MCP profiles, and session memory.",
-  "version": "4.0.11",
+  "version": "4.0.12",
   "author": {
     "name": "smrafiz"
   },

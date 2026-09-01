@@ -2,6 +2,37 @@
 
 ## Contents
 
+- [4.0.12] - 2026-09-01 — fix(guard-reg): the registration count can be right while the hook files are gone
+
+A registration names a file. If that file is missing from disk the entry still
+carries the tag, still counts toward the stamp, and the hook simply never runs.
+Measured before this existed: 5 registrations with 2 of the 5 files deleted
+produced complete silence from every check in the product.
+
+Not hypothetical. v2.17.3 shipped an installer that copied only hooks/*.sh, so
+safety-detect.py was absent on every install -- python exited 2 and the denial
+reached users as a phantom "hook error: No stderr output". The registration count
+was perfect the whole time, which is exactly why counting is not enough.
+
+EXISTENCE, not a content hash. The idea came from a checksum manifest in another
+project, and a manifest is the wrong shape here: a second file that drifts, needs
+regenerating on every release, and can itself be removed -- the same hole closed
+in v4.0.10 one branch above this one. Existence needs no manifest and catches the
+failure this project actually had.
+
+Scoped by checking what already covers this rather than assuming: path-guard
+denies Write and Edit against installed hooks, and harness-tamper-guard covers
+the shell route. So this closes partial installs and corruption, not agent
+tampering, and the comment says so.
+
+Cost 11.5ms -> 25.0ms median on a real 156-registration / 138-file install, 12
+runs each. Paid once per session on an event that already runs a dozen hooks --
+not the per-tool-call budget the rest of that file is written against.
+
+Unrecognised command shapes are skipped rather than counted as missing. A false
+"your guards are gone" is the crying-wolf failure this hook exists to avoid.
+
++3 tests, mutation-tested against the pre-fix hook. Full suite 5143/0.. 5143 tests passing.
 - [4.0.11] - 2026-09-01 — fix(safety): the deep scan can be cut short, and nothing said so
 
 safety-detect.py arms a wall-clock watchdog and, on overrun, exits 0 with no

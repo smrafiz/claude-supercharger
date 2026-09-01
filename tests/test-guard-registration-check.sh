@@ -211,4 +211,58 @@ H=$(_mkhome_ver "$(_settings_with 2)" "4.0.9" "2")
 [ "$(_warns "$H")" = "silent" ] && pass || fail "new branch fires on a healthy install"
 rm -rf "$H"
 
+# --- v4.0.11: the count can be right while the FILES are gone -----------------
+#
+# A registration names a file. If the file is missing the entry still carries the
+# tag, still counts, and the hook never runs — measured before this existed: 5
+# registrations with 2 of the 5 files deleted produced complete silence.
+#
+# v2.17.3 is the real instance: an installer that copied only hooks/*.sh left
+# safety-detect.py absent on every install, python exited 2, and the deny reached
+# users as a phantom "hook error: No stderr output". The count was perfect
+# throughout, which is exactly why counting is not enough.
+
+# $1 = how many registrations, $2 = how many of their files actually exist
+_mkhome_files() {
+  local h sc i p out="" n="$1" have="$2"
+  h=$(mktemp -d); sc="$h/.claude/supercharger"
+  mkdir -p "$sc/hooks" "$sc/scope"
+  printf '4.0.11\n' > "$sc/.version"
+  printf '%s\n' "$n" > "$sc/.registration-count"
+  for ((i = 0; i < n; i++)); do
+    p="$sc/hooks/h$i.sh"
+    [ "$i" -lt "$have" ] && printf '#!/usr/bin/env bash\nexit 0\n' > "$p"
+    out="$out{\"hooks\":[{\"type\":\"command\",\"command\":\"$p $TAG\"}]},"
+  done
+  printf '{"hooks":{"PreToolUse":[%s]}}' "${out%,}" > "$h/.claude/settings.json"
+  printf '%s' "$h"
+}
+
+begin_test "guard-reg: registered hooks whose FILES are gone are reported"
+H=$(_mkhome_files 5 3)
+_warn_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
+case "$_warn_out" in
+  *"2 REGISTERED HOOK FILE(S) MISSING"*) pass ;;
+  "") fail "2 of 5 hook files missing and the check stayed silent" ;;
+  *) fail "wrong message: ${_warn_out:0:90}" ;;
+esac
+rm -rf "$H"
+
+begin_test "guard-reg: silent when every registered file is present"
+# The cry-wolf half — a healthy install must not be told its guards are gone.
+H=$(_mkhome_files 5 5)
+[ "$(_warns "$H")" = "silent" ] && pass || fail "warned about missing files on a complete install"
+rm -rf "$H"
+
+begin_test "guard-reg: the missing-file warning is parseable systemMessage JSON"
+# A malformed payload is worse than none: Claude Code drops the line and the
+# session is told nothing, which is the failure this hook exists to prevent.
+H=$(_mkhome_files 4 1)
+printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null | python3 -c '
+import json,sys
+d=json.load(sys.stdin)
+sys.exit(0 if "systemMessage" in d and "MISSING" in d["systemMessage"] else 1)' \
+  && pass || fail "warning is not valid systemMessage JSON"
+rm -rf "$H"
+
 report

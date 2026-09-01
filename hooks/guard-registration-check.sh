@@ -121,7 +121,58 @@ case "$_GRC_BODY" in
     # is written with this same expression, so the two are always the same metric.
     _GRC_HAVE=$(grep -o -- '#supercharger' "$SETTINGS" 2>/dev/null | wc -l | tr -d ' ')
     case "$_GRC_HAVE" in ''|*[!0-9]*) exit 0 ;; esac
-    [ "$_GRC_HAVE" -ge "$_GRC_WANT" ] && exit 0
+    if [ "$_GRC_HAVE" -ge "$_GRC_WANT" ]; then
+      # v4.0.11: the count can be RIGHT while the guards are still missing. A
+      # registration names a file; if that file is gone the entry still carries the
+      # tag, still counts, and the hook simply never runs. Measured before this
+      # existed: 5 registrations with 2 of the 5 FILES deleted -> completely silent.
+      #
+      # Not hypothetical. v2.17.3 shipped an installer that copied only hooks/*.sh,
+      # so safety-detect.py was absent on every install — python exited 2 and the
+      # deny surfaced as a phantom "hook error: No stderr output". Nothing noticed;
+      # the count was perfect throughout.
+      #
+      # EXISTENCE, not a content hash. A checksum manifest is a second file that
+      # drifts, needs regenerating on every release, and can itself be stripped —
+      # the exact hole fixed one branch above. Existence needs no manifest, and it
+      # catches the failure this project actually had.
+      #
+      # One grep fork, then builtin tests. Registered commands are `<path> [args]
+      # #supercharger`, occasionally interpreter-prefixed, so take the first token
+      # that looks like a path. Anything unrecognised is skipped rather than
+      # counted as missing: a false "your guards are gone" is the crying-wolf
+      # failure this whole hook is written to avoid.
+      #
+      # Costs 11.5ms -> 25.0ms median on a real 156-registration / 138-file
+      # install (12 runs each). Paid once per session, on an event that already
+      # runs a dozen hooks — not the per-tool-call budget the rest of this file is
+      # written against, which is why a scan is affordable here and would not be
+      # in safety.sh.
+      _GRC_MISSING=0
+      _GRC_FIRST=""
+      while IFS= read -r _GRC_CMD; do
+        [ -n "$_GRC_CMD" ] || continue
+        _GRC_CMD="${_GRC_CMD%\"}"; _GRC_CMD="${_GRC_CMD#\"}"
+        _GRC_PATH=""
+        for _GRC_TOK in $_GRC_CMD; do
+          case "$_GRC_TOK" in
+            *.sh|*.py) _GRC_PATH="$_GRC_TOK"; break ;;
+          esac
+        done
+        [ -n "$_GRC_PATH" ] || continue
+        case "$_GRC_PATH" in */*) ;; *) continue ;; esac
+        [ -e "$_GRC_PATH" ] && continue
+        _GRC_MISSING=$((_GRC_MISSING + 1))
+        [ -z "$_GRC_FIRST" ] && _GRC_FIRST="${_GRC_PATH##*/}"
+      done <<EOF
+$(grep -oE '"[^"]*#supercharger"' "$SETTINGS" 2>/dev/null)
+EOF
+      if [ "$_GRC_MISSING" -gt 0 ]; then
+        printf '{"systemMessage":"[Supercharger] %s REGISTERED HOOK FILE(S) MISSING. settings.json still lists them and the count looks correct, but the files are gone from disk (first: %s), so those guards are not running and nothing else reports it. Usually a partial install or update. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+          "$_GRC_MISSING" "$_GRC_FIRST"
+      fi
+      exit 0
+    fi
 
     printf '{"systemMessage":"[Supercharger] PARTIAL PROTECTION. %s of %s registrations are present in ~/.claude/settings.json — the rest are gone, so those guards are not running. A /sc off followed by /sc on before v4.0.0 could restore entries in a shape Claude Code ignores. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
       "$_GRC_HAVE" "$_GRC_WANT"
