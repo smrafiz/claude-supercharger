@@ -125,6 +125,23 @@ OUT=$(printf '%s' "$(_edit "$P" "$P/src/a.py" line12 s10)" \
 [ -z "$OUT" ] && pass || fail "SUPERCHARGER_AI_LOCK_GUARD=0 did not silence it"
 rm -rf "$P"
 
+begin_test "ai-lock: the detector normalises Git Bash paths"
+# v4.0.13 shipped without this and the Windows job caught it: 5 pass / 6 fail,
+# and the split was exact — every case expecting an ASK failed, every case
+# expecting silence passed, i.e. the guard was inert on that platform while
+# failing open and saying nothing. Native Windows python resolves a leading-slash
+# path against the CURRENT DRIVE, so the manifest (POSIX, from the wrapper's $PWD
+# walk) and the target spelled the same file differently and no lock matched.
+# test-msys-path-normalisation asserts the same property for the other scanners.
+grep -q 'def _msys_path' "$REPO_DIR/hooks/ai-lock-detect.py" && pass \
+  || fail "ai-lock-detect.py does not normalise MSYS paths — it will be inert on Windows"
+
+begin_test "ai-lock: path comparison is resolved in ONE place"
+# Resolving inside the manifest loader fixed one side and left the other; the
+# comparison owns it now, so a third spelling cannot be half-handled.
+grep -q '_same_file' "$REPO_DIR/hooks/ai-lock-detect.py" && pass \
+  || fail "path comparison is not centralised"
+
 begin_test "ai-lock: the prompt is parseable permissionDecision JSON"
 # A malformed payload is dropped by Claude Code, so the user is told nothing —
 # the failure this hook exists to prevent.

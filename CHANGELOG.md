@@ -2,6 +2,57 @@
 
 ## Contents
 
+- [4.0.15] - 2026-09-01 — feat(write-secret-guard): scan the write channel, and fix the lock guard on Windows
+
+Two things, both found by measurement rather than review.
+
+1. WRITE-TIME SECRETS. The shared patterns covered tool output, commits and
+prompts, and never the write itself. Measured against the installed harness
+before this hook existed: a private-key header, an AWS key and a GitHub token
+each written to an IN-PROJECT file were allowed by all 160 hooks. (The first run
+of that probe wrote to /tmp and was denied by path-guard for being outside the
+project, which says nothing about content -- the numbers above are from the
+corrected run.)
+
+Same cross-channel parity class as the mcp__/WebFetch additions to
+output-secrets-scanner: the guards drift on WHICH CHANNEL they watch, never on
+what they look for. So this reads SECRET_PATTERNS from lib-secret-patterns.sh and
+owns no copy, and a test asserts it declares no private list.
+
+Two-stage: the gate greps the whole payload, a strict superset of the written
+text -- not a hand-modelled approximation of the patterns, which is the two-gate
+trap this repo has shipped six times. The precise stage then re-checks only the
+content, because the payload also carries the file PATH: without it, writing
+clean notes to a file named after an AWS key would prompt.
+
+ASK, not deny -- .env.example, fixtures and real key files are legitimate work,
+and a hard block would fire on all of them. Asks once per file per session. The
+prompt names the file and never echoes the value: a guard against credentials
+reaching the transcript must not put one there itself. Base set rather than full,
+because its three sibling channels are there and parity is the whole point.
+
+2. THE LOCK GUARD WAS INERT ON WINDOWS. v4.0.13's Git Bash job: 5 pass / 6 fail,
+and the split was exact -- every case expecting an ASK failed, every case
+expecting silence passed. Failing open and saying nothing, which is the shape
+that looks healthy while protecting nothing.
+
+Native Windows python resolves a leading-slash path against the CURRENT DRIVE, so
+the manifest (POSIX, from the wrapper's $PWD walk) and the payload's file_path
+spelled the same file differently and no lock ever matched. This is the THIRD
+spelling of one defect: /private/var vs /var was fixed one release earlier, and
+that comment even said "any symlinked project root reproduces it" without asking
+what other spellings existed. The repo already had the answer --
+test-msys-path-normalisation asserts every payload-path-joining scanner carries a
+_msys_path, and this detector did not.
+
+Fixed by reusing the canonical normaliser and centralising the comparison in
+_same_file, so resolution happens in ONE place. Resolving inside the manifest
+loader fixed one side and left the other, which is how it survived a green suite.
+
+Stated plainly: the Windows fix cannot be verified locally. os.name was simulated
+to check the transform; only CI runs real Git Bash.
+
++16 tests for the write guard, +2 for the normaliser. Full suite 5183/0.. 5183 tests passing.
 - [4.0.14] - 2026-09-01 — fix(secrets): a checksum manifest is not a wallet key
 
 Reading a project's checksums.sha256 fired output-secrets-scanner and interrupted

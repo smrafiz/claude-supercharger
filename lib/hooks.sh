@@ -149,6 +149,18 @@ get_hooks_for_mode() {
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
   hooks+=("PostToolUse|Bash,Read,WebFetch,WebSearch,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  # v4.0.15: the same patterns, applied to the WRITE channel — the one they never
+  # covered. Output, commits and prompts were all scanned; writing a credential
+  # INTO a file was not. Measured against the installed harness before this
+  # existed: a private-key header, an AWS key and a GitHub token each written to
+  # an in-project file were allowed by all 160 hooks. Same cross-channel parity
+  # class as the mcp__/WebFetch additions on the line above — the guards drift on
+  # which CHANNEL they watch, never on what they look for, which is why both read
+  # SECRET_PATTERNS from lib-secret-patterns.sh and neither owns a copy.
+  #
+  # Base set, not full: its three sibling channels are here, and channel parity is
+  # the whole point. ASK, not deny — writing a key file is legitimate work.
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/write-secret-guard.sh|")
   # v2.26.44: Artifact publishes a local file to a hosted URL — content leaving
   # the machine, irreversibly. None of the exfil guards matched it (they cover
   # Bash/MCP/WebFetch), and output-secrets-scanner is PostToolUse, i.e. after the
