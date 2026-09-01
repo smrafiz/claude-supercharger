@@ -62,7 +62,14 @@ def _locks(path, repo_root):
                 if start <= 0 or end < start:
                     continue
                 out.append({
-                    "file": os.path.normpath(
+                    # realpath, not normpath: the manifest is reached through the
+                    # hook's cwd and the target arrives from the payload, and those
+                    # two can spell the same directory differently. Measured while
+                    # writing this — bash resolved PWD to /private/var/... while the
+                    # payload carried /var/... for the identical macOS temp dir, so
+                    # a string compare missed every lock and the guard silently never
+                    # fired. Any symlinked project root reproduces it.
+                    "file": os.path.realpath(
                         f if os.path.isabs(f) else os.path.join(repo_root, f)
                     ),
                     "start": start,
@@ -128,7 +135,7 @@ def main():
     target = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
     if not isinstance(target, str) or not target:
         return
-    target = os.path.normpath(os.path.abspath(target))
+    target = os.path.realpath(target)
 
     repo_root = os.path.dirname(os.path.abspath(manifest))
     hits = [lk for lk in _locks(manifest, repo_root) if lk["file"] == target]

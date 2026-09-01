@@ -188,6 +188,14 @@ get_hooks_for_mode() {
 
   # ── Full mode: everything ──
   if [[ "$mode" == "full" ]]; then
+    # Locked line ranges (v4.0.13). FULL mode, not safe: safe mode is the core
+    # safety floor, and this is an opt-in advisory ask about a range a human chose
+    # to annotate — the same call as task-poll-guard above. Every other write guard
+    # decides from the PATH; this one decides from the range inside the file and
+    # quotes the reason recorded with the lock. With no `.ai-locks` or
+    # `.vibetags-locks` manifest above the project it exits after a few builtin
+    # tests and never forks, so projects without one pay nothing.
+    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/ai-lock-guard.sh|")
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/task-poll-guard.sh|")  # Efficiency, not safety: polling a harness task file on a clock
     # v2.9.4: advisory concurrent-session write guard — warns (never denies) when a
     # peer live session holds a fresh lease on the same file. Fail-open, TTL-expiring.

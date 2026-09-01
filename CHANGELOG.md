@@ -2,6 +2,58 @@
 
 ## Contents
 
+- [4.0.13] - 2026-09-01 — feat(ai-lock-guard): ask before editing a locked line range, and say why it is locked
+
+Every other write guard here decides from the PATH -- path-guard,
+critical-infra-guard, harness-tamper-guard all judge the filename. This one
+judges the RANGE inside the file, and carries the reason whoever locked it wrote
+down. A guard that says "this is locked" teaches nothing and gets waved through;
+one that says "step order is load-bearing, reordering silently skips
+regeneration" hands over the knowledge that made someone lock it.
+
+Manifest is `.ai-locks` or `.vibetags-locks` at the project root or any ancestor,
+JSON Lines, using PIsberg/vibetags' schema verbatim so a project already
+generating one is covered with no conversion:
+
+    {"type":"locked","file":"src/a.py","startLine":10,"endLine":40,
+     "reason":"Step order is load-bearing; reordering skips regeneration"}
+
+ASK, never deny -- editing locked code is legitimate work, being unaware it was
+locked is the problem, the same reasoning as the PR-merge tier in
+human-approval-gate. Asks once per file per session, because an edit loop inside
+a locked range is a human who already consented and nagging is how a guard gets
+switched off.
+
+FULL mode, not safe. Safe mode is the core safety floor; this is opt-in and
+advisory. That was wrong in the first draft and the SAFE-MODE COUNT test caught
+it -- 42 became 43 -- which no behavioural test would have: it would simply have
+shipped into every minimal install, silently.
+
+Opt-in by construction. With no manifest above the project the hook exits after a
+few builtin tests and never forks, so projects that do not use it pay nothing.
+The gate is "does a manifest exist" and nothing more: a cheap pre-filter that
+models what the detector matches is the two-gate trap this repo has shipped six
+times, and there is no pattern list here to drift.
+
+Fails open on every path: no manifest, unparseable manifest, no python,
+unlocatable edit text. A lock file is documentation, and blocking work because
+documentation would not parse is how the documentation gets deleted.
+
+The tests caught a real defect before release. Locks matched nothing, because the
+manifest is reached through the hook's cwd while the target arrives in the
+payload -- bash resolved PWD to /private/var/... while the payload carried
+/var/... for the same macOS directory, so a string compare missed every lock and
+the guard silently never fired. Any symlinked project root reproduces it. Fixed
+with realpath on both sides; vibetags records the same class in its own path
+resolver.
+
+Also recorded rather than hidden: v4.0.12 shipped hooks/ai-lock-guard.sh and
+hooks/ai-lock-detect.py already, because release.sh runs `git add -A` and these
+files were being written during its suite gate. They landed inert -- the
+registration is in this release -- so nothing ran, but that is exactly the
+mid-release edit the changelog has warned about since 4.0.0.
+
++11 tests. Full suite 5156/0.. 5156 tests passing.
 - [4.0.12] - 2026-09-01 — fix(guard-reg): the registration count can be right while the hook files are gone
 
 A registration names a file. If that file is missing from disk the entry still

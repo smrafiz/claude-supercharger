@@ -20,6 +20,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `agent-handoff-gate` | SubagentStop | (none) | Validates sub-agent output quality before the result flows back to the parent. |
 | `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
+| `ai-lock-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Asks before editing a line range a human deliberately locked, and quotes the |
 | `ansi-escape-guard` | PreToolUse | Write, Edit, MultiEdit | A raw ANSI escape written into a file can carry a HIDDEN payload: the SGR conceal |
 | `artifact-publish-guard` | PreToolUse | Artifact | The Artifact tool renders a local file to a page hosted on claude.ai and |
 | `audit-trail` | PostToolUse | Bash,Write,Edit | Logs write operations to a JSONL audit file. |
