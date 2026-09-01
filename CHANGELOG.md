@@ -2,6 +2,48 @@
 
 ## Contents
 
+- [4.0.9] - 2026-09-01 — perf: a parameter expansion in a loop cost 148s on a real command
+
+A PreToolUse hook took over a minute on a 17.5KB command and the session simply
+looked frozen. Found while checking timeouts during the v4.0.8 measurement, not
+reported by anyone -- which is the point: it presents as the agent hanging.
+
+normalize_cmd collapsed runs of spaces with a loop over a whole-string rebuild.
+Timed on the real command, a 276-line python heredoc whose body is deliberately
+kept because python executes it:
+
+    strip_heredoc_bodies      0.06s
+    _sc_strip_wrapper_prelude 0.03s
+    env-assignment loop       0.02s
+    space-collapse loop     147.94s   (4 passes)
+    tr -s equivalent          0.03s   <- byte-identical output
+
+Now size-gated at 1KB (SUPERCHARGER_COLLAPSE_FORK_BYTES). Pure bash stays for the
+common case, since it was written to remove a fork from a path that runs on every
+Bash tool call and it wins below the threshold; above it, one fork is cheaper by
+orders of magnitude. Crossover measured on prefixes of the same command: 1KB
+37ms/27ms, 2KB 196ms/27ms, 4KB 1699ms/25ms, 6KB 5197ms/24ms.
+
+The same class, one layer up: safety.sh and git-safety.sh ran three whole-string
+substitutions over the command before capping the block-ledger entry to 400
+chars, rewriting every byte past the cap for nothing -- 5256.2ms against 22.5ms,
+byte-identical, because the replacements are 1:1 in length and per-character. The
+slice moved above them. In safety.sh it stays BELOW the credential redaction on
+purpose: slicing earlier could cut a token in half and leave a fragment the
+pattern no longer matches. failure-tracker.sh and learn-from-prompts.sh already
+carried this fix at v2.27.19; these were the two arms it never reached.
+
+End to end on the real command: over 60s (timeout) to 0.59s, verdict unchanged.
+
+Equivalence checked on the corpus rather than argued: 26,317 commands under 1KB
+and 2,026 between 1-2KB give byte-identical normalize_cmd output old-vs-new, and
+for the 1,904 over 2KB -- too slow to run the old loop against -- the fork path
+matches the collapse semantics exactly, 1904 of 1904.
+
++4 tests. The timing bound is mutation-tested: restoring the loop fails it at 29s
+against a deliberately loose 15s.
+
+Full suite 5126/0.. 5130 tests passing.
 - [4.0.8] - 2026-09-01 — safety: the SQL keyword rules are uppercase but matched case-insensitively, so prose tripped them
 
 DANGEROUS_PATTERNS are compared with grep -qiE. The bare form, with no TABLE

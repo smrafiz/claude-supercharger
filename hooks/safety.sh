@@ -195,12 +195,6 @@ block() {
     -e 's/\(API_KEY=\)[^ ]*/\1[REDACTED]/g' \
     -e 's/ghp_[A-Za-z0-9]\{36\}/[REDACTED]/g' \
     -e 's/sk-[A-Za-z0-9]\{32,\}/[REDACTED]/g')
-  # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
-  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
-  # summary injected into every session. A multi-line command wrote a multi-line
-  # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
-  # destructive block. Shortening alone would still leave an embedded newline.
-  safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
   # v2.26.67: 400, was 120. The original rationale — "avoid bloating session context"
   # — stopped being true in v2.26.63, when the [BLOCKS] summary switched to injecting
   # REASONS only and never command text. So the cap no longer protects the context
@@ -210,7 +204,26 @@ block() {
   # its own ledger, because the blocks being investigated were `--message` values that
   # sit past character 120 — the fragment retained neither the trigger nor the flag.
   # The log is capped at 500 lines and rotated at 30 days, so 400 costs a few KB.
+  #
+  # v4.0.9: this slice moved ABOVE the newline collapse. The three substitutions
+  # rebuild the whole string, so running them before the cap rewrote every byte
+  # past 400 for nothing — 5256.2ms against 22.5ms on a real 17.5KB command, with
+  # byte-identical output, because newline/CR/tab -> space is 1:1 in length and
+  # per-character, so subst(s)[0:400] == subst(s[0:400]).
+  #
+  # It stays BELOW the sed redaction on purpose: slicing before that could cut a
+  # `ghp_`/`sk-` token in half, leaving a fragment the pattern no longer matches
+  # and a partial secret in the ledger. Redact the whole command, then shorten.
+  #
+  # failure-tracker.sh and learn-from-prompts.sh (v2.27.19) already carried this
+  # fix; safety.sh and git-safety.sh were the arms it never reached.
   safe_cmd="${safe_cmd:0:400}"
+  # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
+  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+  # summary injected into every session. A multi-line command wrote a multi-line
+  # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
+  # destructive block. Shortening alone would still leave an embedded newline.
+  safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then

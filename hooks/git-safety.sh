@@ -60,9 +60,13 @@ block() {
   # summary injected into every session. A multi-line command wrote a multi-line
   # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
   # destructive block. Shortening alone would still leave an embedded newline.
-  local safe_cmd="$COMMAND"
+  # v4.0.9: slice FIRST — see the note in safety.sh. The substitutions rebuild the
+  # whole string, so capping afterwards rewrote every byte past 400 for nothing
+  # (5256.2ms vs 22.5ms on a real 17.5KB command). Output is byte-identical: the
+  # replacements are 1:1 in length and per-character. No redaction step here, so
+  # nothing has to run on the full text first.
+  local safe_cmd="${COMMAND:0:400}"   # v2.26.67: 120 starved /why, not context
   safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
-  safe_cmd="${safe_cmd:0:400}"   # v2.26.67: see safety.sh — 120 starved /why, not context
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then

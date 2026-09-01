@@ -261,7 +261,41 @@ normalize_cmd() {
     cmd="${cmd#${BASH_REMATCH[0]}}"
   done
   # Collapse runs of spaces to one (matches `tr -s ' '` — spaces only, not tabs).
-  while [[ "$cmd" == *"  "* ]]; do cmd="${cmd//  / }"; done
+  #
+  # v4.0.9: size-gated, because `${cmd//  / }` REBUILDS the whole string on every
+  # pass and the passes multiply with the length. Measured on a real 17.5KB
+  # command (a 276-line python heredoc, whose body is deliberately kept because
+  # python is an executor):
+  #
+  #     step                    time
+  #     strip_heredoc_bodies    0.06s
+  #     _sc_strip_wrapper_prel  0.03s
+  #     env-assignment loop     0.02s
+  #     THIS LOOP             147.94s   (4 passes)
+  #     tr -s ' ' equivalent    0.03s   <- byte-identical output
+  #
+  # Four guards source this helper, so that command cost the session four minutes
+  # of a PreToolUse hook and simply looked frozen. Crossover measured on prefixes
+  # of the same command (clock noise ~25ms, so read the trend, not the floor):
+  # 1KB 37ms/27ms, 2KB 196ms/27ms, 4KB 1699ms/25ms, 6KB 5197ms/24ms.
+  #
+  # The pure-bash form stays for the common case: it was written to kill a fork on
+  # a path that runs on EVERY Bash tool call, and below ~1KB it wins. Above that
+  # one `tr` fork (~2ms) is the cheaper of the two by orders of magnitude.
+  #
+  # Fifth instance of the same class in this repo, and like the other four it
+  # shipped AS an optimisation — see the fork-count note above this function.
+  # Trailing whitespace is already gone by here, so the command substitution
+  # cannot eat a newline the pure-bash arm would have kept.
+  case "$cmd" in
+    *"  "*)
+      if [ "${#cmd}" -gt "${SUPERCHARGER_COLLAPSE_FORK_BYTES:-1024}" ]; then
+        cmd=$(printf '%s' "$cmd" | tr -s ' ')
+      else
+        while [[ "$cmd" == *"  "* ]]; do cmd="${cmd//  / }"; done
+      fi
+      ;;
+  esac
   printf '%s\n' "$cmd"
 }
 

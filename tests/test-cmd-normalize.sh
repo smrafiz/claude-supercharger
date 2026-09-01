@@ -118,4 +118,60 @@ print(bad)
 " "$REPO_DIR/hooks/cmd-normalize.sh" 2>/dev/null)
 [ "$RAW" = "0" ] && pass || fail "unescaped backtick(s) in a -c block: $RAW (shell will command-substitute them)"
 
+# --- v4.0.9: the space-collapse loop is size-gated -----------------------------
+#
+# `${cmd//  / }` rebuilds the whole string on every pass, and the passes multiply
+# with the length. On a real 17.5KB command (a 276-line python heredoc, kept
+# because python is an executor) that loop cost 147.94s against 0.03s for the
+# `tr -s ' '` it claims to match — and four guards source this helper, so the
+# command spent minutes in a PreToolUse hook and simply looked frozen.
+#
+# Both arms must produce the SAME answer, or the gate is a correctness bug rather
+# than an optimisation. These pin the equivalence at sizes either side of the
+# threshold, and the timing bound catches a reintroduced loop without being
+# flaky: the fixed path is milliseconds, the broken one is minutes.
+
+_collapse_ref() { printf '%s' "$1" | tr -s ' '; }
+
+begin_test "normalize_cmd: collapses space runs identically below the fork gate"
+SMALL="echo     a     b        c"
+OUT=$(normalize_cmd "$SMALL")
+[ "$OUT" = "echo a b c" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: both arms of the gate agree on the same input"
+# Same string, forced down each path by moving the threshold, not by changing the
+# input — otherwise the two runs would not be comparable.
+PADDED="echo $(printf 'x     y     %.0s' 1 2 3 4 5 6 7 8 9 10)"
+VIA_BASH=$(SUPERCHARGER_COLLAPSE_FORK_BYTES=999999 normalize_cmd "$PADDED")
+VIA_TR=$(SUPERCHARGER_COLLAPSE_FORK_BYTES=1 normalize_cmd "$PADDED")
+[ "$VIA_BASH" = "$VIA_TR" ] && pass \
+  || fail "gate arms disagree: bash='$VIA_BASH' tr='$VIA_TR'"
+
+begin_test "normalize_cmd: tabs survive the collapse (spaces only, not tabs)"
+# tr -s ' ' squeezes spaces alone; the pure-bash loop did too. A tab-squeezing
+# replacement would silently change what every guard matches against.
+OUT=$(normalize_cmd "echo$(printf '\t\t')a  b")
+case "$OUT" in
+  *"$(printf '\t\t')"*) pass ;;
+  *) fail "tabs were collapsed: $(printf '%s' "$OUT" | od -c | head -2)" ;;
+esac
+
+begin_test "normalize_cmd: a large space-heavy command finishes promptly"
+# 8KB of two-space runs. Pre-fix this took minutes; the bound is deliberately
+# loose (15s) so it fails on a reintroduced quadratic loop, never on a slow box.
+BIG="echo $(awk 'BEGIN{for(i=0;i<800;i++) printf "aa  bb  cc  dd  "}')"
+_T0=$(date +%s)
+OUT=$(normalize_cmd "$BIG")
+_T1=$(date +%s)
+_ELAPSED=$(( _T1 - _T0 ))
+REF="echo $(_collapse_ref "$(awk 'BEGIN{for(i=0;i<800;i++) printf "aa  bb  cc  dd  "}')")"
+REF="${REF%"${REF##*[![:space:]]}"}"
+if [ "$_ELAPSED" -ge 15 ]; then
+  fail "took ${_ELAPSED}s — the collapse loop is quadratic again"
+elif [ "$OUT" != "$REF" ]; then
+  fail "output differs from tr -s ' ' at ${#BIG} bytes"
+else
+  pass
+fi
+
 report
