@@ -70,7 +70,48 @@ case "$_GRC_BODY" in
     # install.sh stamps the count it left behind, so compare against that. No
     # stamp -> fail open to the old presence behaviour rather than guess a floor.
     _GRC_STAMP="$HOME/.claude/supercharger/.registration-count"
-    [ -r "$_GRC_STAMP" ] || exit 0
+    if [ ! -r "$_GRC_STAMP" ]; then
+      # v4.0.9: a missing stamp is not automatically "an old install". This check
+      # reads its evidence from a file that nothing protects, so removing that file
+      # silently disabled the check that notices missing registrations — measured
+      # 2026-09-01 against the deployed harness-tamper-guard:
+      #     rm -f  $HOME/.claude/supercharger/.registration-count   allow
+      #     : >    $HOME/.claude/supercharger/.registration-count   allow
+      #     rm -rf $HOME/.claude/supercharger/hooks                 deny
+      #
+      # The pattern is from PIsberg/vibetags' locked-files action, which says it
+      # plainly: "a stripped lock is absent from the regenerated report and so
+      # invisible to any report-based check". Their answer is a second signal that
+      # does not come from the report. Ours is `.version`, written by the same
+      # install.sh run that writes the stamp.
+      #
+      # An install at or above the version that introduced the stamp SHOULD have
+      # one; if it does not, the absence is itself the finding — a half-finished
+      # install, or the file removed. Below that floor, or with no readable or
+      # parseable version, this stays silent: an oracle must not invent a verdict
+      # it cannot support, and older installs are legitimately stampless.
+      _GRC_VERF="$HOME/.claude/supercharger/.version"
+      [ -r "$_GRC_VERF" ] || exit 0
+      read -r _GRC_VER < "$_GRC_VERF" 2>/dev/null || exit 0
+      _GRC_VER="${_GRC_VER%$'\r'}"   # Git Bash writes CRLF
+      # 0 = at or above the stamp floor (4.0.1). 1 = below it, OR unparseable —
+      # both lead to a silent exit, because neither supports a verdict.
+      _grc_ge_401() {
+        local IFS=. _maj _min _pat
+        set -- $1
+        _maj="${1:-}" _min="${2:-}" _pat="${3:-}"
+        case "$_maj$_min$_pat" in ''|*[!0-9]*) return 1 ;; esac
+        [ "$_maj" -gt 4 ] && return 0
+        [ "$_maj" -lt 4 ] && return 1
+        [ "$_min" -gt 0 ] && return 0
+        [ "$_pat" -ge 1 ] && return 0
+        return 1
+      }
+      _grc_ge_401 "$_GRC_VER" || exit 0
+      printf '{"systemMessage":"[Supercharger] CANNOT VERIFY PROTECTION. Hooks are registered, but ~/.claude/supercharger/.registration-count is missing, so there is no baseline to compare against and PARTIAL registration loss would go unnoticed. Version %s writes that stamp at install time, so its absence means an interrupted install or a deleted file — not an old one. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+        "$_GRC_VER"
+      exit 0
+    fi
     read -r _GRC_WANT < "$_GRC_STAMP" 2>/dev/null || exit 0
     case "$_GRC_WANT" in ''|*[!0-9]*) exit 0 ;; esac
     [ "$_GRC_WANT" -gt 0 ] || exit 0

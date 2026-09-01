@@ -149,4 +149,66 @@ grep -q 'registration-count' "$REPO_DIR/install.sh" \
   && grep -q "grep -o -- '$TAG'" "$REPO_DIR/install.sh" \
   && pass || fail "install.sh does not write .registration-count"
 
+# --- v4.0.9: the stamp itself can be stripped ---------------------------------
+#
+# This check reads its baseline from a file nothing protects. Measured against
+# the deployed harness-tamper-guard on 2026-09-01:
+#     rm -f  ~/.claude/supercharger/.registration-count   allow
+#     : >    ~/.claude/supercharger/.registration-count   allow
+#     rm -rf ~/.claude/supercharger/hooks                 deny
+# so removing the baseline silently disabled the check that notices missing
+# registrations. Pattern named by PIsberg/vibetags' locked-files action: "a
+# stripped lock is absent from the regenerated report and so invisible to any
+# report-based check." The second signal is `.version`, written by the same
+# install run.
+#
+# Both directions matter. Warning when the version says a stamp should exist is
+# the fix; STAYING SILENT below the floor is what stops it crying wolf at the
+# older installs this hook exists to serve.
+
+_mkhome_ver() {  # $1 = settings body; $2 = version or "" ; $3 = stamp or ""
+  local h; h=$(mktemp -d); mkdir -p "$h/.claude" "$h/.claude/supercharger"
+  printf '%s\n' "$1" > "$h/.claude/settings.json"
+  [ -n "${2:-}" ] && printf '%s\n' "$2" > "$h/.claude/supercharger/.version"
+  [ -n "${3:-}" ] && printf '%s\n' "$3" > "$h/.claude/supercharger/.registration-count"
+  printf '%s' "$h"
+}
+
+begin_test "guard-reg: a MISSING stamp warns when the version says it should exist"
+H=$(_mkhome_ver "$(_settings_with 2)" "4.0.9" "")
+[ "$(_warns "$H")" = "warns" ] && pass || fail "stamp stripped at 4.0.9 and the check went silent"
+rm -rf "$H"
+
+begin_test "guard-reg: the floor release itself warns"
+H=$(_mkhome_ver "$(_settings_with 2)" "4.0.1" "")
+[ "$(_warns "$H")" = "warns" ] && pass || fail "4.0.1 introduced the stamp; absence should warn"
+rm -rf "$H"
+
+begin_test "guard-reg: an install BELOW the floor stays silent (legitimately stampless)"
+H=$(_mkhome_ver "$(_settings_with 2)" "4.0.0" "")
+[ "$(_warns "$H")" = "silent" ] && pass || fail "cried wolf at a pre-stamp install"
+rm -rf "$H"
+
+begin_test "guard-reg: a much older install stays silent"
+H=$(_mkhome_ver "$(_settings_with 2)" "2.29.41" "")
+[ "$(_warns "$H")" = "silent" ] && pass || fail "cried wolf at 2.29.41"
+rm -rf "$H"
+
+begin_test "guard-reg: no version file means no verdict"
+H=$(_mkhome_ver "$(_settings_with 2)" "" "")
+[ "$(_warns "$H")" = "silent" ] && pass || fail "claimed a verdict with no second signal"
+rm -rf "$H"
+
+begin_test "guard-reg: an unparseable version means no verdict"
+# Fail open on junk rather than guess — the same rule the stamp parser follows.
+H=$(_mkhome_ver "$(_settings_with 2)" "not-a-version" "")
+[ "$(_warns "$H")" = "silent" ] && pass || fail "claimed a verdict from an unparseable version"
+rm -rf "$H"
+
+begin_test "guard-reg: a present, satisfied stamp is still silent at 4.0.9"
+# The regression this pairs with: the new branch must not fire when nothing is wrong.
+H=$(_mkhome_ver "$(_settings_with 2)" "4.0.9" "2")
+[ "$(_warns "$H")" = "silent" ] && pass || fail "new branch fires on a healthy install"
+rm -rf "$H"
+
 report

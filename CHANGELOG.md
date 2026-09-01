@@ -2,6 +2,35 @@
 
 ## Contents
 
+- [4.0.10] - 2026-09-01 — fix(guard-reg): the check read its baseline from a file nothing protects
+
+guard-registration-check compares the registrations in settings.json against a
+count stamped by install.sh. Deleting that stamp made the check exit silently --
+so the one check that notices PARTIAL registration loss could be switched off by
+removing a single unprotected file.
+
+Measured against the deployed harness-tamper-guard on 2026-09-01: deleting the
+stamp file is ALLOWED, truncating it in place is ALLOWED, while removing the
+installed hooks directory is DENIED. The hooks are protected; the evidence about
+the hooks was not.
+
+The pattern and its fix come from PIsberg/vibetags' locked-files action, which
+states the general form: "a stripped lock is absent from the regenerated report
+and so invisible to any report-based check." Their answer is a second signal that
+does not come from the report. Ours is .version, written by the same install.sh
+run that writes the stamp. An install at or above 4.0.1 -- the release that
+introduced the stamp -- with no stamp is reporting its own damage, so say so.
+
+Below that floor, with no readable .version, or with a version that does not
+parse, it stays silent. Older installs are legitimately stampless, and an oracle
+must not invent a verdict it cannot support. That half is what stops this crying
+wolf at the users the hook exists to serve.
+
++7 tests. Mutation-tested: the two positive cases fail against the pre-fix hook,
+and the five silence cases are cry-wolf guards rather than defect pins -- stated
+because they pass either way.
+
+Full suite 5137/0.. 5137 tests passing.
 - [4.0.9] - 2026-09-01 — perf: a parameter expansion in a loop cost 148s on a real command
 
 A PreToolUse hook took over a minute on a 17.5KB command and the session simply
