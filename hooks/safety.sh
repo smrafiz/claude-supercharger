@@ -451,14 +451,39 @@ DB_PATTERNS=(
   # omitted). The leading letter/quote after the space avoids colliding with the
   # unix `truncate -s 0` command (already caught by DESTRUCT_PATTERNS), whose next
   # char is `-`. From sangrokjung/claude-forge db-guard overlap audit.
-  'TRUNCATE([[:space:]]|/\*[^/]*\*/)+(TABLE([[:space:]]|/\*[^/]*\*/)+)?["`a-zA-Z_]'
+  'TRUNCATE([[:space:]]|/\*[^/]*\*/)+TABLE([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]'
+  # The bare form (no TABLE keyword) needs a second anchor, because these patterns
+  # are matched with `grep -qiE` — the keyword is written uppercase but compared
+  # case-insensitively, so ordinary English prose containing "truncate" tripped a
+  # database rule. Measured across 20,722 real commands from non-Supercharger
+  # projects: SIX denials, every one a comment or identifier inside a file-editing
+  # payload, none of them SQL —
+  #   // Truncate the DISCOUNT, not the price
+  #   // the trigger already truncates with an ellipsis
+  #   grep -nE "split|substr|truncate|max_lines" src/ui/dialogue_box.gd
+  # This is the same class v2.26.65 fixed for `-m` message values; the branch it
+  # could not reach is prose inside a heredoc body bound for an interpreter, which
+  # normalize_cmd deliberately keeps because that receiver EXECUTES its body.
+  #
+  # The anchor is DELETE_NOWHERE's, unchanged: the identifier must be followed by a
+  # statement terminator or a TRUNCATE continuation keyword. Real SQL supplies one
+  # (`TRUNCATE users;`, a closing shell quote, or end-of-line inside a heredoc);
+  # a sentence supplies another word instead. Positive-shape — POSIX ERE has no
+  # lookahead — so a missing anchor fails open rather than blocking prose.
+  'TRUNCATE([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]([a-zA-Z0-9_"`.]*[a-zA-Z0-9_"`])?[[:space:]]*(;|"|'\''|`|\||&|\)|$|[[:space:]]+(RESTART|CASCADE|CONTINUE|ONLY)([[:space:]]|;|"|'\''|`|\||&|\)|$))'
   # DELETE FROM <table> with NO WHERE clause — the mass-wipe footgun (agent means
   # to filter but forgets). Gated: the table identifier must be immediately
   # followed by a statement terminator (;, closing shell quote, backtick, pipe,
   # &, ), or end-of-command), so `DELETE FROM t WHERE ...` (space+letter after the
-  # ident) never matches. POSIX ERE has no lookahead, so this is positive-shape.'
+  # ident) never matches. POSIX ERE has no lookahead, so this is positive-shape.
+  #
+  # v4.0.8: the identifier may CONTAIN a dot (schema.table) but must not END on
+  # one. grep is line-based, so `$` is end-of-LINE, and a sentence that finishes
+  # on the table-ish word — `…a width to truncate against.` — reached it. Applied
+  # to BOTH arms in the same edit: the two patterns carried identical identifier
+  # classes, and neither instance was reachable through the tests of the other.'
 )
-DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_][a-zA-Z0-9_"`.]*[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
+DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]([a-zA-Z0-9_"`.]*[a-zA-Z0-9_"`])?[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
 DESTRUCT_PATTERNS=(
   # v2.29.31: deleting the .git directory destroys every commit, branch, stash and

