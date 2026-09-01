@@ -12,6 +12,7 @@ import re
 import shlex
 import sys
 import threading
+import time
 
 # Self-imposed wall-clock cap, because the caller's cap does not exist on macOS.
 #
@@ -28,9 +29,72 @@ import threading
 # purpose: exit 0 with no output is exactly the fail-OPEN contract safety.sh
 # already relies on (`|| PY_REASON=""`), so an overrun degrades to the regex
 # verdict already computed above it rather than to a phantom deny.
+#
+# v4.0.11: the overrun is now RECORDED before the exit. Failing open is right and
+# stays; being SILENT about it is what was wrong. When this fires, every check in
+# this file disappears — and some rules live nowhere else, so the guard is simply
+# gone. Measured 2026-09-01 by instrumenting safety.sh to keep the python exit
+# code and stderr it normally sends to /dev/null:
+#
+#     bash -> python, 160 runs per level:  48-way 0, 64-way 1, 96-way 2 open
+#     every captured failure:  rc=0  cats=[]  stderr=(empty)
+#
+# rc=0 with no stdout and no stderr has exactly one source here, since this
+# command yields a finding 10 times out of 10 at the default budget: the timer
+# below. Roughly 0.6% under heavy load, and invisible — safety.sh collapses every
+# failure mode into `|| PY_REASON=""`, so a killed scanner and a clean scan look
+# identical from the outside. That is the guard/oracle line: a guard may fail
+# open quietly, but nothing was left to tell the user the deep scan did not run.
+#
+# The write is best-effort and swallows every error: this runs on the failure
+# path of a security hook, and a broken state directory must never turn an
+# overrun into a crash. One short O_APPEND line is atomic enough at this size.
+_sc_emitted = threading.Event()
+
+
+def _say(msg):
+    """Emit a verdict, and mark that one was emitted.
+
+    The watchdog runs on another thread and cannot see whether the main thread
+    already answered. Without this flag the overrun counter recorded a miss on a
+    run that HAD produced its verdict — measured while writing it: 0 of 20 runs
+    silent, 1 overrun recorded. A counter that over-reports is the crying-wolf
+    failure, so the flag is set before the write and the watchdog skips a run
+    that already spoke.
+
+    It does not close the race completely, and the measurement says so rather
+    than the other way round. Forcing overruns with an absurd budget: at 1ms,
+    2 of 40 scans killed against 4 recorded; at 0.2ms, 16 killed against 17.
+    So it still over-reports by one or two in forty when the timer fires inside
+    the emit path. That residue is only reachable at budgets three orders of
+    magnitude below the 500ms default — at the real budget this file records
+    nothing at all unless a scan genuinely died (verified at 0.5s, 20ms and 5ms:
+    0 killed, 0 recorded). Read the count as "the deep scan was cut short at
+    least this many times", never as an exact tally.
+    """
+    _sc_emitted.set()
+    print(msg)
+
+
+def _sc_note_overrun():
+    if _sc_emitted.is_set():
+        os._exit(0)
+    try:
+        _root = os.environ.get("SUPERCHARGER_STATE") or os.path.expanduser(
+            "~/.claude/supercharger"
+        )
+        _scope = os.path.join(_root, "scope")
+        os.makedirs(_scope, exist_ok=True)
+        with open(os.path.join(_scope, ".detect-overruns"), "a") as _fh:
+            _fh.write("%d %.3f\n" % (int(time.time()), _BUDGET_S))
+    except Exception:
+        pass
+    os._exit(0)
+
+
 _BUDGET_S = float(os.environ.get("SUPERCHARGER_DETECT_BUDGET_S", "0.5"))
 if _BUDGET_S > 0:
-    _wd = threading.Timer(_BUDGET_S, lambda: os._exit(0))
+    _wd = threading.Timer(_BUDGET_S, _sc_note_overrun)
     _wd.daemon = True
     _wd.start()
 
@@ -575,47 +639,47 @@ disabled = set((os.environ.get("DISABLED_CATS", "") or "").split())
 if "shell_wrapper" not in disabled:
     r = check_shell_wrapper(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "env_files" not in disabled:
     r = check_env_file(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "sensitive_read" not in disabled:
     r = check_sensitive_read(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "credential_laundering" not in disabled:
     r = check_credential_laundering(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "secret_directory" not in disabled:
     r = check_secret_directory(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "archive_secrets" not in disabled:
     r = check_archive_secrets(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "pipeline_bypass" not in disabled:
     r = check_pipeline_bypass(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)
 
 if "exfiltration" not in disabled:
     r = check_exfiltration(cmd)
     if r:
-        print(r)
+        _say(r)
         sys.exit(0)

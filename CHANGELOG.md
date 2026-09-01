@@ -2,6 +2,41 @@
 
 ## Contents
 
+- [4.0.11] - 2026-09-01 — fix(safety): the deep scan can be cut short, and nothing said so
+
+safety-detect.py arms a wall-clock watchdog and, on overrun, exits 0 with no
+output -- deliberately, because that is the fail-OPEN contract safety.sh relies
+on. But safety.sh flattens every failure into `|| PY_REASON=""`, so a scanner
+that was killed and a scan that found nothing are indistinguishable from the
+outside. While it is cut short, every check in that file is gone, and some rules
+live nowhere else: the archive and secret-directory checks among them.
+
+Found from a one-in-many suite failure, then reproduced. Instrumenting safety.sh
+to keep the python exit code and stderr it normally discards, 160 runs per level
+through bash -> python: 48-way 0 open, 64-way 1, 96-way 2, and every captured
+failure identical -- rc=0, no categories disabled, empty stderr. That signature
+has one source, since the probe command yields a finding 10 times out of 10 at
+the default budget. About 0.6% under heavy load.
+
+Worth stating: an earlier hypothesis that the detector alone would show this was
+WRONG -- 0 of 96 silent at 48-way concurrency. Running python directly is much
+cheaper than bash forking it at the same nominal concurrency, so the two are not
+comparable and the first measurement compared the wrong pair.
+
+The fail-open is correct and is untouched. What changes is that the overrun is
+now recorded, and claude-check reports it -- the same argument as the install
+stamp: a guard may fail open quietly, an oracle that prints a health verdict may
+not stay silent about what it could not check.
+
+The recorder needed its own correction. The first version counted an overrun on
+runs that HAD produced a verdict (0 of 20 silent, 1 recorded), because the timer
+thread cannot see that the main thread already answered. An emitted-flag fixes
+the common case; the residue is stated rather than claimed away -- forcing
+overruns at a 1ms budget gives 2 scans killed against 4 recorded, at 0.2ms it is
+16 against 17. Only reachable three orders of magnitude below the 500ms default;
+at the real budget the log stays empty unless a scan genuinely died.
+
++3 tests. Full suite 5140/0.. 5140 tests passing.
 - [4.0.10] - 2026-09-01 — fix(guard-reg): the check read its baseline from a file nothing protects
 
 guard-registration-check compares the registrations in settings.json against a

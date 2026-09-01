@@ -157,6 +157,27 @@ print(count, inert)
     # unable to check completeness is a clean bill of health it cannot issue.
     echo -e "  ${YELLOW}○${NC} Completeness unverified — no install stamp, so ${HOOK_COUNT} cannot be checked against what the install left behind. Re-run: bash ~/.claude/supercharger/tools/update.sh --yes"
   fi
+
+  # v4.0.11: registrations being present is not the same as the deep scan having
+  # RUN. safety-detect.py kills itself on a wall-clock overrun and exits 0 with no
+  # output, which safety.sh cannot distinguish from a clean scan (`|| PY_REASON=""`
+  # flattens every failure into the same silent allow). Measured 2026-09-01: about
+  # 0.6% of calls under heavy parallel load, and some rules — the archive and
+  # secret-directory checks among them — live ONLY in that file, so while it is
+  # cut short they are not running at all.
+  #
+  # Same reasoning as the stamp branch above. Failing open there is correct; an
+  # oracle staying quiet about it is not, because the number it prints reads as
+  # "you were protected". Report it, do not score it: the fail-open is working as
+  # designed and docking points for it would train people to ignore this tool.
+  OVERRUN_FILE="$HOME/.claude/supercharger/scope/.detect-overruns"
+  if [ -r "$OVERRUN_FILE" ]; then
+    OVERRUNS=$(grep -c . "$OVERRUN_FILE" 2>/dev/null | tr -d ' ')
+    case "${OVERRUNS:-0}" in
+      ''|0|*[!0-9]*) ;;
+      *) echo -e "  ${YELLOW}○${NC} Deep scan cut short ${OVERRUNS} time(s) — safety-detect.py hit its ${SUPERCHARGER_DETECT_BUDGET_S:-0.5}s budget and those calls fell back to the regex checks alone. Usually a loaded machine. Raise it with SUPERCHARGER_DETECT_BUDGET_S, or clear the log: rm ${OVERRUN_FILE}" ;;
+    esac
+  fi
   if [ "${HOOK_INERT:-0}" -gt 0 ]; then
     echo -e "  ${RED}✗${NC} ${HOOK_INERT} registration(s) present but INERT (null matcher) — counted above, but Claude Code ignores them. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
   fi

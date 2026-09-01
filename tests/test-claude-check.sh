@@ -100,4 +100,37 @@ H=$(_mkinstall 154 0 154)
 _run "$H" | grep -q 'Completeness unverified' && fail "claimed unverified with a stamp present" || pass
 rm -rf "$H"
 
+# --- v4.0.11: the deep scan can be cut short, and that used to be invisible ----
+#
+# safety-detect.py kills itself on a wall-clock overrun and exits 0 with no
+# output; safety.sh's `|| PY_REASON=""` flattens that into the same silent allow
+# as a clean scan. Measured 2026-09-01 by keeping the exit code and stderr the
+# hook normally discards: about 0.6% of calls under heavy parallel load, every
+# captured failure `rc=0 cats=[] stderr=(empty)`. The archive and secret-directory
+# rules exist ONLY in that file, so while it is cut short they do not run.
+#
+# The fail-open is correct and stays. The oracle staying quiet about it is not —
+# same argument as the stamp branch above.
+
+begin_test "claude-check: reports that the deep scan was cut short"
+H=$(_mkinstall 154 0 154)
+printf '1788253245 0.500\n1788253299 0.500\n' > "$H/.claude/supercharger/scope/.detect-overruns"
+_run "$H" | grep -q 'Deep scan cut short 2 time' && pass || fail "overrun log present but never reported"
+rm -rf "$H"
+
+begin_test "claude-check: silent about overruns when there were none"
+# The cry-wolf half. A healthy install must not carry a warning about a fail-open
+# that never happened, or the line stops meaning anything.
+H=$(_mkinstall 154 0 154)
+_run "$H" | grep -q 'Deep scan cut short' && fail "warned with no overrun log" || pass
+rm -rf "$H"
+
+begin_test "claude-check: an empty overrun log is not a warning"
+# grep -c on an empty file returns 0; the case guard must treat that as nothing
+# to say rather than printing "cut short 0 time(s)".
+H=$(_mkinstall 154 0 154)
+: > "$H/.claude/supercharger/scope/.detect-overruns"
+_run "$H" | grep -q 'Deep scan cut short' && fail "warned on an empty overrun log" || pass
+rm -rf "$H"
+
 report
