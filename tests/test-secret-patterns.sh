@@ -79,4 +79,42 @@ catches "the quick brown fox jumps over the lazy dog" && fail "FP on prose" || p
 begin_test "secret: plain github URL (no creds) does not fire"
 catches "https""://github.com/user/repo.git" && fail "FP on plain url" || pass
 
+# ---- v4.0.14: a checksum manifest is not a wallet key ------------------------
+#
+# Base58 excludes only 0, O, I and l, so hex digits are a SUBSET of it and the WIF
+# pattern matched a sha256 line outright: a `0` in the digest opened the boundary,
+# a `5` followed, then 50-51 hex characters without a zero, then a second `0`
+# closed it. Observed live — reading a project's checksums.sha256 fired
+# output-secrets-scanner and interrupted the turn. Same shape covers sha256sum
+# output, lockfile integrity hashes, docker digests and git object listings.
+#
+# The Ethereum rule in the same file already warned about exactly this ("the 0x
+# prefix keeps it distinct from a bare 64-hex SHA-256 checksum"); the WIF pattern
+# landed later and reopened it by another route.
+#
+# Both halves are asserted. Loosening a SECRET pattern to clear a false positive
+# is precisely where a real key slips through, so the WIF vectors below are public
+# test values kept here to prove detection survived.
+WIF_UNCOMPRESSED="5HueCGU8rMjxEXxiPuD5BDku4MkFqeZyd4dZ""1jvhTVqvbTLvyTJ"
+WIF_COMPRESSED="L4rK1yDtCWekvXuE6oXD9jCYfFNV2cWRpVuPLBcCU2z8""TrisoyY1"
+SHA256_LINE="8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a  package.json"
+
+begin_test "secret: a sha256sum manifest line does not fire"
+catches "$SHA256_LINE" && fail "checksum line matched a wallet-key pattern" || pass
+
+begin_test "secret: a second checksum line does not fire either"
+catches "e82c0537607edb9f89b2ca1c42c6807581090baae96177cd66a21433cf6f8a96  config.js" \
+  && fail "checksum line matched" || pass
+
+begin_test "GAP CHECK: an uncompressed WIF key is still caught"
+catches "key = $WIF_UNCOMPRESSED" && pass || fail "WIF key now EVADES — the narrowing went too far"
+
+begin_test "GAP CHECK: a compressed WIF key is still caught"
+catches "export WALLET=$WIF_COMPRESSED" && pass || fail "compressed WIF key now EVADES"
+
+begin_test "GAP CHECK: a quoted WIF key is still caught"
+# JSON and shell both deliver keys wrapped in quotes; the boundary class must
+# accept them or the pattern only works on bare text.
+catches "\"$WIF_UNCOMPRESSED\"" && pass || fail "quoted WIF key now EVADES"
+
 report

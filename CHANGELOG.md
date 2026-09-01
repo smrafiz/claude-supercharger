@@ -2,6 +2,48 @@
 
 ## Contents
 
+- [4.0.14] - 2026-09-01 — fix(secrets): a checksum manifest is not a wallet key
+
+Reading a project's checksums.sha256 fired output-secrets-scanner and interrupted
+the turn. The line was ordinary sha256sum output:
+
+    8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a  package.json
+
+Base58 excludes only 0, O, I and l, so hex digits are a SUBSET of it and the
+Bitcoin WIF pattern matched outright: a 0 inside the digest opened the boundary, a
+5 followed, then 50-51 hex characters without a zero, then a second 0 closed it.
+The same shape covers lockfile integrity hashes, docker digests and git object
+listings -- routine developer output, on a guard that stops work.
+
+The Ethereum rule three lines above already carried this warning ("the 0x prefix
+keeps it distinct from a bare 64-hex SHA-256 checksum, so low FP"). The WIF
+pattern landed later and reopened the hole by a different route -- the sibling
+class this repo keeps re-finding.
+
+Fix: the boundary classes are non-alphanumeric rather than merely non-base58. A
+real WIF key is delimited by whitespace, a quote, = or a line end; inside a hex
+digest the only available delimiter IS an alphanumeric. Verified both ways --
+public WIF test vectors bare, quoted and as an env assignment all still match, and
+the digest line no longer does.
+
+Also in this release:
+
+- /why now reads scope/.detect-overruns, completing the v4.0.11 observability. It
+  is the only source in that command's list that explains why something did NOT
+  fire: the archive and secret-directory rules live only in safety-detect.py, so
+  while the deep scan is cut short they are not running.
+
+- The test guarding the WIF anchor asserted SOURCE TEXT, not behaviour. It pinned
+  the exact character class, so tightening the boundary -- strictly stricter, and
+  the fix above -- read as removing the anchor and failed a test whose stated
+  concern ("screenshots will flag as secrets") the change never touched. It now
+  asserts that an anchor exists, plus the behaviour it was standing in for: a
+  base64 blob and a data: URI image must not match any secret pattern. Strip the
+  anchor entirely and the behavioural test fails with "a base64 blob matched a
+  secret pattern" -- the harm the original test was written to prevent and could
+  not observe.
+
++5 secret-pattern tests, +2 behavioural. Full suite 5163/0.. 5163 tests passing.
 - [4.0.13] - 2026-09-01 — feat(ai-lock-guard): ask before editing a locked line range, and say why it is locked
 
 Every other write guard here decides from the PATH -- path-guard,

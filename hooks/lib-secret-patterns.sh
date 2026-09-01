@@ -96,5 +96,26 @@ SECRET_PATTERNS=(
   #
   # All four consumers use `grep -qE` (quiet), so widening the match to include
   # the boundary characters changes no reported output.
-  '(^|[^1-9A-HJ-NP-Za-km-z])[5KL][1-9A-HJ-NP-Za-km-z]{50,51}([^1-9A-HJ-NP-Za-km-z]|$)'
+  #
+  # v4.0.14: the boundary classes are NON-ALPHANUMERIC, not merely non-base58.
+  # Base58 excludes only 0, O, I and l, so hex digits are a SUBSET of it and a
+  # sha256 digest can satisfy this pattern outright: a `0` inside the digest acts
+  # as the opening boundary, a `5` follows it, 50-51 hex characters without a zero
+  # follow that, and a second `0` closes it. Observed live — reading a project's
+  # `checksums.sha256` tripped output-secrets-scanner and interrupted the turn:
+  #
+  #   8005a3491db7d92f36ac66369861589f9c47123d3a7c71e643fc2c06168cd45a  package.json
+  #
+  # That is `sha256sum` output, and the same shape covers lockfile integrity
+  # hashes, docker digests and git object listings — ordinary developer output on
+  # a guard that stops work. The Ethereum rule above already carries this warning
+  # ("the 0x prefix keeps it distinct from a bare 64-hex SHA-256 checksum"); this
+  # pattern arrived later and reopened the hole by a different route.
+  #
+  # A real WIF key is delimited by whitespace, a quote, `=` or a line end — never
+  # by an alphanumeric. Inside a hex digest the only available delimiter IS an
+  # alphanumeric (`0`). Requiring non-alphanumeric boundaries separates them with
+  # no loss: verified against public WIF test vectors bare, quoted, and as an env
+  # assignment — all three still match, the digest line no longer does.
+  '(^|[^0-9A-Za-z])[5KL][1-9A-HJ-NP-Za-km-z]{50,51}([^0-9A-Za-z]|$)'
 )

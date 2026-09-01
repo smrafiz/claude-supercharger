@@ -136,8 +136,30 @@ scan "$(mcp_payload "privkey=$WIF")"
 [ $? -eq 2 ] && pass || fail "key=VALUE shape lost — boundary class is too strict"
 
 begin_test "the WIF pattern is boundary-anchored in the shared library"
-grep -q "(\^|\[^1-9A-HJ-NP-Za-km-z\])\[5KL\]" "$REPO_DIR/hooks/lib-secret-patterns.sh" && pass \
+# v4.0.14: asserts that an anchor EXISTS, not which character class it uses. The
+# original form pinned `[^1-9A-HJ-NP-Za-km-z]` literally, so tightening the
+# boundary to non-alphanumeric — which fixed a live checksum false positive and
+# is strictly stricter — failed a test whose stated concern ("screenshots will
+# flag as secrets") the change does not touch. A test that pins the
+# implementation instead of the property blocks its own improvement.
+grep -qE "\(\^\|\[\^[0-9A-Za-z^-]*\]\)\[5KL\]" "$REPO_DIR/hooks/lib-secret-patterns.sh" && pass \
   || fail "WIF pattern is unanchored again — screenshots will flag as secrets"
+
+begin_test "a base64 screenshot payload does not fire the WIF pattern"
+# The behaviour the assertion above stands in for. Pinning source text cannot
+# tell you the guard still works; this can.
+. "$REPO_DIR/hooks/lib-secret-patterns.sh"
+_BFP_CP=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+_BFP_B64=$(python3 -c '
+import base64, random
+random.seed(7)
+print(base64.b64encode(bytes(random.getrandbits(8) for _ in range(4000))).decode())')
+printf '%s' "$_BFP_B64" | LC_ALL=C grep -qE "$_BFP_CP" \
+  && fail "a base64 blob matched a secret pattern" || pass
+
+begin_test "a data: URI image payload does not fire either"
+printf 'data:image/png;base64,%s' "${_BFP_B64:0:2000}" | LC_ALL=C grep -qE "$_BFP_CP" \
+  && fail "a data: URI image matched a secret pattern" || pass
 
 begin_test "image stripping is scoped to image payloads, not all base64"
 # A base64 blob NOT tied to an image must still be scanned.
