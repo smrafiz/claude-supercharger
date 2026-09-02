@@ -9,6 +9,7 @@
 # block reason; any check can deny. Order: cheap → expensive (coauthor grep,
 # conventional-format parse, then the staged-diff secret scan which forks git).
 # Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
+#          SUPERCHARGER_DEFAULT_BRANCH_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
@@ -101,6 +102,61 @@ else:
   Examples  : feat(auth): add OAuth support
               fix: resolve null pointer in parser
               feat!: drop Node 16 support (breaking change)"
+      fi
+    fi
+  fi
+fi
+
+# ─── Check 2b: committing straight onto the default branch (default ON) ──────
+#
+# The rule exists in prose and had no mechanism: guardrails.md and Claude Code's
+# own instructions both say to branch first, and nothing enforced it. Measured
+# before this: `git commit -m "wip"` on master was allowed by all 160 hooks.
+# A rule stated in a description with no mechanism is the highest-yield hook
+# candidate this project has found (see the coverage-diff research notes).
+#
+# ASK, never deny, and only when actually ON the default branch — so it is silent
+# in the normal case of working on a feature branch. Measured across three local
+# repos: two were on feature branches (silent), one was on master. That one is
+# THIS repo, which is trunk-based on purpose, so the escape hatch is not
+# theoretical — `"allowDefaultBranchCommits": true` in .supercharger.json turns it
+# off for projects that commit to the trunk deliberately.
+#
+# Asks once per session per repo: a release cuts several commits in a row, and
+# re-asking each time is how a guard gets switched off.
+#
+# The fork is paid ONLY here, after the `git commit` gate has already matched,
+# so ordinary Bash calls are untouched.
+if [ "${SUPERCHARGER_DEFAULT_BRANCH_GUARD:-1}" != "0" ] \
+   && ! check_hook_disabled "commit-default-branch"; then
+  _db_allow=false
+  case "$CMD" in *"git commit --help"*|*"git commit -h"*) _db_allow=true ;; esac
+  if [ -f "$PROJECT_DIR/.supercharger.json" ] \
+     && grep -q '"allowDefaultBranchCommits"[[:space:]]*:[[:space:]]*true' "$PROJECT_DIR/.supercharger.json" 2>/dev/null; then
+    _db_allow=true
+  fi
+  if [ "$_db_allow" = false ]; then
+    _DB_BRANCH=$( (cd "$PROJECT_DIR" 2>/dev/null && git rev-parse --abbrev-ref HEAD 2>/dev/null) || true )
+    # The default branch as the REMOTE reports it, falling back to the common
+    # names. Never guess from the current branch — that would make every branch
+    # its own default and the check vacuous.
+    _DB_DEFAULT=$( (cd "$PROJECT_DIR" 2>/dev/null && git symbolic-ref --short refs/remotes/origin/HEAD 2>/dev/null | sed 's|^origin/||') || true )
+    if [ -z "$_DB_DEFAULT" ]; then
+      case "$_DB_BRANCH" in main|master) _DB_DEFAULT="$_DB_BRANCH" ;; esac
+    fi
+    if [ -n "$_DB_BRANCH" ] && [ -n "$_DB_DEFAULT" ] && [ "$_DB_BRANCH" = "$_DB_DEFAULT" ]; then
+      _DB_KEY=$(printf '%s' "$PROJECT_DIR" | tr -c 'A-Za-z0-9' '-' | tail -c 60)
+      _DB_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+      _DB_ACK="$SUPERCHARGER_STATE/scope/.default-branch-ack-${_DB_SID:-nosession}${_DB_KEY}"
+      if [ ! -f "$_DB_ACK" ]; then
+        mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
+        : > "$_DB_ACK" 2>/dev/null || true
+        _RSN=$(printf 'This commit lands directly on %s, the default branch. If that is deliberate — a trunk-based repo, or a release commit — go ahead; this asks once per session per repo. Otherwise branch first: git switch -c <name>. Silence for this project: add "allowDefaultBranchCommits": true to .supercharger.json. Disable everywhere: SUPERCHARGER_DEFAULT_BRANCH_GUARD=0' "$_DB_BRANCH" \
+          | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
+        if [ -n "$_RSN" ]; then
+          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+          exit 0
+        fi
       fi
     fi
   fi

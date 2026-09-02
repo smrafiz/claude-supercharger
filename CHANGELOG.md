@@ -2,6 +2,54 @@
 
 ## Contents
 
+- [4.0.18] - 2026-09-02 — feat(commit-guard): ask before committing straight onto the default branch
+
+The rule existed only as prose. guardrails.md says to branch first, Claude Code's
+own operating instructions say to branch first, and nothing enforced either --
+measured before this check: `git commit -m "wip"` on master was allowed by all
+160 hooks. A rule stated in a description with no mechanism is the highest-yield
+hook candidate this project has found, and this is the fourth time that axis has
+produced one.
+
+It lives INSIDE commit-guard.sh rather than as a new hook. That file already
+gates on `git commit`, resolves PROJECT_DIR and carries the ask/deny helpers; a
+separate hook would have duplicated all three and added a registration, a fast
+path and two hardcoded count bumps for one `git rev-parse`. The fork is paid only
+after the commit gate has already matched, so ordinary Bash calls are untouched.
+
+The restraint half is the design, and it was measured rather than assumed. Across
+three local repos: two were on feature branches, where this is SILENT because it
+only fires when actually ON the default branch; the third was this repo, which is
+trunk-based deliberately. So the escape hatch is not theoretical --
+`"allowDefaultBranchCommits": true` in .supercharger.json turns it off per
+project, and SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 everywhere.
+
+Two further restraints:
+
+- Asks ONCE per session per repo. A release cuts several commits in a row and
+  re-asking each time is how a guard gets switched off.
+- With no origin/HEAD to consult it falls back to the conventional names and
+  otherwise stays SILENT. Inferring the default from the CURRENT branch would
+  make every branch its own default and the check vacuous.
+
+ASK, never deny: committing to the trunk is legitimate in plenty of repos.
+
+Three failures surfaced when this landed, all worth recording. The repo's
+contract test caught the new switch being undocumented -- the header must name
+every flag the code reads, and it failed in the same run. The other two were two
+coauthor-guard cases that pass no `cwd`, so PROJECT_DIR fell back to $PWD -- this
+repo, on its default branch -- and the new sibling check answered a test about
+co-authors. They are now pinned to their own subject rather than the check being
+weakened. Note the near-miss: the coauthor cases expecting a DENY kept passing,
+because that fires in Check 1 before this one; only the two expecting SILENCE
+went red.
+
+Also of note, and left as-is: the agent cannot write the opt-out itself. The
+selfmod guard denies any edit to .supercharger.json, which is the point -- the
+escape hatch is a human decision. The test asserts the opt-out works by writing
+that file in a temp repo.
+
++10 tests.. 5202 tests passing.
 - [4.0.17] - 2026-09-02 — fix(secrets): a property reference is not a credential, and the scanner now says which rule fired
 
 A user reported output-secrets-scanner warning on a listing of graphql import

@@ -7,10 +7,14 @@ HOOK="$REPO_DIR/hooks/commit-guard.sh"
 echo "=== commit-coauthor-guard Tests ==="
 export SUPERCHARGER_NO_DEDUP=1
 
+# These cases pass no `cwd`, so PROJECT_DIR falls back to $PWD — this repo, on its
+# default branch — and commit-guard's default-branch check would answer a test
+# about co-authors. SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 keeps each case on its
+# own subject; the branch check has its own suite.
 # Run with the guard ENABLED via env (isolated HOME so the flag file check is clean).
 _on() { # <command>
   printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$1" \
-    | HOME="$(mktemp -d)" SUPERCHARGER_COAUTHOR_GUARD=1 bash "$HOOK" 2>/dev/null
+    | HOME="$(mktemp -d)" SUPERCHARGER_COAUTHOR_GUARD=1 SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null
 }
 
 begin_test "coauthor-guard: hook exists and is executable"
@@ -18,7 +22,7 @@ begin_test "coauthor-guard: hook exists and is executable"
 
 begin_test "coauthor-guard: OFF by default (no env, no flag) — commit with trailer allowed"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x Co-Authored-By: Claude <a@b>"}}' \
-  | HOME="$(mktemp -d)" bash "$HOOK" 2>/dev/null)
+  | HOME="$(mktemp -d)" SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected silent when disabled, got: $OUT"
 
 begin_test "coauthor-guard: ON — commit with Co-Authored-By is blocked"
@@ -51,12 +55,12 @@ rm -rf "$H"
 begin_test "coauthor-guard: env=0 force-disables even with flag file"
 H=$(mktemp -d); mkdir -p "$H/.claude/supercharger/scope"; touch "$H/.claude/supercharger/scope/.coauthor-guard"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x Co-Authored-By: Claude"}}' \
-  | HOME="$H" SUPERCHARGER_COAUTHOR_GUARD=0 bash "$HOOK" 2>/dev/null)
+  | HOME="$H" SUPERCHARGER_COAUTHOR_GUARD=0 SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected env=0 to override flag, got: $OUT"
 rm -rf "$H"
 
 begin_test "coauthor-guard: fail-open on malformed JSON"
-OUT=$(printf 'not json' | HOME="$(mktemp -d)" SUPERCHARGER_COAUTHOR_GUARD=1 bash "$HOOK" 2>/dev/null)
+OUT=$(printf 'not json' | HOME="$(mktemp -d)" SUPERCHARGER_COAUTHOR_GUARD=1 SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "expected fail-open, got: $OUT"
 
 report
