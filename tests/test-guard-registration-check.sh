@@ -231,7 +231,10 @@ _mkhome_files() {
   printf '%s\n' "$n" > "$sc/.registration-count"
   for ((i = 0; i < n; i++)); do
     p="$sc/hooks/h$i.sh"
-    [ "$i" -lt "$have" ] && printf '#!/usr/bin/env bash\nexit 0\n' > "$p"
+    # chmod, because install.sh does: registrations invoke the file DIRECTLY, so
+    # a 0644 hook is found by the existence check and still never runs. The Write
+    # tool creates 0644, which is exactly how the bit goes missing in practice.
+    [ "$i" -lt "$have" ] && { printf '#!/usr/bin/env bash\nexit 0\n' > "$p"; chmod +x "$p"; }
     out="$out{\"hooks\":[{\"type\":\"command\",\"command\":\"$p $TAG\"}]},"
   done
   printf '{"hooks":{"PreToolUse":[%s]}}' "${out%,}" > "$h/.claude/settings.json"
@@ -263,6 +266,63 @@ import json,sys
 d=json.load(sys.stdin)
 sys.exit(0 if "systemMessage" in d and "MISSING" in d["systemMessage"] else 1)' \
   && pass || fail "warning is not valid systemMessage JSON"
+rm -rf "$H"
+
+# --- v4.0.19: EXISTS is not RUNS -------------------------------------------
+#
+# Every registration on this machine invokes its hook as a bare path (measured:
+# 158 of 158), so a file that has lost its executable bit passes the existence
+# check above and still never fires. Measured on a full copy of the installed
+# tree — a lib-less copy errors for unrelated reasons and lies about the control:
+#
+#     executable, given a destructive command   exit 2    deny, guard runs
+#     same hook, +x removed                     exit 126  permission denied
+#     `[ -f ]` PASSES, `[ -x ]` FAILS
+#
+# Sibling arm of the v4.0.11 missing-file check: that one fixed half the
+# question, this is the other half.
+
+begin_test "guard-reg: a registered hook that is not EXECUTABLE is reported"
+H=$(_mkhome_files 4 4)
+chmod -x "$H/.claude/supercharger/hooks/h1.sh"
+_x_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
+case "$_x_out" in
+  *"NOT EXECUTABLE"*) pass ;;
+  "") fail "a non-executable registered hook was not reported" ;;
+  *) fail "wrong message: ${_x_out:0:90}" ;;
+esac
+rm -rf "$H"
+
+begin_test "guard-reg: a MISSING file outranks a non-executable one"
+# Both broken at once: the missing file is the more serious finding and the one
+# whose fix (re-run the installer) also restores the mode.
+H=$(_mkhome_files 4 3)
+chmod -x "$H/.claude/supercharger/hooks/h0.sh"
+_x_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
+case "$_x_out" in
+  *"MISSING"*) pass ;;
+  *) fail "expected the missing-file message to win, got: ${_x_out:0:80}" ;;
+esac
+rm -rf "$H"
+
+begin_test "guard-reg: an interpreter-invoked hook does not need the bit"
+# `bash /path/hook.sh` ignores the mode entirely; flagging it would cry wolf at
+# an install that is completely fine.
+H=$(_mkhome_files 3 3)
+python3 - "$H" <<'PY'
+import json, os, sys
+h = sys.argv[1]
+sc = os.path.join(h, ".claude", "supercharger")
+tag = "#" + "supercharger"
+ents = []
+for i in range(3):
+    p = os.path.join(sc, "hooks", "h%d.sh" % i)
+    os.chmod(p, 0o644)                      # no executable bit anywhere
+    ents.append({"hooks": [{"type": "command", "command": "bash %s %s" % (p, tag)}]})
+json.dump({"hooks": {"PreToolUse": ents}},
+          open(os.path.join(h, ".claude", "settings.json"), "w"))
+PY
+[ "$(_warns "$H")" = "silent" ] && pass || fail "flagged an interpreter-invoked hook"
 rm -rf "$H"
 
 report

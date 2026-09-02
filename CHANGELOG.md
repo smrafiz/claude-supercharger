@@ -2,6 +2,49 @@
 
 ## Contents
 
+- [4.0.19] - 2026-09-02 — fix(guard-reg): EXISTS is not RUNS — a hook can lose its executable bit and go silent
+
+v4.0.12 taught guard-registration-check to notice a registration whose FILE is
+gone. It asks `[ -f ]`. A hook at mode 0644 exists, passes that check, and still
+never fires -- every registration on this machine invokes its hook as a bare path
+(measured: 158 of 158), so the mode is load-bearing.
+
+Measured on a full copy of the installed tree. The copy matters: a lib-less copy
+of one hook errors for unrelated reasons and reports a control of exit 1 rather
+than a deny, which is how the first attempt at this measurement lied.
+
+    executable, given a destructive command   exit 2    deny, the guard runs
+    same hook, +x removed                     exit 126  permission denied, no guard
+    `[ -f ]`  PASSES   <- why v4.0.12 stayed silent
+    `[ -x ]`  FAILS    <- the arm nothing checked
+
+Not hypothetical: the Write tool creates files at 0644, which is exactly how the
+bit goes missing, and every hook added by hand this cycle needed an explicit
+chmod +x before it would run.
+
+Closed inside the loop v4.0.12 already walks, so the cost is one more builtin
+test per registration on an event that runs once per session.
+
+Restraint, because this reports on a command developers cannot see failing:
+
+- Only counted when the registration runs the file DIRECTLY. A
+  `bash /path/hook.sh` form ignores the mode entirely, and flagging it would cry
+  wolf at an install that is completely fine. There is a test for that.
+- A MISSING file outranks a non-executable one: it is the more serious finding
+  and its fix (re-run the installer) also restores the mode.
+
+The idea came from ezBuilder/code-brain, whose doctor checks existence AND
+executability over every installed asset. The rest of that repo is a product --
+repo-local memory, code search, a 62-method MCP server -- and its six Claude Code
+hooks (block-dangerous, block-secret-commit, protect-secrets, session-context,
+user-prompt-submit, post-tool-use) are already covered here; protect-secrets
+guards .env/.key/.pem/.json and traversal, all of which we hold.
+
++3 tests. The fixture was also corrected: it created hook files without chmod,
+which was adequate for an existence check and misleading for this one. A real
+install chmods, so the fixture now does too.
+
+Full suite 5205/0.. 5205 tests passing.
 - [4.0.18] - 2026-09-02 — feat(commit-guard): ask before committing straight onto the default branch
 
 The rule existed only as prose. guardrails.md says to branch first, Claude Code's

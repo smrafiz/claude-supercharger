@@ -150,6 +150,8 @@ case "$_GRC_BODY" in
       # in safety.sh.
       _GRC_MISSING=0
       _GRC_FIRST=""
+      _GRC_NOEXEC=0
+      _GRC_XFIRST=""
       while IFS= read -r _GRC_CMD; do
         [ -n "$_GRC_CMD" ] || continue
         _GRC_CMD="${_GRC_CMD%\"}"; _GRC_CMD="${_GRC_CMD#\"}"
@@ -161,12 +163,43 @@ case "$_GRC_BODY" in
         done
         [ -n "$_GRC_PATH" ] || continue
         case "$_GRC_PATH" in */*) ;; *) continue ;; esac
-        [ -e "$_GRC_PATH" ] && continue
-        _GRC_MISSING=$((_GRC_MISSING + 1))
-        [ -z "$_GRC_FIRST" ] && _GRC_FIRST="${_GRC_PATH##*/}"
+        if [ ! -e "$_GRC_PATH" ]; then
+          _GRC_MISSING=$((_GRC_MISSING + 1))
+          [ -z "$_GRC_FIRST" ] && _GRC_FIRST="${_GRC_PATH##*/}"
+          continue
+        fi
+        # v4.0.19: EXISTS is not RUNS. Every registration on this machine invokes
+        # its hook as a bare path -- measured: 158 of 158 -- so a file that lost
+        # its executable bit is found by the check above and still never fires.
+        # Measured on a full copy of the installed tree (libs present, or the
+        # control is a lib-less copy and lies):
+        #
+        #     executable, given `rm -rf /`   exit 2    deny, guard runs
+        #     same hook, +x removed          exit 126  permission denied, no guard
+        #     `[ -f ]`  PASSES  <- why v4.0.12 stayed silent
+        #     `[ -x ]`  FAILS   <- this arm
+        #
+        # The Write tool creates files at 0644, which is how a hook loses the bit
+        # in the first place; every hook added by hand this cycle needed chmod +x.
+        # Only counted when the registration runs the file DIRECTLY: an
+        # `bash /path/hook.sh` form does not care about the mode, and flagging it
+        # would be crying wolf at an install that is fine.
+        case "$_GRC_CMD" in
+          "$_GRC_PATH"*)
+            if [ ! -x "$_GRC_PATH" ]; then
+              _GRC_NOEXEC=$((_GRC_NOEXEC + 1))
+              [ -z "$_GRC_XFIRST" ] && _GRC_XFIRST="${_GRC_PATH##*/}"
+            fi
+            ;;
+        esac
       done <<EOF
 $(grep -oE '"[^"]*#supercharger"' "$SETTINGS" 2>/dev/null)
 EOF
+      if [ "$_GRC_MISSING" -eq 0 ] && [ "$_GRC_NOEXEC" -gt 0 ]; then
+        printf '{"systemMessage":"[Supercharger] %s REGISTERED HOOK(S) NOT EXECUTABLE. The files are present and settings.json lists them, but they are invoked directly and the executable bit is missing (first: %s), so those guards silently do not run. Fix: chmod +x ~/.claude/supercharger/hooks/*.sh, or re-run: bash ~/.claude/supercharger/tools/update.sh --yes  Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+          "$_GRC_NOEXEC" "$_GRC_XFIRST"
+        exit 0
+      fi
       if [ "$_GRC_MISSING" -gt 0 ]; then
         printf '{"systemMessage":"[Supercharger] %s REGISTERED HOOK FILE(S) MISSING. settings.json still lists them and the count looks correct, but the files are gone from disk (first: %s), so those guards are not running and nothing else reports it. Usually a partial install or update. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
           "$_GRC_MISSING" "$_GRC_FIRST"
