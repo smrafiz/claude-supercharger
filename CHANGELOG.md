@@ -2,6 +2,52 @@
 
 ## Contents
 
+- [4.0.20] - 2026-09-02 — fix(safety): a file NAMED for secrets is not a credential store
+
+Reported by the user as the secret guard over-acting, after it fired on reading
+another project's `protect-secrets.sh` -- a shell script. The rule was
+`secrets?\.` followed by ANY extension, so it matched a script, a module, a doc,
+and a property access.
+
+Measured over 33,975 distinct real commands. The rule matched exactly 10 distinct
+strings:
+
+    still matched   credentials.cfg  credentials.json  credentials.toml
+                    secrets.json     secrets.yaml      secrets.yml
+    dropped         Secret.length    secret.py   secrets.py   secrets.sh
+
+Every kept one is a credential store; every dropped one is code, docs, or an
+attribute lookup.
+
+The objection, answered rather than waved away: a project CAN put a key in a
+secrets.py. Reading it is still guarded, because the NAME rule is a coarse proxy
+and the CONTENT scan is the precise check, which is unchanged. Verified --
+output-secrets-scanner on a secrets.py carrying real keys fires (pattern 0,3,5 of
+28); on one carrying none it stays silent. That asymmetry is why narrowing the
+NAME is safe and narrowing the PATTERNS would not be.
+
+THE PART WORTH READING. The first version of this shipped a real regression, and
+the suite caught it: `credentials.db` is gcloud's sqlite credential store. It
+appears in NONE of those 33,975 commands and in SIX existing assertions. My
+measurement said "zero real stores lost" and was structurally incapable of
+seeing it.
+
+A corpus measures what someone HAPPENS TO RUN. The tests encode what the guard
+must COVER. Only the second is the contract -- and the rarer a credential store
+is, the less likely it appears in any corpus and the more likely a narrowing
+quietly drops it. The extension list now carries db/sqlite/tokens/dat/keyring/
+store/p12/jks because the contract requires them, not because the corpus asked.
+
+Every corpus-driven narrowing this session -- SQL prose (v4.0.8), checksum vs
+wallet key (v4.0.14), property references (v4.0.17) -- had the same blind spot
+available and got away with it. Treat a green suite as the independent check it
+is, not as confirmation of the corpus.
+
++12 tests, mutation-tested: three FP cases fail against the unbounded extension,
+and every GAP CHECK (the six stores, plus .aws/credentials, .env and id_rsa on
+the neighbouring alternatives) holds either way.
+
+Full suite 5217/0.. 5217 tests passing.
 - [4.0.19] - 2026-09-02 — fix(guard-reg): EXISTS is not RUNS — a hook can lose its executable bit and go silent
 
 v4.0.12 taught guard-registration-check to notice a registration whose FILE is

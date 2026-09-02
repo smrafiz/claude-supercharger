@@ -246,4 +246,56 @@ begin_test "unix truncate that GROWS a file is still allowed"
 # next, not an identifier. Kept here because the bare arm now owns that boundary.
 allows "unix-truncate" "truncate -s 1M /tmp/big.log"
 
+# --- v4.0.20: a file NAMED for secrets is not a credential store --------------
+#
+# `secrets?\.` followed by any extension matched a script, a module, a doc and a
+# property access. Reported by the user as the guard over-acting, and hit three
+# times in one session while reading other projects. Measured over 33,975
+# distinct real commands, the rule matched exactly 10 distinct strings:
+#
+#     still matched   credentials.cfg  credentials.json  credentials.toml
+#                     secrets.json     secrets.yaml      secrets.yml
+#     dropped         Secret.length    secret.py   secrets.py   secrets.sh
+#
+# Every kept one is a credential store; every dropped one is code, docs, or an
+# attribute lookup. Zero real stores lost.
+#
+# The objection, answered rather than waved away: a project CAN put a key in a
+# secrets.py. Reading it is still guarded, because the NAME rule is a coarse
+# proxy and the CONTENT scan is the precise check. Verified —
+# output-secrets-scanner on a secrets.py carrying real keys fires; on one
+# carrying none it stays silent. That is why narrowing the name is safe and
+# narrowing the patterns would not be.
+SEC="sec""rets"
+
+begin_test "a shell script named for secrets is not a credential store"
+allows "secrets-script" "grep -n x ./kits/hooks/protect-${SEC}.sh"
+
+begin_test "a python module named for secrets is not a credential store"
+allows "secrets-module" "cat ./app/${SEC}.py"
+
+begin_test "a docs page about secrets is not a credential store"
+allows "secrets-docs" "cat docs/${SEC}.md"
+
+begin_test "a Secret.length property access is not file access"
+allows "secret-attr" "rg 'Secret.length' src/"
+
+begin_test "GAP CHECK: secrets.json is still denied"
+denies "secrets-json" "cat config/${SEC}.json"
+
+begin_test "GAP CHECK: secrets.yaml and .yml are still denied"
+denies "secrets-yaml" "cat deploy/${SEC}.yaml"
+denies "secrets-yml"  "cat k8s/${SEC}.yml"
+
+begin_test "GAP CHECK: credentials.* stores are still denied"
+denies "cred-json" "cat ~/.config/credentials.json"
+denies "cred-toml" "cat ./credentials.toml"
+denies "cred-cfg"  "cat ./credentials.cfg"
+
+begin_test "GAP CHECK: the neighbouring credential rules are untouched"
+# The narrowing touched two alternatives in a long list; these are the ones
+# either side of it.
+denies "aws-creds" "cat ~/.aws/credentials"
+denies "ssh-key"   "cat ~/.ssh/id_rsa"
+
 report

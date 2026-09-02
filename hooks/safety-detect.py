@@ -271,7 +271,34 @@ _SENSITIVE_NAME_RE = re.compile(
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
     r"|[\w.*-]+\.(?:ppk|pem|key|crt|cer|p12|pfx)"
     r"|wallet\.dat|wallet\.json|[\w.*-]+\.wallet"
-    r"|secrets?\.[a-zA-Z0-9_-]+|credentials\.[a-zA-Z0-9_-]+"
+    # v4.0.20: the extension is a STORE format, not anything at all. `secrets?\.`
+    # followed by `[a-zA-Z0-9_-]+` matched every file whose name merely mentions
+    # secrets — a script, a module, a doc — and a property access besides.
+    # Measured over 33,975 distinct real commands, the rule matched 10 distinct
+    # strings:
+    #
+    #     still matched  credentials.cfg  credentials.json  credentials.toml
+    #                    secrets.json     secrets.yaml      secrets.yml
+    #     dropped        Secret.length    secret.py   secrets.py   secrets.sh
+    #
+    # Every dropped one is code, docs, or an attribute lookup; every kept one is a
+    # credential store.
+    #
+    # The list came from the corpus and was WRONG, and the suite caught it: gcloud
+    # keeps `credentials.db` (sqlite), which appears in none of those 33,975
+    # commands and in six existing assertions. "Zero losses" was true of the
+    # corpus and false of the product. A corpus measures what someone HAPPENS TO
+    # RUN; the tests encode what the guard must COVER, and only the second is the
+    # contract. db/sqlite/tokens/dat/keyring/store/p12/jks are here for that
+    # reason, not because anything in the corpus needed them.
+    #
+    # The objection worth answering: a Python project CAN put `API_KEY = "..."` in
+    # a secrets.py. Reading it is still guarded — the NAME rule is a coarse proxy,
+    # the CONTENT scan is the precise check, and it is unchanged. Verified:
+    # output-secrets-scanner on a secrets.py carrying real keys fires
+    # (pattern 0,3,5 of 28); on one carrying none, it stays silent.
+    r"|secrets?\.(?:json|ya?ml|toml|ini|cfg|conf|env|properties|txt|enc|age|gpg|asc|vault|tfvars|db|sqlite3?|tokens?|dat|keyring|store|p12|jks)(?![a-zA-Z0-9_-])"
+    r"|credentials\.(?:json|ya?ml|toml|ini|cfg|conf|env|properties|txt|enc|age|gpg|asc|vault|tfvars|db|sqlite3?|tokens?|dat|keyring|store|p12|jks)(?![a-zA-Z0-9_-])"
     # v2.10.1: terraform var files (DB passwords / cloud creds / API keys) +
     # token stores (from chuckreynolds/claude-secret-guardrails)
     r"|[\w.*-]*\.tfvars|[\w.*-]*\.tokens\.json"
