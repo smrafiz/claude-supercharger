@@ -53,8 +53,32 @@ echo "=== ai-lock-guard ==="
 
 begin_test "ai-lock: an edit INSIDE a locked range asks"
 P=$(_mkproj .ai-locks)
-[ "$(_verdict "$P" "$(_edit "$P" "$P/src/a.py" line12 s1)")" = ask ] && pass \
-  || fail "edit at line 12 of a 10-20 lock did not ask"
+if [ "$(_verdict "$P" "$(_edit "$P" "$P/src/a.py" line12 s1)")" = ask ]; then
+  pass
+else
+  # DIAGNOSE, don't just report. This case failed identically on three Windows CI
+  # runs and the log said only "did not ask" — enough to know it was broken,
+  # never enough to know why, so each cycle was a guess. The detector explains
+  # itself under AI_LOCK_DEBUG=1; the wrapper discards its stderr, so this
+  # re-runs the detector directly with the same inputs the wrapper would build.
+  echo "    --- diagnostics (uname=$(uname -s), cygpath=$(command -v cygpath || echo none)) ---" >&2
+  echo "    manifest on disk: $([ -f "$P/.ai-locks" ] && echo yes || echo NO)" >&2
+  _DIAG_M="$P/.ai-locks"; _DIAG_T="$P/src/a.py"
+  if command -v cygpath >/dev/null 2>&1; then
+    _DIAG_M=$(cygpath -w -- "$_DIAG_M" 2>/dev/null || echo "$_DIAG_M")
+    _DIAG_T=$(cygpath -w -- "$_DIAG_T" 2>/dev/null || echo "$_DIAG_T")
+    echo "    cygpath manifest: $_DIAG_M" >&2
+    echo "    cygpath target:   $_DIAG_T" >&2
+  fi
+  printf '%s' "$(_edit "$P" "$P/src/a.py" line12 sdiag)" \
+    | AI_LOCK_DEBUG=1 AI_LOCK_MANIFEST="$_DIAG_M" AI_LOCK_TARGET="$_DIAG_T" \
+      python3 "$REPO_DIR/hooks/ai-lock-detect.py" >/dev/null 2>&1 \
+    || true
+  printf '%s' "$(_edit "$P" "$P/src/a.py" line12 sdiag)" \
+    | AI_LOCK_DEBUG=1 AI_LOCK_MANIFEST="$_DIAG_M" AI_LOCK_TARGET="$_DIAG_T" \
+      python3 "$REPO_DIR/hooks/ai-lock-detect.py" 2>&1 >/dev/null | sed 's/^/    /' >&2
+  fail "edit at line 12 of a 10-20 lock did not ask"
+fi
 rm -rf "$P"
 
 begin_test "ai-lock: the recorded REASON reaches the user"
@@ -124,6 +148,28 @@ OUT=$(printf '%s' "$(_edit "$P" "$P/src/a.py" line12 s10)" \
   | (cd "$P" && PWD="$P" HOME="$P" SUPERCHARGER_AI_LOCK_GUARD=0 bash "$HOOK" 2>/dev/null))
 [ -z "$OUT" ] && pass || fail "SUPERCHARGER_AI_LOCK_GUARD=0 did not silence it"
 rm -rf "$P"
+
+begin_test "ai-lock: the detector prefers the wrapper's converted target"
+# v4.0.16: bash converts paths with cygpath and hands the result over, because
+# python cannot derive Git Bash's mount table — /tmp is C:\Users\...\Temp, which
+# no drive-letter rule reaches. That gap is why v4.0.15's fix covered the
+# production shape and not the test shape, and why three CI runs looked identical.
+# Behaviourally testable off Windows: point file_path at a file that does not
+# exist and AI_LOCK_TARGET at the real one — a hit proves the env var wins.
+P=$(_mkproj .ai-locks)
+PL=$(printf '{"session_id":"tv","tool_name":"Edit","tool_input":{"file_path":"%s/src/DOES-NOT-EXIST.py","old_string":"line12","new_string":"X"}}' "$P")
+OUT=$(printf '%s' "$PL" | AI_LOCK_MANIFEST="$P/.ai-locks" AI_LOCK_TARGET="$P/src/a.py" \
+  python3 "$REPO_DIR/hooks/ai-lock-detect.py" 2>/dev/null)
+case "$OUT" in
+  *"load-bearing"*) pass ;;
+  "") fail "AI_LOCK_TARGET was ignored — the wrapper's conversion cannot reach the detector" ;;
+  *) fail "unexpected detector output: ${OUT:0:70}" ;;
+esac
+rm -rf "$P"
+
+begin_test "ai-lock: the wrapper asks cygpath rather than modelling the mount table"
+grep -q 'cygpath -w' "$REPO_DIR/hooks/ai-lock-guard.sh" && pass \
+  || fail "wrapper does not convert paths via cygpath — MSYS roots other than drive letters will miss"
 
 begin_test "ai-lock: the detector normalises Git Bash paths"
 # v4.0.13 shipped without this and the Windows job caught it: 5 pass / 6 fail,

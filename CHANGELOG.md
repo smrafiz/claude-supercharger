@@ -2,6 +2,40 @@
 
 ## Contents
 
+- [4.0.16] - 2026-09-02 — fix(ai-lock): let cygpath convert the paths, and make the next failure self-explaining
+
+v4.0.13 shipped the lock guard inert on Git Bash. v4.0.14 inherited the file
+unchanged. v4.0.15 tried to fix it and produced the IDENTICAL six failures. Three
+CI runs, one defect, and each attempt was a guess because the log said only "did
+not ask".
+
+The v4.0.15 fix translated MSYS paths in python and handled only the DRIVE-LETTER
+form: /c/Users/... becomes C:\Users\..., correctly. Git Bash's other roots are not
+drive letters. /tmp is C:\Users\<user>\AppData\Local\Temp, and that mapping lives
+in the Git installation's mount table -- nothing in python can derive it. The
+tests use `mktemp -d`, which returns /tmp/tmp.XXXX, so the fix covered the
+PRODUCTION path shape and missed the TEST path shape, and the run looked
+unchanged.
+
+Now bash converts and python does not try. `cygpath -w` is the component that
+owns that mapping and ships with Git Bash; the wrapper hands the converted
+manifest and target over as AI_LOCK_MANIFEST / AI_LOCK_TARGET. Off Windows
+cygpath does not exist, the paths pass through untouched, and the detector's
+drive-letter fallback still covers the form it always did.
+
+The more useful half is the diagnostic. On failure the test now prints uname,
+whether cygpath resolves, whether the manifest is on disk, the converted paths,
+and the detector's own account of what it resolved and compared (AI_LOCK_DEBUG=1,
+inert otherwise since the wrapper discards stderr). If a fourth run fails, the
+artifact will contain the answer rather than another hint.
+
+Stated plainly, because two predictions about this platform have already been
+wrong: whether cygpath is on PATH in the runner's Git Bash, and whether its
+output is a path Windows python can open, are NOT verifiable from macOS. What is
+verified here is that the detector prefers AI_LOCK_TARGET (mutation-tested:
+remove the preference and the case fails) and that the wrapper calls cygpath.
+
++2 tests. Full suite 5185/0.. 5185 tests passing.
 - [4.0.15] - 2026-09-01 — feat(write-secret-guard): scan the write channel, and fix the lock guard on Windows
 
 Two things, both found by measurement rather than review.

@@ -160,6 +160,17 @@ def _edit_ranges(tool, tool_input, target):
     return ranges
 
 
+def _dbg(*a):
+    """Explain the decision on stderr when AI_LOCK_DEBUG=1.
+
+    Added after three CI cycles on Windows produced the identical six failures
+    and no information about WHY. The wrapper discards stderr, so this is inert
+    unless deliberately switched on.
+    """
+    if os.environ.get("AI_LOCK_DEBUG") == "1":
+        print("[ai-lock]", *a, file=sys.stderr)
+
+
 def main():
     manifest = os.environ.get("AI_LOCK_MANIFEST", "")
     manifest = _msys_path(manifest)
@@ -173,15 +184,26 @@ def main():
     tool_input = payload.get("tool_input") or {}
     if not isinstance(tool_input, dict):
         return
-    target = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
+    # AI_LOCK_TARGET is the wrapper's cygpath-converted spelling; it exists only
+    # where cygpath does. Prefer it, because bash asked the component that owns
+    # the MSYS mount table rather than guessing at it here.
+    target = os.environ.get("AI_LOCK_TARGET") or ""
+    if not target:
+        target = tool_input.get("file_path") or tool_input.get("notebook_path") or ""
     if not isinstance(target, str) or not target:
         return
     target_raw = target
     target = os.path.realpath(_msys_path(target))
 
     repo_root = os.path.dirname(os.path.abspath(_msys_path(manifest)))
-    hits = [lk for lk in _locks(manifest, repo_root)
-            if _same_file(lk["file"], target_raw)]
+    all_locks = _locks(manifest, repo_root)
+    hits = [lk for lk in all_locks if _same_file(lk["file"], target_raw)]
+    _dbg("manifest=%r target=%r locks=%d hits=%d os=%s"
+         % (manifest, target_raw, len(all_locks), len(hits), os.name))
+    if all_locks and not hits:
+        _dbg("no file matched; first lock resolves to %r, target resolves to %r"
+             % (os.path.realpath(_msys_path(all_locks[0]["file"])),
+                os.path.realpath(_msys_path(target_raw))))
     if not hits:
         return
 

@@ -66,12 +66,41 @@ fi
 
 command -v python3 >/dev/null 2>&1 || exit 0
 
+# v4.0.16: BASH converts the paths, python no longer tries to.
+#
+# Native Windows python resolves a leading-slash path against the CURRENT DRIVE,
+# so an MSYS path reaches it as a path that does not exist. v4.0.15 tried to
+# translate that in python and only handled the DRIVE-LETTER form (/c/... ->
+# C:\...). Git Bash's other roots — /tmp, /home, /usr — are not drive letters:
+# /tmp is really C:\Users\<user>\AppData\Local\Temp, and nothing in python can
+# derive that, because it is the Git installation's mount table.
+#
+# The result was a fix that covered the production shape and not the test shape,
+# so three CI cycles all reported the identical six failures. `cygpath -w` is the
+# component that owns this mapping and ships with Git Bash; ask it instead of
+# modelling it. Absent (every non-Windows platform), the paths pass through
+# untouched and the detector's own fallback still handles the drive-letter form.
+_AL_TARGET=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+if command -v cygpath >/dev/null 2>&1; then
+  _AL_MANIFEST_N=$(cygpath -w -- "$_AL_MANIFEST" 2>/dev/null) || _AL_MANIFEST_N=""
+  [ -n "$_AL_MANIFEST_N" ] && _AL_MANIFEST="$_AL_MANIFEST_N"
+  if [ -n "$_AL_TARGET" ]; then
+    _AL_TARGET_N=$(cygpath -w -- "$_AL_TARGET" 2>/dev/null) || _AL_TARGET_N=""
+    [ -n "$_AL_TARGET_N" ] && _AL_TARGET="$_AL_TARGET_N"
+  fi
+fi
+
 # `|| _AL_REASON=""` for the same reason safety.sh does it: any non-zero exit
 # from the detector — missing file, crash, unreadable manifest — must degrade to
 # allow, never to a deny with empty output. Unlike safety.sh, nothing here is
 # python-only, because there is no bash-side arm: no output means no lock hit.
+#
+# AI_LOCK_DEBUG=1 makes the detector explain itself on stderr. Three CI cycles
+# were spent guessing at a platform that cannot be run locally; the fourth should
+# be able to answer rather than hint.
 _AL_REASON=$(printf '%s' "$_INPUT" \
-  | AI_LOCK_MANIFEST="$_AL_MANIFEST" python3 "$HOOKS_DIR/ai-lock-detect.py" 2>/dev/null) || _AL_REASON=""
+  | AI_LOCK_MANIFEST="$_AL_MANIFEST" AI_LOCK_TARGET="$_AL_TARGET" \
+    python3 "$HOOKS_DIR/ai-lock-detect.py" 2>/dev/null) || _AL_REASON=""
 [ -n "$_AL_REASON" ] || exit 0
 
 # Ask once per file per session. An edit loop inside a locked range is a human
