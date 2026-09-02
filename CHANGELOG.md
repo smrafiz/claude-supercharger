@@ -2,6 +2,33 @@
 
 ## Contents
 
+- [4.0.21] - 2026-09-02 — test(guard-reg): the executable-bit assertion cannot hold where the filesystem ignores the bit
+
+v4.0.19's Git Bash job failed on exactly one case: after `chmod -x`, the
+non-executable hook was not reported. The check is fine; the TEST was wrong.
+
+MSYS/NTFS derives the execute bit from the file rather than storing it, so
+`chmod -x` is a no-op and `[ -x ]` stays true. On such a filesystem the check
+cannot fire -- and a hook cannot lose the bit there either, so there is nothing
+to catch and nothing to assert. The test was demanding a behaviour the platform
+is incapable of producing.
+
+Gated on the PRECONDITION rather than on a platform name: remove the bit, and if
+the filesystem did not honour it, there is nothing to test here. That is true
+wherever it is true and bakes in no guess about which filesystems behave this
+way -- the same reasoning as gating _msys_path on os.name rather than on the
+shape of a path.
+
+Verified both directions: on a filesystem that DOES store the bit, a 0644
+registered hook is still reported.
+
+Second time in this arc that a Windows failure was the TEST rather than the
+product -- the first was the lock guard's path spelling in v4.0.13. Different
+root cause, same shape: a platform assumption baked into an assertion is
+indistinguishable from a defect until the artifact is read. `gh run download`,
+not the step log, every time.
+
+Full suite 5217/0.. 5217 tests passing.
 - [4.0.20] - 2026-09-02 — fix(safety): a file NAMED for secrets is not a credential store
 
 Reported by the user as the secret guard over-acting, after it fired on reading

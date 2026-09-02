@@ -285,19 +285,28 @@ rm -rf "$H"
 begin_test "guard-reg: a registered hook that is not EXECUTABLE is reported"
 H=$(_mkhome_files 4 4)
 chmod -x "$H/.claude/supercharger/hooks/h1.sh"
-_x_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
-case "$_x_out" in
-  *"NOT EXECUTABLE"*) pass ;;
-  "") fail "a non-executable registered hook was not reported" ;;
-  *) fail "wrong message: ${_x_out:0:90}" ;;
-esac
+if [ -x "$H/.claude/supercharger/hooks/h1.sh" ]; then
+  # The filesystem does not store the execute bit — MSYS/NTFS derives it, so
+  # `chmod -x` is a no-op and `[ -x ]` stays true. v4.0.19's Git Bash job failed
+  # here for exactly that reason. The check cannot fire on such a filesystem and
+  # a hook cannot lose the bit there either, so there is nothing to assert.
+  # Gated on the PRECONDITION, not on a platform name: true wherever it is true.
+  pass
+else
+  _x_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
+  case "$_x_out" in
+    *"NOT EXECUTABLE"*) pass ;;
+    "") fail "a non-executable registered hook was not reported" ;;
+    *) fail "wrong message: ${_x_out:0:90}" ;;
+  esac
+fi
 rm -rf "$H"
 
 begin_test "guard-reg: a MISSING file outranks a non-executable one"
 # Both broken at once: the missing file is the more serious finding and the one
 # whose fix (re-run the installer) also restores the mode.
 H=$(_mkhome_files 4 3)
-chmod -x "$H/.claude/supercharger/hooks/h0.sh"
+chmod -x "$H/.claude/supercharger/hooks/h0.sh" 2>/dev/null || true
 _x_out=$(printf '{}' | HOME="$H" bash "$HOOK" 2>/dev/null)
 case "$_x_out" in
   *"MISSING"*) pass ;;
