@@ -2,6 +2,57 @@
 
 ## Contents
 
+- [4.0.17] - 2026-09-02 — fix(secrets): a property reference is not a credential, and the scanner now says which rule fired
+
+A user reported output-secrets-scanner warning on a listing of graphql import
+lines. Those lines match none of the 28 patterns. The trigger was a DIFFERENT
+line in the same output -- an identifier path assigned to a same-named variable
+-- and nothing on disk could say so, because the scanner recorded the bare word
+"secrets". Answering the question meant grepping the raw transcript.
+
+Both halves are fixed.
+
+1. THE PATTERN. The generic key=value rule allowed a dot in the VALUE class, so
+an identifier path satisfied it: keyword, `=`, then 16+ legal characters. Every
+`const k = config.k` shape in a TypeScript codebase qualified. Measured over 40
+real transcripts, 325 firings of that rule:
+
+    property reference           238  ->    0
+    bare identifier               18  ->   18
+    other (placeholders etc.)     57  ->   57
+    secret-shaped (has digits)    12  ->   12
+    real-secret matches lost                 0
+
+Nearly three quarters of every firing was a property reference, and removing the
+dot loses nothing: the credential formats that DO carry dots -- JWT, SendGrid --
+have their own patterns in the same file, so the generic rule never needed to
+cover them a second time.
+
+Two narrower fixes were measured and rejected. Requiring a digit drops the
+all-letters class (18 of 325 matches, real secrets). Requiring a non-identifier
+character keeps the hyphenated placeholders (57). Removing the dot is the only
+one that costs nothing.
+
+2. THE DIAGNOSTIC, which is the more useful half. The alert file now records
+which pattern indices matched -- `secrets pattern=5,14 of 28` -- so /why can name
+the rule instead of confirming that something happened. The matched TEXT is never
+written: this file is read back by a diagnostic command, and a scanner that
+guards against credentials reaching the transcript must not spool them to disk
+itself. The identification loop runs only on the hit path; the fast path is still
+one joined grep.
+
+Same shape as the Windows arc in v4.0.13-16: knowing THAT something fired is not
+knowing WHY, and the gap costs a full investigation every time.
+
++4 tests, and mutation testing earned its place twice. First proving the fix
+real; then catching the TESTS as vacuous -- the initial vector used a keyword
+absent from the rule's list with a 13-character value against a 16-character
+floor, so it matched neither the old pattern nor the new one and passed either
+way. Replaced with the reported shape; three cases now fail against the restored
+dot. The graphql line is kept as a case and stated plainly as documentation of
+the report rather than a defect pin, since it never matched.
+
+Full suite 5192/0.. 5192 tests passing.
 - [4.0.16] - 2026-09-02 — fix(ai-lock): let cygpath convert the paths, and make the next failure self-explaining
 
 v4.0.13 shipped the lock guard inert on Git Bash. v4.0.14 inherited the file

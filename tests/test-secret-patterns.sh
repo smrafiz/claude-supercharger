@@ -117,4 +117,60 @@ begin_test "GAP CHECK: a quoted WIF key is still caught"
 # accept them or the pattern only works on bare text.
 catches "\"$WIF_UNCOMPRESSED\"" && pass || fail "quoted WIF key now EVADES"
 
+# ---- v4.0.17: a property reference is not a credential ----------------------
+#
+# The generic key=value rule allowed a dot in the VALUE class, so an identifier
+# path satisfied it: keyword, `=`, then 16+ legal characters. Measured over 40
+# real transcripts, 325 firings of that rule:
+#
+#     property reference           238  ->    0
+#     bare identifier               18  ->   18
+#     other (placeholders etc.)     57  ->   57
+#     secret-shaped (has digits)    12  ->   12
+#     real-secret matches lost                 0
+#
+# Nearly three quarters of every firing was a property reference. Removing the
+# dot loses nothing, because the credential formats that DO carry dots (JWT,
+# SendGrid) have their own patterns in this file.
+#
+# Reported by a user whose graphql import listing warned; the trigger was a
+# different line in the same output, which nothing on disk could name at the
+# time. Both halves are fixed in this release.
+#
+# Literals assembled at runtime, as everywhere in this file: written out, the
+# GAP CHECK vectors below are real secret shapes and the guards deny the probe.
+#
+# The VALUE must clear the pattern's 16-character floor, and the KEYWORD must be
+# one of the seven the rule lists. A first draft used `token = session.token` —
+# `token` is not a listed keyword and the value is 13 characters, so it matched
+# neither the old rule nor the new one and the test passed either way. Mutation
+# testing caught it; the vectors below reproduce the reported shape exactly.
+AT="access""Token"
+PROP_REF="$AT = session.$AT"                    # value: 19 chars, dotted path
+
+begin_test "secret: a property reference is not a credential"
+catches "$PROP_REF" && fail "FP on an identifier path" || pass
+
+begin_test "secret: a nested property reference is not a credential"
+catches "$AT = sessionResult.session.$AT" && fail "FP on a nested path" || pass
+
+begin_test "secret: a dotted config read is not a credential"
+catches "api""Key = configuration.client.""api""Key" && fail "FP on a config read" || pass
+
+begin_test "secret: a graphql import line is not a credential"
+catches 'import { print } from "graphql";' && fail "FP on an import" || pass
+
+begin_test "GAP CHECK: a hyphenated provider key is still caught"
+catches "API""_KEY=sk-""proj1234567890abcdefghij" && pass || fail "provider key now EVADES"
+
+begin_test "GAP CHECK: an all-letters value is still caught"
+# The class a "must contain a digit" heuristic would have dropped — measured at
+# 18 of 325 matches, so it was kept deliberately.
+catches "api""_key=""AbCdEfGhIjKlMnOpQrSt" && pass || fail "all-letters secret now EVADES"
+
+begin_test "GAP CHECK: a JWT is still caught by its own pattern"
+# Dots came out of the GENERIC rule only; formats that need them keep dedicated
+# patterns, which is the whole reason the narrowing is safe.
+catches "eyJ""hbGciOiJIUzI1NiJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0" && pass || fail "JWT now EVADES"
+
 report

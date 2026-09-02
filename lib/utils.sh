@@ -9,7 +9,7 @@
 : "${PYTHONUTF8:=1}"
 export PYTHONIOENCODING PYTHONUTF8
 
-VERSION="4.0.16"
+VERSION="4.0.17"
 
 # Every scope dir a HOOK might read state from — classic install + any plugin install.
 # Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but

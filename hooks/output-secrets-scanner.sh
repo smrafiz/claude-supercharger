@@ -92,7 +92,27 @@ if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
   [ -z "$SID" ] && SID="default"
   mkdir -p "$SCOPE_DIR"
-  echo "secrets" > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
+  # v4.0.17: record WHICH pattern fired, never the value. A user asked why this
+  # warned on a graphql import listing and nothing on disk could answer -- the
+  # alert was the bare word "secrets". Reconstructing it meant grepping the raw
+  # transcript, and the answer was a DIFFERENT line in the same output. /why reads
+  # this file, so it can now name the rule instead of confirming that something
+  # happened. Same shape as the Windows arc: knowing THAT is not knowing WHY.
+  #
+  # The identification loop runs only on the HIT path, which is rare -- the fast
+  # path is still one joined grep. The matched TEXT is never written: this file is
+  # read back by a diagnostic command, and a scanner that guards against
+  # credentials reaching the transcript must not spool them to disk itself.
+  _OSS_IDX=""
+  _OSS_I=0
+  for _oss_p in "${SECRET_PATTERNS[@]}"; do
+    if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$_oss_p" 2>/dev/null; then
+      _OSS_IDX="${_OSS_IDX:+$_OSS_IDX,}$_OSS_I"
+    fi
+    _OSS_I=$((_OSS_I + 1))
+  done
+  printf 'secrets pattern=%s of %s\n' "${_OSS_IDX:-unknown}" "${#SECRET_PATTERNS[@]}" \
+    > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
   exit 2
 fi
 

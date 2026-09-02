@@ -24,7 +24,27 @@ SECRET_PATTERNS=(
   # GitHub fine-grained PAT (v2.22.0) — github_pat_<...>, 60+ tail
   'github_pat_[A-Za-z0-9_]{60,}'
   # Generic key/secret/token — anchor on <keyword><:|=><16+ char value>
-  '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+.-]{16,}'
+  # v4.0.17: the value class has NO dot. A dot let a PROPERTY REFERENCE satisfy
+  # this rule: `token = session.token` is keyword, `=`, then 19 legal
+  # characters of identifier path. Every `const k = config.k` shape in a
+  # TypeScript codebase qualified. Measured over 40 real transcripts, 325
+  # firings of this pattern:
+  #
+  #     property reference           238  ->    0
+  #     bare identifier               18  ->   18
+  #     other (placeholders etc.)     57  ->   57
+  #     secret-shaped (has digits)    12  ->   12
+  #     real-secret matches lost                 0
+  #
+  # 73% of every firing was a property reference, and removing the dot loses
+  # nothing: the credential formats that DO contain dots carry their own
+  # patterns (SendGrid's is a few lines below). A generic key=value rule does
+  # not need to cover those twice.
+  #
+  # Reported by a user whose graphql import listing tripped it. The trigger was
+  # a different line in the same output, and nothing on disk could say which --
+  # the scanner recorded only THAT it fired. Fixed in the same release.
+  '([Aa][Pp][Ii][_-]?[Kk][Ee][Yy]|[Aa][Pp][Ii][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]|[Cc][Ll][Ii][Ee][Nn][Tt][_-]?[Ss][Ee][Cc][Rr][Ee][Tt]|[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]|[Aa][Uu][Tt][Hh][_-]?[Tt][Oo][Kk][Ee][Nn]|[Pp][Rr][Ii][Vv][Aa][Tt][Ee][_-]?[Tt][Oo][Kk][Ee][Nn])["[:space:]]{0,3}[:=][^A-Za-z0-9]{0,3}[A-Za-z0-9_/+-]{16,}'
   # v2.10.9: require a token-length value ({20,}) so conversational "Bearer
   # authentication" / "Bearer token" don't false-positive (real bearer tokens are
   # long). Matters most for the prompt channel (prompt-secret-guard).
