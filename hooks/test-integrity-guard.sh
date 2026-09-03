@@ -200,11 +200,25 @@ elif tool == "Write":
     new = inp.get("content")
     if new is None:
         sys.exit(0)
+    # ENOENT is the only error that means "brand new file". Catching everything
+    # classified an EXISTING but unreadable file as new authoring, so an overwrite
+    # of it was waved through — a read failure collapsing into the clean verdict
+    # ([[failure-modes-collapse-to-one-verdict]]). Cannot-verify is a reason to
+    # ask, not to allow.
     try:
         with open(fp, "r", errors="replace") as f:
             old = f.read()
-    except Exception:
-        sys.exit(0)  # no prior file → new authoring
+    except FileNotFoundError:
+        sys.exit(0)
+    except IsADirectoryError:
+        sys.exit(0)
+    except OSError:
+        print(
+            "Unverifiable overwrite: %s exists but could not be read, so this "
+            "Write cannot be checked for removed assertions or a weakened rule "
+            "set. Confirm you mean to overwrite it." % name
+        )
+        sys.exit(0)
     pairs.append((old, new))
 
 if is_lint and os.environ.get("SUPERCHARGER_LINT_CONFIG_GUARD", "1") != "0":

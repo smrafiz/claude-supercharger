@@ -189,4 +189,43 @@ RC=$(printf '{"tool_name":"Artifact","tool_input":{"action":"room_send","url":"u
   | bash "$GUARD" >/dev/null 2>&1; echo $?)
 [ "$RC" = "0" ] && pass || fail "bodyless room_send should pass, rc=$RC"
 
+# --- v4.0.26: an unreadable artifact is not a clean scan -----------------------
+# `CONTENT=$(head -c ... || true)` then `[ -z "$CONTENT" ] && exit 0` gave the SAME
+# verdict to "the file is empty" and "the file could not be read" — so an
+# unreadable page published unscanned, from the one hook that gates irreversible
+# egress. [[failure-modes-collapse-to-one-verdict]], the `|| PY_REASON=""` shape.
+APG_TD=$(mktemp -d)
+python3 -c "
+import sys
+key='sk-ant-'+'api03'+'-'+'D'*95
+open(sys.argv[1]+'/secret.html','w').write('<html>'+key+'</html>')
+open(sys.argv[1]+'/clean.html','w').write('<html>hello</html>')
+open(sys.argv[1]+'/empty.html','w').write('')" "$APG_TD"
+apg() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD" \
+  | bash "$GUARD" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' || echo none; }
+
+begin_test "artifact: a readable page carrying a credential is still denied"
+[ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"deny"' ] && pass || fail "baseline lost: $(apg "$APG_TD/secret.html")"
+
+begin_test "artifact: a genuinely EMPTY file is still a no-op, not an ask"
+[ "$(apg "$APG_TD/empty.html")" = none ] && pass || fail "fired on an empty file"
+
+begin_test "artifact: a readable clean page is still silent"
+[ "$(apg "$APG_TD/clean.html")" = none ] && pass || fail "fired on clean content"
+
+# chmod is advisory on MSYS/NTFS, where the bit is derived from the file rather
+# than stored — so gate on the PRECONDITION actually holding, never on a platform
+# name. Same reasoning as v4.0.21's executable-bit test.
+chmod 000 "$APG_TD/secret.html" 2>/dev/null || true
+if [ -r "$APG_TD/secret.html" ]; then
+  begin_test "artifact: unreadable-file case (skipped — filesystem ignores chmod)"
+  pass
+else
+  begin_test "artifact: an unreadable page asks instead of publishing unscanned"
+  [ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"ask"' ] && pass \
+    || fail "unscanned publish allowed: $(apg "$APG_TD/secret.html")"
+fi
+chmod 644 "$APG_TD/secret.html" 2>/dev/null || true
+rm -rf "$APG_TD"
+
 report

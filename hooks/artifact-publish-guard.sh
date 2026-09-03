@@ -91,7 +91,22 @@ esac
 # Bound the read. A 16MB artifact would otherwise be grepped in full on a hook
 # that must stay responsive; secrets in a page live in its text, not megabytes in.
 CONTENT=$(head -c 262144 "$FILE_PATH" 2>/dev/null || true)
-[ -z "$CONTENT" ] && exit 0
+if [ -z "$CONTENT" ]; then
+  # An empty read has two causes and they are not the same verdict: the file is
+  # genuinely empty (nothing to scan, allow), or it could not be read (NOT a clean
+  # scan). Collapsing them meant an unreadable page published unscanned, and this
+  # hook gates irreversible egress. [ -s ] is stat-based, so it still sees a file
+  # whose contents are unreadable. [[failure-modes-collapse-to-one-verdict]]
+  if [ -s "$FILE_PATH" ]; then
+    echo "[Supercharger] artifact-publish-guard: ASK — artifact could not be read to scan" >&2
+    _APG_R="Refusing to publish $(basename "$FILE_PATH") without checking it: the file exists but could not be read, so it has NOT been scanned for credentials.
+
+Publishing sends it to a hosted URL and that is not reversible. Confirm the file is safe to publish, or fix its permissions so it can be scanned first."
+    _APG_J=$(printf '%s' "$_APG_R" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"artifact could not be read to scan"')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_APG_J"
+  fi
+  exit 0
+fi
 
 # Single source of truth, shared with output-secrets-scanner and commit-guard.
 # Add a pattern THERE, never here (v2.9.8 — cross-channel parity drift).

@@ -2,6 +2,60 @@
 
 ## Contents
 
+- [4.0.26] - 2026-09-03 — fix(guards): a file that could not be READ was scored as a file with nothing in it
+
+Two guards gave the same verdict to "there is nothing here" and "I could not look",
+and in both the second one is not a clean result.
+
+artifact-publish-guard is the one that matters, because it gates irreversible
+egress: it DENIES a publish when the page carries a credential. Its content read is
+`CONTENT=$(head -c 262144 ... 2>/dev/null || true)` followed by
+`[ -z "$CONTENT" ] && exit 0`, so an unreadable page produced an empty string and
+took the same exit as an empty file -- published, unscanned. Measured before and
+after, with the controls that make the reading mean something:
+
+    readable page with a key    deny      deny
+    readable clean page         silent    silent
+    genuinely empty file        silent    silent      <- must NOT become an ask
+    unreadable page             silent    ASK
+
+test-integrity-guard had the same shape in its Write branch. It caught every
+exception around the on-disk read and exited 0 under the comment "no prior file ->
+new authoring", so an EXISTING but unreadable file was classified as brand-new
+authoring and its overwrite waved through. Only ENOENT means new; any other OSError
+now says "Unverifiable overwrite" instead of nothing. A genuinely absent file is
+still silent, which is the control that keeps the fix from becoming a nag.
+
+This is [[failure-modes-collapse-to-one-verdict]] again -- v4.0.11 was
+`|| PY_REASON=""` making a killed scanner look like a clean scan. Same collapse,
+different hooks: the error path and the all-clear path share an exit.
+
+HONEST SEVERITY. Both are correctness defects in a failure model, not live
+bypasses. These hooks run as the same user as the operation they guard, so if the
+guard cannot read the file, the Artifact publish cannot read it either and a
+mode-000 file cannot be overwritten by its owner -- in the EACCES case the guarded
+operation fails on its own. What the fix actually buys is the rarer trigger: a
+transient EMFILE/EINTR, a disk error, an NFS hiccup, where the operation DOES
+succeed and the scan silently did not happen. Worth the twenty lines; not worth
+overstating.
+
+Both tests gate on the PRECONDITION -- they chmod 000, then check `[ -r ]` and skip
+themselves if the filesystem ignored it -- rather than on a platform name. That is
+v4.0.21's lesson (chmod is advisory on MSYS/NTFS) applied before the red Windows
+release instead of after it.
+
+Mutation-tested: neuter the OSError arm and one test reddens; remove the
+unreadable-vs-empty split and one test reddens.
+
+Idea from aksheyw/claude-code-guardrail-hooks, which uses lstat and fails closed on
+any error but ENOENT for the same reason. That closes its assessment: two of its
+four hooks were already covered here, config-protection shipped as v4.0.25's
+lint-config arm, its case-folding bug class produced v4.0.24 and v4.0.25, and
+pause-guard stays parked.
+
+Full suite 5285/0, shellcheck --severity=error clean.
+
+Claude-Session: https://claude.ai/code/session_01H4sZj6N9hqaHKona2SQvLE. 5285 tests passing.
 - [4.0.25] - 2026-09-03 — feat(guards): guard the linter config, and fold case in the lockfile matcher
 
 The Verification Gate was defended on two channels and not the third. The COMMAND

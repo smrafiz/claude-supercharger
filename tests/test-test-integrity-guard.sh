@@ -171,5 +171,32 @@ J=$(mk l13 Edit /x/foo.test.js 'it("w",()=>{expect(a).toBe(1)})' 'it.skip("w",()
 OUT=$(SUPERCHARGER_LINT_CONFIG_GUARD=0 bash "$HOOK" < "$J" 2>/dev/null)
 [ -n "$OUT" ] && pass || fail "the arm switch disabled the whole hook"
 
+# --- v4.0.26: "could not read it" is not "brand new file" ----------------------
+# The Write branch caught every exception and exited 0 with the comment "no prior
+# file → new authoring", so an EXISTING but unreadable file was classified as new
+# authoring and its overwrite waved through. Only ENOENT means new.
+UR="$TMP/unreadable.test.js"
+printf 'it("t", () => { expect(x()).toBe(1); expect(y()).toBe(2); });\n' > "$UR"
+
+begin_test "unreadable: baseline — a readable prior file still asks"
+J=$(mk ur1 Write "$UR" '' 'it.skip("t", () => {});')
+bash "$HOOK" < "$J" 2>/dev/null | grep -q 'Test-integrity' && pass || fail "baseline lost"
+
+chmod 000 "$UR" 2>/dev/null || true
+if [ -r "$UR" ]; then
+  begin_test "unreadable: case skipped — this filesystem ignores chmod"
+  pass
+else
+  begin_test "unreadable: an existing but unreadable file is not 'brand new'"
+  J=$(mk ur2 Write "$UR" '' 'it.skip("t", () => {});')
+  bash "$HOOK" < "$J" 2>/dev/null | grep -q 'Unverifiable overwrite' && pass \
+    || fail "silently treated an unreadable file as new authoring"
+fi
+chmod 644 "$UR" 2>/dev/null || true
+
+begin_test "unreadable: a genuinely absent file is still silent (ENOENT means new)"
+J=$(mk ur3 Write "$TMP/does-not-exist.test.js" '' 'it("t", () => { expect(1).toBe(1); });')
+[ -z "$(bash "$HOOK" < "$J" 2>/dev/null)" ] && pass || fail "fired on brand-new authoring"
+
 rm -rf "$TMP"
 report
