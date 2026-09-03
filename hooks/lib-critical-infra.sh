@@ -22,6 +22,13 @@ is_critical_infra_path() {
   local base="${p##*/}"
   local lower
   lower=$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')
+  # The dir-segment arms below matched on $lower while every FILENAME arm matched
+  # on $base in its original case, so `DOCKERFILE` fell through while `Dockerfile`
+  # and `dockerfile` were caught — the same file on APFS/NTFS, which are
+  # case-insensitive by default. Fold once here and let every filename arm compare
+  # $lbase against lowercase literals: an arm cannot drift from a spelling it never
+  # states ([[one-path-many-spellings]]).
+  local lbase="${lower##*/}"
   # Normalize a relative path to a leading segment so */segment/* globs also match
   # at the path root (".github/workflows/ci.yml" → "./.github/workflows/ci.yml").
   case "$lower" in /*) ;; *) lower="./$lower" ;; esac
@@ -33,13 +40,13 @@ is_critical_infra_path() {
     */bitbucket-pipelines.yml|bitbucket-pipelines.yml|*/.drone.yml|.drone.yml)
       echo "CI/CD pipeline"; return 0 ;;
   esac
-  case "$base" in
-    Jenkinsfile|jenkinsfile) echo "CI/CD pipeline"; return 0 ;;
+  case "$lbase" in
+    jenkinsfile) echo "CI/CD pipeline"; return 0 ;;
   esac
 
   # 2. Container / infra-as-code deploy
-  case "$base" in
-    Dockerfile|dockerfile|Dockerfile.*|Containerfile) echo "container/deploy"; return 0 ;;
+  case "$lbase" in
+    dockerfile|dockerfile.*|containerfile) echo "container/deploy"; return 0 ;;
     docker-compose.yml|docker-compose.yaml|docker-compose.*.yml|compose.yml|compose.yaml)
       echo "container/deploy"; return 0 ;;
     *.tf|*.tfvars) echo "infrastructure-as-code"; return 0 ;;
@@ -50,7 +57,7 @@ is_critical_infra_path() {
     */migrations/*|*/migrate/*|*/alembic/versions/*|*/db/migrate/*)
       echo "DB migration/schema"; return 0 ;;
   esac
-  case "$base" in
+  case "$lbase" in
     schema.prisma) echo "DB migration/schema"; return 0 ;;
   esac
 
@@ -59,7 +66,7 @@ is_critical_infra_path() {
     */auth/*|*/authentication/*|*/authorization/*|*/middleware/auth*|*/guards/auth*)
       echo "auth logic"; return 0 ;;
   esac
-  case "$base" in
+  case "$lbase" in
     passport.js|passport.ts|*.strategy.js|*.strategy.ts) echo "auth logic"; return 0 ;;
   esac
 

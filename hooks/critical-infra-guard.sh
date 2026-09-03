@@ -34,12 +34,21 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # file. Broad-substring superset of lib-critical-infra's matcher — false positives
 # fall through to the precise is_critical_infra_path check below (e.g. "author.js"
 # hits *auth* here but is correctly rejected there).
+# nocasematch for the same reason lib-critical-infra folds $lbase: APFS/NTFS are
+# case-insensitive, so DOCKERFILE is the same file as Dockerfile. Folding the lib
+# alone would have changed nothing — this gate runs first and would still drop the
+# payload ([[two-gate-trap]]). Restored immediately after: nocasematch also widens
+# `[[ =~ ]]`, and the rest of this hook must not inherit that.
+_CI_NOCASE=$(shopt -p nocasematch 2>/dev/null || true)
+shopt -s nocasematch 2>/dev/null || true
 case "$_INPUT" in
-  *workflows*|*gitlab-ci*|*circleci*|*pipelines*|*travis*|*drone*|*Jenkinsfile*|*jenkinsfile*|\
-  *Dockerfile*|*dockerfile*|*Containerfile*|*compose*|*.tf*|*migrat*|*alembic*|*prisma*|\
-  *auth*|*passport*|*.strategy*) ;;
-  *) exit 0 ;;
+  *workflows*|*gitlab-ci*|*circleci*|*pipelines*|*travis*|*drone*|*Jenkinsfile*|\
+  *Dockerfile*|*Containerfile*|*compose*|*.tf*|*migrat*|*alembic*|*prisma*|\
+  *auth*|*passport*|*.strategy*) _CI_HIT=1 ;;
+  *) _CI_HIT=0 ;;
 esac
+eval "$_CI_NOCASE" 2>/dev/null || true
+[ "$_CI_HIT" = "1" ] || exit 0
 
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"

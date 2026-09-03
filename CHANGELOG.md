@@ -2,6 +2,60 @@
 
 ## Contents
 
+- [4.0.24] - 2026-09-03 — fix(guards): a case-swapped filename is the same file, and two guards could not see it
+
+macOS (APFS) and Windows (NTFS) are case-INSENSITIVE by default. `.VSCode/Tasks.json`
+is the SAME FILE as `.vscode/tasks.json` there, and `DOCKERFILE` the same as
+`Dockerfile` -- but both guards compared names case-sensitively, so the swapped
+spelling reached the filesystem with nothing said.
+
+editor-config-guard is the serious one. It exists to ASK before a write that makes
+something auto-RUN -- a `runOn: folderOpen` VS Code task, an editor MCP config that
+launches a stdio server on load; the Contagious-Interview / MCPoison vector named in
+its own header. Verified before and after, on both output streams:
+
+    .vscode/tasks.json   ASK      .VSCode/Tasks.json   SILENT -> ASK
+                                  .vscode/TASKS.JSON   SILENT -> ASK
+                                  .VSCODE/TASKS.JSON   SILENT -> ASK
+
+Both of its gates were case-sensitive, so folding either alone would have fixed
+nothing: the bash fast-path glob now runs under nocasematch (scoped and restored --
+it also widens [[ =~ ]]), and the python folds ONCE where `norm` is derived rather
+than at each of the three path tests. `path` keeps its original spelling for the
+isfile() read, which must open the real name.
+
+critical-infra-guard had the drift in its shared lib: the dir-segment arms matched
+$lower while EVERY filename arm matched $base in its original case. `Dockerfile` and
+`dockerfile` were caught, `DOCKERFILE` fell through. Folded once at $lbase, so four
+arms (container, CI, DB schema, auth) are fixed together -- and because the fix is in
+lib-critical-infra, the other caller gets it too: lib-smart-approve must not
+auto-approve a critical path under autopilot, and now does not for `DOCKERFILE`
+either. There is a test for exactly that.
+
+Folded unconditionally rather than probing the filesystem. On a case-sensitive FS
+`.VSCode/Tasks.json` really is a different file and VS Code will not read it, so the
+cost is an ASK on a path nobody writes on purpose. The reverse costs a silent bypass
+on the two platforms most users are on.
+
+THE PART WORTH READING. Mutating the four fix sites reported ZERO reds for two of
+them. One was my own perl pattern never matching. The other was real and would have
+shipped: every case fixture I had written carried `folderOpen` or `mcpServers` in its
+CONTENT, so it entered through a CONTENT arm of the fast-path gate and passed even
+with the filename fold reverted. The payload that actually needs the fold is
+`.VSCode/MCP.json` using VS Code's `servers` key, which has neither token -- now its
+own test, with the reasoning recorded next to it. A fold with no test holding it is
+the same defect as no fold at all, one release later.
+
+Bug class taken from aksheyw/claude-code-guardrail-hooks, which shipped this exact
+hole in its config-protection hook and caught it in adversarial review. Two of its
+four hooks are already covered here (write-secret-guard, subagent-report recovery);
+its lint-config gap is real and NOT addressed in this release. Checked and clean:
+env-file-guard folds case on every arm already, and write-secret-guard catches a key
+in fallback position (`process.env.X || "sk-..."`) -- the other bug that repo shipped.
+
+Full suite 5254/0, shellcheck --severity=error clean.
+
+Claude-Session: https://claude.ai/code/session_01H4sZj6N9hqaHKona2SQvLE. 5254 tests passing.
 - [4.0.23] - 2026-09-03 — fix(statusline): a linked worktree showed its own directory name and nothing else
 
 Reported by the user: the line read `claude-supercharger | master`, and in a

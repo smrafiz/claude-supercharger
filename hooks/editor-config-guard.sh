@@ -29,10 +29,30 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # Fast-path: bail unless a target filename or auto-run key could be present.
+#
+# nocasematch, because macOS (APFS) and Windows (NTFS) are case-INSENSITIVE by
+# default: `.VSCode/Tasks.json` is the SAME FILE as `.vscode/tasks.json` there, and
+# a case-sensitive glob let a folderOpen auto-run task through with no ASK — the
+# very vector in the header. Both gates have to fold case or only the reachable one
+# is fixed ([[two-gate-trap]]); the python does it at `norm`.
+#
+# Folded unconditionally rather than probing the filesystem. On a case-sensitive FS
+# `.VSCode/Tasks.json` really is a different file and VS Code will not read it, so
+# folding costs an ASK on a path nobody writes on purpose. The other way round
+# costs a silent bypass on the two platforms most users are on.
+#
+# Scoped with a restore, not left on: nocasematch also changes `[[ =~ ]]`, and this
+# hook must not have its later comparisons quietly widened. Lowercasing $_INPUT
+# instead would copy the whole payload per call ([[bash-substitution-quadratic]])
+# and needs bash 4 (`${v,,}`) — macOS ships 3.2.
+_EC_NOCASE=$(shopt -p nocasematch 2>/dev/null || true)
+shopt -s nocasematch 2>/dev/null || true
 case "$_INPUT" in
-  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*) : ;;
-  *) exit 0 ;;
+  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*) _EC_HIT=1 ;;
+  *) _EC_HIT=0 ;;
 esac
+eval "$_EC_NOCASE" 2>/dev/null || true
+[ "$_EC_HIT" = "1" ] || exit 0
 check_hook_disabled "editor-config-guard" 2>/dev/null && exit 0
 hook_profile_skip "editor-config-guard" 2>/dev/null && exit 0
 
@@ -51,7 +71,10 @@ ti = d.get("tool_input") or {}
 path = ti.get("file_path") or ""
 if not path:
     sys.exit(0)
-norm = path.replace("\\", "/")
+# Lowercased HERE, once, rather than at each of the three path tests below: a
+# comparison that exists in one place cannot drift between arms. `path` keeps its
+# original spelling for the isfile() read, which must open the real name.
+norm = path.replace("\\", "/").lower()
 
 # The new content being written (Write=content, Edit=new_string, MultiEdit=edits).
 content = ti.get("content") or ti.get("new_string") or ""
