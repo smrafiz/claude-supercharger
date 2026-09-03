@@ -19,6 +19,16 @@
 #                 previous session, a CI run, or the user's own report — so this
 #                 must not hold the session open.
 #
+#   PLACEHOLDER   the turn stated the work is COMPLETE while itself writing a
+#                 TODO/FIXME/NotImplementedError into a code file, and the marker
+#                 is still on disk -> BLOCK (exit 2). Same contradiction shape as
+#                 the first case, against a different piece of evidence: the code
+#                 the turn wrote, not the run it recorded. CLAUDE.md's
+#                 verification gate level 2 ("real implementation, not placeholder
+#                 — no TODO, FIXME, stubs") was prose with no mechanism; this is
+#                 the mechanism. Disable this arm alone:
+#                 SUPERCHARGER_PLACEHOLDER_CLAIM=0
+#
 # Idea from K-sushi/claude-notary's out-of-band verification, minus the
 # re-execution: re-running the suite on every Stop would cost minutes per turn in
 # any real repo. Reading what actually ran is the same check at no runtime cost.
@@ -54,8 +64,12 @@ TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/
 # Fast path. Stop runs every turn, so nothing expensive may happen before we know
 # a claim was even made. grep over the tail is far cheaper than parsing JSON, and
 # the overwhelming majority of turns exit here.
+#
+# The completion alternatives belong in THIS grep, not only in the python: an arm
+# whose evidence never reaches the detector is dead code that tests still pass
+# (see [[two-gate-trap]] — six instances of exactly this).
 tail -c 20000 "$TRANSCRIPT" 2>/dev/null \
-  | LC_ALL=C grep -qiE 'tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean' \
+  | LC_ALL=C grep -qiE 'tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean|implemented|implementation is (complete|done)|nothing (left|else) to |production.?ready|ready to (ship|merge)|(it.s|this is|that.s|all) (done|complete|finished)' \
   || exit 0
 
 VERDICT=$(TRANSCRIPT_PATH="$TRANSCRIPT" python3 <<'PYEOF' 2>/dev/null || true
@@ -164,9 +178,87 @@ def blocks(entry):
     c = msg.get("content")
     return c if isinstance(c, list) else []
 
+# --- placeholder arm --------------------------------------------------------
+# Idea from ezBuilder/code-brain's completion_guard signal 4, with its scoping fix
+# kept: only markers the turn ITSELF introduced count, else every repo with a TODO
+# backlog fires forever. Where it diffs the tree, this reads the transcript's own
+# Write/Edit inputs — added text by definition, and no git fork on a Stop hook.
+#
+# Case-SENSITIVE on purpose. Under re.I, "todo" matches `todos.map(...)` and a
+# prose "to do"; the runner-marker lesson above is the same lesson.
+PLACEHOLDER = re.compile(r"\bTODO\b|\bFIXME\b|\bNotImplementedError\b")
+
+# A marker in prose is a note, not a stub. The rule being enforced is about
+# implementations, so only code files can contradict a completion claim.
+PROSE_EXT = frozenset({".md", ".markdown", ".rst", ".txt", ".adoc", ".org"})
+
+DONE = re.compile(
+    r"\b(fully|now|already)\s+implemented\b"
+    r"|\bimplementation\s+is\s+(complete|done|finished)\b"
+    r"|\bcomplete(d)?\s+the\s+implementation\b"
+    r"|\bno\s+(remaining\s+)?(todos?|placeholders?|stubs?)\b"
+    r"|\bnothing\s+(left|else)\s+to\s+(do|implement)\b"
+    r"|\bproduction[- ]ready\b"
+    r"|\bready\s+to\s+(ship|merge)\b"
+    r"|\b(it'?s|this is|that'?s|all)\s+(done|complete|finished)\b"
+    r"|\bfully\s+working\b", re.I)
+
+def edits_of(name, inp):
+    """(path, added, removed) per edit, for the three file-writing tools."""
+    if name == "Write":
+        return [(inp.get("file_path") or "", inp.get("content") or "", "")]
+    if name == "Edit":
+        return [(inp.get("file_path") or "",
+                 inp.get("new_string") or "", inp.get("old_string") or "")]
+    if name == "MultiEdit":
+        p = inp.get("file_path") or ""
+        return [(p, e.get("new_string") or "", e.get("old_string") or "")
+                for e in (inp.get("edits") or []) if isinstance(e, dict)]
+    return []
+
+def placeholder_hit(writes):
+    """First marker this turn ADDED that is STILL on disk, or None.
+
+    Two filters, and both are load-bearing. `line not in removed` keeps an Edit
+    from being blamed for a marker it merely carried through unchanged context.
+    The disk read then drops the common honest sequence: write a stub, replace
+    it later in the same turn, say it is done -- which it now is.
+    """
+    for path, added, removed in writes:
+        if not path or os.path.splitext(path)[1].lower() in PROSE_EXT:
+            continue
+        for line in added.splitlines():
+            s = line.strip()
+            if not s or not PLACEHOLDER.search(line) or s in removed:
+                continue
+            try:
+                with open(path, "r", errors="replace") as f:
+                    on_disk = s in f.read(400000)
+            except Exception:
+                on_disk = False       # unwritten or deleted: no evidence, no block
+            if on_disk:
+                return path, s[:160]
+    return None
+
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
+writes = []          # (path, added, removed) — CURRENT turn only
+done_claim = None    # completion stated in the CURRENT turn
+
+def is_turn_start(entry):
+    """A user entry that is a real message, not a tool_result carrier.
+
+    The placeholder arm must be scoped to this turn: a stub written five turns
+    ago and since replaced is not evidence against anything said now.
+    """
+    c = (entry.get("message") or {}).get("content")
+    if isinstance(c, str):
+        return True
+    if isinstance(c, list):
+        return not any(isinstance(b, dict) and b.get("type") == "tool_result"
+                       for b in c)
+    return False
 
 for ln in lines:
     try:
@@ -179,14 +271,22 @@ for ln in lines:
             if b.get("type") == "text":
                 txt = b.get("text") or ""
                 for sent in re.split(r"(?<=[.!?\n])\s+", txt):
-                    if CLAIM.search(sent) and not HEDGE.search(sent) \
-                            and not DISCLAIM.search(sent):
+                    hedged = HEDGE.search(sent) or DISCLAIM.search(sent)
+                    if CLAIM.search(sent) and not hedged:
                         last_claim = sent.strip()[:180]
+                    if DONE.search(sent) and not hedged:
+                        done_claim = sent.strip()[:180]
             elif b.get("type") == "tool_use" and b.get("name") == "Bash":
                 cmd = (b.get("input") or {}).get("command", "") or ""
                 if TEST_CMD.search(cmd):
                     test_calls[b.get("id")] = cmd
+            elif b.get("type") == "tool_use":
+                writes.extend(edits_of(b.get("name") or "", b.get("input") or {}))
     elif t == "user":
+        if is_turn_start(e):
+            writes = []
+            done_claim = None
+            continue
         for b in blocks(e):
             if b.get("type") != "tool_result":
                 continue
@@ -199,6 +299,17 @@ for ln in lines:
             else:
                 text = str(content or "")
             last_result = (test_calls[tid], bool(b.get("is_error")), text[-4000:])
+
+# Evaluated BEFORE the test-claim exits below, not after. Placed after them it
+# would be unreachable on any turn that made no test claim -- which is most turns
+# that say "implemented" -- and its tests would still pass. Both verdicts block,
+# so precedence costs nothing but the wording of the message.
+if os.environ.get("SUPERCHARGER_PLACEHOLDER_CLAIM", "1") != "0" and done_claim:
+    _hit = placeholder_hit(writes)
+    if _hit:
+        print(json.dumps({"verdict": "placeholder", "claim": done_claim,
+                          "cmd": _hit[0], "evidence": _hit[1]}))
+        sys.exit(0)
 
 if not last_claim:
     sys.exit(0)
@@ -255,6 +366,23 @@ PYEOF
 [ -z "$VERDICT" ] && exit 0
 
 KIND=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('verdict',''))" 2>/dev/null || true)
+
+if [ "$KIND" = "placeholder" ]; then
+  CLAIM=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('claim',''))" 2>/dev/null || true)
+  CMD=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('cmd',''))" 2>/dev/null || true)
+  EV=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('evidence',''))" 2>/dev/null || true)
+  {
+    echo "[Supercharger] claim-evidence-gate: you stated the work is complete, but this turn wrote a placeholder into the code and it is still there."
+    echo "  You wrote : ${CLAIM}"
+    echo "  In file   : ${CMD}"
+    echo "  The line  : ${EV}"
+    echo "  Finish it, or say plainly what is left and why it is left. Do not restate the claim."
+  } >&2
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] completion claimed with a placeholder this turn wrote — stop blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  exit 2
+fi
 
 if [ "$KIND" = "contradicted" ]; then
   CLAIM=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('claim',''))" 2>/dev/null || true)

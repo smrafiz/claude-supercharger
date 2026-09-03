@@ -2,6 +2,61 @@
 
 ## Contents
 
+- [4.0.22] - 2026-09-03 — feat(claim-evidence-gate): a completion claim is contradicted by a placeholder the turn itself wrote
+
+CLAUDE.md's verification gate level 2 -- "real implementation, not placeholder
+(no TODO, FIXME, stubs)" -- was prose with no mechanism. This is the mechanism,
+and it is the shape this project has repeatedly found highest-yield: a stated
+rule that nothing enforces.
+
+A fourth arm of claim-evidence-gate rather than a 159th hook. Same event, same
+transcript read, same python fork, same verdict plumbing -- a separate hook
+would have cost another ~9ms on every Stop plus a hooks.json/HOOKS.md
+regeneration, and bought nothing.
+
+PLACEHOLDER fires when all three hold: the turn states the work is complete,
+the turn itself wrote a TODO/FIXME/NotImplementedError into a code file, and
+the marker is still on disk. Blocks (exit 2) quoting the file and the line --
+the same contradiction shape as the test-claim arm, against different evidence:
+the code the turn wrote rather than the run it recorded.
+
+Idea from ezBuilder/code-brain's completion_guard signal 4, whose scoping
+insight is the whole design and is kept: only markers the turn ITSELF
+introduced count, else every repo with a TODO backlog fires forever. Where it
+diffs the working tree, this reads the transcript's own Write/Edit inputs --
+added text by definition, and no git fork on a hook that runs every turn.
+
+Four filters, and each one is a false positive that would otherwise ship:
+
+  turn-scoped        writes reset at every real user message, so a marker from
+                     five turns ago cannot contradict what is said now
+  added text only    the line must be absent from old_string, so an Edit is not
+                     blamed for a marker it merely carried through context
+  still on disk      write a stub, replace it later in the same turn, say it is
+                     done -- by then it is, and the arm stays silent
+  code files only    a TODO in markdown is a note; TODO is matched
+                     case-sensitively so `todos.map` is not a stub
+
+The completion wording went into the outer bash fast-path grep as well as the
+python. An arm whose trigger never reaches the detector is dead code whose own
+tests still pass -- six instances of that in this repo already.
+
+Mutation-tested rather than assumed: neutralise the disk read and exactly one
+test reddens ("a placeholder written then removed"); neutralise turn scoping
+and exactly one test reddens ("a marker from a PREVIOUS turn").
+
+Caught en route by test-hook-contracts, not by me: the new header pushed the
+`Disable:` line past line 40, where the contract scans for it. Trimmed the
+prose down instead of widening the contract.
+
+Known FP: editing a file that carries the literal TODO inside a regex (this
+repo's own subagent-stop-check.sh does) while claiming completion. Escape
+hatch is SUPERCHARGER_PLACEHOLDER_CLAIM=0, which disables this arm alone and
+leaves the other three intact.
+
+Full suite 5228/0, shellcheck --severity=error clean.
+
+Claude-Session: https://claude.ai/code/session_01H4sZj6N9hqaHKona2SQvLE. 5228 tests passing.
 - [4.0.21] - 2026-09-02 — test(guard-reg): the executable-bit assertion cannot hold where the filesystem ignores the bit
 
 v4.0.19's Git Bash job failed on exactly one case: after `chmod -x`, the

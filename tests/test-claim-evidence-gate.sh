@@ -269,5 +269,106 @@ mk zt_zero_and_failed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Tota
 begin_test "a run that failed AND ran nothing still blocks"
 [ "$(zt zt_zero_and_failed)" = "BLOCK" ] && pass || fail "a red run was softened to advisory"
 
+# --- v4.0.22: completion claimed while the turn wrote a placeholder -----------
+# CLAUDE.md's verification gate level 2 ("real implementation, not placeholder —
+# no TODO, FIXME, stubs") was prose with no mechanism. Same contradiction shape
+# as the test-claim arm, different evidence: the code the turn itself wrote.
+# Scoping is the whole design — a repo's existing TODO backlog must never fire,
+# only a marker THIS turn added that is STILL on disk.
+mkw() { # name, file, written-content, claim, [prevturn]
+  python3 - "$TD/$1.jsonl" "$2" "$3" "$4" "${5:-}" <<'PY'
+import json, sys
+out, path, content, claim, prevturn = sys.argv[1:6]
+def j(o): return json.dumps(o)
+lines = [j({"type": "user", "message": {"content": "do the thing"}}),
+         j({"type": "assistant", "message": {"content": [
+             {"type": "tool_use", "id": "w1", "name": "Write",
+              "input": {"file_path": path, "content": content}}]}})]
+if prevturn:
+    lines.append(j({"type": "user", "message": {"content": "now finish up"}}))
+lines.append(j({"type": "assistant", "message": {"content": [
+    {"type": "text", "text": claim}]}}))
+open(out, "w").write("\n".join(lines) + "\n")
+PY
+}
+mke() { # name, file, old_string, new_string, claim
+  python3 - "$TD/$1.jsonl" "$2" "$3" "$4" "$5" <<'PY'
+import json, sys
+out, path, old, new, claim = sys.argv[1:6]
+def j(o): return json.dumps(o)
+open(out, "w").write("\n".join([
+    j({"type": "user", "message": {"content": "do the thing"}}),
+    j({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": "e1", "name": "Edit",
+         "input": {"file_path": path, "old_string": old, "new_string": new}}]}}),
+    j({"type": "assistant", "message": {"content": [{"type": "text", "text": claim}]}}),
+]) + "\n")
+PY
+}
+
+STUB=$'def parse(s):\n    # TODO: handle escapes\n    return s\n'
+printf '%s' "$STUB" > "$TD/parser.py"
+
+mkw ph_block "$TD/parser.py" "$STUB" "Done — the parser is fully implemented."
+begin_test "claiming completion with a TODO this turn wrote blocks the stop"
+[ "$(rc_for ph_block)" = "2" ] && pass || fail "not blocked: $(msg_for ph_block)"
+
+begin_test "the block quotes the file and the placeholder line"
+OUT=$(msg_for ph_block)
+printf '%s' "$OUT" | grep -q 'parser.py' \
+  && printf '%s' "$OUT" | grep -q 'TODO: handle escapes' && pass \
+  || fail "message lacks file or line: $OUT"
+
+# The honest sequence this must not punish: write a stub, replace it later in the
+# same turn, then say it is done — because by then it is. The disk read is what
+# separates that from the real thing, so removing it must redden a test.
+printf 'def parse(s):\n    return unescape(s)\n' > "$TD/fixed.py"
+mkw ph_removed "$TD/fixed.py" "$STUB" "Done — fully implemented."
+begin_test "a placeholder written then removed in the same turn does NOT block"
+[ "$(rc_for ph_removed)" = "0" ] && pass || fail "blocked on a marker no longer on disk"
+
+printf '%s' "$STUB" > "$TD/notes.md"
+mkw ph_prose "$TD/notes.md" "$STUB" "Done — fully implemented."
+begin_test "a TODO in a markdown file is a note, not a stub"
+[ "$(rc_for ph_prose)" = "0" ] && pass || fail "fired on prose"
+
+# An Edit's new_string carries unchanged surrounding context. A marker present in
+# BOTH sides was not introduced by this turn.
+printf '%s' "$STUB" > "$TD/carried.py"
+mke ph_carried "$TD/carried.py" "$STUB" "$STUB" "All done — implementation is complete."
+begin_test "a marker carried through unchanged Edit context does NOT block"
+[ "$(rc_for ph_carried)" = "0" ] && pass || fail "blamed an Edit for a pre-existing marker"
+
+mkw ph_noclaim "$TD/parser.py" "$STUB" "Wrote the first pass of the parser."
+begin_test "writing a TODO without claiming completion is silent"
+[ "$(rc_for ph_noclaim)" = "0" ] && [ -z "$(msg_for ph_noclaim)" ] && pass \
+  || fail "mid-work stubs must not fire every turn"
+
+mkw ph_prevturn "$TD/parser.py" "$STUB" "That's done — nothing left to do." prevturn
+begin_test "a marker from a PREVIOUS turn does not block this turn's claim"
+[ "$(rc_for ph_prevturn)" = "0" ] && pass || fail "turn scoping leaked across the user message"
+
+mkw ph_hedged "$TD/parser.py" "$STUB" "Once the escapes are handled this is done."
+begin_test "hedged completion wording is not a claim"
+[ "$(rc_for ph_hedged)" = "0" ] && pass || fail "conditional text treated as a completion claim"
+
+begin_test "SUPERCHARGER_PLACEHOLDER_CLAIM=0 disables the arm alone"
+GOT=$(printf '{"transcript_path":"%s","stop_hook_active":false}' "$TD/ph_block.jsonl" \
+  | SUPERCHARGER_PLACEHOLDER_CLAIM=0 bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$GOT" = "0" ] && pass || fail "arm kill switch ignored"
+
+begin_test "and the test-claim arm still works with it off"
+GOT=$(printf '{"transcript_path":"%s","stop_hook_active":false}' "$TD/contradicted.jsonl" \
+  | SUPERCHARGER_PLACEHOLDER_CLAIM=0 bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$GOT" = "2" ] && pass || fail "the arm switch disabled the whole hook"
+
+# The bash fast-path grep gates everything below it: an arm whose wording never
+# reaches the python is dead code that its own tests still pass ([[two-gate-trap]]).
+begin_test "the fast-path grep admits completion wording, not just test wording"
+printf '%s' "$STUB" > "$TD/fastpath.py"
+mkw ph_fastpath "$TD/fastpath.py" "$STUB" "Fully implemented."
+[ "$(rc_for ph_fastpath)" = "2" ] && pass \
+  || fail "the completion claim never got past the tail grep"
+
 rm -rf "$TD"
 report
