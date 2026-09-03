@@ -103,5 +103,73 @@ printf 'not json' > "$TMP/bad.json"
 OUT=$(bash "$HOOK" < "$TMP/bad.json" 2>/dev/null); RC=$?
 [ -z "$OUT" ] && [ "$RC" -eq 0 ] && pass || fail "should fail-open silently (rc=$RC out=$OUT)"
 
+# --- v4.0.25: the lint-config arm ---------------------------------------------
+# Editing the TEST to pass was guarded here; editing the LINTER so the check stops
+# complaining was guarded nowhere. test-mask-guard covers the command channel
+# (`npm test || true`), this file covered the test file, and the rules the check
+# runs under were the missing arm. Gap found in aksheyw/claude-code-guardrail-hooks
+# and verified by probe: an Edit turning "error" into "off" in an in-project
+# .eslintrc.json passed every PreToolUse hook silently.
+#
+# Count-deltas, not "this file was touched" — their version denies every edit to an
+# existing lint config, and a guard that fires on ordinary work gets switched off.
+lint() { # name file old new -> ASK | silent
+  local j; j=$(mk "$1" Edit "$2" "$3" "$4")
+  [ -n "$(bash "$HOOK" < "$j" 2>/dev/null)" ] && echo ASK || echo silent
+}
+
+begin_test "lint: an eslint rule switched to off asks"
+[ "$(lint l1 /p/.eslintrc.json '"no-any": "error"' '"no-any": "off"')" = ASK ] && pass || fail "silent"
+
+begin_test "lint: a numeric severity 2 -> 0 asks"
+[ "$(lint l2 /p/.eslintrc.json '"a": 2,' '"a": 0,')" = ASK ] && pass || fail "silent"
+
+begin_test "lint: a deleted rule asks (a disable-token scan alone cannot see this)"
+[ "$(lint l3 /p/.eslintrc.json '"a": "error", "b": "error"' '"a": "error"')" = ASK ] && pass || fail "silent"
+
+begin_test "lint: tsconfig strict true -> false asks"
+[ "$(lint l4 /p/tsconfig.json '"strict": true' '"strict": false')" = ASK ] && pass || fail "silent"
+
+begin_test "lint: a case-swapped .ESLintRC.json is the same file, and asks"
+[ "$(lint l5 /p/.ESLintRC.json '"a": "error"' '"a": "off"')" = ASK ] && pass || fail "silent"
+
+# The FP that the first implementation shipped, found by probing before writing
+# tests: prettier has no severities, so counting a bare 1 or 2 as a rule read
+# "tabWidth": 2 -> 4 as a dropped rule. Numeric severities are an ESLint spelling
+# and are only counted for ESLint/Stylelint configs.
+begin_test "lint: prettier tabWidth 2 -> 4 is formatting, not enforcement"
+[ "$(lint l6 /p/.prettierrc '"tabWidth": 2,' '"tabWidth": 4,')" = silent ] && pass || fail "false positive"
+
+begin_test "lint: adding a rule is silent"
+[ "$(lint l7 /p/.eslintrc.json '"a": "error"' '"a": "error", "b": "error"')" = silent ] && pass || fail "fired on a strengthening edit"
+
+begin_test "lint: reformatting is silent"
+[ "$(lint l8 /p/.eslintrc.json '"a":"error"' '"a": "error"')" = silent ] && pass || fail "fired on a no-op"
+
+begin_test "lint: a tsconfig target bump is silent"
+[ "$(lint l9 /p/tsconfig.json '"target": "es2020"' '"target": "es2022"')" = silent ] && pass || fail "fired on an unrelated key"
+
+begin_test "lint: an ordinary source file is not a lint config"
+[ "$(lint l10 /p/src/app.ts '"a": "error"' '"a": "off"')" = silent ] && pass || fail "matched a non-config"
+
+# The gate in front of the python only admitted payloads containing "test"/"spec".
+# A .eslintrc.json payload contains neither, so without the gate arm the whole
+# thing is unreachable and every test above would still pass ([[two-gate-trap]]).
+begin_test "lint: the fast-path gate admits a payload with no test/spec token"
+J=$(mk l11 Edit /p/.eslintrc.json '"a": "error"' '"a": "off"')
+grep -qiE '"(file_path|old_string|new_string)":[^,]*(test|spec)' "$J" \
+  && fail "fixture leaks a test/spec token — it would pass through the OLD gate" \
+  || { [ -n "$(bash "$HOOK" < "$J" 2>/dev/null)" ] && pass || fail "gate dropped it"; }
+
+begin_test "lint: SUPERCHARGER_LINT_CONFIG_GUARD=0 disables the arm alone"
+J=$(mk l12 Edit /p/.eslintrc.json '"a": "error"' '"a": "off"')
+OUT=$(SUPERCHARGER_LINT_CONFIG_GUARD=0 bash "$HOOK" < "$J" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "arm kill switch ignored"
+
+begin_test "lint: and the test arm still works with the lint arm off"
+J=$(mk l13 Edit /x/foo.test.js 'it("w",()=>{expect(a).toBe(1)})' 'it.skip("w",()=>{expect(a).toBe(1)})')
+OUT=$(SUPERCHARGER_LINT_CONFIG_GUARD=0 bash "$HOOK" < "$J" 2>/dev/null)
+[ -n "$OUT" ] && pass || fail "the arm switch disabled the whole hook"
+
 rm -rf "$TMP"
 report

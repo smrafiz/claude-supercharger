@@ -68,4 +68,32 @@ SUPERCHARGER_STATE="$AST" smart_approve_verdict '{"session_id":"s","tool_name":"
   && pass || fail "autopilot wrongly declined a normal edit"
 rm -rf "$AST"
 
+# --- v4.0.25: a case-swapped lockfile name is the same file --------------------
+# Third instance of the class fixed in v4.0.24 (editor-config-guard,
+# critical-infra-guard). APFS/NTFS are case-insensitive, so `Package-Lock.json`
+# and `cargo.lock` are the same files as the canonical spellings — and every one
+# of them sailed past the guard. `cargo.lock` matters most: it is the spelling a
+# person actually types.
+#
+# The baseline above (canonical names ASK) is what makes these meaningful: without
+# it, silence here would be indistinguishable from a fixture that never fires.
+for lf in Package-Lock.json PACKAGE-LOCK.JSON YARN.LOCK cargo.lock CARGO.LOCK \
+          GEMFILE.LOCK Go.Sum Pnpm-Lock.yaml; do
+  begin_test "lockfile-guard: ASK on a case-swapped $lf"
+  asks "/proj/$lf" && pass || fail "case-sensitive match let it through"
+done
+
+begin_test "lockfile-guard: the corrective hint survives a case-swapped name"
+run_guard "/proj/CARGO.LOCK" | grep -q 'cargo build' && pass \
+  || fail "fell back to the generic hint: $(run_guard /proj/CARGO.LOCK | head -c 200)"
+
+begin_test "lockfile-guard: folding case did not widen it (a file merely named *lock*)"
+asks "/proj/src/lockfile-notes.txt" && fail "matched a non-lockfile" || pass
+
+begin_test "lockfile-guard: autopilot declines a case-swapped lockfile too"
+AST2=$(mktemp -d); mkdir -p "$AST2/scope"; printf '%s' "$(( $(date +%s) + 9999 ))" > "$AST2/scope/.autopilot-until"
+SUPERCHARGER_STATE="$AST2" smart_approve_verdict '{"session_id":"s","tool_name":"Edit","cwd":"/proj","tool_input":{"file_path":"/proj/CARGO.LOCK"}}' \
+  && fail "autopilot auto-approved a lockfile whose name was upper-cased" || pass
+rm -rf "$AST2"
+
 report

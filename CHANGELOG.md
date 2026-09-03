@@ -2,6 +2,95 @@
 
 ## Contents
 
+- [4.0.25] - 2026-09-03 — feat(guards): guard the linter config, and fold case in the lockfile matcher
+
+The Verification Gate was defended on two channels and not the third. The COMMAND
+channel is test-mask-guard (`npm test || true` cannot launder a red run). The TEST
+FILE is test-integrity-guard (skip markers, deleted assertions). The RULES THE
+CHECK RUNS UNDER were guarded nowhere -- and that is the same trick, one file over:
+the check goes green without the code being fixed.
+
+Verified by probe before building, not assumed: an Edit turning
+`"no-explicit-any": "error"` into `"off"` in an in-project .eslintrc.json passed
+every PreToolUse hook silently. The first probe DID fire path-guard, but only
+because the fixture sat in a temp dir outside the project -- re-run in-repo, the
+payload was untouched.
+
+A fourth arm of test-integrity-guard, not a 153rd hook: identical event, matcher,
+ASK tier and purpose, so a separate hook would have cost another spawn on every
+Write/Edit and a hooks.json/HOOKS.md regeneration, and bought nothing.
+
+Two count-DELTAS, never "this file was touched":
+
+  DISABLE_RE rising    a rule switched off, an eslint-disable / noqa added, a TS
+                       strict flag turned off or an escape hatch turned on
+  ENABLED_RE falling   enforced rules deleted or downgraded -- which a
+                       disable-token scan alone cannot see
+
+  error -> off            ASK      tabWidth 2 -> 4           silent
+  "a": 2 -> 0             ASK      a rule ADDED              silent
+  a rule deleted          ASK      reformatting              silent
+  strict true -> false    ASK      target es2020 -> es2022   silent
+  .ESLintRC.json (case)   ASK      an ordinary source file   silent
+
+Deliberately unlike the hook this came from, which denies EVERY edit to an existing
+lint config. Editing an eslint config is ordinary work, and a guard that fires on
+ordinary work is one people switch off -- their own case study makes the same
+argument about not widening a secret pattern. pyproject.toml is excluded for the
+reason they exclude it: dependencies and project metadata live there too.
+
+TWO DEFECTS CAUGHT BEFORE A TEST EXISTED, both by probing the arm against ordinary
+edits first. Single quotes inside the new regexes terminated the `python3 -c` shell
+string and the whole hook stopped parsing -- now \x27 throughout, with the reason
+written next to it. And counting a bare 1 or 2 as a rule read prettier's
+"tabWidth": 2 -> 4 as a dropped rule; numeric severities are an ESLint spelling and
+are now counted only for ESLint/Stylelint configs.
+
+The gate in front of the python only admitted payloads containing "test" or "spec",
+which a .eslintrc.json payload does not -- so the arm needed its own gate entry or
+it would have been unreachable with every one of its tests passing. Its test
+asserts the fixture carries no test/spec token, so it cannot pass through the old
+gate by accident. Seventh instance of that trap here.
+
+Mutation-tested: gate arm removed -> 5 reds, DISABLE_RE neutered -> 2, numeric
+scoping removed -> 1, is_lint disabled -> 16.
+
+Closes the last item from the aksheyw/claude-code-guardrail-hooks assessment. Of
+its four hooks, two were already covered here, one is shipped as this arm, and
+pause-guard stays parked: it blocks every tool call off a regex over user prose,
+and a false block wedges the session until the user types again.
+
+
+--- and the third case-folding instance -------------------------------------
+
+The v4.0.24 sweep was not finished. lockfile-integrity-guard had the same hole:
+every canonical name asks (package-lock.json, yarn.lock, Cargo.lock, poetry.lock),
+every case variant was silent -- including plain `cargo.lock`, which is the
+spelling a person actually types on a case-insensitive filesystem. Folded in
+lib-lockfile, so lockfile-integrity-guard AND lib-smart-approve are fixed at once:
+autopilot no longer auto-approves a `CARGO.LOCK` edit either, and there is a test
+for that. The hook's fast-path gate needed nocasematch as well (YARN.LOCK contains
+LOCK, not lock), and the corrective-hint arms were folded so a case-swapped name
+still gets "cargo build" rather than the generic fallback -- caught because the
+first fold missed three arms whose literals had no trailing space.
+
+What the finished sweep says, stated as evidence rather than as reassurance:
+
+  fixed          editor-config-guard, critical-infra-guard (v4.0.24),
+                 lockfile-integrity-guard (here)
+  clean          env-file-guard, generated-file-guard, test-integrity-guard
+                 -- all three already compare lowercased
+  NOT ANSWERED   install-script-guard, pth-persistence-guard, package-source-guard,
+                 enforce-pkg-manager. A path-only payload does not trip them at
+                 all, so there is no baseline and their silence means nothing.
+                 They key on command/content, which needs different fixtures.
+
+That last row is the point of the exercise. A guard that stays silent for both
+spellings has either no bug or no baseline, and only the baseline tells you which.
+
+Full suite 5278/0, shellcheck --severity=error clean, hook contracts green.
+
+Claude-Session: https://claude.ai/code/session_01H4sZj6N9hqaHKona2SQvLE. 5278 tests passing.
 - [4.0.24] - 2026-09-03 — fix(guards): a case-swapped filename is the same file, and two guards could not see it
 
 macOS (APFS) and Windows (NTFS) are case-INSENSITIVE by default. `.VSCode/Tasks.json`

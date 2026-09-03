@@ -27,10 +27,16 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # This is a superset of lib-lockfile's basename list (every lock name contains
 # "lock", "shrinkwrap", or ".sum") — false positives just fall through to the
 # precise is_lockfile_path check below; no real lockfile name is missed.
+# nocasematch: YARN.LOCK contains "LOCK", not "lock". Folding the lib alone would
+# have changed nothing — this gate runs first and drops the payload ([[two-gate-trap]]).
+# Restored right after, since nocasematch also widens [[ =~ ]].
+_LG_NOCASE=$(shopt -p nocasematch 2>/dev/null || true)
+shopt -s nocasematch 2>/dev/null || true
 case "$_INPUT" in
   *lock*|*shrinkwrap*|*.sum*) ;;
   *) exit 0 ;;
 esac
+eval "$_LG_NOCASE" 2>/dev/null || true
 
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
@@ -47,16 +53,17 @@ BASE="${FILE_PATH##*/}"
 is_lockfile_path "$FILE_PATH" || exit 0
 
 # Which package manager owns it (for the corrective hint).
-case "$BASE" in
+_LG_LBASE=$(printf '%s' "$BASE" | tr '[:upper:]' '[:lower:]')
+case "$_LG_LBASE" in
   package-lock.json|npm-shrinkwrap.json) PM="npm install" ;;
   yarn.lock)          PM="yarn install" ;;
   pnpm-lock.yaml)     PM="pnpm install" ;;
   bun.lockb|bun.lock) PM="bun install" ;;
-  Cargo.lock)         PM="cargo build" ;;
+  cargo.lock)         PM="cargo build" ;;
   composer.lock)      PM="composer update" ;;
-  Gemfile.lock)       PM="bundle install" ;;
+  gemfile.lock)       PM="bundle install" ;;
   poetry.lock)        PM="poetry lock" ;;
-  Pipfile.lock)       PM="pipenv lock" ;;
+  pipfile.lock)       PM="pipenv lock" ;;
   go.sum)             PM="go mod tidy" ;;
   *)                  PM="your package manager" ;;
 esac
