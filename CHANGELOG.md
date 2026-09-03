@@ -2,6 +2,49 @@
 
 ## Contents
 
+- [4.0.23] - 2026-09-03 — fix(statusline): a linked worktree showed its own directory name and nothing else
+
+Reported by the user: the line read `claude-supercharger | master`, and in a
+worktree it read `wt-demo | demo-branch` -- so neither the parent repo nor the
+fact that this was a worktree at all appeared anywhere.
+
+Cause: the project segment is basename(cwd). In an ordinary checkout that is the
+repo name, which is why it never looked wrong; in a linked worktree the worktree
+directory REPLACES it, and the repo name is simply gone. The branch was always
+there, which is what made the gap easy to misread as "the worktree is missing"
+rather than "the repo name was overwritten".
+
+In a linked worktree the segment now reads `myrepo/feature-wt`. An ordinary
+checkout is untouched -- same bare repo name, no slash.
+
+Derived from `--git-common-dir` vs `--show-toplevel`, never from the path shape:
+a directory merely NAMED like a worktree is an ordinary checkout and must stay
+unlabelled. --git-common-dir points at the MAIN repo's .git from anywhere in the
+tree, so this also works from a subdirectory of a worktree -- where a `.git`-is-
+a-file test, the cheaper detection, sees nothing at all.
+
+Cost: +8ms, and only on the cache-miss path -- at most once per ~3s bucket, not
+per render. Cached renders are unchanged; the label is cached alongside the
+branch, which the last test pins (a missing key would have silently dropped the
+label on every cached render, i.e. almost all of them).
+
+The first measurement of that cost said 100ms -> 25ms, which is not even the
+right direction. The fixture was two copies under /tmp, where the script cannot
+resolve its own libs and so runs a different program. Re-measured with both
+variants in hooks/: 94ms -> 103ms. Fourth instance of a fixture producing
+confident wrong numbers in this project.
+
+Six tests, covering worktree root, worktree subdirectory, ordinary checkout,
+non-git directory, and the cached render. Mutation-tested: drop the label
+assignment and exactly three redden.
+
+Full suite 5234/0, shellcheck --severity=error clean.
+
+Known, untouched: the git-fact cache keys on $HOME rather than
+SUPERCHARGER_STATE, so a test that does not isolate HOME reads the developer's
+live cache. The new test isolates it.
+
+Claude-Session: https://claude.ai/code/session_01H4sZj6N9hqaHKona2SQvLE. 5234 tests passing.
 - [4.0.22] - 2026-09-03 — feat(claim-evidence-gate): a completion claim is contradicted by a placeholder the turn itself wrote
 
 CLAUDE.md's verification gate level 2 -- "real implementation, not placeholder

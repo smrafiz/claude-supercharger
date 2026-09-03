@@ -163,6 +163,7 @@ try:
  # values to the intervening renders. Staleness is bounded at ~3s (fine for a WIP
  # gauge); branch is always fresh (HEAD mtime is in the key too).
  branch = ''
+ wt_label = ''   # 'repo/worktree' when cwd is inside a LINKED worktree
  import time as _t
  try:
      _gdir = os.path.join(cwd or '.', '.git')
@@ -185,6 +186,7 @@ try:
          _br = _cached.get('branch', '')
          if _br:
              branch = f' {DIM}|{RESET} {_br}'
+         wt_label = _cached.get('wt', '')
          lines_added += int(_cached.get('added', 0) or 0)
          lines_removed += int(_cached.get('removed', 0) or 0)
      else:
@@ -194,6 +196,26 @@ try:
                                  capture_output=True, text=True, timeout=2, cwd=cwd or None)
              if _r.returncode == 0:
                  _br = _r.stdout.strip()
+         except Exception:
+             pass
+         # A linked worktree's directory name REPLACES the repo name in `dirname`
+         # (basename of cwd), so the statusline read `wt-demo | branch` — neither
+         # the parent repo nor the fact that it is a worktree was visible. One
+         # extra fork, and only on the cache-miss path: at most once per ~3s
+         # bucket, not per render (the whole point of the cache above).
+         #
+         # --git-common-dir points at the MAIN repo's .git from anywhere in the
+         # tree and can come back relative, so resolve it against cwd before
+         # comparing. Equal to the toplevel => ordinary checkout, label stays off.
+         try:
+             _rr = subprocess.run(['git', 'rev-parse', '--git-common-dir', '--show-toplevel'],
+                                  capture_output=True, text=True, timeout=2, cwd=cwd or None)
+             _ls = _rr.stdout.splitlines() if _rr.returncode == 0 else []
+             if len(_ls) >= 2:
+                 _main = os.path.dirname(os.path.realpath(os.path.join(cwd or '.', _ls[0])))
+                 _top = os.path.realpath(_ls[1])
+                 if _main and _top and _main != _top:
+                     wt_label = os.path.basename(_main) + '/' + os.path.basename(_top)
          except Exception:
              pass
          _add = _rem = 0
@@ -212,7 +234,8 @@ try:
          lines_added += _add; lines_removed += _rem
          try:
              with open(_cf + '.tmp', 'w') as _f:
-                 json.dump({'key': _key, 'branch': _br, 'added': _add, 'removed': _rem}, _f)
+                 json.dump({'key': _key, 'branch': _br, 'wt': wt_label,
+                            'added': _add, 'removed': _rem}, _f)
              os.replace(_cf + '.tmp', _cf)
          except Exception:
              pass
@@ -399,6 +422,8 @@ try:
      pass
 
  # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, strict, agent, mcp, lines
+ if wt_label:
+     dirname = wt_label
  line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{ro}{st}{agent}{mcp}{lines}'
 
  # Token display
