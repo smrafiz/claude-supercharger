@@ -98,4 +98,31 @@ SIG_N=$(printf '{"tool_name":"Skill","tool_input":{"skill":"demo"},"cwd":"%s"}' 
     bash "$GUARD" 2>/dev/null | grep -c permissionDecision || true)
 [ "$SIG_N" = "0" ] && pass || fail "kill switch ignored"
 
+# --- Task 4: unreadable is not unchanged ---------------------------------------
+# This branch is the one most likely to be "simplified" away later. v4.0.26 fixed
+# exactly this collapse inside artifact-publish-guard: "nothing to scan" and
+# "could not scan" shared an exit, so an unreadable page published unscanned.
+mkdir -p "$SIG_HOME/.claude/skills/unreadable"
+printf 'body\n' > "$SIG_HOME/.claude/skills/unreadable/SKILL.md"
+sig unreadable >/dev/null   # establish a baseline while it is still readable
+chmod 000 "$SIG_HOME/.claude/skills/unreadable/SKILL.md" 2>/dev/null || true
+if [ -r "$SIG_HOME/.claude/skills/unreadable/SKILL.md" ]; then
+  # MSYS/NTFS derives permissions from the file rather than storing them, so
+  # chmod 000 is a no-op and the branch CANNOT fire. Gate on the precondition,
+  # never on a platform name — v4.0.21, where the same assertion was gated on
+  # "is this Windows" and was wrong about why.
+  begin_test "skill-lock: unreadable case (skipped — filesystem ignores chmod)"
+  pass
+else
+  begin_test "skill-lock: an unreadable skill ASKS rather than passing as unchanged"
+  [ "$(sig unreadable)" = '"permissionDecision":"ask"' ] && pass \
+    || fail "unreadable skill treated as clean, got $(sig unreadable)"
+fi
+chmod 644 "$SIG_HOME/.claude/skills/unreadable/SKILL.md" 2>/dev/null || true
+
+begin_test "skill-lock: a skill that does not exist on disk is silent, not an ask"
+[ "$(sig ghostskill)" = "none" ] && pass || fail "missing skill should be a no-op"
+
+rm -rf "$SIG_HOME" "$SIG_STATE"
+
 report
