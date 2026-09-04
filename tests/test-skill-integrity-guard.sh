@@ -125,4 +125,20 @@ begin_test "skill-lock: a skill that does not exist on disk is silent, not an as
 
 rm -rf "$SIG_HOME" "$SIG_STATE"
 
+# --- Task 5: registration ------------------------------------------------------
+# Nothing in this repo may silently not run. A hook that is written but not
+# registered is indistinguishable from one that passes.
+begin_test "skill-lock: registered on PreToolUse:Skill"
+. "$REPO_DIR/lib/hooks.sh"
+SUPERCHARGER_EMIT_ALL=1 get_hooks_for_mode "full" "true" '/h' 2>/dev/null \
+  | grep -q 'PreToolUse|Skill|.*skill-integrity-guard.sh' && pass \
+  || fail "not registered — the hook never fires"
+
+begin_test "skill-lock: the generated plugin hooks.json carries it"
+grep -q 'skill-integrity-guard' "$REPO_DIR/hooks/hooks.json" && pass \
+  || fail "run tools/gen-plugin-hooks.sh — the two channels have drifted"
+
+begin_test "skill-lock: hook is executable"
+[ -x "$REPO_DIR/hooks/skill-integrity-guard.sh" ] && pass || fail "not executable"
+
 report

@@ -352,6 +352,12 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
+    # Change detection, not classification: the scanner asks whether a skill
+    # LOOKS malicious against a fixed pattern list, this asks whether it is the
+    # same file as last time. A skill that passed the patterns yesterday passes
+    # them today after an upstream edit, and a skill is instructions Claude
+    # follows. Trust on first use; see docs/SKILLS-LOCK-PLAN.md.
+    hooks+=("PreToolUse|Skill|${hooks_dir}/skill-integrity-guard.sh|")
     # v2.26.40: the same inspection for agent definitions. Skills had a load-time
     # scanner since v2.7.x; ~/.claude/agents/*.md had none, though it is the same
     # thing — instructions Claude follows, loaded by name, persistent on disk.

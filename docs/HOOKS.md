@@ -127,6 +127,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `session-memory-write` | Stop | * | Writes a compressed session summary to .claude/supercharger-memory.md |
 | `setup-check` | Setup | (none) | Fires when Claude Code runs `--init`, `--init-only`, or `--maintenance`. |
 | `shell-escape-advisor` | UserPromptSubmit | (none) | Claude Code's `! <cmd>` prompt prefix runs commands directly in the user's |
+| `skill-integrity-guard` | PreToolUse | Skill | skill-poisoning-scanner asks "does this look malicious?" — a fixed pattern |
 | `skill-poisoning-scanner` | PreToolUse | Skill | Scans skill content for hidden shell commands, encoded payloads, |
 | `slow-tool-detector` | PostToolUse | (none) | Warns Claude when a tool takes unusually long, with tool-specific thresholds. |
 | `smart-approve` | PermissionRequest | (none) | Auto-approves known-safe tool calls to reduce user prompts. |
