@@ -215,16 +215,38 @@ begin_test "artifact: the fixtures this block asserts on actually exist"
 # the precondition so a broken setup reads as a broken setup.
 # [[failure-modes-collapse-to-one-verdict]] again: "nothing to scan" and "nothing
 # was written" must not share an exit.
+# Existence is not enough. A file that exists but is EMPTY sends the guard down
+# its `[ -z "$CONTENT" ]` branch, where a non-empty stat check fails and it exits
+# 0 silently -- so the deny assertion below reports "none" while this one still
+# passes. That is the same collapse this block exists to test, reproduced in the
+# test's own precondition. Assert the bytes, not the inode.
 _APG_MISSING=""
-for _f in secret.html clean.html empty.html; do
-  [ -f "$APG_TD/$_f" ] || _APG_MISSING="$_APG_MISSING $_f"
+for _f in secret.html clean.html; do
+  [ -s "$APG_TD/$_f" ] || _APG_MISSING="$_APG_MISSING $_f(empty-or-absent)"
 done
-[ -z "$_APG_MISSING" ] && pass || fail "fixture setup wrote nothing —$_APG_MISSING"
+[ -f "$APG_TD/empty.html" ] || _APG_MISSING="$_APG_MISSING empty.html(absent)"
+grep -q 'sk-ant-' "$APG_TD/secret.html" 2>/dev/null \
+  || _APG_MISSING="$_APG_MISSING secret.html(no-key-in-content)"
+[ -z "$_APG_MISSING" ] && pass || fail "fixture setup is wrong —$_APG_MISSING"
 apg() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD" \
   | bash "$GUARD" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' || echo none; }
 
 begin_test "artifact: a readable page carrying a credential is still denied"
-[ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"deny"' ] && pass || fail "baseline lost: $(apg "$APG_TD/secret.html")"
+# On failure, report WHY rather than only the verdict. This assertion went red on
+# Git Bash twice while every neighbouring assertion passed, and "none" alone does
+# not distinguish an unwritten file from an unmatched pattern from an unread path.
+# The diagnostics cost nothing on the passing path.
+if [ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"deny"' ]; then
+  pass
+else
+  _APG_SZ=$(wc -c < "$APG_TD/secret.html" 2>/dev/null | tr -d ' ')
+  _APG_HEAD=$(head -c 30 "$APG_TD/secret.html" 2>/dev/null | tr -d '\0')
+  _APG_RC=$(printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
+    "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" >/dev/null 2>&1; echo $?)
+  _APG_ERR=$(printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
+    "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" 2>&1 >/dev/null | head -1)
+  fail "baseline lost: $(apg "$APG_TD/secret.html") | bytes=${_APG_SZ:-?} head='${_APG_HEAD}' rc=$_APG_RC stderr='${_APG_ERR}'"
+fi
 
 begin_test "artifact: a genuinely EMPTY file is still a no-op, not an ask"
 [ "$(apg "$APG_TD/empty.html")" = none ] && pass || fail "fired on an empty file"
