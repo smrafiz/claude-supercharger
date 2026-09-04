@@ -61,55 +61,29 @@ cwd = _msys(cwd)
 # Find skill definition files. Match only the skill's own file, not random
 # READMEs that happen to contain the skill name.
 scan_paths = []
-# v2.26.39: 'skills' is the CANONICAL directory for a standalone skill — a bundle
-# installed with `git clone && ./install.sh` lands in ~/.claude/skills/<name>/SKILL.md,
-# not commands/ or plugins/. Omitting it meant the primary install path was never
-# scanned: an identical poisoned SKILL.md was DENIED under plugins/ and commands/
-# and PASSED under skills/. Found by scanning two real published bundles, not
-# fixtures — every test staged into commands/ or plugins/, so the suite agreed
-# with the bug. The globs and patterns below already worked; only the root was missing.
-candidates = [
-    Path(home_dir) / '.claude' / 'commands',
-    Path(home_dir) / '.claude' / 'plugins',
-    Path(home_dir) / '.claude' / 'skills',
-    Path(cwd) / '.claude' / 'commands',
-    Path(cwd) / '.claude' / 'plugins',
-    Path(cwd) / '.claude' / 'skills',
-]
-# v2.7.54: skills are often invoked NAMESPACED ("plugin:skill"), but the file on
-# disk is named by the BARE skill — a raw-name glob then matches nothing and the
-# skill is never scanned (a full bypass for any plugin skill). Search the bare
-# name (after the last ':' or '/') in addition to the raw invoked value.
-skill_names = {skill}
-_bare = re.split(r'[:/]', skill)[-1]
-if _bare:
-    skill_names.add(_bare)
+# v4.0.27: resolution moved to hooks/lib_skill_resolve.py. A second hook
+# (skill-integrity-guard) needs the same answer to "which file is this skill",
+# and two copies of the globs drift the moment one is edited -- v2.9.8,
+# cross-channel parity. The module carries this hook's history: the
+# ~/.claude/skills root (v2.26.39) and the bare-name search (v2.7.54).
+_resolve = None
+try:
+    # _msys first, for the reason v2.27.33 documents below: HOOKS_DIR_PY is a
+    # CUSTOM env var, MSYS only rewrites the ones it recognises, and Windows
+    # python resolves the POSIX form against the current drive -- so the import
+    # fails silently. Same trap, same fix.
+    sys.path.insert(0, _msys(os.environ.get('HOOKS_DIR_PY', '')))
+    from lib_skill_resolve import resolve_skill_paths as _resolve
+except Exception:
+    _resolve = None
 
-# Targeted globs only — rglob over ~/.claude/ walks 1000s of files.
-# Three direct shapes: <base>/.../<name>.md, <base>/.../<name>/SKILL.md,
-# <base>/.../<name>/skill.md. Depth limit 6.
-glob_patterns = []
-for _nm in skill_names:
-    glob_patterns += [
-        f'{_nm}.md', f'*/{_nm}.md', f'*/*/{_nm}.md', f'*/*/*/{_nm}.md',
-        f'{_nm}/SKILL.md', f'*/{_nm}/SKILL.md', f'*/*/{_nm}/SKILL.md',
-        f'{_nm}/skill.md', f'*/{_nm}/skill.md', f'*/*/{_nm}/skill.md',
-    ]
+if _resolve is None:
+    # The shared resolver is the only resolver. If it cannot be imported then
+    # nothing was inspected -- exit silently rather than report a clean scan,
+    # which is the same verdict the no-paths branch below reaches.
+    sys.exit(0)
 
-_seen = set()
-for base in candidates:
-    if not base.is_dir():
-        continue
-    for pat in glob_patterns:
-        try:
-            for p in base.glob(pat):
-                if p.is_file():
-                    rp = str(p.resolve())
-                    if rp not in _seen:
-                        _seen.add(rp)
-                        scan_paths.append(p)
-        except Exception:
-            continue
+scan_paths = _resolve(skill, home_dir, cwd)
 
 if not scan_paths:
     sys.exit(0)
