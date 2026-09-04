@@ -19,7 +19,6 @@
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-# Verbatim from: Unknown hook event "..." was ignored. Valid events: ...
 # The valid set, preferring the INSTALLED Claude Code over anything hardcoded.
 #
 # A hardcoded list is a snapshot, and this file already went stale in the other
@@ -27,24 +26,32 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 # and false once 2.1.219 shipped the event and 2.1.233 wired it to /add-dir. A
 # list that can only rot is worse than one derived from the thing it describes.
 #
-# Claude Code exports one dispatcher per event (executeDirectoryAddedHooks,
-# executePostToolBatchHooks, ...), so the binary names its own valid set. The
-# fallback below is used when the binary cannot be located or read — it is the
-# set as of CC 2.1.233, and DirectoryAdded is in it.
+# Derived from the event REGISTRY, not from exported dispatchers. Claude Code
+# carries one object literal describing every hook event, each entry shaped
+# `EventName:{summary:"When ..."` — that is the set it validates against.
+#
+# The earlier extraction read `execute<Event>Hooks` symbols instead, which is a
+# PROPER SUBSET: only events with a dedicated exported dispatcher appear there.
+# ConfigChange, MessageDisplay and UserPromptExpansion dispatch through a shared
+# path and export no such symbol, so the test called three correct, working
+# registrations invalid. The binary documents all three ("Hook input for the
+# MessageDisplay event", "blocked by UserPromptExpansion hook", "ConfigChange
+# hook blocked change to"), and 2.26.8 added them deliberately after a docs
+# audit. Fourth time in this repo that a red assertion was the TEST rather than
+# the product; the registry is the wider and correct source.
+#
+# `terminal` also matches the registry shape and is not an event, so the filter
+# keeps PascalCase names only.
 VALID_EVENTS=""
 _CC_BIN=$(command -v claude 2>/dev/null || true)
 if [ -n "$_CC_BIN" ]; then
   _CC_REAL=$(python3 -c "import os,sys; print(os.path.realpath(sys.argv[1]))" "$_CC_BIN" 2>/dev/null || true)
   if [ -n "$_CC_REAL" ] && [ -r "$_CC_REAL" ]; then
     VALID_EVENTS=$(strings "$_CC_REAL" 2>/dev/null \
-      | grep -oE "execute[A-Za-z]+Hooks" \
-      | sed 's/^execute//; s/Hooks$//' \
-      | grep -vE "^(Hooks|HooksOutsideREPL)$" \
+      | grep -oE '[A-Za-z]+:\{summary:"' \
+      | sed 's/:{summary:"//' \
+      | grep -E '^[A-Z]' \
       | sort -u | tr "\n" " ")
-    # Dispatchers are named PreTool/PostTool; the EVENTS are PreToolUse/PostToolUse.
-    case "$VALID_EVENTS" in
-      *"PreTool "*) VALID_EVENTS="$VALID_EVENTS PreToolUse PostToolUse SubagentStop" ;;
-    esac
   fi
 fi
 # A derived set that came back implausibly small means the extraction broke, not
@@ -55,7 +62,7 @@ UserPromptSubmit UserPromptExpansion SessionStart SessionEnd Stop StopFailure
 SubagentStart SubagentStop PreCompact PostCompact PermissionRequest
 PermissionDenied Setup TeammateIdle TaskCreated TaskCompleted Elicitation
 ElicitationResult ConfigChange WorktreeCreate WorktreeRemove InstructionsLoaded
-CwdChanged FileChanged MessageDisplay DirectoryAdded"
+CwdChanged FileChanged MessageDisplay DirectoryAdded PreModelSwitch PostModelSwitch"
 fi
 
 _is_valid() {
@@ -118,6 +125,18 @@ begin_test "DirectoryAdded is accepted (Claude Code 2.1.219+ dispatches it)"
 # to /add-dir; the installed binary exports executeDirectoryAddedHooks. Pinning
 # it in this direction is what makes the restored registration meaningful.
 _is_valid "DirectoryAdded" && pass || fail "DirectoryAdded rejected — the derived set may have failed to extract"
+
+begin_test "events without a dedicated dispatcher symbol are still accepted"
+# ConfigChange, MessageDisplay and UserPromptExpansion are dispatched through a
+# shared path and export no execute<Event>Hooks symbol. An extraction that reads
+# dispatcher symbols finds 25 of the 33 events and calls these three invalid,
+# which is exactly the false negative this file shipped. Pinning them here means
+# a narrower source fails loudly instead of condemning working registrations.
+_BAD_PIN=""
+for _e in ConfigChange MessageDisplay UserPromptExpansion; do
+  _is_valid "$_e" || _BAD_PIN="$_BAD_PIN $_e"
+done
+[ -z "$_BAD_PIN" ] && pass || fail "valid set is too narrow — missing:$_BAD_PIN"
 
 begin_test "the check accepts a real one"
 _is_valid "PreToolUse" && pass || fail "the valid set rejects a real event"
