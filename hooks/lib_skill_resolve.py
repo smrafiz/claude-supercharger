@@ -16,12 +16,35 @@ import re
 from pathlib import Path
 
 
+def _msys(x):
+    """Rewrite an MSYS path (/c/Users/x) to native Windows (C:\\Users\\x).
+
+    No-op off Windows and on paths that are not MSYS-shaped, so it is safe to
+    apply to any input and safe to apply twice.
+    """
+    import os
+    if os.name != 'nt' or not x or not isinstance(x, str):
+        return x
+    m = re.match(r'^/([A-Za-z])(/|$)', x)
+    return (m.group(1).upper() + ':\\' + x[3:].replace('/', '\\')) if m else x
+
+
 def resolve_skill_paths(skill, home_dir, cwd):
     """Return existing files backing `skill`, de-duplicated by resolved path.
 
     Empty list when nothing matches -- callers treat that as "nothing to
     inspect", never as "inspected and clean".
     """
+    # Normalise HERE so a caller cannot forget to. home_dir and cwd arrive from
+    # a shell, and on Git Bash they are POSIX-shaped (/c/Users/...) while python
+    # is native Windows and resolves that against the current drive -- every
+    # glob then matches nothing and the skill is silently never inspected. The
+    # scanner already did this at its call site (v2.27.33); doing it in the
+    # resolver makes it true for both consumers. Idempotent: an
+    # already-normalised path does not match the pattern.
+    home_dir = _msys(home_dir)
+    cwd = _msys(cwd)
+
     candidates = [
         Path(home_dir) / '.claude' / 'commands',
         Path(home_dir) / '.claude' / 'plugins',

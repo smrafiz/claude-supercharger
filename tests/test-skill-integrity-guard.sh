@@ -44,4 +44,32 @@ GOT=$(_resolve_count nosuchskill)
 
 rm -rf "$SR_HOME"
 
+# --- Task 2: trust on first use ------------------------------------------------
+GUARD="$REPO_DIR/hooks/skill-integrity-guard.sh"
+SIG_HOME=$(mktemp -d)
+SIG_STATE=$(mktemp -d)
+mkdir -p "$SIG_HOME/.claude/skills/demo"
+printf 'original body\n' > "$SIG_HOME/.claude/skills/demo/SKILL.md"
+
+# The guard reads HOME and cwd from the payload/env, so both sides of the MSYS
+# boundary must agree: bash writes the fixture, python inside the hook resolves
+# it. native_path is the writer-side normalisation; the hook does the reader side.
+SIG_HOME_N=$(native_path "$SIG_HOME")
+
+sig() {
+  printf '{"tool_name":"Skill","tool_input":{"skill":"%s"},"cwd":"%s"}' "$1" "$SIG_HOME_N" \
+    | HOME="$SIG_HOME" SUPERCHARGER_STATE="$SIG_STATE" bash "$GUARD" 2>/dev/null \
+    | grep -o '"permissionDecision":"[a-z]*"' || echo none
+}
+
+begin_test "skill-lock: the first load is silent and records a baseline"
+[ "$(sig demo)" = "none" ] && pass || fail "first load should be silent, got $(sig demo)"
+
+begin_test "skill-lock: the baseline is on disk with a sha256"
+grep -q '"sha256"' "$SIG_STATE/scope/.skills-lock" 2>/dev/null && pass \
+  || fail "no baseline written to $SIG_STATE/scope/.skills-lock"
+
+begin_test "skill-lock: an unchanged skill stays silent on reload"
+[ "$(sig demo)" = "none" ] && pass || fail "unchanged skill should be silent"
+
 report
