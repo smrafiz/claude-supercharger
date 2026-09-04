@@ -125,4 +125,41 @@ PYEOF
 ) || exit 0
 
 [ -z "$RESULT" ] && exit 0
+
+_SIG_MSG=$(SIG_RESULT="$RESULT" python3 -c '
+import json, os, sys
+try:
+    r = json.loads(os.environ["SIG_RESULT"])
+except Exception:
+    sys.exit(0)
+lines = []
+for name, _key, prior, cur in r.get("changed", []):
+    lines.append("%s changed since it was last loaded (%s -> %s)."
+                 % (name, prior[:12], cur[:12]))
+for name in r.get("unreadable", []):
+    lines.append("%s exists but could not be read, so it was NOT compared." % name)
+if not lines:
+    sys.exit(0)
+print("\n".join(lines))
+' 2>/dev/null) || exit 0
+
+[ -z "$_SIG_MSG" ] && exit 0
+
+echo "[Supercharger] skill-integrity-guard: ASK — skill content changed" >&2
+_SIG_REASON="$_SIG_MSG
+
+A skill is instructions Claude follows. This one is not the file that was recorded the first time it loaded, so what it tells Claude to do may have changed.
+
+Approve if you (or an update you expected) changed it — the new content becomes the baseline. Decline if you did not."
+_SIG_J=$(printf '%s' "$_SIG_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"skill content changed since first load"')
+printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_SIG_J"
+
+# Block ledger — /why and the session [BLOCKS] summary read this.
+SCOPE_DIR="$_SC_STATE/scope"
+mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+printf '[%s] skills — skill content changed since first load — %s\n' \
+  "$(date -u +%Y-%m-%dT%H:%M:%SZ 2>/dev/null || echo unknown)" \
+  "$(printf '%s' "$_SIG_MSG" | head -1)" \
+  >> "$SCOPE_DIR/.blocked-commands" 2>/dev/null || true
+
 exit 0

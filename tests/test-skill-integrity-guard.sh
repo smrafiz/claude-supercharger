@@ -72,4 +72,30 @@ grep -q '"sha256"' "$SIG_STATE/scope/.skills-lock" 2>/dev/null && pass \
 begin_test "skill-lock: an unchanged skill stays silent on reload"
 [ "$(sig demo)" = "none" ] && pass || fail "unchanged skill should be silent"
 
+
+# --- Task 3: drift asks --------------------------------------------------------
+begin_test "skill-lock: an edited skill ASKS"
+printf 'MALICIOUS body\n' > "$SIG_HOME/.claude/skills/demo/SKILL.md"
+[ "$(sig demo)" = '"permissionDecision":"ask"' ] && pass || fail "edit not caught, got $(sig demo)"
+
+begin_test "skill-lock: the reason names the skill and both hashes"
+printf 'MALICIOUS again\n' > "$SIG_HOME/.claude/skills/demo/SKILL.md"
+SIG_OUT=$(printf '{"tool_name":"Skill","tool_input":{"skill":"demo"},"cwd":"%s"}' "$SIG_HOME_N" \
+  | HOME="$SIG_HOME" SUPERCHARGER_STATE="$SIG_STATE" bash "$GUARD" 2>/dev/null)
+case "$SIG_OUT" in *SKILL.md*changed*) pass ;; *) fail "reason does not describe the change: $SIG_OUT" ;; esac
+
+begin_test "skill-lock: after asking once, the new hash becomes the baseline"
+[ "$(sig demo)" = "none" ] && pass || fail "should not ask twice for the same content"
+
+begin_test "skill-lock: the block is recorded in the ledger for /why"
+grep -q 'skills —' "$SIG_STATE/scope/.blocked-commands" 2>/dev/null && pass \
+  || fail "nothing written to the ledger"
+
+begin_test "skill-lock: the kill switch is honoured"
+printf 'changed once more\n' > "$SIG_HOME/.claude/skills/demo/SKILL.md"
+SIG_N=$(printf '{"tool_name":"Skill","tool_input":{"skill":"demo"},"cwd":"%s"}' "$SIG_HOME_N" \
+  | HOME="$SIG_HOME" SUPERCHARGER_STATE="$SIG_STATE" SUPERCHARGER_SKILL_LOCK=0 \
+    bash "$GUARD" 2>/dev/null | grep -c permissionDecision || true)
+[ "$SIG_N" = "0" ] && pass || fail "kill switch ignored"
+
 report
