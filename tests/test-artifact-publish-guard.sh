@@ -245,7 +245,16 @@ else
     "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" >/dev/null 2>&1; echo $?)
   _APG_ERR=$(printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
     "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" 2>&1 >/dev/null | head -1)
-  fail "baseline lost: $(apg "$APG_TD/secret.html") | bytes=${_APG_SZ:-?} head='${_APG_HEAD}' rc=$_APG_RC stderr='${_APG_ERR}'"
+  # Round 2. Round 1 proved the file is written, the content is right, the guard
+  # DENIES (rc=2) and its stderr is correct -- so the hook works and only the
+  # STDOUT JSON fails to arrive. Every other deny assertion in this file checks
+  # rc via _art_rc; this block is the only one that greps stdout, and the only
+  # one that fails. So measure stdout itself: how many bytes, and what they are.
+  _APG_OUT=$(printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
+    "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" 2>/dev/null | od -c | head -3 | tr '\n' '~')
+  _APG_OUTN=$(printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
+    "$APG_TD" "$APG_TD/secret.html" | bash "$GUARD" 2>/dev/null | wc -c | tr -d ' ')
+  fail "baseline lost: $(apg "$APG_TD/secret.html") | bytes=${_APG_SZ:-?} head='${_APG_HEAD}' rc=$_APG_RC stderr='${_APG_ERR}' stdout_bytes=${_APG_OUTN} stdout=${_APG_OUT}"
 fi
 
 begin_test "artifact: a genuinely EMPTY file is still a no-op, not an ask"
