@@ -57,6 +57,50 @@ can't be determined from the code in scope, say that explicitly rather than asse
   Fix: [specific remediation]
 ```
 
+**Before returning the report, grade it against these checks.** Answer each one pass or
+fail. Fix every failure and re-run the checks. Do not include the checklist or its results
+in your output — the reader gets the corrected report, not the grading.
+
+A review is written finding by finding, but it fails as a whole: the usual damage is a
+plausible-looking report that buries two real issues under six that were never reachable.
+These checks are read against the finished report, which is the only point where that is
+visible.
+
+*Evidence*
+1. Does every finding quote code that actually exists at the `file:line` given, in scope,
+   read this session — not recalled, inferred, or reconstructed?
+2. Is every CVE id, version number, and dependency name copied from real command output or
+   a file in scope, rather than recalled?
+3. Do supply-chain findings cite the audit command that produced them, and does the report
+   say so plainly if no audit tool was available?
+
+*Reachability*
+4. Does every finding state a concrete path — this attacker-controlled input reaches this
+   sink — or say explicitly that reachability could not be determined from the code in scope?
+5. Was each flagged sink checked for a control sitting in front of it (middleware, ORM,
+   allowlist, decorator, base class) before being reported?
+6. Is any finding a bare pattern match — the shape of a vulnerability with no argument that
+   it is one? Those are removed, not downgraded.
+
+*Calibration*
+7. Does each severity follow from blast radius — who triggers it, what they get, which trust
+   boundary it crosses — rather than from the category name?
+8. Are findings that share one root cause reported once, at the root, instead of once per
+   call site?
+
+*Usefulness*
+9. Apply the portability test to every Fix: if the text could be pasted into an unrelated
+   repository unchanged, it is generic advice. Replace it with the specific change to this
+   code, or cut it.
+10. Do the counts in SUMMARY match the findings listed, and does RECOMMENDATION follow from
+    the highest severity present?
+
+*Honesty*
+11. If the scope was too small to answer a question the reader will have, does the report say
+    what was not covered — rather than implying the absence of findings is a clean bill?
+12. An empty FINDINGS section is a valid result. Is any finding present only to avoid
+    returning nothing?
+
 **Output format:**
 ```
 SECURITY REVIEW: [scope — e.g. "uncommitted changes", "branch feat/x vs main", "PR #42", "commit a1b2c3d", or file list]
