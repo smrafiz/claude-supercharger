@@ -138,10 +138,17 @@ printf '%s' '{"agent_id":"recC","agent_name":"Other","last_assistant_message":"D
 rec "$RST" rs1 | grep -q 'recC' && fail "session rs2 leaked into rs1" || pass
 
 begin_test "record: bounded so a fan-out cannot grow it without limit"
+# native_path: on Git Bash python3 is native Windows Python and resolves the MSYS
+# path against the current drive, so this write landed nowhere. The assertion then
+# passed for the wrong reason -- with no 400-line file there is nothing to bound,
+# and `-le 200` is true of the empty case. Same boundary bug the artifact guard's
+# fixtures hit; that one went red, this one went quietly green.
 python3 -c "
 import os, sys
 p = os.path.join(sys.argv[1],'scope','.subagent-report-rs1')
-open(p,'w').write('\n'.join('[2026-01-01 00:00] filler %d' % i for i in range(400)) + '\n')" "$RST"
+open(p,'w').write('\n'.join('[2026-01-01 00:00] filler %d' % i for i in range(400)) + '\n')" "$(native_path "$RST")"
+[ "$(rec "$RST" rs1 | wc -l | tr -d ' ')" -ge 400 ] \
+  || fail "filler was not written — the bound below would pass vacuously"
 printf '%s' '{"agent_id":"recD","agent_name":"N","last_assistant_message":"Ready.","session_id":"rs1","cwd":"."}' \
   | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
 N=$(rec "$RST" rs1 | wc -l | tr -d ' ')

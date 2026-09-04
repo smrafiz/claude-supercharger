@@ -195,12 +195,31 @@ RC=$(printf '{"tool_name":"Artifact","tool_input":{"action":"room_send","url":"u
 # unreadable page published unscanned, from the one hook that gates irreversible
 # egress. [[failure-modes-collapse-to-one-verdict]], the `|| PY_REASON=""` shape.
 APG_TD=$(mktemp -d)
+# native_path for the WRITER, not the reader. On Git Bash python3 is native
+# Windows Python: it resolves the MSYS path /tmp/tmp.X against the current drive
+# (C:\tmp\tmp.X), which does not exist, so every open() raised and NO fixture was
+# written -- while MSYS bash reads the same /tmp path correctly. The guard is
+# fine; only the fixture creation was on the wrong side of the boundary.
 python3 -c "
 import sys
 key='sk-ant-'+'api03'+'-'+'D'*95
 open(sys.argv[1]+'/secret.html','w').write('<html>'+key+'</html>')
 open(sys.argv[1]+'/clean.html','w').write('<html>hello</html>')
-open(sys.argv[1]+'/empty.html','w').write('')" "$APG_TD"
+open(sys.argv[1]+'/empty.html','w').write('')" "$(native_path "$APG_TD")"
+
+begin_test "artifact: the fixtures this block asserts on actually exist"
+# Setup that fails silently is worse here than anywhere else in this file: with no
+# file on disk the guard exits 0 at its `[ -f ]`, so the empty-file and clean-page
+# assertions BOTH pass for the wrong reason and only the deny baseline goes red.
+# That is what Windows CI showed -- one failure hiding two hollow passes. Assert
+# the precondition so a broken setup reads as a broken setup.
+# [[failure-modes-collapse-to-one-verdict]] again: "nothing to scan" and "nothing
+# was written" must not share an exit.
+_APG_MISSING=""
+for _f in secret.html clean.html empty.html; do
+  [ -f "$APG_TD/$_f" ] || _APG_MISSING="$_APG_MISSING $_f"
+done
+[ -z "$_APG_MISSING" ] && pass || fail "fixture setup wrote nothing —$_APG_MISSING"
 apg() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD" \
   | bash "$GUARD" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' || echo none; }
 
