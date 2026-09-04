@@ -8,7 +8,6 @@ echo "=== Update Check Tests ==="
 
 begin_test "update-check: respects SUPERCHARGER_NO_UPDATE_CHECK=1"
 setup_test_home
-mkdir -p "$HOOK_DUMMY=$HOME/.claude/supercharger"
 mkdir -p "$HOME/.claude/supercharger"
 echo "2.6.77" > "$HOME/.claude/supercharger/.version"
 OUT=$(SUPERCHARGER_NO_UPDATE_CHECK=1 bash "$HOOK" 2>&1)

@@ -36,6 +36,20 @@ for _sc_v in $(env | sed -n 's/^\(SUPERCHARGER_[A-Za-z0-9_]*\)=.*/\1/p'); do
 done
 unset _sc_v
 
+# --- bytecode-cache isolation ------------------------------------------------
+# Many tests point HOME at an unwritable path (/nonexistent) to exercise the
+# "no home directory" branch of a hook. Apple's system python3 caches bytecode
+# under "$HOME/Library/Caches/com.apple.python/<abs source path>", and when that
+# HOME cannot be written it falls back to a path RELATIVE to the cwd -- which is
+# the repo root. The suite therefore grew a stray ./nonexistent/... tree, and an
+# unwritable HOME under any other name would leave that name behind instead.
+#
+# Fixed here rather than in the individual tests: the leak is a property of
+# invoking python3 with a non-writable HOME, not of any one test, and every hook
+# that shells out to python3 has it. Writing no cache costs a few ms per fork and
+# changes no behaviour under test.
+export PYTHONDONTWRITEBYTECODE=1
+
 # --- writable-state isolation ------------------------------------------------
 # Hooks write telemetry under HOME — the block ledger, the audit log, scope
 # flags. tests/run.sh already gives every file its own HOME (see run_one), so the
