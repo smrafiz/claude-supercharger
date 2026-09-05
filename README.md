@@ -24,7 +24,7 @@ Takes about 30 seconds. Your existing config is backed up first, and `./uninstal
 
 Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as-a-plugin).
 
-**Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.6+ · `jq`
+**Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.7+ · `jq`
 
 ---
 
@@ -137,7 +137,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **Statusline** — model, project, branch, stack, tier, agent, MCP profile, context bar, cache efficiency, cost, rate-limit burn
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
 - **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`
-- **9 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
+- **10 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
 - **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers. `preferGhCli: true` opt-in redirects GitHub curl/wget/WebFetch to the matching `gh` subcommand — real auth token, not just style
 - **Per-subagent cost breakdown** — `/sc-status` shows which agent burned the budget
 - **Time-boxed modes** — auto-expiring session controls (per-session by default, `global` opt-in, 2h cap, statusline indicator, no daemon). One governing rule: **tighten beats loosen**

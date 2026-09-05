@@ -138,11 +138,22 @@ begin_test "provenance: ignores non-mcp tools"
 echo '{"session_id":"t","tool_name":"Read","tool_response":{"output":"<function_calls>"}}' | bash "$PROV" >/dev/null 2>&1
 [ "$?" -eq 0 ] && pass || fail "expected 0 (not mcp__)"
 
-# v2.8.5: the project documents Python 3.6+ support. str.removeprefix/removesuffix
-# are 3.9+ and silently crashed config-scan on older interpreters. Guard the class.
-begin_test "py36-compat: no 3.9+ str methods (removeprefix/removesuffix) in hooks"
-# match the CALL form `.removeprefix(` — not prose mentions in comments
-HITS=$(grep -rnE '\.(removeprefix|removesuffix)\(' "$REPO_DIR/hooks/" "$REPO_DIR/lib/" 2>/dev/null || true)
-[ -z "$HITS" ] && pass || fail "3.9+ string method breaks Python 3.6-3.8:"$'\n'"$HITS"
+# v2.8.5: str.removeprefix/removesuffix are 3.9+ and silently crashed config-scan
+# on older interpreters. Guard the class.
+#
+# 2026-09-05: the floor moved 3.6 -> 3.7 because this test did not actually
+# enforce it. package-credibility.py had been using subprocess capture_output=
+# and datetime.fromisoformat -- both 3.7+ -- for as long as the README claimed
+# 3.6, and both sit inside `except Exception: return None`, so on 3.6 the hook
+# did not crash. It returned nothing, forever, and no test noticed. A guard that
+# names one API cannot defend a version; it defends that API.
+#
+# So the list below is the floor, not a single incident. Adding a construct newer
+# than the documented minimum means raising the minimum in README.md too.
+begin_test "py-floor: no construct newer than the documented Python 3.7 minimum"
+# CALL forms only -- prose mentions in comments are not breakage.
+HITS=$(grep -rnE '\.(removeprefix|removesuffix)\(|\bmatch [a-z_]+:|:=' \
+  "$REPO_DIR/hooks/" "$REPO_DIR/lib/" --include='*.py' 2>/dev/null || true)
+[ -z "$HITS" ] && pass || fail "construct newer than Python 3.7 (see README requirements):"$'\n'"$HITS"
 
 report
