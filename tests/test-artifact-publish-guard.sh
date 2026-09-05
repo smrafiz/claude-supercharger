@@ -228,15 +228,34 @@ done
 grep -q 'sk-ant-' "$APG_TD/secret.html" 2>/dev/null \
   || _APG_MISSING="$_APG_MISSING secret.html(no-key-in-content)"
 [ -z "$_APG_MISSING" ] && pass || fail "fixture setup is wrong —$_APG_MISSING"
-apg() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD" \
-  | bash "$GUARD" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' || echo none; }
+# Verdict by BASH PATTERN MATCH on the captured stdout, not by piping it to grep.
+#
+# Measured on Git Bash (run 33906311017): the hook writes 604 bytes of correct
+# JSON to stdout and exits 2, and `grep -o` against that same stream matched
+# NOTHING. rc, stderr and the bytes themselves all arrive; only the grep fails.
+# So the guard is right and the harness was wrong — this was the one assertion in
+# the file reading its verdict through an external grep, and the one that failed
+# for three CI rounds while eleven siblings asserting rc stayed green.
+#
+# `case` is a bash builtin: no fork, no locale, no binary-detection heuristic, no
+# MSYS text-mode translation between the hook and the assertion. It tests exactly
+# the property the grep was meant to test.
+apg() {
+  APG_OUT=$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD" \
+    | bash "$GUARD" 2>/dev/null)
+  case "$APG_OUT" in
+    *'"permissionDecision":"deny"'*) echo deny ;;
+    *'"permissionDecision":"ask"'*)  echo ask ;;
+    *)                               echo none ;;
+  esac
+}
 
 begin_test "artifact: a readable page carrying a credential is still denied"
 # On failure, report WHY rather than only the verdict. This assertion went red on
 # Git Bash twice while every neighbouring assertion passed, and "none" alone does
 # not distinguish an unwritten file from an unmatched pattern from an unread path.
 # The diagnostics cost nothing on the passing path.
-if [ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"deny"' ]; then
+if [ "$(apg "$APG_TD/secret.html")" = deny ]; then
   pass
 else
   _APG_SZ=$(wc -c < "$APG_TD/secret.html" 2>/dev/null | tr -d ' ')
@@ -272,7 +291,7 @@ if [ -r "$APG_TD/secret.html" ]; then
   pass
 else
   begin_test "artifact: an unreadable page asks instead of publishing unscanned"
-  [ "$(apg "$APG_TD/secret.html")" = '"permissionDecision":"ask"' ] && pass \
+  [ "$(apg "$APG_TD/secret.html")" = ask ] && pass \
     || fail "unscanned publish allowed: $(apg "$APG_TD/secret.html")"
 fi
 chmod 644 "$APG_TD/secret.html" 2>/dev/null || true
