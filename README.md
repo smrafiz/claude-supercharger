@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-4.0.26-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux-lightgrey) ![Tests](https://img.shields.io/badge/tests-5306%20passing-brightgreen)
+![Version](https://img.shields.io/badge/version-4.0.26-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey) ![Tests](https://img.shields.io/badge/tests-5306%20passing-brightgreen)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -196,8 +196,10 @@ At enable time you're prompted for role, economy tier, and MCP profile. Update w
 
 ---
 
-<details id="configure">
-<summary><strong>Configure</strong></summary>
+## Configure
+
+<details>
+<summary><strong>Show the full configuration reference</strong></summary>
 
 ### Project config
 
@@ -332,8 +334,10 @@ chmod +x .claude/verify.sh
 
 </details>
 
+## Statusline indicators
+
 <details>
-<summary><strong>Statusline indicators</strong></summary>
+<summary><strong>Show what each field means</strong></summary>
 
 ```
 [claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +158/-23
@@ -349,8 +353,10 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 </details>
 
-<details id="slash-commands">
-<summary><strong>Slash commands</strong></summary>
+## Slash commands
+
+<details>
+<summary><strong>Show all commands</strong></summary>
 
 **Control & modes** — the everyday levers, several unique to Supercharger:
 
@@ -403,8 +409,10 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 </details>
 
+## MCP profiles
+
 <details>
-<summary><strong>MCP profiles</strong></summary>
+<summary><strong>Show the profiles and their servers</strong></summary>
 
 | Profile | Servers | Context cost |
 |--|--|--|
@@ -432,8 +440,10 @@ Adopting takes ownership: the entry moves into a Supercharger registry (so a pro
 
 </details>
 
+## Tools
+
 <details>
-<summary><strong>Tools</strong></summary>
+<summary><strong>Show the bundled tools</strong></summary>
 
 All in `~/.claude/supercharger/tools/` after install:
 
