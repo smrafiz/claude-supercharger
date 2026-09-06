@@ -231,30 +231,26 @@ grep -q 'sk-ant-' "$APG_TD/secret.html" 2>/dev/null \
 # Verdict by EXIT CODE, and the reason by a PIPED byte check — never by capturing
 # this hook's stdout into a variable on this platform.
 #
-# Measured, across three CI rounds on Git Bash (runs 33896901822, 33906311017,
-# 33950645666). In ONE test run, against the same file and the same hook:
+# ROOT CAUSE, found 2026-09-06 and reproduced on macOS in one command: the
+# payload was built by NATIVE Windows python3, and MSYS rewrites POSIX-looking
+# ARGV into Windows spelling on the way in. So json.dumps embedded
+# C:\\Users\\...\\secret.html, the guard's `case $FILE_PATH in /*)` missed it,
+# prepended cwd, and `[ -f ]` failed -> exit 0, no stdout. Exactly the observed
+# rc=0 / 0 bytes. [[one-path-many-spellings]], [[windows-python-crlf-keys]] Fact A.
 #
-#   ... | bash "$GUARD" | wc -c    -> 604
-#   ... | bash "$GUARD" | od -c    -> {"hookSpecificOutput":{"hookEventName":"PreToolU
-#   ... | bash "$GUARD"; echo $?   -> 2
-#   stderr                          -> [Supercharger] ... BLOCKED publish - secret in artifact
-#   X=$( ... | bash "$GUARD" )      -> EMPTY
+# Three earlier rounds (runs 33896901822, 33906311017, 33950645666) blamed the
+# fixture path, then the fixture contents, then `$( )` capture on MSYS. The
+# capture theory is disproven by this very file: `publish()` above captures the
+# same hook the same way and has been green on Windows throughout -- it builds
+# its payload with printf, so its path never crosses the python argv boundary.
 #
-# Four invocations see the output. The command-substitution capture does not, and
-# the guard holds no state that could make one call differ from the next. First I
-# blamed the fixture path, then the fixture contents, then `grep -o` -- three
-# wrong fixes, ~3.5h of CI. The stdout is fine; capturing it with $( ) on MSYS is
-# what is not.
-#
-# So assert the two properties through the channels that demonstrably work there:
-# the exit code for the verdict (which is what every other deny check in this file
-# uses, and they have been green throughout), and a piped byte count plus prefix
-# for the reason JSON. Nothing is untested; only the mechanism changed.
-#
-# DO NOT "simplify" these back to X=$(... | bash "$GUARD"). It reads better and it
-# does not work on Windows.
+# Fixture WRITING still needs native_path (native python resolves /tmp against
+# the current drive); payload BUILDING must stay in bash. Reader and writer sit
+# on opposite sides of the same boundary.
 _apg_payload() {
-  python3 -c 'import json,sys;print(json.dumps({"tool_name":"Artifact","cwd":sys.argv[2],"session_id":"apg","tool_input":{"file_path":sys.argv[1],"title":"t"}}))' "$1" "$APG_TD"
+  # printf, never python3: mktemp paths carry nothing JSON must escape.
+  printf '{"tool_name":"Artifact","cwd":"%s","session_id":"apg","tool_input":{"file_path":"%s","title":"t"}}' \
+    "$APG_TD" "$1"
 }
 # exit code: 2 = deny, 0 = allowed/silent (an ask also exits 0)
 apg_rc() { _apg_payload "$1" | bash "$GUARD" >/dev/null 2>&1; echo $?; }
@@ -265,7 +261,7 @@ apg_has() { _apg_payload "$1" | bash "$GUARD" 2>/dev/null | grep -c "$2" | tr -d
 
 begin_test "artifact: a readable page carrying a credential is still denied"
 _APG_RC=$(apg_rc "$APG_TD/secret.html")
-[ "$_APG_RC" = "2" ] && pass || fail "publish not denied, rc=$_APG_RC (fixture bytes=$(wc -c < "$APG_TD/secret.html" | tr -d ' '))"
+[ "$_APG_RC" = "2" ] && pass || fail "publish not denied, rc=$_APG_RC (fixture bytes=$(wc -c < "$APG_TD/secret.html" | tr -d ' '), payload=$(_apg_payload "$APG_TD/secret.html"))"
 
 begin_test "artifact: the deny carries a permissionDecision JSON reason"
 # The reason is what the user reads in the approval dialog; a deny with no reason
@@ -292,6 +288,23 @@ else
     || fail "unscanned publish allowed, stdout bytes=$(apg_bytes "$APG_TD/secret.html")"
 fi
 chmod 644 "$APG_TD/secret.html" 2>/dev/null || true
+
+# A native-Windows harness gives hooks the Windows spelling while the hook runs
+# under Git Bash. `C:\...` is absolute but does not start with `/`, so the guard
+# used to prepend cwd to it and then stat a path that cannot exist -- exit 0, an
+# artifact holding a credential published unscanned. Gate on the PRECONDITION
+# (cygpath is what does the conversion), never on a platform name.
+if command -v cygpath >/dev/null 2>&1; then
+  begin_test "artifact: a Windows-spelled absolute path is still scanned"
+  _APG_WIN=$(cygpath -w -- "$APG_TD/secret.html" 2>/dev/null || printf '')
+  _APG_WRC=$(printf '{"tool_name":"Artifact","cwd":"%s","tool_input":{"file_path":%s}}' \
+      "$APG_TD" "$(printf '%s' "$_APG_WIN" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))')" \
+      | bash "$GUARD" >/dev/null 2>&1; echo $?)
+  [ "$_APG_WRC" = "2" ] && pass || fail "Windows-spelled path published unscanned, rc=$_APG_WRC (path=$_APG_WIN)"
+else
+  begin_test "artifact: Windows-spelled path case (skipped - no cygpath here)"
+  pass
+fi
 rm -rf "$APG_TD"
 
 report

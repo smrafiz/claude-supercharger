@@ -83,9 +83,20 @@ FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/
 
 case "$FILE_PATH" in
   /*) ;;
+  # A native-Windows harness hands hooks the Windows spelling (C:\dir\page.html)
+  # while the hook itself runs under Git Bash. That is absolute, but it does not
+  # start with `/`, so it fell to the branch below and had cwd PREPENDED -- the
+  # resulting path never stats, the guard exits 0, and an artifact holding a
+  # credential publishes unscanned. Ask cygpath rather than modelling the MSYS
+  # mount table. [[one-path-many-spellings]]
+  [A-Za-z]:[/\\]*)
+      if command -v cygpath >/dev/null 2>&1; then
+        FILE_PATH=$(cygpath -u -- "$FILE_PATH" 2>/dev/null) || FILE_PATH=""
+      fi ;;
   *)  CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
       [ -n "$CWD" ] && FILE_PATH="$CWD/$FILE_PATH" ;;
 esac
+[ -n "$FILE_PATH" ] || exit 0
 [ -f "$FILE_PATH" ] || exit 0
 
 # Bound the read. A 16MB artifact would otherwise be grepped in full on a hook

@@ -2,6 +2,53 @@
 
 ## Contents
 
+- [4.0.27] - 2026-09-06 — fix(artifact): a Windows-spelled path walked past the egress guard
+
+artifact-publish-guard resolved a non-leading-slash file_path by prepending
+cwd. A native-Windows harness hands hooks C:\dir\page.html -- absolute, but
+not leading-slash -- so the guard built a path that cannot stat, exited 0,
+and an artifact holding a credential published UNSCANNED. This is the one
+hook gating irreversible egress. Fixed with a drive-letter case that asks
+cygpath -u rather than modelling the MSYS mount table.
+
+Verified against the deployed hook with a cygpath stub: rc=2 where the same
+payload previously gave rc=0 and zero stdout.
+
+The same defect was what Windows CI had been red on for four rounds, and the
+three earlier diagnoses were all wrong. The test built its payload with
+NATIVE Windows python3, and MSYS rewrites POSIX-looking argv on the way in --
+so json.dumps embedded the Windows spelling and the guard never saw the file.
+Round 3 concluded that capturing this hook's stdout with $( ) does not work on
+MSYS; that theory is disproven by publish() in the same file, which captures
+the same hook the same way and has been green throughout, because it builds
+its payload with printf. The wrong diagnosis and its "DO NOT simplify this
+back" warning are replaced with the measured one.
+
+Reproduced on macOS in one command by hand-spelling the payload. No Windows
+runner was needed for any of it, and doing that four rounds ago would have
+cost one CI cycle instead of four.
+
+Who consumes the path decides which side of the boundary it belongs on:
+python opens it -> argv, let MSYS convert; an MSYS consumer reads it back ->
+build the string in bash. The fixture WRITER in that same test block still
+needs native_path, and correctly keeps it.
+
+Two siblings carrying the same shape, folded here rather than left to recur:
+
+  dir-added-record.sh  identical /*) resolution; it records rather than gates,
+                       so the cost was a recorded path that cannot exist.
+  perf-chain.sh        pushed $REPO through a python env var into hook
+                       payloads, so on Git Bash every hook in the measured
+                       chain exited early -- a latency number that measured
+                       nothing. Both now build in bash.
+
+Not built: a scanner arm for "path enters python argv and leaves as data".
+lib-argv-path-scan.py enforces the opposite rule and is right to -- the
+conversion is correct whenever python open()s the path. One occurrence does
+not justify a fragile regex over that distinction.
+
+Suite 5307/0. Shellcheck clean at CI severity. The Windows job is the real
+verification and has not run yet.. 5307 tests passing.
 - [4.0.26] - 2026-09-03 — fix(guards): a file that could not be READ was scored as a file with nothing in it
 
 Two guards gave the same verdict to "there is nothing here" and "I could not look",

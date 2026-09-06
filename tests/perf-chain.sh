@@ -149,8 +149,14 @@ if [ "$TARGET" = "statusline" ]; then
   export SUPERCHARGER_HOME="$REPO"
   export SUPERCHARGER_STATE="$TMPD/state"; mkdir -p "$SUPERCHARGER_STATE/scope"
 
+  # printf, not python3: MSYS rewrites a single-path env var (and argv) into the
+  # Windows spelling on the way into native python, so `cwd` came back as
+  # C:\... — every hook reading it exits early and the measured chain is a
+  # measurement of nothing. The path is DATA here, consumed by MSYS bash, so it
+  # must never cross that boundary. [[one-path-many-spellings]]
   _sl_payload() {  # $1=outfile $2=session_id
-    SID="$2" REPO="$REPO" python3 -c 'import json,os,sys;open(sys.argv[1],"w").write(json.dumps({"session_id":os.environ["SID"],"cwd":os.environ["REPO"],"workspace":{"current_dir":os.environ["REPO"]},"model":{"display_name":"Opus"}}))' "$1"
+    printf '{"session_id":"%s","cwd":"%s","workspace":{"current_dir":"%s"},"model":{"display_name":"Opus"}}' \
+      "$2" "$REPO" "$REPO" > "$1"
   }
 
   # Warmup: page in bash + python before any timed render.

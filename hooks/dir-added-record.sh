@@ -95,6 +95,14 @@ fi
 
 case "$DIR" in
   /*) ;;                                  # absolute — use as-is
+  # A native-Windows harness spells it C:\dir while the hook runs under Git Bash.
+  # Absolute, but not leading-`/`, so it used to fall through and get cwd
+  # PREPENDED — recording a path that cannot exist. [[one-path-many-spellings]]
+  [A-Za-z]:[/\\]*)
+      if command -v cygpath >/dev/null 2>&1; then
+        DIR=$(cygpath -u -- "$DIR" 2>/dev/null) || DIR=""
+      fi
+      [ -n "$DIR" ] || exit 0 ;;
   *)  CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
       [ -n "$CWD" ] && DIR="$CWD/$DIR" || exit 0 ;;
 esac
