@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **2 open (#6 narrowed v4.0.31)** · Last updated: 2026-09-06 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions.
+Status: **2 open (#5 and #6 both narrowed v4.0.31)** · Last updated: 2026-09-06 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions.
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -12,7 +12,7 @@ for what is currently broken.
 
 | # | Issue | Severity | Blocks |
 |---|---|---|---|
-| 5 | a sensitive path bound to a variable is not tracked | low | credential-read coverage |
+| 5 | a sensitive path bound to a variable is not tracked (narrowed v4.0.31) | low | credential-read coverage |
 | 6 | injected instructions in fetched content are only caught in blunt forms | low | prompt-injection defence |
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
@@ -170,6 +170,31 @@ separately no longer matches *this* rule, and is left to the instruction-shaped 
 ---
 
 ## 5 — a sensitive path bound to a variable is not tracked
+
+**Status: NARROWED v4.0.31.** The single-command form below is now blocked; split
+values and command substitution are not. Severity as an accident is gone, severity
+as a deliberate evasion is reduced, not removed — which is why this stays open.
+
+**What changed.** `_expand_sensitive_bindings` in `hooks/safety-detect.py` resolves
+`$VAR` where VAR was bound to a sensitive filename **in the same command string**,
+once, before the dispatch chain. The objection recorded below is answered by
+refusing to track most bindings: a value is substituted ONLY when it already matches
+`_SENSITIVE_NAME_RE`, so an expansion can only insert a token the detector blocks
+literally. It cannot mask one, cannot invent a path shape that was not already
+denied, and cannot fire alone — a reader command is still required.
+
+Applied before the dispatch chain rather than inside `check_sensitive_read`, because
+all eight checks read the same string and every one shared the blind spot; fixing
+only the check this entry named would have left `tar`, `curl -T` and the rest
+evadable by the identical trick.
+
+**Still open:** `A=.en; B=v; cat $A$B`, command substitution, and indirection
+through a file. `tests/test-var-bound-sensitive-path.sh` asserts the split-value
+case is NOT caught, so the limit is pinned rather than assumed.
+
+---
+
+**The original entry, unchanged:**
 
 **Reproduction.**
 

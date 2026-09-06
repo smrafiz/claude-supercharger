@@ -333,6 +333,55 @@ _SENSITIVE_NAME_RE = re.compile(
 # does not need to guess. Crucially it is NOT a general "ignore quoted text" rule —
 # `grep -rn foo "secrets.json"` still denies, because there the first operand is the
 # pattern `foo` and the sensitive name is a genuine FILE argument.
+# v4.0.31 — KNOWN-ISSUES #5: a sensitive path bound to a variable.
+#
+# Every rule below pairs a reader with a path that appears LITERALLY in the same
+# segment. Bind the path first and both halves look clean: the assignment segment
+# has no reader, the reading segment has no path.
+#
+#     F=<dotenv>; cat $F     was allowed
+#     cat <dotenv>           blocked
+#
+# The entry left this open because variable tracking is where false positives come
+# from — a value followed across segments and mis-tracked becomes a block on
+# ordinary work. What makes it safe is refusing to track most of them: a binding is
+# substituted ONLY when its value is already a sensitive filename. An expansion can
+# then only ever insert a token the detector blocks literally. It cannot mask one,
+# cannot invent a path shape that was not already denied, and cannot fire on its own
+# — a reader command is still required by the rules downstream.
+#
+# Applied once before the dispatch chain rather than inside check_sensitive_read:
+# all eight checks read the same command string and every one of them had the same
+# blind spot. One substitution in the shared path is a smaller diff than eight, and
+# fixing only the check the entry names leaves `tar`, `curl -T` and the rest
+# evadable by the identical trick.
+#
+# Scope is deliberately one command string: no state across tool calls, no reading
+# through files or command substitution. `A=.en; B=v; cat $A$B` is NOT reassembled,
+# and the test file says so out loud — this raises the cost of a deliberate evasion
+# without claiming to close it, which is what #5 still records.
+_BINDING_RE = re.compile(
+    r"""(?:^|[;&|(]|\s)(?:export\s+)?([A-Za-z_][A-Za-z0-9_]*)=('[^']*'|"[^"]*"|[^\s;&|)]+)""")
+_VAR_USE_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)\}|\$([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def _expand_sensitive_bindings(c: str) -> str:
+    """Substitute $VAR where VAR was bound to a sensitive filename in the same command."""
+    bindings = {}
+    for m in _BINDING_RE.finditer(c):
+        val = m.group(2)
+        if val[:1] in ("'", '"') and val[-1:] == val[:1] and len(val) >= 2:
+            val = val[1:-1]
+        # The whole safety argument is this line: anything else is left alone, so a
+        # substitution can only ever ADD a token that is already blocked literally.
+        if _SENSITIVE_NAME_RE.search(val):
+            bindings[m.group(1)] = val          # later binding wins, as the shell does
+    if not bindings:
+        return c
+    return _VAR_USE_RE.sub(
+        lambda m: bindings.get(m.group(1) or m.group(2), m.group(0)), c)
+
+
 _PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk"}
 
 
@@ -662,6 +711,11 @@ def check_exfiltration(c: str) -> str | None:
 # ──────────────────────────────────────────────────────────────────────────
 
 disabled = set((os.environ.get("DISABLED_CATS", "") or "").split())
+
+# v4.0.31: resolve variable-bound sensitive paths ONCE, before any check runs — see
+# _expand_sensitive_bindings. A no-op unless the command binds a variable to a
+# credential filename, in which case every check below sees the path it was hiding.
+cmd = _expand_sensitive_bindings(cmd)
 
 if "shell_wrapper" not in disabled:
     r = check_shell_wrapper(cmd)
