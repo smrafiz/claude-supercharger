@@ -299,11 +299,11 @@ Measured, not estimated: **Claude Code runs same-event hooks concurrently** (obs
 
 | machine | felt / tool call | chain sum (CPU) | statusline (cold / warm) |
 |---|---:|---:|---:|
-| M4 Pro, bash 3.2 | **7.6 ms** | 70.0 ms | 36.4 / 6.6 ms |
-| GitHub ubuntu runner | **12.4 ms** | 107.2 ms | 61.7 / 4.0 ms |
+| M4 Pro, bash 3.2 | **6.8 ms** | 66.8 ms | 45.0 / 6.8 ms |
+| GitHub ubuntu runner | **10.0 ms** | 98.4 ms | 74.8 / 3.0 ms |
 | 2020 Intel Mac, bash 3.2 | 20–40 ms | — | — |
 
-**Half the chain sum is not ours to give back.** Starting bash and exiting costs 2.00 ms on the M4 Pro, so 17 hooks pay 34 ms in process creation before one of them runs a line — 49% of the 70 ms. The per-hook spread is flat (2.0–7.4 ms, no outlier), and the cheapest guard is already *at* that floor. Optimising individual hooks can only touch the other half, and none of it is perceptible: the felt number is what you feel, and it is under 13 ms everywhere we measure.
+**More than half the chain sum is not ours to give back.** Starting bash and exiting costs 2.00 ms on the M4 Pro, so 19 hooks pay 38 ms in process creation before one of them runs a line — 57% of the 66.8 ms. The per-hook spread is flat (2.4–6.8 ms, no outlier), and the cheapest guard is already *at* that floor. Optimising individual hooks can only touch the rest, and none of it is perceptible: the felt number is what you feel, and it is under 10 ms everywhere we measure.
 
 Reproduce it on your own machine with `bash tests/perf-chain.sh` (from a clone) — it reports the felt estimate, the sequential sum split into process spawn and hook work, and the slowest single hook. `--target statusline` measures the status bar separately. CI runs both on every push and posts the table to the job summary.
 

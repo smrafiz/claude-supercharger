@@ -25,7 +25,7 @@ Over 440 releases, grouped by what they were actually for:
   `additionalRoots` are keyed per project, so one repo can no longer change another's rules.
 - **Performance** — the Bash hook chain went 130 ms → 93 ms → ~72 ms by removing forks
   (`cat`, `jq`, `md5`) from hot paths. Note that Claude Code runs matching hooks **in
-  parallel**: the felt cost is the slowest hook (~7.6 ms), not the chain sum.
+  parallel**: the felt cost is the slowest hook (~6.8 ms measured 2026-09-06), not the chain sum.
 - **Plugin distribution** — Supercharger installs as a Claude Code plugin as well as a
   classic `install.sh`; the two detect each other and refuse to double-fire.
 - **Cross-platform** — `.gitattributes` LF policy, a portable hash chain, a Windows/WSL

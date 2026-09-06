@@ -1,13 +1,13 @@
 # Hook Latency Budget — Plan
 
-Status: **Phases 1–2 shipped · Phase 3 blocked · Phase 4 open** · Last updated: 2026-07-31
+Status: **Phases 1–2 shipped · Phase 3 blocked · Phase 4 closed — do not optimise** · Last updated: 2026-09-06
 
 | Phase | State |
 |---|---|
 | 1 — aggregate harness | **done** — `tests/perf-chain.sh`, `docs/perf-baseline.json` |
 | 2 — instrumentation gaps | **done** — 123/123 registered hooks instrumented; `statusline.sh` measured via the harness (see §5) |
 | 3 — CI regression gate | **done (report-only)** — `perf` job + `tools/perf-report.sh`; see §6 |
-| 4 — act on the data | open — see §7; the first number to act on is in §5 |
+| 4 — act on the data | **closed** — measured, and the answer is *do not optimise*; the number is published in the README (see §7) |
 
 Supercharger registers **121 hook entries**, 47 of them on `PreToolUse`. Every agent tool
 call pays that chain. Today there is per-hook timing but **no measurement of the sum**, and
@@ -309,7 +309,12 @@ or several checks merged into one. That is a real design change with real risk (
 that are currently independent, and independence is why they are auditable), and it should not be
 undertaken for a cost that is invisible to users and matters only for battery and load.
 
-**Recommendation: do not optimise the chain.** Felt cost is 7.6 ms locally and 12.4 ms on a CI
+**Re-measured 2026-09-06** (19 hooks, same M4 Pro): felt **6.8 ms**, chain sum **66.8 ms**, spawn
+**38.0 ms (57%)**. Two more hooks than the table above, and the conclusion is unchanged — the
+spawn share grew, so the optimisable half shrank. `docs/perf-baseline.json` carries the current
+numbers; the table above is kept as the 2026-07-31 reading it was.
+
+**Recommendation: do not optimise the chain.** Felt cost is 6.8 ms locally and 10.0 ms on a CI
 runner — both far below anything a user attributes to Supercharger. The honest action is to
 publish the number and stop, which is what this phase now does. Revisit only if the hot-path
 hook count grows materially; the CI report from Phase 3 is what will show that.
@@ -333,7 +338,7 @@ hook count grows materially; the CI report from Phase 3 is what will show that.
 - [x] CI surfaces the number on every PR — `perf` job, report-only (§6)
 - [x] `enforce-pkg-manager.sh` instrumented; `statusline.sh` measured via the harness (§5)
 - [x] The 12 cold-path hooks instrumented — 123/123 registered hooks, 0 gaps
-- [ ] README's hook-cost claim replaced with a measured figure (Phase 4)
+- [x] README's hook-cost claim replaced with a measured figure (Phase 4)
 - [x] Full suite still green
 
 ---
