@@ -32,7 +32,31 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # rather than the output just costs one wasted fork (python re-checks the actual
 # output field and exits 0). Zero-width chars are matched by their UTF-8 bytes.
 if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
-  exit 0
+  # v4.0.31: the tier-2 structural panel (see the python side) carries NONE of the
+  # seeds above — "SYSTEM:", a role link, an HTML comment addressed to an AI. Adding
+  # its seeds to the grep above would widen the gate on EVERY Bash call, which is the
+  # one thing this hot path must not do. So they live behind a second gate that is
+  # only reached once the first misses, and that requires the command to have FETCHED
+  # something before the shapes are worth a python fork.
+  #
+  # Both checks use bash pattern matching, NOT grep. A second `grep` here measured
+  # +2.0 ms on EVERY Bash call — one process spawn, which is the whole cost (the
+  # measured spawn floor is 2.00 ms). `case` runs in the already-started shell and
+  # forks nothing, so the common path still pays exactly one grep, as before.
+  #
+  # Both read the whole payload, not just the command field — a fail-safe superset,
+  # exactly like the gate above: a README that merely mentions `curl` costs one
+  # wasted python fork, and python re-checks the real command and exits 0.
+  case "$_INPUT" in
+    *curl*|*wget*|*"gh issue view"*|*"gh pr view"*|*"gh release view"*|*"gh api"*|*"npm view"*|*"npm info"*|*"pip download"*) ;;
+    *) exit 0 ;;
+  esac
+  # Tier-2 seeds. Spelled with bracketed case classes because bash 3.2 — the macOS
+  # default and the version this project supports — has no `${var,,}`.
+  case "$_INPUT" in
+    *[Ss][Yy][Ss][Tt][Ee][Mm]*|*[Aa][Ss][Ss][Ii][Ss][Tt][Aa][Nn][Tt]*|*[Tt][Oo][Oo][Ll]_[Rr]esult*|*"Tool result"*|*"tool result"*|*'<!--'*|*[Aa][Gg][Ee][Nn][Tt]*|*[Ii][Nn][Ss][Tt][Rr][Uu][Cc][Tt][Ii][Oo][Nn]*) ;;
+    *) exit 0 ;;
+  esac
 fi
 
 RESULT=$(HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
@@ -177,9 +201,52 @@ patterns = (
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
 )
 
+# v4.0.31 — tier 2: structural shapes, gated on FETCH provenance (KNOWN-ISSUES #6).
+#
+# The panel above matches injections that SAY something ("ignore all previous..."),
+# which is why it misses the shapes that instead POSE as something: a role prefix, an
+# instruction tag, a markdown link whose text is a role, an HTML comment addressed to
+# an AI, text addressed to "automated agents", a fabricated tool result.
+#
+# Those shapes were measured and rejected once, for a good reason: run against
+# ordinary stdout they fire on service logs, `docker compose config`, yaml dumps and
+# generated-file banners. The rejection was right about the shapes and incomplete
+# about the channel — every one of those false positives comes from a command that
+# fetched nothing. A `system:` key in a compose file is local text the agent asked
+# for; a `SYSTEM:` line in a fetched issue body is text an attacker chose.
+#
+# So provenance is the separator, not shape. This is the same lever as _TEST_RUNNER
+# and _SELF_INSPECT above, pointed the other way: those switch the panel OFF for a
+# command, this switches a stricter panel ON for one.
+#
+# Deliberately NOT mirrored into prompt-injection-scanner.sh: everything that hook
+# sees (WebFetch, MCP, Read) is already remote or already a file, so it has no
+# provenance question to answer and would need its own measurement.
+_IS_FETCH = re.compile(
+    r'(^|[;&|`]|\$\()\s*(curl|wget)\b[^;&|]*\bhttps?://'   # a fetch OF a URL, not `curl --help`
+    r'|(^|[;&|`])\s*gh\s+(issue|pr|release)\s+view\b'
+    r'|(^|[;&|`])\s*gh\s+api\b'
+    r'|(^|[;&|`])\s*npm\s+(view|info)\b'
+    r'|(^|[;&|`])\s*pip\s+download\b'
+)
+
+# Matched against the text as fetched — line starts and case carry the signal here,
+# so this panel does NOT use the whitespace-collapsed `normalized` the tier above does.
+struct_patterns = (
+    (re.compile(r'^\s*(?:system|assistant)\s*:', re.M | re.I),          'fabricated role prefix'),
+    (re.compile(r'</?(?:system|instructions?|important)>', re.I),        'instruction tag'),
+    (re.compile(r'\[(?:system|assistant)\]\(', re.I),                   'markdown role link'),
+    (re.compile(r'<!--[^>]{0,200}?\b(?:ai|llm|agent|assistant|claude|gpt)\b[^>]{0,200}?-->', re.I | re.S), 'html comment addressed to an AI'),
+    (re.compile(r'\b(?:notes?|notice|instructions?)\s+(?:for|to)\s+(?:all\s+|any\s+|automated\s+)*'
+                r'(?:agents?|ai|llms?|assistants?|bots?)\b', re.I),      'text addressed to agents'),
+    (re.compile(r'\btool[_ ]result\b\s*:', re.I),                       'fabricated tool result'),
+)
+
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
 if not matched:
     matched = next((label for regex, label in cased_patterns if regex.search(_nfkc)), None)
+if not matched and _IS_FETCH.search(_cmd):
+    matched = next((label for regex, label in struct_patterns if regex.search(output)), None)
 if not matched:
     sys.exit(0)
 

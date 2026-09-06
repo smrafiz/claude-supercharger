@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **2 open** · Last updated: 2026-08-27 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions.
+Status: **2 open (#6 narrowed v4.0.31)** · Last updated: 2026-09-06 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions.
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -13,7 +13,7 @@ for what is currently broken.
 | # | Issue | Severity | Blocks |
 |---|---|---|---|
 | 5 | a sensitive path bound to a variable is not tracked | low | credential-read coverage |
-| 6 | injected instructions in fetched content are only caught in blunt forms | medium | prompt-injection defence |
+| 6 | injected instructions in fetched content are only caught in blunt forms | low | prompt-injection defence |
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
 | ~~3~~ | ~~`claim-evidence-gate` matches substrings, not verdicts~~ | ~~medium~~ | **fixed v2.29.27** |
@@ -201,8 +201,34 @@ this at the time and had not — the entry exists now because that was checked.
 
 ## 6 — injected instructions in fetched content are only caught in blunt forms
 
-**Status: open, and NOT closable with pattern matching.** Recorded so the next
-session does not re-derive this and then build the thing that fails.
+**Status: NARROWED v4.0.31 — 4 of the 6 shapes below now warn, gated on fetch
+provenance. The remaining 2 are still not closable with pattern matching**, and the
+reasoning for that is unchanged; it is kept in full below because it is the reason
+not to keep trying.
+
+**What changed.** The rejection recorded here was right about the shapes and
+incomplete about the channel. Every false positive it measured — a service log, a
+`docker compose config`, a yaml dump, a generated-file banner — comes from a command
+that **fetched nothing**. `hooks/bash-injection-scanner.sh` already had the command
+string and already branched on it twice, so the structural panel now runs only when
+the command pulled remote content (`curl`/`wget` at a URL, `gh issue|pr|release view`,
+`gh api`, `npm view|info`, `pip download`). A `system:` key in a compose file is local
+text the agent asked for; a `SYSTEM:` line in a fetched issue body is text an attacker
+chose. Provenance separates them; shape does not.
+
+Caught now, on a fetch only: fabricated role prefix, instruction tag, markdown role
+link, HTML comment addressed to an AI, text addressed to "automated agents",
+fabricated tool result. Still silent: **exfil phrased normally** and **install
+instructions** — the two the argument below proves unclosable.
+
+The gate is fork-free `case` matching, not a second `grep`: a grep there measured
+**+2.0 ms on every Bash call**, one process spawn, which is the entire cost. The
+fork-free version measures +0.1 ms. See `docs/HOOK-LATENCY-PLAN.md` §7 for why 2 ms
+on a per-tool-call hook is the number that matters.
+
+---
+
+**The original entry, unchanged — this is why the two remaining shapes stay open:**
 
 **What is caught.** `bash-injection-scanner` warns on the blunt shapes — "ignore
 all previous instructions", persona hijack, system-prompt-leak phrasing, token
@@ -244,6 +270,8 @@ hook on every Bash call: latency, cost and non-determinism on a blocking path.
 Three separate projects surveyed during the 2026-08 sweep (SkillSpector,
 aiskillstore, Nemesis) reached the same conclusion independently.
 
-**Do not** attempt to close this with more regexes. The measurement above is the
-reason, and it is cheap to re-run: the probes live in the session scratchpad
-pattern `inj-probe` / `struct-inj-fp`.
+**Do not** attempt to close the REMAINING two with more regexes. The measurement
+above is the reason, and it is cheap to re-run: the probes live in the session
+scratchpad pattern `inj-probe` / `struct-inj-fp`. The v4.0.31 narrowing did not
+weaken that argument — it changed the channel the patterns run on, and left the
+patterns that cannot work unwritten.
