@@ -11,6 +11,7 @@ set -euo pipefail
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path FILE_PATH
 if [ -z "$FILE_PATH" ]; then
   FILE_PATH=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
 fi

@@ -44,6 +44,11 @@ case "$TOOL_NAME" in
 esac
 
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)  # v2.9.3: NotebookEdit uses notebook_path
+# v4.0.29: this hook is why the normalisation exists. A non-absolute path is
+# resolved against cwd below, so `~/elsewhere/x` became `<project>/~/elsewhere/x`
+# — inside the boundary — and a write OUTSIDE the project read as one within it,
+# silently. The harness expands the tilde; `[ -f ]` does not.
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path FILE_PATH
 [ -z "$FILE_PATH" ] && exit 0
 
 # Disabled categories from .supercharger.json (project-level opt-out)

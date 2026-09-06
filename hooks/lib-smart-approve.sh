@@ -102,6 +102,7 @@ smart_approve_verdict() {
   case "$_ci_tool" in
     Write|Edit|MultiEdit|NotebookEdit)
       _ci_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+      . "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _ci_path
       if [ -n "$_ci_path" ]; then
         # Both critical-infra AND lockfile edits carry a mandatory PreToolUse "ask".
         # The in-project Write allow-list below returns 0 for any project path, and
@@ -154,6 +155,7 @@ smart_approve_verdict() {
   # Write/Edit inside the project directory
   if [ "$tool_name" = "Write" ] || [ "$tool_name" = "Edit" ] || [ "$tool_name" = "MultiEdit" ]; then
     file_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+    . "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path file_path
     if [ -n "$file_path" ] && [ -n "$project_dir" ]; then
       case "$file_path" in
         /*) abs_path="$file_path" ;;

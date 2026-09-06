@@ -91,6 +91,7 @@ for s in walk(d):
     echo "[Supercharger] dir-added-record: no known field matched; used a path found in the payload ($DIR)" >&2
   fi
 fi
+. "$HOOKS_DIR/lib-toolpath.sh"; sc_norm_path DIR
 [ -z "$DIR" ] && exit 0
 
 case "$DIR" in

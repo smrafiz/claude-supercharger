@@ -83,6 +83,7 @@ _REASON=$(cat "$_GF_OUT" 2>/dev/null); rm -f "$_GF_OUT" 2>/dev/null
 
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="${CLAUDE_CODE_SESSION_ID:-default}"
 _FP=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _FP
 _SEEN="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope/.genfile-seen-${SID}"
 _KEY=$(printf '%s' "$_FP" | cksum 2>/dev/null | cut -d' ' -f1 || echo "$_FP")
 if [ -f "$_SEEN" ] && grep -qxF "$_KEY" "$_SEEN" 2>/dev/null; then

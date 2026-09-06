@@ -133,6 +133,7 @@ fi
 if [[ "$MODE" == "check" ]]; then
   # _INPUT already drained at top (v2.6.77)
   TOUCHED=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+  . "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path TOUCHED
   if [ -z "$TOUCHED" ]; then
     TOUCHED=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('tool_input',{}).get('file_path',''))" 2>/dev/null || echo "")
   fi

@@ -2,6 +2,72 @@
 
 ## Contents
 
+- [4.0.29] - 2026-09-06 — fix(guards): a path the harness accepts and `[ -f ]` does not is a bypass
+
+Where the harness and bash disagree about what a path means, the TOOL acts on
+the real file and the GUARD stats something that cannot exist, takes its
+"nothing there, nothing to do" exit, and says nothing. Measured against the
+deployed artifact guard, same file both times:
+
+  file_path "/Users/me/.probe/p.html"   rc=2, deny
+  file_path "~/.probe/p.html"           rc=0, silent   <- harness reads it
+
+Asked of the harness directly, one call each, rather than reasoned about:
+
+  ~/path          EXPANDED by the harness, not by [ -f ]   -> bypass
+  "  /abs/path"   leading whitespace tolerated              -> bypass
+  $HOME/path      NOT expanded, the tool fails too          -> no bypass
+  ["/abs/path"]   coerced, and the tool fails too           -> no bypass
+
+The bottom two are not fixed, deliberately. A spelling is only a bypass when the
+tool still works and the guard does not; "fixing" a symmetric failure means
+asking on calls that can never succeed, which is how a guard earns being turned
+off.
+
+WORST CASE IS NOT THE CONTENT SCANNERS. path-guard resolves a non-absolute path
+against cwd, so `~/elsewhere/x` became `<project>/~/elsewhere/x` -- INSIDE the
+boundary -- and a write outside the project read as one within it.
+lib-smart-approve stats the same way to decide what autopilot may auto-approve.
+Both silent, both fail-open.
+
+hooks/lib-toolpath.sh / sc_norm_path normalises where the value is READ rather
+than at each comparison, because these hooks then stat, glob and prefix-match it
+several times each ([[one-path-many-spellings]] rule 1). 15 hooks wired: 13
+mechanically, path-guard and dir-added-record by hand because their extraction
+lines carry trailing comments the pattern missed.
+
+`~user` is deliberately NOT expanded. Resolving it needs the passwd database,
+the harness was not observed to accept it, and a wrong guess silently retargets
+a security check at another user's file.
+
+Controls, because B and H mean nothing without A and G:
+
+  A  absolute + credential      deny      baseline
+  B  same file spelled with ~   deny      was a silent allow
+  C  leading whitespace         deny      was a silent allow
+  D  missing file               silent    no new nagging
+  E  clean page under ~         silent    no false positive
+  F  write inside the project   silent
+  G  absolute write outside     fires     baseline
+  H  ~ write outside            fires     was read as INSIDE the project
+
+HOW IT WAS FOUND, which is the part worth keeping: the filed question was
+"non-string file_path -- bypass or noise?" The answer was noise. Probing it
+surfaced the better question -- what does the harness normalise that we do not
+-- and that one had two real answers. When a reachability question comes back
+no, ask what the probe taught you before closing it.
+
+Four spellings settled in four tool calls by asking the harness instead of
+modelling it. The MSYS arm of this same memory cost four red releases by
+modelling a mount table.
+
+One test defect of mine on the way: the ~user assertion grepped the source and
+matched the lib's own COMMENT explaining that it is not expanded, so it failed
+on correct code. A guard's documentation is not its behaviour; replaced with a
+behavioural check over five inputs.
+
+Suite 5332/0. Shellcheck clean at CI severity. v4.0.28 went 8/8 including
+Windows, so the 52-hook stdin change under it is verified on bash 3.2 Git Bash.. 5332 tests passing.
 - [4.0.28] - 2026-09-06 — fix(hooks): a payload that never arrived read as "nothing to check"
 
 Every hook read its stdin with one shared line:

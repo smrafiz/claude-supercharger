@@ -64,6 +64,7 @@ esac
 # Extract branch + path fields from common tool_input shapes
 BRANCH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.branch // .tool_input.ref // empty' 2>/dev/null || true)
 PATH_FIELD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path PATH_FIELD
 
 # Protected branch writes (push_files, create_or_update_file, delete_file)
 if [ -n "$BRANCH" ]; then

@@ -81,6 +81,7 @@ command -v python3 >/dev/null 2>&1 || exit 0
 # modelling it. Absent (every non-Windows platform), the paths pass through
 # untouched and the detector's own fallback still handles the drive-letter form.
 _AL_TARGET=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _AL_TARGET
 if command -v cygpath >/dev/null 2>&1; then
   _AL_MANIFEST_N=$(cygpath -w -- "$_AL_MANIFEST" 2>/dev/null) || _AL_MANIFEST_N=""
   [ -n "$_AL_MANIFEST_N" ] && _AL_MANIFEST="$_AL_MANIFEST_N"
@@ -108,6 +109,7 @@ _AL_REASON=$(printf '%s' "$_INPUT" \
 _AL_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 _AL_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 _AL_FILE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _AL_FILE
 _AL_ACK="$_AL_STATE/scope/.ai-lock-ack-${_AL_SID:-nosession}"
 if [ -n "$_AL_FILE" ] && [ -f "$_AL_ACK" ] && grep -qxF "$_AL_FILE" "$_AL_ACK" 2>/dev/null; then
   exit 0

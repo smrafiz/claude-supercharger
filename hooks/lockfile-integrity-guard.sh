@@ -47,6 +47,7 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "lockfile-integrity-guard" && exit 0
 
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path FILE_PATH
 [ -z "$FILE_PATH" ] && exit 0
 
 BASE="${FILE_PATH##*/}"

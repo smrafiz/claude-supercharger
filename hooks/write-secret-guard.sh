@@ -63,6 +63,7 @@ _WSG_NEW=$(printf '%s\n' "$_INPUT" | jq -r '
 printf '%s' "$_WSG_NEW" | LC_ALL=C grep -qE "$_WSG_RE" 2>/dev/null || exit 0
 
 _WSG_FILE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
+. "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _WSG_FILE
 _WSG_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 _WSG_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
 _WSG_ACK="$_WSG_STATE/scope/.write-secret-ack-${_WSG_SID:-nosession}"
