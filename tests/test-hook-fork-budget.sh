@@ -26,9 +26,17 @@ OFFENDERS=$(grep -lE '^[A-Za-z_][A-Za-z0-9_]*=\$\(cat\)$' "$REPO_DIR"/hooks/*.sh
 begin_test "the fork-free read is the one actually in use"
 # The read gained a `-t` bound in v2.27.10 (see test-async-safety.sh) — the
 # variable no longer follows the flags, so match the two halves separately.
-grep -q "IFS= read -r -d ''" "$REPO_DIR/hooks/safety.sh" \
-  && grep -q "read -r -d '' .*_INPUT" "$REPO_DIR/hooks/safety.sh" && pass \
-  || fail "safety.sh no longer uses the builtin read"
+#
+# v4.0.28: gates read through sc_read_input in hooks/lib-stdin.sh, so the
+# builtin moved out of safety.sh. The property under test is "the builtin, not
+# a fork" — assert THAT, wherever it lives, rather than pinning a line to a
+# file. A location-pinned assertion fails on a refactor that preserves exactly
+# what it exists to protect, and tempts you to weaken it.
+_FB_READER="$REPO_DIR/hooks/safety.sh"
+grep -q 'sc_read_input' "$REPO_DIR/hooks/safety.sh" && _FB_READER="$REPO_DIR/hooks/lib-stdin.sh"
+grep -q "IFS= read -r -d ''" "$_FB_READER" \
+  && grep -q "read -r -d '' .*-t" "$_FB_READER" && pass \
+  || fail "safety.sh no longer reaches a builtin read (checked $(basename "$_FB_READER"))"
 
 # The read must stay byte-identical to $(cat), including trailing-newline
 # handling — several hooks do exact substring matching on the raw payload.

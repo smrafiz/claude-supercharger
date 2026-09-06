@@ -33,7 +33,7 @@ set -uo pipefail
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # Fork-free stdin read, same shape as the sibling guards.
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
 # ZERO-FORK FAST PATH. Walk up from the working directory looking for a
 # manifest. Nothing else in this file runs until one is found, so the cost for

@@ -39,7 +39,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 [ "${SUPERCHARGER_TASK_POLL_GUARD:-1}" = "0" ] && exit 0
 
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # Cheap gate: both words must appear somewhere before anything is parsed.

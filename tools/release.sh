@@ -131,7 +131,7 @@ fi
 
 if $DRY_RUN; then
   echo -e "${YELLOW}[dry-run] Would update: lib/utils.sh, tools/supercharger.sh, README.md, CHANGELOG.md${NC}"
-  echo -e "${YELLOW}[dry-run] Would commit, tag v${NEW}, push${NC}"
+  echo -e "${YELLOW}[dry-run] Would commit, tag v${NEW}, push, publish a GitHub release${NC}"
   exit 0
 fi
 
@@ -360,8 +360,46 @@ git -C "$REPO_DIR" push origin "$BRANCH"
 git -C "$REPO_DIR" push origin "v${NEW}"
 echo -e "  ${GREEN}✓${NC} Pushed ${BRANCH} + v${NEW}"
 
+# v4.0.28: the GitHub RELEASE object was never created by this script — only the
+# tag. Nobody noticed for two months because everything this script does report
+# was genuinely done: 669 tags, 83 releases, and a Releases page whose "Latest"
+# still read v2.26.1 while master moved daily. GitHub picks Latest from release
+# objects, never from tags, so the shop window said abandoned. Same shape as
+# [[silent-success-tooling]] — a green run for the steps that ran, silence for
+# the one that never did.
+#
+# Only on master: off master the tag points at a commit master does not contain
+# (see the push comment above), and a release object pointing there repeats the
+# v2.26.25 bug in a place that is far more public.
+#
+# Notes are GENERATED from the commits since the last tag. The commit bodies in
+# this repo are internal reasoning — measurements, wrong turns, what was not
+# built — which is right for `git log` and wrong for the first thing a stranger
+# reads. Subject line as the title, generated commit list as the body.
+publish_github_release() {
+  command -v gh >/dev/null 2>&1 || { echo -e "  ${YELLOW}!${NC} gh not installed — no GitHub release for v${NEW}"; return 1; }
+  gh auth status >/dev/null 2>&1 || { echo -e "  ${YELLOW}!${NC} gh not authenticated — no GitHub release for v${NEW}"; return 1; }
+  local title
+  title=$(printf '%s\n' "$MESSAGE" | head -1)
+  [ -n "$title" ] && title="v${NEW} — ${title}" || title="v${NEW}"
+  gh release create "v${NEW}" --title "$title" --generate-notes >/dev/null 2>&1 || return 1
+  # Verify by BEHAVIOUR, not by exit code: this script has shipped a green
+  # "Released" for work that did not land before. [[silent-success-tooling]]
+  gh release view "v${NEW}" >/dev/null 2>&1
+}
+
 echo ""
 if [ "$BRANCH" = "master" ]; then
+  if publish_github_release; then
+    echo -e "  ${GREEN}✓${NC} Published GitHub release v${NEW}"
+  else
+    # Loud, not silent. The tag is already pushed and the code IS released; what
+    # is missing is the thing users see. An oracle that says nothing reads as
+    # "verified". [[guard-fails-open-oracle-fails-loud]]
+    echo -e "  ${YELLOW}${BOLD}!${NC} ${YELLOW}GitHub release NOT created for v${NEW}.${NC}"
+    echo -e "    The tag is pushed, so the code is out; the Releases page is not."
+    echo -e "    Create it with:  gh release create v${NEW} --generate-notes"
+  fi
   echo -e "${GREEN}${BOLD}Released v${NEW}${NC}"
 else
   # Not an error — it is the normal branch flow — but the release is only half

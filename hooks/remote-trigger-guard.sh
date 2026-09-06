@@ -43,7 +43,7 @@ check_hook_disabled "remote-trigger-guard" 2>/dev/null && exit 0
 [ "${SUPERCHARGER_REMOTE_TRIGGER_GUARD:-1}" = "0" ] && exit 0
 
 # Fork-free stdin read (v2.26.35 convention).
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
 # Secret patterns come from the shared list, never a local copy.
 # shellcheck source=hooks/lib-secret-patterns.sh

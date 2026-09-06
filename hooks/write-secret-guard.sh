@@ -27,7 +27,7 @@ set -uo pipefail
 [ "${SUPERCHARGER_WRITE_SECRET_GUARD:-1}" = "0" ] && exit 0
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 [ -n "$_INPUT" ] || exit 0
 
 # shellcheck source=hooks/lib-secret-patterns.sh

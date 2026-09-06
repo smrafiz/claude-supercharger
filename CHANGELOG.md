@@ -2,6 +2,84 @@
 
 ## Contents
 
+- [4.0.28] - 2026-09-06 — fix(hooks): a payload that never arrived read as "nothing to check"
+
+Every hook read its stdin with one shared line:
+
+  IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT \
+    || [ $? -le 128 ] || _INPUT=""
+
+Two defects in it, and the second is why the first never showed.
+
+The blanking branch keys on `$? > 128`. That is bash 4+ behaviour. bash 3.2 --
+/bin/bash on every macOS, and what CI runs -- returns 1 on a -t timeout,
+indistinguishable from a clean EOF by exit code alone. So on macOS that branch
+never fired for its entire life. It did not matter: on timeout `read` also
+DISCARDS the bytes it already had, so the variable is empty either way, every
+guard takes its `case "$_INPUT" in ... *) exit 0` fast path, and the tool then
+runs unchecked and unannounced. Measured on 3.2.57: rc=1, len=0, full timeout
+burned. [[two-gate-trap]] -- the rule was present and unreachable.
+
+Against the deployed artifact guard, identical payload both times:
+
+  writer faster than the timeout   rc=2, deny
+  writer slower than the timeout   rc=0, no stdout, no stderr
+
+HONEST SEVERITY, and it is worse than v4.0.26's. That one was self-limiting:
+the hook and the operation run as the same user, so an EACCES that blinded the
+scan also failed the operation. A stalled read does not stop the tool. It only
+stops the check.
+
+The discriminator that works on both bash versions is ELAPSED TIME, not the exit
+code. $SECONDS is a builtin, so it costs nothing. Empty and instant is genuinely
+empty stdin -- a test, a manual run -- and stays silent, because a guard that
+nags on every empty invocation gets switched off and then none of this matters.
+Empty or partial after burning the whole timeout is a payload that did not
+arrive, and for a gate the honest answer is ASK.
+
+Shipped as hooks/lib-stdin.sh / sc_read_input, which emits the ASK and exits
+itself, so a call site is one line and cannot forget the failure branch. 52
+deny/ask-capable hooks migrated. Recorders and formatters keep the inline read:
+blocking a log write on a slow pipe helps nobody. budget-cap.sh is deliberately
+excluded -- it is a COST cap, where failing open costs one un-warned turn rather
+than an unchecked security decision.
+
+Four controls through a real gate, because three of them only mean something
+next to the first:
+
+  A  fast writer, secret   rc=2, deny      baseline; proves the fixture
+  B  slow writer, same     ask on stdout   was a silent allow
+  C  empty stdin           silent          no new nagging
+  D  fast writer, clean    silent
+
+PERFORMANCE: not measurable here, which is the honest answer rather than "free".
+A controlled A/B -- same directory, same state, swapping only the hooks tree,
+4 interleaved samples per arm -- put HEAD at felt 33.8ms / sum 190.0ms and this
+tree at 31.0ms / 181.8ms. The UNMODIFIED arm came out slower; within-arm spread
+is 28.7-38.7ms, so variance swamps any effect. An earlier worktree A/B was
+confounded by a cold checkout and made the baseline look 40ms slower, an
+unexplained improvement that would have been banked unchecked
+([[metric-improved-check-denominator]], third instance). CI's report-only
+latency job against the committed baseline is the number to watch.
+
+test-hook-fork-budget.sh asserted the builtin read by matching a literal line in
+safety.sh. The property it protects -- builtin, not $(cat) -- still holds; the
+line moved into the lib. Re-pointed at whichever file does the read rather than
+weakened.
+
+ALSO: release.sh now publishes the GitHub RELEASE object, not just the tag.
+Nobody noticed for two months because every step it did report was genuinely
+done: 669 tags, 83 releases, and a Releases page whose "Latest" read v2.26.1
+while master moved daily. GitHub picks Latest from release objects, never from
+tags. Master-gated (off master the tag points at a commit master does not
+contain), notes generated from the commits, result verified by reading it back,
+and LOUD when gh is missing rather than silent. [[silent-success-tooling]].
+
+Found by running the "truncated payload => fail-open" class from the
+aksheyw/claude-code-guardrail-hooks case study against our own reader.
+
+Suite 5321/0. Shellcheck clean at CI severity. Windows is the real check for
+$SECONDS and printf -v on bash 3.2 and has not run yet.. 5321 tests passing.
 - [4.0.27] - 2026-09-06 — fix(artifact): a Windows-spelled path walked past the egress guard
 
 artifact-publish-guard resolved a non-leading-slash file_path by prepending

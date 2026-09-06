@@ -27,7 +27,7 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 check_hook_disabled "skill-integrity-guard" && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # Fast path: bail with zero forks unless the payload names a skill.
 case "$_INPUT" in *'"skill"'*) ;; *) exit 0 ;; esac

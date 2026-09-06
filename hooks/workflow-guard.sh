@@ -38,7 +38,7 @@ check_hook_disabled "workflow-guard" && exit 0
 [ "${SUPERCHARGER_WORKFLOW_GUARD:-1}" = "0" ] && exit 0
 
 # Fork-free stdin read (v2.26.35 convention).
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
 RESULT=$(HOOK_INPUT="$_INPUT" PWD_DIR="$PWD" HOME_DIR="$HOME" HOOK_SUPPRESS="$HOOK_SUPPRESS" \
          HOOKS_DIR="$HOOKS_DIR" python3 <<'PYEOF' 2>/dev/null

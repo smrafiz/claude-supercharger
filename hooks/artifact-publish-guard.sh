@@ -29,7 +29,7 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 [ "${SUPERCHARGER_ARTIFACT_GUARD:-1}" = "0" ] && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
 # Fast path: publish carries a file; reply and room_send carry outbound TEXT.
 case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*) ;; *) exit 0 ;; esac

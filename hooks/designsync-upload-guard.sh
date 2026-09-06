@@ -47,7 +47,7 @@ check_hook_disabled "designsync-upload-guard" 2>/dev/null && exit 0
 [ "${SUPERCHARGER_DESIGNSYNC_GUARD:-1}" = "0" ] && exit 0
 
 # Fork-free stdin read (v2.26.35 convention).
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
 # Fast path: write_files moves the bytes; finalize_plan is read only to learn the
 # localDir it approves, which write_files itself does not carry.
