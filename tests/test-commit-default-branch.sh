@@ -111,4 +111,48 @@ R=$(_mkrepo trunk trunk noremote)
 [ "$(_verdict "$R")" = allow ] && pass || fail "guessed a default it could not know"
 rm -rf "$R"
 
+# --- v4.0.30: severity order, not cost order ---------------------------------
+# The default-branch ASK sat before the staged-secret DENY and RETURNED, so on
+# the first commit of a session on the default branch the diff was never scanned
+# for credentials. Measured against the pre-fix hook, same repo, same staged key:
+#
+#   1st commit attempt this session   ask    (branch advisory; secret unscanned)
+#   2nd commit attempt this session   deny   (secret caught)
+#
+# The ask invites approval in its own wording — "if that is deliberate ... go
+# ahead" — so the likely outcome was the key reaching git history. A weaker
+# advisory must never pre-empt a stronger check.
+_CDB_KEY="sk-ant-api03-$(printf 'D%.0s' $(seq 95))"
+
+begin_test "severity order: a staged credential DENIES on the very first attempt"
+R=$(_mkrepo main); ST=$(mktemp -d)
+printf 'k = "%s"\n' "$_CDB_KEY" > "$R/conf.py"; git -C "$R" add conf.py 2>/dev/null
+[ "$(_verdict "$R" "" "$ST")" = deny ] && pass \
+  || fail "branch advisory pre-empted the secret scan on the first commit"
+rm -rf "$R" "$ST"
+
+begin_test "severity order: the branch advisory still fires when the diff is clean"
+# The control that keeps the fix from being "delete the advisory".
+R=$(_mkrepo main); ST=$(mktemp -d)
+printf 'x = 1\n' > "$R/ok.py"; git -C "$R" add ok.py 2>/dev/null
+[ "$(_verdict "$R" "" "$ST")" = ask ] && pass || fail "default-branch ask was lost"
+rm -rf "$R" "$ST"
+
+# --- an empty pattern list is not "no secrets" -------------------------------
+# `_CP=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")` yields "" if the lib fails to
+# source, and `grep -qE ""` matches EVERY line — so a load failure would deny
+# every commit in the repo. The substitution swallows the error, so neither
+# verdict is honest: say the scan did not happen.
+begin_test "a missing pattern library asks, and does not deny everything"
+R=$(_mkrepo main); ST=$(mktemp -d); H=$(mktemp -d)
+cp -R "$REPO_DIR/hooks" "$H/hooks"; rm -f "$H/hooks/lib-secret-patterns.sh"
+_CDB_OUT=$(printf '{"session_id":"cdb","tool_name":"Bash","tool_input":{"command":"git commit -m wip"},"cwd":"%s"}' "$R" \
+  | (cd "$R" && HOME="$ST" SUPERCHARGER_STATE="$ST" bash "$H/hooks/commit-guard.sh" 2>/dev/null))
+case "$_CDB_OUT" in
+  *'"ask"'*)  pass ;;
+  *'"deny"'*) fail "empty pattern list denied a clean commit — grep -qE '' matches everything" ;;
+  *)          fail "unscanned commit allowed silently" ;;
+esac
+rm -rf "$R" "$ST" "$H"
+
 report

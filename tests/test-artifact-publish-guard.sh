@@ -307,4 +307,39 @@ else
 fi
 rm -rf "$APG_TD"
 
+# --- v4.0.30: "not there" and "could not look" are different verdicts ---------
+# v4.0.26 split those for the CONTENT read and left the EXISTENCE check joined:
+# `[ -f ] || exit 0` treated an unsearchable directory as an absent file and
+# published unscanned. Mostly self-limiting — the hook runs as the user the tool
+# runs as — so what this buys is the transient case (EMFILE, EINTR, stale NFS)
+# where the publish succeeds and the scan silently never happened.
+_APX_TD=$(mktemp -d)
+mkdir -p "$_APX_TD/locked"
+printf '<html>%s</html>' "sk-ant-api03-$(printf 'D%.0s' $(seq 95))" > "$_APX_TD/locked/p.html"
+_apx_decision() {
+  printf '{"tool_name":"Artifact","cwd":"/tmp","tool_input":{"file_path":"%s"}}' "$1" \
+    | bash "$GUARD" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' | head -1
+}
+
+begin_test "artifact: a reachable page with a credential still denies (baseline)"
+[ "$(_apx_decision "$_APX_TD/locked/p.html")" = '"permissionDecision":"deny"' ] && pass \
+  || fail "baseline is not a deny; the two below would prove nothing"
+
+begin_test "artifact: a genuinely missing file stays silent"
+[ -z "$(_apx_decision "$_APX_TD/gone.html")" ] && pass || fail "fired on an absent file"
+
+# chmod is advisory on MSYS/NTFS — gate on the PRECONDITION holding, never on a
+# platform name. Same reasoning as the unreadable-file case above.
+chmod 000 "$_APX_TD/locked" 2>/dev/null || true
+if [ -x "$_APX_TD/locked" ]; then
+  begin_test "artifact: unsearchable-directory case (skipped - filesystem ignores chmod)"
+  pass
+else
+  begin_test "artifact: an unsearchable directory asks instead of publishing unscanned"
+  [ "$(_apx_decision "$_APX_TD/locked/p.html")" = '"permissionDecision":"ask"' ] && pass \
+    || fail "unverifiable existence read as 'no such file' and published unscanned"
+fi
+chmod 755 "$_APX_TD/locked" 2>/dev/null || true
+rm -rf "$_APX_TD"
+
 report

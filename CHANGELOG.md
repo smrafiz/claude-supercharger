@@ -2,6 +2,57 @@
 
 ## Contents
 
+- [4.0.30] - 2026-09-06 — fix(commit-guard): a branch advisory pre-empted the staged-secret scan
+
+commit-guard runs its checks "cheap -> expensive", as its own file comment says.
+That is a PERF ordering, and it put an ASK in front of a DENY. The
+default-branch advisory emits its ask and RETURNS, so on the first commit of a
+session on the default branch the staged diff was never scanned for credentials.
+Measured against the pre-fix hook, same repo, same staged key:
+
+  1st commit attempt this session   ask    branch advisory; secret unscanned
+  2nd commit attempt this session   deny   secret caught
+
+Once per session per repo -- and that once is the most likely moment. The ask
+invites approval in its own wording ("if that is deliberate, a trunk-based repo
+or a release commit, go ahead"), so the likely outcome was the key reaching git
+history. Both checks fork only after the `git commit` gate has already matched,
+so cheap-first bought nothing here. Now ordered by SEVERITY: every deny-capable
+check runs before any advisory.
+
+Controls, because A alone would also pass if the advisory were simply deleted:
+
+  credential staged, main, 1st attempt   deny     was ask
+  clean diff, main, 1st attempt          ask      advisory intact
+  clean diff, main, 2nd attempt          silent   still asks only once
+  clean diff, feature branch             silent   unchanged
+
+SECOND FIX, found by a defective probe of my own. `_CP=$(IFS='|'; echo
+"${SECRET_PATTERNS[*]}")` yields "" when lib-secret-patterns.sh fails to source,
+and `grep -qE ""` matches EVERY line -- a load failure would have denied every
+commit in the repo. The command substitution swallows the error, so the hook
+cannot see why. Neither verdict is honest, so it now says the scan did not
+happen and asks. Not reachable in production, where HOOKS_DIR is absolute; it
+became visible only because a test invoked the hook by a relative path and the
+subshell cd'd away from it. write-secret-guard takes `|| exit 0` on the same lib
+and fails OPEN -- noted, not changed here.
+
+PROVENANCE: found by auditing pauldavid1974/repo-governance-templates. Neither
+of its two disclosed defects reproduced in our code -- git-safety behaves
+identically in a fresh repo, and our commit guard does cover a first commit --
+but running its "first commit in a brand-new project" case is what exposed the
+ordering bug. Running a repo's documented bug CLASSES beats diffing its feature
+list, second time that has held.
+
+METHOD NOTE, since it nearly cost a false all-clear: the probe that first showed
+"the reorder broke everything" was invoking the hook by a relative path, so the
+pattern lib did not load and every commit denied. Before trusting the fix I
+re-verified the ORIGINAL defect against HEAD with an absolute path, because that
+probe's `deny` could equally have been the artifact. It was not; the defect is
+real. Had the two checks come out in the other order I would have shipped a
+false all-clear. Third defective fixture of mine today.
+
+Suite 5338/0. Shellcheck clean at CI severity.. 5338 tests passing.
 - [4.0.29] - 2026-09-06 — fix(guards): a path the harness accepts and `[ -f ]` does not is a bypass
 
 Where the harness and bash disagree about what a path means, the TOOL acts on

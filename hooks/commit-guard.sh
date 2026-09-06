@@ -107,7 +107,62 @@ else:
   fi
 fi
 
-# ─── Check 2b: committing straight onto the default branch (default ON) ──────
+# ─── Check 3: secret in the staged diff (default ON) ─────────────────────────
+if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+  ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
+    git rev-parse --git-dir >/dev/null 2>&1 || exit 0
+    DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
+    [ -z "$DIFF" ] && exit 0
+    ADDED=$(printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{next} /^\+/{sub(/^\+/,""); print}')
+    [ -z "$ADDED" ] && exit 0
+    # shellcheck source=hooks/lib-secret-patterns.sh
+    . "$HOOKS_DIR/lib-secret-patterns.sh"
+    _CP=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
+    # An empty pattern is not "no secrets", it is "no patterns" — and
+    # `grep -qE ""` matches EVERY line, so a failed source would deny every
+    # commit in the repo. The load failure is invisible here because the
+    # command substitution above swallows it. Neither verdict is honest:
+    # say the scan did not happen. (write-secret-guard takes `|| exit 0` on
+    # the same lib and fails OPEN — noted, tracked separately.)
+    [ -n "$_CP" ] || exit 43
+    printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    exit 0 )
+  _CG_RC=$?
+  if [ "$_CG_RC" -eq 43 ]; then
+    echo "[Supercharger] commit-guard: secret patterns unavailable — commit NOT scanned" >&2
+    _CG_R="Supercharger could not load its credential patterns, so these staged changes have NOT been scanned for secrets.
+
+Committing is not reversible once pushed. Confirm the diff carries no credentials, or re-run once the installation is repaired."
+    _CG_J=$(printf '%s' "$_CG_R" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"staged diff was not scanned for secrets"')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_CG_J"
+    exit 0
+  fi
+  if [ "$_CG_RC" -eq 42 ]; then
+    echo "[Supercharger] commit-secret-guard: SECRET in staged diff — blocking commit" >&2
+    BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"; mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+    printf '[%s] secret in staged commit — blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+    SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
+    echo "secrets" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
+    _deny 'The staged changes introduce a value matching a known secret/credential format (API key, token, private key, or wallet key). Blocking this commit to prevent leaking it into git history. Remove the secret from the staged files (use an env var or a secrets manager), re-stage, and commit again. If this is a false positive, run the commit yourself in the terminal.'
+  fi
+fi
+
+
+# ─── Check 2b (runs AFTER the secret scan — see below) ───────────────────────
+#
+# ORDER IS BY SEVERITY, NOT BY COST. This block used to sit before Check 3, and
+# because it emits an ask and RETURNS, a staged credential was never scanned on
+# the first commit of a session on the default branch. Measured, same repo, same
+# staged key:
+#
+#   1st commit attempt this session   ask   (branch advisory; secret not scanned)
+#   2nd commit attempt this session   deny  (secret caught)
+#
+# The ask actively invites approval — "if that is deliberate ... go ahead" — so
+# the likely outcome was the key landing in git history. A weaker advisory must
+# never pre-empt a stronger check. The file comment said "cheap -> expensive",
+# which is a perf ordering; both checks fork only after the `git commit` gate has
+# already matched, so there is nothing to buy by going cheap-first here.
 #
 # The rule exists in prose and had no mechanism: guardrails.md and Claude Code's
 # own instructions both say to branch first, and nothing enforced it. Measured
@@ -159,29 +214,6 @@ if [ "${SUPERCHARGER_DEFAULT_BRANCH_GUARD:-1}" != "0" ] \
         fi
       fi
     fi
-  fi
-fi
-
-# ─── Check 3: secret in the staged diff (default ON) ─────────────────────────
-if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
-  ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
-    git rev-parse --git-dir >/dev/null 2>&1 || exit 0
-    DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
-    [ -z "$DIFF" ] && exit 0
-    ADDED=$(printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{next} /^\+/{sub(/^\+/,""); print}')
-    [ -z "$ADDED" ] && exit 0
-    # shellcheck source=hooks/lib-secret-patterns.sh
-    . "$HOOKS_DIR/lib-secret-patterns.sh"
-    _CP=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
-    printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
-    exit 0 )
-  if [ "$?" -eq 42 ]; then
-    echo "[Supercharger] commit-secret-guard: SECRET in staged diff — blocking commit" >&2
-    BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"; mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
-    printf '[%s] secret in staged commit — blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
-    SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
-    echo "secrets" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
-    _deny 'The staged changes introduce a value matching a known secret/credential format (API key, token, private key, or wallet key). Blocking this commit to prevent leaking it into git history. Remove the secret from the staged files (use an env var or a secrets manager), re-stage, and commit again. If this is a false positive, run the commit yourself in the terminal.'
   fi
 fi
 

@@ -98,7 +98,37 @@ case "$FILE_PATH" in
       [ -n "$CWD" ] && FILE_PATH="$CWD/$FILE_PATH" ;;
 esac
 [ -n "$FILE_PATH" ] || exit 0
-[ -f "$FILE_PATH" ] || exit 0
+
+# v4.0.30: `[ -f ]` returning false has two causes and they are not the same
+# verdict — the file is not there (nothing to publish, allow), or the stat did
+# not answer (NOT a clean scan). Same collapse v4.0.26 fixed one line below for
+# the CONTENT read, left in place here for the EXISTENCE check.
+#
+# Mostly self-limiting: the hook runs as the user the tool runs as, so a
+# permission error that blinds the stat also fails the publish. What it buys is
+# the transient case — EMFILE, EINTR, a stale NFS handle — where the publish
+# succeeds and the scan silently never happened.
+#
+# No errno in bash, so infer it: walk to the first existing ancestor. If that
+# directory is not searchable, "no such file" is not something we established,
+# it is something we could not look up. All builtins, no fork.
+if [ ! -f "$FILE_PATH" ]; then
+  _APG_D="${FILE_PATH%/*}"; [ "$_APG_D" = "$FILE_PATH" ] && _APG_D="."
+  [ -n "$_APG_D" ] || _APG_D="/"
+  while [ ! -e "$_APG_D" ] && [ "$_APG_D" != "/" ] && [ "$_APG_D" != "." ]; do
+    _APG_P="${_APG_D%/*}"; [ "$_APG_P" = "$_APG_D" ] && break
+    _APG_D="${_APG_P:-/}"
+  done
+  if [ -e "$_APG_D" ] && [ ! -x "$_APG_D" ]; then
+    echo "[Supercharger] artifact-publish-guard: ASK — could not determine whether the artifact exists" >&2
+    _APG_R2="Refusing to publish $(basename "$FILE_PATH") without checking it: its directory could not be searched, so whether the file exists — and what is in it — was NOT established. It has not been scanned for credentials.
+
+Publishing sends it to a hosted URL and that is not reversible. Confirm the file is safe to publish, or fix the directory's permissions so it can be scanned first."
+    _APG_J2=$(printf '%s' "$_APG_R2" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"artifact existence could not be determined"')
+    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_APG_J2"
+  fi
+  exit 0
+fi
 
 # Bound the read. A 16MB artifact would otherwise be grepped in full on a hook
 # that must stay responsive; secrets in a page live in its text, not megabytes in.
