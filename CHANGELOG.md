@@ -2,6 +2,38 @@
 
 ## Contents
 
+- [4.0.31] - 2026-09-07 — fix(security): two KNOWN-ISSUES narrowings reach users, plus honest perf figures
+
+Four commits have sat on master since v4.0.30, two of them security fixes. The
+reasoning and measurements for all of them are in docs/HANDOFF-2026-09-07.md,
+committed for exactly this reason; this message does not restate them.
+
+  4df6cba  perf figures re-measured; HOOK-LATENCY-PLAN Phase 4 closed
+  21b6434  KNOWN-ISSUES #6 narrowed — structural panel gated on fetch provenance
+  b4bf65b  KNOWN-ISSUES #5 narrowed — variable-bound credential paths
+  85e402e  the handoff doc itself
+
+WHY THIS IS WORTH A RELEASE RATHER THAN WAITING. The #5 fix resolves `$VAR` once
+BEFORE the dispatch chain, so it closes the blind spot in all eight checks rather
+than the one the entry named: `tar czf out.tgz $F` was exactly as silent as
+`cat $F`. Until it ships, no install has it. Verified against the deployed tree
+rather than assumed:
+
+  installed safety-detect.py, variable-binding hits: 0
+  master    safety-detect.py, variable-binding hits: 6
+
+Both KNOWN-ISSUES entries stay OPEN, narrowed. The unclosable halves are
+unattempted on purpose, and each limit is asserted as a test rather than left as
+prose — tests/test-var-bound-sensitive-path.sh asserts that the split-value
+evasion is NOT caught, so the boundary cannot later be mistaken for coverage.
+
+Suite 5399/0, confirmed on the real Windows runner from the build artifact rather
+than the step log. CI 8/8 on 85e402e including Git Bash.
+
+One gap worth recording: b4bf65b never got a CI run of its own — the runs landed
+on 4df6cba, 21b6434 and 85e402e. It is covered in effect, since 85e402e sits on
+the identical tree and went 8/8, but the commit itself was never independently
+gated.. 5399 tests passing.
 - [4.0.30] - 2026-09-06 — fix(commit-guard): a branch advisory pre-empted the staged-secret scan
 
 commit-guard runs its checks "cheap -> expensive", as its own file comment says.
