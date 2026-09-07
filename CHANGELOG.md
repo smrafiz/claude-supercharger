@@ -2,6 +2,42 @@
 
 ## Contents
 
+- [4.0.36] - 2026-09-07 — feat(statusline): a persistent update indicator, not just a line that scrolls away
+
+The SessionStart notice fixed in v4.0.34 is seen once and then scrolls out of
+view. This is the counterpart Claude Code itself uses for its own updates: a
+segment in the statusline, visible every turn until acted on.
+
+  [Opus 5] claude-supercharger | master | ⬆ v4.0.36 (run /sc-update) | +31/-1
+
+Placed after Eco and before Autopilot, matching the layout the user asked for.
+
+FLAG-DRIVEN, NOT COMPUTED. The statusline renders on every turn, and a colleague
+has already uninstalled once over perceived slowness ([[perf-hook-overhead]]), so
+the render path gets one open() and no version arithmetic. update-check.sh
+already knows the answer once per session and writes the flag there; it also
+CLEARS it when the install is current, so a stale indicator cannot stick.
+install.sh clears it too, which is what makes it disappear the moment you update
+rather than at the next session start.
+
+NOT RIGHT-EDGE ALIGNED, and this is a limit rather than an oversight. The `/rc`
+marker on the right of the terminal is Claude Code's own UI. Our statusline gets
+no terminal width — not in the payload, and $COLUMNS is unset for a hook — so
+padding to a guessed width wraps the line on a narrower terminal. The segment is
+last in our own line instead, which reads as the right side without the wrap
+risk.
+
+A FIXTURE DEFECT CAUGHT IN THE ACT, and encoded into the test rather than just
+fixed: the first "flag absent" check passed while the indicator was still
+showing. The statusline caches per session per second, so re-running with the
+same session_id returns the CACHED line and the assertion cannot fail. The tests
+now use distinct ids and say why, so the next person does not rediscover it.
+[[measurement-fixture-defects]]
+
+Tests: indicator shown with the flag, hidden without it (fresh cache key), the
+write/clear lifecycle in update-check, and install.sh's clear.
+
+Suite 5417/0 expected. Shellcheck clean at CI severity.. 5417 tests passing.
 - [4.0.35] - 2026-09-07 — fix(state): the state tree inherited the umask, and the update notice pointed at a shell path
 
 Two user-facing fixes, both small, both about what people actually receive.

@@ -95,6 +95,14 @@ if [ -f "$CACHE_FILE" ]; then
       # is worse advice in the one context they are guaranteed to be in.
       printf '{"systemMessage":"[Supercharger] Update available: v%s → v%s · run /sc-update"}\n' \
         "$LOCAL" "$REMOTE"
+      # Flag for the statusline, which renders every turn and must not compare
+      # versions itself. Written here because this hook already knows the answer
+      # once per session. install.sh removes it on a successful update.
+      mkdir -p "$SUPERCHARGER_DIR/scope" 2>/dev/null || true
+      printf '%s\n' "$REMOTE" > "$SUPERCHARGER_DIR/scope/.update-available" 2>/dev/null || true
+    else
+      # Current: clear a stale flag so the indicator disappears.
+      rm -f "$SUPERCHARGER_DIR/scope/.update-available" 2>/dev/null || true
     fi
     exit 0
   fi

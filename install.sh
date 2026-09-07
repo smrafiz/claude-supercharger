@@ -558,6 +558,9 @@ echo ""
 echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
 mkdir -p "$HOME/.claude/supercharger/scope"
+# The statusline indicator is flag-driven; drop it now that this install IS the
+# new version, rather than leaving it up until the next session start.
+rm -f "$HOME/.claude/supercharger/scope/.update-available" 2>/dev/null || true
 
 # --- at-rest permissions on the state directory (v4.0.35) --------------------
 # Nothing set a mode here, so the state tree inherited the user's umask: 0755

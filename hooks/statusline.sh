@@ -421,10 +421,29 @@ try:
  except Exception:
      pass
 
+ # Update indicator — persistent, unlike the SessionStart notice which scrolls
+ # away after one line. Claude Code surfaces its own updates the same way.
+ #
+ # Reads a FLAG written by update-check.sh at SessionStart; it does not compare
+ # versions here. This renders on every turn, and a colleague has already
+ # uninstalled once over perceived slowness, so the render path gets one open()
+ # and no arithmetic. install.sh removes the flag, so it disappears the moment
+ # the update is actually applied rather than lingering until the next session.
+ upd = ''
+ try:
+     _up_f = os.path.join((os.environ.get('HOME') or os.path.expanduser('~')),
+                          '.claude', 'supercharger', 'scope', '.update-available')
+     with open(_up_f) as f:
+         _up_v = f.read().strip()
+     if _up_v:
+         upd = f' {DIM}|{RESET} \033[33m⬆ v{_up_v} (run /sc-update){RESET}'
+ except Exception:
+     pass
+
  # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, strict, agent, mcp, lines
  if wt_label:
      dirname = wt_label
- line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{mem}{scan}{auto}{ro}{st}{agent}{mcp}{lines}'
+ line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{upd}{mem}{scan}{auto}{ro}{st}{agent}{mcp}{lines}'
 
  # Token display
  def fmt_tokens(n):
