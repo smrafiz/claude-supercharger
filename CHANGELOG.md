@@ -2,6 +2,47 @@
 
 ## Contents
 
+- [4.0.33] - 2026-09-07 — fix(update-check): an async hook's stdout is never rendered in the terminal
+
+v4.0.32 moved the update banner off stderr and it STILL did not appear. Three
+defects were stacked, each independently sufficient to hide the feature:
+
+  1. banner on stderr                      fixed v4.0.32
+  2. registered async -> stdout not rendered   THIS
+  3. cache-miss path prints inside `} &`       THIS (unreachable either way)
+
+MEASURED, not inferred. On a live install with cache 4.0.33 against installed
+4.0.32 — so the banner branch provably fired — nothing appeared. In the SAME
+session, config-scan.sh and project-config.sh, both SYNC, rendered as
+"SessionStart:startup says: ...". Same event, same stream, different flag.
+
+I PREVIOUSLY EXONERATED `async` AND WAS WRONG. The evidence was that
+learn-from-blocks.sh is async and its [BLOCKS] output reaches the model. It does
+— but model-visible is not terminal-visible, and those are different observers.
+That is the same conflation that let twelve tests pass on a dead feature, made
+one message after warning against it. Recorded here so the next reader does not
+repeat the reasoning.
+
+Sync costs nothing on this hook. The cache-hit path is a file read — 364 of 365
+session starts, since the TTL is 24h — and the cache-MISS path backgrounds its
+own network call, so the foreground never waits on the network. The `} &` block
+keeps the cache write and loses the banner it could never deliver: the NEXT
+session renders it synchronously from cache.
+
+Tests, both mutation-checked because an assertion that cannot fail is how this
+survived three defects:
+
+  restoring |async in lib/hooks.sh        -> 1 failure
+  reintroducing the unreachable banner    -> 1 failure
+  hooks.json async flag for update-check  -> asserted separately, since the
+                                             generated artifact is what ships
+
+Suite 5406/0. Shellcheck clean at CI severity.
+
+STILL UNVERIFIED, deliberately: nobody has yet seen the banner render. Every
+step so far has been proven at the layer below the one that mattered. Do not
+record this as fixed until someone reports the box on screen; the check is
+`echo 4.0.34 > ~/.claude/supercharger/.update-cache` then a fresh session.. 5406 tests passing.
 - [4.0.32] - 2026-09-07 — fix(update-check): the update banner has never been delivered to anyone
 
 The hook worked. Delivery did not. It ran on every session start, made its

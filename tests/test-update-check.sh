@@ -102,4 +102,41 @@ begin_test "the /memory-prune nudge is a nudge, not a trace, so it is on stdout"
 grep -q 'run /memory-prune to archive\."$' "$REPO_DIR/hooks/session-memory-inject.sh" && pass \
   || fail "the memory-prune nudge is back on stderr"
 
+# --- v4.0.33: the banner must be rendered, not merely written ----------------
+# v4.0.32 moved it from stderr to stdout and it STILL did not appear. Measured
+# 2026-09-07 on a live install (cache 4.0.33 vs installed 4.0.32, so the banner
+# branch provably fired): an ASYNC hook's stdout is not rendered in the
+# terminal. In the same session, config-scan.sh and project-config.sh — both
+# SYNC — rendered as "SessionStart:startup says: ...".
+#
+# Sync costs nothing here: the cache-hit path is a file read, and the cache-MISS
+# path backgrounds its own network call, so the foreground never waits on the
+# network.
+#
+# The earlier reasoning that exonerated `async` was wrong for an instructive
+# reason: learn-from-blocks.sh is async and its [BLOCKS] output reaches the
+# MODEL. Model-visible is not terminal-visible. [[diagnostic-must-reach-observer]]
+
+begin_test "update-check is NOT registered async — async stdout is never rendered"
+grep -q 'update-check.sh|async' "$REPO_DIR/lib/hooks.sh" \
+  && fail "registered async again; the banner will print and render nowhere" || pass
+
+begin_test "and the generated hooks.json carries no async flag for it"
+python3 - "$REPO_DIR/hooks/hooks.json" <<'PY'
+import json,sys
+d=json.load(open(sys.argv[1]))
+for ev,arr in d.get('hooks',{}).items():
+    for e in arr:
+        for h in e.get('hooks',[]):
+            if 'update-check' in str(h.get('command','')) and h.get('async'):
+                sys.exit(1)
+sys.exit(0)
+PY
+[ $? -eq 0 ] && pass || fail "hooks.json still marks update-check async"
+
+begin_test "the backgrounded fetch does not try to print a banner"
+# Its stdout is orphaned by `} &`, so a print there is unreachable either way.
+_UCA=$(sed -n '/^{$/,/^} &$/p' "$REPO_DIR/hooks/update-check.sh" | grep -c 'Supercharger update:')
+[ "$_UCA" = "0" ] && pass || fail "unreachable banner is back inside the backgrounded block"
+
 report

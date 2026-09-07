@@ -108,12 +108,10 @@ except Exception:
 
   [ -n "$REMOTE" ] && echo "$REMOTE" > "$CACHE_FILE"
 
-  if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
-    echo "╔══════════════════════════════════════════════╗"
-    echo "║  Supercharger update: v${LOCAL} → v${REMOTE}"
-    echo "║  Run: bash ~/.claude/supercharger/tools/update.sh"
-    echo "╚══════════════════════════════════════════════╝"
-  fi
+  # No banner here. This block is backgrounded (`} &`), so its stdout is
+  # orphaned and cannot reach the terminal however the hook is registered —
+  # printing here only looked like a feature. The cache write is the point: the
+  # NEXT session start renders from it, synchronously, with no network.
 } &
 
 exit 0

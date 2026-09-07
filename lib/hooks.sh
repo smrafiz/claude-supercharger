@@ -319,7 +319,13 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Edit,MultiEdit|${hooks_dir}/lazy-refactor-check.sh|async")
     hooks+=("SessionStart||${hooks_dir}/project-config.sh|")
     hooks+=("SessionStart||${hooks_dir}/scope-guard.sh snapshot|async")
-    hooks+=("SessionStart||${hooks_dir}/update-check.sh|async")
+    # NOT async. An async hook's stdout never reaches the terminal — measured
+    # 2026-09-07: the banner printed correctly and rendered nowhere, while
+    # config-scan.sh and project-config.sh (both SYNC) rendered as
+    # "SessionStart:startup says: ...". Sync costs nothing here: the cache-hit
+    # path is a file read, and the cache-MISS path backgrounds its own network
+    # call, so the foreground never touches the network.
+    hooks+=("SessionStart||${hooks_dir}/update-check.sh|")
     # v2.29.3: Claude Code silently ignores a hook registered on an event it does
     # not know — no fire, no warning, no error (verified on 2.1.240 against a
     # deliberately bogus event name). 18 of the events below carry a version

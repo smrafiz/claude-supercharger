@@ -987,8 +987,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/update-check.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ]
       },
