@@ -2,6 +2,57 @@
 
 ## Contents
 
+- [4.0.32] - 2026-09-07 — fix(update-check): the update banner has never been delivered to anyone
+
+The hook worked. Delivery did not. It ran on every session start, made its
+network call, wrote the cache, took the banner branch — and printed to stderr,
+which SessionStart does not deliver. So no install has ever told its user an
+update exists, for the life of the hook.
+
+PROVEN AGAINST A LIVE INSTALL, not inferred. Installed 4.0.30, remote 4.0.31,
+cache cleared by hand, then a fresh session:
+
+  cache REGENERATED -> 4.0.31, written 107s ago
+  user saw nothing
+
+The cache could only have been rewritten by the hook completing its check, and
+4.0.31 > 4.0.30 could only have taken the banner branch. So the banner was
+produced and discarded.
+
+`async` IS NOT THE CAUSE and stays. It keeps the network call off the
+session-start critical path, which is the whole reason it is there.
+learn-from-blocks.sh is also SessionStart|async, writes its [BLOCKS] summary to
+stdout, and arrives. Same event, same flag, different stream:
+
+  learn-from-blocks.sh   SessionStart|async   stdout   -> arrives
+  update-check.sh        SessionStart|async   stderr   -> discarded
+
+WHY TWELVE GREEN TESTS HID IT. All twelve asserted the banner was PRODUCED, and
+every one captured both streams together, so not one could tell which channel it
+landed on. The new assertions check the CHANNEL, including the control that fails
+if the banner is emitted on BOTH — without it, a "fix" that duplicates output
+would pass. Mutation-checked: reintroducing one `>&2` fails 2 of 4.
+[[diagnostic-must-reach-observer]] — the entry is about exactly this and did not
+prevent it, because nothing enforced it.
+
+SECOND INSTANCE, found by auditing siblings rather than assuming one:
+session-memory-inject.sh's `/memory-prune` nudge was on stderr too, and equally
+undelivered. Its two "injected ..." lines stay on stderr deliberately — those are
+traces, not messages. A blanket stderr ban would have been the wrong fix, which
+is why the survey checked purpose and not just stream: update-check was the only
+SessionStart hook whose entire output was a user message on the wrong channel.
+
+HONEST LIMIT. This moves the banner onto a channel that provably reaches the
+MODEL — that is how [BLOCKS] arrives. Whether it renders in the user's TERMINAL
+is unverified, and those are different observers; conflating them is the mistake
+that made twelve tests green on a dead feature. If the model sees it and the user
+does not, the follow-up is a statusline indicator, which is known-visible. Do not
+record this as "users now see update notices" until someone has looked.
+
+Also fixed by consequence: installs go stale partly because nothing ever told
+them. [[silent-success-tooling]] recorded a 15-version-stale install and blamed
+update.sh comparing the repo to itself. That was one of two independent failures
+stacked; this was the other half.. 5403 tests passing.
 - [4.0.31] - 2026-09-07 — fix(security): two KNOWN-ISSUES narrowings reach users, plus honest perf figures
 
 Four commits have sat on master since v4.0.30, two of them security fixes. The

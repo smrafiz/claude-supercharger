@@ -41,7 +41,10 @@ if [ "$_mp_due" = 1 ]; then
     case "$_mp_n" in ''|*[!0-9]*) _mp_n=0 ;; esac
     if [ "$_mp_n" -gt 0 ]; then
       _mp_word="entries"; [ "$_mp_n" = 1 ] && _mp_word="entry"
-      echo "[MEM] $_mp_n resolved memory $_mp_word still loading each session — run /memory-prune to archive." >&2
+      # stdout, not stderr: this is a user NUDGE, and SessionStart stderr is not
+      # delivered (see hooks/update-check.sh). The two "injected ..." diagnostics
+      # below stay on stderr on purpose — they are traces, not messages.
+      echo "[MEM] $_mp_n resolved memory $_mp_word still loading each session — run /memory-prune to archive."
     fi
     touch "$_MP_FLAG" 2>/dev/null || true
   fi

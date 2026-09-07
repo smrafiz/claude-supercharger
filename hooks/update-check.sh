@@ -2,6 +2,22 @@
 # Claude Supercharger — Session Start Update Check
 # Event: SessionStart | Matcher: (none)
 # Checks for updates once per day and prints a banner if one is available.
+#
+# The banner goes to STDOUT, and that is the whole feature. It was on stderr for
+# the life of the hook and therefore was never delivered to anyone — the check
+# ran, the network call completed, the cache was written, the comparison took the
+# banner branch, and the output went nowhere. Proven on 2026-09-07 against a live
+# install: cache regenerated to 4.0.31 against an installed 4.0.30, and the user
+# saw nothing.
+#
+# `async` is NOT the cause and must stay — it keeps the network call off the
+# session-start critical path. learn-from-blocks.sh is also SessionStart|async,
+# writes its [BLOCKS] summary to stdout, and arrives. Same event, same flag,
+# different stream: one is delivered, one is not.
+#
+# Twelve tests asserted the banner was PRODUCED. None asserted which stream it
+# landed on, so all twelve passed while the feature did nothing.
+# [[diagnostic-must-reach-observer]]
 
 set -euo pipefail
 
@@ -63,10 +79,10 @@ if [ -f "$CACHE_FILE" ]; then
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     REMOTE=$(cat "$CACHE_FILE")
     if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
-      echo "╔══════════════════════════════════════════════╗" >&2
-      echo "║  Supercharger update: v${LOCAL} → v${REMOTE}" >&2
-      echo "║  Run: bash ~/.claude/supercharger/tools/update.sh" >&2
-      echo "╚══════════════════════════════════════════════╝" >&2
+      echo "╔══════════════════════════════════════════════╗"
+      echo "║  Supercharger update: v${LOCAL} → v${REMOTE}"
+      echo "║  Run: bash ~/.claude/supercharger/tools/update.sh"
+      echo "╚══════════════════════════════════════════════╝"
     fi
     exit 0
   fi
@@ -93,10 +109,10 @@ except Exception:
   [ -n "$REMOTE" ] && echo "$REMOTE" > "$CACHE_FILE"
 
   if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
-    echo "╔══════════════════════════════════════════════╗" >&2
-    echo "║  Supercharger update: v${LOCAL} → v${REMOTE}" >&2
-    echo "║  Run: bash ~/.claude/supercharger/tools/update.sh" >&2
-    echo "╚══════════════════════════════════════════════╝" >&2
+    echo "╔══════════════════════════════════════════════╗"
+    echo "║  Supercharger update: v${LOCAL} → v${REMOTE}"
+    echo "║  Run: bash ~/.claude/supercharger/tools/update.sh"
+    echo "╚══════════════════════════════════════════════╝"
   fi
 } &
 

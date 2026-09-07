@@ -66,4 +66,40 @@ teardown_test_home
 # Background fetch shouldn't block past a few seconds
 [ "$((END - START))" -lt 6 ] && pass || fail "stale path blocked too long: $((END - START))s"
 
+# --- v4.0.32: the banner must land on STDOUT ---------------------------------
+# For the life of this hook the banner went to stderr and was never delivered to
+# anyone. The check ran, the network call completed, the cache was written, the
+# comparison took the banner branch — and the output went nowhere. Proven on
+# 2026-09-07 against a live install: the cache regenerated to 4.0.31 against an
+# installed 4.0.30 and the user saw nothing.
+#
+# Twelve tests above assert the banner is PRODUCED. Every one of them captured
+# both streams together, so all twelve passed while the feature did nothing.
+# That is the whole lesson: assert the CHANNEL, not just the content.
+# [[diagnostic-must-reach-observer]]
+_UCS_TD=$(mktemp -d); mkdir -p "$_UCS_TD/state"
+printf '4.0.20\n' > "$_UCS_TD/state/.version"
+printf '4.0.31\n' > "$_UCS_TD/state/.update-cache"
+_ucs() { SUPERCHARGER_STATE="$_UCS_TD/state" SUPERCHARGER_HOME="$REPO_DIR" \
+           bash "$REPO_DIR/hooks/update-check.sh" "$@"; }
+
+begin_test "update-check: the banner is on STDOUT"
+[ -n "$(_ucs 2>/dev/null)" ] && pass || fail "nothing on stdout — the banner is undeliverable"
+
+begin_test "update-check: and NOT on stderr"
+# The control. Without it the test above also passes when the banner is on both.
+[ -z "$(_ucs 2>&1 1>/dev/null)" ] && pass || fail "still writing to stderr, which SessionStart does not deliver"
+
+begin_test "update-check: no stderr writes remain in the source"
+! grep -q '>&2' "$REPO_DIR/hooks/update-check.sh" && pass \
+  || fail "a >&2 came back — SessionStart stderr is not delivered"
+rm -rf "$_UCS_TD"
+
+begin_test "the /memory-prune nudge is a nudge, not a trace, so it is on stdout"
+# Second instance of the same defect, found by auditing siblings rather than
+# assuming one. The two "injected ..." lines in that hook stay on stderr on
+# purpose — they are traces. A blanket stderr ban would be the wrong fix.
+grep -q 'run /memory-prune to archive\."$' "$REPO_DIR/hooks/session-memory-inject.sh" && pass \
+  || fail "the memory-prune nudge is back on stderr"
+
 report
