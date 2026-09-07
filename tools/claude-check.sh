@@ -606,4 +606,95 @@ else
   echo -e "  ${YELLOW}○${NC} No session data (${PROJECTS_BASE} not found)"
 fi
 echo ""
+
+# ── Delivery & Integrity ──────────────────────────────────────────────────────
+# Four checks, each earned by a defect that shipped. Everything above this point
+# trusts the version stamp; these do not, because the stamp is what lied.
+echo ""
+echo -e "${BLUE}Delivery & Integrity:${NC}"
+
+_DOC_STATE="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}"
+_DOC_UPDATE="none"
+_DOC_INTEGRITY="ok"
+_DOC_STATE_MODE="?"
+
+# 1. Does the DEPLOYED tree match the version it claims?
+#    update.sh once compared the repo to itself and reported success while
+#    deploying nothing — a 15-version-stale install with a correct-looking
+#    stamp. Every other check here trusts that stamp, so verify it first.
+_doc_stamp=$(cat "$_DOC_STATE/.version" 2>/dev/null || echo "")
+_doc_code=$(grep -m1 '^VERSION=' "$_DOC_STATE/lib/utils.sh" 2>/dev/null | tr -d '"' | cut -d= -f2 || echo "")
+if [ -z "$_doc_stamp" ] || [ -z "$_doc_code" ]; then
+  echo -e "  ${YELLOW}○${NC} Install integrity — cannot read version stamp or lib/utils.sh"
+  _DOC_INTEGRITY="unknown"
+elif [ "$_doc_stamp" = "$_doc_code" ]; then
+  echo -e "  ${GREEN}✓${NC} Install integrity — stamp and deployed code agree (v${_doc_stamp})"
+else
+  echo -e "  ${RED}✗${NC} Install integrity — stamp says v${_doc_stamp}, deployed code is v${_doc_code}"
+  echo -e "      ${CYAN}A partial update. Re-run: /sc-update${NC}"
+  ERRORS=$((ERRORS + 1)); _DOC_INTEGRITY="MISMATCH"
+fi
+
+# 2. Do the user-facing SessionStart hooks use a channel that RENDERS?
+#    Raw stdout from a SessionStart hook is never shown in the terminal; the
+#    channel that produces "SessionStart:startup says: ..." is systemMessage.
+#    The update notice sat on the wrong one for its entire life while twelve
+#    tests asserted it "printed".
+_doc_mute=""
+for _doc_h in config-scan project-config version-floor-check update-check guard-registration-check; do
+  _doc_f="$_DOC_STATE/hooks/$_doc_h.sh"
+  [ -f "$_doc_f" ] || continue
+  grep -q 'systemMessage' "$_doc_f" || _doc_mute="$_doc_mute $_doc_h"
+done
+if [ -z "$_doc_mute" ]; then
+  echo -e "  ${GREEN}✓${NC} Session notices use a channel that renders (systemMessage)"
+else
+  echo -e "  ${RED}✗${NC} Session notices that can never be seen:${_doc_mute}"
+  ERRORS=$((ERRORS + 1)); _DOC_INTEGRITY="mute-hooks"
+fi
+
+# 3. At-rest permissions on the state tree.
+#    It inherited the umask until v4.0.35 — 0755 under the common default.
+#    Never chmod through a symlink; report and leave it to the target's owner.
+_doc_bad_mode=""
+for _doc_d in "$_DOC_STATE" "$_DOC_STATE/scope"; do
+  [ -d "$_doc_d" ] || continue
+  if [ -L "$_doc_d" ]; then continue; fi
+  case "$(ls -ld "$_doc_d" 2>/dev/null)" in
+    drwx------*) ;;
+    *) _doc_bad_mode="$_doc_bad_mode $(basename "$_doc_d")" ;;
+  esac
+done
+_DOC_STATE_MODE=$(ls -ld "$_DOC_STATE" 2>/dev/null | awk '{print substr($1,2,9)}')
+if [ -z "$_doc_bad_mode" ]; then
+  echo -e "  ${GREEN}✓${NC} State directory is private (0700)"
+else
+  echo -e "  ${YELLOW}!${NC} State directory is readable by other local users:${_doc_bad_mode}"
+  echo -e "      ${CYAN}Harmless alone on a single-user machine; not on a shared host or CI runner. Fix: /sc-update${NC}"
+fi
+
+# 4. Version drift. Read the cache rather than the network: a doctor that hangs
+#    on a slow connection is a doctor nobody runs twice.
+_doc_remote=$(cat "$_DOC_STATE/.update-cache" 2>/dev/null || echo "")
+if [ -n "$_doc_remote" ] && [ -n "$_doc_stamp" ] && [ "$_doc_remote" != "$_doc_stamp" ]; then
+  echo -e "  ${YELLOW}!${NC} Update available: v${_doc_stamp} → v${_doc_remote} — run /sc-update"
+  _DOC_UPDATE="v${_doc_remote}"
+elif [ -n "$_doc_remote" ]; then
+  echo -e "  ${GREEN}✓${NC} Up to date (v${_doc_stamp})"
+else
+  echo -e "  ${YELLOW}○${NC} Update status unknown — no check has run yet this day"
+  _DOC_UPDATE="unknown"
+fi
+
+# ── One-line verdict ──────────────────────────────────────────────────────────
+# The point of this line: a colleague can paste it back. They cannot read the
+# report above, and a report nobody can act on is a report nobody runs.
+echo ""
+echo -e "${BOLD}Paste this if you are asking for help:${NC}"
+# HOOK_COUNT is what is actually registered; HOOK_STAMP is what the install
+# recorded that it wrote. A shortfall between them is the partial-registration
+# case the Hooks section above already detects — surfaced here so the pasted
+# line carries it too.
+echo "  Supercharger ${_doc_stamp:-?} · hooks ${HOOK_COUNT:-?}/${HOOK_STAMP:-${HOOK_COUNT:-?}} · state ${_DOC_STATE_MODE:-?} · update ${_DOC_UPDATE} · integrity ${_DOC_INTEGRITY} · errors ${ERRORS}"
+
 echo -e "For full capability overview: ${BOLD}bash tools/supercharger.sh${NC}"

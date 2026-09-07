@@ -371,4 +371,46 @@ grep -q 'chmod 700 "\$_sc_secure_dir"' "$REPO_DIR/install.sh" \
   && grep -q 'if \[ -L "\$_sc_secure_dir" \]' "$REPO_DIR/install.sh" && pass \
   || fail "install.sh does not secure the state dir, or does it through symlinks"
 
+# --- v4.0.37: the doctor's Delivery & Integrity checks -----------------------
+# claude-check.sh trusted the version stamp everywhere. These four checks do not,
+# because the stamp is exactly what lied when update.sh compared the repo to
+# itself and reported success while deploying nothing ([[silent-success-tooling]]).
+_DOC="$REPO_DIR/tools/claude-check.sh"
+
+begin_test "doctor: verifies the deployed code against the version stamp"
+grep -q '_doc_code=' "$_DOC" && grep -q 'Install integrity' "$_DOC" && pass \
+  || fail "no stamp-vs-code check — every other check trusts the stamp"
+
+begin_test "doctor: checks session notices are on a channel that renders"
+# Raw stdout from a SessionStart hook is never shown; systemMessage is.
+grep -q 'Session notices use a channel that renders' "$_DOC" && pass \
+  || fail "a muted user-facing hook would look healthy"
+
+begin_test "doctor: checks state-directory permissions, and skips symlinks"
+grep -q 'State directory is private' "$_DOC" && grep -q 'if \[ -L "\$_doc_d" \]' "$_DOC" \
+  && pass || fail "missing the permissions check, or it follows symlinks"
+
+begin_test "doctor: reads the update cache rather than the network"
+# A doctor that hangs on a slow connection is a doctor nobody runs twice.
+grep -q '_doc_remote=$(cat "$_DOC_STATE/.update-cache"' "$_DOC" \
+  && ! grep -qE 'curl|wget|urlopen' "$_DOC" && pass \
+  || fail "the doctor makes a network call"
+
+begin_test "doctor: prints ONE pasteable verdict line"
+# The deliverable for a colleague who cannot read the report.
+grep -q 'Paste this if you are asking for help' "$_DOC" && pass \
+  || fail "no verdict line — a report nobody can act on is a report nobody runs"
+
+begin_test "doctor: the verdict uses colours this script actually defines"
+# DIM is a statusline variable; using it here died on `unbound variable` under
+# set -u, AFTER three checks had already printed. Caught by running it, not by
+# reading it.
+! grep -q '\${DIM}' "$_DOC" && pass || fail "\$DIM is not defined in claude-check.sh"
+
+begin_test "/sc-doctor exists in BOTH the source and the generated plugin copy"
+# commands/ is generated from configs/commands/; editing one and not the other
+# is a standing trap in this repo.
+[ -f "$REPO_DIR/configs/commands/sc-doctor.md" ] && [ -f "$REPO_DIR/commands/doctor.md" ] \
+  && pass || fail "command missing from source or generated copy"
+
 report

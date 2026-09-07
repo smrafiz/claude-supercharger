@@ -369,6 +369,7 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 | `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
 | `/profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
 | `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
+| `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
 
 **Workflow:**
 

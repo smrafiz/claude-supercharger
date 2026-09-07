@@ -51,6 +51,7 @@ Claude Supercharger — Slash Commands
     /trust-mcp      Trust an MCP server to request credentials via Elicitation forms
     /supercharger   This screen — pass a situation to route instead of browse
     /sc-update      Check for and apply Supercharger updates
+    /sc-doctor      Diagnose the install — registration, integrity, permissions, update status
 ```
 
 Then add one line: `Tip: /supercharger <what you're trying to do> routes you instead.`
@@ -104,6 +105,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "force a full re-check" | `/cache-clear` | `/cache-stats` first |
 | "an MCP server wants my credentials" | `/trust-mcp` | |
 | "update Supercharger" | `/sc-update` | |
+| "is my install healthy", "did something break", "guards don't seem to run" | `/sc-doctor` | Ends with one pasteable line — ask for that when helping someone remotely |
 
 ### If the situation is a whole JOB, not a single step — return a sequence
 
