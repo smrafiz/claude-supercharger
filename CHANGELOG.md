@@ -2,6 +2,66 @@
 
 ## Contents
 
+- [4.0.35] - 2026-09-07 — fix(state): the state tree inherited the umask, and the update notice pointed at a shell path
+
+Two user-facing fixes, both small, both about what people actually receive.
+
+1. AT-REST PERMISSIONS ON THE STATE TREE
+
+Nothing in the codebase set a mode on ~/.claude/supercharger, so it inherited
+whatever the user's umask gave it. Measured 2026-09-06:
+
+  umask 022 (the common default)  ->  drwxr-xr-x   world-readable
+  umask 077                       ->  drwx------
+
+The live install's root sitting at 0700 was an accident of how it was created;
+scope/ inside it was 0755. Contents are the blocked-command ledger, handoff
+briefs, tool history and subagent reports — no credentials, since event-logger
+redacts through the shared SECRET_PATTERNS — but the user's working context.
+Harmless on a single-user laptop. Not harmless on a shared host, a CI runner or
+a multi-user container.
+
+install.sh now sets 0700 at install time. guard-registration-check.sh is the
+repair path for installs that never re-run the installer, and it is there rather
+than in lib-paths.sh ON PURPOSE: 21 hooks source lib-paths on hot paths and would
+each pay a syscall, while this hook is SessionStart, so the cost is once per
+session — and it returns early when the mode is already correct.
+
+NEVER THROUGH A SYMLINK. chmod follows symlinks, so a state dir pointing at a
+synced or shared folder would have someone ELSE's directory silently retightened.
+Both call sites detect the link and leave it to the owner. Verified both
+directions:
+
+  0755 state tree   ->  drwx------ / drwx------
+  symlinked state   ->  target stays drwxr-xr-x, untouched
+
+Source: akasecurity/ai-tc's SECURITY.md documents the same limit in its own
+store. Its README does not; that is where the first pass stopped and found
+nothing.
+
+2. THE UPDATE NOTICE POINTS AT /sc-update
+
+The notice is only ever seen INSIDE a Claude Code session, where the slash
+command exists and handles the non-interactive flag itself. Telling the reader to
+shell out to a path is worse advice in the one context they are guaranteed to be
+in. guard-registration-check's "NOT PROTECTING THIS SESSION" message carried the
+same shell path and is fixed with it — same context, same argument.
+
+update.sh --check keeps the `bash ... --yes` form deliberately: that output only
+appears when someone is already in a terminal running the script directly, where
+a slash command does not exist.
+
+Tests: 3 for the permissions work (tighten, symlink-safety, install.sh parity)
+and 1 asserting the notice names /sc-update. The stream-and-field assertions
+added in v4.0.34 survived the wording change untouched, which is the point of
+asserting the channel rather than the words.
+
+Suite 5413/0. Shellcheck clean at CI severity.
+
+VERIFIED THIS TIME, unlike the three releases before it: the update notice was
+confirmed rendering on screen in a live resumed session —
+"SessionStart:startup says: [Supercharger] Update available: v4.0.34 → v4.0.35".
+Resumed sessions were never the problem.. 5413 tests passing.
 - [4.0.34] - 2026-09-07 — fix(update-check): use the channel that actually renders — systemMessage
 
 Third attempt at this, and the first with the right layer. Raw stdout from a

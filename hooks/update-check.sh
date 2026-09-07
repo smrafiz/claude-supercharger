@@ -89,7 +89,11 @@ if [ -f "$CACHE_FILE" ]; then
       #
       # printf, not python3: the payload is two version strings and a fixed path,
       # so there is nothing to escape and nothing to fork for.
-      printf '{"systemMessage":"[Supercharger] Update available: v%s → v%s · run: bash ~/.claude/supercharger/tools/update.sh"}\n' \
+      # /sc-update, not the shell path. This notice is only ever seen INSIDE a
+      # Claude Code session, where the slash command exists and handles the
+      # non-interactive flag itself. Telling the reader to shell out to a path
+      # is worse advice in the one context they are guaranteed to be in.
+      printf '{"systemMessage":"[Supercharger] Update available: v%s → v%s · run /sc-update"}\n' \
         "$LOCAL" "$REMOTE"
     fi
     exit 0

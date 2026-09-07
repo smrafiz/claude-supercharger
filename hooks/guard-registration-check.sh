@@ -47,6 +47,26 @@ cat >/dev/null 2>&1 || true
 # before, so the discriminator is checked FIRST and exits before any file read.
 [ -n "${CLAUDE_PLUGIN_ROOT:-}" ] && exit 0
 
+# --- at-rest permissions repair (v4.0.35) ------------------------------------
+# install.sh sets 0700 on the state tree, but an install that never re-runs it
+# keeps whatever the user's umask gave it — 0755 under the common default. This
+# is the repair path for those, and it lives HERE rather than in lib-paths.sh
+# because 21 hooks source that on hot paths and would each pay a syscall; this
+# hook is SessionStart, so the cost is once per session.
+#
+# Never through a symlink: chmod follows them, so a state dir pointing at a
+# synced folder would have someone else's directory silently retightened.
+_grc_secure() {
+  [ -d "$1" ] || return 0
+  [ -L "$1" ] && return 0
+  case "$(ls -ld "$1" 2>/dev/null)" in
+    drwx------*) return 0 ;;                 # already correct, no syscall wasted
+    *) chmod 700 "$1" 2>/dev/null || true ;;
+  esac
+}
+_grc_secure "${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}"
+_grc_secure "${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
+
 SETTINGS="$HOME/.claude/settings.json"
 
 # Fail open, not closed: an unreadable settings.json is not evidence of a
@@ -108,7 +128,7 @@ case "$_GRC_BODY" in
         return 1
       }
       _grc_ge_401 "$_GRC_VER" || exit 0
-      printf '{"systemMessage":"[Supercharger] CANNOT VERIFY PROTECTION. Hooks are registered, but ~/.claude/supercharger/.registration-count is missing, so there is no baseline to compare against and PARTIAL registration loss would go unnoticed. Version %s writes that stamp at install time, so its absence means an interrupted install or a deleted file — not an old one. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+      printf '{"systemMessage":"[Supercharger] CANNOT VERIFY PROTECTION. Hooks are registered, but ~/.claude/supercharger/.registration-count is missing, so there is no baseline to compare against and PARTIAL registration loss would go unnoticed. Version %s writes that stamp at install time, so its absence means an interrupted install or a deleted file — not an old one. Fix: run /sc-update  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
         "$_GRC_VER"
       exit 0
     fi
@@ -201,13 +221,13 @@ EOF
         exit 0
       fi
       if [ "$_GRC_MISSING" -gt 0 ]; then
-        printf '{"systemMessage":"[Supercharger] %s REGISTERED HOOK FILE(S) MISSING. settings.json still lists them and the count looks correct, but the files are gone from disk (first: %s), so those guards are not running and nothing else reports it. Usually a partial install or update. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+        printf '{"systemMessage":"[Supercharger] %s REGISTERED HOOK FILE(S) MISSING. settings.json still lists them and the count looks correct, but the files are gone from disk (first: %s), so those guards are not running and nothing else reports it. Usually a partial install or update. Fix: run /sc-update  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
           "$_GRC_MISSING" "$_GRC_FIRST"
       fi
       exit 0
     fi
 
-    printf '{"systemMessage":"[Supercharger] PARTIAL PROTECTION. %s of %s registrations are present in ~/.claude/settings.json — the rest are gone, so those guards are not running. A /sc off followed by /sc on before v4.0.0 could restore entries in a shape Claude Code ignores. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
+    printf '{"systemMessage":"[Supercharger] PARTIAL PROTECTION. %s of %s registrations are present in ~/.claude/settings.json — the rest are gone, so those guards are not running. A /sc off followed by /sc on before v4.0.0 could restore entries in a shape Claude Code ignores. Fix: run /sc-update  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n' \
       "$_GRC_HAVE" "$_GRC_WANT"
     exit 0
     ;;
@@ -217,6 +237,6 @@ esac
 # systemMessage rather than stderr: a hook's stderr lands in the debug log as an
 # unhandled line, while stdout JSON is parsed and shown to the user — verified
 # against a live build when version-floor-check was written.
-printf '{"systemMessage":"[Supercharger] NOT PROTECTING THIS SESSION. No Supercharger hooks are registered in ~/.claude/settings.json, so no guard is running: destructive commands, credential leaks and path violations are all unguarded right now. This usually means an interrupted install or update. Fix: bash ~/.claude/supercharger/tools/update.sh --yes  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n'
+printf '{"systemMessage":"[Supercharger] NOT PROTECTING THIS SESSION. No Supercharger hooks are registered in ~/.claude/settings.json, so no guard is running: destructive commands, credential leaks and path violations are all unguarded right now. This usually means an interrupted install or update. Fix: run /sc-update  (or re-run install.sh). Silence: SUPERCHARGER_GUARD_REG_CHECK=0"}\n'
 
 exit 0

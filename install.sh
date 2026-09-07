@@ -558,6 +558,29 @@ echo ""
 echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
 mkdir -p "$HOME/.claude/supercharger/scope"
+
+# --- at-rest permissions on the state directory (v4.0.35) --------------------
+# Nothing set a mode here, so the state tree inherited the user's umask: 0755
+# under the common default, 0700 only under a restrictive one. Measured
+# 2026-09-06 — umask 022 gives drwxr-xr-x, umask 077 gives drwx------. The
+# contents are the blocked-command ledger, handoff briefs, tool history and
+# subagent reports: no credentials (event-logger redacts), but the user's
+# working context. Harmless on a single-user laptop; readable by any local user
+# on a shared host, a CI runner or a multi-user container.
+#
+# NOT applied through a symlink, deliberately. chmod follows symlinks, so if the
+# state dir points at a synced folder (Dropbox, iCloud, a shared mount) this
+# would silently retighten someone else's directory. Say so instead and leave it
+# to the owner. Borrowed from akasecurity/ai-tc's SECURITY.md, which documents
+# the same limit in its own store.
+for _sc_secure_dir in "$HOME/.claude/supercharger" "$HOME/.claude/supercharger/scope"; do
+  if [ -L "$_sc_secure_dir" ]; then
+    echo -e "  ${YELLOW}!${NC} $_sc_secure_dir is a symlink — leaving its permissions to the target's owner"
+  else
+    chmod 700 "$_sc_secure_dir" 2>/dev/null || true
+  fi
+done
+unset _sc_secure_dir
 echo "$MCP_PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
 echo "$SELECTED_TIER" > "$HOME/.claude/supercharger/scope/.economy-tier"
 

@@ -334,4 +334,41 @@ PY
 [ "$(_warns "$H")" = "silent" ] && pass || fail "flagged an interpreter-invoked hook"
 rm -rf "$H"
 
+# --- v4.0.35: at-rest permissions on the state tree --------------------------
+# Nothing in the codebase set a mode, so the state tree inherited the user's
+# umask. Measured 2026-09-06: umask 022 -> drwxr-xr-x, umask 077 -> drwx------.
+# Contents are the blocked-command ledger, handoff briefs, tool history and
+# subagent reports — no credentials (event-logger redacts), but working context.
+# Harmless on a single-user laptop, readable by any local user on a shared host,
+# CI runner or multi-user container.
+#
+# install.sh fixes it at install time; this hook is the repair path for installs
+# that never re-run it. It lives here rather than lib-paths.sh because 21 hooks
+# source that on hot paths and would each pay a syscall.
+# Source: akasecurity/ai-tc SECURITY.md, see [[candidate-card-number-luhn]].
+_GRP_HOOK="$REPO_DIR/hooks/guard-registration-check.sh"
+_grp_mode() { ls -ld "$1" 2>/dev/null | awk '{print substr($1,1,10)}'; }
+
+begin_test "a world-readable state tree is tightened to 0700"
+_GRP_T=$(mktemp -d); mkdir -p "$_GRP_T/state/scope"; chmod 755 "$_GRP_T/state" "$_GRP_T/state/scope"
+printf '{"session_id":"p","cwd":"/tmp"}' | SUPERCHARGER_STATE="$_GRP_T/state" bash "$_GRP_HOOK" >/dev/null 2>&1
+[ "$(_grp_mode "$_GRP_T/state")" = "drwx------" ] && [ "$(_grp_mode "$_GRP_T/state/scope")" = "drwx------" ] \
+  && pass || fail "state=$(_grp_mode "$_GRP_T/state") scope=$(_grp_mode "$_GRP_T/state/scope")"
+rm -rf "$_GRP_T"
+
+begin_test "a SYMLINKED state dir leaves the target's permissions alone"
+# chmod follows symlinks, so a state dir pointing at a synced or shared folder
+# would have someone else's directory silently retightened.
+_GRP_R=$(mktemp -d); mkdir -p "$_GRP_R/shared"; chmod 755 "$_GRP_R/shared"
+_GRP_L=$(mktemp -d); rm -rf "$_GRP_L/state"; ln -s "$_GRP_R/shared" "$_GRP_L/state"
+printf '{"session_id":"p","cwd":"/tmp"}' | SUPERCHARGER_STATE="$_GRP_L/state" bash "$_GRP_HOOK" >/dev/null 2>&1
+[ "$(_grp_mode "$_GRP_R/shared")" = "drwxr-xr-x" ] && pass \
+  || fail "chmod went through the symlink: $(_grp_mode "$_GRP_R/shared")"
+rm -rf "$_GRP_R" "$_GRP_L"
+
+begin_test "install.sh sets the mode too, and skips symlinks"
+grep -q 'chmod 700 "\$_sc_secure_dir"' "$REPO_DIR/install.sh" \
+  && grep -q 'if \[ -L "\$_sc_secure_dir" \]' "$REPO_DIR/install.sh" && pass \
+  || fail "install.sh does not secure the state dir, or does it through symlinks"
+
 report

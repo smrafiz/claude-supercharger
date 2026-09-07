@@ -184,4 +184,19 @@ for _h in config-scan project-config version-floor-check update-check; do
 done
 [ -z "$_UCP_BAD" ] && pass || fail "user-facing SessionStart hooks not on the rendering channel:$_UCP_BAD"
 
+begin_test "the notice tells the reader to run /sc-update, not a shell path"
+# The notice is only ever seen INSIDE a Claude Code session, where the slash
+# command exists and handles the non-interactive flag itself. A shell path is
+# worse advice in the one context the reader is guaranteed to be in.
+_UCU_TD=$(mktemp -d); mkdir -p "$_UCU_TD/s"
+printf '1.0.0\n' > "$_UCU_TD/s/.version"; printf '9.9.9\n' > "$_UCU_TD/s/.update-cache"
+_UCU_MSG=$(SUPERCHARGER_STATE="$_UCU_TD/s" SUPERCHARGER_HOME="$REPO_DIR" \
+  bash "$REPO_DIR/hooks/update-check.sh" 2>/dev/null \
+  | python3 -c "import sys,json; print(json.load(sys.stdin)['systemMessage'])" 2>/dev/null)
+rm -rf "$_UCU_TD"
+case "$_UCU_MSG" in
+  *"/sc-update"*) pass ;;
+  *) fail "notice does not point at /sc-update: $_UCU_MSG" ;;
+esac
+
 report
