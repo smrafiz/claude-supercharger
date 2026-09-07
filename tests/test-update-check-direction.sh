@@ -8,7 +8,7 @@
 # the rest of the day:
 #
 #     installed 2.27.20, cached "latest" 2.27.14
-#     ║  Supercharger update: v2.27.20 → v2.27.14
+#     [Supercharger] Update available: v2.27.20 → v2.27.14   (a systemMessage)
 #
 # Found on the development machine, whose install was twenty releases behind while
 # the notifier was technically working — a gate that cries wolf gets ignored, and
@@ -30,7 +30,11 @@ notice_for() {  # $1=installed $2=cached-remote -> the notice line, or empty
   rm -rf "$d"; mkdir -p "$d"
   printf '%s\n' "$1" > "$d/.version"
   printf '%s\n' "$2" > "$d/.update-cache"
-  SUPERCHARGER_STATE="$d" bash "$HOOK" < "$UC/pay.json" 2>&1 | grep -F 'Supercharger update:' || true
+  # v4.0.34: the notice is a systemMessage JSON payload, not a raw banner —
+  # that is the only channel a SessionStart hook renders through. Filter on the
+  # FIELD, so this helper survives wording changes; the callers below still
+  # assert the version numbers inside it, which is what direction means.
+  SUPERCHARGER_STATE="$d" bash "$HOOK" < "$UC/pay.json" 2>&1 | grep -F 'systemMessage' || true
 }
 
 begin_test "silent when the installed version is NEWER than the remote"

@@ -47,7 +47,14 @@ touch "$HOME/.claude/supercharger/.update-cache"
 OUT=$(bash "$HOOK" 2>&1)
 EXIT=$?
 teardown_test_home
-[ "$EXIT" -eq 0 ] && echo "$OUT" | grep -q "Supercharger update" && pass || fail "no banner, exit=$EXIT out=$OUT"
+# v4.0.34: the notice is a systemMessage payload, not a raw banner — that is
+# the only channel a SessionStart hook renders through. Assert the FIELD, not
+# the words, so the test fails if it regresses to an echo.
+[ "$EXIT" -eq 0 ] && printf '%s' "$OUT" | python3 -c "
+import sys, json
+d = json.loads(sys.stdin.read())
+assert 'Update available' in d['systemMessage'], d
+" 2>/dev/null && pass || fail "no systemMessage notice, exit=$EXIT out=$OUT"
 
 begin_test "update-check: cache miss when stale (>24h)"
 setup_test_home
@@ -83,8 +90,8 @@ printf '4.0.31\n' > "$_UCS_TD/state/.update-cache"
 _ucs() { SUPERCHARGER_STATE="$_UCS_TD/state" SUPERCHARGER_HOME="$REPO_DIR" \
            bash "$REPO_DIR/hooks/update-check.sh" "$@"; }
 
-begin_test "update-check: the banner is on STDOUT"
-[ -n "$(_ucs 2>/dev/null)" ] && pass || fail "nothing on stdout — the banner is undeliverable"
+begin_test "update-check: the notice payload is on STDOUT"
+[ -n "$(_ucs 2>/dev/null)" ] && pass || fail "nothing on stdout — the notice is undeliverable"
 
 begin_test "update-check: and NOT on stderr"
 # The control. Without it the test above also passes when the banner is on both.
@@ -136,7 +143,45 @@ PY
 
 begin_test "the backgrounded fetch does not try to print a banner"
 # Its stdout is orphaned by `} &`, so a print there is unreachable either way.
-_UCA=$(sed -n '/^{$/,/^} &$/p' "$REPO_DIR/hooks/update-check.sh" | grep -c 'Supercharger update:')
+# Match any notice wording, not one phrase — a re-added banner with different
+# words would be just as unreachable and just as invisible.
+_UCA=$(sed -n '/^{$/,/^} &$/p' "$REPO_DIR/hooks/update-check.sh" | grep -cE 'systemMessage|Update available|Supercharger update')
 [ "$_UCA" = "0" ] && pass || fail "unreachable banner is back inside the backgrounded block"
+
+# --- v4.0.34: use the channel that actually renders --------------------------
+# Three releases each fixed the wrong layer: stderr -> stdout (v4.0.32), then
+# async -> sync (v4.0.33). Neither rendered, because raw stdout from a
+# SessionStart hook is not shown in the terminal AT ALL. The channel that
+# produces "SessionStart:startup says: ..." is a `systemMessage` JSON field.
+#
+# The proof was a clean A/B inside this repo, same event, all along:
+#   config-scan.sh:369     systemMessage  -> renders
+#   project-config.sh:442  systemMessage  -> renders
+#   update-check.sh        echo           -> did not
+# Nothing asserted the parity, so nothing caught it.
+
+begin_test "the user-facing notice uses systemMessage, like every hook that renders"
+grep -q 'systemMessage' "$REPO_DIR/hooks/update-check.sh" && pass \
+  || fail "back to raw stdout, which SessionStart does not render"
+
+begin_test "and it emits ONE valid JSON object, not a JSON-ish string"
+# A malformed payload is silently dropped, which looks exactly like the bug
+# this whole arc was about.
+_UCJ_TD=$(mktemp -d); mkdir -p "$_UCJ_TD/s"
+printf '1.0.0\n' > "$_UCJ_TD/s/.version"; printf '9.9.9\n' > "$_UCJ_TD/s/.update-cache"
+SUPERCHARGER_STATE="$_UCJ_TD/s" SUPERCHARGER_HOME="$REPO_DIR" \
+  bash "$REPO_DIR/hooks/update-check.sh" 2>/dev/null \
+  | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && pass \
+  || fail "output is not a single valid JSON object"
+rm -rf "$_UCJ_TD"
+
+begin_test "every SessionStart hook that speaks to the USER uses systemMessage"
+# Guard the class, not the instance. A hook whose whole job is a user notice
+# and which echoes instead will never be seen, and nothing else would say so.
+_UCP_BAD=""
+for _h in config-scan project-config version-floor-check update-check; do
+  grep -q 'systemMessage' "$REPO_DIR/hooks/$_h.sh" || _UCP_BAD="$_UCP_BAD $_h"
+done
+[ -z "$_UCP_BAD" ] && pass || fail "user-facing SessionStart hooks not on the rendering channel:$_UCP_BAD"
 
 report

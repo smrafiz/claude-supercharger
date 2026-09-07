@@ -79,10 +79,18 @@ if [ -f "$CACHE_FILE" ]; then
   if [ "$CACHE_AGE" -lt "$CACHE_TTL" ]; then
     REMOTE=$(cat "$CACHE_FILE")
     if [ -n "$REMOTE" ] && _sc_newer_than "$REMOTE" "$LOCAL"; then
-      echo "╔══════════════════════════════════════════════╗"
-      echo "║  Supercharger update: v${LOCAL} → v${REMOTE}"
-      echo "║  Run: bash ~/.claude/supercharger/tools/update.sh"
-      echo "╚══════════════════════════════════════════════╝"
+      # systemMessage, NOT raw stdout. Raw stdout from a SessionStart hook is not
+      # rendered in the terminal at all — measured 2026-09-07 across three
+      # releases that each fixed the wrong layer (stderr -> stdout -> sync).
+      # The channel that renders as "SessionStart:startup says: ..." is this JSON
+      # field, and the proof is a clean A/B inside this repo on the same event:
+      # config-scan.sh:369 and project-config.sh:442 both emit systemMessage and
+      # both render; this hook echoed and did not.
+      #
+      # printf, not python3: the payload is two version strings and a fixed path,
+      # so there is nothing to escape and nothing to fork for.
+      printf '{"systemMessage":"[Supercharger] Update available: v%s → v%s · run: bash ~/.claude/supercharger/tools/update.sh"}\n' \
+        "$LOCAL" "$REMOTE"
     fi
     exit 0
   fi

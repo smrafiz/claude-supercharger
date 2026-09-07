@@ -2,6 +2,60 @@
 
 ## Contents
 
+- [4.0.34] - 2026-09-07 — fix(update-check): use the channel that actually renders — systemMessage
+
+Third attempt at this, and the first with the right layer. Raw stdout from a
+SessionStart hook is not rendered in the terminal AT ALL. The channel that
+produces "SessionStart:startup says: ..." is a `systemMessage` field in a JSON
+payload. The proof was a clean A/B sitting in this repo the whole time, same
+event, same session:
+
+  config-scan.sh:369      systemMessage   -> renders
+  project-config.sh:442   systemMessage   -> renders
+  version-floor-check.sh  systemMessage   -> same channel
+  update-check.sh         echo            -> never rendered, ever
+
+TWO PREVIOUS RELEASES FIXED THE WRONG LAYER, and both were called a root cause
+at the time:
+
+  v4.0.32  stderr -> stdout   could not have worked; stdout is not rendered
+  v4.0.33  async  -> sync     could not have worked either
+
+Each was verified one layer below the one that mattered — the hook produced
+output, the output was on the intended stream, the branch provably fired — and
+none of that is the same as the user seeing a line. I compared the stream and
+then the flag, and never the EMISSION MECHANISM, which is where the difference
+was. Twice I reported a cause on evidence that had only ruled out one candidate.
+
+The fix is one printf: no fork, and the payload is two version strings and a
+fixed path, so there is nothing to escape.
+
+`async -> sync` from v4.0.33 stays. It is defensible on its own — the cache-hit
+path is a file read and the cache-MISS path backgrounds its own network call, so
+the foreground never waits on the network — and churning it back while the real
+fix is unverified would only add a variable.
+
+TESTS. Three new, all mutation-checked (reverting to `echo` fails 2 of them):
+
+  - the notice uses systemMessage
+  - it is ONE VALID JSON object — a malformed payload is silently dropped, which
+    looks identical to the bug this whole arc was about
+  - PARITY across every user-facing SessionStart hook (config-scan,
+    project-config, version-floor-check, update-check). That is the assertion
+    that would have caught this three releases ago: nothing compared the hooks
+    that render against the one that does not.
+
+The full suite then caught three assertions in test-update-check-direction.sh
+coupled to the literal string "Supercharger update:". The direction logic was
+never wrong; the helper filtered on wording. It now filters on the FIELD, so it
+survives rewording while still asserting the version numbers, which is what
+direction means.
+
+Suite 5409/0. Shellcheck clean at CI severity.
+
+STILL UNVERIFIED and deliberately recorded as such: nobody has yet seen the
+notice render. Three releases have now claimed a fix on layer-below evidence. It
+is fixed when someone reports the line on screen, and not before.. 5409 tests passing.
 - [4.0.33] - 2026-09-07 — fix(update-check): an async hook's stdout is never rendered in the terminal
 
 v4.0.32 moved the update banner off stderr and it STILL did not appear. Three
