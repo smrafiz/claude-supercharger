@@ -173,7 +173,7 @@ print(count, inert)
   # designed and docking points for it would train people to ignore this tool.
   OVERRUN_FILE="$HOME/.claude/supercharger/scope/.detect-overruns"
   if [ -r "$OVERRUN_FILE" ]; then
-    OVERRUNS=$(grep -c . "$OVERRUN_FILE" 2>/dev/null | tr -d ' ')
+    OVERRUNS=$(grep -c . "$OVERRUN_FILE" 2>/dev/null | tr -d ' ' || true)
     case "${OVERRUNS:-0}" in
       ''|0|*[!0-9]*) ;;
       *) echo -e "  ${YELLOW}○${NC} Deep scan cut short ${OVERRUNS} time(s) — safety-detect.py hit its ${SUPERCHARGER_DETECT_BUDGET_S:-0.5}s budget and those calls fell back to the regex checks alone. Usually a loaded machine. Raise it with SUPERCHARGER_DETECT_BUDGET_S, or clear the log: rm ${OVERRUN_FILE}" ;;
@@ -268,16 +268,23 @@ fi
 
 # Stack Detection
 echo ""
+# v4.0.38: every substitution below ends `|| true`. A no-match `grep` exits 1,
+# and under this script's `set -euo pipefail` that ABORTS THE WHOLE DIAGNOSTIC
+# mid-report — reported 2026-09-08 from a repo whose stack detects as
+# JavaScript/pnpm/Vite with no framework: the script died here, so the session
+# summaries, the Delivery & Integrity block and the paste-back verdict line never
+# printed at all. A diagnostic that stops early is worse than one that reports a
+# gap, because the reader cannot tell "clean" from "never got there".
 echo -e "${BLUE}Detected Stack:${NC}"
 DETECT_SCRIPT="$HOME/.claude/supercharger/hooks/detect-stack.sh"
 if [ -f "$DETECT_SCRIPT" ]; then
   STACK_OUTPUT=$(bash "$DETECT_SCRIPT" 2>/dev/null || echo "detected=false")
   if echo "$STACK_OUTPUT" | grep -q "detected=true"; then
-    LANG=$(echo "$STACK_OUTPUT" | grep '^language=' | cut -d= -f2-)
-    FW=$(echo "$STACK_OUTPUT" | grep '^framework=' | cut -d= -f2-)
-    PM=$(echo "$STACK_OUTPUT" | grep '^package_manager=' | cut -d= -f2-)
-    TEST_FW=$(echo "$STACK_OUTPUT" | grep '^test_framework=' | cut -d= -f2-)
-    BUILD=$(echo "$STACK_OUTPUT" | grep '^build_tool=' | cut -d= -f2-)
+    LANG=$(echo "$STACK_OUTPUT" | grep '^language=' | cut -d= -f2- || true)
+    FW=$(echo "$STACK_OUTPUT" | grep '^framework=' | cut -d= -f2- || true)
+    PM=$(echo "$STACK_OUTPUT" | grep '^package_manager=' | cut -d= -f2- || true)
+    TEST_FW=$(echo "$STACK_OUTPUT" | grep '^test_framework=' | cut -d= -f2- || true)
+    BUILD=$(echo "$STACK_OUTPUT" | grep '^build_tool=' | cut -d= -f2- || true)
     [ -n "$LANG" ] && echo -e "  ${GREEN}✓${NC} Language: ${BOLD}${LANG}${NC}"
     [ -n "$FW" ] && echo -e "  ${GREEN}✓${NC} Framework: ${BOLD}${FW}${NC}"
     [ -n "$PM" ] && echo -e "  ${GREEN}✓${NC} Package manager: ${BOLD}${PM}${NC}"
@@ -523,8 +530,15 @@ fi
 echo -e "Version: ${BOLD}${VERSION}${NC}"
 echo ""
 
-if [ "$ERRORS" -eq 0 ]; then
+# The verdict must not contradict the score printed three lines above it.
+# "All checks passed ✓" next to 87/100 and Team 0/10 leaves the reader unable to
+# tell a FAULT from an UNCONFIGURED optional feature — and that ambiguity is what
+# makes a summary line stop being read. ERRORS counts things that are broken;
+# the score also counts things merely not set up. Say which is which.
+if [ "$ERRORS" -eq 0 ] && [ "$TOTAL_SCORE" -ge 100 ]; then
   echo -e "${GREEN}All checks passed ✓${NC}"
+elif [ "$ERRORS" -eq 0 ]; then
+  echo -e "${GREEN}No faults found ✓${NC}  ${YELLOW}(score ${TOTAL_SCORE}/100 — optional features not configured, nothing is broken)${NC}"
 else
   echo -e "${RED}${ERRORS} issue(s) found. Fix: run /sc-update${NC}"
 fi
@@ -700,6 +714,6 @@ echo -e "${BOLD}Paste this if you are asking for help:${NC}"
 # recorded that it wrote. A shortfall between them is the partial-registration
 # case the Hooks section above already detects — surfaced here so the pasted
 # line carries it too.
-echo "  Supercharger ${_doc_stamp:-?} · hooks ${HOOK_COUNT:-?}/${HOOK_STAMP:-${HOOK_COUNT:-?}} · state ${_DOC_STATE_MODE:-?} · update ${_DOC_UPDATE} · integrity ${_DOC_INTEGRITY} · errors ${ERRORS}"
+echo "  Supercharger ${_doc_stamp:-?} · hooks ${HOOK_COUNT:-?}/${HOOK_STAMP:-${HOOK_COUNT:-?}} · state ${_DOC_STATE_MODE:-?} · update ${_DOC_UPDATE} · integrity ${_DOC_INTEGRITY} · score ${TOTAL_SCORE:-?}/100 · errors ${ERRORS}"
 
 echo -e "For full capability overview: ${BOLD}bash tools/supercharger.sh${NC}"

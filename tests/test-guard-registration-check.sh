@@ -505,4 +505,59 @@ else
   fail "stamp=$_STM_STAMP check=$_STM_CHECK (whole-file would be $_STM_WHOLE)"
 fi
 
+# --- v4.0.39: the diagnostic must REACH its verdict ---------------------------
+# Reported 2026-09-08 from a repo detecting as JavaScript/pnpm/Vite with no
+# framework: claude-check.sh died at "Detected Stack:". Under `set -euo pipefail`
+# a no-match `grep` exits 1, and `FW=$(... | grep '^framework=' ...)` therefore
+# aborted the whole script — so the session summaries, the Delivery & Integrity
+# block and the paste-back verdict line never printed.
+#
+# A diagnostic that stops early is worse than one reporting a gap: the reader
+# cannot tell "clean" from "never got there". Six substitutions had this shape.
+_ABT_mkhome() {  # fake HOME whose detect-stack emits NO framework= line
+  local h; h=$(mktemp -d)
+  mkdir -p "$h/.claude/supercharger/hooks" "$h/.claude/supercharger/scope" "$h/.claude/rules"
+  cp -R "$REPO_DIR/hooks/." "$h/.claude/supercharger/hooks/" 2>/dev/null
+  cp -R "$REPO_DIR/lib" "$h/.claude/supercharger/lib" 2>/dev/null
+  printf '9.9.9\n' > "$h/.claude/supercharger/.version"
+  printf '{"hooks":{}}\n' > "$h/.claude/settings.json"
+  {
+    printf '#!/usr/bin/env bash\n'
+    printf 'echo "detected=true"\n'
+    printf 'echo "language=JavaScript"\n'
+    printf 'echo "package_manager=pnpm"\n'
+  } > "$h/.claude/supercharger/hooks/detect-stack.sh"
+  chmod +x "$h/.claude/supercharger/hooks/detect-stack.sh"
+  printf '%s' "$h"
+}
+
+begin_test "claude-check reaches its verdict when the stack has no framework"
+_ABT_H=$(_ABT_mkhome)
+_ABT_OUT=$(cd /tmp && HOME="$_ABT_H" bash "$REPO_DIR/tools/claude-check.sh" 2>&1)
+rm -rf "$_ABT_H"
+case "$_ABT_OUT" in
+  *"Paste this if you are asking for help"*) pass ;;
+  *) fail "aborted before the verdict; last line: $(printf '%s' "$_ABT_OUT" | tail -1 | cut -c1-60)" ;;
+esac
+
+begin_test "no substitution in claude-check can abort it on a no-match grep"
+# Guard the class, not the one line the report named.
+_ABT_BAD=$(grep -nE '^[[:space:]]*[A-Za-z_][A-Za-z0-9_]*=\$\(.*grep' "$REPO_DIR/tools/claude-check.sh" \
+  | grep -v '||' | wc -l | tr -d ' ')
+[ "$_ABT_BAD" = "0" ] && pass || fail "$_ABT_BAD unguarded grep substitution(s) under set -e"
+
+# --- the verdict must not contradict the score it just printed ----------------
+# "All checks passed ✓" beside 87/100 and Team 0/10 leaves the reader unable to
+# separate a FAULT from an UNCONFIGURED optional feature. ERRORS counts broken
+# things; the score also counts things merely not set up.
+begin_test "a non-perfect score with no errors says 'No faults found', not 'All checks passed'"
+grep -q 'No faults found' "$REPO_DIR/tools/claude-check.sh" \
+  && grep -q 'ERRORS" -eq 0 \] && \[ "$TOTAL_SCORE" -ge 100' "$REPO_DIR/tools/claude-check.sh" \
+  && pass || fail "the verdict does not distinguish faults from unconfigured features"
+
+begin_test "the pasteable line carries the score, not just the error count"
+# errors 0 alone hides a 40/100 install from whoever is helping remotely.
+grep -q 'score ${TOTAL_SCORE:-?}/100' "$REPO_DIR/tools/claude-check.sh" \
+  && pass || fail "score missing from the verdict line"
+
 report

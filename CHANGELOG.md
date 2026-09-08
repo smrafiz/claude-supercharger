@@ -2,6 +2,51 @@
 
 ## Contents
 
+- [4.0.39] - 2026-09-08 — fix(doctor): the diagnostic aborted before its verdict, and the verdict contradicted its own score
+
+Both reported from real /sc-doctor runs in another session, one day after the
+command shipped. The tool built to check delivery keeps finding defects in
+itself, which is the correct outcome and not a comfortable one.
+
+1. THE DIAGNOSTIC DIED MID-REPORT.
+
+In a repo detecting as JavaScript/pnpm/Vite with no framework, claude-check.sh
+exited 1 at "Detected Stack:". Under `set -euo pipefail` a no-match `grep` exits
+1, so
+
+    FW=$(echo "$STACK_OUTPUT" | grep '^framework=' | cut -d= -f2-)
+
+aborted the whole script. Everything after that point — session summaries, the
+Delivery & Integrity block, and the paste-back verdict line that is the entire
+point of /sc-doctor — never printed. Reproduced against a fake HOME whose
+detect-stack emits no framework line:
+
+    HEAD    exit=1   dies at "Detected Stack:"   verdict MISSING
+    fixed   exit=0   verdict PRINTED
+
+SIX substitutions had that shape, not the one the report named. A diagnostic
+that stops early is worse than one reporting a gap: the reader cannot tell
+"clean" from "never got there". There is now an end-to-end test on a partial
+stack plus a scanner assertion, so a seventh unguarded substitution fails the
+suite rather than someone's session.
+
+The reporter's suggested next action — /sc-update — would NOT have helped: the
+bug was in the shipped script, so every version had it. Their fallback read
+("if the abort survives the update, the greps need || true") was exactly right.
+
+2. THE VERDICT CONTRADICTED THE SCORE THREE LINES ABOVE IT.
+
+"All checks passed ✓" printed beside `Health Score: 87/100` and `Team 0/10`.
+ERRORS counts what is BROKEN; the score also counts what is merely NOT SET UP,
+and the summary line collapsed the two. A reader cannot act on that, and a
+summary nobody can act on stops being read. Now:
+
+    No faults found ✓  (score 87/100 — optional features not configured, nothing is broken)
+
+The pasteable line carries the score too, because `errors 0` alone hides a
+40/100 install from whoever is helping remotely.
+
+Suite 5438/0. Shellcheck clean at CI severity.. 5438 tests passing.
 - [4.0.38] - 2026-09-08 — fix(install): "3 registrations MISSING" was a standing false alarm on every install
 
 The stamp and the check were never the same metric.
