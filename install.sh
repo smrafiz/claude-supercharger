@@ -592,9 +592,34 @@ echo "$SELECTED_TIER" > "$HOME/.claude/supercharger/scope/.economy-tier"
 # total-absence case it caught before — 1-of-154 registered used to be silent.
 # Written last, after every settings write (hooks, statusLine, MCP), and with the
 # same expression the check uses, so the two are always the same metric.
+# v4.0.38: count tags INSIDE .hooks only. The old expression grepped the whole
+# file, so it also counted the statusLine tag and one per MCP server — on a
+# standard install that is 162 against 159 real hook registrations, and the check
+# reported "3 registration(s) MISSING" on a perfectly healthy machine, forever.
+# v4.0.37 then made every red mark increment ERRORS, which promoted that standing
+# false alarm to a hard error and a non-zero exit.
+#
+# The comment here used to claim "the same expression the check uses". It was not,
+# and nothing compared them — so the claim survived while being false. There is a
+# test now that runs both metrics against one settings.json and requires equality.
+#
+# If python3 cannot produce a number, write NO stamp rather than a wrong one: the
+# check treats a missing stamp as "completeness unverified", which is honest,
+# whereas a wrong stamp is a permanent false alarm.
 if [ -r "$HOME/.claude/settings.json" ]; then
-  grep -o -- '#supercharger' "$HOME/.claude/settings.json" 2>/dev/null | wc -l | tr -d ' ' \
-    > "$HOME/.claude/supercharger/.registration-count" 2>/dev/null || true
+  _sc_regcount=$(python3 -c "
+import json, sys
+try:
+    d = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(1)
+print(json.dumps(d.get('hooks', {})).count('#supercharger'))
+" "$HOME/.claude/settings.json" 2>/dev/null || true)
+  case "$_sc_regcount" in
+    ''|*[!0-9]*) rm -f "$HOME/.claude/supercharger/.registration-count" 2>/dev/null || true ;;
+    *) printf '%s\n' "$_sc_regcount" > "$HOME/.claude/supercharger/.registration-count" 2>/dev/null || true ;;
+  esac
+  unset _sc_regcount
 fi
 
 echo -e "${CYAN}────────────────────────────────────────────${NC}"

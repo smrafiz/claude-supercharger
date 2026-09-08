@@ -2,6 +2,49 @@
 
 ## Contents
 
+- [4.0.38] - 2026-09-08 — fix(install): "3 registrations MISSING" was a standing false alarm on every install
+
+The stamp and the check were never the same metric.
+
+  '#supercharger' tags in the whole settings.json : 162   <- install.sh stamped
+  tags inside .hooks                              : 159   <- the check counts
+  the difference                                  : statusLine (1) + MCP (2)
+
+install.sh grepped the WHOLE file; the check counts hook registrations. So every
+healthy install with a statusLine and two MCP servers has read "3 registration(s)
+MISSING — those guards are not running" for as long as the comparison has
+existed. Nothing was missing. Nothing was ever missing.
+
+AND v4.0.37 MADE IT WORSE, one release earlier today. That release fixed a real
+false all-clear — five red marks that never incremented ERRORS — which was
+correct. But it also promoted THIS standing false alarm from a cosmetic red mark
+to a hard error with a non-zero exit, so /sc-doctor now failed on healthy
+machines. Fixing an oracle that under-reports can surface an oracle that
+over-reports; both are the same defect in opposite directions, and only the
+second one is loud enough to notice.
+
+WHY IT SURVIVED. The comment above that grep said, verbatim, "with the same
+expression the check uses, so the two are always the same metric". It was not,
+and nothing compared them, so a false claim sat in the source being reassuring.
+That comparison is now a test, and the test guards its own fixture: if the
+fixture stops containing the non-hook tags that trigger the bug, it fails rather
+than passing vacuously. [[instrument-blindness-axis]].
+
+FAILURE MODE. If python3 cannot produce a number, install.sh now writes NO stamp
+rather than a wrong one. The check treats a missing stamp as "completeness
+unverified", which is honest; a wrong stamp is a permanent false alarm and
+teaches people to ignore the tool. [[guard-fails-open-oracle-fails-loud]] in
+reverse — an oracle crying wolf is how findings stop being read.
+
+An existing test also caught the rewrite: it required the literal
+`grep -o -- '#supercharger'`, pinning the IMPLEMENTATION that was itself the bug.
+Re-pointed at the property.
+
+FOUND BY: /sc-doctor, shipped yesterday, on its first real use in another session
+— the author noticed 159/162 and asked. The tool built to check delivery found a
+defect in the tool that measures delivery.
+
+Suite 5434/0. Shellcheck clean at CI severity.. 5434 tests passing.
 - [4.0.37] - 2026-09-08 — fix(doctor): the health check reported "All checks passed" while guards were down
 
 /sc-doctor shipped yesterday and earned itself on its first real use in another

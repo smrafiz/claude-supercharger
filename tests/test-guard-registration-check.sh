@@ -145,9 +145,15 @@ rm -rf "$H"
 begin_test "guard-reg: install.sh stamps the count it registered"
 # Without the stamp the comparison above can never run, and the check silently
 # reverts to the presence proxy it had before.
+#
+# v4.0.38: this used to require the literal `grep -o -- '#supercharger'`, which
+# pinned the IMPLEMENTATION rather than the property — and that implementation
+# was the bug: grepping the whole file counted the statusLine and MCP tags too.
+# Assert that the stamp is WRITTEN and that it counts the hooks subtree; the
+# metric-parity test further down proves the number is the right one.
 grep -q 'registration-count' "$REPO_DIR/install.sh" \
-  && grep -q "grep -o -- '$TAG'" "$REPO_DIR/install.sh" \
-  && pass || fail "install.sh does not write .registration-count"
+  && grep -q "d.get('hooks', {})).count('$TAG')" "$REPO_DIR/install.sh" \
+  && pass || fail "install.sh does not write .registration-count from the hooks subtree"
 
 # --- v4.0.9: the stamp itself can be stripped ---------------------------------
 #
@@ -427,5 +433,76 @@ begin_test "/sc-doctor exists in BOTH the source and the generated plugin copy"
 # is a standing trap in this repo.
 [ -f "$REPO_DIR/configs/commands/sc-doctor.md" ] && [ -f "$REPO_DIR/commands/doctor.md" ] \
   && pass || fail "command missing from source or generated copy"
+
+# --- v4.0.38: the install stamp and the check must be the SAME metric ---------
+# install.sh grepped the WHOLE settings.json for '#supercharger'; the check counts
+# tags inside .hooks. A standard install tags the statusLine (1) and each MCP
+# server (2), so the stamp read 162 against 159 real registrations and the check
+# reported "3 registration(s) MISSING" on a healthy machine — permanently.
+# v4.0.37 then made every red mark increment ERRORS, promoting that standing false
+# alarm to a hard error and a non-zero exit.
+#
+# install.sh's comment claimed it used "the same expression the check uses". It
+# did not, and nothing compared them, so the claim survived being false. This test
+# is that comparison. [[guard-fails-open-oracle-fails-loud]] in reverse: an oracle
+# crying wolf is how people learn to ignore it.
+
+begin_test "the install stamp counts hook registrations, not every tag in the file"
+grep -q "d.get('hooks', {})).count('#supercharger')" "$REPO_DIR/install.sh" && pass \
+  || fail "stamp is not scoped to the hooks subtree"
+
+begin_test "install.sh no longer greps the whole settings.json for the tag"
+grep -qE "grep -o -- '#supercharger' \"\\\$HOME/.claude/settings.json\"" "$REPO_DIR/install.sh" \
+  && fail "whole-file grep is back — statusLine and MCP tags will inflate the stamp" || pass
+
+begin_test "on a file with statusLine and MCP tags, the two metrics AGREE"
+# The behavioural half: extract the expression install.sh actually ships and run
+# it against a fixture that contains exactly the non-hook tags which caused this.
+_STM_D=$(mktemp -d)
+cat > "$_STM_D/settings.json" <<'JSON'
+{
+  "hooks": {
+    "PreToolUse": [
+      {"matcher": "Bash", "hooks": [{"type": "command", "command": "/h/a.sh #supercharger"}]},
+      {"matcher": "Write", "hooks": [{"type": "command", "command": "/h/b.sh #supercharger"}]}
+    ],
+    "SessionStart": [
+      {"hooks": [{"type": "command", "command": "/h/c.sh #supercharger"}]}
+    ]
+  },
+  "statusLine": {"type": "command", "command": "/h/statusline.sh #supercharger"},
+  "mcpServers": {"one": {"command": "x #supercharger"}, "two": {"command": "y #supercharger"}}
+}
+JSON
+_STM_STAMP=$(python3 -c "
+import json, sys
+d = json.load(open(sys.argv[1]))
+print(json.dumps(d.get('hooks', {})).count('#supercharger'))
+" "$_STM_D/settings.json")
+_STM_CHECK=$(python3 -c "
+import json, sys
+s = json.load(open(sys.argv[1]))
+hooks = s.get('hooks', {})
+count = 0
+for event in hooks.values():
+    for entry in event:
+        for h in entry.get('hooks', []):
+            if 'supercharger' in h.get('command', ''):
+                count += 1
+        if 'supercharger' in entry.get('command', ''):
+            count += 1
+print(count)
+" "$_STM_D/settings.json")
+_STM_WHOLE=$(grep -o -- '#supercharger' "$_STM_D/settings.json" | wc -l | tr -d ' ')
+rm -rf "$_STM_D"
+# The fixture must actually exercise the bug, or this test proves nothing:
+# whole-file must DIFFER from the hooks-only count.
+if [ "$_STM_WHOLE" = "$_STM_STAMP" ]; then
+  fail "fixture has no non-hook tags — it cannot detect the defect"
+elif [ "$_STM_STAMP" = "$_STM_CHECK" ]; then
+  pass
+else
+  fail "stamp=$_STM_STAMP check=$_STM_CHECK (whole-file would be $_STM_WHOLE)"
+fi
 
 report
