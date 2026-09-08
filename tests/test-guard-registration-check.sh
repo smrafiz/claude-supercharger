@@ -349,12 +349,27 @@ rm -rf "$H"
 _GRP_HOOK="$REPO_DIR/hooks/guard-registration-check.sh"
 _grp_mode() { ls -ld "$1" 2>/dev/null | awk '{print substr($1,1,10)}'; }
 
-begin_test "a world-readable state tree is tightened to 0700"
+# chmod is ADVISORY on MSYS/NTFS: the mode is derived from the file rather than
+# stored, so `chmod 700` does not stick and this assertion fails on Git Bash
+# through no fault of the code. Gate on the PRECONDITION actually holding, never
+# on a platform name — the same rule the artifact-guard tests already follow, and
+# the same limitation ai-tc's SECURITY.md discloses about its own store ("those
+# POSIX modes are a no-op on Windows"). Quoted in v4.0.35's message and then not
+# applied to this test, which is how it went red on Windows.
 _GRP_T=$(mktemp -d); mkdir -p "$_GRP_T/state/scope"; chmod 755 "$_GRP_T/state" "$_GRP_T/state/scope"
-printf '{"session_id":"p","cwd":"/tmp"}' | SUPERCHARGER_STATE="$_GRP_T/state" bash "$_GRP_HOOK" >/dev/null 2>&1
-[ "$(_grp_mode "$_GRP_T/state")" = "drwx------" ] && [ "$(_grp_mode "$_GRP_T/state/scope")" = "drwx------" ] \
-  && pass || fail "state=$(_grp_mode "$_GRP_T/state") scope=$(_grp_mode "$_GRP_T/state/scope")"
-rm -rf "$_GRP_T"
+chmod 700 "$_GRP_T/state" 2>/dev/null || true
+if [ "$(_grp_mode "$_GRP_T/state")" != "drwx------" ]; then
+  begin_test "state-tree tightening (skipped — filesystem ignores chmod)"
+  pass
+  rm -rf "$_GRP_T"
+else
+  chmod 755 "$_GRP_T/state"
+  begin_test "a world-readable state tree is tightened to 0700"
+  printf '{"session_id":"p","cwd":"/tmp"}' | SUPERCHARGER_STATE="$_GRP_T/state" bash "$_GRP_HOOK" >/dev/null 2>&1
+  [ "$(_grp_mode "$_GRP_T/state")" = "drwx------" ] && [ "$(_grp_mode "$_GRP_T/state/scope")" = "drwx------" ] \
+    && pass || fail "state=$(_grp_mode "$_GRP_T/state") scope=$(_grp_mode "$_GRP_T/state/scope")"
+  rm -rf "$_GRP_T"
+fi
 
 begin_test "a SYMLINKED state dir leaves the target's permissions alone"
 # chmod follows symlinks, so a state dir pointing at a synced or shared folder

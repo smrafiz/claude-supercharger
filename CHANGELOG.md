@@ -2,6 +2,64 @@
 
 ## Contents
 
+- [4.0.37] - 2026-09-08 — fix(doctor): the health check reported "All checks passed" while guards were down
+
+/sc-doctor shipped yesterday and earned itself on its first real use in another
+session. Three of the four things that run surfaced were defects in the tooling,
+not in the install.
+
+1. A FALSE ALL-CLEAR IN THE DIAGNOSTIC — five bugs, not one.
+
+The report showed `Hooks 15/25` and `Team 0/10` and then printed
+"All checks passed ✓". Cause: a red ✗ was printed without incrementing ERRORS,
+and the verdict keys only on ERRORS. Auditing every sibling rather than the one
+the report named found FIVE prints with the same shape:
+
+  registration(s) MISSING · registrations INERT · Empty file ·
+  Not executable · Syntax error
+
+Every one of those means a guard is not running, and every one reported success.
+An oracle that says nothing reads as "verified" — [[guard-fails-open-oracle-fails-loud]],
+and this was that failure inside the very tool built to detect it. Now:
+
+  1 issue(s) found. Fix: run /sc-update      errors 1
+
+2. HARNESS-TAMPER FALSE POSITIVE on our own documented tool.
+
+Running the diagnostic and keeping the output in a log file was DENIED. The
+segment holds a protected path (the script being RUN) and a redirect whose
+operand is under /tmp; verb and target were both present, so the guard fired on a
+read-only command. I hit it twice while fixing it — once reproducing it, once
+because the patch script QUOTED the offending command.
+
+Fixed with the principle the copy-family in that same hook already used — only
+the DESTINATION counts — applied to > and >>. The strip-then-retest step is what
+keeps it honest. 12-case matrix, all correct:
+
+  allowed   doctor with a log · append a log · read a hook into /tmp · grep to /tmp
+  blocked   echo > hook · echo >> hook · rm hook · rm hook > log ·
+            rm -rf hooks · chmod -x hook · tee into hook · cd hooks && rm -rf .
+
+`rm <hook> > /tmp/log` still blocking is the one that matters: it proves the
+redirect strip did not swallow a real destructive verb.
+
+3. Fix instructions now say /sc-update rather than a shell path — four sites,
+   consistent with v4.0.35's decision. The notice is only ever read inside a
+   session, where the slash command exists.
+
+ALSO IN THIS RELEASE, two CI failures from yesterday:
+
+- Windows: my own v4.0.35 test asserted `chmod 700` takes effect. chmod is
+  ADVISORY on MSYS/NTFS, so it does not stick and the assertion failed through no
+  fault of the code. Now gated on the PRECONDITION actually holding, never a
+  platform name. That is exactly the limitation ai-tc's SECURITY.md discloses
+  ("those POSIX modes are a no-op on Windows") — quoted in v4.0.35's own message
+  and then not applied to the test.
+- ubuntu: the README test badge was stale. Direct cost of hand-pushing
+  919f711 instead of releasing; release.sh bumps the badge and skipping it left
+  the tree failing CI.
+
+Suite 5431/0. Shellcheck clean at CI severity.. 5431 tests passing.
 - [4.0.36] - 2026-09-07 — feat(statusline): a persistent update indicator, not just a line that scrolls away
 
 The SessionStart notice fixed in v4.0.34 is seen once and then scrolls out of

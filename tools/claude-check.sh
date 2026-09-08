@@ -144,7 +144,8 @@ print(count, inert)
       ''|*[!0-9]*) ;;
       *) if [ "$HOOK_STAMP" -gt 0 ] && [ "$HOOK_COUNT" -lt "$HOOK_STAMP" ]; then
            HOOK_SHORTFALL=$((HOOK_STAMP - HOOK_COUNT))
-           echo -e "  ${RED}✗${NC} ${HOOK_SHORTFALL} registration(s) MISSING — install left ${HOOK_STAMP}, found ${HOOK_COUNT}. Those guards are not running. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
+           echo -e "  ${RED}✗${NC} ${HOOK_SHORTFALL} registration(s) MISSING — install left ${HOOK_STAMP}, found ${HOOK_COUNT}. Those guards are not running. Fix: run /sc-update"
+           ERRORS=$((ERRORS + 1))
          fi ;;
     esac
   else
@@ -155,7 +156,7 @@ print(count, inert)
     # Silence from a guard means "nothing to report"; silence from an oracle
     # reads as "verified". Reporting a full hooks score while structurally
     # unable to check completeness is a clean bill of health it cannot issue.
-    echo -e "  ${YELLOW}○${NC} Completeness unverified — no install stamp, so ${HOOK_COUNT} cannot be checked against what the install left behind. Re-run: bash ~/.claude/supercharger/tools/update.sh --yes"
+    echo -e "  ${YELLOW}○${NC} Completeness unverified — no install stamp, so ${HOOK_COUNT} cannot be checked against what the install left behind. Re-run: /sc-update"
   fi
 
   # v4.0.11: registrations being present is not the same as the deep scan having
@@ -179,7 +180,8 @@ print(count, inert)
     esac
   fi
   if [ "${HOOK_INERT:-0}" -gt 0 ]; then
-    echo -e "  ${RED}✗${NC} ${HOOK_INERT} registration(s) present but INERT (null matcher) — counted above, but Claude Code ignores them. Fix: bash ~/.claude/supercharger/tools/update.sh --yes"
+    echo -e "  ${RED}✗${NC} ${HOOK_INERT} registration(s) present but INERT (null matcher) — counted above, but Claude Code ignores them. Fix: run /sc-update"
+    ERRORS=$((ERRORS + 1))
   fi
   # Score: 5 for any hooks, +5 for 10+, +5 for 20+, +5 for 35+, +5 for 50+
   if [ "$HOOK_COUNT" -gt 0 ]; then SCORE_HOOKS=$((SCORE_HOOKS + 5)); fi
@@ -312,6 +314,7 @@ LINT_ISSUES=0
 for rule in "$HOME/.claude/rules/"*.md "$HOME/.claude/rules/"*.yml; do
   if [ -f "$rule" ] && [ ! -s "$rule" ]; then
     echo -e "  ${RED}✗${NC} Empty file: $(basename "$rule")"
+    ERRORS=$((ERRORS + 1))
     LINT_ISSUES=$((LINT_ISSUES + 1))
   fi
 done
@@ -330,6 +333,7 @@ if [ -d "$HOME/.claude/supercharger/hooks" ]; then
   for hook_script in "$HOME/.claude/supercharger/hooks/"*.sh; do
     if [ -f "$hook_script" ] && [ ! -x "$hook_script" ]; then
       echo -e "  ${RED}✗${NC} Not executable: $(basename "$hook_script")"
+      ERRORS=$((ERRORS + 1))
       LINT_ISSUES=$((LINT_ISSUES + 1))
     fi
   done
@@ -341,6 +345,7 @@ if [ -d "$HOME/.claude/supercharger/hooks" ]; then
     if [ -f "$hook_script" ]; then
       if ! bash -n "$hook_script" 2>/dev/null; then
         echo -e "  ${RED}✗${NC} Syntax error: $(basename "$hook_script")"
+        ERRORS=$((ERRORS + 1))
         LINT_ISSUES=$((LINT_ISSUES + 1))
       fi
     fi
@@ -521,7 +526,7 @@ echo ""
 if [ "$ERRORS" -eq 0 ]; then
   echo -e "${GREEN}All checks passed ✓${NC}"
 else
-  echo -e "${RED}${ERRORS} issue(s) found. Run install.sh to fix.${NC}"
+  echo -e "${RED}${ERRORS} issue(s) found. Fix: run /sc-update${NC}"
 fi
 echo ""
 # Analytics Summary

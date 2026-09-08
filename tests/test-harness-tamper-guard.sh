@@ -93,4 +93,55 @@ mkcmd "$TMP/other.json" "eslint --settings foo.json"
 [ "$(verdict "$TMP/other.json")" = "SILENT" ] && pass || fail "non-claude --settings wrongly flagged"
 
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
+
+# --- v4.0.37: a redirect counts only when the protected path is the TARGET -----
+# Reported from a real session 2026-09-08: running our OWN diagnostic and keeping
+# the output in a log file was DENIED. One segment held a protected path (the
+# script being RUN) and a redirect whose operand was under /tmp; verb and target
+# were both present, so the guard fired on a documented, read-only command.
+#
+# The copy-family above already had the right principle -- "only the DESTINATION
+# counts". This applies it to > and >>. The strip-then-retest step is what keeps
+# it honest: a real destructive verb that ALSO redirects still hits.
+# [[guard-fp-verify-with-literal-input]] -- verb and target matched independently.
+_HTR_SC="$HOME/.claude/supercharger"
+_htr() {  # $1 = command -> "allow" | "BLOCK"
+  printf '{"tool_name":"Bash","cwd":"/tmp","session_id":"htr","tool_input":{"command":%s}}' \
+    "$(printf '%s' "$1" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')" \
+    | bash "$REPO_DIR/hooks/harness-tamper-guard.sh" >/dev/null 2>&1
+  [ $? -eq 0 ] && printf 'allow' || printf 'BLOCK'
+}
+
+begin_test "harness-tamper: running the doctor and keeping the log is ALLOWED"
+[ "$(_htr "bash $_HTR_SC/tools/claude-check.sh > /tmp/sc-doctor.log 2>&1")" = "allow" ] \
+  && pass || fail "denied a documented read-only command"
+
+begin_test "harness-tamper: reading a hook into a temp file is ALLOWED"
+[ "$(_htr "cat $_HTR_SC/hooks/safety.sh > /tmp/copy.sh")" = "allow" ] \
+  && pass || fail "reading a hook out is not tampering"
+
+begin_test "harness-tamper: overwriting a hook VIA redirect is still blocked"
+# The control. Without it the two above would also pass if redirects stopped
+# being checked at all.
+[ "$(_htr "echo evil > $_HTR_SC/hooks/safety.sh")" = "BLOCK" ] \
+  && pass || fail "redirect INTO a hook must be blocked"
+
+begin_test "harness-tamper: appending into a hook is still blocked"
+[ "$(_htr "echo evil >> $_HTR_SC/hooks/safety.sh")" = "BLOCK" ] \
+  && pass || fail ">> into a hook must be blocked"
+
+begin_test "harness-tamper: a destructive verb that ALSO redirects still blocks"
+# The case the strip-then-retest exists for: stripping the redirect must leave
+# `rm <hook>` behind, still matching verb and target.
+[ "$(_htr "rm -f $_HTR_SC/hooks/safety.sh > /tmp/log")" = "BLOCK" ] \
+  && pass || fail "the redirect strip swallowed a real rm"
+
+begin_test "harness-tamper: tee into a hook is still blocked"
+[ "$(_htr "echo x | tee $_HTR_SC/hooks/safety.sh")" = "BLOCK" ] \
+  && pass || fail "tee writes to its argument"
+
+begin_test "harness-tamper: cd into the hooks dir then rm is still blocked"
+[ "$(_htr "cd $_HTR_SC/hooks && rm -rf .")" = "BLOCK" ] \
+  && pass || fail "the two-step form must still hit"
+
 report

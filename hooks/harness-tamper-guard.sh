@@ -167,7 +167,33 @@ if [ -z "$REASON" ]; then
             # `cp a b > log` still resolves the destination correctly.
             n = split(seg, a, /[[:space:]]+/)
             if (n > 0 && a[n] ~ t) { hit = 1 }
-          } else if (seg ~ v && seg ~ t) { hit = 1 }
+          } else if (seg ~ v && seg ~ t) {
+            # v4.0.37: a REDIRECT only counts when the protected path is the
+            # redirect TARGET. Same principle the copy-family above already uses
+            # ("only the DESTINATION counts"), applied to > and >>.
+            #
+            # Without this, running our OWN diagnostic and keeping the output in a
+            # log file is a single segment containing a protected path (the script
+            # being RUN) and a redirect whose operand is under /tmp. Verb and target
+            # both present, so the guard denied a documented, read-only command.
+            # Reported from a real session on 2026-09-08.
+            # [[guard-fp-verify-with-literal-input]]
+            #
+            # Strip redirect clauses before re-testing the verb, so a genuine
+            # destructive verb that ALSO redirects still hits: `rm <hook> > log`
+            # leaves `rm <hook>` behind, which still matches verb and target.
+            stripped = seg
+            gsub(/[0-9]*>>?[[:space:]]*[^[:space:];&|]+/, " ", stripped)
+            redir_hit = 0
+            rest = seg
+            while (match(rest, /[0-9]*>>?[[:space:]]*[^[:space:];&|]+/)) {
+              tgt = substr(rest, RSTART, RLENGTH)
+              if (tgt ~ t) redir_hit = 1
+              rest = substr(rest, RSTART + RLENGTH)
+            }
+            if (redir_hit) { hit = 1 }
+            else if (stripped ~ v && stripped ~ t) { hit = 1 }
+          }
         }
         END { print hit }')
   if [ "$_HT_HIT" = "1" ]; then
