@@ -583,4 +583,24 @@ begin_test "doctor: still makes no network call"
 grep -qE 'curl|wget|urlopen|nc ' "$REPO_DIR/tools/claude-check.sh" \
   && fail "the doctor now touches the network" || pass
 
+# --- v4.0.42: the report is meant to be pasted, so it must not carry $HOME ----
+# jacksonanstee/agent-harness-JA ADR-0027: their 25 credential rules matched no
+# filesystem path, so every retained row kept the operator's home directory —
+# and on a work machine the client directory name with it. Our verdict line was
+# already clean; the deep-scan advisory printed the expanded path.
+#
+# Scope is deliberate: only the SHAREABLE surface. That ADR killed three designs
+# for normalising every retained sink, because `~` is a legal directory name at
+# any depth so the substitution is not injective. The local ledger keeps real
+# paths and is 0700.
+begin_test "doctor: the shareable report prints ~ , not an expanded \$HOME"
+_PL_OUT=$(cd /tmp && bash "$REPO_DIR/tools/claude-check.sh" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
+_PL_N=$(printf '%s' "$_PL_OUT" | grep -cE '/(Users|home)/[a-zA-Z0-9._-]+/' || true)
+[ "${_PL_N:-0}" -eq 0 ] && pass || fail "$_PL_N line(s) carry an absolute home path"
+
+begin_test "doctor: and the pasteable verdict line specifically is clean"
+# The control: this is the line people actually send, so it must never regress.
+printf '%s' "$_PL_OUT" | grep -A2 'Paste this if you are asking for help' \
+  | grep -qE '/(Users|home)/[a-zA-Z0-9._-]+/' && fail "verdict line leaks a home path" || pass
+
 report

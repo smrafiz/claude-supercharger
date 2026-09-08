@@ -171,12 +171,24 @@ print(count, inert)
   # oracle staying quiet about it is not, because the number it prints reads as
   # "you were protected". Report it, do not score it: the fail-open is working as
   # designed and docking points for it would train people to ignore this tool.
+  # NOTE: user-facing lines in this report print `~/...`, never the expanded
+  # $HOME. This report exists to be PASTED to someone else for help, and an
+  # absolute path carries the operator's account name — and, on a work machine,
+  # often a client or project directory name with it. Borrowed from
+  # jacksonanstee/agent-harness-JA ADR-0027, which found that 25 credential
+  # rules matched no filesystem path, so every retained row kept the home
+  # directory in cleartext.
+  #
+  # Only the SHAREABLE surface is normalised. That ADR built three designs to
+  # rewrite paths at every retained sink and killed all three — Design B's
+  # injectivity proof is false because `~` is a legal directory name at any
+  # depth, so the substitution is not reversible. Do not rebuild that.
   OVERRUN_FILE="$HOME/.claude/supercharger/scope/.detect-overruns"
   if [ -r "$OVERRUN_FILE" ]; then
     OVERRUNS=$(grep -c . "$OVERRUN_FILE" 2>/dev/null | tr -d ' ' || true)
     case "${OVERRUNS:-0}" in
       ''|0|*[!0-9]*) ;;
-      *) echo -e "  ${YELLOW}○${NC} Deep scan cut short ${OVERRUNS} time(s) — safety-detect.py hit its ${SUPERCHARGER_DETECT_BUDGET_S:-0.5}s budget and those calls fell back to the regex checks alone. Usually a loaded machine. Raise it with SUPERCHARGER_DETECT_BUDGET_S, or clear the log: rm ${OVERRUN_FILE}" ;;
+      *) echo -e "  ${YELLOW}○${NC} Deep scan cut short ${OVERRUNS} time(s) — safety-detect.py hit its ${SUPERCHARGER_DETECT_BUDGET_S:-0.5}s budget and those calls fell back to the regex checks alone. Usually a loaded machine. Raise it with SUPERCHARGER_DETECT_BUDGET_S, or clear the log: rm ~/.claude/supercharger/scope/.detect-overruns" ;;
     esac
   fi
   if [ "${HOOK_INERT:-0}" -gt 0 ]; then
@@ -301,10 +313,29 @@ fi
 echo ""
 echo -e "${BLUE}Session Summaries:${NC}"
 SUMMARIES_DIR="$HOME/.claude/supercharger/summaries"
-# `find` exits 1 if the dir is missing — pipefail then aborts the script under
-# set -e. `|| true` absorbs that so the rest of the check still runs.
-SUMMARY_COUNT=$( { find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' '; } || echo 0)
-[ -z "$SUMMARY_COUNT" ] && SUMMARY_COUNT=0
+# `find` exits 1 if the dir is missing, and `pipefail` promotes that to the whole
+# pipeline — so the group failed, `|| echo 0` APPENDED a second zero, and
+# SUMMARY_COUNT became the two-line string "0\n0". The next line then ran
+# `[ "0\n0" -gt 0 ]`, which prints
+#     claude-check.sh: line NNN: [: 0
+#     0: integer expression expected
+# on stderr and skips the section. Only visible on a PRISTINE $HOME — i.e. a
+# fresh install, or a colleague's first run — which is why it survived: the
+# author's own machine always has the directory.
+#
+# Found 2026-09-08 by an assertion looking for something else entirely (absolute
+# home paths in the shareable report); the error text carries the script's own
+# path, so it tripped the path check. Second time today that `set -euo pipefail`
+# plus a legitimately-nonzero command broke this script mid-report — the first
+# was the no-match greps at "Detected Stack".
+#
+# Skip the pipeline when the directory is absent, then normalise defensively with
+# the numeric-guard pattern used elsewhere in this codebase.
+SUMMARY_COUNT=0
+if [ -d "$SUMMARIES_DIR" ]; then
+  SUMMARY_COUNT=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' 2>/dev/null | wc -l | tr -d ' ' || echo 0)
+fi
+case "$SUMMARY_COUNT" in ''|*[!0-9]*) SUMMARY_COUNT=0 ;; esac
 if [ "$SUMMARY_COUNT" -gt 0 ]; then
   LATEST=$(find "$SUMMARIES_DIR" -maxdepth 1 -name '*.md' -print0 2>/dev/null | xargs -0 ls -t 2>/dev/null | head -1 | xargs basename 2>/dev/null || echo "?")
   echo -e "  ${GREEN}✓${NC} ${SUMMARY_COUNT} summary file(s) — latest: ${LATEST}"

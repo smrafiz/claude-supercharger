@@ -2,6 +2,56 @@
 
 ## Contents
 
+- [4.0.42] - 2026-09-08 — fix(doctor): it crashed on a pristine HOME, and leaked a home path in the report meant to be pasted
+
+Both from auditing jacksonanstee/agent-harness-JA, whose 34 ADRs are named after
+the defects they record and carry executed counterexamples.
+
+1. THE DIAGNOSTIC ERRORED ON EVERY FRESH INSTALL.
+
+    claude-check.sh: line 320: [: 0
+    0: integer expression expected
+
+`set -o pipefail` promotes `find`'s exit 1 on a missing summaries directory to
+the whole pipeline, so the `{ ...; } || echo 0` group FAILED and appended a
+second zero. SUMMARY_COUNT became the two-line string "0\n0", `[ "0\n0" -gt 0 ]`
+errored, and the Session Summaries section was skipped.
+
+Visible ONLY on a pristine $HOME — a fresh install, or a colleague's first run —
+which is exactly why it survived: the author's machine always has the directory.
+That is the population this week's delivery work has been aimed at.
+
+Second time in one day that `set -euo pipefail` plus a legitimately-nonzero
+command broke this script mid-report; the first was the no-match greps at
+"Detected Stack" (v4.0.39). The comment above the fix names both, because the
+pattern is the bug, not the line.
+
+2. THE REPORT MEANT TO BE PASTED CARRIED AN ABSOLUTE HOME PATH.
+
+ADR-0027: their 25 credential rules matched no filesystem path, so every retained
+row kept the operator's home directory — and on a work machine the client
+directory name with it. /sc-doctor exists to be pasted to a colleague, so the
+same class applies. Measured:
+
+  pasteable verdict line   0 home paths   already clean
+  full report              1              the deep-scan advisory
+
+Now prints `~/...`. Scope is deliberate: only the SHAREABLE surface. The local
+ledger keeps real paths and is 0700, the aggregated [BLOCKS] summary carries rule
+names not paths, and there is no export command — measured at 153 lines in
+.blocked-commands and 25 in events.log, both left alone.
+
+DO NOT build general path normalisation. That ADR built three designs for it and
+killed all three by execution; Design B's injectivity proof is false because `~`
+is a legal directory name at any depth, so the substitution is not reversible.
+Recorded in the code comment so it is not rebuilt.
+
+HOW THE CRASH WAS FOUND, which is the part worth keeping: the test written for
+(2) caught (1). Bash error messages carry the script's own path, so the error
+tripped the home-path assertion. A check aimed at one class found another — the
+opposite of the usual failure where an assertion silently matches nothing.
+
+Suite 5454/0. Shellcheck clean at CI severity.. 5454 tests passing.
 - [4.0.41] - 2026-09-08 — feat(test-mask): six more ways to make a failing test report success
 
 Plus a doctor fix where two of the same day's changes disagreed at the seam.
