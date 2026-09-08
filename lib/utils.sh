@@ -9,7 +9,7 @@
 : "${PYTHONUTF8:=1}"
 export PYTHONIOENCODING PYTHONUTF8
 
-VERSION="4.0.39"
+VERSION="4.0.40"
 
 # Every scope dir a HOOK might read state from — classic install + any plugin install.
 # Hooks resolve the dir as ${CLAUDE_PLUGIN_DATA:-~/.claude/supercharger}/scope, but
@@ -124,6 +124,40 @@ detect_platform() {
       printf '#!/usr/bin/env bash\nexec %s "$@"\n' "$py_cmd" > "$shim_dir/python3"
       chmod +x "$shim_dir/python3"
       export PATH="$shim_dir:$PATH"
+
+      # The shim above is TEMPORARY: a mktemp dir on this process's PATH. It gets
+      # the installer through, and then it is gone. Every hook forks `python3` as
+      # its own process later, with the USER's PATH — which we cannot modify — so
+      # on a Windows box that has `py`/`python` but no `python3`, the install
+      # SUCCEEDS and then every python-forking hook fails afterwards. That failure
+      # is silent-ish and ugly: see [[phantom-deny-unshipped-py]], where a missing
+      # python3 produced exit 2 under `set -e` and read as a deny with no stderr.
+      #
+      # CI cannot catch this — windows-latest ships python3. Ported from the
+      # feat/windows-support branch (PR #1), which is otherwise superseded.
+      #
+      # The only durable fix is a python3 that is already on the user's PATH, so:
+      # put it NEXT TO the interpreter we just found. Best-effort — an all-users
+      # install under Program Files is not writable from a normal shell, and that
+      # is reported rather than failed on, because the installer itself is fine.
+      if [[ "$PLATFORM" == "windows" ]]; then
+        local real_py py_dir
+        real_py=$("$py_cmd" -c 'import sys; print(sys.executable)' 2>/dev/null || true)
+        if [[ -n "$real_py" && -f "$real_py" ]]; then
+          py_dir=$(dirname "$real_py")
+          if [[ ! -e "$py_dir/python3.exe" ]]; then
+            if cp "$real_py" "$py_dir/python3.exe" 2>/dev/null; then
+              hash -r 2>/dev/null || true
+              echo "  Created a durable python3.exe next to $py_cmd — hooks fork python3 directly and cannot see this installer's PATH."
+            else
+              echo "  NOTE: could not create python3.exe in $py_dir (not writable)."
+              echo "        The install will finish, but hooks that fork python3 will fail."
+              echo "        Fix: run Git Bash as Administrator and re-run, or copy it by hand:"
+              echo "          cp \"$real_py\" \"$py_dir/python3.exe\""
+            fi
+          fi
+        fi
+      fi
     else
       echo ""
       echo "Error: Python 3 is required but not found."

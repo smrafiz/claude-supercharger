@@ -561,6 +561,13 @@ mkdir -p "$HOME/.claude/supercharger/scope"
 # The statusline indicator is flag-driven; drop it now that this install IS the
 # new version, rather than leaving it up until the next session start.
 rm -f "$HOME/.claude/supercharger/scope/.update-available" 2>/dev/null || true
+# ...and the cached REMOTE version, which is stale by definition now: it was
+# fetched before this install ran. update-check.sh honours a 24h TTL, so leaving
+# it means the next session compares the new install against a pre-update answer
+# and stays quiet for up to a day after a release it has not got. Removing it
+# costs one network call on the next session start, off the critical path (the
+# fetch is backgrounded).
+rm -f "$HOME/.claude/supercharger/.update-cache" 2>/dev/null || true
 
 # --- at-rest permissions on the state directory (v4.0.35) --------------------
 # Nothing set a mode here, so the state tree inherited the user's umask: 0755

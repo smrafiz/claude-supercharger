@@ -101,4 +101,12 @@ begin_test "install.sh clears the flag, so it goes the moment you update"
 grep -q 'rm -f "\$HOME/.claude/supercharger/scope/.update-available"' "$REPO_DIR/install.sh" \
   && pass || fail "install.sh leaves a stale indicator up until the next session"
 
+begin_test "install.sh clears the stale remote-version cache, not just the flag"
+# The cache is fetched BEFORE an install runs, so afterwards it answers for the
+# old version. With a 24h TTL that silences the update notice for up to a day
+# after a release the install does not have — the same delivery gap the v4.0.32
+# to v4.0.34 arc was about, arriving by a different route.
+grep -q 'rm -f "\$HOME/.claude/supercharger/.update-cache"' "$REPO_DIR/install.sh" \
+  && pass || fail "install.sh leaves a pre-update remote version cached"
+
 report

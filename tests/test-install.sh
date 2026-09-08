@@ -349,4 +349,49 @@ begin_test "install: the statusLine path is taken from bash, not python expandus
 grep -q "statusline_path = os.environ.get('STATUSLINE_PATH'" "$REPO_DIR/lib/hooks.sh" && pass \
   || fail "statusline_path is computed in python again — it will be a native path on Windows"
 
+# --- v4.0.40: the python3 shim has to OUTLIVE the installer -------------------
+# detect_platform builds a python3 shim in a mktemp dir and prepends it to PATH.
+# That gets the INSTALLER through and then vanishes. Every hook forks `python3`
+# as its own process afterwards, with the USER's PATH — which we cannot modify —
+# so on a Windows box with `py`/`python` but no `python3`, the install SUCCEEDS
+# and every python-forking hook fails from then on. That failure mode already has
+# a memory entry: [[phantom-deny-unshipped-py]], where a missing python3 gave
+# exit 2 under `set -e` and read as a deny with no stderr.
+#
+# CI cannot catch it — windows-latest ships python3. Ported from PR #1
+# (feat/windows-support), whose other 25 commits are superseded by master.
+#
+# THESE ARE STRUCTURAL ASSERTIONS. The durable-shim branch cannot execute on
+# macOS or Linux, so they check that the code exists, is Windows-gated, and did
+# not replace the temporary shim. Real verification needs a Windows box with
+# python but no python3 — noted rather than pretended.
+_SHM_LIB="$REPO_DIR/lib/utils.sh"
+
+begin_test "install still builds the temporary shim for its own process"
+# Regression control: the durable copy must be an ADDITION, not a replacement.
+grep -q 'shim_dir=$(mktemp -d)' "$_SHM_LIB" \
+  && grep -q 'export PATH="$shim_dir:$PATH"' "$_SHM_LIB" \
+  && pass || fail "the installer's own python3 shim is gone"
+
+begin_test "and a DURABLE python3.exe next to the interpreter, for the hooks"
+grep -q 'python3.exe' "$_SHM_LIB" && pass \
+  || fail "hooks fork python3 later and cannot see the installer's PATH"
+
+begin_test "the durable shim is gated on the windows platform"
+# On macOS/Linux python3 is python3; copying anything would be wrong.
+grep -q 'PLATFORM" == "windows"' "$_SHM_LIB" && pass \
+  || fail "not platform-gated — it would run on macOS and Linux"
+
+begin_test "an unwritable Python directory is reported, not fatal"
+# All-users installs under Program Files are not writable from a normal shell.
+# The installer itself is fine in that case; the hooks are not, and the user
+# needs to know which. Silence there would be the worst outcome.
+grep -q 'could not create python3.exe' "$_SHM_LIB" \
+  && grep -q 'hooks that fork python3 will fail' "$_SHM_LIB" \
+  && pass || fail "a failed copy is silent, so the user learns nothing"
+
+begin_test "it does not clobber an existing python3.exe"
+grep -q '! -e "$py_dir/python3.exe"' "$_SHM_LIB" && pass \
+  || fail "would overwrite a real python3.exe"
+
 report

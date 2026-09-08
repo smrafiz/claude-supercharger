@@ -2,6 +2,60 @@
 
 ## Contents
 
+- [4.0.40] - 2026-09-08 — fix(install): clear the stale remote cache, and give Windows a python3 that outlives the installer
+
+Backlog pass. Two fixes, one of them found by triaging a PR rather than reading
+its commit titles.
+
+1. THE CACHED REMOTE VERSION SURVIVED THE UPDATE THAT INVALIDATED IT.
+
+install.sh cleared `.update-available` (the statusline flag) but not
+`.update-cache`. That cache is fetched BEFORE an install runs, so afterwards it
+answers for the old version — and update-check honours a 24h TTL, so the next
+session compared the new install against a pre-update answer and stayed silent
+for up to a day after a release it did not have. Same delivery gap as the
+v4.0.32-34 arc, arriving by a different route. Removing it costs one network call
+on the next session start, and that fetch is already backgrounded.
+
+2. THE WINDOWS python3 SHIM DIED WITH THE INSTALLER.
+
+PR #1 (feat/windows-support) had 26 commits, 716 behind, untouched for 9 weeks.
+Triaged by CONTENT, not commit count: 25 are superseded — master grew its own
+Windows CI (2 jobs), cygpath handling (4 files), HOME-preferring expanduser (12
+files), its own .gitattributes LF policy enforced by a CI assertion, and md5
+fallback coverage in 5 test files.
+
+The 26th was real, and it is why comparing content mattered. Master DOES have
+shim logic, so this looked covered: detect_platform builds a python3 wrapper in a
+mktemp dir and prepends it to PATH. That gets install.sh through and then
+vanishes with the process. Every hook forks `python3` as its own process
+afterwards with the USER's PATH, which the installer cannot modify. So on a
+Windows box with `py`/`python` but no `python3`, the install reports success and
+every python-forking hook fails from then on. CI cannot catch it — windows-latest
+ships python3.
+
+That failure mode has history: a missing python3 gives exit 2 under `set -e` and
+surfaces as a permission denial with no stderr ([[phantom-deny-unshipped-py]]),
+which is close to undiagnosable from a user's session.
+
+Ported as a DURABLE python3.exe next to the real interpreter — an addition to the
+temporary shim, not a replacement. Windows-gated, non-clobbering, and reporting
+rather than failing when Python's directory is not writable (all-users installs
+under Program Files): the installer is fine in that case, the hooks are not, and
+the user needs to know which.
+
+Its 5 tests are STRUCTURAL and labelled as such. That branch cannot execute on
+macOS or Linux; real verification needs a Windows box with python but no python3.
+Saying so beats implying coverage that does not exist.
+
+ALSO: 8 stale remote branches deleted (each re-verified 0-ahead immediately
+before deletion, SHAs recorded), and PR #1 closed with a triage note so its 26
+commits read as absorbed rather than abandoned.
+
+Suite 5443/1 locally — the one failure is tests/test-bounded-run.sh's wall-clock
+assertion (266ms/call) under concurrent load; 13/13 in isolation, and nothing
+here touches a hot-path hook. This release's own clean-checkout run is the
+independent gate.. 5444 tests passing.
 - [4.0.39] - 2026-09-08 — fix(doctor): the diagnostic aborted before its verdict, and the verdict contradicted its own score
 
 Both reported from real /sc-doctor runs in another session, one day after the
