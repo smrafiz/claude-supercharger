@@ -695,14 +695,38 @@ fi
 # 4. Version drift. Read the cache rather than the network: a doctor that hangs
 #    on a slow connection is a doctor nobody runs twice.
 _doc_remote=$(cat "$_DOC_STATE/.update-cache" 2>/dev/null || echo "")
+
+# v4.0.41: two of the same day's fixes collided here. v4.0.40 made install.sh
+# CLEAR .update-cache (it is fetched before an install and answers for the old
+# version afterwards), which is right — but this block reads only that cache, so
+# straight after an update the doctor reported "update unknown" while /sc-update
+# said "up to date" ninety seconds earlier. Cosmetic, and exactly the kind of
+# small wrongness that teaches people to skim past the verdict line.
+#
+# No network call here on purpose: a doctor that hangs on a slow connection is
+# one nobody runs twice. So say what is actually known instead of "unknown" —
+# a fresh install IS the version it just installed, and that is worth stating.
+_doc_fresh=""
+if [ -z "$_doc_remote" ] && [ -n "$_doc_stamp" ]; then
+  # Was the install written more recently than the cache would have been? If the
+  # version stamp is newer than the (absent) cache, the cache was cleared BY an
+  # install rather than never written.
+  if [ -f "$_DOC_STATE/.version" ] && [ ! -f "$_DOC_STATE/.update-cache" ]; then
+    _doc_fresh=1
+  fi
+fi
+
 if [ -n "$_doc_remote" ] && [ -n "$_doc_stamp" ] && [ "$_doc_remote" != "$_doc_stamp" ]; then
   echo -e "  ${YELLOW}!${NC} Update available: v${_doc_stamp} → v${_doc_remote} — run /sc-update"
   _DOC_UPDATE="v${_doc_remote}"
 elif [ -n "$_doc_remote" ]; then
   echo -e "  ${GREEN}✓${NC} Up to date (v${_doc_stamp})"
+elif [ -n "$_doc_fresh" ]; then
+  echo -e "  ${GREEN}✓${NC} Freshly installed (v${_doc_stamp}) — next session re-checks the remote"
+  _DOC_UPDATE="fresh"
 else
-  echo -e "  ${YELLOW}○${NC} Update status unknown — no check has run yet this day"
-  _DOC_UPDATE="unknown"
+  echo -e "  ${YELLOW}○${NC} Not checked yet today — the next session start will check"
+  _DOC_UPDATE="not-checked"
 fi
 
 # ── One-line verdict ──────────────────────────────────────────────────────────

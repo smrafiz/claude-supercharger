@@ -32,8 +32,21 @@ case "$_INPUT" in
   *test*|*jest*|*vitest*|*mocha*|*pytest*|*tsc*|*eslint*|*ruff*|*mypy*|*rspec*|*phpunit*|*rubocop*|*golangci*|*ctest*|*lint*|*typecheck*) : ;;
   *) exit 0 ;;
 esac
+# FAST-PATH GATE. This must admit everything _MASK can match, or the precise
+# rule below is unreachable — the guard would look correct and never fire.
+# v4.0.41 widened _MASK for `| true`, `|& true`, `&true`, `|| ( true )`,
+# `|| { true; }` and `|| time true`, and the first attempt changed ONLY the
+# regex: the matrix still showed misses because this glob rejected them first.
+# Seventh instance of that shape in this project ([[two-gate-trap]]), in a rule
+# that had just been tested.
+#
+# Kept as substring globs (cheap, no fork) but deliberately loose: a false
+# admit here costs one regex evaluation, a false reject costs the whole guard.
 case "$_INPUT" in
   *'|| true'*|*'|| :'*|*'||true'*|*'|| echo'*|*'||echo'*|*'exit 0'*|*'; true'*|*';true'*|*'; :'*) : ;;
+  *'| true'*|*'|true'*|*'| :'*|*'|:'*|*'| echo'*|*'|echo'*) : ;;
+  *'& true'*|*'&true'*|*'& :'*|*'&:'*) : ;;
+  *'( true'*|*'{ true'*|*'(true'*|*'{true'*|*'time true'*|*'time :'*) : ;;
   *) exit 0 ;;
 esac
 
@@ -48,8 +61,41 @@ fi
 
 # A verification runner (test / lint / typecheck / build).
 _RUNNER='(^|[^a-zA-Z0-9_./-])((npm|yarn|pnpm|bun)[[:space:]]+(run[[:space:]]+)?(test|build|lint|typecheck|check|tsc)|jest|vitest|mocha|ava|pytest|py\.test|tox|nox|go[[:space:]]+test|cargo[[:space:]]+test|make[[:space:]]+(test|check|lint)|tsc|eslint|ruff|mypy|rspec|phpunit|rubocop|golangci-lint|gradle[[:space:]]+(test|check)|mvn[[:space:]]+(test|verify)|dotnet[[:space:]]+test|ctest)([^a-zA-Z0-9_-]|$)'
-# An exit-status mask: `|| true|:|echo …`, or a trailing `; exit 0 / ; true / ; :`.
-_MASK='(\|\|[[:space:]]*(true|:|echo)|;[[:space:]]*(exit[[:space:]]+0|true|:)([[:space:]]|;|$))'
+# An exit-status mask. Every one of these makes a FAILING runner report success.
+#
+# v4.0.41 widened this from `|| true|:|echo` and `; exit 0|true|:` after testing
+# ours against the evasion set enumerated by devanomaly/omama's work-order
+# validator, which exists to reject a `verify:` step that cannot fail. Measured
+# against the deployed hook — controls fired, so the misses were real:
+#
+#   pytest | true        exit status becomes true's        MISSED
+#   pytest |& true       same, with stderr                 MISSED
+#   pytest &true         runner backgrounded, true's exit  MISSED
+#   pytest || ( true )   subshell hides the no-op          MISSED
+#   pytest || { true; }  brace group, same                 MISSED
+#   pytest || time true  `time` prefixes a no-op           MISSED
+#
+# NOT added, deliberately: `\true` and `'tr'"ue"` quote/backslash splicing. Those
+# are deliberate-evasion shapes, and an agent willing to splice a token can edit
+# the test file instead — the regex cost is real and the protection is not.
+#
+# NOT a mask, and must never fire (the over-block controls in the tests):
+#   pytest && exit 0     `&&` short-circuits; a failure still exits non-zero
+#   pytest || ! true     `! true` exits 1, so the failure survives
+#   pytest || npm run x  a real fallback command is not a no-op
+#   pytest | tee log     piping to a REAL command keeps the status meaningful
+# The no-op must be a COMPLETE WORD. Without the trailing boundary, the `&`
+# branch matched `&true=2` inside a query string and denied
+# `curl "https://x?a=1&true=2" && pytest -q` — a real false positive, introduced
+# while widening this rule and caught by the same fixture set that motivated the
+# widening (omama ships `valid_amp_in_url.yaml` precisely for it). `=` is in the
+# excluded class for that reason; `.`/`-`/`/` keep `true.sh`, `true-runner` and
+# `/usr/bin/true-ish` from matching.
+_NOOP='((true|:)([^a-zA-Z0-9_=./-]|$)|echo([[:space:]]|$))'
+_MASK='(\|\|[[:space:]]*([({][[:space:]]*)?(time[[:space:]]+)?'"$_NOOP"\
+'|\|&?[[:space:]]*'"$_NOOP"\
+'|&[[:space:]]*'"$_NOOP"\
+'|;[[:space:]]*(exit[[:space:]]+0|true|:)([[:space:]]|;|$))'
 
 printf '%s\n' "$CMD" | grep -qE "$_RUNNER" || exit 0
 printf '%s\n' "$CMD" | grep -qE "$_MASK"   || exit 0

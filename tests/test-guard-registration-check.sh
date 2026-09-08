@@ -560,4 +560,27 @@ begin_test "the pasteable line carries the score, not just the error count"
 grep -q 'score ${TOTAL_SCORE:-?}/100' "$REPO_DIR/tools/claude-check.sh" \
   && pass || fail "score missing from the verdict line"
 
+# --- v4.0.41: two same-day fixes collided on the update status ----------------
+# v4.0.40 made install.sh clear .update-cache — correct, it is fetched BEFORE an
+# install and answers for the old version afterwards. But the doctor reads only
+# that cache, so immediately after an update it said "update unknown" while
+# /sc-update had said "up to date" a minute earlier. Cosmetic, and precisely the
+# small wrongness that teaches a reader to skim the verdict line.
+#
+# The doctor still makes NO network call: one that hangs on a slow connection is
+# one nobody runs twice. It just reports what is known rather than "unknown".
+
+begin_test "doctor: a freshly installed tree is not reported as 'unknown'"
+grep -q 'Freshly installed' "$REPO_DIR/tools/claude-check.sh" && pass \
+  || fail "post-update state still reads as unknown"
+
+begin_test "doctor: the never-checked case says WHEN it will be checked"
+grep -q 'Not checked yet today — the next session start will check' "$REPO_DIR/tools/claude-check.sh" \
+  && pass || fail "a bare 'unknown' tells the reader nothing actionable"
+
+begin_test "doctor: still makes no network call"
+# The property that keeps it fast enough to run twice.
+grep -qE 'curl|wget|urlopen|nc ' "$REPO_DIR/tools/claude-check.sh" \
+  && fail "the doctor now touches the network" || pass
+
 report

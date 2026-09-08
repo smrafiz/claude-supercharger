@@ -2,6 +2,76 @@
 
 ## Contents
 
+- [4.0.41] - 2026-09-08 — feat(test-mask): six more ways to make a failing test report success
+
+Plus a doctor fix where two of the same day's changes disagreed at the seam.
+
+1. TEST-MASK-GUARD WIDENED.
+
+Mined from devanomaly/omama, whose work-order validator exists to reject a
+`verify:` step that cannot fail. Its fixture NAMES are the taxonomy —
+invalid_verify_pipe_true, _semi_true, _pipeamp_true, _time_true,
+_redir_word_true — and, crucially, it ships matching valid_* controls so the
+rule does not over-block.
+
+Measured against our deployed hook, controls firing so the misses were real:
+
+  pytest -q | true        exit status becomes true's         MISSED -> now FIRES
+  pytest -q |& true       same, with stderr                  MISSED -> now FIRES
+  pytest -q &true         runner backgrounded                MISSED -> now FIRES
+  pytest -q || time true  `time` prefixing a no-op           MISSED -> now FIRES
+  pytest -q || ( true )   subshell hides it                  MISSED -> now FIRES
+  pytest -q || { true; }  brace group, same                  MISSED -> now FIRES
+
+Deliberately NOT caught, and asserted as such:
+
+  pytest -q && exit 0     `&&` short-circuits; failure survives
+  pytest -q || ! true     `! true` exits 1
+  pytest -q || \true      quote/backslash splicing — an agent willing to splice
+  pytest -q || 'tr'"ue"   a token can edit the test file instead; the regex cost
+                          is real and the protection is not
+
+TWO MISTAKES MADE WHILE ADDING THIS, both caught by the matrix and not by review:
+
+a) I widened the regex and left the FAST-PATH GLOB untouched, so the new rule was
+   unreachable: the guard looked correct and fired on nothing. Seventh instance
+   of [[two-gate-trap]] in this project, in a rule I had just finished testing.
+   Its memory entry says "twice in rules just tested" — now three times.
+
+b) The `&` branch matched `&true=2` inside a query string and denied
+   `curl "https://x?a=1&true=2" && pytest -q`. omama ships valid_amp_in_url.yaml
+   for precisely that case, so their fixture set predicted my bug before I
+   shipped it. `_NOOP` now requires a complete word, `=` excluded by name.
+
+That is the argument for mining this repo at all: the enumeration includes the
+FALSE POSITIVES, not just the evasions. An attack list alone would have walked me
+straight into (b).
+
+2. THE DOCTOR SAID "update unknown" ABOUT SOMETHING /sc-update HAD JUST ANSWERED.
+
+Two correct fixes from the same day collided. v4.0.40 made install.sh clear
+`.update-cache` — right, it is fetched BEFORE an install and answers for the old
+version afterwards. The doctor reads only that cache and makes no network call —
+also right, one that hangs on a slow connection is one nobody runs twice.
+Together: immediately after an update the doctor reported "unknown" while
+/sc-update had said "up to date" ninety seconds earlier.
+
+Cosmetic, and exactly the small wrongness that teaches a reader to skim the
+verdict line. It now reports what is actually known, with all four branches
+exercised against fixtures:
+
+  cache newer than install   -> Update available: vX -> vY — run /sc-update
+  cache equals install       -> Up to date (vX)
+  no cache, version present  -> Freshly installed (vX) — next session re-checks
+  neither                    -> Not checked yet today — the next session will
+
+Still no network call; there is a test asserting that, because "fix the unknown"
+is the change that would tempt someone to add one.
+
+Neither change was wrong alone, and no test covered the interaction because each
+was tested against its own concern.
+
+Suite 5452/0. Shellcheck clean at CI severity.. 5452 tests passing.
 - [4.0.40] - 2026-09-08 — fix(install): clear the stale remote cache, and give Windows a python3 that outlives the installer
 
 Backlog pass. Two fixes, one of them found by triaging a PR rather than reading
