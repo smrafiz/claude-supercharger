@@ -595,8 +595,22 @@ grep -qE 'curl|wget|urlopen|nc ' "$REPO_DIR/tools/claude-check.sh" \
 # paths and is 0700.
 begin_test "doctor: the shareable report prints ~ , not an expanded \$HOME"
 _PL_OUT=$(cd /tmp && bash "$REPO_DIR/tools/claude-check.sh" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
-_PL_N=$(printf '%s' "$_PL_OUT" | grep -cE '/(Users|home)/[a-zA-Z0-9._-]+/' || true)
-[ "${_PL_N:-0}" -eq 0 ] && pass || fail "$_PL_N line(s) carry an absolute home path"
+_PL_LEAK=$(printf '%s' "$_PL_OUT" | grep -E '/(Users|home)/[a-zA-Z0-9._-]+/' || true)
+[ -z "$_PL_LEAK" ] && pass || fail "leaked: $(printf '%s' "$_PL_LEAK" | tr '\n' '|')"
+
+# v4.0.43: the run above uses the author's OWN $HOME, so it only ever exercises
+# the branches a fully-populated install takes. The leak that shipped was in the
+# `else` arm of the analytics block — reached only when ~/.claude/projects does
+# not exist, i.e. on a pristine $HOME. Same shape as the fresh-install crash the
+# previous test found: the untaken branch is where the defects live. $HOME here
+# must LOOK like a home path, or the assertion cannot fail.
+begin_test "doctor: and on a pristine \$HOME too (the branch that leaked)"
+_PL_H="${TMPDIR:-/tmp}/sc-doctor-pristine-$$/Users/probe"
+mkdir -p "$_PL_H"
+_PL_OUT2=$(cd /tmp && HOME="$_PL_H" bash "$REPO_DIR/tools/claude-check.sh" 2>&1 | sed 's/\x1b\[[0-9;]*m//g')
+_PL_LEAK2=$(printf '%s' "$_PL_OUT2" | grep -F "$_PL_H" || true)
+rm -rf "${TMPDIR:-/tmp}/sc-doctor-pristine-$$"
+[ -z "$_PL_LEAK2" ] && pass || fail "leaked: $(printf '%s' "$_PL_LEAK2" | tr '\n' '|')"
 
 begin_test "doctor: and the pasteable verdict line specifically is clean"
 # The control: this is the line people actually send, so it must never regress.

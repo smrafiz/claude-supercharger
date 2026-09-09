@@ -2,6 +2,21 @@
 
 ## Contents
 
+- [4.0.43] - 2026-09-09 — fix: doctor leaked the operator home path on a pristine install
+
+tools/claude-check.sh:656 printed the expanded HOME in the 'No session data'
+line. That arm only runs when ~/.claude/projects is absent — a pristine HOME,
+i.e. every CI runner and every colleague's first run, and never the author's
+machine. Windows CI went red on v4.0.42's own path-leak test.
+
+Same shape as the fresh-install crash the neighbouring test found the day
+before: the untaken branch is where the defects live. So the test now runs the
+doctor a second time under an isolated, /Users-shaped HOME, and prints the
+leaking line instead of a bare count — the v4.0.42 failure said '1 line(s)'
+and nothing else, which is one CI cycle spent on feedback the test could have
+supplied itself.
+
+Baseline verified: the new assertion fails with the defect restored.. 5455 tests passing.
 - [4.0.42] - 2026-09-08 — fix(doctor): it crashed on a pristine HOME, and leaked a home path in the report meant to be pasted
 
 Both from auditing jacksonanstee/agent-harness-JA, whose 34 ADRs are named after

@@ -653,7 +653,7 @@ PYEOF
   )
   echo -e "$ANALYTICS_SUMMARY"
 else
-  echo -e "  ${YELLOW}○${NC} No session data (${PROJECTS_BASE} not found)"
+  echo -e "  ${YELLOW}○${NC} No session data (~/.claude/projects not found)"
 fi
 echo ""
 
