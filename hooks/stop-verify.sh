@@ -136,7 +136,9 @@ fi
 if [ -n "$_SV_CACHE" ] && [ -f "$_SV_CACHE" ]; then
   IFS= read -r _SV_HEAD < "$_SV_CACHE" || _SV_HEAD=""
   _SV_CSIG=${_SV_HEAD%% *}
-  _SV_CEXIT=${_SV_HEAD##* }
+  # Field 2, not the LAST field: v4.0.46 appends a third (the re-block streak),
+  # and `${_SV_HEAD##* }` would have read that as the exit code.
+  _SV_CEXIT=$(printf '%s' "$_SV_HEAD" | awk '{print $2}')
   if [ "$_SV_CSIG" = "$_SV_SIG" ]; then
     if [ "$_SV_CEXIT" = "0" ]; then
       echo "[Supercharger] stop-verify: passed (cached — nothing changed since the last run)" >&2
@@ -144,6 +146,31 @@ if [ -n "$_SV_CACHE" ] && [ -f "$_SV_CACHE" ]; then
     fi
     # Still failing, and still the same tree. Re-block without re-running: the
     # answer cannot have changed, but silence here would let the failure through.
+    #
+    # v4.0.46: with a CAP, because "same tree, still failing" is also the exact
+    # signature of a stop that can never complete. A project whose verify.sh
+    # cannot be made to pass — a broken environment, a missing dependency, a
+    # machine-specific failure — blocked every Stop forever, and the user could
+    # not end the turn. Seven of our Stop hooks read the platform's
+    # `stop_hook_active` flag and the two that BLOCK did not, which is the wrong
+    # way round. The streak below is used instead of that flag because it is
+    # keyed to the TREE: it resets the moment the agent changes anything, so a
+    # genuine fix is never counted against the cap.
+    #
+    # Release after two consecutive re-blocks on the SAME signature: enough to
+    # make the failure impossible to miss, bounded so the session stays usable.
+    # A tree change resets it, because that writes a new signature.
+    # Borrowed from flightrules/flightrules, whose lint-on-stop pins exactly this
+    # in `06-loop-guard-second-block` and `07-loop-guard-releases-after-two`.
+    _SV_STREAK=$(printf '%s' "$_SV_HEAD" | awk '{print $3}')
+    case "$_SV_STREAK" in ''|*[!0-9]*) _SV_STREAK=1 ;; esac
+    if [ "$_SV_STREAK" -ge 2 ]; then
+      echo "[Supercharger] stop-verify: still failing (exit $_SV_CEXIT) — releasing the stop after $_SV_STREAK blocks so the session is not wedged. Fix .claude/verify.sh or set SUPERCHARGER_VERIFY=0." >&2
+      exit 0
+    fi
+    _SV_STREAK=$((_SV_STREAK + 1))
+    { printf '%s %s %s\n' "$_SV_CSIG" "$_SV_CEXIT" "$_SV_STREAK"; tail -n +2 "$_SV_CACHE" 2>/dev/null; } \
+      > "$_SV_CACHE.tmp" 2>/dev/null && mv -f "$_SV_CACHE.tmp" "$_SV_CACHE" 2>/dev/null || true
     _SV_PREV=$(tail -n +2 "$_SV_CACHE" 2>/dev/null || true)
     _SV_MSG="[PROJECT VERIFY FAILED] Verification script (.claude/verify.sh) returned exit code ${_SV_CEXIT}. Fix these before finishing:
 

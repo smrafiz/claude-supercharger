@@ -19,7 +19,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Read|ReadMcpResourceTool|ReadMcpResourceDirTool"
+        "matcher": "Read|ReadMcpResourceTool|ReadMcpResourceDirTool|Grep|Glob"
       },
       {
         "hooks": [

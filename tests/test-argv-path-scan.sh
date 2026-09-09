@@ -69,4 +69,68 @@ HITS=$(python3 "$SCAN" "$DECOY" 2>&1)
 rm -rf "$DECOY"
 if [ -z "$HITS" ]; then pass; else fail "false positive on the correct form: $HITS"; fi
 
+# --- v4.0.46: the LIST-in-an-env-var sibling ---------------------------------
+# Three channels, not two. MSYS converts a path for ARGV and for a SINGLE-path
+# env var, but not the entries of a list inside one. That shipped twice: the
+# v4.0.44 smart-approve gate, and tools/token-report.sh (sibling of a site
+# session-analytics.sh had already fixed by converting the ROOT once).
+begin_test "the env-list scanner flags a split path list handed to python"
+DECOY=$(mktemp -d); mkdir -p "$DECOY/tools"
+cat > "$DECOY/tools/bad.sh" <<'EOF'
+#!/usr/bin/env bash
+FILES=$(find . -name '*.json')
+SC_FILES="$FILES" python3 <<'PY'
+import os
+for f in os.environ.get('SC_FILES', '').split('\n'):
+    if f:
+        open(f)
+PY
+EOF
+HITS=$(python3 "$SCAN" "$DECOY" 2>&1)
+rm -rf "$DECOY"
+printf '%s' "$HITS" | grep -q 'env path LIST' && pass || fail "missed the env path-list form: ${HITS:-<none>}"
+
+# The FP control. A single path in an env var IS converted by MSYS and is
+# correct; so is splitting a non-path value. 46 of the tree's 64 env-prefixed
+# python3 sites open a path, and flagging those would make the scan noise
+# nobody reads — lib/economy.sh splits ACTIVE_ROLES on ',' while opening a
+# single-path env var in the same block, and was this rule's one false positive
+# before it was narrowed to newline splits.
+begin_test "the env-list scanner does NOT flag a single path or a value list"
+DECOY=$(mktemp -d); mkdir -p "$DECOY/tools"
+cat > "$DECOY/tools/ok.sh" <<'EOF'
+#!/usr/bin/env bash
+TEMPLATE_FILE="$1" ROLES="a,b,c" python3 <<'PY'
+import os
+with open(os.environ['TEMPLATE_FILE']) as f:
+    body = f.read()
+active = [r.strip() for r in os.environ.get('ROLES', '').split(',') if r.strip()]
+print(len(body), active)
+PY
+EOF
+HITS=$(python3 "$SCAN" "$DECOY" 2>&1)
+rm -rf "$DECOY"
+[ -z "$HITS" ] && pass || fail "false positive on a single path / value list: $HITS"
+
+begin_test "a file that converts with cygpath is exempt"
+# Converting the entries (or the root they descend from) in bash IS the fix, so
+# a file that does it must not stay flagged forever. Proximity-based, and its
+# limit is documented in the scanner: it would wrongly exempt a file that
+# converts one list and not another.
+DECOY=$(mktemp -d); mkdir -p "$DECOY/tools"
+cat > "$DECOY/tools/fixed.sh" <<'EOF'
+#!/usr/bin/env bash
+FILES=$(find . -name '*.json')
+if command -v cygpath >/dev/null 2>&1; then FILES=$(cygpath -m "$FILES"); fi
+SC_FILES="$FILES" python3 <<'PY'
+import os
+for f in os.environ.get('SC_FILES', '').split('\n'):
+    if f:
+        open(f)
+PY
+EOF
+HITS=$(python3 "$SCAN" "$DECOY" 2>&1)
+rm -rf "$DECOY"
+[ -z "$HITS" ] && pass || fail "flagged a file that already converts: $HITS"
+
 report

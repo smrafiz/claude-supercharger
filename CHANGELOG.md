@@ -2,6 +2,74 @@
 
 ## Contents
 
+- [4.0.46] - 2026-09-09 — feat: close a Grep/Glob secret-read bypass, the SQL file/exec channel, and a Stop that could never stop
+
+Four fixes from four repo audits. Every one measured against the whole chain
+with working controls before anything was written.
+
+--- Grep/Glob read the same bytes as Read (env-file-guard) ---
+
+NO PreToolUse matcher in the tree contained Grep or Glob — verified against
+hooks.json, not by reading source. Grep with output_mode 'content' returns the
+matching LINES, so a Read of a credential file was denied while a Grep of the
+very same file was allowed, and the deny was decoration. Glob over a key
+directory passed too.
+
+The parity class in its harder form: a missing CHANNEL, not a missing list
+entry — the shape that once hid "nothing scans Writes for secrets". Matcher
+widened; Grep/Glob carry `path`, which may be a DIRECTORY the basename rules
+cannot see, so a directory rule was added for the dirs that hold nothing but
+credentials. Four controls pin the FP line: a project grep, a grep with no
+path, a project glob, and a lookalike directory that must NOT match. From
+sohaibdevv/Claude-Starter-Kit, whose one guard applies its boundary to both.
+
+--- SQL is a file and exec channel, not only destructive DDL (safety.sh) ---
+
+Every SQL rule guarded DROP/TRUNCATE/DELETE. Seven file-access forms were
+allowed, one of them arbitrary command execution: the Postgres COPY ... TO
+PROGRAM form runs a shell command as the database user, and is invisible to
+every network rule because it sits inside a quoted SQL string. The other six
+are server-side file reads and writes across Postgres, MySQL and SQLite.
+
+A database client is a general-purpose file reader and writer, and on Postgres
+a shell. The ATTACH rule was NARROWED after measuring its one false positive —
+attaching a real database by absolute path — down to system and dot
+directories; POSIX ERE has no lookahead, so "a path that is not a database"
+cannot be written directly, and the residual is documented rather than hidden.
+Eight ordinary-SQL controls still pass, including the psql client-side copy
+meta-command, an identifier containing "file", and prose mentioning the verbs.
+From nikhilsingla7/dynamic-report-agent, whose own guard is six lines — the
+value was the gap its blocklist could not express, which we shared.
+
+--- a Stop hook that could never stop blocking (stop-verify) ---
+
+It re-blocks whenever the tree signature is unchanged and the cached verdict
+failed. Correct for a fixable failure, and also the exact signature of a
+session that cannot end: a project whose verify script cannot pass blocked
+EVERY Stop forever, with no way for the user to finish the turn. Seven of our
+Stop hooks read the platform's stop_hook_active flag; the two that BLOCK did
+not, which is the wrong way round. Capped at two consecutive re-blocks keyed to
+the TREE, so a genuine fix resets it and is never penalised. From
+flightrules/flightrules (06-loop-guard-second-block, 07-releases-after-two).
+
+--- the Windows path-LIST channel (token-report + a scanner rule) ---
+
+MSYS converts a path for ARGV and for a SINGLE-path env var, but not the
+entries of a list inside one. tools/token-report.sh hit exactly that and
+reported zero sessions on a healthy Git Bash install, silently, because its
+parser swallows the open failure. Fixed by converting the ROOT once — the
+decision tools/session-analytics.sh had already made for the identical bug;
+this was the sibling site that never got it.
+
+tests/lib-argv-path-scan.py grew a rule for the class. Its predicate was
+narrowed by measurement: 64 env-prefixed python3 sites, 46 of which open a
+path, would have been noise. The discriminator is the SEPARATOR — a bash-built
+path list is newline-separated, while lib/economy.sh splits a roles variable on
+a comma while legitimately opening a single-path env var in the same block.
+That took it to 0 false positives across hooks, lib, tools and tests, and it
+still fires when the fix is reverted.
+
+Suite 5526 -> 5547.. 5547 tests passing.
 - [4.0.45] - 2026-09-09 — feat: secret-manager reads, 13 credential paths, a suite that ran nothing, and a Windows path handoff
 
 Three audits, four findings, each measured with controls before anything changed.

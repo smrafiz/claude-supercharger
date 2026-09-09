@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Claude Supercharger — .env File Protection
-# Event: PreToolUse | Matcher: Bash, Read
-# Blocks reading/editing .env files (which typically contain credentials).
+# Event: PreToolUse | Matcher: Bash, Read, Grep, Glob
+# Blocks reading/editing .env and other credential files. Grep/Glob are covered
+# because a content search is the same read asked of a different tool.
 # Allows .env.example, .env.template, .env.sample, .env.dist (templates).
 # Inspired by pchalasani/claude-code-tools/safety-hooks (Apache-2.0).
 
@@ -101,8 +102,24 @@ fi
 # Their schema is {server, uri} (confirmed against the tool definition, not
 # assumed) — no file_path at all, so widening the matcher alone would have
 # changed nothing. A file:// resource is a local file read by another name.
-if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "ReadMcpResourceDirTool" ]; then
+# v4.0.46: Grep and Glob are the same read, asked of a different tool. NOTHING in
+# the tree matched either — measured, not assumed: no PreToolUse matcher contained
+# `Grep` or `Glob`. `Grep` with output_mode "content" returns the matching LINES,
+# so `Read ~/.aws/credentials` was denied while a Grep of the same file was
+# allowed, and the deny was decoration. Found by diffing coverage against
+# sohaibdevv/Claude-Starter-Kit, whose one guard applies its boundary to both.
+#
+# This is the parity class in its harder form: not a missing entry in a list, but
+# a missing CHANNEL — the shape that also hid "nothing scans Writes for secrets".
+if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "ReadMcpResourceDirTool" ] \
+   || [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; then
   FILE_PATH=$(_efg_field file_path)
+  # Grep/Glob carry `path`, not `file_path`, and it may be a file OR a directory.
+  if [ -z "$FILE_PATH" ] && { [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; }; then
+    FILE_PATH=$(_efg_field path)
+    # No path at all means the tool searches the cwd — ordinary project work.
+    [ -z "$FILE_PATH" ] && exit 0
+  fi
   if [ -z "$FILE_PATH" ]; then
     # Strip a file:// scheme so basename/path tests below see a real path. Other
     # schemes are left intact: they still flow through the checks, and a resource
@@ -146,6 +163,20 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of $FILE_PATH blocked — /proc and /sys may expose process env (e.g. /proc/self/environ contains ANTHROPIC_API_KEY)" "$FILE_PATH"
       ;;
   esac
+
+  # v4.0.46: a search takes a DIRECTORY, which the basename rules below cannot
+  # see. Grepping ~/.aws returns the credential lines just as reading the file
+  # does. Scoped to directories that hold NOTHING BUT credentials — the same set
+  # as safety-detect.py:_SECRET_DIRS plus the cloud-config dirs this file already
+  # blocks by name — because an ordinary directory search is the single most
+  # common thing an agent does, and blocking those would be an FP machine. The
+  # trailing slash makes a path that ENDS at the directory match too.
+  if [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; then
+    case "$FILE_PATH/" in
+      */.ssh/*|*/.gnupg/*|*/.aws/*|*/.docker/*|*/.kube/*|*/.config/gcloud/*|*/.config/gh/*)
+        block "Search of a credential directory blocked ($FILE_PATH) — .ssh/.gnupg/.aws hold key material regardless of file name" "$FILE_PATH" ;;
+    esac
+  fi
 
   base=$(basename "$FILE_PATH")
   # v2.26.82: match the names case-INSENSITIVELY. `.ENV` and `ID_RSA` walked

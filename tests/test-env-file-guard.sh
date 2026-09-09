@@ -194,4 +194,57 @@ OUT=$(printf '%s' '{"tool_name":"Read","tool_input":{"file_path":"/proj/build.gr
 [ "$RC" = "0" ] && ! printf '%s' "$OUT" | grep -q '"ask"' && pass \
   || fail "over-blocked build.gradle (rc=$RC): ${OUT:0:120}"
 
+# --- v4.0.46: Grep/Glob are the same read, asked of a different tool ---------
+# Measured before the fix: NO PreToolUse matcher in the tree contained `Grep` or
+# `Glob`, so `Read ~/.aws/credentials` was denied while a Grep of the same file
+# was allowed — and `Grep` with output_mode "content" returns the matching LINES.
+# The deny was decoration. Found by diffing coverage against
+# sohaibdevv/Claude-Starter-Kit, whose single guard applies its boundary to both.
+#
+# The parity class in its harder form: a missing CHANNEL, not a missing list
+# entry — the same shape that once hid "nothing scans Writes for secrets".
+grep_input() { # $1=tool $2=tool_input json
+  printf '{"session_id":"p","cwd":"/tmp","tool_name":"%s","tool_input":%s}' "$1" "$2" \
+    | bash "$HOOK" >/dev/null 2>&1
+  return $?
+}
+
+for _t in Grep Glob; do
+  begin_test "env-guard: $_t of a credential FILE is blocked"
+  grep_input "$_t" '{"pattern":"x","path":"/home/u/.aws/credentials"}'
+  [ "$?" = "2" ] && pass || fail "$_t read a credential file"
+
+  begin_test "env-guard: $_t of a credential DIRECTORY is blocked"
+  # The basename rules cannot see a directory, and grepping ~/.ssh returns key
+  # material whatever the files inside are called.
+  grep_input "$_t" '{"pattern":"x","path":"/home/u/.ssh"}'
+  [ "$?" = "2" ] && pass || fail "$_t searched a credential directory"
+
+  begin_test "env-guard: $_t of a .env file is blocked"
+  grep_input "$_t" '{"pattern":"KEY","path":"/proj/.env"}'
+  [ "$?" = "2" ] && pass || fail "$_t read a .env file"
+done
+
+# THE CONTROLS. An ordinary directory search is the single most common thing an
+# agent does; blocking those turns this guard into an FP machine, and an FP is
+# what gets a guard switched off. Without these, every assertion above is
+# satisfied by a hook that denies every search.
+begin_test "env-guard: an ordinary project search is NOT blocked"
+grep_input Grep '{"pattern":"TODO","path":"/proj/src"}'
+[ "$?" = "0" ] && pass || fail "over-blocked an ordinary project grep"
+
+begin_test "env-guard: a search with NO path (cwd) is NOT blocked"
+grep_input Grep '{"pattern":"TODO"}'
+[ "$?" = "0" ] && pass || fail "over-blocked a cwd-relative grep"
+
+begin_test "env-guard: Glob over a project tree is NOT blocked"
+grep_input Glob '{"pattern":"**/*.ts","path":"/proj"}'
+[ "$?" = "0" ] && pass || fail "over-blocked an ordinary glob"
+
+begin_test "env-guard: a directory merely CONTAINING the substring is not a credential dir"
+# `/proj/awsx` must not match the `.aws` rule — the pattern anchors on the dot
+# and the separators, not on the letters.
+grep_input Grep '{"pattern":"x","path":"/proj/awsx"}'
+[ "$?" = "0" ] && pass || fail "matched a lookalike directory name"
+
 report

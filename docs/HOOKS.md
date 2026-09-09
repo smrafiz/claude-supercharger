@@ -58,7 +58,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `elicitation-guard` | Elicitation | * | SYNC (blocking) | MCP servers can solicit structured input from the user via Elicitation forms — |
 | `enforce-pkg-manager` | PreToolUse | Bash | Detects lockfiles and blocks the wrong package manager. |
 | `env-exec-guard` | PreToolUse | Bash | Setting a code-injecting environment variable causes arbitrary code execution on |
-| `env-file-guard` | PreToolUse | Bash, Read | Blocks reading/editing .env files (which typically contain credentials). |
+| `env-file-guard` | PreToolUse | Bash, Read, Grep, Glob | Blocks reading/editing .env and other credential files. Grep/Glob are covered |
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |

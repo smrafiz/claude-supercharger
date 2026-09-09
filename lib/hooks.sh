@@ -58,7 +58,7 @@ get_hooks_for_mode() {
   # regex metachar, so CC keeps this matcher in EXACT-LIST mode and it never matched
   # the longer MCP resource-read tool names. Spelled out rather than left to a regex,
   # so the coverage is declared instead of incidental.
-  hooks+=("PreToolUse|Read,ReadMcpResourceTool,ReadMcpResourceDirTool|${hooks_dir}/env-file-guard.sh|")
+  hooks+=("PreToolUse|Read,ReadMcpResourceTool,ReadMcpResourceDirTool,Grep,Glob|${hooks_dir}/env-file-guard.sh|")
   # v2.23.6: Bash-channel self-defense. path-guard covers the Write/Edit channel and
   # safety.sh's selfmod blocks Bash edits to the config FILES; this closes the two
   # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
