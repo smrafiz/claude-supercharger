@@ -213,6 +213,24 @@ fi
 if [ "$TOTAL_FAILED" -gt 0 ]; then
   exit 1
 fi
+# v4.0.46: a run that executed NO tests is not a pass. "Total: 0 passed, 0
+# failed" exited 0, and this is the gate tools/release.sh runs on a clean
+# checkout before every release — so a TEST_GLOB or TEST_SKIP that selects
+# nothing (a typo, a renamed file, a bad path) would have shipped a release on a
+# suite that ran nothing and said so in green.
+#
+# Not hypothetical for the config that needs it most: the Windows job is the one
+# caller that sets both TEST_GLOB and TEST_SKIP, so it is the one place where a
+# single typo silently empties the run.
+#
+# A file that ABORTS mid-run already fails correctly (measured: rc=1); the hole
+# was only the empty selection. Borrowed from scott-garvin/claude-code-guardrails,
+# whose verify-before-claim skill names this shape "green-by-skip".
+if [ "$TOTAL_RUN" -eq 0 ]; then
+  echo "FAIL: the suite ran 0 tests — that is not a pass."
+  echo "      TEST_GLOB='${TEST_GLOB}' matched no files under $(dirname "$0")."
+  exit 1
+fi
 if [ "$BADGE_DRIFT" -ne 0 ]; then
   echo "FAIL: README tests badge is stale (see warning above)."
   exit 1

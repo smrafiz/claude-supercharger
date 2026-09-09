@@ -692,6 +692,39 @@ CRED_CMD_PATTERNS=(
   # This shape was already listed as dangerous in tests/fuzz-safety.sh but no pattern
   # implemented it, so it sat in the false-negative count as 100 of 300 entries.
   '(^|[[:space:]])security[[:space:]]+(find-(generic|internet)-password|export|find-certificate)([[:space:]]|$)'
+  # v4.0.45: secret-MANAGER reads. Same category as the Keychain reads above and
+  # the same tier, for the same reason — a single command that prints one
+  # credential to stdout.
+  #
+  # Why these and not the other 20 secret-read commands in
+  # JeongJaeSoon/agent-guard's catalog: for `gh auth token`, `npm config get
+  # :_authToken`, `env` leaking AWS_SECRET_ACCESS_KEY and the rest, the value has
+  # a RECOGNISABLE SHAPE, so output-secrets-scanner already redacts it — and
+  # guarding the output is the better layer (guard where content must pass to do
+  # harm, not where it arrives). Adding command rules for those would duplicate a
+  # working layer and buy false positives on `pip config list`.
+  #
+  # A secret MANAGER is the exception: it returns a value of ARBITRARY shape — a
+  # database password, a key with no vendor prefix — and no output pattern can
+  # recognise it. Measured, with the 30/30 pattern suite as the control that the
+  # scanner does fire on known shapes: a vault-style table, an
+  # `aws secretsmanager` SecretString, and `git credential fill`'s `password=`
+  # ALL passed the output scanner untouched. For this class the command is the
+  # only layer that can act.
+  #
+  # `doppler run` and `vault write` are deliberately absent: they inject or store
+  # rather than print, so the secret never reaches stdout.
+  '(^|[[:space:]])op[[:space:]]+(read|item[[:space:]]+get)([[:space:]]|$)'
+  '(^|[[:space:]])vault[[:space:]]+(kv[[:space:]]+get|read)([[:space:]]|$)'
+  '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+(secretsmanager[[:space:]]+get-secret-value|configure[[:space:]]+export-credentials)([[:space:]]|$)'
+  '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+ssm[[:space:]]+get-parameters?[^;&|]*--with-decryption'
+  '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+secrets[[:space:]]+versions[[:space:]]+access([[:space:]]|$)'
+  # az account get-access-token is already covered under the cloud category; this
+  # is its gcloud sibling, absent until now — a channel asymmetry, not a new idea.
+  '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+auth[[:space:]]+print-(access|identity|refresh)-token([[:space:]]|$)'
+  '(^|[[:space:]])doppler[[:space:]]+secrets([[:space:]]|$)'
+  # `git credential fill` and any helper's `get` print `password=` in plaintext.
+  '(^|[^[:alnum:]_-])(git([[:space:]]+-[^[:space:]]+)*[[:space:]]+credential(-[[:alnum:]_-]+)?|git-credential-[[:alnum:]_-]+)[[:space:]]+(fill|get)([[:space:]]|$)'
 )
 # v2.24.13: synthetic input injection (category: clipboard — same "drive the user's
 # desktop" surface). `osascript -e 'tell app "System Events" to keystroke ...'` types

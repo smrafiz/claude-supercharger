@@ -55,7 +55,17 @@ _sa_user_rules_cover() {
     _ur_found="$_ur_found $_ur_f"
   done
   [ -n "$_ur_found" ] || return 1
-  SC_DENY_FILES="$_ur_found" SC_INPUT="$input" python3 - <<'SC_DENY_PY'
+  # v4.0.45: the paths go through ARGV, not an env var. Git Bash rewrites POSIX
+  # paths into Windows spelling for a native program's argv, but NOT for a
+  # space-separated list in an arbitrary env var — so native Windows python got
+  # `/c/Users/...`, could not open it, and the fail-safe below declared every
+  # call COVERED. With any deny rule present that declined EVERYTHING on Windows,
+  # including unrelated commands. Caught by this suite's control assertion, which
+  # was the only one that could: the "must decline" cases all passed for the
+  # wrong reason. Bash greps these same files successfully two lines up, which is
+  # what separates "cannot read the file" from "cannot spell the path".
+  # shellcheck disable=SC2086  # deliberate word split: one argv entry per file
+  SC_INPUT="$input" python3 - $_ur_found <<'SC_DENY_PY'
 import json, os, re, fnmatch, sys
 
 inp = json.loads(os.environ.get('SC_INPUT') or '{}')
@@ -63,11 +73,16 @@ tool = inp.get('tool_name') or ''
 ti = inp.get('tool_input') or {}
 
 rules = []
-for f in (os.environ.get('SC_DENY_FILES') or '').split():
+for f in sys.argv[1:]:
     try:
         d = json.load(open(f))
-    except Exception:
+    except Exception as e:
         # An unreadable or malformed settings file must not be read as "no rules".
+        # But say so: bash already proved it could read this file, so silence here
+        # turns an environment fault into "autopilot declines everything" with no
+        # way to tell that from a correct decline.
+        sys.stderr.write("[Supercharger] smart-approve: cannot read %s (%s)"
+                         " — declining to auto-approve\n" % (f, type(e).__name__))
         sys.exit(0)
     p = d.get('permissions') or {}
     for k in ('deny', 'ask'):

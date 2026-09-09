@@ -139,4 +139,33 @@ OUT=$(python3 -c "$SCAN" "$TD" 2>&1)
 [ -z "$OUT" ] && pass || fail "flagged a value-only gate (test-mcp.sh's shape): $OUT"
 rm -rf "$TD"
 
+# --- v4.0.46: a run that executed NO tests is not a pass ----------------------
+# "Total: 0 passed, 0 failed" exited 0. tools/release.sh runs this suite on a
+# clean checkout as the gate before every release, so a TEST_GLOB or TEST_SKIP
+# that selected nothing — a typo, a renamed file, a bad path — would have
+# shipped a release on a suite that ran nothing and reported green.
+#
+# The Windows job is the one caller that sets BOTH TEST_GLOB and TEST_SKIP,
+# which makes it the one place a single typo silently empties the run.
+#
+# Named "green-by-skip" in scott-garvin/claude-code-guardrails's
+# verify-before-claim skill, which is where this came from.
+RUNNER="$REPO_DIR/tests/run.sh"
+
+begin_test "runner: a glob matching NO test files fails the run"
+OUT=$(TEST_GLOB='test-zzz-matches-nothing-*.sh' bash "$RUNNER" 2>&1); RC=$?
+[ "$RC" -ne 0 ] && pass || fail "an empty suite exited 0 — the release gate would pass having run nothing"
+
+begin_test "runner: and it says WHY, naming the glob that matched nothing"
+# A bare non-zero exit sends the reader looking for a failing test that does not
+# exist. The message has to name the selection.
+printf '%s' "$OUT" | grep -q 'ran 0 tests' && printf '%s' "$OUT" | grep -q 'test-zzz-matches-nothing' \
+  && pass || fail "message does not name the empty selection: $(printf '%s' "$OUT" | tail -3 | tr '\n' ' ')"
+
+# THE CONTROL. Without it, the two assertions above are satisfied by a runner
+# that fails every invocation — which is also what a broken runner looks like.
+begin_test "runner: control — a glob that DOES match still passes"
+TEST_GLOB='test-perf-banner.sh' bash "$RUNNER" >/dev/null 2>&1 \
+  && pass || fail "the runner now fails a legitimate subset run"
+
 report

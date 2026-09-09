@@ -51,6 +51,17 @@ block() {
   exit 2
 }
 
+# v4.0.45: a confirm, for files that carry credentials AND ordinary settings.
+# A hard deny on those is an FP generator — an agent reading Maven/Gradle config
+# for a build task is doing its job — and an FP is what gets a guard switched
+# off. The secret is still gated; the difference is who decides.
+ask_read() {
+  local reason="$1"
+  ARSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$ARSN"
+  exit 0
+}
+
 TOOL=$(_efg_field tool_name)
 
 # Bash: check command for .env reads/edits
@@ -167,6 +178,16 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of key/certificate file blocked ($base)" "$FILE_PATH" ;;
     .npmrc|.pypirc|.pgpass|.netrc|.authinfo|.authinfo.gpg|.git-credentials|.my.cnf|credentials.toml|secrets.yaml|secrets.yml|credentials.json|pip.conf)
       block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
+    .flaskenv|.flaskenv.*|.dev.vars|.dev.vars.*|.vault-token|.terraformrc|terraform.rc|.bunfig.toml)
+      block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
+    # Terraform STATE, not only tfvars. We covered the INPUT and missed the
+    # OUTPUT — and state is where the secrets actually land, in plaintext, by
+    # design: provider passwords and generated keys are all written there.
+    # Covering one side of a tool and not the other is parity drift.
+    *.tfstate|*.tfstate.backup)
+      block "Read of Terraform state blocked ($base) — state stores provider credentials in plaintext" "$FILE_PATH" ;;
+    *.p8|*.jks)
+      block "Read of key/certificate file blocked ($base)" "$FILE_PATH" ;;
     wallet.dat|wallet.json|*.wallet|credentials)
       block "Read of wallet/credentials file blocked ($base)" "$FILE_PATH" ;;
     kubeconfig)
@@ -178,6 +199,13 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     */.config/gh/hosts.yml|*/.claude.json|*/.codex/auth.json|*/.cursor/config.json|\
     */.cargo/credentials*|*/.gem/credentials|*/pip.conf)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
+    */.composer/auth.json|*/.config/composer/auth.json|*/.bundle/config|\
+    */pypoetry/auth.toml)
+      block "Read of package-manager credential store blocked" "$FILE_PATH" ;;
+    # These two carry credentials AND ordinary build settings, so they ask
+    # rather than deny — see ask_read.
+    */.m2/settings.xml|*/.gradle/gradle.properties)
+      ask_read "Read of $base — carries build settings, but also server passwords and signing keys. Confirm if you need it." ;;
   esac
   shopt -u nocasematch
   exit 0

@@ -298,4 +298,60 @@ begin_test "GAP CHECK: the neighbouring credential rules are untouched"
 denies "aws-creds" "cat ~/.aws/credentials"
 denies "ssh-key"   "cat ~/.ssh/id_rsa"
 
+# --- v4.0.45: secret-MANAGER reads --------------------------------------------
+# From the JeongJaeSoon/agent-guard catalog. Only this class was taken. For the
+# other 20 secret-read commands it lists (`gh auth token`, an npm auth-token
+# config read, `env` leaking AWS_SECRET_ACCESS_KEY), the value has a
+# RECOGNISABLE SHAPE and output-secrets-scanner already redacts it — guarding
+# the output is the better layer, and a command rule there would duplicate a
+# working one while buying false positives on `pip config list`.
+#
+# A secret manager returns an ARBITRARY-shaped value — a database password, a
+# key with no vendor prefix — that no output pattern can recognise. Measured,
+# with tests/test-secret-patterns.sh (30/30) as the control that the scanner
+# does fire on known shapes: a vault-style table, an `aws secretsmanager`
+# SecretString and `git credential fill`'s password line ALL passed the output
+# scanner untouched. For this class the command is the only layer that can act.
+begin_test "secret-manager reads are denied"
+denies "op-read"     "op read op://vault/item/field"
+denies "vault-kv"    "vault kv get secret/app"
+denies "vault-read"  "vault read secret/app"
+denies "asm"         "aws secretsmanager get-secret-value --secret-id x"
+denies "ssm-decrypt" "aws ssm get-parameter --name /x --with-decryption"
+denies "aws-export"  "aws configure export-credentials"
+denies "gcp-secrets" "gcloud secrets versions access latest --secret=x"
+denies "doppler"     "doppler secrets"
+denies "git-cred"    "git credential fill"
+
+begin_test "gcloud's token print is denied, like its az sibling already was"
+# az account get-access-token was covered and gcloud was not: a channel
+# asymmetry, not a new idea.
+denies "gcloud-token" "gcloud auth print-access-token"
+denies "az-token"     "az account get-access-token"
+
+# The FP half. Each of these is one token away from a rule above, and every
+# narrowing in this file exists because a guard that fires on ordinary work is
+# a guard that gets switched off.
+begin_test "near-miss secret-manager commands are NOT denied"
+allows "vault-status"  "vault status"
+allows "vault-write"   "vault write secret/app k=v"
+allows "op-signin"     "op signin"
+allows "aws-s3"        "aws s3 ls"
+allows "ssm-plain"     "aws ssm get-parameter --name /plain"
+allows "gcp-list"      "gcloud secrets list"
+allows "doppler-run"   "doppler run -- npm start"
+allows "cred-store"    "git credential-store store"
+
+begin_test "the phrase inside an inert argument is not the command"
+# The FP class this whole file exists for: prose that quotes a denied command.
+allows "grep-prose" "grep -r 'op read' docs/"
+
+begin_test "package-manager credential dumps stay allowed (the output layer has them)"
+# Deliberate. If these ever need denying, the reason must be that the output
+# scanner stopped catching the token — check that first, not this list.
+AT="_auth""Token"   # assembled, per this file's convention (see the header)
+allows "npm-token"  "npm config get //registry.npmjs.org/:$AT"
+allows "pip-list"   "pip config list"
+allows "gh-token"   "gh auth token"
+
 report

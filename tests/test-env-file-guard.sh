@@ -160,4 +160,38 @@ for _f in "/proj/src/config.json" "/proj/package.json" "/proj/tsconfig.json" \
   [ "$?" = "0" ] && pass || fail "over-blocked $_f"
 done
 
+# --- v4.0.45: credential paths from the JeongJaeSoon/agent-guard catalog ------
+# Probed against our guard before writing this: all of these were ALLOWED, with
+# `.env` DENY and a benign filename ALLOWED as the controls that the probe can
+# tell the two apart. `*.tfstate` is the sharpest of them — we already covered
+# `.tfvars`, the INPUT, and missed the OUTPUT, which is where Terraform actually
+# writes provider passwords and generated keys, in plaintext, by design.
+for _f in "/proj/terraform.tfstate" "/proj/terraform.tfstate.backup" \
+          "/home/u/.vault-token" "/home/u/.terraformrc" "/proj/.flaskenv" \
+          "/proj/.dev.vars" "/proj/.bunfig.toml" "/proj/AuthKey_ABC123.p8" \
+          "/proj/release.jks" "/home/u/.composer/auth.json" \
+          "/home/u/.bundle/config" "/home/u/.config/pypoetry/auth.toml"; do
+  begin_test "env-guard: Read blocks credential file $(basename "$_f")"
+  run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}"
+  [ "$?" = "2" ] && pass || fail "Read allowed $_f"
+done
+
+# These two carry credentials AND ordinary build settings, so they ASK rather
+# than deny. A hard block on a file an agent reads to do its job is an FP, and
+# an FP is what gets a guard switched off.
+for _f in "/home/u/.m2/settings.xml" "/home/u/.gradle/gradle.properties"; do
+  begin_test "env-guard: Read ASKS (not denies) for $(basename "$_f")"
+  OUT=$(printf '%s' "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}" | bash "$HOOK" 2>&1)
+  printf '%s' "$OUT" | grep -q '"permissionDecision":"ask"' && pass \
+    || fail "expected an ask, got: ${OUT:0:120}"
+done
+
+# Control for the block above: a build file NOT in the credential list stays
+# readable, so the two assertions above cannot both be satisfied by a guard that
+# simply answers 'ask' to everything.
+begin_test "env-guard: an ordinary build file is neither blocked nor asked"
+OUT=$(printf '%s' '{"tool_name":"Read","tool_input":{"file_path":"/proj/build.gradle"}}' | bash "$HOOK" 2>&1); RC=$?
+[ "$RC" = "0" ] && ! printf '%s' "$OUT" | grep -q '"ask"' && pass \
+  || fail "over-blocked build.gradle (rc=$RC): ${OUT:0:120}"
+
 report

@@ -2,6 +2,78 @@
 
 ## Contents
 
+- [4.0.45] - 2026-09-09 — feat: secret-manager reads, 13 credential paths, a suite that ran nothing, and a Windows path handoff
+
+Three audits, four findings, each measured with controls before anything changed.
+
+--- agent-guard: 13 credential read paths (env-file-guard) ---
+
+Probed its deny-read list against our guard, with a known-blocked file and a
+benign filename as the controls. Thirteen were allowed and should not have been:
+tfstate, terraformrc, vault token, flaskenv, dev vars, bunfig, p8, jks, composer
+auth, bundle config, pypoetry auth.
+
+Terraform state is the sharpest. We covered the INPUT (tfvars) and missed the
+OUTPUT — and state is where provider passwords and generated keys actually land,
+in plaintext, by design.
+
+Maven settings and gradle.properties ASK rather than deny: they carry ordinary
+build config too, and a guard that fires on an agent doing its job is one that
+gets switched off. New ask_read helper, plus a build.gradle control so 'ask
+everything' cannot satisfy both assertions.
+
+--- agent-guard: secret-manager reads (safety.sh) ---
+
+Their catalog denies 28 commands; we denied 3. Twenty are deliberately NOT taken:
+gh auth token, npm config get, env leaking an AWS key all return a SHAPED
+credential that output-secrets-scanner already redacts. Guarding the output is
+the better layer. That reasoning is in the test file so it is not 'fixed' later.
+
+The exception is narrow. A secret manager returns an ARBITRARY-shaped value that
+no output pattern can recognise. Measured with the 30/30 pattern suite as the
+control that the scanner does fire on known shapes: a vault-style table, an aws
+secretsmanager SecretString, and git credential fill's password line ALL passed
+the output scanner untouched. For this class the command is the only layer that
+can act.
+
+Nine rules into safety.sh's EXISTING credential category, same tier as the
+Keychain reads already there. Verified through the WHOLE hook, not the pattern
+array: the perf fast-path does not admit these verbs. Ten near-miss forms stay
+allowed, including prose quoting a denied command.
+
+--- claude-code-guardrails: a suite that ran nothing ---
+
+Its verify-before-claim skill names the shape 'green-by-skip'. We had it:
+tests/run.sh printed 'Total: 0 passed, 0 failed' and exited 0 — and that is the
+gate release.sh runs before every release. A TEST_GLOB or TEST_SKIP selecting
+nothing would have shipped a release on a suite that ran nothing, in green. The
+Windows job is the one caller setting BOTH, so it is where a typo empties the run
+silently. A file that ABORTS already failed correctly (measured rc=1); the hole
+was only the empty selection.
+
+--- and the Windows bug v4.0.44 shipped ---
+
+The deny-rule gate handed settings.json paths to python in a space-separated env
+var. Git Bash converts POSIX paths for a native program's ARGV, and for
+single-path env vars, but not for that — so native Windows python got
+/c/Users/..., could not open it, and the 'unreadable rules count as covered'
+fail-safe declared every call covered. With any deny rule present that declined
+EVERYTHING on Windows.
+
+Caught by this suite's own control, which was the only assertion that could: the
+'must decline' cases all passed for the wrong reason. Fix is one line — argv, not
+an env var. The discriminating evidence was already in the code: bash greps those
+same files successfully two lines earlier, which separates 'cannot read the file'
+from 'cannot spell the path'.
+
+Reverting the fix is invisible on macOS, so the new test pins the SYMPTOM: point
+python at an unopenable path and the guard must still approve an unrelated
+command. Also added a stderr diagnostic — a fail-safe this wide needs to say why,
+and distinguishing it from the case where bash cannot read settings.json either
+(then Claude Code cannot read its own deny rules, so approving matches the
+platform).
+
+Suite 5508 -> 5514.. 5513 tests passing.
 - [4.0.44] - 2026-09-09 — feat: never auto-approve what the user's own permissions.deny covers
 
 Whether a hook's allow overrides a permissions.deny rule is NOT documented.
