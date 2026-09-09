@@ -19,6 +19,120 @@
 # shellcheck source=hooks/lib-git-remote.sh
 . "${BASH_SOURCE[0]%/*}/lib-git-remote.sh"
 
+# v4.0.44: never auto-approve something the USER'S OWN permissions.deny (or
+# .ask) covers. Whether a hook's allow can override a deny rule is NOT documented
+# — code.claude.com/docs/en/hooks says nothing about that precedence, and a
+# claude-code-guide reading once asserted the opposite. inkatze/planwright hit the
+# same question and was safe only by accident: its auto-approve list is read-only
+# shapes with no overlap with its deny block. Ours has total overlap — autopilot
+# returns 0 for EVERYTHING outside the tighten-list — so if hook-allow does win, an
+# 8h window silently suspends the user's own deny rules.
+#
+# The fix is to stop depending on the answer: never emit allow for a call the user
+# said to deny or ask about. Over-declining costs only the prompt they would have
+# had anyway; under-declining is the hole. So anything unparseable — a malformed
+# settings file, a rule shape we do not model, a tool whose subject we cannot
+# locate — counts as COVERED.
+#
+# Models the documented matcher: whole-command glob (M2), `:*` = `*` (M5), a deny
+# matches if ANY subcommand matches (M6), matching past leading VAR=value (M7),
+# and the wrapper stripping of MB-1. Cheap gate first: the python fork happens only
+# when a settings file actually carries a "deny"/"ask" key, which is the rare case.
+_sa_user_rules_cover() {
+  local input="$1" _ur_cwd _ur_f _ur_found=""
+  _ur_cwd=$(printf '%s\n' "$input" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
+  for _ur_f in "$HOME/.claude/settings.json" \
+               ${_ur_cwd:+"$_ur_cwd/.claude/settings.json"} \
+               ${_ur_cwd:+"$_ur_cwd/.claude/settings.local.json"}; do
+    [ -f "$_ur_f" ] || continue
+    # A non-EMPTY array only: installers write an empty deny list, and a bare key
+    # test would fork python on every permission request for a user with no rules.
+    # Skip only a provably EMPTY list: installers write one, and a bare key test
+    # would fork python on every permission request for a user with no rules. The
+    # `$` arm matters — a TRUNCATED file ends right after the bracket, and a gate
+    # that skipped it would read a corrupt settings file as "no rules" (fail-open).
+    grep -qE '"(deny|ask)"[[:space:]]*:[[:space:]]*\[[[:space:]]*([^]]|$)' "$_ur_f" 2>/dev/null || continue
+    _ur_found="$_ur_found $_ur_f"
+  done
+  [ -n "$_ur_found" ] || return 1
+  SC_DENY_FILES="$_ur_found" SC_INPUT="$input" python3 - <<'SC_DENY_PY'
+import json, os, re, fnmatch, sys
+
+inp = json.loads(os.environ.get('SC_INPUT') or '{}')
+tool = inp.get('tool_name') or ''
+ti = inp.get('tool_input') or {}
+
+rules = []
+for f in (os.environ.get('SC_DENY_FILES') or '').split():
+    try:
+        d = json.load(open(f))
+    except Exception:
+        # An unreadable or malformed settings file must not be read as "no rules".
+        sys.exit(0)
+    p = d.get('permissions') or {}
+    for k in ('deny', 'ask'):
+        v = p.get(k)
+        if isinstance(v, list):
+            rules += [r for r in v if isinstance(r, str)]
+
+if not rules:
+    sys.exit(1)
+
+SUBJECT = {
+    'Bash': 'command', 'PowerShell': 'command',
+    'Read': 'file_path', 'Write': 'file_path', 'Edit': 'file_path',
+    'MultiEdit': 'file_path', 'NotebookEdit': 'notebook_path',
+    'WebFetch': 'url', 'WebSearch': 'query',
+}
+key = SUBJECT.get(tool)
+subject = ti.get(key) if key else None
+if key == 'file_path' and not subject:
+    subject = ti.get('notebook_path')
+
+ENV = re.compile(r'^\s*(?:[A-Za-z_][A-Za-z0-9_]*=(?:"[^"]*"|\'[^\']*\'|\S*)\s+)*')
+# MB-1: Claude Code strips these leading wrappers before matching; we strip them
+# too, so `timeout 30 <denied>` cannot slip past a rule that covers <denied>.
+WRAP = re.compile(r'^(?:timeout\s+\S+|time|nice(?:\s+-n\s*\S+)?|nohup|stdbuf(?:\s+-\S+)*|command|builtin|noglob|xargs)\s+')
+
+def parts(cmd):
+    # M6: a deny matches if ANY subcommand matches. M7: match past leading VAR=value.
+    subs = re.split(r'&&|\|\||\|&|;|\||&|\n', cmd)
+    out = []
+    for s in subs:
+        s = s.strip()
+        if not s:
+            continue
+        for v in (s, ENV.sub('', s).strip()):
+            out.append(v)
+            w = WRAP.sub('', v).strip()
+            while w != v:
+                out.append(w)
+                v, w = w, WRAP.sub('', w).strip()
+    return out or [cmd]
+
+for r in rules:
+    m = re.match(r'^([A-Za-z_][A-Za-z0-9_]*)(?:\((.*)\))?$', r.strip())
+    if not m:
+        continue                      # unparseable rule: cannot judge, do not claim clean
+    rtool, pat = m.group(1), m.group(2)
+    if rtool != tool:
+        continue
+    if pat is None:                   # bare tool name — covers every call
+        sys.exit(0)
+    if subject is None:               # a pattern we have no subject for
+        sys.exit(0)                   # conservative: assume covered
+    pat = pat.strip()
+    if pat.endswith(':*'):            # M5
+        pat = pat[:-2] + '*'
+    cands = parts(subject) if tool in ('Bash', 'PowerShell') else [subject]
+    for c in cands:
+        if fnmatch.fnmatchcase(c, pat):
+            sys.exit(0)
+
+sys.exit(1)
+SC_DENY_PY
+}
+
 smart_approve_verdict() {
   local input="$1"
   local tool_name project_dir file_path abs_path command agent_id
@@ -113,6 +227,11 @@ smart_approve_verdict() {
       fi
       ;;
   esac
+
+  # Tighten beats loosen: the user's own deny/ask rules outrank every mode below,
+  # including autopilot. See _sa_user_rules_cover above for why this cannot wait
+  # for the platform to document its precedence.
+  _sa_user_rules_cover "$input" && return 1
 
   # Autopilot next.
   for _md_f in "$_md_state/scope/.autopilot-until" ${_md_sid:+"$_md_state/scope/.autopilot-until-$_md_sid"}; do

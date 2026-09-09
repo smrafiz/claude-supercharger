@@ -21,11 +21,22 @@ begin_test "repetition-detector: session B does not inherit session A's loop fin
 D=$(new_state)
 JA='{"session_id":"sessA","tool_name":"Bash","tool_input":{"command":"repcmd"},"cwd":"/tmp"}'
 JB='{"session_id":"sessB","tool_name":"Bash","tool_input":{"command":"repcmd"},"cwd":"/tmp"}'
-# session A repeats the same command 3x → would trip a loop in A's own history
-for _ in 1 2 3; do SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/repetition-detector.sh" >/dev/null 2>&1 <<<"$JA"; done
+# session A repeats the same command 3x → trips a loop in A's own history.
+# The third call's output is the POSITIVE CONTROL: without it the assertion
+# below is satisfied by a detector that can never emit LOOP at all, which is
+# also what a dead hook looks like. Verified by mutation — a stub that writes
+# the session file and exits 0 passed this test before the control was added.
+for _ in 1 2; do SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/repetition-detector.sh" >/dev/null 2>&1 <<<"$JA"; done
+CTRL=$(SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/repetition-detector.sh" 2>&1 <<<"$JA")
 # session B runs it once — must NOT see a loop (fresh history)
 OUT=$(SUPERCHARGER_STATE="$D" bash "$REPO_DIR/hooks/repetition-detector.sh" 2>&1 <<<"$JB")
-echo "$OUT" | grep -q 'LOOP' && fail "session B saw a loop from session A's history: $OUT" || pass
+if ! echo "$CTRL" | grep -q 'LOOP'; then
+  fail "control: session A never tripped its own loop, so this assertion cannot fail"
+elif echo "$OUT" | grep -q 'LOOP'; then
+  fail "session B saw a loop from session A's history: $OUT"
+else
+  pass
+fi
 rm -rf "$D"
 
 # ---- cache-health: counter is session-scoped ----

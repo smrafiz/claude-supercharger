@@ -124,6 +124,7 @@ case "$ARG" in
     _write_all "$TARGET_BASE" "$UNTIL"
     echo "Autopilot: ON for $(fmt_dur "$REQ")${CAPPED} — auto-approving all prompts for ${local_scope_desc} until $(fmt_time "$UNTIL")."
     echo "Safety hooks stay active: rm -rf, force-push, credential leaks, curl|bash and the like are still blocked."
+    echo "Your own permissions.deny / permissions.ask rules are honoured too - autopilot never auto-approves a call they cover."
     echo "Turn off early: /sc-autopilot off"
     ;;
 esac

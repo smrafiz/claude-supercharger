@@ -2,6 +2,43 @@
 
 ## Contents
 
+- [4.0.44] - 2026-09-09 — feat: never auto-approve what the user's own permissions.deny covers
+
+Whether a hook's allow overrides a permissions.deny rule is NOT documented.
+inkatze/planwright recorded the question on 2026-07-18 (and noted a
+claude-code-guide reading asserting the opposite); re-checked against
+code.claude.com/docs/en/hooks on 2026-09-09 — still not stated.
+
+They were safe by accident: their auto-approve list is read-only shapes with no
+overlap with their deny block. Ours has total overlap, because /sc-autopilot
+returns 0 for EVERYTHING outside the tighten-list. If hook-allow does win, an 8h
+window silently suspends the user's own deny rules — and the command text said
+'the safety hooks still run', which is true of OUR hooks and silent about theirs.
+
+So stop depending on the answer. smart_approve_verdict now declines anything the
+user's permissions.deny OR .ask covers, placed before the autopilot loop for the
+same reason as the critical-infra and sc-toggle declines: a later decline gets
+swallowed exactly when nobody is watching.
+
+Models the documented matcher (whole-command glob, ':*' = '*', deny-if-any-
+subcommand, matching past leading VAR=value, wrapper stripping) and fails SAFE
+everywhere it cannot: a malformed settings file, an unmodelled rule shape, or a
+tool whose subject cannot be located all count as covered. Over-declining costs
+only the prompt the user would have had anyway; under-declining is the hole.
+
+The cheap gate skips only a PROVABLY empty list — the first version skipped a
+truncated file too, reading a corrupt settings.json as 'no rules'. Its own test
+caught that.
+
+Also, from the same audit — two of our tests could not fail:
+
+- test-session-scope-leaks.sh asserted only the ABSENCE of LOOP for session B.
+  A stub detector that writes the session file and exits 0 passed it.
+- test-perf-banner.sh: both assertions are absence checks on bash 5+ and '|| true'
+  hides a dead tool, so on ubuntu the whole file passed against a hook-perf.sh
+  that printed nothing. Its only positive control was bash-version-gated.
+
+Both now carry controls and both were verified by mutation.. 5470 tests passing.
 - [4.0.43] - 2026-09-09 — fix: doctor leaked the operator home path on a pristine install
 
 tools/claude-check.sh:656 printed the expanded HOME in the 'No session data'
