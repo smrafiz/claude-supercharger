@@ -1,5 +1,6 @@
 # Changelog
 
+- [4.0.48] - 2026-09-10 — feat(economy+perf): surface maxEffortLevel and autoCompactThreshold in /sc-doctor (both with positive controls); fix /sc-doctor reporting `settings.json valid` for an unparseable file and dying before its verdict (`set -e` + two unguarded python substitutions — third and fourth sites in that file); reclaim ~15 cpu-ms/tool-call from bookkeeping (tool-history-tracker 21.6→10.0, cache-health 15.6→12.8, audit-trail 6.0→5.2, measured A/B same machine/harness), plus a bash-5-only `basename` fork in lib-suppress (~34 forks/call, invisible on macOS). PostToolBatch deliberately NOT registered — payload schema undocumented; the contesting argument and the experiment are in docs/HOOK_AUTHORING.md. Suite 5570 → 5579.
 ## Contents
 
 - [4.0.47] - 2026-09-10 — fix: close four guard bypasses, a silent fail-open, and a quadratic hot path

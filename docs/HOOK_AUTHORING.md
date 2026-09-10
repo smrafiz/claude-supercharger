@@ -73,6 +73,20 @@ The rest of this guide covers event types, stdin shapes, and response formats in
 >   scanning a slash command's expanded body).
 > - **`PostToolBatch`** — VALID per the docs, deliberately **not** registered. No
 >   hook needs batch-level granularity today; `PostToolUse` covers our cases.
+>   **2026-09-10: that premise is now contested, on cost rather than
+>   correctness.** A perf review measured 34 hooks firing per Bash tool call (19
+>   Pre + 15 Post) and found the bookkeeping hooks — `tool-history-tracker`,
+>   `audit-trail`, `cache-health` — re-doing per-CALL work that is only needed
+>   per-BATCH. The binary's own description: *"Fired once after every tool call
+>   in a batch has resolved, before the next model request"* and *"PostToolBatch
+>   fires exactly once with the full batch."* Timeout is 15s.
+>   **Still not registered, and the blocker is knowledge, not effort:** the
+>   payload schema is undocumented — whether it carries the per-call list, and
+>   under what key, is unknown, and the whole point is to read that list. Moving
+>   a hot-path hook onto an unverified payload is how you get a bookkeeping hook
+>   that silently records nothing. The experiment to run first: register a probe
+>   that dumps its stdin, trigger a parallel batch, read the shape. Until then
+>   `PostToolUse` stays.
 >
 > **Not verified:** whether `MessageDisplay` and `UserPromptExpansion` actually
 > fire in practice. They are registered and tested against synthetic payloads, but

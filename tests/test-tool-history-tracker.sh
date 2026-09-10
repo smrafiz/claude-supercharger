@@ -20,6 +20,15 @@ echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1 || true
 [ -s "$HISTORY" ] && pass || fail "history not written"
 teardown_test_home
 
+# v4.0.48: the bound is now 40, trimmed down to 20 — not "never above 20".
+# Trimming AT 20 meant the condition was true forever past the 20th tool call, so
+# every single call forked wc + tail + mv to remove ONE line. Measured A/B on the
+# same machine and harness: 19.2 -> 10.0 cpu-ms per call.
+#
+# The ≤20 contract this test used to assert was not load-bearing: the only
+# consumer, confidence-gate.sh:134, reads the last 5 entries. What IS load-bearing
+# is that the file stays BOUNDED, so that is what is asserted now — a widened
+# number alone would have been the contract quietly slipping.
 begin_test "tool-history-tracker: trims to 20 entries per-session"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger/scope"
@@ -30,7 +39,18 @@ done > "$HISTORY"
 INPUT='{"session_id":"sess1","tool_name":"Edit","tool_response":{}}'
 echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1 || true
 COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
-[ "$COUNT" -le 20 ] && pass || fail "expected ≤20 entries, got $COUNT"
+[ "$COUNT" -le 40 ] && pass || fail "expected ≤40 entries, got $COUNT"
+
+begin_test "tool-history-tracker: and the trim actually FIRES, so it stays bounded"
+# The control for the assertion above: ≤40 is also satisfied by a hook that never
+# trims at all until it happens to be under the cap. Push well past the trigger
+# and prove the file came back DOWN.
+for i in $(seq 1 60); do
+  echo "{\"session_id\":\"sess1\",\"tool\":\"Read\",\"success\":true,\"ts\":$i}"
+done > "$HISTORY"
+echo "$INPUT" | bash "$HOOK" >/dev/null 2>&1 || true
+COUNT2=$(wc -l < "$HISTORY" | tr -d ' ')
+[ "$COUNT2" -le 21 ] && pass || fail "60 entries were not trimmed back down (got $COUNT2)"
 teardown_test_home
 
 # v2.7.30: PostToolUse tool_response has no exit_code — failure is inferred from

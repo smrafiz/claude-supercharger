@@ -60,7 +60,11 @@ hook_profile_skip "repetition-detector" && exit 0
 [ -z "$TOOL_NAME" ] && exit 0
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
-mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+# v4.0.48: `[ -d ] ||` first. `mkdir -p` on a directory that already
+# exists still forks (~2.4 cpu-ms measured) and these run on EVERY tool
+# call, where the dir exists every time after the first. Same pattern
+# budget-cap.sh already documents.
+[ -d "$SCOPE_DIR" ] || mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
 MESSAGES=()
 

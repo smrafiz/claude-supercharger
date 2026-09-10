@@ -133,4 +133,67 @@ H=$(_mkinstall 154 0 154)
 _run "$H" | grep -q 'Deep scan cut short' && fail "warned on an empty overrun log" || pass
 rm -rf "$H"
 
+# --- v4.0.48: the two cost levers the platform added and we never surfaced ----
+# maxEffortLevel (Claude Code 2.1.267) caps effort on every provider;
+# autoCompactThreshold is the deterministic form of the "suggest /compact at
+# 70%" rule our own CLAUDE.md asks the MODEL to remember. Both were referenced
+# in 0 of our files before this.
+#
+# The POSITIVE CONTROL is the point of this block. An advisory that always
+# prints is decoration — it has to disappear when the setting is actually there,
+# or nobody can tell the check from a banner.
+_ck_setting() { # $1=json fragment for settings.json -> full doctor output
+  local h sc; h=$(mktemp -d); sc="$h/.claude/supercharger"
+  mkdir -p "$sc/hooks" "$sc/scope"; printf '4.0.0\n' > "$sc/.version"
+  printf '%s' "$1" > "$h/.claude/settings.json"
+  HOME="$h" bash "$TOOL" 2>&1 | sed 's/\x1b\[[0-9;]*m//g'
+  rm -rf "$h"
+}
+
+begin_test "doctor: advises maxEffortLevel when it is absent"
+_ck_setting '{"hooks":{}}' | grep -q 'maxEffortLevel not set' && pass \
+  || fail "no advisory for a missing effort cap"
+
+begin_test "CONTROL: and stops advising once it IS set (top level)"
+_ck_setting '{"maxEffortLevel":"medium","hooks":{}}' | grep -q 'maxEffortLevel not set' \
+  && fail "advisory still fires with the setting present — it is decoration" || pass
+
+begin_test "CONTROL: per-model under modelSettings counts too"
+# The binary's own text: "maxEffortLevel replaces it per model." Reading only the
+# top-level key would nag every user who configured it the documented way.
+_ck_setting '{"modelSettings":{"claude-opus-5":{"maxEffortLevel":"low"}},"hooks":{}}' \
+  | grep -q 'maxEffortLevel not set' && fail "per-model form not recognised" || pass
+
+begin_test "doctor: advises autoCompactThreshold when it is absent"
+_ck_setting '{"hooks":{}}' | grep -q 'autoCompactThreshold not set' && pass \
+  || fail "no advisory for a missing compaction threshold"
+
+begin_test "CONTROL: and stops advising once it IS set"
+_ck_setting '{"autoCompactThreshold":80,"hooks":{}}' | grep -q 'autoCompactThreshold not set' \
+  && fail "advisory still fires with the setting present" || pass
+
+begin_test "doctor: an unparseable settings.json is reported as UNKNOWN, not as 0 hooks"
+# The fallback that kept the script alive (`|| echo "0 0"`) was also the one that
+# made it lie: `settings.json valid — 0 Supercharger hook(s) registered` for a
+# file Claude Code will refuse to load. 0 hooks in a good file and a file that
+# cannot be read produced the same number, and the message said "valid" either
+# way. An oracle that cannot tell those apart is worse than one that stops.
+_CK_BAD=$(_ck_setting '{"maxEffortLevel":')
+printf '%s' "$_CK_BAD" | grep -q 'could NOT be parsed' && pass \
+  || fail "reported a broken settings.json as valid"
+
+begin_test "CONTROL: a VALID settings.json still says valid"
+# Without this, the assertion above is satisfied by a doctor that calls every
+# file unparseable.
+_ck_setting '{"hooks":{}}' | grep -q 'settings.json valid' && pass \
+  || fail "a good file is now reported as broken"
+
+begin_test "a malformed settings.json does not crash the doctor"
+# This file has crashed twice before on input it could not parse (the
+# fresh-install SUMMARY_COUNT case, and the no-match greps). The python here
+# already has `|| echo 0|0|0|0`; this pins it.
+_CK_OUT=$(_ck_setting '{"maxEffortLevel":')
+printf '%s' "$_CK_OUT" | grep -q 'Paste this if you are asking for help' && pass \
+  || fail "doctor did not reach its verdict on malformed settings"
+
 report

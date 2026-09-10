@@ -9,7 +9,11 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 check_hook_disabled "session-checkpoint" && exit 0
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
-mkdir -p "$SCOPE_DIR"
+# v4.0.48: `[ -d ] ||` first. `mkdir -p` on a directory that already
+# exists still forks (~2.4 cpu-ms measured) and these run on EVERY tool
+# call, where the dir exists every time after the first. Same pattern
+# budget-cap.sh already documents.
+[ -d "$SCOPE_DIR" ] || mkdir -p "$SCOPE_DIR"
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing

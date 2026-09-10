@@ -112,7 +112,14 @@ init_hook_suppress() {
       local _src="${BASH_SOURCE[$_i]:-}"
       case "$_src" in
         */lib-suppress.sh|"") _i=$((_i + 1)); continue ;;
-        *) HOOK_NAME=$(basename "$_src" .sh); break ;;
+        # v4.0.48: parameter expansion, not a `basename` fork. This runs once per
+        # hook and ~34 hooks fire per Bash tool call, so the fork cost ~2.7 cpu-ms
+        # x 34 = ~92 cpu-ms per tool call — on bash 5 ONLY, because the block is
+        # gated on $EPOCHREALTIME, which is empty on the bash 3.2 that ships with
+        # macOS. Invisible when developing here; paid on every Linux install and
+        # on the ubuntu CI leg. `${x##*/}` then `${x%.sh}` is byte-identical to
+        # `basename "$x" .sh` for these paths and costs nothing.
+        *) _src="${_src##*/}"; HOOK_NAME="${_src%.sh}"; break ;;
       esac
     done
     [ -z "$HOOK_NAME" ] && HOOK_NAME="unknown"

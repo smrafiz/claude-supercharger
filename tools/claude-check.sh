@@ -131,9 +131,21 @@ for event in hooks.values():
         if 'matcher' in entry and entry['matcher'] is None:
             inert += mine
 print(count, inert)
-" 2>/dev/null || echo "0 0")"
-  HOOK_COUNT=${HOOK_COUNT:-0}; HOOK_INERT=${HOOK_INERT:-0}
-  echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
+" 2>/dev/null || echo "ERR 0")"
+  # v4.0.48: "valid" was printed unconditionally, so an UNPARSEABLE settings.json
+  # reported `✓ settings.json valid — 0 Supercharger hook(s) registered`. The
+  # fallback that keeps the script alive was also the fallback that made it lie:
+  # 0 hooks in a good file and a file that could not be read produced the same
+  # number. An oracle that cannot tell those apart is worse than one that stops.
+  if [ "$HOOK_COUNT" = "ERR" ]; then
+    echo -e "  ${RED}✗${NC} settings.json could NOT be parsed — hook registration is unknown, not zero"
+    echo -e "      ${CYAN}Fix the JSON, then re-run. Claude Code will not load hooks from an invalid file.${NC}"
+    ERRORS=$((ERRORS + 1))
+    HOOK_COUNT=0; HOOK_INERT=0
+  else
+    HOOK_COUNT=${HOOK_COUNT:-0}; HOOK_INERT=${HOOK_INERT:-0}
+    echo -e "  ${GREEN}✓${NC} settings.json valid — ${HOOK_COUNT} Supercharger hook(s) registered"
+  fi
 
   # Compare against what install.sh recorded leaving behind. Without a baseline
   # a count is just a number: 122 looks fine until you know it should be 154.
@@ -236,7 +248,7 @@ with open(os.environ['SETTINGS_PATH']) as f:
     s = json.load(f)
 cmd = s.get('statusLine', {}).get('command', '')
 print(cmd)
-" 2>/dev/null)
+" 2>/dev/null || true)   # v4.0.48: set -e — an unparseable file killed the run here
   if echo "$SL_CMD" | grep -q "#supercharger"; then
     echo -e "  ${GREEN}✓${NC} Enhanced statusline — active"
     SCORE_CORE=$((SCORE_CORE > 40 ? 40 : SCORE_CORE))  # cap before adding; statusline is bonus via economy
@@ -457,10 +469,18 @@ fb = s.get('fallbackModel') or s.get('fallback_model')
 env = (s.get('env') or {})
 in_settings = str(env.get('ENABLE_PROMPT_CACHING_1H', '')).strip() in ('1', 'true', 'True')
 in_shell = os.environ.get('ENV_1H', '').strip() in ('1', 'true', 'True')
-print(f\"{1 if fb else 0}|{1 if (in_settings or in_shell) else 0}\")
-" 2>/dev/null || echo "0|0")
-  HAS_FALLBACK="${SETTINGS_CHECK%%|*}"
-  HAS_CACHE_1H="${SETTINGS_CHECK##*|}"
+# v4.0.48: two more cost levers the platform added and we never surfaced.
+# maxEffortLevel may be top-level OR per-model under modelSettings.
+ms = s.get('modelSettings') or {}
+eff = s.get('maxEffortLevel') or any(
+    (v or {}).get('maxEffortLevel') for v in ms.values() if isinstance(v, dict))
+act = s.get('autoCompactThreshold')
+print(f\"{1 if fb else 0}|{1 if (in_settings or in_shell) else 0}|{1 if eff else 0}|{1 if act else 0}\")
+" 2>/dev/null || echo "0|0|0|0")
+  HAS_FALLBACK=$(printf '%s' "$SETTINGS_CHECK" | cut -d'|' -f1)
+  HAS_CACHE_1H=$(printf '%s' "$SETTINGS_CHECK" | cut -d'|' -f2)
+  HAS_MAX_EFFORT=$(printf '%s' "$SETTINGS_CHECK" | cut -d'|' -f3)
+  HAS_AUTOCOMPACT=$(printf '%s' "$SETTINGS_CHECK" | cut -d'|' -f4)
   if [ "$HAS_FALLBACK" = "0" ]; then
     echo -e "  ${YELLOW}→${NC} fallbackModel chain not set — Opus overloads drop the call instead of routing to Sonnet/Haiku"
     echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"fallbackModel\": [\"claude-sonnet-4-6\", \"claude-haiku-4-5\"]"
@@ -470,6 +490,26 @@ print(f\"{1 if fb else 0}|{1 if (in_settings or in_shell) else 0}\")
     echo -e "  ${YELLOW}→${NC} ENABLE_PROMPT_CACHING_1H not set — default cache TTL is 5min (dropped from 1h on 2026-03-06)"
     echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"env\": {\"ENABLE_PROMPT_CACHING_1H\": \"1\"}"
     echo -e "    Pauses >5min currently re-pay the 1.25x cache write; 1h TTL pays 2x once and amortizes across hour-long sessions."
+    UNUSED=$((UNUSED + 1))
+  fi
+  # v4.0.48: maxEffortLevel (Claude Code v2.1.267+). The most direct cost cap the
+  # platform ships — it clamps effort on EVERY provider, Bedrock/Vertex/Foundry
+  # included, and the user can still choose a lower level per request. Read from
+  # the binary's own description: "Enforced client-side: an effort supplied
+  # through CLAUDE_CODE_EXTRA_BODY is not clamped" — so it is a default, not a
+  # jail, which is the right shape to recommend.
+  if [ "$HAS_MAX_EFFORT" = "0" ]; then
+    echo -e "  ${YELLOW}→${NC} maxEffortLevel not set — no ceiling on per-request effort (the most direct cost cap available)"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"maxEffortLevel\": \"medium\"  (or per-model under \"modelSettings\")"
+    UNUSED=$((UNUSED + 1))
+  fi
+  # v4.0.48: autoCompactThreshold. Our own CLAUDE.md tells the MODEL to "suggest
+  # /compact when context exceeds 70%" — an instruction the model may or may not
+  # act on. This setting is the deterministic version of that same rule, enforced
+  # by the harness. A rule with a mechanism beats a rule without one.
+  if [ "$HAS_AUTOCOMPACT" = "0" ]; then
+    echo -e "  ${YELLOW}→${NC} autoCompactThreshold not set — compaction timing is left to the model noticing it"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"autoCompactThreshold\": 80  (percent of context)"
     UNUSED=$((UNUSED + 1))
   fi
 fi
@@ -650,7 +690,11 @@ else:
     s = total['sessions']
     print(f"  ${total_cost:.2f} across {s} session{'s' if s != 1 else ''} | cache {cache_pct}% | saved ${total_saved:.2f}")
 PYEOF
-  )
+  ) || ANALYTICS_SUMMARY="  (analytics unavailable — could not read session data)"
+  # v4.0.48: `set -e` again. A throw anywhere in that block killed the whole
+  # doctor before its verdict, the same way the statusline read did. Third site
+  # of this shape in one file; the sweep for `X=$(python3 …)` without a fallback
+  # found exactly these three.
   echo -e "$ANALYTICS_SUMMARY"
 else
   echo -e "  ${YELLOW}○${NC} No session data (~/.claude/projects not found)"

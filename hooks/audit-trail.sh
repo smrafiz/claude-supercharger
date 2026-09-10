@@ -12,7 +12,11 @@ set -euo pipefail
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 AUDIT_DIR="$SUPERCHARGER_STATE/audit"
-mkdir -p "$AUDIT_DIR"
+# v4.0.48: `[ -d ] ||` first. `mkdir -p` on a directory that already
+# exists still forks (~2.4 cpu-ms measured) and these run on EVERY tool
+# call, where the dir exists every time after the first. Same pattern
+# budget-cap.sh already documents.
+[ -d "$AUDIT_DIR" ] || mkdir -p "$AUDIT_DIR"
 TODAY=$(date -u +"%Y-%m-%d")
 AUDIT_FILE="$AUDIT_DIR/$TODAY.jsonl"
 

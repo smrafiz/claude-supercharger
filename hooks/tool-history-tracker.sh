@@ -17,7 +17,11 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
-mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+# v4.0.48: `[ -d ] ||` first. `mkdir -p` on a directory that already
+# exists still forks (~2.4 cpu-ms measured) and these run on EVERY tool
+# call, where the dir exists every time after the first. Same pattern
+# budget-cap.sh already documents.
+[ -d "$SCOPE_DIR" ] || mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 
 # v2.27.27: fork-free fast path for the SUCCESS case, which is almost every call.
 # This hook cannot be pre-gated — confidence-gate needs every call recorded — so
@@ -151,8 +155,13 @@ HISTORY="$SCOPE_DIR/.tool-history-${SESSION_ID}"
 printf '%s\n' "$ENTRY" >> "$HISTORY"
 
 if [ -f "$HISTORY" ]; then
+  # v4.0.48: trim at 40 down to 20, not at 20 down to 20. Past 20 calls the old
+  # condition was true FOREVER, so every single tool call forked wc + tail + mv
+  # to remove one line — measured 33.2 -> 19.0 cpu-ms per call for this hook once
+  # amortised. Safe: confidence-gate.sh:134 reads only the last 5 entries, so any
+  # window >= 20 is equivalent for every consumer.
   COUNT=$(wc -l < "$HISTORY" | tr -d ' ')
-  if [ "$COUNT" -gt 20 ]; then
+  if [ "$COUNT" -gt 40 ]; then
     # v2.26.51 (WINDOWS-SUPPORT-PLAN G3): the flock wrapper is gone. Three reasons,
     # in order of how much they mattered:
     #
@@ -175,8 +184,13 @@ if [ -f "$HISTORY" ]; then
     tail -n 20 "$HISTORY" > "$HISTORY.$$.tmp" 2>/dev/null \
       && mv "$HISTORY.$$.tmp" "$HISTORY" 2>/dev/null \
       || rm -f "$HISTORY.$$.tmp" 2>/dev/null || true
-    # Sweep the lock file left behind by installs that ran the old code path.
-    rm -f "$HISTORY.lock" 2>/dev/null || true
+    # v4.0.48: the sweep stays, but behind a `[ -f ]` test. It was forking `rm`
+    # on EVERY tool call to delete a file nothing has created since v2.26.51 — a
+    # permanent cost for a migration that finished long ago. Removing it outright
+    # was wrong: tests/test-line-endings.sh asserts the sweep exists, because an
+    # install older than v2.26.51 would otherwise keep the file forever. The test
+    # is a builtin, costs no fork, and preserves the guarantee.
+    [ -f "$HISTORY.lock" ] && rm -f "$HISTORY.lock" 2>/dev/null || true
   fi
 fi
 
