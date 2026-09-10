@@ -117,7 +117,33 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   # Grep/Glob carry `path`, not `file_path`, and it may be a file OR a directory.
   if [ -z "$FILE_PATH" ] && { [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; }; then
     FILE_PATH=$(_efg_field path)
-    # No path at all means the tool searches the cwd — ordinary project work.
+  fi
+  # v4.0.47: `glob` is the SIBLING PARAMETER, and v4.0.46 covered only `path`.
+  # Both name the files the tool will open, so guarding one is guarding half:
+  #
+  #   Grep path=~/.env  glob unset          -> DENY   (v4.0.46)
+  #   Grep glob=.env    path unset          -> ALLOWED
+  #   Grep glob=**/id_rsa                   -> ALLOWED
+  #
+  # `output_mode:"content"` returns the matching LINES, so this reads the file.
+  # Checked INDEPENDENTLY of `path`, not just as a fallback: `path=/proj` with
+  # `glob=**/.env` targets the project's own .env, which Read is denied for.
+  # The glob's last component is the filename the basename rules below expect;
+  # `**/` and `*/` prefixes are stripped so `**/id_rsa` tests as `id_rsa`.
+  # [[audit-sibling-branches-not-instances]] — v4.0.46 fixed one arm of this
+  # exact tool and left the other, which is the defect that memory describes.
+  if [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; then
+    _EFG_GLOB=$(_efg_field glob)
+    if [ -n "$_EFG_GLOB" ]; then
+      _EFG_GBASE="${_EFG_GLOB##*/}"
+      case "$_EFG_GBASE" in
+        .env|.env.*|id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*|*.pem|*.key|*.p12|*.pfx|*.jks|*.p8|\
+        .npmrc|.pypirc|.pgpass|.netrc|.git-credentials|.my.cnf|credentials|credentials.*|\
+        secrets.yaml|secrets.yml|*.tfstate|.vault-token|wallet.dat)
+          block "Search of credential files blocked (glob: $_EFG_GLOB) — a content search reads the same bytes as opening them" "$_EFG_GLOB" ;;
+      esac
+    fi
+    # No path AND no glob means the tool searches the cwd — ordinary project work.
     [ -z "$FILE_PATH" ] && exit 0
   fi
   if [ -z "$FILE_PATH" ]; then

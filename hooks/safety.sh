@@ -999,6 +999,27 @@ if _cat_enabled "persistence"; then
     block "shell profile modification via tee — agent should not modify shell startup files"
   fi
 
+  # v4.0.47: IN-PLACE EDITORS. The three rules above cover redirects, copies and
+  # tee — every way of writing a profile EXCEPT editing it where it lies, which
+  # is the most natural way to append a line. Measured, control first:
+  #
+  #   echo 'export PATH=/tmp/evil:$PATH' >> ~/.zshrc   -> DENY  (control)
+  #   sed -i.bak '$a export PATH=/tmp/evil:$PATH' ~/.zshrc -> allow
+  #   perl -pi -e 's/$/evil/' ~/.zshrc                 -> allow
+  #   python3 -c "open('~/.zshrc','a').write('evil')"  -> allow
+  #
+  # Third instance of this exact sibling-branch shape in this one block (see the
+  # tee note above, and v2.25.2). `sed -i` was already listed for CONFIG files in
+  # _SELFMOD_VERB, so the pattern existed and simply was not applied here.
+  # `-i` is matched with an optional suffix because GNU takes `-i.bak` and BSD
+  # takes `-i ''`; the interpreter arm mirrors _SELFMOD_PY's open(...,'a'|'w').
+  _PROF_INPLACE="(^|[[:space:];&|])(sed|perl|ruby)([[:space:]]+-[^[:space:]|;&]+)*[[:space:]][^|;&]*${_PROF_FILE}"
+  _PROF_PY="(python|perl|ruby)[^;&|]*open[^;&|]*${_PROF_FILE}[^;&|]*,[[:space:]]*['\"][wa]"
+  if { [[ "$CMD" =~ $_PROF_INPLACE ]] && [[ "$CMD" =~ (^|[[:space:]])-(i|pi|pe|ni)[^[:space:]]* ]]; } \
+     || [[ "$CMD" =~ $_PROF_PY ]]; then
+    block "shell profile modification via an in-place editor — agent should not modify shell startup files"
+  fi
+
   if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then
     block "SSH key operation — agent should not manage SSH keys"
   fi
@@ -1037,7 +1058,23 @@ fi
 # (the `2>` fd-redirect matched the bare `>`) — a false positive on introspection
 # commands like /sc-status. Now the redirect/verb must target the config file
 # itself; plain reads and unrelated fd-redirects are allowed through.
-_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks)'
+# v4.0.47: the scope RUNTIME SWITCHES belong here too. Everything listed before
+# them is a config FILE; these decide whether the guards run at all, and they
+# were writable from the Bash channel while path-guard denied the identical
+# write on Write/Edit — a pure cross-channel gap, found by a multi-lens review.
+#
+# Measured in an isolated state dir, before the fix:
+#   echo '.' > <state>/scope/.allow-patterns   -> ALLOWED (every guard)
+#   then `rm -rf /`                            -> DENY became ALLOWED
+# `.supercharger-disabled` is the worst of them: lib-timing.sh:26 reads it at
+# SOURCE time in every hook, so one redirect silences all 159 at once.
+# `.autopilot-until` / `.readonly-until` / `.strict-until` skip the confirms that
+# harness-tamper-guard:277 and lib-smart-approve:221 exist to force — writing the
+# sentinel is the same privilege as running the command, without the ask.
+#
+# Suffixed forms (.autopilot-until-<session>, .allow-patterns-<projectkey>) need
+# no extra alternative: these patterns are matched as substrings, not anchored.
+_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.readonly-until|\.strict-until)'
 # (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file

@@ -247,4 +247,23 @@ begin_test "env-guard: a directory merely CONTAINING the substring is not a cred
 grep_input Grep '{"pattern":"x","path":"/proj/awsx"}'
 [ "$?" = "0" ] && pass || fail "matched a lookalike directory name"
 
+# --- v4.0.47: `glob` is the sibling parameter of `path` -------------------------
+# v4.0.46 covered Grep/Glob's `path` and missed `glob`, which names the same
+# files. Measured after that release: path=~/.env DENY, glob=.env ALLOWED,
+# glob=**/id_rsa ALLOWED. One arm of the same tool — the shape
+# audit-sibling-branches-not-instances describes.
+for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials"; do
+  begin_test "env-guard: Grep glob=$_g is blocked"
+  grep_input Grep "{\"pattern\":\"x\",\"glob\":\"$_g\",\"output_mode\":\"content\"}"
+  [ "$?" = "2" ] && pass || fail "glob=$_g read credential files"
+done
+
+begin_test "env-guard: an ordinary glob is NOT blocked"
+grep_input Grep '{"pattern":"TODO","glob":"*.ts"}'
+[ "$?" = "0" ] && pass || fail "over-blocked an ordinary glob"
+
+begin_test "env-guard: a glob with no path still searches the cwd normally"
+grep_input Glob '{"pattern":"**/*.tsx"}'
+[ "$?" = "0" ] && pass || fail "over-blocked a bare cwd glob"
+
 report

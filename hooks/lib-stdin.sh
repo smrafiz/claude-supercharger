@@ -60,3 +60,35 @@ sc_read_input() {
   _sc_val="${_sc_val%"${_sc_val##*[!$'\n']}"}"
   printf -v "$_sc_var" '%s' "$_sc_val"
 }
+
+# sc_read_input_warn VARNAME HOOKNAME — the same read, for hooks that CANNOT ask.
+#
+# v4.0.47. sc_read_input above emits a PreToolUse `ask`, which is the right answer
+# only for a PreToolUse gate. Five blockers run on other events —
+# prompt-secret-guard (UserPromptSubmit), output-secrets-scanner /
+# prompt-injection-scanner / mcp-provenance (PostToolUse), claim-evidence-gate
+# (Stop) — where a PreToolUse decision is meaningless: the harness ignores it, and
+# emitting one would be a lie about what was checked. They kept the pre-v4.0.28
+# inline read and so failed open SILENTLY. Measured on bash 3.2, same
+# secret-bearing payload, SUPERCHARGER_STDIN_TIMEOUT_S=1:
+#
+#   fast writer -> rc=2, blocks, message shown
+#   slow writer -> rc=0, NO stdout, NO stderr   <- prompt passes unchecked
+#
+# On these events the honest failure is not a block but a VISIBLE one: the tool
+# already ran (PostToolUse), or blocking the user's prompt outright is worse than
+# the risk. Silence is the actual defect — a guard that says nothing reads as
+# "nothing to report". So this says something, every time, and still exits 0.
+sc_read_input_warn() {
+  local _sc_var="$1" _sc_hook="${2:-hook}" _sc_val="" _sc_rc=0
+  local _sc_to="${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _sc_t0=$SECONDS
+  IFS= read -r -d '' -t "$_sc_to" _sc_val || _sc_rc=$?
+  # Same elapsed-time discriminator as above — see the note there for why the
+  # `$? > 128` convention cannot be used on bash 3.2.
+  if [ $((SECONDS - _sc_t0)) -ge "$_sc_to" ] || [ "$_sc_rc" -gt 128 ]; then
+    echo "[Supercharger] ${_sc_hook}: stdin read timed out after ${_sc_to}s — this payload was NOT scanned" >&2
+    exit 0
+  fi
+  _sc_val="${_sc_val%"${_sc_val##*[!$'\n']}"}"
+  printf -v "$_sc_var" '%s' "$_sc_val"
+}

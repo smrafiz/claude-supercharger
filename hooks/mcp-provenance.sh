@@ -14,7 +14,20 @@ set -euo pipefail
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
+# A guard that has lost its libs must FAIL OPEN here, not block:
+# tests/test-prompt-secret-guard.sh copies this hook WITHOUT its siblings and
+# asserts exit 0, because a broken install that blocks every prompt is worse
+# than one that scans nothing. The unconditional source regressed that.
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh" 2>/dev/null || true
+_INPUT=""   # set -u: must exist even when the lib below is absent
+# No inline-read fallback on purpose. Re-adding that line is exactly what
+# tests/test-stdin-timeout.sh bans, and it caught this on the first run. With the
+# lib absent, _INPUT simply stays empty and the hook's own empty-input path exits
+# 0 — the fail-open the missing-lib test requires, without a second copy of the
+# read that the shared helper exists to replace.
+if command -v sc_read_input_warn >/dev/null 2>&1; then
+  sc_read_input_warn _INPUT "mcp-provenance"
+fi
 
 RESULT=$(HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
 import json, os, re, sys, unicodedata

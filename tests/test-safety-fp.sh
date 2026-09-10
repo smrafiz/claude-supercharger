@@ -405,4 +405,44 @@ begin_test "prose about these verbs is not a command"
 allows "commit-msg" "git commit -m 'docs: describe how COPY TO works in postgres'"
 allows "prose"      "echo 'the report copies rows to a program later'"
 
+# --- v4.0.47: scope RUNTIME SWITCHES are not writable from the Bash channel ----
+# Found by a multi-lens review. path-guard denied these on Write/Edit while Bash
+# allowed them — a pure cross-channel gap. Measured before the fix, isolated
+# state dir: `echo '.' > <state>/scope/.allow-patterns` ALLOWED, after which
+# `rm -rf /` went from DENY to ALLOWED. `.supercharger-disabled` is worse:
+# lib-timing.sh:26 reads it at source time in every hook, so one redirect
+# silences all 159.
+_SW="$HOME/.claude/supercharger/scope"
+begin_test "the scope switches cannot be written from Bash"
+denies "allow-pat"   "echo '.' > $_SW/.allow-patterns"
+denies "killswitch"  "echo x > $_SW/.supercharger-disabled"
+denies "autopilot"   "date +%s > $_SW/.autopilot-until"
+denies "rm-readonly" "rm -f $_SW/.readonly-until"
+denies "suffixed"    "echo '.' >> $_SW/.allow-patterns-projkey"
+denies "sed-i"       "sed -i '' s/a/b/ $_SW/.allow-patterns"
+
+begin_test "but READING them is still allowed (/sc-status introspection)"
+# v2.10.6 drew this line deliberately: a read is not a write, and `cat
+# scope/.disabled-hooks` tripping the guard was a real FP on introspection.
+allows "cat-switch"  "cat $_SW/.allow-patterns"
+allows "ls-scope"    "ls $_SW"
+allows "grep-switch" "grep -c . $_SW/.disabled-hooks 2>/dev/null"
+
+# --- v4.0.47: `find -exec` is a segment boundary --------------------------------
+# `find -exec CMD +` carries a whole command with NO shell separator, so every
+# command-anchored rule missed it. Measured: `find . -maxdepth 0 -exec bash -c
+# "<rm -rf />" +` was ALLOWED by the whole chain AND auto-approved. normalize_cmd
+# now rewrites -exec to `;` so the existing separator machinery sees it.
+begin_test "find -exec cannot launder a destructive command"
+denies "exec-bash"  "find . -maxdepth 0 -exec bash -c \"$D -rf /\" +"
+denies "exec-rm"    "find . -maxdepth 0 -exec rm -rf / +"
+denies "execdir"    "find . -execdir bash -c \"$D -rf /\" +"
+
+begin_test "ordinary find is untouched"
+# find is one of the most common commands an agent runs; blocking it would be
+# pure friction and is how a guard gets switched off.
+allows "find-name"  "find . -name '*.ts'"
+allows "find-chmod" "find . -type f -exec chmod 644 {} +"
+allows "find-grep"  "find src -exec grep -l TODO {} +"
+
 report

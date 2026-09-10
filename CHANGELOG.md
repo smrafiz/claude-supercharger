@@ -2,6 +2,102 @@
 
 ## Contents
 
+- [4.0.47] - 2026-09-10 — fix: close four guard bypasses, a silent fail-open, and a quadratic hot path
+
+From a three-lens review of hooks/, lib/ and tools/. Every finding was
+adversarially verified against the code before it was believed, and two of the
+reviewers' headline claims did not survive that: a claimed 2x regression in the
+fork-free JSON reader measured FASTER than the fork it replaced (5.10 vs 5.65
+ms), and "ten hooks are non-executable and never run" is false — a real fresh
+install gives mode 700 for all eight guards and direct exec returns 0.
+
+--- the guards were disarmable from the Bash channel ---
+
+The scope RUNTIME SWITCHES were writable from Bash while path-guard denied the
+identical write on Write/Edit — a pure cross-channel gap. Measured in an
+isolated state dir: writing the allow-patterns file was ALLOWED by every guard,
+and `rm -rf /` went from DENY to ALLOWED immediately after. The kill-switch file
+is worse: lib-timing reads it at SOURCE time in every hook, so one redirect
+silences all 159. The autopilot/readonly/strict sentinels skip the confirms that
+two separate guards exist to force — writing the sentinel is the same privilege
+as running the command, without the ask.
+
+All now in _SELFMOD_CFG. Reads still pass: the read/write distinction drawn in
+v2.10.6 was a deliberate FP fix and is preserved, with controls.
+
+--- find -exec laundered any command ---
+
+`find -exec CMD +` carries a whole command with NO shell separator, so the
+splitter saw one segment whose first token is `find` and every command-anchored
+rule missed. Measured, controls behaving: a find that exec's a shell running a
+destructive command was ALLOWED by the whole chain AND auto-approved.
+
+normalize_cmd now APPENDS the exec'd command as an extra separated segment.
+The first attempt REPLACED the separator and broke a sibling rule that had been
+blocking `find -name <dotenv> -exec cat {} +` for releases — the suite caught it.
+Appending is strictly additive: every existing rule still sees the original text.
+
+Residual, stated rather than hidden: `find / -name id_rsa -exec cp {} /tmp/x +`
+is not caught. The path is a runtime placeholder, so no static rule can see it;
+the same copy written literally IS denied.
+
+--- smart-approve matched only the leading token ---
+
+One root cause, three exploits. Two characters (`env `) flipped an exfil POST
+from prompt to AUTO-APPROVE, because `env` was in the read-only verb list and
+the "curl GET only" rule three lines below never got a look. `find` and
+`git show` were auto-approved outright.
+
+The allow-list now runs the shared wrapper stripper first — the repo already had
+it, and this was the one guard not calling it. `find` is gated on its action
+predicates rather than dropped (plain find is ordinary work and prompting on it
+is pure friction); `git show` is out, because it prints file CONTENT.
+
+--- five blockers failed open in silence, behind a test that could not fail ---
+
+prompt-secret-guard, output-secrets-scanner, prompt-injection-scanner,
+claim-evidence-gate and mcp-provenance never got the v4.0.28 stdin migration.
+Measured on bash 3.2, same secret-bearing payload: fast writer rc=2 blocks,
+slow writer rc=0 with NO output at all.
+
+The test meant to prevent this selected on `permissionDecision`, but these five
+block with a bare `exit 2` and emit no such JSON. Run standalone, its loop
+matched ONE file, which the next line then exempted — the result set was empty by
+construction and the assertion passed green since v4.0.28. It now selects on
+either way of blocking, and carries a population control so an enumeration that
+selects almost nothing fails loudly instead of hiding.
+
+These five run on UserPromptSubmit/PostToolUse/Stop, where a PreToolUse `ask`
+would be meaningless, so they use a new sc_read_input_warn: still exit 0, but it
+SAYS the payload was not scanned. Silence was the defect.
+
+--- Grep's `glob` was the sibling of the `path` fixed in v4.0.46 ---
+
+v4.0.46 covered `path` and missed `glob`, which names the same files. Both are
+checked now, independently. Ordinary globs still pass.
+
+--- shell profiles were editable in place, and heredoc bodies were droppable ---
+
+The persistence rules covered redirects, copies and tee — every way of writing a
+profile except editing it where it lies. Third instance of this sibling-branch
+shape in one block. And first_token() stripped only a bare sudo|command|env, so
+`| sudo -u root bash` and `| xargs -I{} sh -c {}` resolved to non-executors and
+the heredoc body was deleted before any guard saw it. Both closed, with FP
+corpora: ordinary sed -i on project files, profile READS, and inert heredoc
+bodies all still pass.
+
+--- and the strip that was quadratic on a miss ---
+
+`${cmd#\\}` runs on every Bash tool call. Measured on bash 3.2: a strip that
+MATCHES returns in constant time; a strip that MISSES scans quadratically —
+8 KB 0.039s, 32 KB 0.214s, 108 KB 2.137s, against a flat 0.025s for a case-glob.
+A command starting with a backslash is vanishingly rare, so this always took the
+miss path. Through safety.sh end to end at 128 KB: 2856 -> 220 cpu-ms.
+
+This falsifies a rule stated in this repo's own comments — "##/% strips stay
+linear" is true only on a HIT. `case` to test, slice to cut.
+
+Suite 5547 -> 5570.. 5570 tests passing.
 - [4.0.46] - 2026-09-09 — feat: close a Grep/Glob secret-read bypass, the SQL file/exec channel, and a Stop that could never stop
 
 Four fixes from four repo audits. Every one measured against the whole chain

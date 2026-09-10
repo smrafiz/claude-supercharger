@@ -42,10 +42,23 @@ grep -q 'SECONDS - _sc_t0' "$LIB" && pass \
 
 begin_test "every deny-capable hook reads stdin through it"
 # A new gate that copies the old inline line would be silently unguarded again.
+#
+# v4.0.47: this enumeration COULD NOT FAIL. It selected on `permissionDecision`,
+# but a hook can also block with a bare `exit 2` and emit no such JSON — and five
+# did: prompt-secret-guard, output-secrets-scanner, prompt-injection-scanner,
+# claim-evidence-gate, mcp-provenance. Run standalone, the loop matched exactly
+# ONE file (budget-cap.sh), which the exemption below then removed, so the result
+# set was empty by construction and the assertion passed green for every release
+# since v4.0.28 while five blockers failed open on a slow writer.
+#
+# The blocking CHANNEL was the missing dimension, not a missing list entry — the
+# same shape as [[cross-channel-parity-drift]]. Select on either way of blocking.
 _STO_MISSING=""
+_STO_SEEN=0
 for _h in "$REPO_DIR"/hooks/*.sh; do
   case "$(basename "$_h")" in lib-*) continue ;; esac
-  grep -q 'permissionDecision' "$_h" || continue
+  grep -qE 'permissionDecision|^[[:space:]]*exit 2' "$_h" || continue
+  _STO_SEEN=$((_STO_SEEN + 1))
   grep -q "read -r -d '' -t" "$_h" || continue        # uses the inline read
   _STO_MISSING="$_STO_MISSING $(basename "$_h")"
 done
@@ -53,6 +66,13 @@ done
 # a stalled pipe costs one un-warned turn, not an unchecked security decision.
 _STO_MISSING="${_STO_MISSING// budget-cap.sh/}"
 [ -z "$_STO_MISSING" ] && pass || fail "still on the inline read:$_STO_MISSING"
+
+# THE CONTROL for the assertion above. Without it, an enumeration that selects
+# nothing passes forever — which is exactly what happened. Pin the population:
+# if a future filter change empties the set again, this fails instead of hiding.
+begin_test "…and that enumeration actually examined the blockers"
+[ "$_STO_SEEN" -ge 20 ] && pass \
+  || fail "the enumeration saw only $_STO_SEEN deny-capable hooks — it is selecting almost nothing, so the assertion above cannot fail"
 
 # --- behavioural, through a real gate ----------------------------------------
 # A short timeout keeps the suite fast; the code path is identical.

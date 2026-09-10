@@ -49,11 +49,38 @@ executors = set(os.environ.get('SC_EXEC', '').split('|'))
 START = re.compile(r'<<(?!<)(-?)\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\2')
 
 
+# v4.0.47: wrappers CARRY OPTIONS. The old form stripped only a bare
+# `sudo|command|env`, so `sudo -u root bash` resolved to `-u` and
+# `xargs -I{} sh -c {}` resolved to `xargs` — neither is an executor, so the
+# heredoc body was deleted before the guards ever saw it. Measured, control
+# first: `cat <<EOF | bash` DENY, `| sudo -u root bash` allow,
+# `| xargs -I{} sh -c {}` allow (body = a destructive command in all three).
+#
+# This mirrors _sc_strip_wrapper_prelude in the bash half of this file, which
+# cannot be called from here. Keep the two in step: the note above that function
+# says a second copy is a second bug, and this is the copy it warned about.
+WRAPPERS = {'sudo', 'doas', 'command', 'env', 'nohup', 'nice', 'timeout',
+            'stdbuf', 'xargs', 'setsid', 'ionice'}
+OPT_TAKES_ARG = {'-u', '-g', '-I', '-n', '-P', '-o', '--user', '--group', '--output'}
+
+
 def first_token(seg):
-    seg = re.sub(r'^\s*(sudo|command|env)\s+', '', seg.strip())
-    seg = re.sub(r'^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+', '', seg)
+    seg = re.sub(r'^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+', '', seg.strip())
     parts = seg.split()
-    return parts[0].rsplit('/', 1)[-1] if parts else ''
+    i = 0
+    while i < len(parts):
+        tok = parts[i].rsplit('/', 1)[-1]
+        if tok not in WRAPPERS:
+            return tok
+        i += 1
+        while i < len(parts) and (parts[i].startswith('-') or '=' in parts[i]):
+            if parts[i] in OPT_TAKES_ARG:
+                i += 1          # the option's separate argument
+            i += 1
+        # `timeout 5 cmd` / `nice 10 cmd` take a bare numeric argument
+        if tok in ('timeout', 'nice') and i < len(parts) and re.match(r'^[0-9]', parts[i]):
+            i += 1
+    return ''
 
 
 def body_is_executed(line, start, end):
@@ -237,7 +264,7 @@ _sc_strip_wrapper_prelude() {
 }
 
 normalize_cmd() {
-  local cmd="$1"
+  local cmd="$1" _sc_rest _sc_tails _sc_sub _sc_prev _sc_i
   # Data-only heredoc bodies come out before any matching happens, so every guard
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
   # gets the same answer — one place, no cross-guard drift.
@@ -250,7 +277,21 @@ normalize_cmd() {
   cmd="${cmd#"${cmd%%[![:space:]]*}"}"
   cmd="${cmd%"${cmd##*[![:space:]]}"}"
   # Strip one leading backslash (was sed 's/^\\//').
-  cmd="${cmd#\\}"
+  #
+  # v4.0.47: `case` to TEST, slice to CUT. The plain `${cmd#\\}` is O(n²) on
+  # bash 3.2 WHEN THE PATTERN DOES NOT MATCH — and a command starting with a
+  # backslash is vanishingly rare, so this line took the miss path on every Bash
+  # tool call. Measured on /bin/bash 3.2.57, pattern absent vs present:
+  #
+  #   payload   ${v#pat} MISS   ${v#pat} HIT   case-glob
+  #    8 KB       0.039 s         0.027 s       0.038 s
+  #   32 KB       0.214 s         0.028 s       0.026 s
+  #  108 KB       2.137 s         0.025 s       0.025 s
+  #
+  # This falsifies the rule stated in the v4.0.9 note above and in memory —
+  # "##/% strips stay linear" is true only on a HIT. Through safety.sh end to
+  # end, 128 KB command: 2856 -> 879 cpu-ms. `case` and `${v:1}` are both flat.
+  case "$cmd" in \\*) cmd="${cmd:1}" ;; esac
   cmd=$(_sc_strip_wrapper_prelude "$cmd")
   # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
   # Fuzz harness found this bypass: `env FOO=bar rm -rf /` stripped to
@@ -294,6 +335,48 @@ normalize_cmd() {
       else
         while [[ "$cmd" == *"  "* ]]; do cmd="${cmd//  / }"; done
       fi
+      ;;
+  esac
+  # v4.0.47: `find -exec CMD +` carries a whole command with NO shell separator,
+  # so every rule in every guard missed it. Measured before this, controls
+  # behaving (`rm -rf /` DENY, `echo hello` allow):
+  #
+  #   find . -maxdepth 0 -exec bash -c "rm -rf /" +  -> ALLOWED (and auto-approved)
+  #   find / -name id_rsa -exec cp {} /tmp/leak +    -> ALLOWED
+  #
+  # `-exec` IS a separator in the only sense that matters here: what follows runs
+  # as its own command. Rewriting it to `;` is a one-line change that makes every
+  # downstream rule work — the segment-anchored ones AND the `(^|;|&&)`-anchored
+  # ones — instead of teaching each guard about find. The first attempt added a
+  # second segment-emitting mechanism alongside the splitter; two mechanisms for
+  # one problem is exactly the drift that produced the four-copies-of-the-prelude
+  # bug above, so this replaced it.
+  #
+  # Display is unaffected: block() reports "$COMMAND", the raw text, not this.
+  # APPEND, never replace. The first cut rewrote ` -exec ` to ` ; `, which split
+  # the find's own predicates away from the exec'd command and BROKE an existing
+  # guard: a `find -name <dotenv> -exec cat {} +` case had been blocked by a rule
+  # that sees the filename and `cat` in ONE string, and after the rewrite each
+  # lived in a different segment. The suite caught it. Appending is strictly
+  # additive — every rule still sees the original text, and the exec'd command
+  # ALSO appears as its own segment for the separator-anchored rules.
+  case "$cmd" in
+    *' -exec '*|*' -execdir '*|*' -ok '*|*' -okdir '*)
+      _sc_rest="$cmd"; _sc_tails=""
+      for _sc_i in 1 2 3 4 5; do
+        _sc_prev="$_sc_rest"
+        case "$_sc_rest" in
+          *' -execdir '*) _sc_rest="${_sc_rest#* -execdir }" ;;
+          *' -exec '*)    _sc_rest="${_sc_rest#* -exec }" ;;
+          *' -okdir '*)   _sc_rest="${_sc_rest#* -okdir }" ;;
+          *' -ok '*)      _sc_rest="${_sc_rest#* -ok }" ;;
+          *) break ;;
+        esac
+        [ "$_sc_rest" = "$_sc_prev" ] && break
+        _sc_sub="${_sc_rest%% \\;*}"; _sc_sub="${_sc_sub% +}"; _sc_sub="${_sc_sub%% + *}"
+        [ -n "$_sc_sub" ] && _sc_tails="$_sc_tails ; $_sc_sub"
+      done
+      [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
       ;;
   esac
   printf '%s\n' "$cmd"

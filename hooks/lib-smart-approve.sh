@@ -318,6 +318,25 @@ smart_approve_verdict() {
     fi
     [ -z "$command" ] && return 1
 
+    # v4.0.47: strip the wrapper prelude BEFORE the allow-list runs. Every rule
+    # below is anchored with `^[[:space:]]*<verb>`, so a two-character prefix
+    # defeated the most restrictive rule in the file:
+    #
+    #   curl -X POST … --data-binary @notes.txt       -> prompt      (correct)
+    #   env curl -X POST … --data-binary @notes.txt   -> AUTO-APPROVED
+    #
+    # `env` was in the read-only verb list, matched as the leading token, and the
+    # "curl GET only" rule three lines down never got a look. This is the third
+    # copy of prelude-stripping in the tree and the one guard that wasn't using
+    # the shared helper — so use it rather than growing a fourth private regex.
+    if ! command -v _sc_strip_wrapper_prelude >/dev/null 2>&1; then
+      . "${BASH_SOURCE[0]%/*}/cmd-normalize.sh" 2>/dev/null || true
+    fi
+    if command -v _sc_strip_wrapper_prelude >/dev/null 2>&1; then
+      command=$(_sc_strip_wrapper_prelude "$command")
+      [ -z "$command" ] && return 1
+    fi
+
     # Never auto-approve subagent-originated Bash (delegating a task must not
     # implicitly grant open shell access).
     [ -n "$agent_id" ] && return 1
@@ -346,9 +365,18 @@ smart_approve_verdict() {
     # --help / --version
     printf '%s\n' "$command" | grep -qE '(^|[[:space:]])--(help|version)([[:space:]]|$)' && return 0
     # Read-only shell commands
-    printf '%s\n' "$command" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|printf|which|type|grep|find|rg|wc|sort|uniq|diff|file|stat|env|printenv)([[:space:]]|$)' && return 0
-    # Read-only git subcommands
-    printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|show|remote|tag|stash list|rev-parse|describe)([[:space:]]|$)' && return 0
+    # v4.0.47: `find` moved out of this list — it is read-only ONLY without an
+    # action predicate. `find . -maxdepth 0 -exec bash -c "…" +` was auto-approved
+    # here while safety.sh also missed it, so the same command was both unblocked
+    # and unprompted. Handled below, gated on the predicate rather than dropped,
+    # because plain `find` is ordinary work and prompting on it is pure friction.
+    printf '%s\n' "$command" | grep -qE '^[[:space:]]*(ls|pwd|cat|head|tail|printf|which|type|grep|rg|wc|sort|uniq|diff|file|stat|env|printenv)([[:space:]]|$)' && return 0
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*find([[:space:]]|$)'; then
+      printf '%s\n' "$command" | grep -qE '(^|[[:space:]])-(exec|execdir|ok|okdir|delete|fprintf|fls)([[:space:]]|$)' || return 0
+    fi
+    # Read-only git subcommands. `show` is NOT here: `git show HEAD:.env` prints
+    # file CONTENT, so it belongs with cat, not with status/log.
+    printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+(status|log|diff|branch|remote|tag|stash list|rev-parse|describe)([[:space:]]|$)' && return 0
     # command -v
     printf '%s\n' "$command" | grep -qE '^[[:space:]]*command[[:space:]]+-v[[:space:]]' && return 0
     # Test runners
