@@ -154,7 +154,11 @@ while IFS= read -r seg; do
     # trailing `([[:space:]]|$)` required a space/EOL after the flag, so
     # `git push --force-with-lease=origin/main main` was not detected and
     # force-push to protected branches bypassed the gate.
-    if [[ "$seg" =~ (^|[[:space:]])(--force|--force-with-lease(=[^[:space:]]*)?|-f)([[:space:]]|$) ]]; then
+    # 2026-09-13: +--force-if-includes (from AhmadShayan/claude-code-guardrails).
+    # It is a real force flag — --force-with-lease plus a reflog-include check —
+    # and still REPLACES remote history. It was unrecognised, so
+    # `git push --force-if-includes origin main` force-overwrote main unguarded.
+    if [[ "$seg" =~ (^|[[:space:]])(--force-with-lease(=[^[:space:]]*)?|--force-if-includes|--force|-f)([[:space:]]|$) ]]; then
       has_force=true
     fi
     # v2.7.41: `git push origin +main` / `+HEAD:master` — the leading-`+` refspec
@@ -190,7 +194,7 @@ while IFS= read -r seg; do
       # Non-protected branch — strip force flag, push safely.
       # Only rewrite when the whole command is the single git push (no compound).
       if [ "$CMD" = "$seg" ]; then
-        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
+        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force-if-includes|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
         rewrite "$safe" "stripped --force from non-protected branch push"
       fi
     fi

@@ -763,6 +763,16 @@ begin_test "git: git push -f origin master is blocked"
 run_hook "$GIT_HOOK" "git push -f origin master"
 assert_exit_code 2 $? && pass
 
+# 2026-09-13 (from AhmadShayan/claude-code-guardrails): --force-if-includes is a
+# real force flag and was unrecognised, so it force-overwrote main unguarded.
+begin_test "git: git push --force-if-includes origin main is blocked"
+run_hook "$GIT_HOOK" "git push --force-if-includes origin main"
+assert_exit_code 2 $? && pass
+
+begin_test "git: --force-if-includes to a feature branch is allowed"
+run_hook "$GIT_HOOK" "git push --force-if-includes origin feature-x"
+assert_exit_code 0 $? && pass
+
 begin_test "git: git push origin feature --force is allowed (non-protected)"
 run_hook "$GIT_HOOK" "git push origin feature --force"
 assert_exit_code 0 $? && pass
