@@ -566,7 +566,7 @@ def _container_mounts(c: str):
     the host field must look like a path (/, ~, $, . prefix).
     """
     out = []
-    for m in re.finditer(r"(?:^|\s)(?:-v|--volume)(?:=|\s+)(\S+)", c):
+    for m in re.finditer(r"(?:^|\s)(?:-v|--volume)(?:[=]|\s+)(\S+)", c):
         parts = m.group(1).split(":")
         host = parts[0]
         if not host or not re.match(r"^[/~.$]", host):
@@ -574,12 +574,12 @@ def _container_mounts(c: str):
         opts = parts[2] if len(parts) >= 3 else ""
         ro = bool(re.search(r"(?:^|,)(?:ro|readonly)(?:,|$)", opts))
         out.append((host, ro))
-    for m in re.finditer(r"(?:^|\s)--mount(?:=|\s+)(\S+)", c):
+    for m in re.finditer(r"(?:^|\s)--mount(?:[=]|\s+)(\S+)", c):
         spec = m.group(1)
         src = re.search(r"(?:^|,)(?:source|src)=([^,]+)", spec)
         if not src:
             continue
-        ro = bool(re.search(r"(?:^|,)(?:readonly|ro)(?:=(?:true|1))?(?:,|$)", spec))
+        ro = bool(re.search(r"(?:^|,)(?:readonly|ro)(?:[=](?:true|1))?(?:,|$)", spec))
         out.append((src.group(1), ro))
     return out
 
