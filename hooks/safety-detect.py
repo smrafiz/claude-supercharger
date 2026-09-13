@@ -532,6 +532,85 @@ def check_secret_directory(c: str) -> str | None:
     return None
 
 
+# Container bind-mounts of host paths (HIMMEL-441, yotamleo/Himmel
+# block-docker-privesc). safety.sh's flat pattern list already denies the
+# PRIVILEGE FLAGS (--privileged, --pid=host, --cap-add of a root cap, host
+# sockets, nsenter, chroot /host). The MOUNT itself was the gap: the motivating
+# example writes /etc as root with no reader command and no privilege flag —
+#   docker run --rm -v /etc:/host-etc:rw ubuntu install -m0644 /host-etc/x{,.bak}
+# — which bypasses check_sensitive_read (no reader verb) and block-edit-on-main.
+# This needs per-mount PARSING (host path + :ro + an /etc read-only allowlist),
+# which a flat ERE cannot do without false positives, so it lives here.
+_CONTAINER_RUN_RE = re.compile(
+    r"(?:^|[\s;&|])(?:docker|podman)\s+(?:[a-z-]+\s+)?(?:run|create|exec)\b", re.I)
+# Host paths that are secret-bearing at or BELOW the prefix — a mount exposes
+# them in ANY mode (read still copies the secret out of the container).
+_MOUNT_SECRET_PREFIX = re.compile(
+    r"^(?:/etc|/root|"
+    r"(?:~|\$\{?HOME\}?|/home/[^/]+|/Users/[^/]+)/\.(?:ssh|aws|gnupg|kube|docker|config))(?:/|$)")
+# Whole-directory secret mounts: the entire root fs or the entire home dir.
+# EXACT match only — $HOME/Documents/proj is ordinary and must stay allowed.
+_MOUNT_SECRET_EXACT = re.compile(
+    r"^(?:/|~|\$\{?HOME\}?|/home/[^/]+|/Users/[^/]+)$")
+# Under /etc these are read routinely and leak nothing when mounted read-only.
+_ETC_RO_OK = re.compile(
+    r"^/etc/(?:localtime|timezone|resolv\.conf|hosts|ssl(?:/|$)|"
+    r"ca-certificates(?:/|$)|pki(?:/|$))")
+# System-integrity host paths: dangerous only when WRITABLE (a root container
+# overwriting host binaries/kernel interfaces). /var is deliberately OMITTED
+# from Himmel's set — a writable /var/run/<sock> or /var/lib/<data> mount is
+# common, legitimate dev, and blocking it is the crying-wolf failure this repo
+# tracks in [[perf-hook-overhead]] / [[supercharger-has-real-users]].
+_MOUNT_SYSTEM_PREFIX = re.compile(
+    r"^(?:/usr|/bin|/sbin|/lib|/lib64|/boot|/sys|/proc|/dev)(?:/|$)")
+
+
+def _container_mounts(c: str):
+    """Yield (host_path, readonly) for each -v / --volume / --mount bind.
+
+    A named volume (`-v pgdata:/var/lib/...`) has no host path and is skipped —
+    the host field must look like a path (/, ~, $, . prefix).
+    """
+    out = []
+    for m in re.finditer(r"(?:^|\s)(?:-v|--volume)(?:[=]|\s+)(\S+)", c):
+        parts = m.group(1).split(":")
+        host = parts[0]
+        if not host or not re.match(r"^[/~.$]", host):
+            continue
+        opts = parts[2] if len(parts) >= 3 else ""
+        ro = bool(re.search(r"(?:^|,)(?:ro|readonly)(?:,|$)", opts))
+        out.append((host, ro))
+    for m in re.finditer(r"(?:^|\s)--mount(?:[=]|\s+)(\S+)", c):
+        spec = m.group(1)
+        src = re.search(r"(?:^|,)(?:source|src)=([^,]+)", spec)
+        if not src:
+            continue
+        ro = bool(re.search(r"(?:^|,)(?:readonly|ro)(?:[=](?:true|1))?(?:,|$)", spec))
+        out.append((src.group(1), ro))
+    return out
+
+
+def check_container_mount(c: str) -> str | None:
+    """A container bind-mount that reads or overwrites host secrets/system files."""
+    if not _CONTAINER_RUN_RE.search(c):
+        return None
+    for host, ro in _container_mounts(c):
+        norm = host.rstrip("/") or "/"
+        if ro and _ETC_RO_OK.match(norm + "/"):
+            continue
+        if _MOUNT_SECRET_EXACT.match(norm) or _MOUNT_SECRET_PREFIX.match(norm):
+            mode = "read-only" if ro else "writable"
+            return (f"container mount of a secret-bearing host path ({host}, "
+                    f"{mode}) — a bind-mount of /, /etc, /root or a home "
+                    f"credential dir reads or overwrites host secrets as root, "
+                    f"bypassing the reader and edit-on-main guards")
+        if not ro and _MOUNT_SYSTEM_PREFIX.match(norm):
+            return (f"writable container mount of a system path ({host}) — a "
+                    f"root container can overwrite host binaries or kernel "
+                    f"interfaces; mount it :ro if the container truly needs it")
+    return None
+
+
 # Archive creation: tar with a `c` mode, or zip. Extraction is deliberately NOT
 # matched -- `tar xzf` is ordinary work and denying it would be pure friction.
 _ARCHIVE_CREATE_RE = re.compile(
@@ -766,6 +845,12 @@ if "secret_directory" not in disabled:
 
 if "archive_secrets" not in disabled:
     r = check_archive_secrets(cmd)
+    if r:
+        _say(r)
+        sys.exit(0)
+
+if "container_mount" not in disabled:
+    r = check_container_mount(cmd)
     if r:
         _say(r)
         sys.exit(0)

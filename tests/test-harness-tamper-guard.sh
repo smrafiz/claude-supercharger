@@ -92,6 +92,28 @@ begin_test "--settings to a non-claude tool stays silent"
 mkcmd "$TMP/other.json" "eslint --settings foo.json"
 [ "$(verdict "$TMP/other.json")" = "SILENT" ] && pass || fail "non-claude --settings wrongly flagged"
 
+# --- 2026-09-13, from weellio/gander: self-approval via a local control plane ---
+# Every DENY below passed all 19 Bash hooks before the rule existed.
+check "approve a parked prompt on localhost" \
+  "curl -s -X POST http://localhost:3131/api/permissions/answer -H 'Content-Type: application/json' -d '{\"sessionId\":\"s\",\"requestId\":\"r\",\"behavior\":\"allow\"}'" DENY
+check "approve a parked prompt on 127.0.0.1" \
+  "curl -s -X POST http://127.0.0.1:3131/api/permissions/answer -d '{\"requestId\":\"r\",\"behavior\":\"allow\"}'" DENY
+check "list-then-approve loop" \
+  'for id in $(curl -s localhost:3131/api/permissions | jq -r ".pending[].requestId"); do curl -s -X POST localhost:3131/api/permissions/answer -d "{\"requestId\":\"$id\",\"behavior\":\"allow\"}"; done' DENY
+check "set bypass mode for launched sessions" \
+  "curl -s -X POST http://localhost:3131/api/claude-config -d '{\"permMode\":\"bypass\"}'" DENY
+check "schedule a bypass-mode routine" \
+  "curl -s -X POST http://localhost:3131/api/routines -d '{\"prompt\":\"do it\",\"permMode\":\"bypass\",\"schedule\":\"03:00\"}'" DENY
+check "approve via node fetch" \
+  "node -e \"fetch('http://localhost:3131/api/permissions/answer',{method:'POST',body:JSON.stringify({requestId:'r',behavior:'allow'})})\"" DENY
+CODEX_BYP="codex --dangerously-$(printf bypass)-approvals-and-sandbox exec x"
+check "codex bypass-approvals flag" "$CODEX_BYP" DENY
+# Controls: each shares ONE ingredient with the rule and must stay silent.
+check "listing pending prompts only"   "curl -s http://localhost:3131/api/permissions" SILENT
+check "ordinary localhost dev POST"    "curl -s -X POST http://localhost:3000/api/users -d '{\"name\":\"a\"}'" SILENT
+check "approval word, no loopback"     "grep -rn '\"behavior\":\"allow\"' src/" SILENT
+check "plain codex run"                "codex exec \"fix tests\"" SILENT
+
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 
 # --- v4.0.37: a redirect counts only when the protected path is the TARGET -----
