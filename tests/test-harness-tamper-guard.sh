@@ -40,8 +40,20 @@ check "truncate a hook"               "truncate -s0 ~/.claude/supercharger/hooks
 check "touch the kill-switch file"     "touch ~/.claude/supercharger/scope/.supercharger-disabled" DENY
 check "rm plugin hooks dir"            "rm -rf ~/.claude/plugins/data/x/hooks/"               DENY
 check "redirect over a hook"           "echo x > ~/.claude/supercharger/hooks/safety.sh"      DENY
+# v4.1.1: copy-family (cp/install/rsync/scp) overwriting a hook. The bare form was
+# covered by the rule, but a trailing redirect/comment shifted the last token off the
+# hook path and the overwrite was ALLOWED — these lock that bypass shut.
+check "cp over a hook"                  "cp /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh"            DENY
+check "cp over a hook + stderr redir"   "cp /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh 2>/dev/null" DENY
+check "cp over a hook + stdout redir"   "cp /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh > /tmp/log"  DENY
+check "cp over a hook + comment"        "cp /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh #note"       DENY
+check "install over a hook + redir"     "install /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh 2>/dev/null" DENY
+check "rsync over a hook + redir"       "rsync /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh 2>/dev/null"   DENY
+check "scp over a hook + redir"         "scp /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh 2>/dev/null"     DENY
 
 # --- should PASS (legit / unrelated) ---
+# FP guard: copying between unrelated paths with a redirect must NOT trip the copy branch.
+check "cp unrelated files + redir"      "cp /tmp/a.txt /tmp/b.txt 2>/dev/null"                 SILENT
 check "update.sh runs"                 "bash ~/.claude/supercharger/tools/update.sh --yes"    SILENT
 # v2.26.1: `sc-toggle off` now raises a CONFIRM rather than passing silently. It sets
 # the kill-switch, after which every hook exits 0 — one command retires every other

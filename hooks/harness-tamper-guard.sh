@@ -193,9 +193,17 @@ if [ -z "$REASON" ]; then
           if (seg ~ /(^|[[:space:]])cd[[:space:]]/ && seg ~ t) { cd_in = 1; next }
           if (cd_in && (seg ~ v || seg ~ c)) { hit = 1 }
           if (seg ~ c) {
-            # Copy-family: only the DESTINATION counts. Strip a trailing redirect so
-            # `cp a b > log` still resolves the destination correctly.
-            n = split(seg, a, /[[:space:]]+/)
+            # Copy-family: only the DESTINATION counts. Strip trailing redirect
+            # clauses and a trailing #comment FIRST so `cp a <hook> 2>/dev/null`,
+            # `cp a <hook> > log` and `cp a <hook> #x` still resolve the real
+            # destination — v4.1.1: this branch previously took the raw last token,
+            # so any trailing redirect/comment shifted a[n] off the hook path and
+            # the overwrite was ALLOWED (the verb branch below already strips these).
+            dst = seg
+            gsub(/[0-9]*>>?[[:space:]]*[^[:space:];&|]+/, " ", dst)
+            sub(/[[:space:]]+#.*/, "", dst)
+            sub(/[[:space:]]+$/, "", dst)
+            n = split(dst, a, /[[:space:]]+/)
             if (n > 0 && a[n] ~ t) { hit = 1 }
           } else if (seg ~ v && seg ~ t) {
             # v4.0.37: a REDIRECT only counts when the protected path is the
