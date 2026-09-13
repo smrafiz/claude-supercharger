@@ -192,6 +192,26 @@ begin_test "safety: terraform destroy is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"terraform destroy -auto-approve"},"cwd":"/tmp"}' && pass || fail "terraform destroy not blocked"
 begin_test "safety: docker build --build-arg SECRET= is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker build --build-arg API_KEY=sk-live-xyz ."},"cwd":"/tmp"}' && pass || fail "build-arg secret not blocked"
+# 2026-09-13 (from AhmadShayan/claude-code-guardrails): whole-repo teardown.
+begin_test "safety: gh repo delete is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"gh repo delete myorg/myrepo --yes"},"cwd":"/tmp"}' && pass || fail "gh repo delete not blocked"
+begin_test "safety: glab repo delete is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"glab repo delete grp/proj"},"cwd":"/tmp"}' && pass || fail "glab repo delete not blocked"
+begin_test "safety: gh repo view is allowed"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"gh repo view myorg/myrepo"},"cwd":"/tmp"}' && pass || fail "gh repo view wrongly blocked"
+begin_test "safety: gh repo clone is allowed"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"gh repo clone foo/bar"},"cwd":"/tmp"}' && pass || fail "gh repo clone wrongly blocked"
+# 2026-09-13 (from AhmadShayan/claude-code-guardrails): cloud service-account keys.
+begin_test "safety: service-account key json is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat gcp-service-account.json"},"cwd":"/tmp"}' && pass || fail "service-account key not blocked"
+begin_test "safety: firebase-adminsdk key is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat firebase-adminsdk-x1y2.json"},"cwd":"/tmp"}' && pass || fail "firebase-adminsdk key not blocked"
+begin_test "safety: client_secret json is blocked"
+_blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat client_secret_884.json"},"cwd":"/tmp"}' && pass || fail "client_secret not blocked"
+begin_test "safety: package.json stays readable"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat package.json"},"cwd":"/tmp"}' && pass || fail "package.json wrongly blocked"
+begin_test "safety: accounts.json stays readable"
+_ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"cat accounts.json"},"cwd":"/tmp"}' && pass || fail "accounts.json wrongly blocked"
 # allow benign cloud/container ops
 begin_test "safety: normal docker run is allowed"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"docker run -p 8080:80 nginx"},"cwd":"/tmp"}' && pass || fail "normal docker run wrongly blocked"
@@ -784,6 +804,16 @@ assert_exit_code 2 $? && pass
 begin_test "git: git push -f origin master is blocked"
 run_hook "$GIT_HOOK" "git push -f origin master"
 assert_exit_code 2 $? && pass
+
+# 2026-09-13 (from AhmadShayan/claude-code-guardrails): --force-if-includes is a
+# real force flag and was unrecognised, so it force-overwrote main unguarded.
+begin_test "git: git push --force-if-includes origin main is blocked"
+run_hook "$GIT_HOOK" "git push --force-if-includes origin main"
+assert_exit_code 2 $? && pass
+
+begin_test "git: --force-if-includes to a feature branch is allowed"
+run_hook "$GIT_HOOK" "git push --force-if-includes origin feature-x"
+assert_exit_code 0 $? && pass
 
 begin_test "git: git push origin feature --force is allowed (non-protected)"
 run_hook "$GIT_HOOK" "git push origin feature --force"
