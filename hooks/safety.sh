@@ -610,7 +610,14 @@ NETWORK_PATTERNS=(
   # (shell-escape-advisor, destructive-prompt-scanner, the three poisoning
   # scanners); safety.sh, the most-fired hook in the product, kept the loosest
   # form. Same drift class as the v2.24.6 tightening four lines below.
-  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
+  # 2026-09-13 (from notambourine/wormhook): +node|deno|bun. Piping a download
+  # into a JS runtime executes it as a script — remote code execution exactly like
+  # curl|bash, and the npm/node supply-chain is the hotspot. node/deno/bun ONLY:
+  # they run stdin as code with no text-processing idiom, so there is no FP. NOT
+  # python/perl/ruby here — `curl x | python -m json.tool` and `curl x | perl -pe`
+  # are legitimate stream processing, and POSIX ERE has no lookahead to separate
+  # those from `curl x | python` (RCE). Bare curl|python is a documented residual.
+  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash|node|deno|bun)([[:space:]]|[;&|)]|$)'
   # v2.29.38: the INVERSE process-substitution shape. v2.29.31 covered a shell as
   # the SUBSTITUTED command (tee into a process substitution running a shell); this
   # is a shell as the OUTER command with a fetcher inside -- the same capability as
