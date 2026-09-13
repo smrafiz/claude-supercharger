@@ -415,7 +415,18 @@ def check_sensitive_read(c: str) -> str | None:
     # were covered and these were not -- one arm of a sibling pair, which is the
     # gap class this repo keeps finding. Measured: `base64 <key>` and
     # `gzip -c <key>` were both silent while `xxd <key>` and `od -c <key>` denied.
-    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|base64|uuencode|gzip|bzip2|xz|zstd)\b"
+    # `strings` is the same act again (measured silent beside a denying xxd).
+    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|strings|base64|uuencode|gzip|bzip2|xz|zstd)\b"
+    # Tools that read a secret only in SOME subcommands. `dotenv run` and
+    # `openssl x509 -in cert.pem` consume a sensitive-named file without printing
+    # a secret (the same reason `docker --env-file` is allowed), so they cannot
+    # sit in READER. `dotenv list|get` prints the values; `openssl pkey|rsa|...`
+    # parses a private key and, with -text, prints it. From flightrules 76c678a:
+    # its option-value spellings were already covered, these verbs were not.
+    for m in re.finditer(r"\b(?:dotenv\b[^|;&]*\b(?:list|get)|openssl\s+(?:pkey|rsa|ec|dsa|pkcs8|pkcs12))\b[^|;&]*", c):
+        sm = _SENSITIVE_NAME_RE.search(m.group(0))
+        if sm and not sm.group(0).endswith(".pub"):
+            return f"sensitive file access: {sm.group(0)} — credentials likely present"
     # Capture the args of a reader command and search for sensitive names within
     for m in re.finditer(READER + r"\s+([\S\s]*?)(?:$|\||;|&&|\|\|)", c):
         args = m.group(2)
