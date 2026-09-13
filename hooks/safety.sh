@@ -693,13 +693,27 @@ CLOUD_PATTERNS=(
   'az[[:space:]]+ad[[:space:]]+(app|sp)[[:space:]]+credential[[:space:]]+reset'
   # Container escape — host sockets, privileged/host namespaces, nsenter, chroot /host
   # (--net=host deliberately omitted: too common in legit dev to block)
-  '(--privileged|--pid=host|--cap-add=SYS_ADMIN|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
+  # 2026-09-13: --cap-add took `=` only, so the SPACE form `--cap-add SYS_ADMIN`
+  # (docker's documented spelling) walked straight through — a root-equivalent
+  # capability with no other privilege flag. Accept both separators, and cover
+  # the root-equivalent cap set yotamleo/Himmel's block-docker-privesc names
+  # (SYS_ADMIN, SYS_PTRACE, DAC_OVERRIDE, DAC_READ_SEARCH, ALL) rather than
+  # SYS_ADMIN alone. Sibling-spelling parity gap [[cross-channel-parity-drift]].
+  '(--privileged|--pid=host|--cap-add[=[:space:]]+(SYS_ADMIN|SYS_PTRACE|DAC_OVERRIDE|DAC_READ_SEARCH|ALL)|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
   # k8s: cluster-admin RBAC grant + secret exfil (gated on kubectl verb / data form)
   'kubectl[^;&|]*(apply|create)[^;&|]*(clusterrolebinding|cluster-admin)'
   'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
   # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
   '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
   'pulumi[[:space:]]+destroy([[:space:]]|$)'
+  # 2026-09-13 (from AhmadShayan/claude-code-guardrails): whole-repository
+  # teardown. `gh repo delete` / `glab repo delete` destroy an entire remote repo
+  # — issues, PRs, wiki, releases — and it is never a routine step, the same
+  # irreversible-teardown class as terraform destroy above. The raw-API form
+  # (`gh api -X DELETE /repos/o/r`) is left as a residual: it is not an accident
+  # shape, and a blanket `gh api -X DELETE` block would fire on routine deletes
+  # (a label, a deployment).
+  '(gh|glab)[[:space:]]+repo[[:space:]]+delete([[:space:]]|$)'
   # Secret material passed through a container build
   '--build-arg[=[:space:]][^[:space:]]*(TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_KEY|API_KEY)='
 )
@@ -1122,6 +1136,11 @@ case "$CMD" in
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
   *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).
+  # Gate is a superset of the detector's _SENSITIVE_NAME_RE clause; the detector
+  # decides. `client_secret` over-admits (it is also an env-var name) but only
+  # costs a python run, never a false block.
+  *service-account*|*service_account*|*serviceaccount*|*firebase-adminsdk*|*client_secret*) _NEED_PY=true ;;
   # v2.29.37: php -r and awk system() are interpreters like the ones above; both
   # execute arbitrary code and neither was in this gate.
   *php*\ -r*|*awk*system*) _NEED_PY=true ;;
@@ -1132,6 +1151,10 @@ case "$CMD" in
   *dig\ *|*nslookup*|*drill\ *|*\ host\ *) _NEED_PY=true ;;
   *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
+  # 2026-09-13: check_container_mount needs docker/podman with a bind mount to
+  # run. Gated on the tool AND a mount flag so a plain `docker run nginx` still
+  # early-exits. Superset of the detector's trigger [[two-gate-trap]].
+  *docker*|*podman*) case "$CMD" in *-v\ *|*-v=*|*--volume*|*--mount*) _NEED_PY=true ;; esac ;;
 esac
 
 # `command -v python3` without the $( ) — the command substitution forked a

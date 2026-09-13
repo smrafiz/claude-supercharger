@@ -41,6 +41,9 @@ case "$_INPUT" in
 # v2.26.74: +autopilot/readonly/strict — the loosening confirms below need the same
 # reachability for the relative and ${CLAUDE_PLUGIN_ROOT} forms. `.sh` is required in
 # the token so a plain `readonly VAR=1` (bash builtin) does not defeat the early exit.
+  # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
+  # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
+  *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
   *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*) : ;;
   *) exit 0 ;;
 esac
@@ -73,6 +76,33 @@ if [ -z "$REASON" ]; then
   # `{`) is the smuggling signal; a plain `--settings ./file.json` is left alone.
   if printf '%s' "$CMD" | grep -Eq -- 'claude\b[^|;&]*--(settings|mcp-config)[[:space:]=]+["'\'']?\{'; then
     REASON="passes inline --settings/--mcp-config JSON to claude — this defines hooks or MCP servers (arbitrary code execution) on a sub-instance without writing a file, bypassing the file-write guardrails. Use a reviewed settings/config FILE, not inline JSON."
+  fi
+fi
+if [ -z "$REASON" ]; then
+  # The Codex CLI's equivalent of --dangerously-skip-permissions. The Claude flag
+  # was denied and this one allowed — parity drift across agent CLIs.
+  case "$CMD" in
+    *--dangerously-bypass-approvals-and-sandbox*)
+      REASON="launches the Codex CLI with its bypass-approvals-and-sandbox flag — no approvals and no sandbox. Same act as skipping Claude's permissions: an agent must not start an unguarded agent." ;;
+  esac
+fi
+if [ -z "$REASON" ]; then
+  # 2026-09-13, from weellio/gander: approving a permission prompt through a LOCAL
+  # HTTP control plane. Dashboards that park PermissionRequest prompts for a phone
+  # or chat Allow button serve them on loopback, and loopback is typically trusted
+  # without a token — gander rejects a foreign browser Origin (CSRF) but allows
+  # "no Origin", which is every shell HTTP client. So the agent's own Bash could
+  # list pending prompts, approve them, or set bypass mode for sessions the
+  # dashboard launches. Measured before this: 7 such shapes passed all 19 Bash
+  # hooks. A parked prompt blocks only its own session; a background process or a
+  # sibling session is the one that answers it.
+  #
+  # Needs BOTH a loopback host and an approval signal, so an ordinary localhost
+  # dev-server call and a plain listing of pending prompts stay silent.
+  _HT_LOOP='(localhost|127\.[0-9]+\.[0-9]+\.[0-9]+|\[::1\]|0\.0\.0\.0)'
+  _HT_APPROVE="/permissions?/(answer|approve|respond|decide|decision|allow)|behavior[\"'\\\\]*[[:space:]]*[:=][[:space:]]*[\"'\\\\]*allow|perm(ission)?_?mode[\"'\\\\]*[[:space:]]*[:=][[:space:]]*[\"'\\\\]*bypass"
+  if printf '%s' "$CMD" | grep -Eiq "$_HT_LOOP" && printf '%s' "$CMD" | grep -Eiq "$_HT_APPROVE"; then
+    REASON="approves a permission prompt (or sets a bypass permission mode) through a local HTTP control plane. An agent must not answer its own permission requests — that is the human's decision. Approve it from the dashboard yourself."
   fi
 fi
 
