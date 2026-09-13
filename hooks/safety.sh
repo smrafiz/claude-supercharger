@@ -693,6 +693,14 @@ CLOUD_PATTERNS=(
   # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
   '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
   'pulumi[[:space:]]+destroy([[:space:]]|$)'
+  # 2026-09-13 (from AhmadShayan/claude-code-guardrails): whole-repository
+  # teardown. `gh repo delete` / `glab repo delete` destroy an entire remote repo
+  # — issues, PRs, wiki, releases — and it is never a routine step, the same
+  # irreversible-teardown class as terraform destroy above. The raw-API form
+  # (`gh api -X DELETE /repos/o/r`) is left as a residual: it is not an accident
+  # shape, and a blanket `gh api -X DELETE` block would fire on routine deletes
+  # (a label, a deployment).
+  '(gh|glab)[[:space:]]+repo[[:space:]]+delete([[:space:]]|$)'
   # Secret material passed through a container build
   '--build-arg[=[:space:]][^[:space:]]*(TOKEN|SECRET|PASSWORD|PASSWD|PRIVATE_KEY|ACCESS_KEY|API_KEY)='
 )
