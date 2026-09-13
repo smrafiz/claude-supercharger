@@ -302,6 +302,12 @@ _SENSITIVE_NAME_RE = re.compile(
     # v2.10.1: terraform var files (DB passwords / cloud creds / API keys) +
     # token stores (from chuckreynolds/claude-secret-guardrails)
     r"|[\w.*-]*\.tfvars|[\w.*-]*\.tokens\.json"
+    # 2026-09-13 (from AhmadShayan/claude-code-guardrails): cloud service-account
+    # keys by name. A GCP service-account key, a Firebase admin SDK key, and a
+    # Google OAuth client-secret file are always secrets — reading one dumps a
+    # private key or client credentials. The distinctive name is the whole signal.
+    r"|[\w.-]*(?:service[-_]?account|firebase-adminsdk)[\w.-]*\.json"
+    r"|client_secret[\w.-]*\.json"
     # v2.25.3: ONE terminator for the whole group. Nearly every alternative here was
     # unbounded, so each matched inside a longer identifier and any reader command
     # (cat/grep/head/sed/awk) whose arguments contained one was denied as "sensitive

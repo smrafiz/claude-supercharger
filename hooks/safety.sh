@@ -1123,6 +1123,11 @@ case "$CMD" in
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
   *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).
+  # Gate is a superset of the detector's _SENSITIVE_NAME_RE clause; the detector
+  # decides. `client_secret` over-admits (it is also an env-var name) but only
+  # costs a python run, never a false block.
+  *service-account*|*service_account*|*serviceaccount*|*firebase-adminsdk*|*client_secret*) _NEED_PY=true ;;
   # v2.29.37: php -r and awk system() are interpreters like the ones above; both
   # execute arbitrary code and neither was in this gate.
   *php*\ -r*|*awk*system*) _NEED_PY=true ;;
