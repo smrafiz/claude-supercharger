@@ -53,7 +53,7 @@ print(json.dumps({"tool_name": "Read",
 }
 
 # Every ordinary way to read a file. Adding one extends coverage over every target.
-READERS=("cat" "less" "head -20" "tail -5" "grep -i token" "od -c")
+READERS=("cat" "less" "head -20" "tail -5" "grep -i token" "od -c" "strings")
 
 TARGETS=(
   "/home/u/.aws/credentials"
@@ -155,6 +155,35 @@ INTERP_BENIGN=(
 for _b in "${INTERP_BENIGN[@]}"; do
   begin_test "credential: ordinary one-liner allowed: ${_b:0:44}"
   [ "$(bash_blocked "" "$_b")" = allow ] && pass || fail "over-blocked one-liner: $_b"
+done
+
+# --- readers that read only in SOME subcommands ------------------------------
+# From flightrules 76c678a: its option-value spellings were already denied, but
+# these verbs were not. They cannot join READERS: `dotenv run` and
+# `openssl x509 -in cert.pem` consume a sensitive-named file without printing it.
+DOTENV=".e""nv"
+KEY="/home/u/.ssh/id_""rsa"
+SUBCMD_READS=(
+  "dotenv -f $DOTENV list"
+  "python3 -m dotenv -f $DOTENV get API_TOKEN"
+  "openssl pkey -in $KEY"
+  "openssl rsa -in $KEY -text -noout"
+  "openssl pkcs12 -in /proj/client.p12 -nodes"
+)
+for _c in "${SUBCMD_READS[@]}"; do
+  begin_test "credential: subcommand read denied: ${_c:0:40}"
+  [ "$(bash_blocked "" "$_c")" = BLOCK ] && pass || fail "subcommand read allowed: $_c"
+done
+SUBCMD_BENIGN=(
+  "dotenv -f $DOTENV run -- npm start"
+  "docker run --env-file $DOTENV myimage"
+  "openssl x509 -in /proj/cert.pem -noout -dates"
+  "openssl rsa -pubin -in $KEY.pub -noout"
+  "openssl rand -hex 32"
+)
+for _b in "${SUBCMD_BENIGN[@]}"; do
+  begin_test "credential: subcommand use allowed: ${_b:0:40}"
+  [ "$(bash_blocked "" "$_b")" = allow ] && pass || fail "over-blocked: $_b"
 done
 
 # --- v2.29.41: a credential going OUT, via every spelling of the flag --------
