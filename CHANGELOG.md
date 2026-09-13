@@ -2,6 +2,7 @@
 
 ## Contents
 
+- [4.1.0] - 2026-09-13 — Four guard-hardening findings from a repo-audit sweep: loopback self-approval plane + Codex bypass flag; docker --cap-add space form and host bind-mount fence; gh/glab repo delete, --force-if-includes, service-account key names, default-branch force-push; curl/wget piped into a JS runtime (node/deno/bun).. 5656 tests passing.
 - [4.0.48] - 2026-09-10 — feat(economy+perf): surface maxEffortLevel and autoCompactThreshold in /sc-doctor (both with positive controls); fix /sc-doctor reporting `settings.json valid` for an unparseable file and dying before its verdict (`set -e` + two unguarded python substitutions — third and fourth sites in that file); reclaim ~15 cpu-ms/tool-call from bookkeeping (tool-history-tracker 21.6→10.0, cache-health 15.6→12.8, audit-trail 6.0→5.2, measured A/B same machine/harness), plus a bash-5-only `basename` fork in lib-suppress (~34 forks/call, invisible on macOS). PostToolBatch deliberately NOT registered — payload schema undocumented; the contesting argument and the experiment are in docs/HOOK_AUTHORING.md. Suite 5570 → 5579.
 
 - [4.0.47] - 2026-09-10 — fix: close four guard bypasses, a silent fail-open, and a quadratic hot path
