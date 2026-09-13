@@ -686,7 +686,13 @@ CLOUD_PATTERNS=(
   'az[[:space:]]+ad[[:space:]]+(app|sp)[[:space:]]+credential[[:space:]]+reset'
   # Container escape — host sockets, privileged/host namespaces, nsenter, chroot /host
   # (--net=host deliberately omitted: too common in legit dev to block)
-  '(--privileged|--pid=host|--cap-add=SYS_ADMIN|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
+  # 2026-09-13: --cap-add took `=` only, so the SPACE form `--cap-add SYS_ADMIN`
+  # (docker's documented spelling) walked straight through — a root-equivalent
+  # capability with no other privilege flag. Accept both separators, and cover
+  # the root-equivalent cap set yotamleo/Himmel's block-docker-privesc names
+  # (SYS_ADMIN, SYS_PTRACE, DAC_OVERRIDE, DAC_READ_SEARCH, ALL) rather than
+  # SYS_ADMIN alone. Sibling-spelling parity gap [[cross-channel-parity-drift]].
+  '(--privileged|--pid=host|--cap-add[=[:space:]]+(SYS_ADMIN|SYS_PTRACE|DAC_OVERRIDE|DAC_READ_SEARCH|ALL)|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
   # k8s: cluster-admin RBAC grant + secret exfil (gated on kubectl verb / data form)
   'kubectl[^;&|]*(apply|create)[^;&|]*(clusterrolebinding|cluster-admin)'
   'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
@@ -1125,6 +1131,10 @@ case "$CMD" in
   *dig\ *|*nslookup*|*drill\ *|*\ host\ *) _NEED_PY=true ;;
   *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
+  # 2026-09-13: check_container_mount needs docker/podman with a bind mount to
+  # run. Gated on the tool AND a mount flag so a plain `docker run nginx` still
+  # early-exits. Superset of the detector's trigger [[two-gate-trap]].
+  *docker*|*podman*) case "$CMD" in *-v\ *|*-v=*|*--volume*|*--mount*) _NEED_PY=true ;; esac ;;
 esac
 
 # `command -v python3` without the $( ) — the command substitution forked a
