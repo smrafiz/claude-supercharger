@@ -119,6 +119,28 @@ rewrite() {
   exit 0
 }
 
+# 2026-09-13 (from AhmadShayan/claude-code-guardrails): protect force-push and
+# remote-deletion of the repo's ACTUAL default branch, not only the hardcoded
+# names — a repo that deploys from `develop`/`trunk`/`staging` was unprotected.
+# ADDITIVE and never fail-closed: the recorded default of `origin` is read at
+# most once (only for a push command), and on ANY failure — no origin/HEAD, a
+# fresh repo, git absent — the alternation stays the unchanged hardcoded list.
+# `origin` only (the common remote); a push to another remote with a different
+# default is a documented residual, not silently claimed as covered.
+_PROT_ALT="main|master|production|prod|release"
+case "$CMD" in
+  *push*)
+    _def=$(cd "$PROJECT_DIR" 2>/dev/null && git symbolic-ref --quiet --short refs/remotes/origin/HEAD 2>/dev/null) || _def=""
+    _def="${_def#origin/}"
+    case "$_def" in
+      ""|main|master|production|prod|release) ;;
+      *)
+        _def_esc=$(printf '%s' "$_def" | sed 's/[^A-Za-z0-9_/-]/\\&/g')
+        _PROT_ALT="${_PROT_ALT}|${_def_esc}" ;;
+    esac
+    ;;
+esac
+
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
 
@@ -170,7 +192,7 @@ while IFS= read -r seg; do
       # refspec is a native force-push the de-force rewrite CAN'T neutralize (it
       # strips flags, not the `+`), so `git push origin +production` slipped through
       # while `+main`/`+master` were caught. Match production/prod/release too.
-      if [[ "$seg" =~ [+]([^[:space:]]*:)?(refs/heads/)?(main|master|production|prod|release)(/[A-Za-z0-9._-]+)?([[:space:]]|$) ]]; then
+      if [[ "$seg" =~ [+]([^[:space:]]*:)?(refs/heads/)?(${_PROT_ALT})(/[A-Za-z0-9._-]+)?([[:space:]]|$) ]]; then
         has_protected=true
       fi
     fi
@@ -184,7 +206,7 @@ while IFS= read -r seg; do
     # origin HEAD:main` put `main` after a colon, so the space-anchored check
     # missed it and the (single-command-only) de-force rewrite let the compound
     # `git fetch && git push --force origin HEAD:main` through unmodified.
-    if [[ "$seg" =~ (^|[[:space:]]|:)(main|master|production|prod|release)([[:space:]]|$) ]]; then
+    if [[ "$seg" =~ (^|[[:space:]]|:)(${_PROT_ALT})([[:space:]]|$) ]]; then
       has_protected=true
     fi
 
