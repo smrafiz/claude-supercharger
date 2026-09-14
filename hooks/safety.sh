@@ -565,6 +565,31 @@ DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
   'mkfs\.' 'dd[[:space:]]+if='
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
+  # v4.1.2: raw-device destruction / partition-table writers — the SIBLING family
+  # of mkfs./dd of=/>dev already above. Same effect (wipe a disk or its partition
+  # map), one spelling short each. Found by diffing wintermeyer/heinzel's
+  # guard-taboos.sh; every one verified ALLOWED through this hook before the rule.
+  # Scoped like heinzel: only destructive subcommands/flags, read-only forms
+  # (nvme list, sgdisk -p, gpart show, fdisk -l) untouched; shred is DEVICE-scoped
+  # so `shred secret.txt` (ordinary file wipe) still passes.
+  #
+  # Filesystem creators WITHOUT the dot (mkfs. matches mkfs.ext4, not these):
+  '(^|[^[:alnum:]_.-])(mke2fs|mkntfs|mkdosfs|mkexfatfs|mkudffs|newfs([._][[:alnum:]]+)*)([^[:alnum:]_.-]|$)'
+  # Raw-device wipers that leave the partition table and destroy everything in it:
+  '(^|[^[:alnum:]_.-])blkdiscard([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])nvme[[:space:]]+(format|sanitize|delete-ns|create-ns|write|security-send)([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])hdparm[[:space:]][^;&|]*(--security-erase(-enhanced)?|--trim-sector-ranges|--make-bad-sector|--write-sector|--dco-restore)'
+  '(^|[^[:alnum:]_.-])badblocks[[:space:]][^;&|]*(^|[[:space:]])-[[:alnum:]]*w'
+  # shred targeting a raw disk device (NOT a file — file shred is ordinary work):
+  '(^|[^[:alnum:]_.-])shred[[:space:]][^;&|]*/dev/(sd|vd|xvd|hd|nvme|mmcblk|nbd|loop|da|ada|nda|disk[0-9])'
+  # Partition-table editors (cfdisk has no read-only mode; sgdisk/gpart matched
+  # only on their write subcommands/flags):
+  '(^|[^[:alnum:]_.-])cfdisk([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])sgdisk[[:space:]][^;&|]*(-Z([[:space:]]|$)|--zap(-all)?|-o([[:space:]]|$)|--clear|-d[[:space:]]|--delete|-n[[:space:]]|--new)'
+  '(^|[^[:alnum:]_.-])gpart[[:space:]]+(create|add|delete|destroy|modify|resize|bootcode|recover|set|undo|commit)([^[:alnum:]_.-]|$)'
+  # echo b|o > /proc/sysrq-trigger cuts power / resets instantly without syncing;
+  # nothing reads this file, so any mention is a write to it:
+  'sysrq-trigger'
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
   # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
