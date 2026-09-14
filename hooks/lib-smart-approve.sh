@@ -388,9 +388,16 @@ smart_approve_verdict() {
        && ! printf '%s\n' "$command" | grep -qE '(^|[[:space:]])(-e|-c|-p|--eval|--print)([[:space:]]|=|$)'; then
       return 0
     fi
-    # curl — GET only
+    # curl — GET only. Any method override OR body/upload flag means the request
+    # can EXFILTRATE, so it must defer to the user, never auto-approve.
+    # v4.1.1: the old list required a trailing space after -d/--data, so the upload
+    # forms -F/--form, -T/--upload-file, --data-urlencode and the GLUED body flags
+    # (`-d@file`, `-dVALUE`) all slipped through and POSTed data with no prompt.
+    # Methods stay case-insensitive; the short flags are matched case-SENSITIVELY
+    # so `-f`(--fail) and `-D`(--dump-header) do not trip the -F/-d arms.
     if printf '%s\n' "$command" | grep -qE '^[[:space:]]*curl[[:space:]]'; then
-      if ! printf '%s\n' "$command" | grep -qiE '(-X[[:space:]]*(POST|PUT|DELETE|PATCH)|--request[[:space:]]*(POST|PUT|DELETE|PATCH)|-d[[:space:]]|--data[[:space:]]|--data-raw[[:space:]]|--data-binary[[:space:]])'; then
+      if ! printf '%s\n' "$command" | grep -qiE '(-X[[:space:]]*(POST|PUT|DELETE|PATCH)|--request[[:space:]]*(POST|PUT|DELETE|PATCH))' \
+         && ! printf '%s\n' "$command" | grep -qE '(^|[[:space:]])(-d|--data|-F|--form|-T|--upload-file)'; then
         return 0
       fi
     fi
