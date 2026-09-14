@@ -816,6 +816,15 @@ CRED_CMD_PATTERNS=(
   # is its gcloud sibling, absent until now — a channel asymmetry, not a new idea.
   '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+auth[[:space:]]+print-(access|identity|refresh)-token([[:space:]]|$)'
   '(^|[[:space:]])doppler[[:space:]]+secrets([[:space:]]|$)'
+  # v4.1.2: gpg private-key export. `gpg --export-secret-keys` / `--export-secret-subkeys`
+  # write private key material to stdout from the local keyring, by key-id — no
+  # sensitive-named FILE in the command, so the READER/path rules and the openssl
+  # subcommand rule (which both need a sensitive filename) never fire. It is the
+  # GnuPG sibling of `security ... export` above and of openssl pkey/rsa (PR #3):
+  # arbitrary-shape key material, so the command is the only layer. Bare
+  # `--export` (public key) and `--list-keys` are deliberately NOT matched — the
+  # `-secret` token is the discriminator. From LuD1161/agentjail's default policy.
+  '(^|[[:space:]])gpg([[:space:]]+--?[^[:space:]]+)*[[:space:]]+--export-secret'
   # `git credential fill` and any helper's `get` print `password=` in plaintext.
   '(^|[^[:alnum:]_-])(git([[:space:]]+-[^[:space:]]+)*[[:space:]]+credential(-[[:alnum:]_-]+)?|git-credential-[[:alnum:]_-]+)[[:space:]]+(fill|get)([[:space:]]|$)'
 )
