@@ -103,7 +103,17 @@ begin_test "a branch release is reported as NOT yet on master"
 grep -q 'NOT yet on master' "$RELEASE" && pass || fail "no warning for a branch release"
 
 begin_test "the unconditional 'Released' banner is gated on master"
-awk '/^if \[ "\$BRANCH" = "master" \]/,/^fi$/' "$RELEASE" | grep -q 'Released v' \
+# Original range-awk broke when this block moved into cmd_legacy() (indented):
+# the range /^if.../,/^fi$/ terminated on the first INNER fi, before 'Released v'.
+# Depth-tracking awk handles nested if/fi correctly regardless of indentation.
+awk '
+/if \[ "\$BRANCH" = "master" \]/ { depth=1; next }
+depth > 0 {
+  if (/[[:space:]]if[[:space:]]/) depth++
+  if (/[[:space:]]fi([[:space:]]|$)/ || /^[[:space:]]*fi([[:space:]]|$)/) depth--
+  if (depth > 0) print
+}
+' "$RELEASE" | grep -q 'Released v' \
   && pass || fail "the Released banner is not gated on the branch"
 
 report
