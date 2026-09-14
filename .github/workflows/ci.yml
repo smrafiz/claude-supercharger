@@ -2,7 +2,13 @@ name: CI
 
 on:
   push:
-    branches: [master]
+    # rel/** so `tools/release.sh stage` triggers CI on the release-candidate
+    # branch it pushes — `promote` gates on that branch's run (gh run list
+    # --branch rel/X.Y.Z), so without this the staged branch ran no CI and
+    # promote found nothing. The workflow file used for a push comes from the
+    # pushed commit, and stage cuts rel/** off master, so the branch carries
+    # this trigger. (v4.1.2 needed a manual PR to fire CI; this closes that.)
+    branches: [master, 'rel/**']
   pull_request:
     branches: [master]
 
