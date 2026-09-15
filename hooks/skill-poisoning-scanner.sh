@@ -125,6 +125,9 @@ patterns = [
 ]
 
 ZERO_WIDTH = ('​', '‌', '‍', '﻿')
+# v4.1.5: Unicode Tag Block (U+E0000-E007F) — second invisible carrier for
+# smuggled instructions (EchoLeak CVE-2025-32711). Non-raw string so \U resolves.
+_TAG_BLOCK = re.compile('[\U000e0000-\U000e007f]')
 
 findings = []
 critical = 0
@@ -148,6 +151,9 @@ for p in scan_paths:
     stego = sum(text.count(c) for c in ZERO_WIDTH)
     if stego:
         findings.append(f'HIGH: steganographic whitespace ({stego}x in {fname})')
+    tags = len(_TAG_BLOCK.findall(text))
+    if tags:
+        findings.append(f'HIGH: unicode tag-block ASCII smuggling ({tags}x in {fname})')
 
 if not findings:
     sys.exit(0)
