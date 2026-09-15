@@ -199,6 +199,10 @@ patterns = (
     # already cover.
     (re.compile(r'base64\s+(?:-d|-D|--decode)\b[^|\n]*\|\s*(?:ba|z|k|da)?sh\b'),   'base64 decode to shell'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
+    # v4.1.5: Unicode Tag Block (U+E0000-E007F) — ASCII-smuggled invisible
+    # instructions in a command (EchoLeak CVE-2025-32711). Sibling of the
+    # zero-width set; non-raw string so \U resolves to the codepoint range.
+    (re.compile('[\U000e0000-\U000e007f]'),                 'unicode tag-block (ASCII smuggling)'),
 )
 
 # v4.0.31 — tier 2: structural shapes, gated on FETCH provenance (KNOWN-ISSUES #6).

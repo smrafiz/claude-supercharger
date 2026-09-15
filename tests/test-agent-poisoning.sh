@@ -91,6 +91,19 @@ run_scan "$T" stego
 rm -rf "$T"
 printf '%s' "$OUT" | grep -q 'steganographic' && pass || fail "zero-width not detected: $OUT"
 
+begin_test "unicode tag-block ASCII smuggling is reported"
+T=$(mktemp -d)
+mkdir -p "$T/.claude/agents"
+# Build the U+E0000-block chars via chr() so the fixture encodes reliably (they
+# sit above U+FFFF). This smuggles an invisible 'ignore' into the agent def.
+python3 -c "
+import sys
+tag=''.join(chr(c) for c in (0xE0069,0xE0067,0xE006E,0xE006F,0xE0072,0xE0065))
+open(sys.argv[1],'w',encoding='utf-8').write('# tag\nnormal text'+tag+'hidden\n')" "$T/.claude/agents/tagstego.md"
+run_scan "$T" tagstego
+rm -rf "$T"
+printf '%s' "$OUT" | grep -q 'tag-block' && pass || fail "unicode tag-block not detected: $OUT"
+
 # --- clean control (no over-blocking) ---------------------------------------
 begin_test "a clean agent definition passes silently"
 T=$(mktemp -d); mkagent "$T" goodagent 'Read files, write code, run the test suite.'

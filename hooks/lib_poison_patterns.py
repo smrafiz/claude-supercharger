@@ -54,6 +54,12 @@ PATTERNS = [
 # carrier for instructions the human never sees. Presence alone is the signal.
 ZERO_WIDTH = ('​', '‌', '‍', '﻿')
 
+# v4.1.5: Unicode Tag Block (U+E0000-E007F) maps 1:1 to ASCII but renders
+# zero-width — a second invisible carrier used to smuggle instructions an LLM
+# reads and a human cannot see (EchoLeak CVE-2025-32711). Sibling of ZERO_WIDTH;
+# non-raw string so \U resolves to the codepoint range. Near-zero FP.
+_TAG_BLOCK = re.compile('[\U000e0000-\U000e007f]')
+
 
 def scan_text(text, fname):
     """Return (findings, critical_count) for one instruction file's text.
@@ -72,6 +78,9 @@ def scan_text(text, fname):
     stego = sum(text.count(c) for c in ZERO_WIDTH)
     if stego:
         findings.append('HIGH: steganographic whitespace (%dx in %s)' % (stego, fname))
+    tags = len(_TAG_BLOCK.findall(text))
+    if tags:
+        findings.append('HIGH: unicode tag-block ASCII smuggling (%dx in %s)' % (tags, fname))
     return findings, critical
 
 

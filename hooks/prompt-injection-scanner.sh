@@ -132,6 +132,11 @@ patterns = (
     (re.compile(r'aaaa[a-za-z0-9+/=]{20,}'),                                         'base64 payload'),
     (re.compile(r'base64 -d'),                                                       'base64 decode'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
+    # v4.1.5: Unicode Tag Block (U+E0000-E007F) maps 1:1 to ASCII but renders
+    # zero-width — invisible instructions an LLM reads and a human cannot see
+    # (EchoLeak CVE-2025-32711). Sibling of the zero-width set above; near-zero FP
+    # (these chars never appear in legit content). Non-raw string so \U resolves.
+    (re.compile('[\U000e0000-\U000e007f]'),                 'unicode tag-block (ASCII smuggling)'),
 )
 
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
