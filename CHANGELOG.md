@@ -1,3 +1,4 @@
+- [4.1.5] - 2026-09-15 — detect Unicode Tag Block (U+E0000-E007F) ASCII smuggling. 5721 tests passing.
 - [4.1.4] - 2026-09-15 — Block disabling the host's own security controls (Gatekeeper, SIP, SELinux, firewall, Windows Defender, AppArmor, auditd), scoped to the disable verb. From the SkillGuardrail audit.. 5720 tests passing.
 - [4.1.3] - 2026-09-15 — CI now triggers on rel/** pushes so the stage/promote release flow self-gates without a manual PR.. 5707 tests passing.
 - [4.1.2] - 2026-09-14 — Block gpg secret-key export exfil (agentjail audit) and the raw-device-destruction / partition-editor sibling family — blkdiscard, mke2fs, nvme format, cfdisk, sgdisk, gpart, hdparm secure-erase, shred-on-device, sysrq-trigger (heinzel audit).. 5707 tests passing.
