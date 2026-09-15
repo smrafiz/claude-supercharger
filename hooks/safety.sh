@@ -590,6 +590,24 @@ DESTRUCT_PATTERNS=(
   # echo b|o > /proc/sysrq-trigger cuts power / resets instantly without syncing;
   # nothing reads this file, so any mention is a write to it:
   'sysrq-trigger'
+  # v4.1.4: disabling the HOST's OWN security controls (Gatekeeper/SIP/SELinux/
+  # firewall/Defender/AppArmor/auditd). A security-weakening class, same family as
+  # chmod 777 / setuid above — and exactly what a prompt-injected agent would do to
+  # clear the path for exfil or persistence. Scoped to the DISABLE verb so enable/
+  # status/config (ufw allow, systemctl restart, pfctl -e/-s) still pass. Matched
+  # case-insensitively (grep -qiE), so PowerShell casing is covered. From
+  # T-Zevin/SkillGuardrail SG-EXEC-004 ("disables host malware/firewall/policy").
+  '(^|[^[:alnum:]_.-])spctl[[:space:]][^;&|]*--(master|global)-disable'
+  '(^|[^[:alnum:]_.-])csrutil[[:space:]]+disable([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])setenforce[[:space:]]+(0|permissive)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])ufw[[:space:]]+disable([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])pfctl[[:space:]][^;&|]*-d([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])aa-(disable|teardown)([[:space:]]|$)'
+  '(set|add)-mppreference[[:space:]][^;&|]*-(disable[[:alnum:]]*|exclusionpath|exclusionprocess|exclusionextension)'
+  '(^|[^[:alnum:]_.-])systemctl[[:space:]]+(stop|disable|mask)[[:space:]]+[^;&|]*(firewalld|apparmor|auditd|ufw)([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])nft[[:space:]]+flush[[:space:]]+ruleset'
+  '(^|[^[:alnum:]_.-])iptables[[:space:]][^;&|]*-F([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])iptables[[:space:]][^;&|]*-P[[:space:]]+(input|forward|output)[[:space:]]+accept'
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
   # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
