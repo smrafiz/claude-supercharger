@@ -23,7 +23,30 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Run tests
-        run: bash tests/run.sh
+        run: bash tests/run.sh | tee test-output.log
+
+      # Live test-count badge: publish the suite total to a gist that shields.io
+      # renders via its endpoint API, so the README number is never hand-edited
+      # and never stale. Only on a real master push (not PRs / rel/** candidates)
+      # and only from one OS, so the gist isn't written twice per run.
+      - name: Extract suite total
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        id: count
+        run: |
+          n=$(grep -oE 'Total: [0-9]+ passed' test-output.log | grep -oE '[0-9]+' | head -1)
+          [ -n "$n" ] || { echo "could not read suite total from test-output.log"; exit 1; }
+          echo "total=$n" >> "$GITHUB_OUTPUT"
+
+      - name: Publish tests badge to gist
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: schneegans/dynamic-badges-action@v1.7.0
+        with:
+          auth: ${{ secrets.GIST_TOKEN }}
+          gistID: ${{ vars.TESTS_BADGE_GIST_ID }}
+          filename: supercharger-tests.json
+          label: tests
+          message: ${{ steps.count.outputs.total }} passing
+          color: brightgreen
 
   version-check:
     name: Version consistency
