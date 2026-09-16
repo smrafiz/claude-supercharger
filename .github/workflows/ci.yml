@@ -33,7 +33,10 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && github.event_name == 'push' && github.ref == 'refs/heads/master'
         id: count
         run: |
-          n=$(grep -oE 'Total: [0-9]+ passed' test-output.log | grep -oE '[0-9]+' | head -1)
+          # tail -1: a test's own output can echo a decoy "Total: N passed", and
+          # the authoritative grand total is run.sh's last line (same trap as
+          # tests/run.sh:150). head -1 grabbed the decoy and published "6 passing".
+          n=$(grep -oE 'Total: [0-9]+ passed' test-output.log | grep -oE '[0-9]+' | tail -1)
           [ -n "$n" ] || { echo "could not read suite total from test-output.log"; exit 1; }
           echo "total=$n" >> "$GITHUB_OUTPUT"
 
