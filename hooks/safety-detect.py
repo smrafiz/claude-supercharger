@@ -251,7 +251,15 @@ _SENSITIVE_NAME_RE = re.compile(
     # `prod.env`, `backup.env`, `staging.env` — real credential files whose names are
     # syntactically identical to the idioms. Measured: the boundary version cleared the
     # two FPs and silently allowed three of those. Only the idioms are excluded.
-    r"(?<!process)(?<!meta)\.env(?:rc)?(?:\.[a-zA-Z0-9_-]+)?"
+    # v4.1.6 (F2): the template suffixes are excluded HERE too. check_env_file
+    # and env-file-guard.sh both allow the .example template by name; this arm
+    # did not, so reading it denied through the reader rule while the two rules
+    # written to permit it looked correct. A template is placeholders by
+    # definition and every repo ships one. .envrc is unaffected: the lookahead
+    # sits after the optional `rc`, and a .production variant still matches.
+    r"(?<!process)(?<!meta)\.env(?:rc)?"
+    r"(?!\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
+    r"(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
     r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|[/\s])pip\.conf"
@@ -407,6 +415,25 @@ def _drop_first_operand(args: str) -> str:
             continue
         out.append(t)
     return " ".join(out)
+
+
+# v4.1.6 (F1): the same drop, applied to a whole command rather than to one
+# reader's args. check_sensitive_read strips the pattern operand per match;
+# check_env_file tests whole-command regexes, so it needs the stripped command.
+# Searching docs FOR the dotenv name opens no such file, and denying it is the
+# false-positive shape upstream filed eight issues about (#91681, #91778 and
+# siblings). Keep in sync with hooks/env-file-detect.py, which carries the same
+# pair for the fork-free Bash path.
+_PATTERN_READER_INVOCATION_RE = re.compile(
+    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
+)
+
+
+def _strip_pattern_operands(c: str) -> str:
+    """Drop each pattern-reader's leading pattern/script operand from a command."""
+    return _PATTERN_READER_INVOCATION_RE.sub(
+        lambda m: m.group(1) + m.group(2) + _drop_first_operand(m.group(3)), c
+    )
 
 
 def check_sensitive_read(c: str) -> str | None:
@@ -696,6 +723,10 @@ def check_env_file(c: str) -> str | None:
     # Allow safe metadata commits/PRs that mention .env in text only
     if re.match(r"^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b", c):
         return None
+
+    # A search PATTERN is not a path -- see _strip_pattern_operands. The dotenv
+    # file as a search TARGET is untouched: only the first non-flag operand goes.
+    c = _strip_pattern_operands(c)
 
     flagged = []
     for m in re.finditer(_ENV_FILE_RE, c):
