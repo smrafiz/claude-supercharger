@@ -183,7 +183,7 @@ Full method and evidence: `[[subagent-return-channel-facts]]`.
 
 **Done when.** A measured yes/no for both, written up. ✅
 
-## P4 — Auto Mode Bash-first versus nested CLAUDE.md (#90450)
+## P4 — Auto Mode Bash-first versus nested CLAUDE.md (#90450) — DONE 2026-09-18
 
 **Why.** 16👍 and new. If the Bash-first directive really suppresses nested CLAUDE.md and
 path-scoped rules, our configs that rely on directory-scoped rules degrade silently under
@@ -193,8 +193,23 @@ Auto Mode — and this session is running exactly that combination.
 Mode, and a check of whether the directive is honoured. Then decide whether our shipped
 configs depend on nested files at all.
 
-**Done when.** Reproduced or refuted with evidence. If confirmed and it affects us,
-document it in `docs/KNOWN-ISSUES.md` and stop relying on nesting.
+**Answer: confirmed, and it's a tool-choice effect, not an Auto-Mode-specific flag.**
+A clean A/B — same session, two fresh nested-`CLAUDE.md` fixtures, one directory touched
+via the `Read` tool (loaded correctly, injected as a system-reminder) and an equally fresh
+one touched only via Bash `cat` (never loaded — confirmed by then `Read`-ing the identical
+file, which loaded it). Claude Code's nested-`CLAUDE.md` auto-load is wired to the
+dedicated file tools, not to Bash. Auto Mode's directive to prefer `cat`/`sed -n`/`grep`
+over `Read`/`Grep`/`Glob` therefore stops the load as a side effect — nothing in the
+directive text mentions `CLAUDE.md` at all, which is exactly why it's silent. Confirms
+#90450. Second half: grepped every `CLAUDE.md` reference in our own `install.sh`,
+`tools/*.sh` and `configs/commands/*.md` — all target `$HOME/.claude/CLAUDE.md` (global)
+only, never a project-nested file, so Supercharger's shipped configs have nothing to lose.
+Written up as informational entry #7 in `docs/KNOWN-ISSUES.md` (upstream, not ours to fix,
+kept for user awareness — someone with their own nested `CLAUDE.md` will hit this).
+
+**Done when.** Reproduced or refuted with evidence. ✅ Documented in
+`docs/KNOWN-ISSUES.md` per the "confirmed and worth recording" branch — not "stop relying
+on nesting" (we never did).
 
 ## P5 — No build: verbose-comment and tool-choice complaints
 

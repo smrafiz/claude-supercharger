@@ -1,12 +1,13 @@
 # Known Issues
 
-Status: **2 open (#5 and #6 both narrowed v4.0.31)** · Last updated: 2026-09-06 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions.
+Status: **2 open (#5 and #6 both narrowed v4.0.31), 1 informational (#7, not ours to fix)** · Last updated: 2026-09-18 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions. #7 opened 2026-09-18, confirmed upstream Claude Code behavior — Supercharger itself is unaffected.
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
 
-One entry is open (#5). The rest are closed and kept for their reproductions and
-for the bug classes they name, not as outstanding work.
+Two entries are open (#5, #7 — #7 is informational, not a defect of ours). The rest
+are closed and kept for their reproductions and for the bug classes they name, not
+as outstanding work.
 Per-release history lives in [`../CHANGELOG.md`](../CHANGELOG.md); this file is only
 for what is currently broken.
 
@@ -14,6 +15,7 @@ for what is currently broken.
 |---|---|---|---|
 | 5 | a sensitive path bound to a variable is not tracked (narrowed v4.0.31) | low | credential-read coverage |
 | 6 | injected instructions in fetched content are only caught in blunt forms | low | prompt-injection defence |
+| 7 | nested `CLAUDE.md` stops loading under Auto Mode's Bash-first directive (upstream, informational) | n/a | user awareness only |
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
 | ~~3~~ | ~~`claim-evidence-gate` matches substrings, not verdicts~~ | ~~medium~~ | **fixed v2.29.27** |
@@ -300,3 +302,45 @@ above is the reason, and it is cheap to re-run: the probes live in the session
 scratchpad pattern `inj-probe` / `struct-inj-fp`. The v4.0.31 narrowing did not
 weaken that argument — it changed the channel the patterns run on, and left the
 patterns that cannot work unwritten.
+
+---
+
+## 7 — nested `CLAUDE.md` silently stops loading when Auto Mode's Bash-first
+directive is followed — upstream Claude Code behavior, not a Supercharger bug
+
+**Status: CONFIRMED 2026-09-18, not ours to fix.** Recorded because it can make a
+*user's own* nested/path-scoped `CLAUDE.md` files disappear without any error, and
+someone will eventually ask us why. Supercharger itself is unaffected (see below).
+
+**Reproduction.** Created a nested `CLAUDE.md` in a fresh subdirectory the session
+had not touched yet, containing a distinctive directive. Reading a file in that
+directory with the `Read` tool loaded the nested file correctly — Claude Code
+injected its contents as a system-reminder immediately. Reading a **different**
+file in a **different**, equally fresh nested directory with `cat` via the Bash
+tool produced no injection at all — the nested `CLAUDE.md` there was silently
+never loaded. Following up with `Read` on the exact same Bash-probed file then
+loaded it correctly, ruling out "only the first nested file per session loads" as
+an alternative explanation. Clean A/B, both directories untouched before their
+single probe.
+
+**Root cause.** Claude Code's nested-`CLAUDE.md` auto-load appears to be wired to
+the dedicated file tools (`Read`, and presumably `Grep`/`Glob`), not to Bash file
+access. Auto Mode's own directive tells the agent to prefer `cat`/`sed -n`/`grep`
+over those dedicated tools "wherever it can accomplish the job" — so an agent
+correctly following Auto Mode's instructions stops ever triggering the load. The
+directive never mentions `CLAUDE.md`; the effect is a side effect of tool choice,
+not an intentional suppression. This matches community report #90450.
+
+**Does it affect Supercharger?** No. Grepped every `CLAUDE.md` reference in
+`install.sh`, `tools/*.sh` and `configs/commands/*.md` — all of them target
+`$HOME/.claude/CLAUDE.md` (the single global file), never a project-nested one.
+Supercharger has nothing to lose here. This entry exists for users who keep their
+*own* per-directory `CLAUDE.md` files and also run Auto Mode: those directives can
+go silently unread, and there is no warning from either side.
+
+**Not fixable from our side.** We do not control Auto Mode's Bash-first directive
+or Claude Code's load path. A hook that notices Auto Mode is active and a nested
+`CLAUDE.md` exists below cwd, and warns once, is the only mitigation within
+Supercharger's reach — not built and not queued: no report yet of a Supercharger
+user actually hitting this, and principle 1 in `ROADMAP.md` (work without code) says
+don't build it speculatively. Revisit if that changes.
