@@ -305,23 +305,29 @@ patterns that cannot work unwritten.
 
 ---
 
-## 7 — nested `CLAUDE.md` silently stops loading when Auto Mode's Bash-first
-directive is followed — upstream Claude Code behavior, not a Supercharger bug
+## 7 — nested `CLAUDE.md` stops loading when Auto Mode's Bash-first directive is followed
 
 **Status: CONFIRMED 2026-09-18, not ours to fix.** Recorded because it can make a
 *user's own* nested/path-scoped `CLAUDE.md` files disappear without any error, and
 someone will eventually ask us why. Supercharger itself is unaffected (see below).
 
-**Reproduction.** Created a nested `CLAUDE.md` in a fresh subdirectory the session
-had not touched yet, containing a distinctive directive. Reading a file in that
-directory with the `Read` tool loaded the nested file correctly — Claude Code
-injected its contents as a system-reminder immediately. Reading a **different**
-file in a **different**, equally fresh nested directory with `cat` via the Bash
-tool produced no injection at all — the nested `CLAUDE.md` there was silently
-never loaded. Following up with `Read` on the exact same Bash-probed file then
-loaded it correctly, ruling out "only the first nested file per session loads" as
-an alternative explanation. Clean A/B, both directories untouched before their
-single probe.
+**Reproduction.** Three steps, each a *separate* tool call — the separation is the
+whole point, see the trap below:
+
+1. Bash: `mkdir docs/_probe`, write `docs/_probe/CLAUDE.md` with a distinctive
+   marker, write `docs/_probe/target.txt`. Read nothing.
+2. Bash: `cat docs/_probe/target.txt` → **no injection.** The nested `CLAUDE.md`
+   is never loaded, and nothing reports that it was skipped.
+3. `Read` tool on the *identical* file `docs/_probe/target.txt` → the nested
+   `CLAUDE.md` contents arrive immediately as a system-reminder.
+
+Step 3 on the same file that step 2 missed is what makes this an A/B on tool
+choice rather than on file state.
+
+**Trap — the first version of this test was invalid.** It created the fixture and
+`cat`'d it in the *same* Bash call, so "Bash does not trigger the load" was
+confounded with "the file did not exist yet when the harness looked." Re-run with
+creation and access in separate calls before trusting any result here.
 
 **Root cause.** Claude Code's nested-`CLAUDE.md` auto-load appears to be wired to
 the dedicated file tools (`Read`, and presumably `Grep`/`Glob`), not to Bash file
@@ -331,12 +337,24 @@ correctly following Auto Mode's instructions stops ever triggering the load. The
 directive never mentions `CLAUDE.md`; the effect is a side effect of tool choice,
 not an intentional suppression. This matches community report #90450.
 
-**Does it affect Supercharger?** No. Grepped every `CLAUDE.md` reference in
-`install.sh`, `tools/*.sh` and `configs/commands/*.md` — all of them target
-`$HOME/.claude/CLAUDE.md` (the single global file), never a project-nested one.
-Supercharger has nothing to lose here. This entry exists for users who keep their
+**Does it affect Supercharger?** No, but not for the reason first recorded here.
+The original claim — that every `CLAUDE.md` reference we ship targets the global
+`$HOME/.claude/CLAUDE.md` — was wrong, and was written after grepping only
+`install.sh`, `tools/` and `configs/`. `hooks/` does reference project-level files:
+`config-scan.sh` reads `<project>/CLAUDE.md`, `memory-write-guard.sh` and
+`path-guard.sh` both key on the name. What actually makes us safe is that those
+hooks **read the file from disk themselves**, in-process, rather than relying on
+Claude Code's context-injection path — so the tool Claude happened to use to look
+at a file changes nothing for them. This entry exists for users who keep their
 *own* per-directory `CLAUDE.md` files and also run Auto Mode: those directives can
 go silently unread, and there is no warning from either side.
+
+**Adjacent gap, not fixed here.** `config-scan.sh` scans `<project>/CLAUDE.md` and
+`<project>/.claude/*.md` (plus one level below `.claude/`) for prompt injection. It
+does **not** scan a nested `<project>/<subdir>/CLAUDE.md` — and the probe above
+shows such a file *does* reach Claude's context when a dedicated file tool touches
+that directory. So a planted nested `CLAUDE.md` is context-reachable and unscanned.
+Recorded as an observation; no fix attempted in this entry.
 
 **Not fixable from our side.** We do not control Auto Mode's Bash-first directive
 or Claude Code's load path. A hook that notices Auto Mode is active and a nested

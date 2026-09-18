@@ -92,7 +92,10 @@ a plugin installs (#31969). Both are arguments for our own self-diagnosis surfac
   CLAUDE.md and path-scoped rules.**
 
 The last one matters to us directly: this session runs Auto Mode with a Bash-first
-directive, and our rule delivery depends on nested CLAUDE.md files being honoured.
+directive. **Resolved by P4 below (2026-09-18):** confirmed real, but our rule delivery
+does *not* depend on nested CLAUDE.md — it ships via the global `~/.claude/CLAUDE.md`
+plus `rules/*.md` (installer) or `prompt-layer-inject.sh` (plugin), and the hooks that
+do read a project `CLAUDE.md` read it from disk themselves.
 
 ---
 
@@ -202,9 +205,12 @@ file, which loaded it). Claude Code's nested-`CLAUDE.md` auto-load is wired to t
 dedicated file tools, not to Bash. Auto Mode's directive to prefer `cat`/`sed -n`/`grep`
 over `Read`/`Grep`/`Glob` therefore stops the load as a side effect — nothing in the
 directive text mentions `CLAUDE.md` at all, which is exactly why it's silent. Confirms
-#90450. Second half: grepped every `CLAUDE.md` reference in our own `install.sh`,
-`tools/*.sh` and `configs/commands/*.md` — all target `$HOME/.claude/CLAUDE.md` (global)
-only, never a project-nested file, so Supercharger's shipped configs have nothing to lose.
+#90450. Second half: our shipped setup is unaffected, though the first pass got the reason
+wrong. `hooks/` *does* reference project-level `CLAUDE.md` (`config-scan.sh`,
+`memory-write-guard.sh`, `path-guard.sh`) — the "everything is global-only" claim came
+from grepping only `install.sh`, `tools/` and `configs/`. What actually holds is that
+those hooks read the file from disk in-process, never via Claude Code's context-injection
+path, so tool choice cannot starve them.
 Written up as informational entry #7 in `docs/KNOWN-ISSUES.md` (upstream, not ours to fix,
 kept for user awareness — someone with their own nested `CLAUDE.md` will hit this).
 
