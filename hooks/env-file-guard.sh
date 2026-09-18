@@ -47,7 +47,12 @@ block() {
   echo "  Input  : ${preview:0:120}" >&2
   echo "  .env files commonly contain credentials. If you need this, run it in your terminal." >&2
   echo "" >&2
-  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
+  # The remedy goes in the REASON, not only on stderr. stderr reaches the
+  # terminal; permissionDecisionReason is what the model and the client surface
+  # as the denial. Guidance that lives only on the first channel is guidance the
+  # person deciding what to do next may never see.
+  RSN=$(printf '%s — if you genuinely need this file, read it in your own terminal; Supercharger will not open credential files on your behalf.' "$reason" \
+    | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
   printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
   exit 2
 }

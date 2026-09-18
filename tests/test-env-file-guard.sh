@@ -266,4 +266,17 @@ begin_test "env-guard: a glob with no path still searches the cwd normally"
 grep_input Glob '{"pattern":"**/*.tsx"}'
 [ "$?" = "0" ] && pass || fail "over-blocked a bare cwd glob"
 
+# --- the remedy has to be on the channel the denial is read from -------------
+# Denial-message audit, 2026-09-19. block() printed "if you need this, run it in
+# your terminal" to STDERR, while permissionDecisionReason — what the model and
+# the client actually surface — carried only the terse reason. Guidance on a
+# channel the decider may never see is guidance that does not exist.
+begin_test "env-guard: the denial REASON carries the remedy, not just stderr"
+OUT=$(printf '{"session_id":"p","cwd":"/tmp","tool_name":"Read","tool_input":{"file_path":"/tmp/.env"}}' \
+  | bash "$HOOK" 2>/dev/null)
+case "$OUT" in
+  *permissionDecisionReason*own\ terminal*) pass ;;
+  *) fail "reason channel has no remedy: $OUT" ;;
+esac
+
 report

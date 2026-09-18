@@ -448,7 +448,7 @@ if pct >= 100:
     if tool in READ_ONLY:
         print('pass')
     else:
-        print(f'block:Session budget cap reached: ${spend:.4f} spent of ${cap_f:.2f} cap ({pct:.0f}%). Use read-only tools or start a new session.')
+        print(f'block:Session budget cap reached: ${spend:.4f} spent of ${cap_f:.2f} cap ({pct:.0f}%). Use read-only tools, start a new session, or raise the cap with "budget": <dollars> in .supercharger.json.')
 elif pct >= 80:
     print(f'warn:[BUDGET] {pct:.0f}% of session cap used (${spend:.4f} / ${cap_f:.2f}). Consider wrapping up.')
 else:

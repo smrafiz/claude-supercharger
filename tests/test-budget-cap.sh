@@ -201,6 +201,27 @@ echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check >/dev/null 2>&1
 [ "$?" -eq 2 ] && pass || fail "expected exit 2 (blocked)"
 teardown_test_home
 
+begin_test "the block names the cap as something you can raise"
+# Denial-message audit, 2026-09-19. The message said "use read-only tools or
+# start a new session" and never mentioned that the cap is a value YOU set. Its
+# sibling tool-call-limiter has always named its knob ("raise
+# SESSION_MAX_TOOL_CALLS"); this one did not, so a cap set too low for the job
+# read as a wall rather than a setting.
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+printf '{"new_tokens":1000,"cost_usd":5.50}' > "$SCOPE_DIR/.main-tokens-bsess"  # 110%
+PAYLOAD='{"tool_name":"Write","cwd":"/tmp","session_id":"bsess"}'
+OUTPUT=$(echo "$PAYLOAD" | SESSION_BUDGET_CAP=5.00 bash "$HOOK" check 2>&1)
+# Assert on .supercharger.json, not on the word "budget" — the OLD message
+# already said "Session budget cap reached", so a *budget* match passes against
+# the unfixed hook and proves nothing. Checked: this assertion is red before.
+case "$OUTPUT" in
+  *supercharger.json*) pass ;;
+  *) fail "block does not name the configurable cap: $OUTPUT" ;;
+esac
+teardown_test_home
+
 begin_test "read-only tools bypass block"
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
