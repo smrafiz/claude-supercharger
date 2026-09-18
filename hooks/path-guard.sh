@@ -417,8 +417,8 @@ if 'symlink' not in disabled and proj:
                 sys.exit(0)
             if not _within_project(full, proj_real):
                 print('path resolves outside the project root via a symlink ('
-                      + full[:120] + ') — out-of-project write; '
-                      'opt out via disableSecurityCategories: ["symlink"]')
+                      + full[:160] + ') — out-of-project write; '
+                      'allow it with additionalRoots: ["/parent/dir"] in .supercharger.json (one parent covers every directory under it), or disable the check entirely with disableSecurityCategories: ["symlink"]')
                 sys.exit(0)
     except Exception as _e:
         _dbg('3.2-EXCEPTION', err=repr(_e))
@@ -583,7 +583,8 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
         _dbg('3.4-generic', target_dir=target_dir, target_real=target_real,
              proj_real=proj_real, within=_within_project(target_real, proj_real))
         if not _within_project(target_real, proj_real):
-            print('absolute path outside project root: ' + p[:100] + '; opt out via disableSecurityCategories: ["abs-path"]')
+            print('absolute path outside project root: ' + p[:160]
+                  + '; allow it with additionalRoots: ["/parent/dir"] in .supercharger.json (one parent covers every directory under it), or disable the check entirely with disableSecurityCategories: ["abs-path"]')
             sys.exit(0)
     except Exception:
         pass

@@ -433,4 +433,81 @@ with_session_root "$W" "$W/free" "$OTHER/third/x.php"
 [ "$RC" -eq 0 ] && pass || fail "config root lost when a session root is present: rc=$RC"
 rm -rf "$(dirname "$W")" "$OTHER"
 
+# --- one parent root, many children (field report: Local by WP Engine) -------
+# Reported 2026-09-18: a user maintaining WordPress themes across several Local
+# sites was denied every cross-site edit, was pointed at `/add-dir` (which is
+# recorded PER SESSION, so it had to be redone every time), got tired of it and
+# uninstalled. The answer that fits is one parent entry — every existing and
+# future site under it is covered by the single line. None of the cases above
+# exercise that shape: they all name one specific sibling.
+#
+# The space in "Local Sites" is not decoration. It is Local's DEFAULT directory
+# name, the roots travel to the guard tab-joined through the ENVIRONMENT, and a
+# root that broke on a space would break for every Local user on the default
+# layout.
+locallayout() { # -> echoes a wrapper whose name contains a space
+  local b; b=$(mktemp -d); b=$(cd "$b" && pwd -P)
+  local w="$b/Local Sites"
+  mkdir -p "$w/site-a/app/public/wp-content/themes/theme-a"
+  mkdir -p "$w/site-b/app/public/wp-content/themes/theme-b"
+  printf '<?php\n' > "$w/site-b/app/public/wp-content/themes/theme-b/functions.php"
+  printf '%s' "$w"
+}
+
+begin_test "a PARENT root covers a sibling several levels below it"
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+cfg "$A" "{\"additionalRoots\":[\"$W\"]}"
+edit_from "$A" "$W/site-b/app/public/wp-content/themes/theme-b/functions.php"
+[ "$RC" -eq 0 ] && pass || fail "parent root did not cover a nested child: rc=$RC out=$OUT"
+rm -rf "$(dirname "$W")"
+
+begin_test "a root containing a SPACE survives the environment hand-off"
+# Same case as above; this is the assertion that would fail if the tab-joined
+# transfer were ever changed to split on whitespace.
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+case "$W" in *" "*) : ;; *) fail "fixture lost its space — test is not proving anything" ;; esac
+cfg "$A" "{\"additionalRoots\":[\"$W\"]}"
+edit_from "$A" "$W/site-b/app/public/wp-content/themes/theme-b/functions.php"
+[ "$RC" -eq 0 ] && pass || fail "a root with a space in it was dropped: rc=$RC out=$OUT"
+rm -rf "$(dirname "$W")"
+
+begin_test "a directory created AFTER the config is covered by the same entry"
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+cfg "$A" "{\"additionalRoots\":[\"$W\"]}"
+mkdir -p "$W/site-c/app/public/wp-content/themes/theme-c"
+edit_from "$A" "$W/site-c/app/public/wp-content/themes/theme-c/style.css"
+[ "$RC" -eq 0 ] && pass || fail "a later sibling needed its own entry: rc=$RC out=$OUT"
+rm -rf "$(dirname "$W")"
+
+begin_test "the parent root does NOT unprotect credentials"
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+cfg "$A" "{\"additionalRoots\":[\"$W\"]}"
+edit_from "$A" "$HOME/.ssh/id_rsa"
+[ "$RC" -eq 2 ] && pass || fail "a parent root reached the credential list: rc=$RC"
+rm -rf "$(dirname "$W")"
+
+# --- the denial has to TELL you the scoped way through ------------------------
+# The whole cost of the field report was that the message named only
+# disableSecurityCategories, which also unprotects ~/.ssh, ~/.aws and /etc. A
+# guard that blocks without naming the narrow fix is what makes people uninstall.
+begin_test "the out-of-project denial names additionalRoots, not just the opt-out"
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+edit_from "$A" "$W/site-b/app/public/wp-content/themes/theme-b/functions.php"
+case "$OUT" in
+  *additionalRoots*) pass ;;
+  *) fail "denial offers no scoped remedy: $OUT" ;;
+esac
+rm -rf "$(dirname "$W")"
+
+begin_test "the denial does not truncate a deep WordPress path mid-name"
+# Local paths run ~90-140 chars. At the old 100-char cut the message stopped at
+# ".../site-b/app/publi" — it never even reached the file being refused.
+W=$(locallayout); A="$W/site-a/app/public/wp-content/themes/theme-a"
+edit_from "$A" "$W/site-b/app/public/wp-content/themes/theme-b/functions.php"
+case "$OUT" in
+  *functions.php*) pass ;;
+  *) fail "path cut before the filename: $OUT" ;;
+esac
+rm -rf "$(dirname "$W")"
+
 report

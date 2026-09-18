@@ -273,11 +273,19 @@ For the false positive you hit repeatedly. Without it the only escape is `disabl
 
 Every exemption is written to the block ledger, so `/why` and the session `[BLOCKS]` summary show what was let through.
 
-Work across sibling repos: `{"additionalRoots": ["../my-pro-plugin"]}`
+Work across directories outside the project: `{"additionalRoots": ["/path/to/parent"]}`
 
-For a wrapper directory holding two repos that must change together (a free/pro plugin pair, an SDK and its example app).
+**One entry per parent, not per directory.** Everything under a root counts as in-project — including directories created later. If you maintain many sibling directories (WordPress themes across Local sites, a plugins folder, a monorepo's packages), that is one line total:
 
-**You probably don't need this.** Since v2.26.43, path-guard honours Claude Code's own directory authorisation — `--add-dir`, the `/add-dir` command, and `permissions.additionalDirectories` in `settings.json`. If you've told Claude Code a directory is in your workspace, writes to it are allowed. Reach for `/add-dir ../sibling-repo` first; `additionalRoots` is only for roots Claude Code doesn't know about.
+```json
+{"additionalRoots": ["/Users/you/Local Sites"]}
+```
+
+A single sibling works the same way — `{"additionalRoots": ["../my-pro-plugin"]}` — for a wrapper directory holding two repos that must change together (a free/pro plugin pair, an SDK and its example app).
+
+**Or use Claude Code's own authorisation.** Since v2.26.43, path-guard honours `--add-dir`, the `/add-dir` command, and `permissions.additionalDirectories` in `settings.json`. If you've told Claude Code a directory is in your workspace, writes to it are allowed. For a one-off directory in a single session, `/add-dir ../sibling-repo` is the quickest route.
+
+Which one depends on how often you come back to it. `/add-dir` is recorded **per session**, so directories you edit regularly have to be re-added every time you start Claude — a real papercut once there are more than one or two. `additionalRoots` is committed with the project and shared with the team; `permissions.additionalDirectories` is persistent but per user. Reach for a root when you are returning to the same directories.
 
 **And since v2.26.42** the project boundary is pinned to the directory you *launched* Claude in, and stays there for the whole session. Open Claude in the wrapper and both repos are in scope permanently — even after `cd` moves the working directory into one of them. Previously the boundary followed `cwd`, so a mid-session `cd` silently pushed the sibling out of the project and writes that worked at the start began failing with nothing explaining why.
 
