@@ -136,7 +136,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **DX guards that catch mistakes before they cost a round-trip** — merge-conflict markers left in a file, unparseable `.json`/`.yaml`/`.toml`, edits to generated files, hallucinated relative imports, a shebang script left non-executable, `cp`/`mv` clobbering a tracked file, and a verification runner whose exit code is masked (`pytest || true`)
 - **Statusline** — model, project, branch, stack, tier, agent, MCP profile, context bar, cache efficiency, cost, rate-limit burn
 - **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
-- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`
+- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`. Built for two of Claude Code's longest-standing complaints: [verbose comments the model won't stop adding even when told to](https://github.com/anthropics/claude-code/issues/65961) (229👍) and [repetitive rhetorical tics that ignore style instructions](https://github.com/anthropics/claude-code/issues/77136) (563👍)
 - **10 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
 - **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers. `preferGhCli: true` opt-in redirects GitHub curl/wget/WebFetch to the matching `gh` subcommand — real auth token, not just style
 - **Per-subagent cost breakdown** — `/sc-status` shows which agent burned the budget

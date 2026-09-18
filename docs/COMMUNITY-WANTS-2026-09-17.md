@@ -101,10 +101,11 @@ directive, and our rule delivery depends on nested CLAUDE.md files being honoure
 | 👍 | Issue | Summary | Our lever |
 |----|-------|---------|-----------|
 | 229 | #65961 | Verbose code comments by default, ignores instructions to stop | economy.md |
-| 117 | #19649 | Reaches for bash `sed`/`grep` when Read/Grep fit better | rules |
+| 117 | #19649 | Reaches for bash `sed`/`grep` when Read/Grep fit better | **none — see below** |
 | 563 | #77136 | Repetitive rhetorical tics, style instructions ignored | economy.md |
 
-No build required; useful as evidence that the rule layer solves something real.
+No build required for #65961/#77136; useful as evidence that the rule layer solves
+something real.
 
 ---
 
@@ -211,10 +212,25 @@ kept for user awareness — someone with their own nested `CLAUDE.md` will hit t
 `docs/KNOWN-ISSUES.md` per the "confirmed and worth recording" branch — not "stop relying
 on nesting" (we never did).
 
-## P5 — No build: verbose-comment and tool-choice complaints
+## P5 — No build: verbose-comment and tool-choice complaints — DONE 2026-09-18
 
-#65961, #19649 and #77136 are already targeted by `economy.md` and the rules layer.
-Action is limited to citing them as evidence in the README, not new code.
+**#65961 and #77136**, as claimed: `economy.md`'s Universal Output Rules ("no ceremony",
+"lists over prose", terse-mode overrides only for safety-critical output) target exactly
+this — a default that adds unwanted verbosity/rhetorical padding regardless of
+instructions to stop. Cited both in the README's "Token economy" bullet with their 👍
+counts. No build required.
+
+**#19649 was not actually covered — checked before citing it, not after.** Grepped
+`configs/`, `docs/HOOK_AUTHORING.md`, and every rules template for any instruction that
+nudges toward `Read`/`Grep`/`Glob` over raw `sed`/`grep`/`cat`: nothing exists. Worse,
+the *opposite* instruction ships — [[subagent-return-channel-facts]]'s P4 finding is that
+Auto Mode's own directive explicitly tells Claude to prefer Bash `cat`/`sed -n`/`grep`
+**over** the dedicated file tools "wherever it can accomplish the job." That directive
+is the harness's, not ours, but nothing in Supercharger counters it either. Left out of
+the README (would have been a false "already solved" claim); corrected the table above
+rather than silently drop the discrepancy. Real fix, if wanted: a prompt rule nudging
+back toward Read/Grep for read-only work — not scoped or built here, since P5's mandate
+was citation only and this specific citation turned out to be false.
 
 ---
 
