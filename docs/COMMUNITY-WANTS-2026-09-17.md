@@ -159,19 +159,29 @@ Bash pattern.
 `[[guard-fails-open-oracle-fails-loud]]` — assert on the exit code and the reason string,
 not on silence.
 
-## P3 — Subagent and skill permission inheritance (#18950, #10906)
+## P3 — Subagent and skill permission inheritance (#18950, #10906) — DONE 2026-09-18
 
-**Why.** Users report skills and subagents not inheriting permissions. We already know
-`additionalContext` on `SubagentStop` does not reach the parent
-(`[[subagent-return-channel-facts]]`), but we have not confirmed the *PreToolUse* path
-inside a subagent.
+**Why.** Users report skills and subagents not inheriting permissions. We already knew
+`additionalContext` on an *async* `SubagentStop` hook does not reach the parent (blocking
+ones do — see `[[subagent-return-channel-facts]]`), but had not confirmed the *PreToolUse*
+path inside a subagent.
 
 **Scope.** Confirm, by measurement, whether our PreToolUse hooks fire for tool calls made
 from inside a subagent and from inside a skill invocation. Record the answer in memory
 either way — it is a fact about the harness, not a feature.
 
-**Done when.** A measured yes/no for both, written up. If the answer is "no", that is a
-documented limitation for the README, not a bug to fix.
+**Answer: yes, for both.** Spawned a subagent and had it run a real shell-out trigger
+(`node -e "require('child_process').execSync(...)"`) — `hooks/safety-detect.py` denied it
+inside the subagent byte-identically to the top-level control (`is_error:true`,
+`"OS shell-out hidden in node -e/--eval wrapper"`). A skill invocation that loads
+instructions into the current turn makes no execution-context change at all — same
+session, same hooks. A skill that runs in the background is backed by the same subagent
+mechanism just measured. So #18950/#10906's reports are not about our PreToolUse guards
+being skipped; if users are hitting missed enforcement, the cause is elsewhere (their own
+`permissions.ask`/`deny` rules, or Claude Code's own permission system, not our hooks).
+Full method and evidence: `[[subagent-return-channel-facts]]`.
+
+**Done when.** A measured yes/no for both, written up. ✅
 
 ## P4 — Auto Mode Bash-first versus nested CLAUDE.md (#90450)
 
