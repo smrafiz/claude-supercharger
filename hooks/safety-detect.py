@@ -436,11 +436,49 @@ def _strip_pattern_operands(c: str) -> str:
     )
 
 
+# v4.1.7: metadata-text commands carry PROSE, not paths. `git commit -m "..."`,
+# `git tag -m`, `gh pr create --body` all take human text that legitimately
+# mentions credential filenames -- release notes and audit write-ups do it
+# constantly in THIS repo.
+#
+# The exemption for them used to be `re.match(r"^\s*(git\s+commit|...)")`: a
+# blanket early-return, anchored to the START of the command. That is wrong in
+# both directions at once, and both were measured:
+#
+#   cd repo && git commit -m '...id_rsa...'   DENIED  - the anchor misses any
+#                                                       compound command, and
+#                                                       every agent commit is one
+#   git commit -m 'x' && cat <secret>         ALLOWED - the early return exempted
+#                                                       the WHOLE command, so a
+#                                                       real read rode along
+#   git commit -m "$(cat <secret>)"           ALLOWED - same, and here the
+#                                                       substitution actually RUNS
+#
+# Fixed by syntax, like _strip_pattern_operands above: drop the metadata segment
+# wherever it sits, and scan every other segment normally. A segment containing a
+# substitution is NOT dropped -- `$(...)` and backticks execute, so that text is a
+# command, not prose, and it stays in front of the detector.
+_METADATA_TEXT_RE = re.compile(
+    r"(?:^|(?<=[;&|]))"
+    r"(\s*(?:git\s+(?:commit|tag)|gh\s+(?:pr|issue|release)\s+create)\b[^;&|]*)"
+)
+
+
+def _strip_metadata_text(c: str) -> str:
+    """Drop metadata-text segments (commit/tag/PR bodies) from a command."""
+    def _drop(m: "re.Match[str]") -> str:
+        seg = m.group(1)
+        if "$(" in seg or "`" in seg:
+            return seg
+        return " "
+    return _METADATA_TEXT_RE.sub(_drop, c)
+
+
 def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
-    # Skip safe metadata commits/PRs that may mention sensitive names in text
-    if re.match(r"^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b", c):
-        return None
+    # Metadata text is prose, not a path -- see _strip_metadata_text. Only the
+    # commit/tag/PR segment goes; anything chained to it is still scanned.
+    c = _strip_metadata_text(c)
 
     # Reader/editor commands followed by a sensitive filename token.
     # base64/gzip/bzip2/xz/zstd/uuencode sit here with xxd and od because they
@@ -720,9 +758,9 @@ _ENV_SELF_CONTAINED = [
 
 
 def check_env_file(c: str) -> str | None:
-    # Allow safe metadata commits/PRs that mention .env in text only
-    if re.match(r"^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b", c):
-        return None
+    # Metadata text is prose, not a path -- see _strip_metadata_text. Sibling of
+    # the same fix in check_sensitive_read; both carried the identical defect.
+    c = _strip_metadata_text(c)
 
     # A search PATTERN is not a path -- see _strip_pattern_operands. The dotenv
     # file as a search TARGET is untouched: only the first non-flag operand goes.

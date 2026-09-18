@@ -1,7 +1,7 @@
 # Roadmap — Claude Supercharger
 
 **Current: v4.1.6** — 161 hook scripts (141 registered across events; the rest are the
-statusline and shared helpers), 5755 tests passing, CI green on macOS, Linux and Windows.
+statusline and shared helpers), 5761 tests passing, CI green on macOS, Linux and Windows.
 
 Per-release detail lives in [`../CHANGELOG.md`](../CHANGELOG.md) (2.10+) and
 [`CHANGELOG-archive.md`](CHANGELOG-archive.md) (earlier). This file records *direction* —

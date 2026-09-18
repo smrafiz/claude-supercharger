@@ -81,10 +81,13 @@ if [ "$TOOL" = "Bash" ]; then
     *) exit 0 ;;
   esac
 
-  # Allow safe metadata commits/PRs that may mention .env in text
-  if printf '%s\n' "$COMMAND" | grep -qE '^\s*(git\s+commit|git\s+tag|gh\s+(pr|issue|release)\s+create)\b'; then
-    exit 0
-  fi
+  # Metadata text is prose, not a path. This used to exit 0 for the WHOLE command
+  # when it STARTED with git commit / gh pr create — wrong twice over: a compound
+  # `cd repo && git commit -m '...'` was not matched and got denied on its message
+  # text, while `git commit -m x && cat <secret>` matched and exempted the read
+  # chained after it. Detection now happens in env-file-detect.py, which drops
+  # only the metadata SEGMENT (and never one containing a substitution, since
+  # `$(...)` runs). No pre-filter here: it cannot see segments.
 
   # Run the env-detection logic via external python module
   REASON=$(CMD="$COMMAND" python3 "$HOOKS_DIR/env-file-detect.py" 2>/dev/null)

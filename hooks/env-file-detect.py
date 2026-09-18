@@ -50,7 +50,35 @@ def _strip_pattern_operands(c: str) -> str:
     )
 
 
-cmd = _strip_pattern_operands(cmd)
+# v4.1.7: metadata text is prose, not a path. `git commit -m "...dotenv..."`,
+# `git tag -m`, `gh pr create --body` carry human text that legitimately names
+# credential files — release notes and audit write-ups in this repo do it
+# constantly. env-file-guard.sh used to pre-filter these with a start-anchored
+# `^\s*(git commit|...)` that exited 0 for the WHOLE command; it missed every
+# compound (`cd repo && git commit -m '...'` was denied on its own message) and
+# exempted anything chained after one (`git commit -m x && cat <secret>` rode
+# along). That pre-filter is gone; this is its replacement, segment-scoped.
+#
+# A segment containing a substitution is NOT dropped: `$(...)` and backticks
+# execute, so `git commit -m "$(cat <secret>)"` is a real read and must stay
+# visible to the detector. Keep in sync with _strip_metadata_text in
+# hooks/safety-detect.py — these two files drifting apart is exactly what left
+# the pattern-operand defect live on one channel only.
+METADATA_TEXT_RE = re.compile(
+    r"(?:^|(?<=[;&|]))"
+    r"(\s*(?:git\s+(?:commit|tag)|gh\s+(?:pr|issue|release)\s+create)\b[^;&|]*)"
+)
+
+
+def _strip_metadata_text(c: str) -> str:
+    """Drop metadata-text segments (commit/tag/PR bodies) from a command."""
+    def _drop(m):
+        seg = m.group(1)
+        return seg if ("$(" in seg or "`" in seg) else " "
+    return METADATA_TEXT_RE.sub(_drop, c)
+
+
+cmd = _strip_metadata_text(_strip_pattern_operands(cmd))
 
 flagged = []
 for m in re.finditer(ENV_FILE_RE, cmd):

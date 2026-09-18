@@ -123,4 +123,46 @@ denies "cat-prod" "cat ${E}.production"
 begin_test "direnv config is not a template and still denies"
 denies "cat-envrc" "cat ${E}rc"
 
+# --- F3: metadata text is prose, not a path (2026-09-19) ----------------------
+# Found by this repo blocking its OWN audit commit: the message described the
+# dotenv rules, and the guard read the prose as file access. The exemption that
+# should have covered it was `re.match(r"^\s*(git\s+commit|...)")` in three
+# places — start-anchored, and a blanket early-return for the whole command.
+# Wrong in both directions, both measured before the fix:
+#   FP    `cd repo && git commit -m '...'`      denied; no agent commit starts
+#                                               with git, they all start with cd
+#   HOLE  `git commit -m x && cat <dotenv>`     allowed; the early return
+#                                               exempted the chained read too
+#   HOLE  `git commit -m "$(cat <dotenv>)"`     allowed; and that substitution
+#                                               actually runs
+# Now a segment-level strip in both channels, which never drops a segment
+# containing a substitution.
+
+# The prose MUST contain a reader word (`rg` here) as well as the filename.
+# Without one there is nothing for the reader regex to pair the name with, the
+# command is allowed for an unrelated reason, and the test proves nothing —
+# three of these were written that way first and passed against the unfixed
+# hooks. The real commit that exposed this said "the rg false-positive family"
+# and named the dotenv file two lines later.
+MSG="the rg false-positive family, e.g. ${E}"
+
+begin_test "F3: a commit whose MESSAGE names the dotenv file is allowed"
+allows "commit-msg-plain" "git commit -m '${MSG}'"
+
+begin_test "F3: the same commit as a COMPOUND command is allowed"
+allows "commit-msg-compound" "cd /repo && git add -A && git commit -m '${MSG}'"
+
+begin_test "F3: a PR body naming the dotenv file is allowed"
+allows "pr-body" "gh pr create --title x --body '${MSG}'"
+
+begin_test "F3: a read CHAINED AFTER a commit still denies (not exempted by it)"
+denies "commit-then-read" "git commit -m 'x' && cat ${E}"
+
+begin_test "F3: a substitution INSIDE the message still denies (it executes)"
+SUBST_CMD='git commit -m "$(cat '"${E}"')"'
+denies "commit-subst" "$SUBST_CMD"
+
+begin_test "F3: a compound commit followed by a read still denies"
+denies "compound-then-read" "cd /repo && git commit -m 'notes' && cat ${E}"
+
 report
