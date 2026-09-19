@@ -2423,26 +2423,38 @@ OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
 rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored-${SESSION}" "$SCOPE_DIR_ER/.eco-reinforce-acked-${SESSION}"
 [ -n "$OUT" ] && pass || fail "expected economy reinforce injection after compaction, got empty"
 
-# v2.7.47: a DIFFERENT session's compaction flag must NOT trigger reinforcement
-# (the leak: a global flag fired this in every session).
-begin_test "economy-reinforce: another session's compaction flag does not leak"
-echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
-touch "$SCOPE_DIR_ER/.memory-restored-othersess"
-rm -f "$SCOPE_DIR_ER/.eco-reinforce-acked-er2b"
-INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'er2b','cwd':'/tmp'}))")
-OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
-rm -f "$SCOPE_DIR_ER/.economy-tier" "$SCOPE_DIR_ER/.memory-restored-othersess"
-[ -z "$OUT" ] && pass || fail "leaked: another session's flag triggered reinforcement, got: $OUT"
-
-begin_test "economy-reinforce: lean tier silent without compaction flag"
+# v4.1.8: the inverse of the old "silent without compaction flag" assertion.
+# That test pinned the gate that gave this hook twice-a-session delivery while
+# its header claimed per-turn reinforcement; the gate is gone, so the assertion
+# is inverted rather than deleted — the behaviour it covers still matters, it is
+# simply the opposite behaviour now.
+#
+# The companion test "another session's compaction flag does not leak" (v2.7.47)
+# was removed, not inverted. It guarded a global-vs-session-scoped flag leak, and
+# this hook no longer reads any flag, so there is nothing left for it to assert.
+begin_test "economy-reinforce: lean tier injects with NO compaction flag (per-turn)"
 SCOPE_DIR_ER="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR_ER"
 echo "lean" > "$SCOPE_DIR_ER/.economy-tier"
-rm -f "$SCOPE_DIR_ER/.memory-restored" "$SCOPE_DIR_ER/.eco-reinforce-acked"
+rm -f "$SCOPE_DIR_ER"/.memory-restored* "$SCOPE_DIR_ER"/.eco-reinforce-acked*
 INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'continue','session_id':'er3','cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
 rm -f "$SCOPE_DIR_ER/.economy-tier"
-[ -z "$OUT" ] && pass || fail "expected silent without compaction, got: $OUT"
+printf '%s' "$OUT" | grep -q 'ECONOMY:LEAN' && pass \
+  || fail "expected per-turn injection with no compaction flag, got: ${OUT:-<empty>}"
+
+# Per-turn means EVERY turn: the old gate fired at most once per compaction, so
+# a second identical prompt was silent. Asserting the repeat is what separates
+# "fires when ungated" from "fires every time".
+begin_test "economy-reinforce: fires again on the very next prompt"
+echo "minimal" > "$SCOPE_DIR_ER/.economy-tier"
+rm -f "$SCOPE_DIR_ER"/.memory-restored* "$SCOPE_DIR_ER"/.eco-reinforce-acked*
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'again','session_id':'er4','cwd':'/tmp'}))")
+OUT1=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+OUT2=$(printf '%s' "$INPUT" | bash "$ECO_REINFORCE" 2>&1)
+rm -f "$SCOPE_DIR_ER/.economy-tier"
+{ printf '%s' "$OUT1" | grep -q 'ECONOMY:MINIMAL' && printf '%s' "$OUT2" | grep -q 'ECONOMY:MINIMAL'; } \
+  && pass || fail "expected both prompts to inject; got 1=${OUT1:-<empty>} 2=${OUT2:-<empty>}"
 
 echo ""
 echo "=== Rate Limit Advisor Tests ==="

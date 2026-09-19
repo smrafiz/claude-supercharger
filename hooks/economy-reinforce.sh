@@ -44,25 +44,34 @@ fi
 # Standard tier is verbose by default — no reinforcement needed
 [ "$TIER" = "standard" ] && exit 0
 
-# Fire only after compaction (post-compact-inject writes .memory-restored-<sid>).
-# First prompt gets tier rules from SessionStart; we only re-inject when
-# compaction may have dropped them. Track own ack flag so we fire at most
-# once per compaction event without consuming the shared statusline flag.
-# v2.7.47: both flags are keyed by session_id — a global restored flag made this
-# fire in every concurrent session after any one session compacted.
-SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'a-zA-Z0-9_-' | head -c 64 || true)
-RESTORED_FLAG="$SCOPE_DIR/.memory-restored${SID:+-$SID}"
-ECO_ACK_FLAG="$SCOPE_DIR/.eco-reinforce-acked${SID:+-$SID}"
-[ ! -f "$RESTORED_FLAG" ] && exit 0
-RESTORED_MTIME=$(stat -c '%Y' "$RESTORED_FLAG" 2>/dev/null || stat -f '%m' "$RESTORED_FLAG" 2>/dev/null || echo "")
-case "$RESTORED_MTIME" in ''|*[!0-9]*) RESTORED_MTIME=0 ;; esac
-ACK_MTIME=0
-if [ -f "$ECO_ACK_FLAG" ]; then
-  ACK_MTIME=$(stat -c '%Y' "$ECO_ACK_FLAG" 2>/dev/null || stat -f '%m' "$ECO_ACK_FLAG" 2>/dev/null || echo "")
-  case "$ACK_MTIME" in ''|*[!0-9]*) ACK_MTIME=0 ;; esac
-fi
-[ "$RESTORED_MTIME" -le "$ACK_MTIME" ] && exit 0
-touch "$ECO_ACK_FLAG" 2>/dev/null || true
+# v4.1.8: fire on EVERY prompt. This hook's header has always claimed per-turn
+# reinforcement; the gate it actually had gave it twice a session.
+#
+# It used to fire only after compaction, on the theory that SessionStart delivers
+# the tier rules once and only a compaction can drop them. That theory is wrong
+# about how instructions decay. The rules do not vanish, they get outweighed —
+# ~12.5KB of prompt layer is loaded per session and 463 bytes of it ask for
+# terseness, against four other resident rule files that ask for thorough
+# reporting (see docs/ECONOMY-LAYER-2026-09-19.md). Re-stating them twice does
+# not win that argument.
+#
+# Caveman (the per-turn pattern this hook's header credits) injects its contract
+# on every UserPromptSubmit and gates on nothing at all. That is the pattern;
+# this hook adapted it into a compaction trigger and lost the property that made
+# it work. ~230 bytes/turn is the cost, which is well under what one re-read of a
+# file costs when the tier is forgotten.
+#
+# Deliberately NOT gated on context pressure: the obvious trigger (context %) is
+# not obtainable in a UserPromptSubmit hook — `context_window` is absent from the
+# payload, which is the defect that left three sibling hooks inert for 62
+# sessions. Do not reintroduce that dependency here.
+#
+# Off-switch: the standard one. `{"disableHooks": ["economy-reinforce"]}` in
+# .supercharger.json, or add it to scope/.disabled-hooks. No bespoke knob.
+#
+# The session-scoped .memory-restored / .eco-reinforce-acked flags are gone with
+# the gate. Their leak class (v2.7.47 — a global flag firing in every concurrent
+# session) cannot recur, because no flag is read here any more.
 
 # Build tier-specific reinforcement message
 case "$TIER" in
