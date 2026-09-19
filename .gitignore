@@ -3,7 +3,12 @@
 *.swp
 *.swo
 *~
-.claude/
+# Session-local Claude state stays out — settings.local.json in particular.
+# Exception: /handoff --deep briefs are tracked as an engineering log. They are
+# written by hand-review only; scan one before adding it, since this repo is
+# public and the briefs are assembled from git output, config and shell history.
+.claude/*
+!.claude/handoff-*.md
 .claudedocs/
 .worktrees/
 .opencode/
