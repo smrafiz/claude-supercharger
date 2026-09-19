@@ -144,6 +144,18 @@ OUT=$(printf 'y\ny\n' | bash "$FIX/tools/release.sh" stage patch -m "test" 2>&1 
 printf '%s' "$OUT" | grep -q '8 tests passing' && pass \
   || fail "expected '8 tests passing' (5+3) in CHANGELOG line: $(printf '%s' "$OUT" | grep 'tests passing' || echo '<not found>')"
 
+begin_test "a message ending in a period does not double up in the CHANGELOG line"
+# The line template is "— ${MESSAGE}. ${N} tests passing.", so a message written
+# as a sentence produced "…exemption.. 5761 tests passing." — v4.1.7's own entry.
+# Own fixture in its own variable: the NEXT test reuses $FIX and $PRE_STAGE_SHA
+# from the per-file counter test above, so reassigning either here breaks it.
+DOT_FIX=$(make_fixture)
+DOT_OUT=$(printf 'y\ny\n' | bash "$DOT_FIX/tools/release.sh" stage patch -m "fixed the thing." 2>&1 || true)
+DOT_LINE=$(printf '%s' "$DOT_OUT" | grep 'tests passing' | head -1)
+printf '%s' "$DOT_LINE" | grep -q '\.\.' \
+  && fail "double period in CHANGELOG line: $DOT_LINE" || pass
+rm -rf "$DOT_FIX"
+
 begin_test "stage does NOT advance master — release commit is only on rel/ branch"
 # The critical invariant: master must stay at its pre-stage HEAD after stage.
 # The old buggy code committed on master first, then created rel/ from it —

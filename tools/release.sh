@@ -142,6 +142,12 @@ collect_message() {
       | sed 's/; $//' \
       || echo "maintenance release")
   fi
+  # The CHANGELOG line appends ". N tests passing.", so a message that already
+  # ends in a period produced "…fix.. 5761 tests passing." Strip trailing
+  # periods and spaces; every other punctuation mark is the author's.
+  while [ "${MESSAGE% }" != "$MESSAGE" ] || [ "${MESSAGE%.}" != "$MESSAGE" ]; do
+    MESSAGE="${MESSAGE% }"; MESSAGE="${MESSAGE%.}"
+  done
 }
 
 # ── Rollback snapshot ─────────────────────────────────────────────────────────
@@ -412,6 +418,8 @@ cmd_stage() {
 
   git -C "$REPO_DIR" push -u origin "$REL_BRANCH"
   echo -e "  ${GREEN}✓${NC} Pushed ${REL_BRANCH}"
+  local REL_SHA
+  REL_SHA=$(git -C "$REPO_DIR" rev-parse "$REL_BRANCH")
 
   # Return to master. Its HEAD is still the pre-release commit; git restores
   # the working tree to master's state (unbumped files) automatically.
@@ -421,15 +429,20 @@ cmd_stage() {
 
   echo ""
 
-  # Print CI URL if gh is available.
+  # Print CI URL if gh is available. Match on headSha, the way promote does:
+  # rel/ branch names repeat across attempts, and at stage time the new run has
+  # usually not been created yet — so --limit 1 by branch name printed the
+  # PREVIOUS attempt's run, a green URL for a build that never tested this code.
+  # No match yet is the normal case; fall back to the branch message.
   local CI_URL=""
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    CI_URL=$(gh run list --branch "$REL_BRANCH" --limit 1 --json url \
+    CI_URL=$(gh run list --branch "$REL_BRANCH" --limit 10 --json headSha,url \
       2>/dev/null | python3 -c "
 import sys, json
-r = json.load(sys.stdin)
-print(r[0]['url'] if r else '')
-" 2>/dev/null || true)
+runs = json.load(sys.stdin)
+sha = sys.argv[1]
+print(next((r['url'] for r in runs if r.get('headSha') == sha), ''))
+" "$REL_SHA" 2>/dev/null || true)
   fi
 
   echo -e "${GREEN}${BOLD}Staged v${NEW} on ${REL_BRANCH}${NC}"
