@@ -11,6 +11,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "$HOOKS_DIR/lib-project-root.sh"
 # shellcheck source=hooks/lib-json-fast.sh
 . "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
+# shellcheck source=hooks/lib-ctx-pct.sh
+. "$HOOKS_DIR/lib-ctx-pct.sh"
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 
@@ -40,6 +42,18 @@ pct = data.get('context_window', {}).get('used_percentage', '')
 print(int(pct) if pct != '' else '')
 " 2>/dev/null || echo "")
 fi
+
+# v4.1.8: the payload read above has never once succeeded — `context_window` is
+# not part of any hook event (see hooks/lib-ctx-pct.sh). It is kept because the
+# field is free to check and costs nothing once jq has already run, but the
+# statusline sidecar is what actually supplies the number.
+# SID is read here rather than at the dedup block below, which now reuses it.
+# Pre-initialised: _json_get is undefined when lib-json-fast is absent, and under
+# `set -u` that would be FATAL — turning a missing lib into a fail-CLOSED block.
+SID=""
+_json_get SID session_id "$_INPUT" '.session_id // empty'
+[ -z "$PCT" ] && _ctx_pct PCT "$SID"
+[ -z "$SID" ] && SID="default"
 
 [ -z "$PCT" ] && exit 0
 
@@ -103,12 +117,7 @@ DEDUP_KEY="${PCT_BUCKET}:${TIER}"
 # A global `.eco-last` made concurrent sessions in two projects share
 # state — session B silently skipped its own eco advisory if session A
 # had already crossed the same bucket.
-# Pre-initialised: if lib-json-fast is absent _json_get is undefined, and
-# under `set -u` an unset var here is FATAL — which turned a missing lib
-# into a fail-CLOSED block. Empty keeps the fail-open contract.
-SID=""
-_json_get SID session_id "$_INPUT" '.session_id // empty'
-[ -z "$SID" ] && SID="default"
+# SID is read once near the top of the hook (it also keys the context sidecar).
 DEDUP_FILE="$SCOPE_DIR/.eco-last-${SID}"
 LAST_KEY=$(cat "$DEDUP_FILE" 2>/dev/null || echo "")
 if [ "$DEDUP_KEY" = "$LAST_KEY" ]; then

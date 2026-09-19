@@ -214,3 +214,62 @@ Ordered by confidence, not by size.
 - Whether the layer binds **when properly delivered.** Unmeasurable until #1 and #2 are
   fixed. This document deliberately does not claim the tiers would work if delivered —
   that is the next experiment, not a finding.
+
+---
+
+## Resolution — 2026-09-19, later the same day
+
+### Cause 2 is fixed
+
+`economy-reinforce.sh` now fires on every prompt (`4790fd5`). Measured 0/20 → 20/20
+prompts, hook cost unchanged at ~11.0ms. It is gated on nothing, deliberately — see the
+comment block at the top of that hook before adding a trigger back.
+
+### Cause 1 is fixed, by a sidecar rather than by an event
+
+**The field is never coming to hooks.** Six upstream issues asked for it:
+`anthropics/claude-code` #16988, #34340 and #44790 were closed **not planned**, #27969
+closed as duplicate, and only #49226 (April 2026) is still open with no movement. The
+official hooks reference lists no `context_window` on any event. The one payload that
+carries it is the **statusLine** payload, and that is documented and stable.
+
+So "move the logic to an event whose payload carries the field", above, is impossible as
+written. What is possible is carrying the value across:
+
+- `hooks/statusline.sh` already parses `used_percentage`. It now also writes
+  `scope/.ctx-pct-<session_id>` — one line, `"<epoch> <pct>"`, in the python block that
+  was already running.
+- `hooks/lib-ctx-pct.sh` reads it. Bash builtins, plus one `date` on bash 3.2 that is
+  reached only once the file has been found.
+- All three hooks join on `session_id`, which every hook payload does carry.
+
+**An earlier note in this investigation said the sidecar was ruled out, killed by
+`tools/gen-plugin-hooks.sh:11` ("a plugin cannot set statusLine"). That was wrong — or
+rather, true of one install path and generalised to all of them.** The primary installer
+writes `statusLine` directly (`lib/hooks.sh:886`), which is why the statusline works at
+all. The constraint binds the plugin distribution only.
+
+### The coverage limit, stated plainly
+
+The sidecar exists only where Supercharger owns the statusLine. Two populations get
+nothing:
+
+- **plugin installs** — cannot set `statusLine` at all;
+- **users with their own statusLine** — `lib/hooks.sh` deliberately does not clobber it.
+
+Both degrade to exactly the pre-4.1.8 behaviour: the hooks read no percentage and exit 0
+in silence. That is the normal case, not an error, and the reader never fails closed on
+it. It is a real limit and it is the reason this is a sidecar and not a feature.
+
+### Cause 3 is untouched
+
+The prompt layer is still 12,586 bytes of which 463 are tier rules, and the sibling rule
+files still ask for thorough reporting. Editorial, still needs a human decision, and it is
+now the only one of the three left open.
+
+### What is now measurable
+
+The question this document refused to answer — *does the layer bind when properly
+delivered?* — is finally testable, because for the first time all three delivery paths
+work. Note that repo edits do not reach a running session: hooks execute from
+`~/.claude/supercharger/hooks/`, so `/sc-update` or a reinstall comes first.

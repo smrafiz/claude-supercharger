@@ -14,6 +14,8 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# shellcheck source=hooks/lib-ctx-pct.sh
+. "$HOOKS_DIR/lib-ctx-pct.sh"
 check_hook_disabled "auto-compact" && exit 0
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
@@ -21,24 +23,43 @@ check_hook_disabled "auto-compact" && exit 0
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 128 ] || _INPUT=""; _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
-# v2.27.26 perf: fork-free bail-out BEFORE the jq and python3 forks below.
-# This hook is registered on PostToolUse with no matcher, so it fires on every
-# tool call — but `used_percentage` only rides along on payloads that carry a
-# context_window. Without this guard the common case forked jq (session id) AND
-# python3 (percentage) only to read an empty PCT and exit 0 two lines later,
-# measured at +35ms on every PostToolUse:Bash call. If the key is not in the
-# payload at all, PCT was always going to be empty, so exiting here is the same
-# behaviour minus the two forks.
-case "$_INPUT" in *'"used_percentage"'*) ;; *) exit 0 ;; esac
-
 # 2.21.12: session-scope the compaction debounce band. The context window is
 # per-session, but .compact-last-band was global — one session at 85% wrote
 # band 80 and suppressed another session's 70/80 warning, and dropping below 70
 # removed the shared file, resetting the other's debounce.
-SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="default"
+#
+# v4.1.8: extracted by parameter expansion rather than `jq -r .session_id`. This
+# hook is PostToolUse with no matcher, so it runs on EVERY tool call and the id
+# is now needed on every one of them to key the sidecar — a jq fork there is
+# ~2ms per tool call, the whole spawn floor.
+# Same parse as context-advisor.sh: match the colon (a spaced payload must not
+# fall through to the whole document), take the FIRST occurrence, and refuse
+# anything that is not a plausible id rather than letting it become a filename.
+SID="default"
+case "$_INPUT" in *'"session_id"'*)
+  _ac_after="${_INPUT#*\"session_id\":}"
+  if [ "$_ac_after" != "$_INPUT" ]; then
+    _ac_after="${_ac_after#"${_ac_after%%[![:space:]]*}"}"
+    case "$_ac_after" in
+      \"*) _ac_after="${_ac_after#\"}"; SID="${_ac_after%%\"*}" ;;
+    esac
+  fi
+  case "$SID" in ''|*[!A-Za-z0-9._-]*) SID="default" ;; esac
+  ;;
+esac
 
 # ── Read context percentage ───────────────────────────────────────────────────
-PCT=$(printf '%s\n' "$_INPUT" | python3 -c "
+# v2.27.26 perf: the fork-free `case` keeps the python fork off the common path.
+# This hook is PostToolUse with no matcher, so it fires on every tool call, and
+# an unconditional python3 measured +35ms on every PostToolUse:Bash call.
+# v4.1.8: it is now a BRANCH, not a bail-out. It used to `exit 0` when the key
+# was absent — which is every real payload, since no hook event carries
+# `context_window` (see hooks/lib-ctx-pct.sh), so the hook short-circuited 100%
+# of its calls. The payload read is kept because it is the path the field would
+# arrive on if upstream ever adds it, and because it costs nothing when absent.
+PCT=""
+case "$_INPUT" in *'"used_percentage"'*)
+  PCT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
     d = json.load(sys.stdin)
@@ -47,6 +68,17 @@ try:
 except Exception:
     print('')
 " 2>/dev/null || echo "")
+  ;;
+esac
+
+# The statusline sidecar is what actually supplies the number in practice.
+# _ctx_pct is bash builtins plus, on bash 3.2 only, one `date` — and that fork is
+# reached only once the sidecar file has been found, so an install without a
+# Supercharger statusline still pays nothing per tool call.
+# The freshness check is deliberately LEFT ON here despite the per-call cost: a
+# resumed session would otherwise read yesterday's percentage on its first tool
+# call, before the statusline has re-rendered, and warn on a stale number.
+[ -z "$PCT" ] && _ctx_pct PCT "$SID"
 
 [ -z "$PCT" ] && exit 0
 [ "$PCT" -lt 70 ] && {

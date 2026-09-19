@@ -66,7 +66,7 @@ if [ -n "$_SL_CACHE" ] && [ -r "$_SL_CACHE" ]; then
   fi
 fi
 
-_SL_OUT=$(SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" python3 <<'PYEOF' || true
+_SL_OUT=$(SL_INPUT="$_INPUT" SL_LIB_DIR="$LIB_DIR" SL_STATE="$SUPERCHARGER_STATE" python3 <<'PYEOF' || true
 import json, subprocess, os, sys, time
 sys.path.insert(0, os.environ.get('SL_LIB_DIR', ''))
 
@@ -96,6 +96,28 @@ try:
 
  ctx = data.get('context_window') or {}
  pct = int(ctx.get('used_percentage', 0) or 0)
+
+ # v4.1.8: publish the percentage for the hooks that cannot see it.
+ # `context_window` rides on the statusLine payload ONLY — no hook event carries
+ # it, so adaptive-economy / context-advisor / auto-compact had nothing to read
+ # and never fired. hooks/lib-ctx-pct.sh is the reader; see its header for why
+ # this is a sidecar and not an upstream field.
+ # Guarded independently: a failure here must never cost a statusline render.
+ try:
+     _sid = data.get('session_id') or ''
+     _state = os.environ.get('SL_STATE', '')
+     # used_percentage is null before the first API response and again right
+     # after /compact. Writing 0 then would read as "context empty" rather than
+     # "unknown", so publish nothing until it repopulates.
+     if _sid and _state and ctx.get('used_percentage') is not None \
+             and all(c.isalnum() or c in '._-' for c in _sid):
+         _p = os.path.join(_state, 'scope', '.ctx-pct-' + _sid)
+         _t = _p + '.' + str(os.getpid())
+         with open(_t, 'w') as _fh:
+             _fh.write('%d %d\n' % (int(time.time()), max(0, min(100, pct))))
+         os.replace(_t, _p)
+ except Exception:
+     pass
 
  # Use official context_window_size if available (exact), else derive
  ctx_max = ctx.get('context_window_size', 0) or 0

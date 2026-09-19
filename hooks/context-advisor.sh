@@ -15,6 +15,33 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 hook_profile_skip "context-advisor" && exit 0
+# shellcheck source=hooks/lib-ctx-pct.sh
+. "$HOOKS_DIR/lib-ctx-pct.sh"
+
+SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
+# v4.1.8: hoisted above the percentage read, which now also keys on the session.
+# v2.27.30: the guard tested for `"session_id"`, which matches a spaced payload,
+# but the strip below required the compact `"session_id":"` spelling. On a spaced
+# payload the strip therefore matched nothing and returned the WHOLE payload,
+# and `%%\"*` then cut it to a bare `{` — so every session shared one peak file,
+# `.ctx-advisor-peak-{`. That is the per-session-scoping collision class, not a
+# cosmetic default, and it failed silently. Now: match the colon, skip
+# whitespace, require a quoted value, and refuse anything that is not a plausible
+# id rather than letting it become a filename. First occurrence, not last (`#`
+# rather than `##`) — the top-level key is the one that owns the session, and a
+# later copy inside a prompt or transcript path must not win.
+SESSION_ID="default"
+case "$_INPUT" in *'"session_id"'*)
+  _ca_after="${_INPUT#*\"session_id\":}"
+  if [ "$_ca_after" != "$_INPUT" ]; then
+    _ca_after="${_ca_after#"${_ca_after%%[![:space:]]*}"}"
+    case "$_ca_after" in
+      \"*) _ca_after="${_ca_after#\"}"; SESSION_ID="${_ca_after%%\"*}" ;;
+    esac
+  fi
+  case "$SESSION_ID" in ''|*[!A-Za-z0-9._-]*) SESSION_ID="default" ;; esac
+  ;;
+esac
 
 # v2.26.16: fall back to python only when jq is genuinely UNAVAILABLE — not when jq
 # ran fine and the field simply is not there. `context_window` is not part of the
@@ -32,6 +59,13 @@ print(int(pct) if pct != '' else '')
 " 2>/dev/null || echo "")
 fi
 
+# v4.1.8: the payload read above has never once succeeded — `context_window` is
+# not part of any hook event (see hooks/lib-ctx-pct.sh). The statusline sidecar
+# is what actually supplies the number; the payload read stays because it is free
+# once jq has run, and because it is the path the field would arrive on if
+# upstream ever adds it.
+[ -z "$PCT" ] && _ctx_pct PCT "$SESSION_ID"
+
 [ -z "$PCT" ] && exit 0
 
 PCT=${PCT%%.*}
@@ -43,29 +77,7 @@ echo "[Supercharger] context-advisor: ${PCT}% used" >&2
 # context drops below 70 (e.g. after /compact) so a later climb re-warns. Fork-free
 # on the common <70 path — session_id via bash param-expansion, and the reset rm only
 # fires right after a compaction (when the peak file exists).
-SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
-SESSION_ID="default"
-# v2.27.30: the guard tested for `"session_id"`, which matches a spaced payload,
-# but the strip below required the compact `"session_id":"` spelling. On a spaced
-# payload the strip therefore matched nothing and returned the WHOLE payload,
-# and `%%\"*` then cut it to a bare `{` — so every session shared one peak file,
-# `.ctx-advisor-peak-{`. That is the per-session-scoping collision class, not a
-# cosmetic default, and it failed silently. Now: match the colon, skip
-# whitespace, require a quoted value, and refuse anything that is not a plausible
-# id rather than letting it become a filename. First occurrence, not last (`#`
-# rather than `##`) — the top-level key is the one that owns the session, and a
-# later copy inside a prompt or transcript path must not win.
-case "$_INPUT" in *'"session_id"'*)
-  _ca_after="${_INPUT#*\"session_id\":}"
-  if [ "$_ca_after" != "$_INPUT" ]; then
-    _ca_after="${_ca_after#"${_ca_after%%[![:space:]]*}"}"
-    case "$_ca_after" in
-      \"*) _ca_after="${_ca_after#\"}"; SESSION_ID="${_ca_after%%\"*}" ;;
-    esac
-  fi
-  case "$SESSION_ID" in ''|*[!A-Za-z0-9._-]*) SESSION_ID="default" ;; esac
-  ;;
-esac
+# SCOPE_DIR and SESSION_ID are resolved near the top of the hook (v4.1.8).
 PEAK_FILE="$SCOPE_DIR/.ctx-advisor-peak-${SESSION_ID}"
 
 if [ "$PCT" -lt 70 ]; then
