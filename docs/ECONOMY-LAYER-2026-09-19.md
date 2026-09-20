@@ -273,3 +273,104 @@ The question this document refused to answer — *does the layer bind when prope
 delivered?* — is finally testable, because for the first time all three delivery paths
 work. Note that repo edits do not reach a running session: hooks execute from
 `~/.claude/supercharger/hooks/`, so `/sc-update` or a reinstall comes first.
+
+---
+
+# Update — 2026-09-20
+
+The question above is answered, one of its figures was wrong, a fourth cause turned up,
+and the mechanism this whole document is about turns out to exist natively. Original
+text left intact; everything here corrects or extends it.
+
+## The layer still does not bind, and now we know delivery was not the problem
+
+Observed directly across a full working session: minimal tier active, `[ECONOMY:MINIMAL]`
+arriving on every prompt (v4.1.8 delivery confirmed working), output in multi-row tables
+and multi-paragraph prose throughout. **Delivery was necessary and is not sufficient.**
+
+Baseline for future comparison, measured from this project's transcripts over 1,597
+assistant messages before any change: **median 207 characters, mean 447**.
+
+## Correction: cause 3's "outnumbered ~26:1" overstates it
+
+That figure counted whole files by byte size. Counted per directive instead:
+
+- `supercharger.md` **already** delegated length — it carries
+  *"Output format and length rules are defined per-tier in economy.md"*
+- `CLAUDE.md`'s Response Principles **already** reinforce terseness —
+  *"Lead with the answer or action, then explain only if asked"*
+- the Verification Gate governs **verifying**, not reporting
+- all three "report" rules are **conditional** — on escalation, on three failed
+  attempts, after a fix — not per-turn
+
+The in-layer contradiction was real but smaller than recorded. What actually outweighs
+the tier rule is **per-turn and task-specific**: the skill and task contracts injected
+with each prompt (`investigate-first` — *"Report cause and proof"*; the Caveman contract
+— *"Report material changes, proof, unresolved risks"*) plus the harness's own guidance.
+Specific, on-task instructions beat a generic standing one, and none of those are files
+this project can edit. The remaining in-layer fix shipped anyway, as a single-owner
+statement in `Output Discipline`; expect a modest improvement, not a fix.
+
+## Cause 4: the documented switch never switched
+
+`economy.md` has told users to say `eco standard` / `eco lean` / `eco minimal` since the
+tiers shipped, and `plugin-config-seed.sh:14` calls it "a runtime switch". Nothing parsed
+it. Worse, the two mechanisms that did exist disagreed about what the tier even is:
+
+| Path | wrote `scope/.economy-tier` | rewrote the `economy.md` block |
+|---|---|---|
+| `tools/economy-switch.sh` | **no** | yes |
+| `adaptive-economy.sh` | yes | no |
+
+Every hook resolves the tier from `scope/.economy-tier` and only parses `economy.md` when
+that file is absent — and `install.sh:595` always creates it. So the tool's switch was
+**invisible to every hook**: it edited the rules text while the reinforcement kept
+injecting the tier the scope file still named. Fixed by giving the tier one owner; the
+phrase is parsed in `economy-reinforce.sh` and the tool now writes the scope file too.
+
+## The mechanism exists natively, at a layer this project cannot reach
+
+Claude Code's own documentation states the distinction this document has been circling:
+
+| Feature | How it works |
+|---|---|
+| **Output styles** | **Changes Claude Code's default instructions** |
+| `CLAUDE.md` | **Adds a user message after the system prompt** |
+
+`economy.md` ships as the second. Output styles are the first. That is the same
+enforcement-over-instruction distinction this project is built on, and the economy layer
+is the one feature on the wrong side of it.
+
+The built-in **Concise** style (CC ≥ 2.1.237) already is the minimal tier, including its
+safety carve-out: *"leads with the result, skips preamble and narration, keeps responses
+short by default… always keeps the complete content of error reports, security warnings,
+and confirmations for destructive actions."* The harness also re-states the active style
+during the conversation — which is what `economy-reinforce.sh` exists to do.
+
+Its instructions arrive with a precedence clause a user-message rule cannot have:
+*"Where these rules conflict with more general communication or formatting guidance
+elsewhere in your instructions, these rules win."*
+
+Three levers, strongest last: `"outputStyle": "Concise"` in settings; custom styles in
+`~/.claude/output-styles/` or `.claude/output-styles/` with `keep-coding-instructions:
+true`, which is where Standard/Lean/Minimal belong; and `force-for-plugin: true`, which
+lets a plugin apply its style automatically and override the user's setting.
+
+**Known limits, not guesses.** Subagents run their own system prompt, so styles do not
+reach them (forks do inherit). Switching mid-session costs a prompt-cache rewrite on the
+next message. `force-for-plugin` overriding a user's own choice is an imposition and
+wants to be opt-in. Upstream #10671, *"Please don't remove Output-Styles!"* (76 reactions,
+closed), says the feature has been under pressure before — do not bet the layer on it
+without a fallback.
+
+## Where this leaves the decision
+
+The opt-in question in `docs/ROADMAP.md` now has a cleaner shape. It is no longer "does
+the layer bind" — it does not — but "is there a reason to keep persuading when the
+harness offers enforcement". Port the tiers to custom output-style files and the
+persuasion layer, its reinforcement hook, and its 1.1k tokens per session all go away
+together.
+
+The measurement that decides it: run Concise for a few ordinary sessions, then compare
+median assistant-message length against the 207-character baseline above. Compare
+like with like — a research-heavy session runs long regardless of tier.
