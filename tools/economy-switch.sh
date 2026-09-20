@@ -106,5 +106,19 @@ with open(os.environ['ECONOMY_FILE_PATH'], 'w') as f:
     f.write(result)
 "
 
+# v4.1.9: write the scope file too. This tool rewrote the Active Tier block in
+# economy.md and nothing else, while every HOOK resolves the tier from
+# scope/.economy-tier and only falls back to parsing economy.md when that file
+# is missing. install.sh:595 always creates it, so the fallback never ran and
+# this tool's switch was invisible to economy-reinforce and adaptive-economy:
+# the rules text said one tier, the reinforcement injected another.
+#
+# One owner: scope/.economy-tier is what the hooks read, so every writer updates
+# it. The other writers are install.sh:595, adaptive-economy.sh:131 and the
+# "eco <tier>" phrase in economy-reinforce.sh.
+SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
+mkdir -p "$SCOPE_DIR" 2>/dev/null || true
+printf '%s\n' "$VALIDATED_TIER" > "$SCOPE_DIR/.economy-tier"
+
 success "Economy tier switched to $(capitalize "$VALIDATED_TIER")"
-info "Takes effect on next Claude Code session."
+info "Active now for hooks; the rules text in economy.md applies next session."
