@@ -16,7 +16,12 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # the jq+python parse — skips ~65ms on the vast majority of Bash calls (ls, git,
 # echo, ...) that contain no install verb. The precise install-command grep below
 # still runs for anything mentioning install/add.
-case "$_INPUT" in *install*|*add*) ;; *) exit 0 ;; esac
+# v4.1.9: the short verb forms are admitted here too. This gate required the
+# literal substring "install" or "add", while the install regexes below (and
+# package-credibility.py:29) both list `npm i` as supported — so that
+# alternative was unreachable code, and `npm i <pkg>` reached no scanner at
+# all. The two-gate trap: an inner rule is dead unless the outer gate admits it.
+case "$_INPUT" in *install*|*add*|*"npm i "*|*"pnpm i "*|*"yarn i "*) ;; *) exit 0 ;; esac
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
@@ -31,14 +36,19 @@ except Exception:
 [ -z "$COMMAND" ] && exit 0
 [ "${SUPERCHARGER_PROFILE:-standard}" = "minimal" ] && exit 0
 
-# Only fire after install commands
-if ! printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm add|pip install|pip3 install|poetry add|uv add)'; then
+# Only fire after install commands.
+# v4.1.9: matched at a SEGMENT start, not the command start. Every agent install
+# is a compound -- `cd app && npm install x` -- so the `^` anchor meant the
+# scanner skipped the normal case and ran only on the rare bare command.
+# Measured with a stub npm: bare SCANNED, `cd app && npm install x` SKIPPED.
+_INSTALL_RE='(^|[;&|]|&&)[[:space:]]*(npm install|npm i |yarn add|yarn i |pnpm add|pnpm i |pip install|pip3 install|poetry add|uv add)'
+if ! printf '%s\n' "$COMMAND" | grep -qE "$_INSTALL_RE"; then
   exit 0
 fi
 
 FINDINGS=""
 
-if printf '%s\n' "$COMMAND" | grep -qE '^\s*(npm install|npm i |yarn add|pnpm add)'; then
+if printf '%s\n' "$COMMAND" | grep -qE '(^|[;&|]|&&)[[:space:]]*(npm install|npm i |yarn add|yarn i |pnpm add|pnpm i )'; then
   # npm/yarn/pnpm audit
   if command -v npm >/dev/null 2>&1; then
     AUDIT=$(cd "$PROJECT_DIR" && npm audit --json 2>/dev/null || echo "{}")

@@ -45,7 +45,12 @@ _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # Cheap raw-string gate before any parse — mirrors dep-vuln-scanner. Most Bash
 # calls mention neither word and pay one `case` for this hook.
-case "$_INPUT" in *install*|*add*) ;; *) exit 0 ;; esac
+# v4.1.9: the short verb forms are admitted here too. This gate required the
+# literal substring "install" or "add", while the install regexes below (and
+# package-credibility.py:29) both list `npm i` as supported — so that
+# alternative was unreachable code, and `npm i <pkg>` reached no scanner at
+# all. The two-gate trap: an inner rule is dead unless the outer gate admits it.
+case "$_INPUT" in *install*|*add*|*"npm i "*|*"pnpm i "*|*"yarn i "*) ;; *) exit 0 ;; esac
 
 [ "${SUPERCHARGER_PROFILE:-standard}" = "minimal" ] && exit 0
 
