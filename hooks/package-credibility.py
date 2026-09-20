@@ -26,8 +26,11 @@ MIN_DOWNLOADS = int(os.environ.get("SC_MIN_DOWNLOADS") or 1000)
 TIMEOUT = 4          # per request; the whole hook must not outlast a human's patience
 MAX_PACKAGES = 5     # a 40-package install is a manifest restore, not an invented name
 
-NPM_INSTALL = re.compile(r"^\s*(?:npm\s+(?:install|i)|yarn\s+add|pnpm\s+add)\b(.*)", re.S)
-PIP_INSTALL = re.compile(r"^\s*(?:pip3?\s+install|uv\s+add|poetry\s+add)\b(.*)", re.S)
+# v4.1.9: anchored at a SEGMENT start. `cd app && npm i evil` matched neither
+# regex, so a compound install -- which is how an agent always writes one --
+# reached no credibility check.
+NPM_INSTALL = re.compile(r"(?:^|[;&|])\s*(?:npm\s+(?:install|i)|yarn\s+(?:add|i)|pnpm\s+(?:add|i))\b(.*)", re.S)
+PIP_INSTALL = re.compile(r"(?:^|[;&|])\s*(?:pip3?\s+install|uv\s+add|poetry\s+add)\b(.*)", re.S)
 # A package token: not a flag, not a path, not a URL, not a git ref.
 TOKEN_OK = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*$", re.I)
 
