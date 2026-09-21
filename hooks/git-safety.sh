@@ -365,9 +365,7 @@ done <<< "$SEGMENTS"
 # compound command still wins over an ask recorded earlier.
 if [ -n "$ASK_REASON" ]; then
   echo "[Supercharger] git-safety: $ASK_REASON" >&2
-  ASK_JSON=$(printf '%s' "$ASK_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null \
-    || printf '"%s"' "$(printf '%s' "$ASK_REASON" | tr -d '"\\' | tr '\n' ' ')")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$ASK_JSON"
+  sc_decision ask "$ASK_REASON"
   exit 0
 fi
 

@@ -19,7 +19,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 TOOL=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
 [ -z "$TOOL" ] && exit 0
 
@@ -39,7 +40,6 @@ case "$LOW" in
     exit 0 ;;
 esac
 
-RSN=$(printf '%s' "$reason" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$reason")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$reason"
 echo "[Supercharger] mcp-destructive-guard: ASK on $TOOL" >&2
 exit 0

@@ -21,7 +21,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 check_hook_disabled "notebook-exec-guard" 2>/dev/null && exit 0
 
 # Extract shell content + install signal from the edited cell. Output protocol
@@ -106,8 +107,7 @@ fi
 # 2. Package install in a cell → ask (safety.sh does not treat installs as
 #    destructive, but an unvetted install in a notebook still warrants a look).
 if [ "$INSTALL_REASON" != "-" ] && [ -n "$INSTALL_REASON" ]; then
-  RSN=$(printf '%s' "$INSTALL_REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$INSTALL_REASON")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision ask "$INSTALL_REASON"
   echo "[Supercharger] notebook-exec-guard: ASK on notebook install" >&2
   exit 0
 fi

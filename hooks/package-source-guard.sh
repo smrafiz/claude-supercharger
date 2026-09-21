@@ -24,7 +24,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 check_hook_disabled "package-source-guard" 2>/dev/null && exit 0
 
 # v2.24.2: fork-free gate. This hook only cares about seven dependency manifests, but
@@ -232,7 +233,6 @@ rm -f "$_PSG_OUT" 2>/dev/null
 
 [ -z "$REASON" ] && exit 0
 
-RSN=$(printf '%s' "$REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$REASON"
 echo "[Supercharger] package-source-guard: ASK on non-registry dependency source" >&2
 exit 0

@@ -28,7 +28,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 check_hook_disabled "test-integrity-guard" 2>/dev/null && exit 0
 
 # v2.24.2: fork-free gate — see package-source-guard for the rationale. Every branch
@@ -278,8 +279,7 @@ print(
 
 [ -z "$REASON" ] && exit 0
 
-RSN=$(printf '%s' "$REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$REASON"
 case "$REASON" in
   Lint-config:*) echo "[Supercharger] test-integrity-guard: ASK on lint-config edit" >&2 ;;
   *)             echo "[Supercharger] test-integrity-guard: ASK on test edit" >&2 ;;
