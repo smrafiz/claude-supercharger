@@ -22,7 +22,8 @@ set -uo pipefail
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 case "$_INPUT" in
   *push*|*set-url*) ;;
   *) exit 0 ;;
@@ -65,6 +66,5 @@ echo "  $REASON" >&2
 echo "  (Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0)" >&2
 echo "" >&2
 
-RSN=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"git remote exfil — confirm destination"')
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$REASON"
 exit 0

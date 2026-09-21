@@ -27,7 +27,8 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 check_hook_disabled "skill-integrity-guard" && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 # Fast path: bail with zero forks unless the payload names a skill.
 case "$_INPUT" in *'"skill"'*) ;; *) exit 0 ;; esac
@@ -151,8 +152,7 @@ _SIG_REASON="$_SIG_MSG
 A skill is instructions Claude follows. This one is not the file that was recorded the first time it loaded, so what it tells Claude to do may have changed.
 
 Approve if you (or an update you expected) changed it — the new content becomes the baseline. Decline if you did not."
-_SIG_J=$(printf '%s' "$_SIG_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"skill content changed since first load"')
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_SIG_J"
+sc_decision ask "$_SIG_REASON"
 
 # Block ledger — /why and the session [BLOCKS] summary read this.
 SCOPE_DIR="$_SC_STATE/scope"

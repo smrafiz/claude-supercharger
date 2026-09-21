@@ -87,9 +87,27 @@ R=$(guard_reason env-file-guard.sh Read "$(printf '{"file_path":"/srv/app/%s"}' 
 case "$R" in "Supercharger: "*"Way through:"*) pass ;; *) fail "missing attribution or remedy: $R" ;; esac
 
 # --- structural: the convention cannot rot silently --------------------------
-begin_test "no hook emits a deny decision outside the helper"
-OFFENDERS=$(grep -ln '"permissionDecision":"deny"' "$REPO_DIR"/hooks/*.sh 2>/dev/null \
-            | grep -v 'lib-deny\.sh$' || true)
-[ -z "$OFFENDERS" ] && pass || fail "raw deny emitters: $(printf '%s' "$OFFENDERS" | tr '\n' ' ')"
+begin_test "no hook emits ANY decision outside the helper"
+# Widened from deny-only once the ask sites moved (v4.1.10). lib-stdin.sh is the
+# single documented exemption: its ask fires when stdin could not be read at all,
+# which is exactly the moment a hook cannot depend on another lib having loaded.
+OFFENDERS=$(grep -ln '"permissionDecision":"\(deny\|ask\)"' "$REPO_DIR"/hooks/*.sh 2>/dev/null \
+            | grep -vE '(lib-deny|lib-stdin)\.sh$' || true)
+[ -z "$OFFENDERS" ] && pass || fail "raw decision emitters: $(printf '%s' "$OFFENDERS" | tr '\n' ' ')"
+
+begin_test "an ask carries attribution too, not just a deny"
+# Empty is NOT a pass here. The first draft of this accepted "", which would
+# have gone green if the guard never fired — the vacuous shape this repo keeps
+# finding in its own instruments. The path must sit under the fixture dir or
+# critical-infra-guard correctly ignores it.
+ASK_ST=$(mktemp -d); mkdir -p "$ASK_ST/scope"
+R=$(printf '{"tool_name":"Edit","tool_input":{"file_path":"%s/.github/workflows/ci.yml","new_string":"x"},"cwd":"%s"}' "$ASK_ST" "$ASK_ST" \
+    | env HOME="$ASK_ST" SUPERCHARGER_STATE="$ASK_ST" bash "$REPO_DIR/hooks/critical-infra-guard.sh" 2>/dev/null | reason_of)
+rm -rf "$ASK_ST"
+case "$R" in
+  "Supercharger: "*"Way through:"*) pass ;;
+  "") fail "the ask never fired — fixture does not exercise the guard" ;;
+  *) fail "unattributed ask: $R" ;;
+esac
 
 report

@@ -22,7 +22,8 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # Fast-path: bail with ZERO forks unless the payload could reference a lockfile.
 # This is a superset of lib-lockfile's basename list (every lock name contains
 # "lock", "shrinkwrap", or ".sum") — false positives just fall through to the
@@ -84,7 +85,5 @@ echo "  Hand-editing it corrupts integrity hashes / the resolved graph — regen
 echo "  Confirm only if this is a deliberate manual edit. (Asked once per lockfile per session.)" >&2
 echo "" >&2
 
-RSN=$(printf "'%s' is a machine-generated lockfile — hand-editing corrupts integrity hashes/resolution; regenerate with '%s' (change the manifest, not the lock). Confirm only if this manual edit is intended." "$BASE" "$PM" \
-  | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"lockfile edit — regenerate via the package manager instead"')
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$(printf "'%s' is a machine-generated lockfile — hand-editing corrupts integrity hashes and resolution" "$BASE")" "$(printf "regenerate with '%s', changing the manifest rather than the lock" "$PM")"
 exit 0

@@ -24,7 +24,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: needs an archive tool, a cloud-sync verb, or a remote-copy tool.
 # Superset of every pattern below, so it can never skip a real match.
@@ -98,7 +99,6 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
 _MSG="Possible bulk exfiltration: ${REASON}. If this is an intended backup/deploy, confirm and continue. Otherwise cancel — this pattern moves large amounts of local data off the machine. (Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] bulk-exfil-guard: ASK on bulk-exfiltration shape" >&2
 exit 0
