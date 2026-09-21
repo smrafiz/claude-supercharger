@@ -71,8 +71,17 @@ injection = re.compile(
     # persona hijack — require a malicious persona/mode, not "you are now <task>"
     r'|you are now (a |an )?(different|new|evil|uncensored|unrestricted|jailbroken|dan\b|developer mode|do[ -]?anything[ -]?now)'
     r'|new instructions?:'
-    # system-prompt attacks — require an exfil/override verb, or a redefinition, not the bare phrase
-    r'|(reveal|show|print|repeat|leak|expose|ignore|override|reset|replace|forget|change) (your |the |my )?system prompt'
+    # system-prompt attacks — require an exfil/override verb, or a redefinition, not the bare phrase.
+    # v4.1.11: and require the verb to sit in IMPERATIVE position. The verb+object
+    # alone matches ordinary prose about the mechanism: "output styles change the
+    # system prompt" is the correct description of a documented Claude Code feature,
+    # and it false-positived on this project's own .claude/handoff.md at every
+    # session start. An injection gives the verb as a command (sentence-initial,
+    # after a bullet, or led by please/you must/now/first,); a description puts a
+    # subject in front of it. That distinction is the whole difference here.
+    r'|(?:^|[.!?]\s+|,\s+|\n)\s*(?:[-*>]+\s*)?'
+    r'(?:(?:then|also|next|finally|please|now|first)[,]?\s+|you (?:must|should|will|need to)\s+)*'
+    r'(?:reveal|show|print|repeat|leak|expose|ignore|override|reset|replace|forget|change) (your |the |my )?system prompt'
     r'|system prompt\s*[:=]'
     r'|disregard (your|all|the) (previous |above |prior )?(instructions?|rules?|guidelines?|system)'
     r'|forget (your|all|previous|everything) (instructions?|rules?|training|guidelines?)'
