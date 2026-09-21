@@ -23,7 +23,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 check_hook_disabled "generated-file-guard" 2>/dev/null && exit 0
 hook_profile_skip "generated-file-guard" 2>/dev/null && exit 0
 
@@ -93,7 +94,6 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
 _MSG="This edits ${_REASON} — changes here are typically overwritten on the next codegen/build run, so the fix will silently disappear. Edit the SOURCE it's generated from (the .proto/.graphql/schema/template or the pre-build source), then regenerate. If editing the output is genuinely intended, confirm. (Disable: SUPERCHARGER_GENERATED_FILE_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] generated-file-guard: ASK on edit to a generated file" >&2
 exit 0

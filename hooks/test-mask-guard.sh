@@ -24,7 +24,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: needs both a verification-runner token AND an exit-mask token to be
 # worth parsing. Superset of the precise patterns below, so it can't skip a match.
@@ -111,7 +112,6 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
 _MSG="This command runs a verification tool (test/lint/typecheck) but MASKS its exit status (e.g. || true, || echo, ; exit 0) — a failing check will report success, so a subsequent \"it passes\" claim would be unfounded. Remove the exit-mask and let the real status surface, or confirm this is intentional CI glue. (Disable: SUPERCHARGER_TEST_MASK_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] test-mask-guard: ASK on exit-masked verification command" >&2
 exit 0

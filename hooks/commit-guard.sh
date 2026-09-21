@@ -205,12 +205,11 @@ if [ "${SUPERCHARGER_DEFAULT_BRANCH_GUARD:-1}" != "0" ] \
       if [ ! -f "$_DB_ACK" ]; then
         mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
         : > "$_DB_ACK" 2>/dev/null || true
-        _RSN=$(printf 'This commit lands directly on %s, the default branch. If that is deliberate — a trunk-based repo, or a release commit — go ahead; this asks once per session per repo. Otherwise branch first: git switch -c <name>. Silence for this project: add "allowDefaultBranchCommits": true to .supercharger.json. Disable everywhere: SUPERCHARGER_DEFAULT_BRANCH_GUARD=0' "$_DB_BRANCH" \
-          | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
-        if [ -n "$_RSN" ]; then
-          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
-          exit 0
-        fi
+        # v4.1.10: the `if [ -n "$_RSN" ]` this replaces was a fail-open — when
+        # the escaping fork failed the guard asked nothing at all and the commit
+        # went to the default branch unremarked. sc_ask cannot fail that way.
+        sc_ask "$(printf 'this commit lands directly on %s, the default branch. Asked once per session per repo.' "$_DB_BRANCH")" \
+          'if deliberate (trunk-based repo, release commit) go ahead; otherwise branch first with `git switch -c <name>`. Silence per project: "allowDefaultBranchCommits": true in .supercharger.json, or SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 everywhere'
       fi
     fi
   fi

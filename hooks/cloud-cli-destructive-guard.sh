@@ -26,7 +26,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: no cloud CLI mentioned → nothing to do. Superset of every provider
 # matched below, so this can never skip a real match.
@@ -121,7 +122,6 @@ fi
 
 reason="${op_reason:-}"
 [ -z "$reason" ] && reason="destructive cloud operation via the native CLI: ${op}. This tears down cloud infrastructure/data and is typically irreversible — the same op is confirmed on the MCP channel (mcp-destructive-guard), so it is confirmed here too. Verify the target account/project/cluster and that this is intended."
-RSN=$(printf '%s' "$reason" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$reason")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$reason"
 echo "[Supercharger] cloud-cli-destructive-guard: ASK on ${op}" >&2
 exit 0
