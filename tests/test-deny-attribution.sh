@@ -21,7 +21,12 @@ echo "=== Deny attribution ==="
 . "$REPO_DIR/hooks/lib-deny.sh"
 
 reason_of() { # json -> the reason string, via a real parser
+  # newline='' is load-bearing on Git Bash. Python's text-mode stdout translates
+  # an embedded \n to \r\n there, so a reason containing a newline came back
+  # with a \r the expected string did not have, and the comparison failed while
+  # the VALUE was correct. Windows CI caught it; macOS and Linux cannot.
   python3 -c 'import json,sys
+sys.stdout.reconfigure(newline="")
 try: print(json.load(sys.stdin)["hookSpecificOutput"]["permissionDecisionReason"])
 except Exception: pass'
 }
