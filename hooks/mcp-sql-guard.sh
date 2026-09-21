@@ -19,7 +19,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "mcp-sql-guard" && exit 0
@@ -78,8 +79,10 @@ deny() {
   # 2.21.2: fail CLOSED on the deny path (see mcp-github-write-gate). A python
   # failure must not abort before the deny JSON + exit 2, or the destructive SQL
   # would be allowed. Reason is already on stderr above.
-  RSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || RSN='"blocked (see stderr for detail)"'
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  # v4.1.10: the python fork that used to escape this is gone, so the
+  # fail-open/fallback branch it needed is gone with it — sc_decision is
+  # pure bash and cannot fail for want of an interpreter.
+  sc_decision deny "$reason"
   exit 2
 }
 

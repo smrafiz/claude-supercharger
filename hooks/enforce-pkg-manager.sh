@@ -16,7 +16,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # v2.6.16: bash fast-path before python3 fork. Most Bash commands don't touch
 # npm/yarn/pip/bun at all — scan the raw stdin first. If none of those tokens
@@ -81,8 +82,7 @@ block() {
   echo "  Command: $COMMAND" >&2
   echo "  This command is permanently blocked. Run it in your terminal directly if needed." >&2
   echo "" >&2
-  RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$1"
   exit 2
 }
 

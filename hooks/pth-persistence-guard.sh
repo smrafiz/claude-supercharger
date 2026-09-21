@@ -23,7 +23,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 case "$_INPUT" in *.pth*) : ;; *) exit 0 ;; esac
 check_hook_disabled "pth-persistence-guard" 2>/dev/null && exit 0
 
@@ -76,14 +77,12 @@ _VERDICT="${_RESULT%%$'\t'*}"
 
 if [ "$_VERDICT" = "DENY" ]; then
   _MSG="Blocked: this .pth file contains an 'import' line that runs a shell/network command. CPython executes every 'import'-prefixed line in a .pth on interpreter startup (no import needed), so this is a persistence/RCE backdoor that survives package uninstall. A legitimate .pth lists paths or a sys.path finder — not os.system/subprocess/socket. (Disable: SUPERCHARGER_PTH_GUARD=0)"
-  RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$_MSG"
   echo "[Supercharger] pth-persistence-guard: DENY code-bearing .pth" >&2
   exit 2
 fi
 
 _MSG="This .pth file has an 'import' line that runs code (exec/eval/__import__). CPython executes 'import'-prefixed .pth lines on every interpreter startup — an easily-missed persistence channel. Confirm it is an intended editable-install shim and not injected. (Disable: SUPERCHARGER_PTH_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] pth-persistence-guard: ASK exec-bearing .pth" >&2
 exit 0

@@ -30,7 +30,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: needs git AND a config-setting OR transport-helper form. Superset.
 case "$_INPUT" in *git*) : ;; *) exit 0 ;; esac
@@ -131,14 +132,12 @@ echo "$_VERDICT:$_LABEL" >> "$_SEEN" 2>/dev/null || true
 
 if [ "$_VERDICT" = "DENY" ]; then
   _MSG="Blocked: ${_LABEL} — git would run a shell command at a git operation (arbitrary code execution; CVE-2026-55607 fsmonitor / CVE-2026-28292 ext:: transport class). If you truly need this, run it yourself in the terminal. (Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0)"
-  RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$_MSG"
   echo "[Supercharger] git-config-exec-guard: DENY exec-capable git (${_LABEL})" >&2
   exit 2
 fi
 
 _MSG="This sets the git config key ${_LABEL}, which git can execute as a command on a later git operation — a common RCE/persistence vector. Confirm it's an intended, trusted value (e.g. credential.helper=store, core.pager=less are fine; a '!'-shell or script path is the risk). (Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] git-config-exec-guard: ASK exec-capable git config (${_LABEL})" >&2
 exit 0

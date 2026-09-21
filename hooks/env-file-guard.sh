@@ -27,7 +27,8 @@ _efg_field() {   # $1=key -> echoes value ('' if unknown)
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # NB: the jq form also falls back to .workspace.current_dir, so only take the fast
 # path when it actually finds `cwd`; otherwise run the original expression verbatim.
 if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str cwd "$_INPUT"; then
@@ -51,9 +52,7 @@ block() {
   # terminal; permissionDecisionReason is what the model and the client surface
   # as the denial. Guidance that lives only on the first channel is guidance the
   # person deciding what to do next may never see.
-  RSN=$(printf '%s — if you genuinely need this file, read it in your own terminal; Supercharger will not open credential files on your behalf.' "$reason" \
-    | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$reason" "read it in your own terminal; Supercharger will not open credential files on your behalf"
   exit 2
 }
 
@@ -63,8 +62,7 @@ block() {
 # off. The secret is still gated; the difference is who decides.
 ask_read() {
   local reason="$1"
-  ARSN=$(printf '%s' "$reason" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$ARSN"
+  sc_decision ask "$reason"
   exit 0
 }
 

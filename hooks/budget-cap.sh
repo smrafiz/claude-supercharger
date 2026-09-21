@@ -9,6 +9,7 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+. "$HOOKS_DIR/lib-deny.sh"
 # shellcheck source=hooks/lib-project-root.sh
 . "$HOOKS_DIR/lib-project-root.sh"
 # shellcheck source=hooks/lib-json-fast.sh
@@ -466,8 +467,7 @@ PYEOF
   elif [[ "$DECISION" == block:* ]]; then
     REASON="${DECISION#block:}"
     echo "[Supercharger] budget-cap: BLOCKING — $REASON" >&2
-    REASON_JSON=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$REASON")
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$REASON_JSON"
+    sc_decision deny "$REASON"
     exit 2
   fi
 
