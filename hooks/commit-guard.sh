@@ -18,7 +18,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Shared fast-path: nothing here matters unless the command mentions a commit.
 case "$_INPUT" in *commit*) ;; *) exit 0 ;; esac
@@ -38,8 +39,7 @@ PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir //
 init_hook_suppress "$PROJECT_DIR"
 
 _deny() {  # $1 = reason (plain text) → emit PreToolUse deny + exit 2
-  RSN=$(printf '%s' "$1" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$1")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$1"
   exit 2
 }
 
@@ -133,8 +133,7 @@ if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
     _CG_R="Supercharger could not load its credential patterns, so these staged changes have NOT been scanned for secrets.
 
 Committing is not reversible once pushed. Confirm the diff carries no credentials, or re-run once the installation is repaired."
-    _CG_J=$(printf '%s' "$_CG_R" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"staged diff was not scanned for secrets"')
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_CG_J"
+    sc_decision ask "$_CG_R"
     exit 0
   fi
   if [ "$_CG_RC" -eq 42 ]; then
@@ -251,8 +250,7 @@ PYEOF
     echo "code" > "$SUPERCHARGER_STATE/scope/.scan-alert-${SID}" 2>/dev/null || true
     echo "[Supercharger] commit-guard: code-vuln pattern in staged diff — ask" >&2
     _MSG="The staged changes introduce potentially insecure code pattern(s): ${_CV}. These may be intentional (test fixtures, a security tool) — if so, confirm and commit. Otherwise review before it lands in git history. (Disable: SUPERCHARGER_COMMIT_CODE_SCAN=0)"
-    RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+    sc_decision ask "$_MSG"
     exit 0
   fi
 fi

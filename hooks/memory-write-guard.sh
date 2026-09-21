@@ -20,7 +20,8 @@ set -euo pipefail
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: skip the python fork unless the path looks memory-related. Persistent
 # memory lives in MEMORY.md, **/memory/*.md, or .claude/supercharger-memory.md.
@@ -136,8 +137,7 @@ PYEOF
 # stderr but the non-zero exit still trips set -e without this guard.
 
 if [ -n "$RESULT" ]; then
-  RSN=$(printf '%s' "$RESULT" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$RESULT")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$RESULT"
   echo "[Supercharger] memory-write-guard: BLOCKED memory poisoning attempt" >&2
   # Per-session alert breadcrumb (mirrors prompt-injection-scanner)
   SCOPE_DIR="$SUPERCHARGER_STATE/scope"

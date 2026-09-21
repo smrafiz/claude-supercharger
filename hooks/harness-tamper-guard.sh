@@ -24,7 +24,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: only the commands that could plausibly tamper carry one of these
 # tokens. Everything else exits before the (cheap) parse. Fail-safe: the tokens
@@ -273,8 +274,7 @@ if [ -z "$REASON" ]; then
         *--remove*|*--rm*|*--list*|*--untrust*|*list*) : ;;
         *)
           _HT_ASK="This trusts an MCP server to request credentials ($CMD). Trusted servers may show Elicitation forms asking for API keys, tokens or passwords, which are declined by default. Approve only for a server you control or audited — a trusted malicious server is a credential harvest."
-          _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
-          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+          sc_decision ask "$_HT_ASK"
           exit 0 ;;
       esac
       ;;
@@ -286,8 +286,7 @@ if [ -z "$REASON" ]; then
         *injection*|*egress*|*code-security*|*commit-guard*|*subagent-safety*|*readonly*|\
         *critical-infra*|*memory-write*|*notebook-exec*|*cloud-cli*|*bulk-exfil*|*mcp-*)
           _HT_ASK="This disables a SECURITY guard ($CMD). It comments the hook out of settings.json, so it stops firing entirely — for every session, until re-enabled. Approve only if you asked for this; a guard that fires on something legitimate is better narrowed with disableSecurityCategories or customPatterns than switched off."
-          _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
-          printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+          sc_decision ask "$_HT_ASK"
           exit 0 ;;
       esac
       ;;
@@ -314,14 +313,12 @@ if [ -z "$REASON" ]; then
       # skippable by adding two characters. Found by red-teaming after shipping.
       if printf '%s' "$CMD" | grep -Eq 'autopilot\.sh[[:space:]]+["'\'']?[0-9]'; then
         _HT_ASK="This turns AUTOPILOT on ($CMD). For the whole window every permission prompt is auto-approved, including confirms you would otherwise see. The safety hooks still block destructive commands, but nothing else will pause for you. Approve only if you asked for this."
-        _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
-        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+        sc_decision ask "$_HT_ASK"
         exit 0
       fi
       if printf '%s' "$CMD" | grep -Eq '(readonly|strict)\.sh[[:space:]]+["'\'']?off'; then
         _HT_ASK="This turns OFF a restriction you switched on ($CMD). read-only mode blocks writes; strict mode auto-approves nothing. Ending either early restores normal write / auto-approve behaviour for the rest of the session. Approve only if you asked for this."
-        _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
-        printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+        sc_decision ask "$_HT_ASK"
         exit 0
       fi
       ;;
@@ -329,8 +326,7 @@ if [ -z "$REASON" ]; then
   case "$CMD" in
     *sc-toggle*off*|*sc-toggle*disable*)
       _HT_ASK="Supercharger is about to be switched OFF. While off, every guard is inactive — destructive-command blocking, path-guard, credential and env-file guards, git-safety. Approve only if you asked for this; an injected instruction reaching the model would want exactly this step first."
-      _RSN=$(printf '%s' "$_HT_ASK" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_HT_ASK")
-      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_RSN"
+      sc_decision ask "$_HT_ASK"
       exit 0
       ;;
   esac
@@ -338,8 +334,7 @@ fi
 
 [ -z "$REASON" ] && exit 0
 
-RSN=$(printf '%s' "harness-tamper: $REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision deny "harness-tamper: $REASON"
 echo "[Supercharger] harness-tamper-guard: DENY — $REASON" >&2
 
 # Log to the block ledger for /why and audits (best-effort).

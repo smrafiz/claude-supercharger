@@ -14,7 +14,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 SCOPE_DIR="$SUPERCHARGER_STATE/scope"
 mkdir -p "$SCOPE_DIR"
@@ -102,8 +103,7 @@ VERDICT=$(printf '%s\n' "$RESULT" | sed -n '1p')
 MSG=$(printf '%s\n' "$RESULT" | sed -n '2,$p')
 
 if [ "$VERDICT" = "DENY" ]; then
-  RSN=$(printf '%s' "$MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$MSG")
-  printf '{"hookSpecificOutput":{"hookEventName":"SubagentStart","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$MSG" "" "SubagentStart"
   echo "[Supercharger] subagent-circuit-breaker: TRIPPED — denied runaway spawn" >&2
   exit 2
 fi
