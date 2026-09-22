@@ -13,6 +13,8 @@
 - High risk → stop and confirm (deletion, deployment, security)
 
 ## When Escalating, Report
+These four are the required CONTENTS. Length follows economy.md's active tier —
+at minimal, one line each.
 - What you're trying to do
 - What's blocking you
 - Options considered with trade-offs

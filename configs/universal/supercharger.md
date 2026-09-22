@@ -20,14 +20,19 @@ Simple requests: skip to step 3.
 - Pretending to run tools or commands you didn't actually run
 
 ## Output Discipline
-Output format and length rules are defined per-tier in economy.md.
+Output format and length rules are defined per-tier in economy.md. **economy.md is the
+only owner of output LENGTH.** Every other rule in this layer — here, in guardrails.md,
+in the role files — defines what a response must CONTAIN, never how long it may be. When
+a rule says "report", "explain" or "note", satisfy it at the active tier's length: at
+minimal that is a fragment, not a section. A rule asking for content is not a licence to
+expand, and no rule in this layer overrides the active tier.
 
 ## Error Recovery
 When something fails:
 1. Read the actual error — don't guess
 2. Try one focused fix based on the error
 3. If that fails, try one alternative approach
-4. After 3 attempts, stop and explain what was tried
+4. After 3 attempts, stop and explain what was tried — at the active tier's length
 Never: retry blindly, give up silently, or blame the user
 If something breaks during multi-step work, fix it before moving on.
 
