@@ -13,51 +13,48 @@ readers select this file, and why mtime is not used.
 ## Current State
 *Verified 2026-09-21, session `75a954fe`.*
 
-- **master `cf6d6d8`**, clean tree. **Released: v4.1.9** — nothing unreleased.
-- **One open PR: #22** (economy.md owns output length), held by choice pending the
-  measurement below, not by CI.
-- **v4.1.9 contents**: install-scanner bypass closed (security — `cd app && npm i
-  <pkg>` previously reached neither the credibility check nor the vulnerability
-  audit), the documented `eco <tier>` switch made real with one owner for the tier,
-  plus the carry file and the economy-layer doc correction.
-- **Machine A (the box this was written on)**: updated to v4.1.9 and verified by
-  behaviour, not by the version stamp — both install gates and the tier-switch parse
-  are present in `~/.claude/supercharger/hooks/`. `webstorm` MCP is disconnected here
-  to save ~20k tokens/session; re-enable per project if wanted.
-- **Machine B: still needs `/sc-update`.** Until then the install-scanner bypass is
-  closed in the repo and open where that machine works.
-- awesome-claude-code **#2096 still OPEN**, `validation-passed`, no maintainer reply
-  since 2026-09-16.
+- **master `41e59d0`**, clean. **Released: v4.1.10** — nothing unreleased.
+- **Open PRs**: **#31** config-scan false positive (CI running), **#22**
+  economy.md owns output length (held by choice, not by CI).
+- **v4.1.10**: every decision emits through `hooks/lib-deny.sh` with attribution
+  and a remedy — 39 of 40 sites, `lib-stdin.sh` the one exemption. What an agent
+  receives from a block is `permissionDecisionReason` and nothing else; stderr
+  reaches the human only. Six fail-open shapes closed on the way.
+- **v4.1.9**: install-scanner bypass (security), `eco <tier>` made real.
+- **Machine A (this box): on v4.1.9, NOT v4.1.10** — `lib-deny.sh` is absent from
+  `~/.claude/supercharger/hooks/`. Needs `/sc-update`. A promote does NOT
+  reinstall; that was checked for both releases.
+- **Machine B**: unknown, last known a release behind. Needs `/sc-update`.
+- awesome-claude-code **#2096 still OPEN**, no maintainer reply since 2026-09-16.
 
-### The economy decision, still in progress
-The tiers do not bind. Cause: `economy.md` ships as a CLAUDE.md-layer **user
-message**, while Claude Code's native **output styles** change the system prompt
-itself. The built-in `Concise` style already is the minimal tier, safety carve-out
-included. `outputStyle: Concise` has been on since 2026-09-20.
+### The economy decision, still open
+`economy.md` ships as a CLAUDE.md-layer **user message**; Claude Code's native
+**output styles** change the system prompt itself, and the built-in `Concise`
+style already is the minimal tier. `outputStyle: Concise` on since 2026-09-20.
 
-- **Baseline to beat**: median **207** chars / mean 447, over 1,597 assistant
-  messages before the switch. Compare ordinary build sessions, not research-heavy
-  ones — the latter run long regardless of tier.
-- If Concise binds, **#22 is superseded**: port the tiers to custom output-style
-  files and drop the persuasion layer, its reinforcement hook and its 1.1k
-  tokens/session together.
+- **Baseline to beat**: median **207** chars / mean 447 over 1,597 assistant
+  messages. Compare ordinary build sessions, not research-heavy ones.
+- If Concise binds, **#22 is superseded** — port the tiers to output-style files
+  and drop the persuasion layer with its hook and 1.1k tokens/session.
 - Reasoning: `docs/ECONOMY-LAYER-2026-09-19.md`, Update — 2026-09-20.
-- Note `eco <tier>` now genuinely switches (v4.1.9), so the two layers *can* finally
-  be isolated from each other for the measurement.
 
 ### Open, not started
-- **Deny reasons reach agents without attribution.** `block()` sends only the reason
-  string; the `Supercharger blocked …` banner and the remediation line go to stderr,
-  which the agent never sees, so a subagent can read a block as a plain failure and
-  retry blindly. Measured 2026-09-17 via a subagent probe. Touches every deny message
-  and the tests asserting on them — own branch. **Started next.**
-- **Where else does a start-anchored exemption hide?** v4.1.7 fixed one, #24 fixed two
-  more. The method that found both: ask the question of the *assumptions* a rule
-  makes, not just of other call sites.
+- **An unexplained deny.** A `sensitive file access` block fired on a commit
+  command and did not reproduce in five reconstructions. Not a known defect —
+  if it recurs, capture the exact command before anything else.
+- **Stacked PRs**: merging a parent and deleting its branch CLOSES the child
+  rather than retargeting it. Retarget first, or keep the base branch.
 
 ---
 
 ## Log
+
+#### 2026-09-21 (later) — 75a954fe
+Released **v4.1.10**: every deny and ask now reaches the agent attributed, via a
+single emitter, with six fail-open shapes closed behind it. Also fixed config-scan
+flagging this repo's own carry file (#31) — "output styles change the system
+prompt" is documentation, not an injection.
+Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
 #### 2026-09-21 — 75a954fe
 Released **v4.1.9** (`cf6d6d8`): the install-scanner bypass, the tier-switch fix and
@@ -92,8 +89,3 @@ Community research sweep → `docs/COMMUNITY-WANTS-2026-09-17.md` with plans P1�
 P1 fixed two real guard false positives; P2 pinned guard independence from the
 harness permission layer; P3/P4 answered by measurement. Three PRs merged.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
-
-#### 2026-09-16 — 2f637411
-v4.1.5 shipped (Unicode Tag Block smuggling detection). Live CI + test-count badges
-replaced the hard-coded README number. awesome-claude-code #2096 updated and validated.
-Detail: `.claude/handoff-2f637411-c317-43fc-9541-b496d340f09e.md`
