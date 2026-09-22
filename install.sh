@@ -556,6 +556,18 @@ deploy_extras "$SCRIPT_DIR" "$MODE" "$EXTRAS_NONINT"
 echo ""
 # Write installed version stamp
 echo "$VERSION" > "$HOME/.claude/supercharger/.version"
+# The version alone does not identify the code: update.sh installs master HEAD,
+# which carries anything merged since the last release bumped VERSION. Stamp the
+# source commit so a machine can state exactly what it is running, and so the
+# updater can tell "same release, newer code" from "nothing to do". Absent when
+# installing from a tarball (no git) — every reader treats that as unknown.
+_sc_src_commit=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || true)
+if [ -n "$_sc_src_commit" ]; then
+  printf '%s\n' "$_sc_src_commit" > "$HOME/.claude/supercharger/.commit"
+else
+  rm -f "$HOME/.claude/supercharger/.commit" 2>/dev/null || true
+fi
+unset _sc_src_commit
 echo "${ROLES_CSV}" > "$HOME/.claude/supercharger/.roles"
 mkdir -p "$HOME/.claude/supercharger/scope"
 # The statusline indicator is flag-driven; drop it now that this install IS the
