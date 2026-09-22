@@ -39,7 +39,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 [ "${SUPERCHARGER_TASK_POLL_GUARD:-1}" = "0" ] && exit 0
 
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 _INPUT="${_INPUT%"${_INPUT##*[!$'\n']}"}"
 
 # Cheap gate: both words must appear somewhere before anything is parsed.
@@ -110,6 +111,8 @@ Sleeping on something the harness does not track is fine and this guard ignores 
 
 This fires once per session; if you have a reason to insist, run it again."
 
-REASON_JSON=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || exit 0
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$REASON_JSON"
+# v4.1.10: the python fork that used to escape this is gone, so the
+# fail-open/fallback branch it needed is gone with it — sc_decision is
+# pure bash and cannot fail for want of an interpreter.
+sc_decision deny "$REASON"
 exit 0

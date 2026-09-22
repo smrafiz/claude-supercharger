@@ -27,7 +27,8 @@ set -uo pipefail
 [ "${SUPERCHARGER_WRITE_SECRET_GUARD:-1}" = "0" ] && exit 0
 
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 [ -n "$_INPUT" ] || exit 0
 
 # shellcheck source=hooks/lib-secret-patterns.sh
@@ -77,6 +78,7 @@ mkdir -p "$_WSG_STATE/scope" 2>/dev/null || true
 # the thing output-secrets-scanner exists to prevent, and this hook must not
 # become the leak it guards against — name the file, not the match.
 _WSG_BASE="${_WSG_FILE##*/}"
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":"[Supercharger] This write puts something matching a credential pattern into %s. If it is a real key it should live in an ignored env file or a secret store, not in a tracked file. If it is a placeholder or fixture, go ahead — this asks once per file per session. Silence: SUPERCHARGER_WRITE_SECRET_GUARD=0"}}\n' \
-  "${_WSG_BASE:-the target file}"
+sc_decision ask \
+  "$(printf 'this write puts something matching a credential pattern into %s. Asked once per file per session.' "${_WSG_BASE:-the target file}")" \
+  "if it is a real key, move it to an ignored env file or a secret store; if it is a placeholder or fixture, go ahead. Silence: SUPERCHARGER_WRITE_SECRET_GUARD=0"
 exit 0

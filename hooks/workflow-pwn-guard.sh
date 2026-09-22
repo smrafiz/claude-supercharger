@@ -27,7 +27,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # Fast-path: a privileged-trigger / opt-out token, OR an untrusted-PR-head reference
 # (an Edit may add only the checkout, with the trigger already on-disk — python then
 # combines the two). Superset; precise judgement happens in python, workflow-path-gated.
@@ -95,14 +96,12 @@ _LABEL="${_RES#*|}"
 
 if [ "$_VERDICT" = "DENY" ]; then
   _MSG="Blocked: this workflow sets ${_LABEL} — it re-enables the untrusted fork-PR checkout that actions/checkout v7 blocks by default, so attacker PR code would run with the base repo's GITHUB_TOKEN + secrets (the 'pwn request' vector; 2026 AsyncAPI npm compromise class). Don't add this. If a maintainer truly needs it, they should set it deliberately, not an agent editing CI. (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"
-  RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$_MSG"
   echo "[Supercharger] workflow-pwn-guard: DENY allow-unsafe-pr-checkout" >&2
   exit 2
 fi
 
 _MSG="This workflow combines a privileged trigger (${_LABEL}). A pull_request_target/workflow_run job runs with the base repo's GITHUB_TOKEN + secrets, and checking out the untrusted fork-PR head then running it (npm ci/build/test) executes attacker code with those secrets — the 'pwn request' supply-chain vector. Confirm this is intended and the job does NOT expose secrets to PR-controlled code (or check out a trusted ref instead). (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] workflow-pwn-guard: ASK pwn-request workflow (${_LABEL})" >&2
 exit 0

@@ -23,7 +23,8 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # Fast-path: bail with ZERO forks unless the payload could contain a clobber op.
 # Superset match on the raw stdin — precise parsing happens only past this gate.
 case "$_INPUT" in
@@ -66,7 +67,5 @@ echo "  That bypasses the Edit/Write review path (path-guard, confidence-gate, s
 echo "  Prefer Edit/Write for source changes. Confirm only if this overwrite is intended. (Asked once per file per session.)" >&2
 echo "" >&2
 
-RSN=$(printf "Bash overwrites tracked source '%s' via a redirect/in-place edit/move (>, sed -i, tee, dd, truncate, cp, mv) — this bypasses the Edit/Write guards (read-before-write, path-guard). Prefer Edit/Write; confirm only if the overwrite is intended." "$TARGET" \
-  | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"Bash redirect overwrites tracked source — prefer Edit/Write"')
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$(printf "Bash overwrites tracked source '%s' via a redirect, in-place edit or move, bypassing the Edit/Write guards (read-before-write, path-guard)" "$TARGET")" "use Edit/Write, or confirm if the overwrite is intended"
 exit 0

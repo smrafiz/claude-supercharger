@@ -27,7 +27,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # Fast-path: bail unless a target filename or auto-run key could be present.
 #
 # nocasematch, because macOS (APFS) and Windows (NTFS) are case-INSENSITIVE by
@@ -124,7 +125,6 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
 _MSG="This writes ${_REASON}. That is the same auto-run primitive as a poisoned .claude/settings.json, ported to a sibling editor config (Contagious-Interview / Miasma / MCPoison class) — it runs code without any further action. Confirm the command is one you intend and trust. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] editor-config-guard: ASK on auto-run editor config write" >&2
 exit 0

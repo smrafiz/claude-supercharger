@@ -22,7 +22,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast-path: one of the code-injecting var names must be present.
 case "$_INPUT" in
@@ -133,7 +134,6 @@ mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_VAR" >> "$_SEEN" 2>/dev/null || true
 
 _MSG="This sets the environment variable ${_VAR} to a code-loading value — the shell/interpreter will execute it on the NEXT process it spawns (a later git/npm/python command), which sidesteps command-level guards. Common exec/persistence vector (LD_PRELOAD, NODE_OPTIONS --require, BASH_ENV, GIT_SSH_COMMAND…). Confirm it's an intended, trusted value. (Disable: SUPERCHARGER_ENV_EXEC_GUARD=0)"
-RSN=$(printf '%s' "$_MSG" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$_MSG")
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$_MSG"
 echo "[Supercharger] env-exec-guard: ASK on code-injecting env var (${_VAR})" >&2
 exit 0

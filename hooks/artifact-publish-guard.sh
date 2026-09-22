@@ -29,7 +29,8 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 [ "${SUPERCHARGER_ARTIFACT_GUARD:-1}" = "0" ] && exit 0
 
 # v2.26.35: fork-free stdin read (no $(cat) fork).
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # Fast path: publish carries a file; reply and room_send carry outbound TEXT.
 case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*) ;; *) exit 0 ;; esac
@@ -65,8 +66,7 @@ if [ "$ACTION" = "reply" ] || [ "$ACTION" = "room_send" ]; then
       _AP_REASON="Refusing this Artifact $ACTION: the payload contains what looks like a credential, and it would go to $_AP_WHERE.
 
 Remove the secret and send a reference instead."
-      _AP_JSON=$(printf '%s' "$_AP_REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"secret in outbound artifact text"')
-      printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$_AP_JSON"
+      sc_decision deny "$_AP_REASON"
       SCOPE_DIR="$SUPERCHARGER_STATE/scope"
       mkdir -p "$SCOPE_DIR" 2>/dev/null || true
       printf '[%s] credentials — secret in artifact %s — outbound text\n' \
@@ -124,8 +124,7 @@ if [ ! -f "$FILE_PATH" ]; then
     _APG_R2="Refusing to publish $(basename "$FILE_PATH") without checking it: its directory could not be searched, so whether the file exists — and what is in it — was NOT established. It has not been scanned for credentials.
 
 Publishing sends it to a hosted URL and that is not reversible. Confirm the file is safe to publish, or fix the directory's permissions so it can be scanned first."
-    _APG_J2=$(printf '%s' "$_APG_R2" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"artifact existence could not be determined"')
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_APG_J2"
+    sc_decision ask "$_APG_R2"
   fi
   exit 0
 fi
@@ -144,8 +143,7 @@ if [ -z "$CONTENT" ]; then
     _APG_R="Refusing to publish $(basename "$FILE_PATH") without checking it: the file exists but could not be read, so it has NOT been scanned for credentials.
 
 Publishing sends it to a hosted URL and that is not reversible. Confirm the file is safe to publish, or fix its permissions so it can be scanned first."
-    _APG_J=$(printf '%s' "$_APG_R" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"artifact could not be read to scan"')
-    printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$_APG_J"
+    sc_decision ask "$_APG_R"
   fi
   exit 0
 fi
@@ -163,8 +161,7 @@ if printf '%s\n' "$CONTENT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
 Publishing sends this file to a hosted URL. That is not reversible — the page can be cached, indexed, or shared onward even if you delete it later.
 
 Remove the secret from the file, then publish again. If it is a placeholder or test fixture, rename the value so it does not match a live credential shape, or set disableSecurityCategories: [\"credentials\"] for this project."
-  REASON_JSON=$(printf '%s' "$REASON" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"secret detected in artifact"')
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$REASON_JSON"
+  sc_decision deny "$REASON"
 
   # Block ledger — /why and the session [BLOCKS] summary read this.
   SCOPE_DIR="$SUPERCHARGER_STATE/scope"

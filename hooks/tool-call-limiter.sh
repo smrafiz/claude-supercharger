@@ -23,7 +23,8 @@ check_hook_disabled "tool-call-limiter" && exit 0
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
 # ── Resolve cap ───────────────────────────────────────────────────────────────
 CAP=""
@@ -121,8 +122,7 @@ PCT=$(( NEW * 100 / CAP ))
 if [ "$NEW" -gt "$CAP" ]; then
   REASON="Tool call limit reached: $NEW calls this session (cap: $CAP). Start a new session or raise SESSION_MAX_TOOL_CALLS."
   echo "[Supercharger] tool-call-limiter: BLOCKING — $REASON" >&2
-  RSN=$(printf '%s' "$REASON" | jq -Rs '.' 2>/dev/null || printf '"%s"' "$REASON")
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":%s}}\n' "$RSN"
+  sc_decision deny "$REASON"
   exit 2
 elif [ "$PCT" -ge 80 ]; then
   MSG="[TOOL LIMIT] $NEW/$CAP tool calls used (${PCT}%). Approaching session cap."

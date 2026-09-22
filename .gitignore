@@ -9,6 +9,10 @@
 # public and the briefs are assembled from git output, config and shell history.
 .claude/*
 !.claude/handoff-*.md
+# The merged carry file. A separate negation because `handoff-*.md` does NOT
+# match `handoff.md`, and without this line the one file meant to travel
+# between machines was the only one that never left its own.
+!.claude/handoff.md
 .claudedocs/
 .worktrees/
 .opencode/

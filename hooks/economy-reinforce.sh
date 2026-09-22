@@ -27,9 +27,38 @@ _json_get PROJECT_DIR cwd "$_INPUT" '.cwd // .workspace.current_dir // empty'
 [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 
+ECONOMY_TIER_FILE="$SCOPE_DIR/.economy-tier"
+
+# v4.1.9: honour the documented switch phrase. economy.md has told users to say
+# "eco standard" / "eco lean" / "eco minimal" since the tiers shipped, and
+# plugin-config-seed.sh:14 calls it "a runtime switch" — but nothing parsed it.
+# Only install.sh:595 and adaptive-economy.sh:131 ever wrote the tier file, so
+# the phrase changed the model's behaviour for exactly one turn and the next
+# prompt's reinforcement put the old tier back. Documented behaviour with no
+# implementation.
+#
+# Matched against the WHOLE prompt, trimmed, nothing else on the line. A
+# substring match would switch tiers whenever someone discusses the feature —
+# "the eco minimal tier is broken" is a bug report, not a command — and this
+# file is the one most likely to be discussed in a session that has it enabled.
+# Separators beyond a space are accepted because the docs show one form and
+# people type the others: eco:standard, eco-lean, eco_minimal.
+SWITCHED=""
+PROMPT=""
+_json_get PROMPT prompt "$_INPUT" '.prompt // empty'
+if [ -n "$PROMPT" ]; then
+  _ECO_P=$(printf '%s' "$PROMPT" | tr '[:upper:]' '[:lower:]' | sed 's/^[[:space:]]*//; s/[[:space:]]*$//; s/[.!]*$//')
+  case "$_ECO_P" in
+    eco[\ :_-]standard|eco[\ :_-]lean|eco[\ :_-]minimal)
+      SWITCHED="${_ECO_P#eco?}"
+      printf '%s\n' "$SWITCHED" > "$ECONOMY_TIER_FILE"
+      echo "[Supercharger] economy-reinforce: tier switched to ${SWITCHED}" >&2
+      ;;
+  esac
+fi
+
 # Resolve current tier
 TIER=""
-ECONOMY_TIER_FILE="$SCOPE_DIR/.economy-tier"
 if [ -f "$ECONOMY_TIER_FILE" ]; then
   TIER=$(cat "$ECONOMY_TIER_FILE" 2>/dev/null | tr -d '[:space:]' | tr '[:upper:]' '[:lower:]')
 fi
@@ -41,8 +70,12 @@ if [ -z "$TIER" ]; then
 fi
 [ -z "$TIER" ] && TIER="lean"
 
-# Standard tier is verbose by default — no reinforcement needed
-[ "$TIER" = "standard" ] && exit 0
+# Standard tier is verbose by default — no reinforcement needed. A switch INTO
+# it still confirms: silence is how the old no-op switch looked.
+if [ "$TIER" = "standard" ]; then
+  [ -n "$SWITCHED" ] && printf '{"systemMessage":"[Supercharger] Economy tier: standard.","suppressOutput":false}\n'
+  exit 0
+fi
 
 # v4.1.8: fire on EVERY prompt. This hook's header has always claimed per-turn
 # reinforcement; the gate it actually had gave it twice a session.

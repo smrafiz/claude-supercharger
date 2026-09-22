@@ -29,7 +29,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
-. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
+. "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 # Fast-path: bail with ZERO forks unless the payload could reference a critical-infra
 # file. Broad-substring superset of lib-critical-infra's matcher — false positives
 # fall through to the precise is_critical_infra_path check below (e.g. "author.js"
@@ -81,7 +82,5 @@ echo "  $FILE_PATH" >&2
 echo "  Confirm you meant to change it. (Asked once per file per session.)" >&2
 echo "" >&2
 
-RSN=$(printf 'Editing a %s file (%s) is a documented human-review trigger — confirm this change is intended. Asked once per file per session.' "$CATEGORY" "$FILE_PATH" \
-  | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"critical-infra file edit — confirm"')
-printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"ask","permissionDecisionReason":%s}}\n' "$RSN"
+sc_decision ask "$(printf 'editing a %s file (%s) is a documented human-review trigger. Asked once per file per session.' "$CATEGORY" "$FILE_PATH")" "confirm only if this change is intended"
 exit 0
