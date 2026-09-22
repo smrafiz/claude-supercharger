@@ -76,6 +76,38 @@ else
   [ -z "$OUT" ] && pass || fail "returned non-empty with no network"
 fi
 
+# Shipped in v4.1.11 and caught on the first real update: the stamp said
+# "cfdc98bf" (git rev-parse --short picks the shortest UNAMBIGUOUS length, >= 7)
+# while the API side was hard-cut to 7, so the same commit compared unequal and
+# every check reported an update forever. Static greps missed it because each
+# side looked correct alone -- only the round-trip shows it.
+begin_test "an 8-char local stamp equals the 7-char remote of the same commit"
+FN=$(mktemp)
+sed -n '/^sc_sha7()/,/^}/p' "$U" > "$FN"
+if [ ! -s "$FN" ]; then
+  fail "sc_sha7 is not defined - nothing normalises the two spellings"
+else
+  . "$FN"
+  [ "$(sc_sha7 cfdc98bf)" = "$(sc_sha7 cfdc98b)" ] && pass \
+    || fail "same commit still compares unequal across abbreviation lengths"
+fi
+rm -f "$FN"
+
+begin_test "the stamp is a full SHA, not a variable-length abbreviation"
+if grep -q 'rev-parse HEAD' "$REPO_DIR/install.sh" \
+   && ! grep -q 'rev-parse --short HEAD' "$REPO_DIR/install.sh"; then
+  pass
+else
+  fail "install.sh still writes an abbreviation whose length can drift"
+fi
+
+begin_test "no comparison uses a raw, unnormalised SHA"
+if grep -qE '\[ "\$(INSTALLED_SHA|OLD_COMMIT)" (!=|==) "\$(UPSTREAM_SHA|NEW_COMMIT)" \]' "$U"; then
+  fail "a raw SHA comparison remains - it will break on an abbreviation change"
+else
+  pass
+fi
+
 begin_test "both scripts still parse"
 bash -n "$U" 2>/dev/null && bash -n "$REPO_DIR/install.sh" 2>/dev/null && pass || fail "syntax error"
 

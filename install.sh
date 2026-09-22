@@ -561,7 +561,9 @@ echo "$VERSION" > "$HOME/.claude/supercharger/.version"
 # source commit so a machine can state exactly what it is running, and so the
 # updater can tell "same release, newer code" from "nothing to do". Absent when
 # installing from a tarball (no git) — every reader treats that as unknown.
-_sc_src_commit=$(git -C "$SCRIPT_DIR" rev-parse --short HEAD 2>/dev/null || true)
+# Full SHA, not --short: the abbreviation length varies with the repo, so a
+# stamp written as 8 chars never matched a 7-char remote. Readers truncate.
+_sc_src_commit=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null || true)
 if [ -n "$_sc_src_commit" ]; then
   printf '%s\n' "$_sc_src_commit" > "$HOME/.claude/supercharger/.commit"
 else
