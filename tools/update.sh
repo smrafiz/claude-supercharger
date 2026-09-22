@@ -21,6 +21,7 @@ export PYTHONIOENCODING PYTHONUTF8
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(dirname "$SCRIPT_DIR")"
 INSTALLED_VERSION_FILE="$HOME/.claude/supercharger/.version"
+INSTALLED_COMMIT_FILE="$HOME/.claude/supercharger/.commit"
 REPO_URL="https://github.com/smrafiz/claude-supercharger"
 RULES_DIR="$HOME/.claude/rules"
 ALL_ROLES=("developer" "writer" "student" "data" "pm" "designer" "devops" "researcher")
@@ -118,6 +119,24 @@ except Exception:
 " 2>/dev/null
 }
 
+# The VERSION string does NOT identify the installed code. This updater installs
+# master HEAD, and master carries every commit merged since the last release bumped
+# VERSION in lib/utils.sh. So two machines can both report v4.1.10 and be several
+# commits apart, depending only on WHEN each of them last updated. The commit stamp
+# closes that gap: version says which release you are on, commit says which code.
+local_commit() {
+  [ -f "$INSTALLED_COMMIT_FILE" ] && cat "$INSTALLED_COMMIT_FILE" || echo ""
+}
+
+# Short SHA of master HEAD upstream. Empty on any failure — callers must fall back
+# to the version-only comparison rather than guess, so a network problem can never
+# invent an update or hide one.
+fetch_remote_commit() {
+  curl -fsSL --max-time 6 -H 'Accept: application/vnd.github+json' \
+      "https://api.github.com/repos/smrafiz/claude-supercharger/commits/master" 2>/dev/null \
+    | grep -m1 '"sha"' | cut -d'"' -f4 | cut -c1-7
+}
+
 # Read local installed version
 local_version() {
   if [ -f "$INSTALLED_VERSION_FILE" ]; then
@@ -181,7 +200,24 @@ if [[ "${1:-}" == "--check" ]]; then
     # lags after a release). Neither is an update; saying so kept users chasing a
     # notice that pointed backwards.
     if [ "$LOCAL" = "$REMOTE" ]; then
-      echo -e "${GREEN}up to date (v${LOCAL})${NC}"
+      # Same release number is not the same code: master moves between releases.
+      # Only claim "up to date" once the commits agree too. If either SHA is
+      # unknown (no stamp from an older install, or GitHub unreachable) fall back
+      # to the version-only answer rather than inventing an update.
+      INSTALLED_SHA=$(local_commit)
+      UPSTREAM_SHA=$(fetch_remote_commit)
+      if [ -n "$INSTALLED_SHA" ] && [ -n "$UPSTREAM_SHA" ] && [ "$INSTALLED_SHA" != "$UPSTREAM_SHA" ]; then
+        echo -e "${YELLOW}update available: v${LOCAL} (${INSTALLED_SHA} → ${UPSTREAM_SHA})${NC}"
+        echo ""
+        echo -e "  Same release, newer code — master has moved since v${LOCAL} was tagged."
+        echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh --yes${NC}"
+        exit 0
+      fi
+      if [ -n "$INSTALLED_SHA" ]; then
+        echo -e "${GREEN}up to date (v${LOCAL}, ${INSTALLED_SHA})${NC}"
+      else
+        echo -e "${GREEN}up to date (v${LOCAL})${NC}"
+      fi
     else
       echo -e "${GREEN}up to date (v${LOCAL}; published: v${REMOTE})${NC}"
     fi
@@ -400,9 +436,18 @@ fi
 source "$REPO_DIR/lib/utils.sh"
 NEW_VERSION="$VERSION"
 
-if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
+NEW_COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+OLD_COMMIT=$(local_commit)
+
+# Was: version-only. The pull above may have brought commits that do not bump
+# VERSION (anything merged after the last release), and exiting here left the
+# CLONE updated while the INSTALL stayed behind — the same root cause as a
+# promote not reinstalling locally. An install with no commit stamp predates
+# this check, so its code is of unknown age: reinstall rather than assume.
+if [[ "$OLD_VERSION" == "$NEW_VERSION" ]] \
+   && [ -n "$OLD_COMMIT" ] && [ "$OLD_COMMIT" == "$NEW_COMMIT" ]; then
   echo ""
-  echo -e "  ${GREEN}Already up to date (v${OLD_VERSION}).${NC}"
+  echo -e "  ${GREEN}Already up to date (v${OLD_VERSION}, ${OLD_COMMIT}).${NC}"
   exit 0
 fi
 
@@ -439,6 +484,13 @@ bash "$REPO_DIR/install.sh" \
   --settings merge
 
 echo ""
-echo -e "${GREEN}  ✓ Updated v${OLD_VERSION} → v${NEW_VERSION}${NC}"
+# "Updated v4.1.10 → v4.1.10" reads like a no-op, so when only the commit moved
+# say that instead. Either way the SHA is printed: it is the part that actually
+# identifies what is now on disk.
+if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
+  echo -e "${GREEN}  ✓ Updated v${NEW_VERSION} (${OLD_COMMIT:-unknown} → ${NEW_COMMIT:-unknown})${NC}"
+else
+  echo -e "${GREEN}  ✓ Updated v${OLD_VERSION} → v${NEW_VERSION}${NEW_COMMIT:+ (${NEW_COMMIT})}${NC}"
+fi
 echo -e "  Type ${BOLD}/supercharger${NC} in any chat to see what's available."
 echo ""
