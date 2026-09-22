@@ -1,42 +1,45 @@
 # Handoff — claude-supercharger
 
 The project's carry file: **one per project, tracked in git, read first by a fresh
-session on any machine.** `### Current State` is replaced wholly by each `/handoff`;
-`### Log` keeps the last five sessions, each linking a fuller per-session brief.
+session on any machine.** `### Current State
+*Verified 2026-09-22, session `75a954fe`.*
 
-Per-machine facts are labelled as such. The file is shared; the machine is not.
-Verify before repeating a claim from here — see `hooks/lib-handoff.sh` for how
-readers select this file, and why mtime is not used.
-
----
-
-## Current State
-*Verified 2026-09-21, session `75a954fe`.*
-
-- **master `41e59d0`**, clean. **Released: v4.1.10** — nothing unreleased.
-- **Open PRs**: **#31** config-scan false positive (CI running), **#22**
-  economy.md owns output length (held by choice, not by CI).
-- **v4.1.10**: every decision emits through `hooks/lib-deny.sh` with attribution
-  and a remedy — 39 of 40 sites, `lib-stdin.sh` the one exemption. What an agent
-  receives from a block is `permissionDecisionReason` and nothing else; stderr
-  reaches the human only. Six fail-open shapes closed on the way.
-- **v4.1.9**: install-scanner bypass (security), `eco <tier>` made real.
-- **Machine A (this box): on v4.1.9, NOT v4.1.10** — `lib-deny.sh` is absent from
-  `~/.claude/supercharger/hooks/`. Needs `/sc-update`. A promote does NOT
-  reinstall; that was checked for both releases.
+- **master `d82de7d`**, clean, **0 open PRs**. **4 commits past the `v4.1.10` tag**
+  — including two real fixes (#31, #33). A release would collapse that gap.
+- **Last released: v4.1.10.** #22, #31, #32, #33 all merged since.
+- **The economy question is MEASURED and closed** (#22, `21d7922`). Same session,
+  split at the exact `/output-style concise` timestamp, minimal tier active and
+  reinforced on both sides: median **278 → ~148 chars, a 45–48% cut**, stable
+  across ±60/90/120-minute windows. The whole-session figure of 55% is task-mix
+  inflated — use the tight windows.
+- **A style cannot REPLACE `economy.md`.** Output styles do not reach subagents;
+  `CLAUDE.md` does. Porting the tiers to a style would be a subagent coverage
+  regression. Correct shape is both. Supersedes the "port the tiers and drop the
+  layer" plan recorded here on 2026-09-21.
+- **Tier usage across every local transcript: 0 STANDARD, 19 LEAN, 255 MINIMAL.**
+  Three tiers, one exercised.
+- **#33 fixed version identity**: the updater installs master HEAD while `VERSION`
+  only moves at release, so two machines could both report `v4.1.10` and run
+  different code. Installs now carry a `.commit` stamp and `--check` compares it.
+  **Unreleased** — the fix is on master, not in anyone's install.
+- **Machine A (this box): v4.1.10 == `f350846`.** Verified on disk, not inferred
+  (`lib-deny.sh` present, config-scan FP fix present). Now 2 commits behind master.
 - **Machine B**: unknown, last known a release behind. Needs `/sc-update`.
-- awesome-claude-code **#2096 still OPEN**, no maintainer reply since 2026-09-16.
+- awesome-claude-code **#2096 still OPEN** — verified today; no maintainer reply
+  since 2026-09-16, 6 comments, all bot validation.
 
-### The economy decision, still open
-`economy.md` ships as a CLAUDE.md-layer **user message**; Claude Code's native
-**output styles** change the system prompt itself, and the built-in `Concise`
-style already is the minimal tier. `outputStyle: Concise` on since 2026-09-20.
-
-- **Baseline to beat**: median **207** chars / mean 447 over 1,597 assistant
-  messages. Compare ordinary build sessions, not research-heavy ones.
-- If Concise binds, **#22 is superseded** — port the tiers to output-style files
-  and drop the persuasion layer with its hook and 1.1k tokens/session.
-- Reasoning: `docs/ECONOMY-LAYER-2026-09-19.md`, Update — 2026-09-20.
+### Decisions parked, not blocked
+- **README line 52** claims `economy: lean` cuts ~45%. The measured 45% belongs to
+  the output **style**, measured on top of an already-active tier; the tier's own
+  contribution is unmeasured and there is no STANDARD data to measure it against.
+  Substantiate or soften — do not quietly reuse the number.
+- **Install the tag rather than master?** Would make a version identify code
+  exactly and restore meaning to "release" — right now merging to master *is*
+  shipping. Against: users stop getting fixes the moment they merge. Mitigating:
+  PRs run the full 8-check matrix, so master is gated, just untagged.
+- **Do not seize the output-style slot.** `outputStyle` is one field and
+  `force-for-plugin` overrides the user's own choice. Ship the style file, print
+  the command, let the user pick.
 
 ### Open, not started
 - **An unexplained deny.** A `sensitive file access` block fired on a commit
@@ -44,10 +47,19 @@ style already is the minimal tier. `outputStyle: Concise` on since 2026-09-20.
   if it recurs, capture the exact command before anything else.
 - **Stacked PRs**: merging a parent and deleting its branch CLOSES the child
   rather than retargeting it. Retarget first, or keep the base branch.
-
 ---
 
 ## Log
+
+#### 2026-09-22 — 75a954fe
+Closed the economy question by measurement rather than argument: `/output-style
+concise` cuts median prose 45–48% with the minimal tier already active, so the
+layer never bound because of WHERE it lives, not what it says (#22). Found that a
+style cannot replace it — styles miss subagents, `CLAUDE.md` does not. Fixed
+version identity (#33): the updater installed master HEAD under the last release's
+number, so two machines could report `v4.1.10` and run different code. Merged #31,
+#32, #22, #33; updated this machine to v4.1.10.
+Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
 #### 2026-09-21 (later) — 75a954fe
 Released **v4.1.10**: every deny and ask now reaches the agent attributed, via a
@@ -83,9 +95,3 @@ v4.1.6/.7/.8 released. Economy-layer investigation: three causes, two fixed —
 `economy-reinforce` now fires per turn (0/20 → 20/20), and the context-% statusline
 sidecar wires three previously-inert hooks. Handoff briefs first tracked in git.
 Detail: `.claude/handoff-1c65c296-96dc-4531-8bd7-02cad448bf2a.md`
-
-#### 2026-09-17 — 75a954fe
-Community research sweep → `docs/COMMUNITY-WANTS-2026-09-17.md` with plans P1–P5.
-P1 fixed two real guard false positives; P2 pinned guard independence from the
-harness permission layer; P3/P4 answered by measurement. Three PRs merged.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
