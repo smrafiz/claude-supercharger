@@ -38,6 +38,10 @@ case "$_INPUT" in
   # guard, which is exactly how tool-preferences shipped dead in v2.29.23.
   *terraform*|*tofu*|*terragrunt*) : ;;
   *rsync*) : ;;
+  # v4.1.13: hosted-database CLIs, widened WITH their arm below. `*fly*` because
+  # the destroy arm always matched plain `fly`, but only `*flyctl*` got through
+  # this gate — `fly postgres destroy` was unreachable.
+  *fly*|*heroku*|*turso*|*pscale*|*neonctl*|*firebase*) : ;;
   *xargs*) : ;;
   *parallel*) : ;;
   *) exit 0 ;;
@@ -65,6 +69,8 @@ elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])az[[:space:]]+(group|vm
 elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*delete[^;&|]*(namespace|deployment|statefulset|daemonset|pvc|persistentvolume|--all([[:space:]]|$))'; then op="kubectl delete (namespace/workload/--all)"
 elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete)[[:space:]]';                                       then op="helm uninstall/delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(doctl|flyctl|fly)[^;&|]*(delete|destroy)([[:space:]]|$)';          then op="doctl/flyctl delete/destroy"
+# v4.1.13: hosted-database CLIs — each wipes or deletes a managed database.
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(heroku[[:space:]]+pg:reset|turso[[:space:]]+db[[:space:]]+destroy|pscale[[:space:]]+(database|branch)[[:space:]]+delete|neonctl[[:space:]]+(projects?|branch(es)?|databases?)[[:space:]]+delete|firebase[[:space:]]+(firestore:delete|database:remove))([[:space:]]|$)'; then op="hosted database reset/delete"
 # v2.29.28: found by diffing this guard against hamzazulfiqar2/Devops-architect.
 # The existing arms key on "delete" and "terminate", but AWS spells destruction
 # several other ways -- and none of the IaC state verbs were covered at all.
