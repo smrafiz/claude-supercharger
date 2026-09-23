@@ -1,24 +1,21 @@
 # Handoff — claude-supercharger
 
 The project's carry file: **one per project, tracked in git, read first by a fresh
-session on any machine.** `### Current State
-*Verified 2026-09-22 (later), session `75a954fe`.*
+session on any machine.**
 
-- **v4.1.11 RELEASED** (`cfdc98b`) — and it carries a **known live regression**.
-- **`#35` open, 7/8 (Windows running): the v4.1.11 commit stamp never matches.**
-  `git rev-parse --short` returns the shortest UNAMBIGUOUS abbreviation (8 chars
-  here); the API side was cut to 7. Same commit, two spellings, so **every check
-  on v4.1.11 reports a phantom update and every `/sc-update` reinstalls.** Not
-  destructive; it discredits the notice #33 added. **Merge #35, cut v4.1.12.**
-- **Machine A (this box): v4.1.11.** Will show the phantom update until v4.1.12.
-- **Machine B**: unknown. Do not update it to v4.1.11 — wait for v4.1.12.
-- **The economy question is closed** (#22): `/output-style concise` cuts median
-  prose **45–48%** with the minimal tier already active and reinforced. Tight
-  ±60/90/120-min windows; the 55% whole-session figure is task-mix inflated.
-- **A style cannot REPLACE `economy.md`** — styles miss subagents, `CLAUDE.md`
-  reaches them. Both, not either. Supersedes the 2026-09-21 "port and drop" plan.
-- Merged this session: #31, #32, #22, #33, #34. Tier usage all-time: 0 STANDARD,
-  19 LEAN, 255 MINIMAL.
+### Current State
+*Verified 2026-09-23, session `3d213381`.*
+
+- **v4.1.13 RELEASED** (`8bafe2c`, 8/8 CI incl. Windows). `master == v4.1.13`,
+  **0 open PRs**. v4.1.12 (`3d6b7ea`, phantom-update fix) also released today.
+- v4.1.13 = two guard gaps (#36 interpreter writes to guardrail config; #37 36/49
+  destructive DB CLIs allowed) + `/multi-review`, `/security`, `/audit` rebuilt
+  (#38–#40). Commit messages hold the research sources.
+- **Machine A (this box): INSTALLED v4.1.11** — two releases behind. `/sc-update`.
+- **Machine B**: unknown. Update straight to v4.1.13.
+- The three rebuilt commands are prompts, verified only structurally. Their real
+  test is a run on a real project — not done yet.
+- Economy question stays closed (#22): output style + `economy.md`, both not either.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -51,6 +48,14 @@ session on any machine.** `### Current State
 
 ## Log
 
+#### 2026-09-23 — 3d213381
+Released **v4.1.12** and **v4.1.13**. Upstream-tracker sweep found a selfmod gap
+(#36); a DB-CLI coverage audit found 36/49 destructive commands allowed (#37). Both
+fixes were checked by replaying real transcript commands OLD vs NEW hook — which
+caught a first #36 fix that would have shipped 34 false positives. Rebuilt
+`/multi-review`, `/security`, `/audit` from web+GitHub research (#38–#40).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-09-22 (later) — 75a954fe
 Released **v4.1.11** and shipped a regression in it: the commit stamp added by
 #33 compares an 8-char local abbreviation against a 7-char remote, so every check
@@ -82,19 +87,4 @@ Released **v4.1.9** (`cf6d6d8`): the install-scanner bypass, the tier-switch fix
 two doc corrections. Machine A updated and verified by behaviour. The release did NOT
 reinstall the machine by itself — an assumption carried from a 2026-09-19 note, now
 known to be unreliable; check the installed copy rather than trusting a promote.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
-
-#### 2026-09-20 — 75a954fe
-Carry file introduced (#21), project-scoped only: this file, the root `CLAUDE.md`
-rules for maintaining it, and `!.claude/handoff.md` un-ignored — the existing
-`handoff-*.md` negation never matched it, so the one file meant to travel between
-machines was the only one that could not. An earlier attempt also changed
-`hooks/lib-handoff.sh` and the `/handoff` spec; that was **reverted** as out of
-scope, so reader precedence is unchanged and `/handoff` still writes per-session
-briefs exactly as before.
-
-Also this session: `eco <tier>` made to actually switch and the tier given one
-owner (#23); install-scanner bypass found and fixed (#24, security); economy-layer
-doc corrected with the output-styles finding (#25); `outputStyle: Concise` switched
-on to measure whether the native mechanism binds where `economy.md` does not.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
