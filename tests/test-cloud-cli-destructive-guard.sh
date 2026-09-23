@@ -35,6 +35,23 @@ check "gcloud-projects-delete" "gcloud projects delete my-proj"                 
 check "flyctl-destroy"        "flyctl destroy myapp"                                  ASK
 
 # --- should PASS (read / list / describe / unrelated) ---
+# v4.1.13: hosted-database CLIs. `fly` was already in the destroy arm but NOT in
+# the fast-path gate (only `flyctl` was), so `fly postgres destroy` never reached it.
+check "fly-postgres-destroy"  "fly postgres destroy mydb"                             ASK
+check "heroku-pg-reset"       "heroku pg:reset DATABASE_URL --confirm app"            ASK
+check "turso-db-destroy"      "turso db destroy mydb"                                 ASK
+check "pscale-db-delete"      "pscale database delete mydb"                           ASK
+check "pscale-branch-delete"  "pscale branch delete mydb dev"                         ASK
+check "neonctl-project-delete" "neonctl projects delete abc"                          ASK
+check "neonctl-branch-delete" "neonctl branches delete dev"                           ASK
+check "firebase-firestore-del" "firebase firestore:delete --all-collections"          ASK
+check "firebase-rtdb-remove"  "firebase database:remove /"                            ASK
+check "fly-status"            "fly status"                                            SILENT
+check "heroku-pg-info"        "heroku pg:info"                                        SILENT
+check "turso-db-list"         "turso db list"                                         SILENT
+check "neonctl-branch-list"   "neonctl branches list"                                 SILENT
+check "firebase-deploy"       "firebase deploy --only functions"                      SILENT
+
 check "aws-s3-ls"             "aws s3 ls s3://b/"                                      SILENT
 check "aws-ec2-describe"      "aws ec2 describe-instances"                            SILENT
 check "kubectl-get"           "kubectl get pods"                                      SILENT

@@ -107,6 +107,70 @@ begin_test "safety: supabase db reset --linked is blocked (v2.29.19)"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"supabase db reset --linked"},"cwd":"/tmp"}' && pass || fail "supabase db reset --linked not blocked"
 begin_test "safety: read-only supabase db subcommands still allowed (v2.29.19)"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"supabase db diff"},"cwd":"/tmp"}' && pass || fail "supabase db diff wrongly blocked"
+# v4.1.13: DB-CLI coverage audit. 36 of 49 destructive ORM / migration-tool
+# commands passed the whole Bash chain — DB_PATTERNS covered 6 ORMs and missed
+# the rest, and its `sequelize db:drop` arm never matched the real binary name
+# `sequelize-cli`. Same tier as `prisma migrate reset`: deny.
+_db_cmd_json(){ python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}))' "$1"; }
+while IFS= read -r _c; do
+  begin_test "safety: DB destructive blocked (v4.1.13): $_c"
+  _blk "$SAFETY_HOOK" "$(_db_cmd_json "$_c")" && pass || fail "not blocked: $_c"
+done <<'DBEOF'
+prisma db push --accept-data-loss
+drizzle-kit drop
+rails db:drop
+bin/rails db:reset
+rails db:schema:load
+bin/rails db:drop DISABLE_DATABASE_ENVIRONMENT_CHECK=1
+rake db:drop
+php artisan migrate:fresh --seed --force
+php artisan migrate:reset
+php artisan migrate:refresh
+php artisan db:wipe
+python manage.py flush --noinput
+python manage.py reset_db
+django-admin flush
+npx sequelize-cli db:drop
+npx sequelize-cli db:migrate:undo:all
+alembic downgrade base
+flyway clean
+liquibase dropAll
+liquibase drop-all
+dropdb mydb
+mongosh --eval "db.dropDatabase()"
+redis-cli FLUSHALL
+redis-cli -n 2 flushdb
+wp db reset --yes
+wp db drop --yes
+mix ecto.drop
+mix ecto.reset
+dotnet ef database drop --force
+diesel database reset
+sqlx database drop -y
+goose postgres "$DB" reset
+migrate -path db -database "$DB" drop -f
+atlas schema clean -u "$DB"
+DBEOF
+while IFS= read -r _c; do
+  begin_test "safety: DB routine allowed (v4.1.13): $_c"
+  _ok "$SAFETY_HOOK" "$(_db_cmd_json "$_c")" && pass || fail "wrongly blocked: $_c"
+done <<'DBEOF'
+prisma migrate dev
+prisma db push
+rails db:migrate
+rails db:rollback
+php artisan migrate
+python manage.py migrate
+python manage.py sqlflush
+alembic downgrade -1
+flyway migrate
+redis-cli GET key
+wp db export backup.sql
+mix ecto.migrate
+dotnet ef database update
+goose postgres "$DB" up
+migrate -path db -database "$DB" up
+DBEOF
 begin_test "safety: shutdown is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"shutdown -h now"},"cwd":"/tmp"}' && pass || fail "shutdown not blocked"
 begin_test "safety: sudo reboot is blocked"

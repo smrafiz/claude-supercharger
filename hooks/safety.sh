@@ -451,7 +451,8 @@ DB_PATTERNS=(
   'prisma[[:space:]]+db[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force-reset([[:space:]]|$)'
   'prisma[[:space:]]+migrate[[:space:]]+reset'
   'typeorm[[:space:]]+schema:drop'
-  'sequelize[[:space:]]+db:drop'
+  # v4.1.13: the real binary is `sequelize-cli`; the bare-name arm never matched it.
+  'sequelize(-cli)?[[:space:]]+db:(drop|migrate:undo:all)([[:space:]]|$)'
   'knex[[:space:]]+migrate:rollback[[:space:]]+([^&|;]*[[:space:]])?--all([[:space:]]|$)'
   # v2.29.19: `supabase db reset` drops and recreates the local database from
   # migrations — same class as `prisma migrate reset` above, which was already
@@ -460,6 +461,30 @@ DB_PATTERNS=(
   # read-only) never match. From the Clear-Capabilities/agentic-security
   # destructive-pattern overlap audit.
   'supabase[[:space:]]+db[[:space:]]+reset([[:space:]]|$)'
+  # v4.1.13: DB-CLI coverage audit — 36 of 49 destructive ORM / migration-tool
+  # commands passed the whole Bash chain. Each arm is anchored on the tool AND its
+  # destructive subcommand, so the routine siblings (`db:migrate`, `migrate`,
+  # `downgrade -1`, `flyway migrate`, `goose up`) never match.
+  'prisma[[:space:]]+db[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--accept-data-loss([[:space:]]|$)'
+  'drizzle-kit[[:space:]]+drop([[:space:]]|$)'
+  '(rails|rake)[[:space:]]+([^&|;]*[[:space:]])?db:(drop|reset|purge|truncate_all|schema:load|structure:load|seed:replant)([[:space:]]|$)'
+  'artisan[[:space:]]+(migrate:(fresh|reset|refresh)|db:wipe)([[:space:]]|$)'
+  '(manage\.py|django-admin)[[:space:]]+(flush|reset_db)([[:space:]]|$)'
+  'alembic[[:space:]]+([^&|;]*[[:space:]])?downgrade[[:space:]]+base([[:space:]]|$)'
+  'flyway[[:space:]]+([^&|;]*[[:space:]])?clean([[:space:]]|$)'
+  'liquibase[[:space:]]+([^&|;]*[[:space:]])?drop-?all([[:space:]]|$)'
+  '(^|[[:space:];&|(])dropdb[[:space:]]'
+  'dropDatabase[[:space:]]*\('
+  'redis-cli[[:space:]]+([^&|;]*[[:space:]])?flush(all|db)([[:space:]]|$)'
+  '(^|[[:space:];&|(])wp[[:space:]]+db[[:space:]]+(reset|drop|clean)([[:space:]]|$)'
+  'mix[[:space:]]+ecto\.(drop|reset)([[:space:]]|$)'
+  'dotnet[[:space:]]+ef[[:space:]]+database[[:space:]]+drop([[:space:]]|$)'
+  '(diesel|sqlx)[[:space:]]+database[[:space:]]+(drop|reset)([[:space:]]|$)'
+  'goose[[:space:]]+([^&|;]*[[:space:]])?reset([[:space:]]|$)'
+  # golang-migrate: the binary is just `migrate`, so require its -path/-database
+  # flag before the verb — a bare "migrate … drop" is too common a phrase.
+  '(^|[[:space:];&|(/])migrate[[:space:]]+[^&|;]*-(path|database|source)[[:space:]=][^&|;]*[[:space:]]drop([[:space:]]|$)'
+  'atlas[[:space:]]+schema[[:space:]]+clean([[:space:]]|$)'
   # v2.10.5: TRUNCATE (always destructive; Postgres allows the TABLE keyword to be
   # omitted). The leading letter/quote after the space avoids colliding with the
   # unix `truncate -s 0` command (already caught by DESTRUCT_PATTERNS), whose next
