@@ -175,6 +175,38 @@ begin_test "safety: shutdown is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"shutdown -h now"},"cwd":"/tmp"}' && pass || fail "shutdown not blocked"
 begin_test "safety: sudo reboot is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"sudo reboot"},"cwd":"/tmp"}' && pass || fail "sudo reboot not blocked"
+# v4.1.14: upstream anthropics/claude-code#96300 ("dangerous-rm check does not look
+# inside sh -c"). Ours did not either — `sh -c` was denied only by a blunt wrapper
+# rule, so every spelling that rule missed ran `rm -rf /` through the whole chain:
+# an absolute verb path, combined flags (`-lc`), busybox, and `timeout 5 sh -c`
+# (whose duration parser ate `sh` — s and h are duration suffixes). Measured
+# before the fix: all ALLOWED, including a bare `/bin/rm -rf /`.
+_shc_json(){ python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}))' "$1"; }
+while IFS= read -r _c; do
+  begin_test "safety: wrapped rm blocked (v4.1.14): $_c"
+  _blk "$SAFETY_HOOK" "$(_shc_json "$_c")" && pass || fail "not blocked: $_c"
+done <<'SHCEOF'
+/bin/rm -rf /
+/usr/bin/rm -rf ~
+busybox rm -rf /
+bash -lc 'rm -rf /'
+bash -l -c 'rm -rf /'
+/bin/sh -c 'rm -rf /'
+/usr/bin/env bash -c 'rm -rf /'
+timeout 5 sh -c 'rm -rf /'
+busybox sh -c 'rm -rf ~'
+cd /tmp && bash -ec "rm -rf $HOME"
+SHCEOF
+while IFS= read -r _c; do
+  begin_test "safety: routine absolute-path command allowed (v4.1.14): $_c"
+  _ok "$SAFETY_HOOK" "$(_shc_json "$_c")" && pass || fail "wrongly blocked: $_c"
+done <<'SHCEOF'
+/bin/ls -la /tmp
+/usr/bin/git status
+/usr/local/bin/node --version
+timeout 30 npm test
+/bin/rm -f /tmp/build.log
+SHCEOF
 begin_test "safety: poweroff via && is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"echo bye && poweroff"},"cwd":"/tmp"}' && pass || fail "chained poweroff not blocked"
 begin_test "safety: commit message mentioning reboot is NOT falsely blocked"
