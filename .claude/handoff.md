@@ -2,54 +2,63 @@
 
 The project's carry file: **one per project, tracked in git, read first by a fresh
 session on any machine.** `### Current State
-*Verified 2026-09-22, session `75a954fe`.*
+*Verified 2026-09-22 (later), session `75a954fe`.*
 
-- **master `d82de7d`**, clean, **0 open PRs**. **4 commits past the `v4.1.10` tag**
-  — including two real fixes (#31, #33). A release would collapse that gap.
-- **Last released: v4.1.10.** #22, #31, #32, #33 all merged since.
-- **The economy question is MEASURED and closed** (#22, `21d7922`). Same session,
-  split at the exact `/output-style concise` timestamp, minimal tier active and
-  reinforced on both sides: median **278 → ~148 chars, a 45–48% cut**, stable
-  across ±60/90/120-minute windows. The whole-session figure of 55% is task-mix
-  inflated — use the tight windows.
-- **A style cannot REPLACE `economy.md`.** Output styles do not reach subagents;
-  `CLAUDE.md` does. Porting the tiers to a style would be a subagent coverage
-  regression. Correct shape is both. Supersedes the "port the tiers and drop the
-  layer" plan recorded here on 2026-09-21.
-- **Tier usage across every local transcript: 0 STANDARD, 19 LEAN, 255 MINIMAL.**
-  Three tiers, one exercised.
-- **#33 fixed version identity**: the updater installs master HEAD while `VERSION`
-  only moves at release, so two machines could both report `v4.1.10` and run
-  different code. Installs now carry a `.commit` stamp and `--check` compares it.
-  **Unreleased** — the fix is on master, not in anyone's install.
-- **Machine A (this box): v4.1.10 == `f350846`.** Verified on disk, not inferred
-  (`lib-deny.sh` present, config-scan FP fix present). Now 2 commits behind master.
-- **Machine B**: unknown, last known a release behind. Needs `/sc-update`.
-- awesome-claude-code **#2096 still OPEN** — verified today; no maintainer reply
-  since 2026-09-16, 6 comments, all bot validation.
+- **v4.1.11 RELEASED** (`cfdc98b`) — and it carries a **known live regression**.
+- **`#35` open, 7/8 (Windows running): the v4.1.11 commit stamp never matches.**
+  `git rev-parse --short` returns the shortest UNAMBIGUOUS abbreviation (8 chars
+  here); the API side was cut to 7. Same commit, two spellings, so **every check
+  on v4.1.11 reports a phantom update and every `/sc-update` reinstalls.** Not
+  destructive; it discredits the notice #33 added. **Merge #35, cut v4.1.12.**
+- **Machine A (this box): v4.1.11.** Will show the phantom update until v4.1.12.
+- **Machine B**: unknown. Do not update it to v4.1.11 — wait for v4.1.12.
+- **The economy question is closed** (#22): `/output-style concise` cuts median
+  prose **45–48%** with the minimal tier already active and reinforced. Tight
+  ±60/90/120-min windows; the 55% whole-session figure is task-mix inflated.
+- **A style cannot REPLACE `economy.md`** — styles miss subagents, `CLAUDE.md`
+  reaches them. Both, not either. Supersedes the 2026-09-21 "port and drop" plan.
+- Merged this session: #31, #32, #22, #33, #34. Tier usage all-time: 0 STANDARD,
+  19 LEAN, 255 MINIMAL.
+
+### Per-machine / per-account facts
+- **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
+  Sept usage: Windows 10,678 min, macOS 1,977, Linux 3,652, **all netting $0.00**.
+  Windows is trending hard: Jul 166 → Aug 7,744 → Sep 10,678.
+- **`smrafiz/radius-apps` Actions were DISABLED 2026-09-22** over a quota email —
+  but it does **not appear in the billing usage at all**. Re-enable when
+  convenient; with Actions off, its PRs merge with no CI. Billing cycle is
+  calendar-month, resets **2026-10-01**.
+- `radiustheme/radius-bundles` is an ORG repo, billed separately, already tuned.
 
 ### Decisions parked, not blocked
-- **README line 52** claims `economy: lean` cuts ~45%. The measured 45% belongs to
-  the output **style**, measured on top of an already-active tier; the tier's own
-  contribution is unmeasured and there is no STANDARD data to measure it against.
-  Substantiate or soften — do not quietly reuse the number.
-- **Install the tag rather than master?** Would make a version identify code
-  exactly and restore meaning to "release" — right now merging to master *is*
-  shipping. Against: users stop getting fixes the moment they merge. Mitigating:
-  PRs run the full 8-check matrix, so master is gated, just untagged.
-- **Do not seize the output-style slot.** `outputStyle` is one field and
-  `force-for-plugin` overrides the user's own choice. Ship the style file, print
-  the command, let the user pick.
+- **README line 52** (`economy: lean` cuts ~45%) may credit the tier for the
+  style's effect. The tier's own contribution is unmeasured; 0 STANDARD turns
+  exist to measure it against. Substantiate or soften — do not reuse the number.
+- **Install the tag rather than master?** Merging to master currently IS
+  shipping. Against: users lose immediate fixes. Mitigating: PRs run all 8 jobs.
+- **Gate the Windows job to `master` and `rel/*`?** Would remove most of 10,678
+  monthly minutes, but Windows caught the CRLF defect — the release gate keeps it.
+- **Never seize the output-style slot.** One global field; `force-for-plugin`
+  overrides the user's own choice.
 
 ### Open, not started
+- **What is actually at 90%?** Every billing line nets $0.00 yet the email fired.
+  The included-minutes counter is not exposed by the API — read the Billing page.
 - **An unexplained deny.** A `sensitive file access` block fired on a commit
-  command and did not reproduce in five reconstructions. Not a known defect —
-  if it recurs, capture the exact command before anything else.
-- **Stacked PRs**: merging a parent and deleting its branch CLOSES the child
-  rather than retargeting it. Retarget first, or keep the base branch.
+  command, unreproduced in five attempts. If it recurs, capture the command first.
+- **Stacked PRs**: merging a parent and deleting its branch CLOSES the child.
 ---
 
 ## Log
+
+#### 2026-09-22 (later) — 75a954fe
+Released **v4.1.11** and shipped a regression in it: the commit stamp added by
+#33 compares an 8-char local abbreviation against a 7-char remote, so every check
+reports a phantom update. #35 fixes it and wants **v4.1.12 promptly**. Ten static
+grep assertions passed while it was broken — only a round-trip test could fail.
+Also closed the economy question by measurement (45–48%) and found that an output
+style cannot replace `economy.md` because styles miss subagents.
+Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
 #### 2026-09-22 — 75a954fe
 Closed the economy question by measurement rather than argument: `/output-style
@@ -89,9 +98,3 @@ owner (#23); install-scanner bypass found and fixed (#24, security); economy-lay
 doc corrected with the output-styles finding (#25); `outputStyle: Concise` switched
 on to measure whether the native mechanism binds where `economy.md` does not.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
-
-#### 2026-09-19 — 1c65c296
-v4.1.6/.7/.8 released. Economy-layer investigation: three causes, two fixed —
-`economy-reinforce` now fires per turn (0/20 → 20/20), and the context-% statusline
-sidecar wires three previously-inert hooks. Handoff briefs first tracked in git.
-Detail: `.claude/handoff-1c65c296-96dc-4531-8bd7-02cad448bf2a.md`

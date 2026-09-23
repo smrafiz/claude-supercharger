@@ -134,8 +134,14 @@ local_commit() {
 fetch_remote_commit() {
   curl -fsSL --max-time 6 -H 'Accept: application/vnd.github+json' \
       "https://api.github.com/repos/smrafiz/claude-supercharger/commits/master" 2>/dev/null \
-    | grep -m1 '"sha"' | cut -d'"' -f4 | cut -c1-7
+    | grep -m1 '"sha"' | cut -d'"' -f4
 }
+
+# `git rev-parse --short` returns the shortest UNAMBIGUOUS abbreviation, which is
+# >= 7 and grows with the repo: it produced 8 chars for cfdc98bf while the API
+# side was hard-cut to 7. Same commit, two spellings, so every check reported an
+# update forever. Compare a fixed-width prefix of both, never the raw strings.
+sc_sha7() { printf '%.7s' "${1:-}"; }
 
 # Read local installed version
 local_version() {
@@ -206,15 +212,16 @@ if [[ "${1:-}" == "--check" ]]; then
       # to the version-only answer rather than inventing an update.
       INSTALLED_SHA=$(local_commit)
       UPSTREAM_SHA=$(fetch_remote_commit)
-      if [ -n "$INSTALLED_SHA" ] && [ -n "$UPSTREAM_SHA" ] && [ "$INSTALLED_SHA" != "$UPSTREAM_SHA" ]; then
-        echo -e "${YELLOW}update available: v${LOCAL} (${INSTALLED_SHA} → ${UPSTREAM_SHA})${NC}"
+      if [ -n "$INSTALLED_SHA" ] && [ -n "$UPSTREAM_SHA" ] \
+         && [ "$(sc_sha7 "$INSTALLED_SHA")" != "$(sc_sha7 "$UPSTREAM_SHA")" ]; then
+        echo -e "${YELLOW}update available: v${LOCAL} ($(sc_sha7 "$INSTALLED_SHA") → $(sc_sha7 "$UPSTREAM_SHA"))${NC}"
         echo ""
         echo -e "  Same release, newer code — master has moved since v${LOCAL} was tagged."
         echo -e "  Run: ${BOLD}bash ~/.claude/supercharger/tools/update.sh --yes${NC}"
         exit 0
       fi
       if [ -n "$INSTALLED_SHA" ]; then
-        echo -e "${GREEN}up to date (v${LOCAL}, ${INSTALLED_SHA})${NC}"
+        echo -e "${GREEN}up to date (v${LOCAL}, $(sc_sha7 "$INSTALLED_SHA"))${NC}"
       else
         echo -e "${GREEN}up to date (v${LOCAL})${NC}"
       fi
@@ -436,7 +443,7 @@ fi
 source "$REPO_DIR/lib/utils.sh"
 NEW_VERSION="$VERSION"
 
-NEW_COMMIT=$(git -C "$REPO_DIR" rev-parse --short HEAD 2>/dev/null || echo "")
+NEW_COMMIT=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null || echo "")
 OLD_COMMIT=$(local_commit)
 
 # Was: version-only. The pull above may have brought commits that do not bump
@@ -445,9 +452,9 @@ OLD_COMMIT=$(local_commit)
 # promote not reinstalling locally. An install with no commit stamp predates
 # this check, so its code is of unknown age: reinstall rather than assume.
 if [[ "$OLD_VERSION" == "$NEW_VERSION" ]] \
-   && [ -n "$OLD_COMMIT" ] && [ "$OLD_COMMIT" == "$NEW_COMMIT" ]; then
+   && [ -n "$OLD_COMMIT" ] && [ "$(sc_sha7 "$OLD_COMMIT")" == "$(sc_sha7 "$NEW_COMMIT")" ]; then
   echo ""
-  echo -e "  ${GREEN}Already up to date (v${OLD_VERSION}, ${OLD_COMMIT}).${NC}"
+  echo -e "  ${GREEN}Already up to date (v${OLD_VERSION}, $(sc_sha7 "$OLD_COMMIT")).${NC}"
   exit 0
 fi
 
@@ -488,9 +495,9 @@ echo ""
 # say that instead. Either way the SHA is printed: it is the part that actually
 # identifies what is now on disk.
 if [[ "$OLD_VERSION" == "$NEW_VERSION" ]]; then
-  echo -e "${GREEN}  ✓ Updated v${NEW_VERSION} (${OLD_COMMIT:-unknown} → ${NEW_COMMIT:-unknown})${NC}"
+  echo -e "${GREEN}  ✓ Updated v${NEW_VERSION} ($(sc_sha7 "${OLD_COMMIT:-unknown}") → $(sc_sha7 "${NEW_COMMIT:-unknown}"))${NC}"
 else
-  echo -e "${GREEN}  ✓ Updated v${OLD_VERSION} → v${NEW_VERSION}${NEW_COMMIT:+ (${NEW_COMMIT})}${NC}"
+  echo -e "${GREEN}  ✓ Updated v${OLD_VERSION} → v${NEW_VERSION}${NEW_COMMIT:+ ($(sc_sha7 "$NEW_COMMIT"))}${NC}"
 fi
 echo -e "  Type ${BOLD}/supercharger${NC} in any chat to see what's available."
 echo ""
