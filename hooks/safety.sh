@@ -1152,10 +1152,34 @@ _SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.j
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
 _SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|tee|mv|cp|rm|truncate|install|ln|rsync|dd[[:space:]]+of=)[^;&|]*$_SELFMOD_CFG"
-# (c) interpreter opening a config file in write/append mode
-_SELFMOD_PY="(python|perl|ruby)[^;&|]*open[^;&|]*${_SELFMOD_CFG}[^;&|]*,[[:space:]]*['\"][wa]"
+# (c) in-place editor other than sed — the arm _PROF_INPLACE already had.
+_SELFMOD_INPLACE="(^|[[:space:];&|])(perl|ruby)([[:space:]]+-[^[:space:]|;&]+)*[[:space:]][^|;&]*$_SELFMOD_CFG"
+# (d) interpreter code whose WRITE CALL targets a config file. v4.1.13: the old
+# arm bounded the match with [^;&|]*, but `;` separates statements INSIDE
+# `python -c`, so `p='cfg';open(p,'w')` never matched, and node was not covered.
+# The config name must sit in the write call's own arguments (or in a variable
+# that call uses): a script that merely MENTIONS settings.json while patching
+# another file stayed allowed — replaying 250 real commands, "mentions + writes
+# anything" denied 34 of them. Reads stay allowed: `open(` needs a w/a/x MODE.
+# ponytail: a path built by concatenation or pathlib joins (no literal config
+# name in the call) is out of reach of any string match — accepted ceiling.
+_SELFMOD_W_OPEN="open\([^)]*${_SELFMOD_CFG}[^)]*,[[:space:]]*(mode=)?['\"][wax]"
+# Qualified names only: a bare `replace(` is also str.replace in a patch script.
+_SELFMOD_W_CALL="((writeFile|appendFile|copyFile)(Sync)?|fs\.(rename|unlink|rm)(Sync)?|os\.(replace|rename|remove|unlink)|shutil\.(copy2?|copyfile|move))\([^)]*${_SELFMOD_CFG}"
+_SELFMOD_W_PATH="${_SELFMOD_CFG}['\"]?\)\.(write_text|write_bytes|unlink|rename|replace)"
+_SELFMOD_W_VAR="([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*[^;=]*${_SELFMOD_CFG}"
+_selfmod_interp_write() {
+  [[ "$CMD" =~ $_SELFMOD_W_OPEN || "$CMD" =~ $_SELFMOD_W_CALL || "$CMD" =~ $_SELFMOD_W_PATH ]] && return 0
+  [[ "$CMD" =~ $_SELFMOD_W_VAR ]] || return 1
+  local v="${BASH_REMATCH[1]}"
+  [[ "$CMD" =~ open\(${v}[[:space:]]*,[[:space:]]*(mode=)?[\'\"][wax] \
+     || "$CMD" =~ (^|[^A-Za-z0-9_])${v}\.(write_text|write_bytes) \
+     || "$CMD" =~ (writeFile|appendFile)(Sync)?\(${v}[[:space:]]*[,\)] ]]
+}
 if _cat_enabled "selfmod" \
-   && { [[ "$CMD" =~ $_SELFMOD_REDIR ]] || [[ "$CMD" =~ $_SELFMOD_VERB ]] || [[ "$CMD" =~ $_SELFMOD_PY ]]; }; then
+   && { [[ "$CMD" =~ $_SELFMOD_REDIR ]] || [[ "$CMD" =~ $_SELFMOD_VERB ]] \
+        || { [[ "$CMD" =~ $_SELFMOD_INPLACE ]] && [[ "$CMD" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
+        || _selfmod_interp_write; }; then
   block "self-modification — agent should not directly edit its own guardrail config files"
 fi
 

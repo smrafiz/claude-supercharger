@@ -1139,6 +1139,47 @@ begin_test "safety: redirecting stderr into .supercharger.json is blocked (v2.10
 run_hook "$SAFETY_HOOK" "some_cmd 2>.supercharger.json"
 assert_exit_code 2 $? && pass
 
+# v4.1.13: interpreter writes to a config file (upstream anthropics/claude-code#93510
+# shape: the same write refused on Write/Edit went through via Bash). Two sibling
+# misses: _SELFMOD_VERB had `sed -i` but not the `perl -pi`/`ruby -i` arm the
+# profile rule already had, and _SELFMOD_PY's `[^;&|]*` stopped at the `;` that
+# separates statements INSIDE `python -c`, so `p='cfg';open(p,'w')` never matched.
+begin_test "safety: perl -pi on settings.json is blocked (v4.1.13)"
+run_hook "$SAFETY_HOOK" "perl -pi -e 's/deny/allow/' ~/.claude/settings.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: ruby -i on .supercharger.json is blocked (v4.1.13)"
+run_hook "$SAFETY_HOOK" "ruby -i -pe 'sub(/a/,\"b\")' .supercharger.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: python -c open(p,'w') with the path in a variable is blocked (v4.1.13)"
+run_hook "$SAFETY_HOOK" "python3 -c \"import json;p='/Users/x/.claude/settings.json';d=json.load(open(p));d['hooks']={};json.dump(d,open(p,'w'))\""
+assert_exit_code 2 $? && pass
+
+begin_test "safety: node -e writeFileSync to settings.json is blocked (v4.1.13)"
+run_hook "$SAFETY_HOOK" "node -e \"require('fs').writeFileSync(process.env.HOME+'/.claude/settings.json','{}')\""
+assert_exit_code 2 $? && pass
+
+begin_test "safety: python pathlib write_text to settings.local.json is blocked (v4.1.13)"
+run_hook "$SAFETY_HOOK" "python3 -c \"import pathlib;pathlib.Path('.claude/settings.local.json').write_text('{}')\""
+assert_exit_code 2 $? && pass
+
+begin_test "safety: python -c READING settings.json is allowed (v4.1.13)"
+run_hook "$SAFETY_HOOK" "python3 -c \"import json;print(json.load(open('.claude/settings.json'))['hooks'].keys())\""
+assert_exit_code 0 $? && pass
+
+begin_test "safety: node -e READING settings.json is allowed (v4.1.13)"
+run_hook "$SAFETY_HOOK" "node -e \"console.log(require('fs').readFileSync('.claude/settings.json','utf8'))\""
+assert_exit_code 0 $? && pass
+
+begin_test "safety: perl -pe (stdout, not in-place) on settings.json is allowed (v4.1.13)"
+run_hook "$SAFETY_HOOK" "perl -pe 's/deny/allow/' .claude/settings.json"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: perl -ne (no -i) reading settings.json is allowed (v4.1.13)"
+run_hook "$SAFETY_HOOK" "perl -ne 'print if /hooks/' ~/.claude/settings.json"
+assert_exit_code 0 $? && pass
+
 begin_test "safety: sed -i on .supercharger.json stays blocked (v2.10.6)"
 run_hook "$SAFETY_HOOK" "sed -i s/a/b/ .supercharger.json"
 assert_exit_code 2 $? && pass
