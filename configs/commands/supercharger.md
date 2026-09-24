@@ -27,7 +27,8 @@ Claude Supercharger — Slash Commands
     /interview      Structured requirements gathering, one question at a time
 
   Design
-    /design         UI/UX design review — accessibility, hierarchy, responsiveness
+    /design         Write DESIGN.md — brand tokens read from the project's own theme
+    /design-review  UI review — WCAG 2.2 AA with measured values, hierarchy, 3 viewports
     /reflect        Post-task retrospective — what worked, what to improve
 
   Diagnostics
@@ -91,7 +92,8 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "I'm running out of context", "continue tomorrow" | `/handoff` | |
 | "record why we did it this way" | `/devlog` | `/learn` — that's a rule, this is history |
 | "remember this rule for next time" | `/learn` | `/devlog` |
-| "does this UI work", "accessibility" | `/design` | |
+| "does this UI work", "accessibility" | `/design-review` | `/design` — that writes the brand brief, it does not review |
+| "set up our design tokens", "brand brief" | `/design` | `/design-review` |
 | "how did that session go" | `/reflect` | |
 | "Claude keeps asking permission" | `/sc-autopilot` | `/sc` — that removes the safety floor too |
 | "don't let it touch anything" | `/sc-readonly` | `/sc-strict` — that still allows edits, just confirms each |
