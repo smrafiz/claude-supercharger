@@ -216,7 +216,15 @@ _sc_strip_wrapper_prelude() {
   # NOT a weakening: no rule in the four guards that source this helper matches on
   # a wrapper word, so removing one can only expose the real command underneath.
   local _w _tok
-  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel)[[:space:]]+ ]]; do
+  # v4.1.14: an absolute path to the verb hid it from every verb-anchored rule —
+  # `/bin/rm -rf /` passed the whole chain while `rm -rf /` was denied. Reduce the
+  # first word to its basename; the directory never changes what the verb does.
+  local _t0="${cmd%%[[:space:]]*}"
+  case "$_t0" in
+    /*/?*) [ -n "${_t0##*/}" ] && cmd="${_t0##*/}${cmd#"$_t0"}" ;;
+  esac
+  # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
+  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
     cmd="${cmd#${BASH_REMATCH[0]}}"
     while :; do
@@ -249,8 +257,12 @@ _sc_strip_wrapper_prelude() {
       case "$_w" in
         timeout|nice|ionice|chrt|taskset)
           _tok="${cmd%%[[:space:]]*}"
+          # v4.1.14: a duration starts with a digit or a dot. Without that, `sh` —
+          # made only of the suffix letters s and h — was eaten as a duration in
+          # `timeout 5 sh -c '…'`, taking `-c` with it and leaving a quoted body
+          # that no rule matched.
           case "$_tok" in
-            ''|*[!0-9smhdx.+-]*) : ;;
+            ''|[!0-9.]*|*[!0-9smhdx.+-]*) : ;;
             *) cmd="${cmd#"$_tok"}"; continue ;;
           esac
           ;;
@@ -375,6 +387,40 @@ normalize_cmd() {
         [ "$_sc_rest" = "$_sc_prev" ] && break
         _sc_sub="${_sc_rest%% \\;*}"; _sc_sub="${_sc_sub% +}"; _sc_sub="${_sc_sub%% + *}"
         [ -n "$_sc_sub" ] && _sc_tails="$_sc_tails ; $_sc_sub"
+      done
+      [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
+      ;;
+  esac
+  # v4.1.14: a shell's -c body is a command too (upstream claude-code#96300).
+  # Nothing scanned it: `sh -c` was denied only by a blunt wrapper rule, so any
+  # spelling that rule missed — `bash -lc`, `/bin/sh -c`, `busybox sh -c` — ran
+  # its body unchecked. APPEND the unquoted body as its own segment, exactly as
+  # the -exec block above does, so every segment rule sees it. The original text
+  # stays in place for the rules that match on it.
+  case "$cmd" in
+    *sh\ *-*c*)
+      local _sc_scan="$cmd" _sc_body
+      # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
+      # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
+      # or `git commit -m "note: bash -c 'rm -rf /' is now denied"` is denied.
+      case "$_sc_scan" in
+        *-m\ *|*--message\ *|*--body\ *|*--notes\ *)
+          _sc_scan=$(printf '%s' "$_sc_scan" | LC_ALL=C sed -E \
+            -e "s/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+            -e 's/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g')
+          ;;
+      esac
+      local _sc_q="'" _sc_shc
+      _sc_shc='(^|[[:space:];&|(`])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh|ash)[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      _sc_tails=""
+      for _sc_i in 1 2 3 4 5; do
+        [[ "$_sc_scan" =~ $_sc_shc ]] || break
+        _sc_body="${BASH_REMATCH[5]}"
+        _sc_scan="${_sc_scan#*"${BASH_REMATCH[0]}"}"
+        case "$_sc_body" in
+          "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
+        esac
+        [ -n "$_sc_body" ] && _sc_tails="$_sc_tails ; $_sc_body"
       done
       [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
       ;;
