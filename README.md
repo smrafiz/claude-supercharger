@@ -406,7 +406,7 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 | Command | Purpose |
 |--|--|
-| `/learn <rule>` | Record an explicit project rule. Surfaces on future prompts |
+| `/learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
 | `/memory-prune` | Archive resolved memory entries so they stop loading into context |
 | `/perf [--slow]` | Hook timing report |
 | `/cache-stats` · `/cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |

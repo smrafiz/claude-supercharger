@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Lesson Recaller (Reflexion Memory)
 # Event: UserPromptSubmit | Matcher: (none)
-# Tokenizes user prompt, computes Jaccard overlap against stored
-# lessons.jsonl, injects top 3 matches above threshold (default 0.35).
-# Output is tier-scaled.
+# Injects every rule the user recorded with /learn (newest 10), then tokenizes
+# the prompt and adds the top 3 auto-captured lessons by Jaccard overlap
+# (threshold 0.35). Auto-lesson output is tier-scaled; user rules print in full.
 # Disable: SUPERCHARGER_LESSONS=0
 # Tune:    SUPERCHARGER_LESSON_THRESHOLD=0.5  (default 0.35; raise to reduce noise)
 
@@ -67,11 +67,14 @@ except ValueError:
 def tokenize(text):
     return {w for w in re.findall(r'[a-zA-Z0-9_]+', text.lower()) if len(w) >= 3}
 
-p_tokens = tokenize(prompt)
-if not p_tokens:
-    raise SystemExit(0)
+p_tokens = tokenize(prompt)  # may be empty ("ok") — user rules still apply
 
 scored = []
+# v4.1.14: a rule the user recorded with /learn is a standing instruction, not a
+# keyword hint, so it is injected on every prompt. Scoring buried it: "always use
+# pnpm in this project" scored 0.00 against "add lodash as a dependency" — the one
+# moment it applies. Capped, newest last, so a long list cannot flood the context.
+rules = []
 try:
     with open(path) as f:
         for line in f:
@@ -82,8 +85,12 @@ try:
                 rec = json.loads(line)
             except Exception:
                 continue
+            if rec.get('source') == 'user-explicit':
+                if rec.get('lesson') and rec['lesson'] not in rules:
+                    rules.append(rec['lesson'])
+                continue
             r_tokens = tokenize(rec.get('recall', ''))
-            if not r_tokens:
+            if not r_tokens or not p_tokens:
                 continue
             inter = len(p_tokens & r_tokens)
             union = len(p_tokens | r_tokens)
@@ -95,9 +102,17 @@ except FileNotFoundError:
 
 scored.sort(key=lambda x: x[0], reverse=True)
 top = [r for _, r in scored[:3]]
-if not top:
+rules = rules[-10:]
+if not top and not rules:
     raise SystemExit(0)
 
+# User rules print in full at every tier: a rule collapsed to a count is not followed.
+if rules:
+    print('Project rules (recorded by the user):')
+    for r in rules:
+        print('- ' + r)
+if not top:
+    raise SystemExit(0)
 if tier == 'minimal':
     print('[lessons: ' + str(len(top)) + ' matched]')
 elif tier == 'lean':
