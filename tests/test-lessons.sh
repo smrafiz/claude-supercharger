@@ -106,6 +106,43 @@ setup_test_home
 [ "$(_lesson_rec 'The problem was that it is reading the wrong field and the value is empty in every call.')" = "recorded" ] && pass || fail "case-sensitive I check must not catch it/is/in"
 teardown_test_home
 
+# v4.1.15: junk found in a real lessons.jsonl — a fenced /sc-status dashboard
+# (self-feeding: it prints lessons containing "root cause"), a markdown table,
+# a conversational "turns out", and versions/prices recorded as files.
+begin_test "lessons: ignores a marker inside a fenced block (dashboard self-feed)"
+setup_test_home
+_FENCE=$(printf '\140\140\140')  # backticks built at runtime: literal ones in "..." would run
+[ "$(_lesson_rec "$_FENCE
+=== Claude Supercharger === Tier : minimal
+  - Memory trimmed and the index-bloat root cause fixed and verified today
+$_FENCE")" = "skipped" ] && pass || fail "fenced dashboard recorded as a lesson"
+teardown_test_home
+
+begin_test "lessons: ignores a marker inside a table row"
+setup_test_home
+[ "$(_lesson_rec "Standing state:
+| item | state |
+|---|---|
+| root cause | normalize_cmd space-collapse loop in the hot path |")" = "skipped" ] && pass || fail "table row recorded as a lesson"
+teardown_test_home
+
+begin_test "lessons: 'turns out' hedge is not a finding"
+setup_test_home
+[ "$(_lesson_rec "Say the word if that turns out to be one too many for this release.")" = "skipped" ] && pass || fail "conversational hedge recorded"
+teardown_test_home
+
+begin_test "lessons: sentence stops at a line break; versions are not files"
+setup_test_home
+PROJ=$(mktemp -d); mkdir -p "$PROJ/.claude/supercharger"; TR="$PROJ/.t.jsonl"
+python3 -c 'import json; print(json.dumps({"type":"user","message":{"content":"q"}}))' > "$TR"
+python3 -c 'import json; print(json.dumps({"type":"assistant","message":{"content":[{"type":"text","text":"Session net: v4.1.2 shipped, cost 243.79\n- **Root cause**: update.sh compared the repo to itself on every run"}]}}))' >> "$TR"
+printf '{"cwd":"%s","transcript_path":"%s"}' "$PROJ" "$TR" | bash "$RECORD_HOOK" >/dev/null 2>&1 || true
+L=$(cat "$PROJ/.claude/supercharger/lessons.jsonl" 2>/dev/null)
+if echo "$L" | jq -e '(.lesson | startswith("Root cause")) and (.files == ["update.sh"])' >/dev/null 2>&1; then pass
+else fail "bad record: $L"; fi
+rm -rf "$PROJ"
+teardown_test_home
+
 begin_test "lessons: SUPERCHARGER_LESSONS=0 disables record"
 setup_test_home
 PROJ=$(mktemp -d)

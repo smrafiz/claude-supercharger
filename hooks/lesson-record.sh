@@ -71,10 +71,20 @@ markers = [
     r'root cause',
     r'fixed by',
     r'the problem was',
-    r'turns out',
     r'it failed because',
 ]
+# v4.1.15: 'turns out' dropped — it matched conversational hedges ("say the word
+# if that turns out to be one too many") far more often than findings.
 pattern = re.compile('|'.join(markers), re.IGNORECASE)
+
+# v4.1.15 (\x60 = backtick: a literal one here would reach the enclosing $(...)):
+# drop fenced code blocks and table rows BEFORE matching. Neither has a
+# sentence terminator, so a marker inside one made the whole block the "lesson":
+# /sc-status prints recent lessons in a fence, so every lesson containing
+# "root cause" was re-recorded as a dashboard dump (self-feeding loop).
+assist = re.sub(r'\x60{3}.*?(\x60{3}|$)', '\n', assist, flags=re.DOTALL)
+assist = re.sub(r'(?m)^[ \t]*\|.*$', '', assist)
+assist = assist.replace('**', '')
 m = pattern.search(assist)
 if not m:
     raise SystemExit(0)
@@ -94,11 +104,21 @@ if assist[max(0, idx - 1):idx] == '(':
 
 # Sentence start: just after the previous sentence terminator.
 sent_start = 0
-for b in re.finditer(r'[.!?]\s', assist[:idx]):
+# v4.1.15: a line break also ends a sentence — bullets and headings carry no
+# terminator, so sentences used to run across a whole list.
+for b in re.finditer(r'[.!?]\s|\n', assist[:idx]):
     sent_start = b.end()
-# Sentence end: the next terminator at/after the marker.
-end_m = re.search(r'[.!?](\s|$)', assist[idx:])
+# Sentence end: the next terminator (or line break) at/after the marker.
+end_m = re.search(r'[.!?](\s|$)|\n', assist[idx:])
 sent_end = idx + end_m.end() if end_m else len(assist)
+# A marker line that is only a label ("## Root cause", "Root cause found.**")
+# states nothing; the finding is on the next line — take that line instead.
+if len(re.findall(r'[a-zA-Z0-9]+', assist[sent_start:sent_end])) < 6:
+    nxt = re.search(r'\S', assist[sent_end:])
+    if nxt:
+        sent_start = sent_end + nxt.start()
+        end_m = re.search(r'[.!?](\s|$)|\n', assist[sent_start:])
+        sent_end = sent_start + end_m.end() if end_m else len(assist)
 sentence = assist[sent_start:sent_end]
 # Strip leading markdown/list/punctuation noise and collapse whitespace.
 sentence = re.sub(r'^[\s\-*#>`)\].,:;]+', '', sentence)
@@ -122,7 +142,9 @@ sig = (user[:100] if user else before.split('\n')[-1][:100]).strip()
 fix = sentence[:200].strip()
 lesson = sentence[:200].strip()
 
-files = re.findall(r'[\w./\-]+\.[a-zA-Z0-9]{1,6}\b', assist)
+# v4.1.15: extension must start with a letter — versions (v4.1.5) and prices
+# (243.79) were being recorded as files.
+files = re.findall(r'[\w./\-]+\.[a-zA-Z][a-zA-Z0-9]{0,5}\b', assist)
 files = list(dict.fromkeys(files))[:5]
 
 tokens = set()
