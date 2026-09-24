@@ -49,7 +49,7 @@ Two things worth setting once, per project, in a `.supercharger.json` at your re
 }
 ```
 
-`economy: lean` cuts response length ~45% with no information loss. `budget` caps what a single session can spend. Commit the file and your whole team gets the same behavior. [Full config reference →](#configure)
+`economy: lean` tells Claude to answer tersely — no preamble, no restating the request. For the largest cut in length, add `/output-style concise`: measured at a **45% median cut** with a tier already active ([method](configs/universal/economy.md#length-is-owned-by-the-output-style)). `budget` caps what a single session can spend. Commit the file and your whole team gets the same behavior. [Full config reference →](#configure)
 
 ---
 
