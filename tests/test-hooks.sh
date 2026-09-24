@@ -181,7 +181,10 @@ _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"sudo reboot"},
 # an absolute verb path, combined flags (`-lc`), busybox, and `timeout 5 sh -c`
 # (whose duration parser ate `sh` — s and h are duration suffixes). Measured
 # before the fix: all ALLOWED, including a bare `/bin/rm -rf /`.
-_shc_json(){ python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}))' "$1"; }
+# Via stdin, not argv: Git Bash rewrites a POSIX-looking ARGUMENT (a leading
+# /bin/…) into a Windows path when calling native python — not what the hook sees
+# from Claude Code (JSON on stdin). That made two of these fail only on Windows.
+_shc_json(){ printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.stdin.read()},"cwd":"/tmp"}))'; }
 while IFS= read -r _c; do
   begin_test "safety: wrapped rm blocked (v4.1.14): $_c"
   _blk "$SAFETY_HOOK" "$(_shc_json "$_c")" && pass || fail "not blocked: $_c"
