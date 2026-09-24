@@ -132,8 +132,15 @@ TEST_CMD = re.compile(
 # re.I, r"\bFAILED\b" matches the ordinary word "failed" in "3043 passed, 0
 # failed", so a perfectly green run read as a failing one and blocked the stop.
 # Caught by the clean-run test below, which is why that test exists.
+# v4.1.15: key=value summaries ("total=2719 passed=2711 failed=0", Unity, JUnit
+# "failures: 3"). The count before "failed" there belongs to the PREVIOUS key, so
+# "passed=2711 failed=0" read as "2711 failed" and blocked a green run. A number
+# right after "=" is a value, and "N failed: 0" is a key followed by ITS value —
+# neither is a count of failures; the key=value form is judged by its own value.
+# ("Test Suites: 1 failed" must still count: the colon there belongs to a label.)
 FAIL_NUM = re.compile(
-    r"(?<![\d,])(?!0\b)\d[\d,]*\s+(tests?\s+)?fail(ed|ures?)\b", re.I)
+    r"(?<![\d,=])(?!0\b)\d[\d,]*\s+(tests?\s+)?fail(ed|ures?)\b(?!\s*[=:]\s*\d)"
+    r"|\bfail(ed|ures?)\s*(=|:\s*)(?!0\b)\d", re.I)
 FAIL_UPPER = re.compile(r"\bFAILED\b|\bFAIL\b|\bAssertionError\b|✗|✘")
 
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*m")
