@@ -400,6 +400,16 @@ normalize_cmd() {
   case "$cmd" in
     *sh\ *-*c*)
       local _sc_scan="$cmd" _sc_body
+      # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
+      # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
+      # or `git commit -m "note: bash -c 'rm -rf /' is now denied"` is denied.
+      case "$_sc_scan" in
+        *-m\ *|*--message\ *|*--body\ *|*--notes\ *)
+          _sc_scan=$(printf '%s' "$_sc_scan" | LC_ALL=C sed -E \
+            -e "s/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+            -e 's/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g')
+          ;;
+      esac
       local _sc_q="'" _sc_shc
       _sc_shc='(^|[[:space:];&|(`])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh|ash)[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
       _sc_tails=""

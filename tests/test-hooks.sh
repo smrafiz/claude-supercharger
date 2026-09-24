@@ -209,6 +209,9 @@ done <<'SHCEOF'
 /usr/local/bin/node --version
 timeout 30 npm test
 /bin/rm -f /tmp/build.log
+git commit -m "docs: note that bash -c 'rm -rf /' is now denied"
+bash tools/release.sh 4.0.8 --message "bash -c 'rm -rf /' goes deny to allow, because the rule missed it"
+gh pr create --title "fix" --body "blocks sh -c 'rm -rf ~' and friends"
 SHCEOF
 begin_test "safety: poweroff via && is blocked"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"echo bye && poweroff"},"cwd":"/tmp"}' && pass || fail "chained poweroff not blocked"
