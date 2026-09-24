@@ -19,7 +19,10 @@ Design sources: nud3l `/code-audit` (parallel sharded agents, effort matrix, ver
 **Step 1 — Hotspot map (git only, free, language-agnostic)**
 
 Build this first; it orders everything after it.
-- **Churn**: `git log --since=12.months --format= --name-only -- <scope> | sort | uniq -c | sort -rn` (excluded trees filtered out).
+- **Churn**: `git log --since=12.months --no-merges --format='@%s' --numstat -- <scope>`, counting per file both commits and lines changed (added + deleted), with excluded trees filtered out. **Drop mechanical changes first** or release automation dominates the map:
+  - commits whose subject is a release, version bump, formatting or dependency-bot change (`chore: release`, `chore(release)`, `bump version`, `style:`, `chore(deps)` — read the last ~50 subjects to learn this repo's spellings);
+  - per-file changes of ≤ 2 lines (version strings, stamps).
+  Measured on a repo with automated releases: raw commit counts ranked a 198-line version-carrying file #2 with 806 commits; after these two filters it had 9, while real hotspots barely moved (104 → 72). If the top of the raw list is files that hold a version string, the filter is missing a spelling.
 - **Complexity proxy**: lines of code and maximum nesting depth of the top-churn files.
 - **Hotspots** = high churn × high complexity. The top ~15 hotspot files get the deepest reading; `quick` audits ONLY these.
 - **Change coupling**: file pairs that repeatedly change in the same commits but live in different modules — hidden dependencies.
