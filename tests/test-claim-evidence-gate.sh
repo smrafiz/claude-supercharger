@@ -88,6 +88,24 @@ mk zero_failures 'asst(cmd="make test", tid="t1") + res("t1", "Ran 40 tests. 0 f
 begin_test "'0 failures' does NOT read as a failure"
 [ "$(rc_for zero_failures)" = "0" ] && pass || fail "false positive on '0 failures'"
 
+# v4.1.15: key=value summaries. "passed=2711 failed=0" read as "2711 failed" —
+# the count belonged to the previous key — and blocked a green Unity run.
+mk kv_clean 'asst(cmd="bash tools/unity-test.sh EditMode", tid="t1") + res("t1", "EditMode: total=2719 passed=2711 failed=0 skipped=8") + asst(text="All tests pass.")'
+begin_test "key=value summary with failed=0 does NOT block"
+[ "$(rc_for kv_clean)" = "0" ] && pass || fail "false positive on 'passed=2711 failed=0'"
+
+mk kv_colon_clean 'asst(cmd="make test", tid="t1") + res("t1", "passed: 2711 failed: 0") + asst(text="All tests pass.")'
+begin_test "'passed: N failed: 0' does NOT block"
+[ "$(rc_for kv_colon_clean)" = "0" ] && pass || fail "false positive on 'passed: 2711 failed: 0'"
+
+mk kv_fail 'asst(cmd="bash tools/unity-test.sh EditMode", tid="t1") + res("t1", "EditMode: total=2719 passed=2708 failed=3 skipped=8") + asst(text="All tests pass.")'
+begin_test "key=value summary with failed=3 still blocks"
+[ "$(rc_for kv_fail)" = "2" ] && pass || fail "failed=3 must still contradict the claim"
+
+mk jest_suites_fail 'asst(cmd="npx jest", tid="t1") + res("t1", "Test Suites: 1 failed, 175 passed, 176 total") + asst(text="All tests pass.")'
+begin_test "jest 'Test Suites: 1 failed' still blocks"
+[ "$(rc_for jest_suites_fail)" = "2" ] && pass || fail "label colon must not hide a failure count"
+
 mk recovered 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 3040 passed, 3 failed") + asst(cmd="bash tests/run.sh", tid="t2") + res("t2", "Total: 3043 passed, 0 failed") + asst(text="Fixed. Suite is green.")'
 begin_test "a failing run followed by a passing re-run does NOT block"
 [ "$(rc_for recovered)" = "0" ] && pass || fail "the LAST run must be the one that counts"
