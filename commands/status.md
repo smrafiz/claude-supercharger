@@ -46,7 +46,7 @@ Use that value for `Cost (session)`. (The budget cap still uses the accumulator,
 - `.supercharger.json` (role, economy, profile, budget, hints)
 - `${CLAUDE_PLUGIN_DATA}/audit/$(date -u +%Y-%m-%d).jsonl` (count of today's events)
 - `${CLAUDE_PLUGIN_DATA}/scope/.subagent-costs-*.jsonl` (per-subagent cost rollup — aggregate by `agent_name`, show top 3 by `cost_usd`)
-- `${CLAUDE_PLUGIN_DATA}/scope/.blocked-commands` (the block log; last 3 lines for "Recent blocks" — format: `[ts] category — reason — command`)
+- `${CLAUDE_PLUGIN_DATA}/scope/.blocked-commands` (the block log; last 3 lines for "Recent blocks" — format: `[ts] reason — command`, some guards prefix a category)
 
 Output format (no other text before/after):
 

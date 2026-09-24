@@ -148,6 +148,38 @@ OUT=$(SUPERCHARGER_TIER=standard bash -c "echo '$INPUT' | bash $RECALL_HOOK" 2>/
 rm -rf "$PROJ"
 teardown_test_home
 
+# v4.1.14: a rule the user recorded with /learn is a standing instruction, not a
+# keyword hint. Word-overlap scoring buried it: "always use pnpm in this project"
+# scored 0.00 against "add lodash as a dependency" — the exact moment it applies —
+# and 0.07 against a normal-length prompt that even contains "pnpm".
+begin_test "lessons: a /learn rule (source user-explicit) is injected with no keyword overlap"
+setup_test_home
+PROJ=$(mktemp -d)
+mkdir -p "$PROJ/.claude/supercharger"
+cat > "$PROJ/.claude/supercharger/lessons.jsonl" <<'EOF'
+{"sig":"always use pnpm in this project","fix":"Always use pnpm in this project.","files":[],"lesson":"USER_RULE_MARKER always use pnpm in this project","recall":"always pnpm project this use","ts":"2026-09-24T00:00:00Z","source":"user-explicit"}
+{"sig":"npm test fails","fix":"x","files":[],"lesson":"AUTO_MARKER","recall":"npm test fails missing","ts":"2026-04-30T00:00:00Z"}
+EOF
+INPUT=$(printf '{"cwd":"%s","prompt":"%s"}' "$PROJ" "add lodash as a dependency")
+OUT=$(SUPERCHARGER_TIER=standard bash -c "echo '$INPUT' | bash $RECALL_HOOK" 2>/dev/null)
+if echo "$OUT" | grep -q 'USER_RULE_MARKER' && ! echo "$OUT" | grep -q 'AUTO_MARKER'; then pass
+else fail "user rule not injected, or unmatched auto lesson leaked: $OUT"; fi
+rm -rf "$PROJ"
+teardown_test_home
+
+begin_test "lessons: user rules are shown at the minimal tier too (not collapsed to a count)"
+setup_test_home
+PROJ=$(mktemp -d)
+mkdir -p "$PROJ/.claude/supercharger"
+cat > "$PROJ/.claude/supercharger/lessons.jsonl" <<'EOF'
+{"sig":"r","fix":"r","files":[],"lesson":"MIN_RULE_MARKER never edit generated files","recall":"edit files generated never","ts":"2026-09-24T00:00:00Z","source":"user-explicit"}
+EOF
+INPUT=$(printf '{"cwd":"%s","prompt":"%s"}' "$PROJ" "refactor the checkout handler")
+OUT=$(SUPERCHARGER_TIER=minimal bash -c "echo '$INPUT' | bash $RECALL_HOOK" 2>/dev/null)
+echo "$OUT" | grep -q 'MIN_RULE_MARKER' && pass || fail "minimal tier hid the user rule: $OUT"
+rm -rf "$PROJ"
+teardown_test_home
+
 begin_test "lessons: minimal tier emits count tag"
 setup_test_home
 PROJ=$(mktemp -d)

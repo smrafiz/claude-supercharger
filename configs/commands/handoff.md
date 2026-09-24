@@ -28,7 +28,7 @@ issue, PR or diff, link the path or ref instead of copying it. The brief is for 
 what is half-finished. Anything git can already tell the next session is bloat.
 
 **Step 3 — Write to file**
-Write a **session-scoped** file so concurrent sessions in the same project don't clobber each other's brief. Get this session's id from the `CLAUDE_CODE_SESSION_ID` environment variable and save to `.claude/handoff-$CLAUDE_CODE_SESSION_ID.md` in the project root (e.g. `bash -c 'echo "$CLAUDE_CODE_SESSION_ID"'` to read it). If that variable is empty, fall back to `.claude/handoff.md`. The auto-load hooks (`session-memory-inject`, `post-compact-inject`) prefer this session's own file, then the newest recent one, then the legacy unsuffixed path — so the suffixed name loads correctly on resume.
+Write a **session-scoped** file so concurrent sessions in the same project don't clobber each other's brief. Get this session's id from the `CLAUDE_CODE_SESSION_ID` environment variable and save to `.claude/handoff-$CLAUDE_CODE_SESSION_ID.md` in the project root (read it with a plain `echo "$CLAUDE_CODE_SESSION_ID"` — do not wrap it in `bash -c`, which Supercharger's own safety guard denies). If that variable is empty, fall back to `.claude/handoff.md`. The auto-load hooks (`session-memory-inject`, `post-compact-inject`) prefer this session's own file, then the newest recent one, then the legacy unsuffixed path — so the suffixed name loads correctly on resume.
 
 Output format:
 ```

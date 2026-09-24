@@ -12,9 +12,19 @@ scope = os.path.expanduser("~/.claude/supercharger/scope")
 profile_file = os.path.join(scope, ".profile")
 env_profile = os.environ.get("SUPERCHARGER_PROFILE", "")
 
+# The hooks resolve the profile per project first (lib-paths.sh sc_scope_resolve):
+# .profile-<project key>, written from this project's .supercharger.json "profile".
+k = os.getcwd().replace("/", "-").replace("\\", "-").replace(":", "-").lstrip("-")
+k = (k[-100:] if len(k) > 100 else k) or "root"
+project_file = os.path.join(scope, ".profile-" + k)
+
 if env_profile:
     source = "env var (SUPERCHARGER_PROFILE)"
     active = env_profile
+elif os.path.isfile(project_file):
+    with open(project_file) as f:
+        active = f.read().strip()
+    source = "this project's .supercharger.json"
 elif os.path.isfile(profile_file):
     with open(profile_file) as f:
         active = f.read().strip()
@@ -79,6 +89,13 @@ case "$PROFILE" in
     echo "Valid options: standard, fast, minimal"
     ;;
 esac
+# A per-project profile (from this project's .supercharger.json) takes precedence
+# over the global one written above — say so rather than report a switch that
+# will not apply here.
+KEY=$(pwd | tr '/\\:' '---' | sed 's/^-//' | tail -c 101); [ -z "$KEY" ] && KEY=root
+if [ -f "$SCOPE_DIR/.profile-$KEY" ] && [ -n "$PROFILE" ]; then
+  echo "Note: this project's .supercharger.json sets \"profile\": \"$(cat "$SCOPE_DIR/.profile-$KEY")\", which overrides the global setting here. Change it in .supercharger.json for this project."
+fi
 ```
 
 After switching, briefly note what changed:

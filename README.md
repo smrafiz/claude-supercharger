@@ -406,14 +406,15 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 | Command | Purpose |
 |--|--|
-| `/learn <rule>` | Record an explicit project rule. Surfaces on future prompts |
+| `/learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
 | `/memory-prune` | Archive resolved memory entries so they stop loading into context |
 | `/perf [--slow]` | Hook timing report |
 | `/cache-stats` · `/cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
 | `/trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) |
-| `/reflect` | Score session quality, write to `.claude/session-observations.md` |
+| `/reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
 | `/devlog [entry]` | Append a decision to `DEV-LOG.md` |
-| `/design [brand]` | Generate `DESIGN.md` — tokens, typography, components |
+| `/design [brand]` | Generate `DESIGN.md` — tokens read from the project's theme, typography, components |
+| `/design-review [pages]` | Review UI: WCAG 2.2 AA with measured values, hierarchy, responsiveness (read-only) |
 | `/supercharger` | List all slash commands |
 
 </details>

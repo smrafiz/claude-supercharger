@@ -75,7 +75,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |
 | `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |
-| `lesson-recall` | UserPromptSubmit | (none) | Tokenizes user prompt, computes Jaccard overlap against stored |
+| `lesson-recall` | UserPromptSubmit | (none) | Injects every rule the user recorded with /learn (newest 10), then tokenizes |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `lockfile-integrity-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Dependency lockfiles are MACHINE-GENERATED — they encode a resolved dependency |
 | `mcp-circuit-breaker` | — | — | Events: PreToolUse | mcp__   (blocks calls to a server in cooldown) |

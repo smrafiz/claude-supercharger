@@ -387,7 +387,7 @@ PY
 # On an install predating that copy the dir is absent and this moves NOTHING —
 # degrading to the old behaviour beats guessing at someone else's agent file.
 #
-# The 48 slash commands are deliberately NOT touched. /sc itself is one of them,
+# The slash commands are deliberately NOT touched. /sc itself is one of them,
 # so removing commands could strand a user with no way to type `/sc on`, and the
 # whole set is worth ~650 tokens — a special case that buys little and can strand.
 AGENTS_DIR="$HOME/.claude/agents"
