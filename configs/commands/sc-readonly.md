@@ -21,5 +21,5 @@ Then report the tool's output verbatim.
 
 Notes to surface to the user:
 - This is a **workflow guard** ("don't touch"), not a security sandbox — precise for the editor tools, best-effort for Bash. The always-on safety hooks (`rm -rf`, force-push, credential leaks) are the real floor and stay active either way.
-- It ends automatically at the deadline (checked on each tool call — no background timer). The statusline shows a `⚡ Read-only: Nm left` indicator while it's active.
+- It ends automatically at the deadline (checked on each tool call — no background timer). The statusline shows a `🔒 Read-only: Nm left` indicator while it's active.
 - Interacts cleanly with autopilot: read-only **wins** — a blocked edit is blocked even if autopilot would have auto-approved it (tighten beats loosen).
