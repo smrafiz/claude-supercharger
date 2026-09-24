@@ -24,10 +24,31 @@ _hf_mtime() {
   printf '%s' "$m"
 }
 
+# The time a brief was WRITTEN: the date in its heading ("## Handoff — p — YYYY-MM-DD"),
+# taken as the end of that day, else the file mtime. After a clone or checkout git
+# rewrites every mtime, so "newest file" meant whichever file git wrote last, and a
+# two-month-old brief passed the 7-day gate because its mtime was a minute old.
+_hf_time() {
+  local line="" l d t n=0
+  # First date in the first 5 lines: briefs put it in the heading; the project
+  # carry file (.claude/handoff.md) puts it in a "Verified YYYY-MM-DD" line.
+  while [ $n -lt 5 ] && IFS= read -r l; do
+    n=$((n + 1))
+    if [[ "$l" =~ [0-9]{4}-[0-9]{2}-[0-9]{2} ]]; then line="$l"; break; fi
+  done < "$1" 2>/dev/null
+  if [[ "$line" =~ ([0-9]{4}-[0-9]{2}-[0-9]{2}) ]]; then
+    d="${BASH_REMATCH[1]}"
+    t=$(date -j -f '%Y-%m-%d %H:%M:%S' "$d 23:59:59" +%s 2>/dev/null \
+        || date -d "$d 23:59:59" +%s 2>/dev/null || echo "")
+    case "$t" in ''|*[!0-9]*) ;; *) printf '%s' "$t"; return ;; esac
+  fi
+  _hf_mtime "$1"
+}
+
 _hf_fresh() { # path now max_age  → 0 if within gate (or gate disabled)
   local mt
   [ "$3" -le 0 ] && return 0
-  mt=$(_hf_mtime "$1")
+  mt=$(_hf_time "$1")
   [ "$mt" -gt 0 ] && [ $(( $2 - mt )) -lt "$3" ]
 }
 
@@ -45,8 +66,12 @@ select_handoff_file() {
   for cand in "$d"/handoff-*.md "$d/handoff.md"; do
     [ -f "$cand" ] || continue                      # unmatched glob / missing legacy
     _hf_fresh "$cand" "$now" "$max_age" || continue
-    mt=$(_hf_mtime "$cand")
-    if [ "$mt" -gt "$best_mt" ]; then best_mt=$mt; best=$cand; fi
+    mt=$(_hf_time "$cand")
+    # Same heading date → the later-written file wins (mtime as the tie-break).
+    if [ "$mt" -gt "$best_mt" ] || { [ "$mt" -eq "$best_mt" ] && [ -n "$best" ] \
+         && [ "$(_hf_mtime "$cand")" -gt "$(_hf_mtime "$best")" ]; }; then
+      best_mt=$mt; best=$cand
+    fi
   done
   [ -n "$best" ] && printf '%s\n' "$best"
   return 0

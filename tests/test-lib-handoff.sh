@@ -82,4 +82,26 @@ begin_test "empty SID → newest scoped"
 GOT=$(select_handoff_file "$D" "" 604800)
 [ "$GOT" = "$D/.claude/handoff-$OTHER.md" ] && pass || fail "got $GOT"
 
+# 10-11. After a clone or checkout, git rewrites every mtime, so "newest file" is
+# whichever git wrote last. The date in the brief's own heading is the truth.
+dstr() { date -r "$(( $(date +%s) - $1 * 86400 ))" +%Y-%m-%d 2>/dev/null || date -d "@$(( $(date +%s) - $1 * 86400 ))" +%Y-%m-%d; }
+D=$(fresh_setup)
+printf '## Handoff — p — %s\nNEWER_BRIEF\n' "$(dstr 1)" > "$D/.claude/handoff-$SID.md"; age "$D/.claude/handoff-$SID.md" 50
+printf '## Handoff — p — %s\nOLDER_BRIEF\n' "$(dstr 3)" > "$D/.claude/handoff-$OTHER.md"; age "$D/.claude/handoff-$OTHER.md" 5
+begin_test "heading date beats a newer mtime (checkout reorders mtimes)"
+GOT=$(select_handoff_file "$D" "" 604800)
+[ "$GOT" = "$D/.claude/handoff-$SID.md" ] && pass || fail "picked by mtime: $GOT"
+
+D=$(fresh_setup)
+printf '## Handoff — p — %s\nANCIENT\n' "$(dstr 60)" > "$D/.claude/handoff-$OTHER.md"; age "$D/.claude/handoff-$OTHER.md" 5
+D2=$(fresh_setup)
+printf '# Handoff — p\n\n### Current State\n*Verified %s*\n' "$(dstr 40)" > "$D2/.claude/handoff.md"; age "$D2/.claude/handoff.md" 5
+begin_test "a date below the heading (carry-file 'Verified' line) is honoured by the gate"
+GOT=$(select_handoff_file "$D2" "" 604800)
+[ -z "$GOT" ] && pass || fail "40-day-old carry file passed the 7-day gate: $GOT"
+
+begin_test "a freshly checked-out but 60-day-old brief fails the 7-day gate"
+GOT=$(select_handoff_file "$D" "" 604800)
+[ -z "$GOT" ] && pass || fail "stale brief loaded because its mtime was fresh: $GOT"
+
 report
