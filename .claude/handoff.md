@@ -4,18 +4,17 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-23, session `3d213381`.*
+*Verified 2026-09-24, session `3d213381`.*
 
-- **v4.1.13 RELEASED** (`8bafe2c`, 8/8 CI incl. Windows). `master == v4.1.13`,
-  **0 open PRs**. v4.1.12 (`3d6b7ea`, phantom-update fix) also released today.
-- v4.1.13 = two guard gaps (#36 interpreter writes to guardrail config; #37 36/49
-  destructive DB CLIs allowed) + `/multi-review`, `/security`, `/audit` rebuilt
-  (#38–#40). Commit messages hold the research sources.
-- **Machine A (this box): INSTALLED v4.1.11** — two releases behind. `/sc-update`.
-- **Machine B**: unknown. Update straight to v4.1.13.
-- The three rebuilt commands are prompts, verified only structurally. Their real
-  test is a run on a real project — not done yet.
-- Economy question stays closed (#22): output style + `economy.md`, both not either.
+- **v4.1.14 RELEASED** (`0ffa551`, 8/8 CI). `master == v4.1.14`, **0 open PRs**.
+  v4.1.12 and v4.1.13 also shipped from this session (2026-09-23).
+- v4.1.14 = #44 rm bypass via `/bin/rm`, busybox, `timeout`, every shell `-c`
+  spelling · #45 handoff briefs picked by stated date, not mtime · #46 every
+  slash command audited/upgraded (commit messages carry the research sources).
+- **Machine A (this box): INSTALLED v4.1.14**, verified by grepping the new code.
+- **Machine B**: unknown — update straight to v4.1.14.
+- Commands are prompts, verified structurally only. The real test is running
+  them on a real project (`/audit quick` on this repo was the one live trial).
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -28,9 +27,6 @@ session on any machine.**
 - `radiustheme/radius-bundles` is an ORG repo, billed separately, already tuned.
 
 ### Decisions parked, not blocked
-- **README line 52** (`economy: lean` cuts ~45%) may credit the tier for the
-  style's effect. The tier's own contribution is unmeasured; 0 STANDARD turns
-  exist to measure it against. Substantiate or soften — do not reuse the number.
 - **Install the tag rather than master?** Merging to master currently IS
   shipping. Against: users lose immediate fixes. Mitigating: PRs run all 8 jobs.
 - **Gate the Windows job to `master` and `rel/*`?** Would remove most of 10,678
@@ -47,6 +43,14 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-09-24 — 3d213381
+Released **v4.1.14**. Audited all 33 commands, research first: /learn rules never
+resurfaced (Jaccard 0.00), /reflect lessons never reached the next session (loader
+reads 4 lines), /why's filter was inverted, /profile ignored per-project config.
+Fixed the rm bypass (#44) after a 21k-command replay caught a false positive, and
+the mtime-ranked handoff loader (#45). New /design-review.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-09-23 — 3d213381
 Released **v4.1.12** and **v4.1.13**. Upstream-tracker sweep found a selfmod gap
@@ -80,11 +84,4 @@ Released **v4.1.10**: every deny and ask now reaches the agent attributed, via a
 single emitter, with six fail-open shapes closed behind it. Also fixed config-scan
 flagging this repo's own carry file (#31) — "output styles change the system
 prompt" is documentation, not an injection.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
-
-#### 2026-09-21 — 75a954fe
-Released **v4.1.9** (`cf6d6d8`): the install-scanner bypass, the tier-switch fix and
-two doc corrections. Machine A updated and verified by behaviour. The release did NOT
-reinstall the machine by itself — an assumption carried from a 2026-09-19 note, now
-known to be unreliable; check the installed copy rather than trusting a promote.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
