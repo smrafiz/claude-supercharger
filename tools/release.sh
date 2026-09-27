@@ -547,7 +547,10 @@ print('')
   FAILED_JOBS=$(printf '%s' "$JOBS_JSON" | python3 -c "
 import sys, json
 d = json.load(sys.stdin)
-failed = [j['name'] for j in d.get('jobs', []) if j.get('conclusion') != 'success']
+# Windows (Git Bash) is SKIPPED on rel/** by design (master pushes only); it is
+# gated below against master's run for the release base. Any other skip still fails.
+failed = [j['name'] for j in d.get('jobs', []) if j.get('conclusion') != 'success'
+          and not (j.get('conclusion') == 'skipped' and 'Windows (Git Bash)' in j.get('name', ''))]
 print('\n'.join(failed))
 " 2>/dev/null || echo "")
 

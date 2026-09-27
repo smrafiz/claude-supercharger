@@ -76,9 +76,14 @@ case "\$_args" in
     printf '[{"headSha":"%s","status":"%s","conclusion":"%s","databaseId":99999,"url":"https://example.com/runs/99999"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":88888,"url":"https://example.com/runs/88888"}]\n' \
       "$sha" "$status" "$conclusion" "$base"
     ;;
+  *"run view 88888"*)
+    # master's run for the release base: the only run that carries Windows.
+    printf '{"jobs":[{"name":"Windows (Git Bash)","conclusion":"success","status":"completed"}]}\n'
+    ;;
   *"run view"*"--json jobs"*)
+    # rel/** run: Windows is SKIPPED there by design (master pushes only).
     if [ "$jobs_ok" = "success" ]; then
-      printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"success","status":"completed"},{"name":"Test suite (macos-latest)","conclusion":"success","status":"completed"},{"name":"Windows (Git Bash)","conclusion":"success","status":"completed"},{"name":"Shellcheck","conclusion":"success","status":"completed"}]}\n'
+      printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"success","status":"completed"},{"name":"Test suite (macos-latest)","conclusion":"success","status":"completed"},{"name":"Windows (Git Bash)","conclusion":"skipped","status":"completed"},{"name":"Shellcheck","conclusion":"success","status":"completed"}]}\n'
     else
       printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"failure","status":"completed"},{"name":"Windows (Git Bash)","conclusion":"failure","status":"completed"}]}\n'
     fi
