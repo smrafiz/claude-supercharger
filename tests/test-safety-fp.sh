@@ -147,6 +147,25 @@ allows "sed-i-empty" "sed -i '' 's|Say(x, what.Key);|Say(x);|' src/Game.cs"
 begin_test "GAP CHECK: a real read after a quoted alternation earlier in the line"
 denies "alt-then-read" "grep -iE 'a|b' notes.txt | head; grep -oE 'x' ~/.claude.json"
 
+# v4.1.18: a search tool's quoted PATTERN reached the dangerous-pattern scan.
+# Real commands, all denied before: a file-extension regex read as a pipe into
+# sh, a docs search for a reset command read as the reset, a SQL grep read as
+# DROP TABLE. 31 of 24,688 real commands flipped to allowed, none the other way.
+begin_test "a grep pattern containing '|sh' is not a pipe into a shell"
+allows "grep-ext-sh" "git log --format= --name-only | grep -E '\\.(cs|py|sh|uss)\$' | sort | uniq -c"
+
+begin_test "a grep for a destructive SQL phrase is a search, not the statement"
+allows "grep-drop" "grep -niE 'drop table|delete from|truncate' prisma/migrations/x/migration.sql"
+
+begin_test "rg for a reset command in docs is not the reset"
+allows "rg-reset" 'rg "prisma migrate reset" docs'
+
+begin_test "GAP CHECK: a destructive command chained after a grep still denies"
+denies "grep-then-drop" "grep -q 'x' f.sql && psql -c 'DROP TABLE users'"
+
+begin_test "GAP CHECK: grep output piped into a shell still denies"
+denies "grep-pipe-sh" "grep -h 'curl' notes.txt | sh"
+
 begin_test "GAP CHECK: a real key file is still denied to a non-pattern reader"
 denies "cat-key" 'cat server.key'
 
