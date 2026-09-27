@@ -452,7 +452,7 @@ print(next((r['url'] for r in runs if r.get('headSha') == sha), ''))
     echo "  CI: check Actions for branch ${REL_BRANCH}"
   fi
   echo ""
-  echo "  When ALL CI jobs are green (including Windows (Git Bash)), run:"
+  echo "  When ALL CI jobs are green (and Windows (Git Bash) on master at the base), run:"
   echo "    bash tools/release.sh promote ${NEW}"
 }
 
@@ -557,21 +557,36 @@ print('\n'.join(failed))
     exit 1
   fi
 
-  # Explicitly verify the Windows job was present and green.
-  WINDOWS_PRESENT=$(printf '%s' "$JOBS_JSON" | python3 -c "
+  # Windows (Git Bash) runs on master pushes only (~75 min; running it on every PR
+  # and again on rel/** tripled the wait for the same code). So the gate reads
+  # master's run for the commit this release was cut from: rel/X.Y.Z is that commit
+  # plus the version bump, and stage only cuts from master.
+  local BASE_SHA MASTER_JSON WIN_RUN WIN_STATE
+  BASE_SHA=$(git -C "$REPO_DIR" rev-parse "origin/${REL_BRANCH}^")
+  MASTER_JSON=$(gh run list --branch master --limit 30 \
+    --json headSha,status,databaseId 2>/dev/null || echo "[]")
+  WIN_RUN=$(printf '%s' "$MASTER_JSON" | python3 -c "
 import sys, json
-d = json.load(sys.stdin)
-win = [j for j in d.get('jobs', []) if 'Windows (Git Bash)' in j.get('name', '')]
-print('yes' if win else 'no')
-" 2>/dev/null || echo "no")
+runs = [r for r in json.load(sys.stdin) if r.get('headSha') == sys.argv[1]]
+print('%s %s' % (runs[0].get('status'), runs[0].get('databaseId')) if runs else 'missing -')
+" "$BASE_SHA" 2>/dev/null || echo "missing -")
+  WIN_STATE=${WIN_RUN%% *}
+  if [ "$WIN_STATE" = "completed" ]; then
+    WIN_STATE=$(gh run view "${WIN_RUN#* }" --json jobs 2>/dev/null | python3 -c "
+import sys, json
+win = [j for j in json.load(sys.stdin).get('jobs', []) if 'Windows (Git Bash)' in j.get('name', '')]
+print('missing' if not win else ('success' if win[0].get('conclusion') == 'success' else 'failed'))
+" 2>/dev/null || echo "missing")
+  fi
 
-  if [ "$WINDOWS_PRESENT" != "yes" ]; then
-    echo -e "${RED}CI gate:${NC} 'Windows (Git Bash)' job not found in run ${RUN_ID}."
-    echo "All jobs must succeed including Windows. Check: gh run view ${RUN_ID}"
+  if [ "$WIN_STATE" != "success" ]; then
+    echo -e "${RED}CI gate:${NC} 'Windows (Git Bash)' on master at ${BASE_SHA:0:7}: ${WIN_STATE}."
+    echo "Windows runs on master pushes only; a release needs it green on its base commit."
+    echo "Check: gh run list --branch master --commit ${BASE_SHA}"
     exit 1
   fi
 
-  echo -e "  ${GREEN}✓${NC} All CI jobs succeeded (including Windows (Git Bash))"
+  echo -e "  ${GREEN}✓${NC} All CI jobs succeeded; Windows (Git Bash) green on master at ${BASE_SHA:0:7}"
   echo ""
 
   # 4. Fast-forward master to rel/X.Y.Z.

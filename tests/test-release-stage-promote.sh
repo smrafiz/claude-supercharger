@@ -56,10 +56,12 @@ make_fixture() {
   printf '%s' "$local_dir"
 }
 
-# make_gh_mock <dir> <status> <conclusion> <jobs_conclusion> <branch_sha>
+# make_gh_mock <dir> <status> <conclusion> <jobs_conclusion> <branch_sha> [base_sha]
+# base_sha: the release's base commit, listed as a completed master run (Windows
+# runs on master only, and promote gates on that run).
 # Creates a fake 'gh' binary that returns canned JSON for run-list + run-view.
 make_gh_mock() {
-  local dir="$1" status="$2" conclusion="$3" jobs_ok="$4" sha="$5"
+  local dir="$1" status="$2" conclusion="$3" jobs_ok="$4" sha="$5" base="${6:-none}"
   mkdir -p "$dir"
   # Use /bin/sh shebang — PATH is replaced in tests so 'bash' would recurse.
   cat > "$dir/gh" << MOCKEOF
@@ -71,8 +73,8 @@ case "\$_args" in
     exit 0
     ;;
   *"run list"*)
-    printf '[{"headSha":"%s","status":"%s","conclusion":"%s","databaseId":99999,"url":"https://example.com/runs/99999"}]\n' \
-      "$sha" "$status" "$conclusion"
+    printf '[{"headSha":"%s","status":"%s","conclusion":"%s","databaseId":99999,"url":"https://example.com/runs/99999"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":88888,"url":"https://example.com/runs/88888"}]\n' \
+      "$sha" "$status" "$conclusion" "$base"
     ;;
   *"run view"*"--json jobs"*)
     if [ "$jobs_ok" = "success" ]; then
@@ -239,7 +241,7 @@ git -C "$FIX" push origin master -q >/dev/null 2>&1
 # Create a mock gh that says CI is all-green.
 MOCK_DIR=$(mktemp -d)
 REL_SHA=$(git -C "$FIX" rev-parse "origin/rel/1.2.4" 2>/dev/null || echo "deadbeef")
-make_gh_mock "$MOCK_DIR" "completed" "success" "success" "$REL_SHA"
+make_gh_mock "$MOCK_DIR" "completed" "success" "success" "$REL_SHA" "$(git -C "$FIX" rev-parse "origin/rel/1.2.4^")"
 
 # promote exits before reaching the confirm prompt (at FF check), so --yes
 # is used here and PATH is set for the bash invocation, not the printf.
@@ -280,7 +282,7 @@ begin_test "promote refuses when CI run is still in progress"
 FIX=$(make_promote_fixture)
 MOCK_DIR=$(mktemp -d)
 REL_SHA=$(git -C "$FIX" rev-parse "origin/rel/1.2.4")
-make_gh_mock "$MOCK_DIR" "in_progress" "" "success" "$REL_SHA"
+make_gh_mock "$MOCK_DIR" "in_progress" "" "success" "$REL_SHA" "$(git -C "$FIX" rev-parse "origin/rel/1.2.4^")"
 OUT=$(PATH="$MOCK_DIR:$PATH" bash "$FIX/tools/release.sh" promote 1.2.4 --yes 2>&1 || true)
 printf '%s' "$OUT" | grep -q 'not finished\|in_progress' && pass \
   || fail "expected 'not finished' message, got: $(printf '%s' "$OUT" | head -5)"
@@ -293,7 +295,7 @@ begin_test "promote refuses when a CI job failed"
 FIX=$(make_promote_fixture)
 MOCK_DIR=$(mktemp -d)
 REL_SHA=$(git -C "$FIX" rev-parse "origin/rel/1.2.4")
-make_gh_mock "$MOCK_DIR" "completed" "failure" "failure" "$REL_SHA"
+make_gh_mock "$MOCK_DIR" "completed" "failure" "failure" "$REL_SHA" "$(git -C "$FIX" rev-parse "origin/rel/1.2.4^")"
 OUT=$(PATH="$MOCK_DIR:$PATH" bash "$FIX/tools/release.sh" promote 1.2.4 --yes 2>&1 || true)
 printf '%s' "$OUT" | grep -q 'CI gate failed\|FAILED' && pass \
   || fail "expected CI gate failure message, got: $(printf '%s' "$OUT" | head -5)"
@@ -304,7 +306,7 @@ R=$(git -C "$FIX" rev-parse "origin/rel/1.2.4")
   || fail "master was advanced despite CI job failure"
 rm -rf "$FIX" "$MOCK_DIR"
 
-begin_test "promote refuses when Windows job is absent from CI results"
+begin_test "promote refuses when master has no Windows run for the release base"
 FIX=$(make_promote_fixture)
 MOCK_DIR=$(mktemp -d)
 REL_SHA=$(git -C "$FIX" rev-parse "origin/rel/1.2.4")
