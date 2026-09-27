@@ -12,6 +12,13 @@ on:
   pull_request:
     branches: [master]
 
+# A newer push to the same branch/PR cancels the older run. Mostly for master,
+# where each push runs the ~80 min Windows job: back-to-back merges queued three.
+# The newest run covers everything the cancelled ones would have (it is a superset).
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Test suite
