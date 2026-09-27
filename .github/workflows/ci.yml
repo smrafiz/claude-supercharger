@@ -118,6 +118,9 @@ jobs:
   windows-smoke:
     name: Windows (Git Bash)
     runs-on: windows-latest
+    # ~75 min, so master pushes only: not on every PR, not again on rel/**.
+    # release.sh promote gates on this job for the release's base commit.
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
     # Git Bash is the interpreter Claude Code auto-selects on Windows, so this is
     # the real target — not a POSIX approximation.
     defaults:
