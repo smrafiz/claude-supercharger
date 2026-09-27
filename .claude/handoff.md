@@ -4,17 +4,15 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-24, session `3d213381`.*
+*Verified 2026-09-27, session `3d213381`.*
 
-- **v4.1.14 RELEASED** (`0ffa551`, 8/8 CI). `master == v4.1.14`, **0 open PRs**.
-  v4.1.12 and v4.1.13 also shipped from this session (2026-09-23).
-- v4.1.14 = #44 rm bypass via `/bin/rm`, busybox, `timeout`, every shell `-c`
-  spelling · #45 handoff briefs picked by stated date, not mtime · #46 every
-  slash command audited/upgraded (commit messages carry the research sources).
-- **Machine A (this box): INSTALLED v4.1.14**, verified by grepping the new code.
-- **Machine B**: unknown — update straight to v4.1.14.
-- Commands are prompts, verified structurally only. The real test is running
-  them on a real project (`/audit quick` on this repo was the one live trial).
+- **v4.1.15 STAGED** on `rel/4.1.15` (`77ff207`), CI running; not yet promoted.
+  Contents: #48 lesson-record junk + self-feed fix · #49 claim-evidence-gate
+  `failed=0` false positive. `master` = `86f7d6b`, docs PR for this file open.
+- **v4.1.14 RELEASED** (`0ffa551`). #47 (handoff docs) merged.
+- **Machine A (this box): INSTALLED v4.1.14** — run `/sc-update` after promote.
+- **Machine B**: unknown — update straight to the latest release.
+- Commands are prompts, verified structurally only; the real test is running them.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -43,6 +41,13 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-09-27 — 3d213381
+Traced /sc-status's "recent blocks" to their transcripts and found two shipped defects:
+lesson-record saved dashboards/tables as lessons and fed itself (#48), and the claim
+gate read `failed=0` as a failure — nearly all its blocks were false (#49). Both caught
+a regression in their first draft only by replaying real transcripts. Staged v4.1.15.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-09-24 — 3d213381
 Released **v4.1.14**. Audited all 33 commands, research first: /learn rules never
@@ -79,9 +84,3 @@ number, so two machines could report `v4.1.10` and run different code. Merged #3
 #32, #22, #33; updated this machine to v4.1.10.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
-#### 2026-09-21 (later) — 75a954fe
-Released **v4.1.10**: every deny and ask now reaches the agent attributed, via a
-single emitter, with six fail-open shapes closed behind it. Also fixed config-scan
-flagging this repo's own carry file (#31) — "output styles change the system
-prompt" is documentation, not an injection.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
