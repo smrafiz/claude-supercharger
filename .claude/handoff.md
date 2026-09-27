@@ -6,15 +6,20 @@ session on any machine.**
 ### Current State
 *Verified 2026-09-27, session `3d213381`.*
 
-- **v4.1.15 RELEASED** (`77ff207`, 8/8 CI incl. Windows). #48 lesson-record junk +
-  self-feed fix · #49 claim-evidence-gate `failed=0` false positive.
-- **#51 merged after the release: Windows CI now runs on master pushes only.** PRs
-  finish in ~11 min; `release.sh promote` checks Windows on master's run for the
-  release's base commit (`rel^`). So merge PRs on Linux/macOS green; before
-  promoting, wait for master's Windows run at the base.
-- **Machine A (this box): INSTALLED v4.1.15**, verified by grepping both fixes.
-- **Machine B**: unknown — update straight to the latest release.
-- Commands are prompts, verified structurally only; the real test is running them.
+- **v4.1.16 RELEASED** (`5df31df`). #53: the sensitive-read rule cut a reader's args
+  at the first `|` even inside quotes. A grep for `process.env` with a regex
+  alternation was denied as a dotenv read (FP), and a real credential file after a
+  quoted `|` was never scanned (FN).
+- **v4.1.15 RELEASED** (`77ff207`): #48 lesson-record junk/self-feed; #49 claim gate
+  read `failed=0` as a failure.
+- **CI (#51, #52, #54): Windows runs on master pushes only; superseded runs cancel.**
+  Merge PRs on Linux/macOS green (~11 min). Before `promote`, wait for master's
+  Windows run at the release base (`rel^`); the rel run's Windows is SKIPPED and
+  promote accepts that (#54). Promote a staged rel BEFORE merging anything else.
+- `master` = `72dad8d`, 0 open PRs.
+- **Machine A (this box): INSTALLED v4.1.16**, verified by grepping `_READER_ARGS`.
+  One stale git stash here ("release.sh copy of #54"), identical to master: drop it.
+- **Machine B**: unknown. Update straight to the latest release.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -41,6 +46,12 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-09-27 (later) — 3d213381
+Released **v4.1.16**: a dotenv block on a real grep traced to quoted-`|` truncation in
+the sensitive-read rule, an FP and an FN in one line (#53). Moved Windows CI to master
+only (~80 min per PR saved) and fixed the promote gate that change broke (#54).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-09-27 — 3d213381
 Traced /sc-status's "recent blocks" to their transcripts and found two shipped defects:
@@ -72,15 +83,5 @@ reports a phantom update. #35 fixes it and wants **v4.1.12 promptly**. Ten stati
 grep assertions passed while it was broken — only a round-trip test could fail.
 Also closed the economy question by measurement (45–48%) and found that an output
 style cannot replace `economy.md` because styles miss subagents.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
-
-#### 2026-09-22 — 75a954fe
-Closed the economy question by measurement rather than argument: `/output-style
-concise` cuts median prose 45–48% with the minimal tier already active, so the
-layer never bound because of WHERE it lives, not what it says (#22). Found that a
-style cannot replace it — styles miss subagents, `CLAUDE.md` does not. Fixed
-version identity (#33): the updater installed master HEAD under the last release's
-number, so two machines could report `v4.1.10` and run different code. Merged #31,
-#32, #22, #33; updated this machine to v4.1.10.
 Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
