@@ -121,6 +121,32 @@ begin_test "GAP CHECK: a real key file passed to grep as a FILE still denies"
 # pattern is `foo` and the sensitive name is a genuine file argument.
 denies "grep-file-arg" 'grep -rn foo "secrets.json"'
 
+# v4.1.16: the reader's args were cut at the first `|` even inside quotes, so an
+# alternation in the PATTERN left an unbalanced quote, the pattern-skip gave up and
+# the pattern was scanned as a path. Real command, blocked 2026-09-24.
+begin_test "a quoted regex alternation around process.env is not file access"
+allows "quoted-alt-env" 'grep -rhoE "process\.env\.(SHOPIFY_APP_URL|HOST|PORT)" web/lib web/app 2>/dev/null | sort'
+
+begin_test "a quoted alternation of property names is not file access"
+allows "quoted-alt-key" 'grep -rn "config.key|tls.cer" src/'
+
+begin_test "GAP CHECK: a real key file after a quoted alternation still denies"
+denies "quoted-alt-file" 'grep -rn "foo|bar" src server.key'
+
+# Found by replaying 40,423 real reader commands through the fix: each of these
+# shapes flipped the wrong way at some point and is pinned here.
+begin_test "a heredoc body mentioning a .key property is data, not a read"
+allows "heredoc-key" "$(printf 'cat > src/a.ts <<%sEOF%s\nconst v = cfg.key; if (a | b) run();\nEOF' "'" "'")"
+
+begin_test "a reader inside \$( ) stops at its close paren"
+allows "subshell-close" 'echo "n $(grep -c x log.txt) | $(grep -c y log.txt)"; grep -c "asks\"), what.Key" src/Game.cs'
+
+begin_test "BSD sed -i '' treats the empty string as the suffix, not the script"
+allows "sed-i-empty" "sed -i '' 's|Say(x, what.Key);|Say(x);|' src/Game.cs"
+
+begin_test "GAP CHECK: a real read after a quoted alternation earlier in the line"
+denies "alt-then-read" "grep -iE 'a|b' notes.txt | head; grep -oE 'x' ~/.claude.json"
+
 begin_test "GAP CHECK: a real key file is still denied to a non-pattern reader"
 denies "cat-key" 'cat server.key'
 
