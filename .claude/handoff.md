@@ -6,20 +6,20 @@ session on any machine.**
 ### Current State
 *Verified 2026-09-27, session `3d213381`.*
 
-- **v4.1.16 RELEASED** (`5df31df`). #53: the sensitive-read rule cut a reader's args
-  at the first `|` even inside quotes. A grep for `process.env` with a regex
-  alternation was denied as a dotenv read (FP), and a real credential file after a
-  quoted `|` was never scanned (FN).
-- **v4.1.15 RELEASED** (`77ff207`): #48 lesson-record junk/self-feed; #49 claim gate
-  read `failed=0` as a failure.
-- **CI (#51, #52, #54): Windows runs on master pushes only; superseded runs cancel.**
-  Merge PRs on Linux/macOS green (~11 min). Before `promote`, wait for master's
-  Windows run at the release base (`rel^`); the rel run's Windows is SKIPPED and
-  promote accepts that (#54). Promote a staged rel BEFORE merging anything else.
-- `master` = `72dad8d`, 0 open PRs.
-- **Machine A (this box): INSTALLED v4.1.16**, verified by grepping `_READER_ARGS`.
-  One stale git stash here ("release.sh copy of #54"), identical to master: drop it.
+- **v4.1.17 RELEASED** (cron rule anchored to command position, #56). v4.1.16 (#53
+  sensitive-read quoted-pipe FP + FN) and v4.1.15 (#48, #49) also shipped today.
+- **UNRELEASED on master: #57** — a grep/rg quoted pattern is data, not a command
+  (31 real false positives). `master` = `68d04b1`; its Windows run gates v4.1.18.
+- **CI: Windows runs on master pushes only; superseded runs cancel** (#51, #52, #54).
+  Merge PRs on Linux/macOS green (~11 min). Promote needs master's Windows run at
+  the release base (`rel^`). Promote a staged rel BEFORE merging anything else.
+- Lessons for writing guards are now in `docs/HOOK_AUTHORING.md`, "Guard rules: match
+  commands, not text" (docs PR open with this file).
+- **Machine A (this box): INSTALLED v4.1.17.** One stale git stash ("release.sh copy
+  of #54"), identical to master: drop it.
 - **Machine B**: unknown. Update straight to the latest release.
+- **Open**: heredoc code (`MAX_SECRET_LENGTH = 128`, a `PROBE_SECRET` constant)
+  still trips the credential and DNS rules. Different fix from #57, not started.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -46,6 +46,12 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-09-27 (late) — 3d213381
+Released **v4.1.17** (cron rule prose FP). Swept every real deny that depended only on
+quoted or heredoc text: the real ones were search patterns scanned as shell, fixed in
+#57 (unreleased). Wrote the five-fix lesson into `docs/HOOK_AUTHORING.md`.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-09-27 (later) — 3d213381
 Released **v4.1.16**: a dotenv block on a real grep traced to quoted-`|` truncation in
@@ -75,13 +81,4 @@ fixes were checked by replaying real transcript commands OLD vs NEW hook — whi
 caught a first #36 fix that would have shipped 34 false positives. Rebuilt
 `/multi-review`, `/security`, `/audit` from web+GitHub research (#38–#40).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-22 (later) — 75a954fe
-Released **v4.1.11** and shipped a regression in it: the commit stamp added by
-#33 compares an 8-char local abbreviation against a 7-char remote, so every check
-reports a phantom update. #35 fixes it and wants **v4.1.12 promptly**. Ten static
-grep assertions passed while it was broken — only a round-trip test could fail.
-Also closed the economy question by measurement (45–48%) and found that an output
-style cannot replace `economy.md` because styles miss subagents.
-Detail: `.claude/handoff-75a954fe-40c2-4f49-9693-c7687c0468cd.md`
 
