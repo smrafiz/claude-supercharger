@@ -338,6 +338,21 @@ begin_test "safety: 'systemctl status' is allowed"
 begin_test "safety: 'systemctl daemon-reload' is allowed"
 [ "$(verdict "systemctl daemon-reload")" = ALLOW ] && pass || fail "over-blocked daemon-reload"
 
+# v4.1.17: the rule matched "crontab <word>" ANYWHERE, so prose tripped it. Ten
+# real commands were denied; none ran crontab. It is now anchored to command
+# position; the invocations below must still block.
+begin_test "safety: crontab mentioned in an echo string is allowed"
+[ "$(verdict 'grep -rn "cron/" deploy.yml | head -20; echo "=== grep crontab in docs ==="; grep -rn "crontab" docs/ 2>/dev/null | head -20')" = ALLOW ] && pass || fail "prose in echo blocked"
+begin_test "safety: crontab mentioned in an interpreter heredoc string is allowed"
+[ "$(verdict "$(printf 'python3 - <<%sPY%s\ns = "Needs a crontab entry on EC2 alongside the scheduler."\nPY' "'" "'")")" = ALLOW ] && pass || fail "heredoc prose blocked"
+begin_test "safety: crontab mentioned in a commit message is allowed"
+[ "$(verdict 'git commit -m "document the crontab line on the box"')" = ALLOW ] && pass || fail "commit message blocked"
+begin_test "safety: crontab after && / ; / newline / path is still blocked"
+[ "$(verdict "cd /tmp && crontab new.cron")" = BLOCK ] \
+  && [ "$(verdict "echo x; crontab -r")" = BLOCK ] \
+  && [ "$(verdict "$(printf 'echo hi\ncrontab mine.txt')")" = BLOCK ] \
+  && [ "$(verdict "/usr/bin/crontab -e")" = BLOCK ] \
+  && [ "$(verdict "(crontab -l; echo x) | crontab -")" = BLOCK ] && pass || fail "a real crontab invocation evaded"
 begin_test "safety: 'crontab -e' is blocked"
 [ "$(verdict "crontab -e")" = BLOCK ] && pass || fail "crontab -e evaded"
 begin_test "safety: 'crontab -r' is blocked (removes every entry)"
