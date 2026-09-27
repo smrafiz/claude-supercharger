@@ -474,6 +474,12 @@ def _strip_metadata_text(c: str) -> str:
     return _METADATA_TEXT_RE.sub(_drop, c)
 
 
+# A newline ends the args too (it separates commands, and a heredoc body after it
+# is data), except a backslash line continuation. Quoted strings do not cross lines.
+# An unquoted `)` ends them as well: a reader inside `$( ... )` stops at its close.
+_READER_ARGS = r"""[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
+
+
 def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
     # Metadata text is prose, not a path -- see _strip_metadata_text. Only the
@@ -499,9 +505,18 @@ def check_sensitive_read(c: str) -> str | None:
         if sm and not sm.group(0).endswith(".pub"):
             return f"sensitive file access: {sm.group(0)} — credentials likely present"
     # Capture the args of a reader command and search for sensitive names within
-    for m in re.finditer(READER + r"\s+([\S\s]*?)(?:$|\||;|&&|\|\|)", c):
+    # v4.1.16: the args run to the next UNQUOTED separator. The old lazy capture
+    # stopped at the first `|` anywhere, including inside a quoted regex, so
+    # `grep -E "process\.env\.(A|B)" src` was cut to `"process\.env\.(A`; the
+    # unbalanced quote made _drop_first_operand give up and the pattern was scanned
+    # as a path (sensitive file access: .env). The same cut hid every real file
+    # argument after a quoted `|`. A lone unmatched quote is consumed as a char.
+    for m in re.finditer(READER + _READER_ARGS, c):
         args = m.group(2)
         if m.group("tool") in _PATTERN_READERS:
+            # BSD `sed -i ''`: the empty string is -i's backup suffix, not the script.
+            if m.group("tool") == "sed":
+                args = re.sub(r"(^|\s)-i\s*(?:''|\"\")(?=\s)", r"\1-i", args)
             args = _drop_first_operand(args)
         sm = _SENSITIVE_NAME_RE.search(args)
         if sm:
