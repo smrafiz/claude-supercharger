@@ -6,11 +6,13 @@ session on any machine.**
 ### Current State
 *Verified 2026-09-27, session `3d213381`.*
 
-- **v4.1.15 STAGED** on `rel/4.1.15` (`77ff207`), CI running; not yet promoted.
-  Contents: #48 lesson-record junk + self-feed fix · #49 claim-evidence-gate
-  `failed=0` false positive. `master` = `86f7d6b`, docs PR for this file open.
-- **v4.1.14 RELEASED** (`0ffa551`). #47 (handoff docs) merged.
-- **Machine A (this box): INSTALLED v4.1.14** — run `/sc-update` after promote.
+- **v4.1.15 RELEASED** (`77ff207`, 8/8 CI incl. Windows). #48 lesson-record junk +
+  self-feed fix · #49 claim-evidence-gate `failed=0` false positive.
+- **#51 merged after the release: Windows CI now runs on master pushes only.** PRs
+  finish in ~11 min; `release.sh promote` checks Windows on master's run for the
+  release's base commit (`rel^`). So merge PRs on Linux/macOS green; before
+  promoting, wait for master's Windows run at the base.
+- **Machine A (this box): INSTALLED v4.1.15**, verified by grepping both fixes.
 - **Machine B**: unknown — update straight to the latest release.
 - Commands are prompts, verified structurally only; the real test is running them.
 
@@ -27,8 +29,6 @@ session on any machine.**
 ### Decisions parked, not blocked
 - **Install the tag rather than master?** Merging to master currently IS
   shipping. Against: users lose immediate fixes. Mitigating: PRs run all 8 jobs.
-- **Gate the Windows job to `master` and `rel/*`?** Would remove most of 10,678
-  monthly minutes, but Windows caught the CRLF defect — the release gate keeps it.
 - **Never seize the output-style slot.** One global field; `force-for-plugin`
   overrides the user's own choice.
 
