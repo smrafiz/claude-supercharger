@@ -42,6 +42,8 @@ case "$_INPUT" in
   # the destroy arm always matched plain `fly`, but only `*flyctl*` got through
   # this gate — `fly postgres destroy` was unreachable.
   *fly*|*heroku*|*turso*|*pscale*|*neonctl*|*firebase*) : ;;
+  # v4.1.19: secret managers, widened WITH the vault/bao arm below.
+  *vault*|*bao*) : ;;
   *xargs*) : ;;
   *parallel*) : ;;
   *) exit 0 ;;
@@ -80,6 +82,13 @@ elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(heroku[[:space:]]+pg:r
 # recovery window, so the honest tier is "confirm", not "never".
 elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*kms[[:space:]]+(schedule-key-deletion|disable-key)';       then op="aws kms key deletion/disable (every object encrypted with it becomes unreadable)"
 elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*secretsmanager[[:space:]]+delete-secret';                  then op="aws secretsmanager delete-secret"
+# v4.1.19: HashiCorp Vault / OpenBao (`bao`), from jedarden/irreversible-command-gate.
+# `kv destroy` and `kv metadata delete` erase secret VERSIONS permanently (unlike
+# `kv delete`, which is a soft delete); `secrets disable` drops a whole mount and
+# every secret in it; `operator rekey` replaces the unseal keys; a `-prefix` lease
+# or token revoke cuts off every client under a path. ASK: an admin does these on
+# purpose, but never as a side effect of other work.
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(vault|bao)[[:space:]]+(kv[[:space:]]+(destroy|metadata[[:space:]]+delete)|secrets[[:space:]]+disable|operator[[:space:]]+(rekey|generate-root)|(lease|token)[[:space:]]+revoke[^;&|]*-prefix)([[:space:]]|$)'; then op="vault/openbao destructive op (secret versions, a whole mount, unseal keys or every lease under a path)"
 # Deliberately the specific calls, not a bare deregister-/purge-/batch-delete-
 # prefix: `ecs deregister-task-definition` is routine in a normal deploy and a
 # broad arm would fire on ordinary work. Precision over reach.

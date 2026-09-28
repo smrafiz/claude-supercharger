@@ -47,6 +47,18 @@ check "neonctl-branch-delete" "neonctl branches delete dev"                     
 check "firebase-firestore-del" "firebase firestore:delete --all-collections"          ASK
 check "firebase-rtdb-remove"  "firebase database:remove /"                            ASK
 check "fly-status"            "fly status"                                            SILENT
+# v4.1.19: Vault / OpenBao. Permanent erasure, whole-mount drops, unseal-key
+# replacement and prefix revokes ASK; reads, writes and soft deletes stay silent.
+check "vault-kv-destroy"      "vault kv destroy -versions=1,2 secret/app"             ASK
+check "vault-kv-metadata-del" "vault kv metadata delete secret/app"                   ASK
+check "vault-secrets-disable" "vault secrets disable secret/"                         ASK
+check "bao-operator-rekey"    "bao operator rekey -init -key-shares=5"                ASK
+check "vault-lease-prefix"    "vault lease revoke -prefix aws/creds"                  ASK
+check "vault-kv-get"          "vault kv get secret/app"                               SILENT
+check "vault-kv-put"          "vault kv put secret/app key=val"                       SILENT
+check "vault-kv-soft-delete"  "vault kv delete secret/app"                            SILENT
+check "vault-lease-one"       "vault lease revoke aws/creds/abc123"                   SILENT
+check "vault-status"          "vault status"                                          SILENT
 check "heroku-pg-info"        "heroku pg:info"                                        SILENT
 check "turso-db-list"         "turso db list"                                         SILENT
 check "neonctl-branch-list"   "neonctl branches list"                                 SILENT
