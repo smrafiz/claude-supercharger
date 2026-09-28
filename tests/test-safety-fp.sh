@@ -166,6 +166,21 @@ denies "grep-then-drop" "grep -q 'x' f.sql && psql -c 'DROP TABLE users'"
 begin_test "GAP CHECK: grep output piped into a shell still denies"
 denies "grep-pipe-sh" "grep -h 'curl' notes.txt | sh"
 
+# v4.1.19: a MULTI-LINE message was never blanked (sed is line-based), and
+# clustered flags (-am, -qm) were not recognised. The real denied commit named
+# the user CLAUDE.md and sed in its body.
+begin_test "a multi-line commit message naming a config and sed is prose"
+allows "ml-commit" "$(printf 'git commit -qm "fix: trim blank lines\n\nevery install/update grew the user ~/.claude/CLAUDE.md by a line"')"
+
+begin_test "a clustered -am message naming a config write is prose"
+allows "am-commit" 'git commit -am "document: tee into .claude/settings.json is denied"'
+
+begin_test "GAP CHECK: a config write chained after a multi-line message still denies"
+denies "ml-then-write" "$(printf 'git commit -m "a\nb" && sed -i "s/a/b/" .claude/settings.json')"
+
+begin_test "GAP CHECK: sh -cm cannot blank a script body"
+denies "sh-cm" "sh -cm 'echo x > .claude/settings.json'"
+
 begin_test "GAP CHECK: a real key file is still denied to a non-pattern reader"
 denies "cat-key" 'cat server.key'
 
