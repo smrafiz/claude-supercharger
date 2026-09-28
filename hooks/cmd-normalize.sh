@@ -226,7 +226,7 @@ _sc_strip_wrapper_prelude() {
   # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
   while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
-    cmd="${cmd#${BASH_REMATCH[0]}}"
+    cmd="${cmd#"${BASH_REMATCH[0]}"}"
     while :; do
       cmd="${cmd#"${cmd%%[![:space:]]*}"}"
       case "$cmd" in
@@ -311,7 +311,7 @@ normalize_cmd() {
   # so the rm-deny rules never fired. Same applies to bare `PATH=/usr/bin rm`
   # without `env`. Loop until no leading assignment remains.
   while [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do
-    cmd="${cmd#${BASH_REMATCH[0]}}"
+    cmd="${cmd#"${BASH_REMATCH[0]}"}"
   done
   # Collapse runs of spaces to one (matches `tr -s ' '` — spaces only, not tabs).
   #
@@ -450,7 +450,7 @@ split_segments() {
       # fast-path is self-contained and order-identical to the fork path.
       seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
       seg=$(_sc_strip_wrapper_prelude "$seg")
-      while [[ "$seg" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do seg="${seg#${BASH_REMATCH[0]}}"; done
+      while [[ "$seg" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do seg="${seg#"${BASH_REMATCH[0]}"}"; done
       [ -n "$seg" ] && printf '%s\n' "$seg"
       return ;;
   esac

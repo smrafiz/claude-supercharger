@@ -411,4 +411,30 @@ begin_test "safety: bracket idiom, --ignore-ancestors, pgrep and named pkill are
   && [ "$(verdict "pgrep -f java")" = ALLOW ] && [ "$(verdict "pkill -x nginx")" = ALLOW ] \
   && pass || fail "over-blocked a safe kill form"
 
+
+# v4.1.19: `${cmd#${BASH_REMATCH[0]}}` used the matched text UNQUOTED, as a glob.
+# A leading assignment whose value holds [brackets] (`P=[x] ...`) never matched its
+# own text, the strip loop never advanced, and safety.sh spun forever. Claude Code
+# kills a hook after 15s and runs the command, so the hang was a bypass of every
+# guard. Found from a real command (`P="app/admin/[section]/page.tsx ..."`).
+# Run with a hard time limit so a regression FAILS here instead of hanging the suite.
+_timed_verdict() {
+  local j; j=$(printf '%s' "$1" | python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":sys.stdin.read()}}))')
+  printf '%s' "$j" | python3 -c '
+import subprocess, sys, os, signal
+p = subprocess.Popen(["bash", sys.argv[1]], stdin=subprocess.PIPE, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL, start_new_session=True)
+try:
+    p.communicate(sys.stdin.buffer.read(), timeout=10)
+    print("ALLOW" if p.returncode == 0 else "BLOCK")
+except subprocess.TimeoutExpired:
+    os.killpg(p.pid, signal.SIGKILL); print("HANG")' "$H"
+}
+begin_test "safety: a [bracketed] VAR= prefix does not hang the guard"
+[ "$(_timed_verdict 'P="app/admin/[section]/page.tsx app/globals.css" && git add -- $P')" = ALLOW ] \
+  && pass || fail "hung or misjudged a bracketed assignment"
+begin_test "safety: a [bracketed] VAR= prefix cannot smuggle a destructive command"
+[ "$(_timed_verdict "P=[x] rm -rf ~")" = BLOCK ] && [ "$(_timed_verdict "A=[a] B=[b] rm -rf /")" = BLOCK ] \
+  && pass || fail "bracketed assignment prefix bypassed the rm rule (HANG = fail-open)"
+
 report
