@@ -4,22 +4,25 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-27, session `3d213381`.*
+*Verified 2026-09-28, session `3d213381`.*
 
-- **v4.1.17 RELEASED** (cron rule anchored to command position, #56). v4.1.16 (#53
-  sensitive-read quoted-pipe FP + FN) and v4.1.15 (#48, #49) also shipped today.
-- **UNRELEASED on master: #57** — a grep/rg quoted pattern is data, not a command
-  (31 real false positives). `master` = `68d04b1`; its Windows run gates v4.1.18.
-- **CI: Windows runs on master pushes only; superseded runs cancel** (#51, #52, #54).
-  Merge PRs on Linux/macOS green (~11 min). Promote needs master's Windows run at
-  the release base (`rel^`). Promote a staged rel BEFORE merging anything else.
-- Lessons for writing guards are now in `docs/HOOK_AUTHORING.md`, "Guard rules: match
-  commands, not text" (docs PR open with this file).
-- **Machine A (this box): INSTALLED v4.1.17.** One stale git stash ("release.sh copy
-  of #54"), identical to master: drop it.
+- **v4.1.19 being released** from master (#59-#64). Includes a SECURITY fix (#64):
+  a `VAR=` prefix holding `[brackets]` hung normalize_cmd forever (unquoted glob in
+  `${cmd#${BASH_REMATCH[0]}}`), Claude Code killed the hook and ran the command, so
+  `P=[x] <destructive>` bypassed every normalizing guard. Anyone on <= v4.1.18 is
+  exposed: update.
+- Also in v4.1.19: env-dump + agent self-kill guards (#61), multi-line/clustered
+  commit messages no longer scanned (#60), injection scanner decodes base64/hex/
+  percent + bidi/hidden-html (#62), Vault/OpenBao ask (#63), CLAUDE.md blank-line
+  growth (#59).
+- **v4.1.18 RELEASED** (#57 grep patterns are data). v4.1.15-17 earlier.
+- CI: Windows on master pushes only; promote needs master's Windows run at the
+  release base. GitHub skipped the push run for #64's merge once (0 runs for the
+  SHA) - if promote waits forever, check `gh api .../actions/runs?head_sha=`.
+- **Machine A (this box): INSTALLED v4.1.18** until v4.1.19 promotes.
 - **Machine B**: unknown. Update straight to the latest release.
-- **Open**: heredoc code (`MAX_SECRET_LENGTH = 128`, a `PROBE_SECRET` constant)
-  still trips the credential and DNS rules. Different fix from #57, not started.
+- **Open**: heredoc code tripping the credential/DNS rules; command-string mutation
+  (heredoc unescape, Windows backslash halving, >8KB truncation) needs probes.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -47,6 +50,13 @@ session on any machine.**
 
 ## Log
 
+#### 2026-09-28 — 3d213381
+Research sweep (web, GitHub, upstream tracker) became six fixes (#59-#64). A history
+replay that timed out led to a SECURITY bug: a bracketed `VAR=` prefix hung every
+Bash guard, which fails open. Every guard change was replayed against ~48k real
+commands first; three first drafts regressed and were caught that way.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-09-27 (late) — 3d213381
 Released **v4.1.17** (cron rule prose FP). Swept every real deny that depended only on
 quoted or heredoc text: the real ones were search patterns scanned as shell, fixed in
@@ -72,13 +82,5 @@ resurfaced (Jaccard 0.00), /reflect lessons never reached the next session (load
 reads 4 lines), /why's filter was inverted, /profile ignored per-project config.
 Fixed the rm bypass (#44) after a 21k-command replay caught a false positive, and
 the mtime-ranked handoff loader (#45). New /design-review.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-23 — 3d213381
-Released **v4.1.12** and **v4.1.13**. Upstream-tracker sweep found a selfmod gap
-(#36); a DB-CLI coverage audit found 36/49 destructive commands allowed (#37). Both
-fixes were checked by replaying real transcript commands OLD vs NEW hook — which
-caught a first #36 fix that would have shipped 34 false positives. Rebuilt
-`/multi-review`, `/security`, `/audit` from web+GitHub research (#38–#40).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
