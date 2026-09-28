@@ -1064,12 +1064,28 @@ fi
 # the values are in context. Only UNFILTERED dumps deny: `printenv NAME`,
 # `env | grep X`, `env FOO=1 cmd` (env as a wrapper) and `set -e` stay allowed.
 # Command position only (segment start), so prose naming these words is ignored.
-_ENV_SEG='(^|[;&|(]|&&|\|\|)[[:space:]]*'
+_ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*'
 _ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee)([[:space:]]|$))'
 if _cat_enabled "credentials"; then
   _ENV_DUMP="${_ENV_SEG}"'(env|printenv|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
   _ENV_PROC='/proc/[^[:space:]]*/environ'
-  if [[ "$CMD_SCAN" =~ $_ENV_DUMP ]] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
+  # The cheap match runs first; only on a hit is the text re-checked with heredoc
+  # bodies removed and quoted strings blanked. Interpreter heredocs are kept in
+  # CMD_SCAN on purpose (their code is checked for shell-outs), but Python or C#
+  # there is not shell: `sorted(set)` or `{ get; set; }` matched this rule 23
+  # times in a replay of real history. `sh -c` bodies are unaffected: the
+  # normalizer already appends them as their own unquoted segments.
+  _env_hit=""
+  if [[ "$CMD_SCAN" =~ $_ENV_DUMP ]]; then
+    _ENV_SRC=$(printf '%s\n' "$CMD_SCAN" | awk '
+      skip { t = $0; sub(/^\t+/, "", t); if (t == term) skip = 0; next }
+      { print }
+      match($0, /<<-?[ \t]*[^ \t<A-Za-z0-9_]?[A-Za-z_][A-Za-z0-9_]*/) && index($0, "<<<") == 0 {
+        term = substr($0, RSTART, RLENGTH); sub(/^<<-?[ \t]*[^ \t<A-Za-z0-9_]?/, "", term); skip = 1 }' \
+      | tr '\n' '\036' | LC_ALL=C sed -E -e "s/'[^']*'/''/g" -e 's/"[^"]*"/""/g' | tr '\036' '\n')
+    [[ "$_ENV_SRC" =~ $_ENV_DUMP ]] && _env_hit=1
+  fi
+  if [ -n "$_env_hit" ] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
     block "environment dump — prints every secret in the session into the transcript; read one variable instead (printenv NAME)"
   fi
 fi

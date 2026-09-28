@@ -386,6 +386,15 @@ begin_test "safety: filtered / single-var / wrapper env forms are allowed"
   && [ "$(verdict "/usr/bin/env python3 x.py")" = ALLOW ] \
   && [ "$(verdict 'git commit -m "document env and printenv"')" = ALLOW ] \
   && pass || fail "over-blocked a filtered or wrapper env use"
+# A replay found 23 real heredocs tripping the first draft: Python sorted(set),
+# C# { get; set; }, a list holding "env". Heredoc bodies and quotes are data.
+begin_test "safety: env/set inside a heredoc or quoted code is not a dump"
+[ "$(verdict "$(printf 'python3 - <<%sPY%s\nx = sorted(set)\ncfg = d.get("env", {})\nPY' "'" "'")")" = ALLOW ] \
+  && [ "$(verdict "$(printf 'cat > A.cs <<%sEOF%s\npublic string Name { get; set; }\nEOF' "'" "'")")" = ALLOW ] \
+  && [ "$(verdict 'python3 -c "import json; print(sorted(set))"')" = ALLOW ] \
+  && pass || fail "heredoc or quoted code read as an env dump"
+begin_test "safety: env on its own line of a multi-line command is a dump"
+[ "$(verdict "$(printf 'cd /tmp\nenv')")" = BLOCK ] && pass || fail "newline-started env evaded"
 
 # v4.1.19: the Bash tool runs `bash -c '<cmd>'`, so `pkill -f java` matches that
 # shell's own command line and kills the session; `killall node` kills Claude Code.
