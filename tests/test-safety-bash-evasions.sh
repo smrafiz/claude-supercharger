@@ -370,4 +370,45 @@ begin_test "safety: writing the cron spool is blocked"
 begin_test "safety: copying into cron.daily is blocked"
 [ "$(verdict "cp job /etc/cron.daily/")" = BLOCK ] && pass || fail "cron.daily copy evaded"
 
+
+# v4.1.19: full environment dumps print every session secret into the transcript
+# (upstream claude-code#80153: a chained `env` leaked ~10 live keys). Filtered and
+# wrapper forms stay allowed.
+begin_test "safety: bare env / printenv / export -p / /proc environ are blocked"
+[ "$(verdict "env")" = BLOCK ] && [ "$(verdict "printenv")" = BLOCK ] \
+  && [ "$(verdict 'echo "searching..."; env 2>/dev/null; npm search foo')" = BLOCK ] \
+  && [ "$(verdict "ls && printenv | head -50")" = BLOCK ] \
+  && [ "$(verdict "export -p")" = BLOCK ] && [ "$(verdict "cat /proc/self/environ")" = BLOCK ] \
+  && pass || fail "an unfiltered environment dump evaded"
+begin_test "safety: filtered / single-var / wrapper env forms are allowed"
+[ "$(verdict "printenv PATH")" = ALLOW ] && [ "$(verdict "env | grep -i path")" = ALLOW ] \
+  && [ "$(verdict "env FOO=1 npm test")" = ALLOW ] && [ "$(verdict "set -euo pipefail")" = ALLOW ] \
+  && [ "$(verdict "/usr/bin/env python3 x.py")" = ALLOW ] \
+  && [ "$(verdict 'git commit -m "document env and printenv"')" = ALLOW ] \
+  && pass || fail "over-blocked a filtered or wrapper env use"
+# A replay found 23 real heredocs tripping the first draft: Python sorted(set),
+# C# { get; set; }, a list holding "env". Heredoc bodies and quotes are data.
+begin_test "safety: env/set inside a heredoc or quoted code is not a dump"
+[ "$(verdict "$(printf 'python3 - <<%sPY%s\nx = sorted(set)\ncfg = d.get("env", {})\nPY' "'" "'")")" = ALLOW ] \
+  && [ "$(verdict "$(printf 'cat > A.cs <<%sEOF%s\npublic string Name { get; set; }\nEOF' "'" "'")")" = ALLOW ] \
+  && [ "$(verdict 'python3 -c "import json; print(sorted(set))"')" = ALLOW ] \
+  && pass || fail "heredoc or quoted code read as an env dump"
+begin_test "safety: env on its own line of a multi-line command is a dump"
+[ "$(verdict "$(printf 'cd /tmp\nenv')")" = BLOCK ] && pass || fail "newline-started env evaded"
+
+# v4.1.19: the Bash tool runs `bash -c '<cmd>'`, so `pkill -f java` matches that
+# shell's own command line and kills the session; `killall node` kills Claude Code.
+begin_test "safety: killall/pkill of node or a shell is blocked (kills Claude Code)"
+[ "$(verdict "killall node")" = BLOCK ] && [ "$(verdict "killall -9 bash")" = BLOCK ] \
+  && [ "$(verdict "pkill claude")" = BLOCK ] && pass || fail "a self-kill evaded"
+# pkill -f only matches ancestors on Linux (procps); BSD/macOS excludes them.
+begin_test "safety: pkill -f blocks on Linux only"
+if [ "$(uname -s)" = Linux ]; then _want=BLOCK; else _want=ALLOW; fi
+[ "$(verdict "pkill -f java")" = "$_want" ] && [ "$(verdict "cd x && pkill -9 -f java")" = "$_want" ] \
+  && pass || fail "pkill -f on $(uname -s): expected $_want"
+begin_test "safety: bracket idiom, --ignore-ancestors, pgrep and named pkill are allowed"
+[ "$(verdict 'pkill -f "[j]ava"')" = ALLOW ] && [ "$(verdict "pkill -f --ignore-ancestors java")" = ALLOW ] \
+  && [ "$(verdict "pgrep -f java")" = ALLOW ] && [ "$(verdict "pkill -x nginx")" = ALLOW ] \
+  && pass || fail "over-blocked a safe kill form"
+
 report

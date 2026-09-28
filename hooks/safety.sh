@@ -1063,6 +1063,63 @@ if _cat_enabled "credentials"; then
   fi
 fi
 
+# --- Environment dump (category: credentials) ---
+# v4.1.19: a full environment dump prints every token in the session straight into
+# the transcript - upstream claude-code#80153 leaked ~10 live keys from a chained
+# `echo ...; env 2>/dev/null; npm search foo`. The output scanner only warns AFTER
+# the values are in context. Only UNFILTERED dumps deny: `printenv NAME`,
+# `env | grep X`, `env FOO=1 cmd` (env as a wrapper) and `set -e` stay allowed.
+# Command position only (segment start), so prose naming these words is ignored.
+_ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*'
+_ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee)([[:space:]]|$))'
+if _cat_enabled "credentials"; then
+  _ENV_DUMP="${_ENV_SEG}"'(env|printenv|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
+  _ENV_PROC='/proc/[^[:space:]]*/environ'
+  # The cheap match runs first; only on a hit is the text re-checked with heredoc
+  # bodies removed and quoted strings blanked. Interpreter heredocs are kept in
+  # CMD_SCAN on purpose (their code is checked for shell-outs), but Python or C#
+  # there is not shell: `sorted(set)` or `{ get; set; }` matched this rule 23
+  # times in a replay of real history. `sh -c` bodies are unaffected: the
+  # normalizer already appends them as their own unquoted segments.
+  _env_hit=""
+  if [[ "$CMD_SCAN" =~ $_ENV_DUMP ]]; then
+    _ENV_SRC=$(printf '%s\n' "$CMD_SCAN" | awk '
+      skip { t = $0; sub(/^\t+/, "", t); if (t == term) skip = 0; next }
+      { print }
+      match($0, /<<-?[ \t]*[^ \t<A-Za-z0-9_]?[A-Za-z_][A-Za-z0-9_]*/) && index($0, "<<<") == 0 {
+        term = substr($0, RSTART, RLENGTH); sub(/^<<-?[ \t]*[^ \t<A-Za-z0-9_]?/, "", term); skip = 1 }' \
+      | tr '\n' '\036' | LC_ALL=C sed -E -e "s/'[^']*'/''/g" -e 's/"[^"]*"/""/g' | tr '\036' '\n')
+    [[ "$_ENV_SRC" =~ $_ENV_DUMP ]] && _env_hit=1
+  fi
+  if [ -n "$_env_hit" ] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
+    block "environment dump — prints every secret in the session into the transcript; read one variable instead (printenv NAME)"
+  fi
+fi
+
+# --- Agent self-kill (category: destructive) ---
+# v4.1.19: the Bash tool runs each command as `bash -c '<cmd>'`, so `pkill -f java`
+# matches that very shell (its command line contains "java") and kills the agent's
+# own session; `pkill node` / `killall node` kill Claude Code itself (a node
+# process). From rvenutolo/claude-pgrep-pkill-guard. Allowed: the bracket idiom
+# `pkill -f "[j]ava"` (the shell's command line then never matches) and
+# `--ignore-ancestors` / `-A`. pgrep is read-only and never blocked.
+if _cat_enabled "destructive"; then
+  _SK_SEG='(^|[;&|(]|&&|\|\|)[[:space:]]*(sudo[[:space:]]+)?'
+  # -f/--full, then a pattern that does not open with a [bracket] class.
+  _SK_FULL="${_SK_SEG}"'pkill([[:space:]]+-[^[:space:]]+)*[[:space:]]+(-[a-zA-Z]*f[a-zA-Z]*|--full)([[:space:]]+-[^[:space:]]+)*[[:space:]]+["'"'"']?[^["'"'"'[:space:]-]'
+  _SK_ANCESTORS='pkill[^;&|]*(--ignore-ancestors|[[:space:]]-[a-zA-Z]*A)'
+  _SK_NAME="${_SK_SEG}"'(pkill|killall)([[:space:]]+-[^[:space:]]+)*[[:space:]]+(node|claude|bash|zsh|sh)([[:space:]]|$|;|&|\|)'
+  # Linux only: BSD/macOS pkill excludes its own ancestors by default, so there it
+  # is harmless - a replay found ~30 real `pkill -f next-server` calls on macOS.
+  if [[ "$CMD_SCAN" =~ $_SK_FULL ]] && ! [[ "$CMD_SCAN" =~ $_SK_ANCESTORS ]] \
+     && [ "$(uname -s 2>/dev/null)" = Linux ]; then
+    block "pkill -f matches the agent's own shell (its command line contains the pattern) and kills the session; use pkill -f \"[j]ava\" or kill a PID from pgrep"
+  fi
+  if [[ "$CMD_SCAN" =~ $_SK_NAME ]]; then
+    block "killing every node/claude/shell process kills Claude Code itself; target a PID from pgrep instead"
+  fi
+fi
+
 # --- Unauthorized persistence (category: persistence) ---
 if _cat_enabled "persistence"; then
   # v2.29.41: the second alternative used to be a bare `crontab[[:space:]]+-` with
