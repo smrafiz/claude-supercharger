@@ -97,4 +97,32 @@ grep -q 'keep this line' "$HOME/.claude/CLAUDE.md" && pass \
   || fail "merge destroyed content that preceded the block"
 teardown_test_home
 
+# v4.1.19: every merge install stripped the block but not the separator blank line
+# it had been appended after, so each update added a line. A real ~/.claude/CLAUDE.md
+# reached 164 blank lines above the block with no other content.
+_blank_before_marker() { awk -v m="$MARKER" '$0 ~ m {print b+0; exit} NF==0{b++; next} {b=0}' "$1"; }
+
+begin_test "repeated merge installs do not grow blank lines above the block"
+setup_test_home
+mkdir -p "$HOME/.claude"
+printf '# my rules\nkeep this line\n' > "$HOME/.claude/CLAUDE.md"
+for _i in 1 2 3 4; do
+  bash "$REPO_DIR/install.sh" --mode full --roles developer \
+    --config merge --settings merge --economy lean >/dev/null 2>&1
+done
+_n=$(_blank_before_marker "$HOME/.claude/CLAUDE.md")
+[ "$_n" = "1" ] && grep -q 'keep this line' "$HOME/.claude/CLAUDE.md" && pass \
+  || fail "after 4 merge installs: $_n blank lines before the block (want 1), or user content lost"
+teardown_test_home
+
+begin_test "a file bloated by the old bug heals: no leading blank lines when nothing else is there"
+setup_test_home
+mkdir -p "$HOME/.claude"
+{ for _i in $(seq 1 40); do echo ""; done; echo "# --- Claude Supercharger v0.0.1 ---"; echo "old block"; } > "$HOME/.claude/CLAUDE.md"
+bash "$REPO_DIR/install.sh" --mode full --roles developer \
+  --config merge --settings merge --economy lean >/dev/null 2>&1
+_first=$(head -1 "$HOME/.claude/CLAUDE.md")
+case "$_first" in "# --- Claude Supercharger"*) pass ;; *) fail "first line is '$_first', not the block marker";; esac
+teardown_test_home
+
 report
