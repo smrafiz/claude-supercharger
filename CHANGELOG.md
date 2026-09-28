@@ -1,3 +1,4 @@
+- [4.1.18] - 2026-09-28 — safety: a search tool's quoted pattern is data, not a command — grep/rg patterns no longer read as shell (#57). 5947 tests passing.
 - [4.1.17] - 2026-09-27 — safety: anchor the cron persistence rule to command position; prose mentioning it no longer denies (#56). 5942 tests passing.
 - [4.1.16] - 2026-09-27 — safety-detect: sensitive-read args respect quotes, newlines and $( ) — fixes quoted-| grep false positives and a missed credential read after a quoted | (#53); CI: Windows on master pushes only (#51), cancel superseded runs (#52). 5938 tests passing.
 - [4.1.15] - 2026-09-27 — lessons: stop recording dashboards/tables/hedges as lessons (#48); claim-evidence-gate: key=value test summaries (failed=0) no longer read as failures (#49). 5931 tests passing.
