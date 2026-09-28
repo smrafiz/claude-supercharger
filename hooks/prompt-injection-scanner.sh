@@ -29,7 +29,7 @@ fi
 # pattern matching). Now: stdin parse, matcher gate, regex panel, JSON wrap —
 # all in one fork. ~80ms → ~40ms.
 RESULT=$(HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
-import json, os, re, sys, unicodedata
+import base64, json, os, re, sys, unicodedata, urllib.parse
 
 raw = os.environ.get('HOOK_INPUT', '')
 try:
@@ -139,9 +139,102 @@ patterns = (
     (re.compile('[\U000e0000-\U000e007f]'),                 'unicode tag-block (ASCII smuggling)'),
 )
 
+# v4.1.19: three channels from ilyautov/cordon, each judged on the RAW text.
+# Every check needs a strong signal: the phrase list above, or a directive shape,
+# so ordinary base64, accessibility markup and non-Latin text stay quiet.
+def _norm(t):
+    return re.sub(r'\s+', ' ', unicodedata.normalize('NFKC', t).translate(_CONFUSABLES).lower())
+
+def _phrase(t):
+    n = _norm(t)
+    return next((label for regex, label in patterns if regex.search(n)), None)
+
+_BIDI = re.compile('[\u202a-\u202e\u2066-\u2069]')
+_IN_WORD = re.compile('[A-Za-z][\u200e\u200f\u061c\u3164\u115f\u1160\uffa0\u2800]+[A-Za-z]')
+_ANNOT = re.compile('[\ufff9-\ufffb]')
+_VS_SUPP = re.compile('[\U000e0100-\U000e01ef]')
+_OSC = re.compile('\x1b\\]')
+
+def _invisible(raw):
+    # Bidi overrides and isolates reorder what a reviewer sees (Trojan Source);
+    # direction marks and fillers are legit in RTL text, so only INSIDE a Latin word.
+    if _BIDI.search(raw): return 'bidi control chars'
+    if _IN_WORD.search(raw): return 'invisible filler inside a word'
+    if _ANNOT.search(raw): return 'interlinear annotation chars'
+    if _VS_SUPP.search(raw): return 'variation-selector data channel'
+    # OSC sequences (terminal hyperlinks) show one target and lead to another.
+    # Plain CSI colour codes are common in logs and stay allowed.
+    if _OSC.search(raw): return 'ANSI OSC escape'
+    return None
+
+_B64 = re.compile(r'[A-Za-z0-9+/]{24,}={0,2}')
+_HEX = re.compile(r'(?:[0-9a-fA-F]{2}){16,}')
+# Percent-encoding leaves letters plain (ignore%20all...), so decode whole TOKENS
+# holding 3+ escapes. A token split, not a regex: a nested-quantifier regex here
+# backtracked cubically on long base64 runs (42 s on a 250 KB Read).
+_PCT_ESC = re.compile(r'%[0-9a-fA-F]{2}')
+
+def _decodes(t):
+    blobs = []
+    for m in list(_B64.finditer(t))[:200]:
+        v = m.group(0)
+        try: blobs.append(base64.b64decode(v + '=' * (-len(v) % 4)))
+        except Exception: pass
+    for m in list(_HEX.finditer(t))[:200]:
+        try: blobs.append(bytes.fromhex(m.group(0)))
+        except ValueError: pass
+    for tok in [w for w in t.split() if w.count('%') >= 3][:200]:
+        if len(_PCT_ESC.findall(tok)) >= 3:
+            blobs.append(urllib.parse.unquote_to_bytes(tok))
+    out = []
+    for b in blobs:
+        try: d = b.decode('utf-8')
+        except UnicodeDecodeError: continue
+        if len(d) >= 8 and sum(c.isprintable() or c.isspace() for c in d) >= 0.9 * len(d):
+            out.append(d)
+    return out
+
+def _encoded(raw):
+    # Decode base64 / hex / percent runs up to three levels deep and flag only
+    # when the DECODED text is an injection phrase: legit encoded data decodes
+    # to binary or ordinary text and never matches.
+    layer = [raw]
+    for _ in range(3):
+        nxt = []
+        for t in layer:
+            for d in _decodes(t):
+                hit = _phrase(d)
+                if hit: return 'encoded payload (' + hit + ')'
+                nxt.append(d)
+        layer = nxt
+        if not layer: break
+    return None
+
+_HIDE = (r'style="[^"]*(?:display\s*:\s*none|visibility\s*:\s*hidden|opacity\s*:\s*0(?:\.0+)?\s*(?:;|")'
+         r'|color\s*:\s*transparent|left\s*:\s*-\d{3,}px|clip-path\s*:\s*inset\(\s*(?:9\d|100)%'
+         r'|clip\s*:\s*rect\(\s*[01]px)'
+         r'|aria-hidden="true"|class="[^"]*\b(?:sr-only|visually-hidden)\b')
+_HIDDEN_EL = re.compile(r'<(\w+)[^>]*(?:' + _HIDE + r')[^>]*>(.{1,600}?)</\1>', re.I | re.S)
+_ATTR = re.compile(r'<(?:meta|input)\b[^>]*\b(?:content|value)="([^"]{1,600})"'
+                   r'|\b(?:data-[\w-]+|aria-label)="([^"]{1,600})"', re.I)
+_DIRECTIVE = re.compile(r'(?:^|[\s>"])(?:assistant|system|ai|claude|llm)\s*:', re.I)
+
+def _hidden(raw):
+    # Hidden markup is normal (skip links, sr-only labels); what is NOT normal is
+    # text a reader cannot see that addresses the model or carries a phrase.
+    for m in list(_HIDDEN_EL.finditer(raw))[:200]:
+        txt = re.sub(r'<[^>]+>', ' ', m.group(2))
+        if _DIRECTIVE.search(' ' + txt) or _phrase(txt): return 'hidden-html directive'
+    for m in list(_ATTR.finditer(raw))[:200]:
+        txt = m.group(1) or m.group(2) or ''
+        if _DIRECTIVE.search(' ' + txt) or _phrase(txt): return 'directive in html attribute'
+    return None
+
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
 if not matched:
     matched = next((label for regex, label in cased_patterns if regex.search(_nfkc)), None)
+if not matched:
+    matched = _invisible(output) or _encoded(output) or _hidden(output)
 if not matched:
     sys.exit(0)
 
