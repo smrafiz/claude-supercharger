@@ -432,9 +432,19 @@ elif [[ "$CLAUDE_MD_ACTION" == "merge" ]]; then
     rm -f "$HOME/.claude/CLAUDE.md.tmp"
     warn "Stripped legacy unmarked Supercharger block from ~/.claude/CLAUDE.md (backup at .legacy-bak)"
   fi
-  # Append full Supercharger config below marker
+  # v4.1.19: drop the blank lines the stripped block left behind. The block is
+  # appended after one separator line, but only the block was ever deleted, so
+  # each update grew the file by that line: a real ~/.claude/CLAUDE.md reached
+  # 164 blank lines above the block with nothing else in it.
+  # Same trailing-blank trim uninstall.sh uses.
+  if [ -f "$HOME/.claude/CLAUDE.md" ]; then
+    sed -i.bak -e :a -e '/^\n*$/{$d;N;ba' -e '}' "$HOME/.claude/CLAUDE.md"
+    rm -f "$HOME/.claude/CLAUDE.md.bak"
+  fi
+  # Append full Supercharger config below marker; separate it from user content
+  # only when there is user content to separate it from.
   {
-    echo ""
+    [ -s "$HOME/.claude/CLAUDE.md" ] && echo ""
     echo "# --- Claude Supercharger v${VERSION} ---"
     echo "# Do not edit below this line. Managed by Supercharger."
     echo "# To remove: run uninstall.sh or delete this block."
