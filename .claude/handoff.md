@@ -19,7 +19,8 @@ session on any machine.**
 - CI: Windows on master pushes only; promote needs master's Windows run at the
   release base. GitHub skipped the push run for #64's merge once (0 runs for the
   SHA) - if promote waits forever, check `gh api .../actions/runs?head_sha=`.
-- **Machine A (this box): INSTALLED v4.1.18** until v4.1.19 promotes.
+- **Machine A (this box): INSTALLED v4.1.18** until v4.1.19 promotes (rel CI green,
+  waiting on master Windows at `e30cc97`). #66 widened the hang test for Windows.
 - **Machine B**: unknown. Update straight to the latest release.
 - **Open**: heredoc code tripping the credential/DNS rules; command-string mutation
   (heredoc unescape, Windows backslash halving, >8KB truncation) needs probes.
