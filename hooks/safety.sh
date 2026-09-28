@@ -940,10 +940,16 @@ _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 # release create` as message-bearing — the enumeration existed and was not consulted.
 CMD_SCAN="$CMD"
 case "$CMD_SCAN" in
-  *-m\ *|*--message\ *|*--body\ *|*--notes\ *)
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-      -e "s/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g')
+  *m\ *|*--message\ *|*--body\ *|*--notes\ *)
+    # v4.1.19: newlines are folded to \036 around the sed, so a MULTI-LINE
+    # message (`git commit -m "subject<newline><newline>body"`) is blanked too;
+    # line-by-line sed never saw its closing quote and scanned the body as shell.
+    # Clustered short flags too (`git commit -am "..."`, `-qm`). Only
+    # git commit's no-argument letters may precede the m, so `sh -cm '...'` can
+    # never blank a script body.
+    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
+      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
     ;;
 esac
 # v4.1.17: a search tool's quoted PATTERN is data too. `grep -E '\.(cs|py|sh)$'`
@@ -1218,9 +1224,12 @@ _selfmod_interp_write() {
      || "$CMD" =~ (^|[^A-Za-z0-9_])${v}\.(write_text|write_bytes) \
      || "$CMD" =~ (writeFile|appendFile)(Sync)?\(${v}[[:space:]]*[,\)] ]]
 }
+# v4.1.19: redirect/verb/in-place arms read CMD_SCAN, so a commit or PR message
+# that merely names a config file and a verb is prose, not an edit. The
+# interpreter-write arm keeps reading CMD: code inside `python -c` is not blanked.
 if _cat_enabled "selfmod" \
-   && { [[ "$CMD" =~ $_SELFMOD_REDIR ]] || [[ "$CMD" =~ $_SELFMOD_VERB ]] \
-        || { [[ "$CMD" =~ $_SELFMOD_INPLACE ]] && [[ "$CMD" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
+   && { [[ "$CMD_SCAN" =~ $_SELFMOD_REDIR ]] || [[ "$CMD_SCAN" =~ $_SELFMOD_VERB ]] \
+        || { [[ "$CMD_SCAN" =~ $_SELFMOD_INPLACE ]] && [[ "$CMD_SCAN" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
         || _selfmod_interp_write; }; then
   block "self-modification — agent should not directly edit its own guardrail config files"
 fi

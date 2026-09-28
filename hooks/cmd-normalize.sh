@@ -404,10 +404,10 @@ normalize_cmd() {
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
       # or `git commit -m "note: bash -c 'rm -rf /' is now denied"` is denied.
       case "$_sc_scan" in
-        *-m\ *|*--message\ *|*--body\ *|*--notes\ *)
-          _sc_scan=$(printf '%s' "$_sc_scan" | LC_ALL=C sed -E \
-            -e "s/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
-            -e 's/((^|[[:space:]])(-m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g')
+        *m\ *|*--message\ *|*--body\ *|*--notes\ *)
+          _sc_scan=$(printf '%s' "$_sc_scan" | tr '\n' '\036' | LC_ALL=C sed -E \
+            -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+            -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
           ;;
       esac
       local _sc_q="'" _sc_shc
