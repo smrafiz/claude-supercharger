@@ -532,3 +532,60 @@ This was the bug behind the v2.6.10 audit — 53 hooks crashed silently on malfo
 **Async hooks (not asyncRewake) can't talk back.** They're fire-and-forget — good for logging, notifications, and audit trails, not for warnings or blocks.
 
 **Don't produce output on stderr in normal operation.** Stderr from hooks appears in Claude's UI. Save it for genuine errors.
+
+---
+
+## Guard rules: match commands, not text
+
+Five fixes in four days (#48, #49, #53, #56, #57; v4.1.15 onward) corrected guards that fired on *text that
+mentions* a dangerous thing rather than a command that *does* it. Every one blocked
+real work; one also hid a real credential read. The shapes, so a new rule avoids them:
+
+| Shape | Example that was denied | Fix |
+|---|---|---|
+| Keyword anywhere | `echo "=== grep crontab in docs ==="` (cron rule) | Anchor to command position: `(^\|[;&\|(\`]\|\$\(\|newline)[[:space:]]*(path/)?word` (#56) |
+| Search pattern scanned as shell | `grep -E '\.(cs\|py\|sh)$'` read as a pipe into `sh` | Blank the quoted pattern of grep/rg/ag/ack in `CMD_SCAN`, like `-m` messages (#57) |
+| Args cut at a quoted `\|` | `grep -E "process\.env\.(A\|B)" src` read as a dotenv path | Capture args to the next *unquoted* separator; stop at newline and at `)` (#53) |
+| Evidence parsed by position | `passed=2711 failed=0` read as "2711 failed" | A number after `=` is a value; judge `failed=N` by its own value (#49) |
+| Extractor with no boundary | a status dashboard saved as a "lesson" | Strip fences/tables first; a newline ends a sentence (#48) |
+
+What they share: a regex ran over a string whose structure it did not know — where
+quotes open, where a heredoc body starts, which operand is a pattern. When a rule has
+to look inside a command, decide first which parts are *data* (quoted patterns,
+messages, heredoc bodies written to files) and keep scanning everything else. Blank
+data; never delete it — `grep -q x f && <destructive>` must still deny.
+
+### Before shipping any change to a guard or extractor: replay real history
+
+Unit tests encode the cases you thought of. Every one of the five fixes above had a
+first draft that passed its unit tests and regressed on real input; the replay caught
+each (heredoc bodies suddenly scanned, `$( … )` and BSD `sed -i ''` misread, jest's
+`Test Suites: 1 failed` hidden, `## Root cause` headings dropped).
+
+1. Pull real inputs from `~/.claude/projects/*/*.jsonl` (Bash `tool_use` commands, or
+   `tool_result` texts for output checks).
+2. **Prefilter to inputs whose verdict CAN change**, or the run takes hours. A change
+   that only blanks text can only *remove* denies, so only inputs whose blanked text
+   matches a rule matter: 24,688 commands → 32 in seconds (grep the extracted text
+   with the real ERE rules via `grep -f`, not a Python translation of them).
+3. Run old vs new; print every flip with enough context to judge it by eye.
+4. Then run the **whole** detector on the flipped inputs — another rule may still
+   deny them, which changes whether the flip matters.
+
+Traps met doing this:
+- `safety-detect.py` has a 0.5 s watchdog (`SUPERCHARGER_DETECT_BUDGET_S`) that
+  `os._exit()`s silently; set it to `0` for a replay or it dies with no output.
+- Calling the one changed function in-process beats 2 subprocesses × 40k inputs.
+- Python block-buffers stdout into a pipe: run with `-u` or you see nothing for an hour.
+- Never run a test file beside `tests/run.sh` — the load trips that same watchdog and
+  fails a detector test that passes alone.
+- Probing a guard runs into the installed guard: the probe command contains the text
+  under test. Put probes in a file and run the file.
+
+### Also trace the block log
+
+`~/.claude/supercharger/scope/.blocked-commands` is the best false-positive corpus
+there is. Group by reason, trace a few of each to the transcript, and replay the
+still-blocked ones through current code. Most entries in a guard's own repo are the
+author's probes — count only blocks from real work. Four of the five fixes above started
+there.
