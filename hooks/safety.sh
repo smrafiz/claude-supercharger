@@ -1267,7 +1267,9 @@ _SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.j
 # (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
-_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|tee|mv|cp|rm|truncate|install|ln|rsync|dd[[:space:]]+of=)[^;&|]*$_SELFMOD_CFG"
+# v4.1.23: a verb must be a whole word: "installer", "installed" and "install.sh"
+# in an echo line matched `install` (fp-triage on a real ledger, 2026-09-29).
+_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|dd[[:space:]]+of=|(tee|mv|cp|rm|truncate|install|ln|rsync)[[:space:]])[^;&|]*$_SELFMOD_CFG"
 # (c) in-place editor other than sed — the arm _PROF_INPLACE already had.
 _SELFMOD_INPLACE="(^|[[:space:];&|])(perl|ruby)([[:space:]]+-[^[:space:]|;&]+)*[[:space:]][^|;&]*$_SELFMOD_CFG"
 # (d) interpreter code whose WRITE CALL targets a config file. v4.1.13: the old
@@ -1292,12 +1294,44 @@ _selfmod_interp_write() {
      || "$CMD" =~ (^|[^A-Za-z0-9_])${v}\.(write_text|write_bytes) \
      || "$CMD" =~ (writeFile|appendFile)(Sync)?\(${v}[[:space:]]*[,\)] ]]
 }
+# v4.1.23: a path under a directory this same command created with mktemp is
+# not the live config: `T=$(mktemp -d); echo '{}' > "$T/.claude/settings.json"`
+# is a test fixture (12 of the 23 text-only selfmod blocks in a real ledger).
+# Rewritten to a neutral path only when V is assigned exactly once, from
+# mktemp, is not a loop/read variable, and the command makes no link (`ln`
+# could point the temp dir at ~/.claude). Detection reads the RAW $COMMAND:
+# the normalizer strips a leading `T=$(mktemp -d)` assignment from CMD.
+# Every loop consumes left to right.
+_selfmod_scan() {
+  _SM_SCAN="$CMD_SCAN"
+  [[ "$COMMAND" == *mktemp* ]] || return 0
+  [[ "$COMMAND" =~ (^|[[:space:];&|])ln[[:space:]] ]] && return 0
+  # Anything that can re-point V or climb out of the temp dir voids the exemption:
+  # `..`, `printf -v`, `eval`, `declare`/`typeset`/`let`/`export`/`local`,
+  # `mapfile`/`readarray`, and `+=` (each measured as a bypass before this line).
+  [[ "$COMMAND" == *..* || "$COMMAND" == *+=* ]] && return 0
+  [[ "$COMMAND" =~ printf[[:space:]]+-v|(^|[^A-Za-z0-9_])(eval|declare|typeset|let|export|local|mapfile|readarray)[[:space:]] ]] && return 0
+  local rest="$COMMAND" v n r out p
+  while [[ "$rest" =~ ([A-Za-z_][A-Za-z0-9_]*)=\"?\$\(mktemp ]]; do
+    v="${BASH_REMATCH[1]}"; rest="${rest#*"${BASH_REMATCH[0]}"}"
+    n=0; r="$COMMAND"
+    while [[ "$r" =~ (^|[^A-Za-z0-9_])${v}= ]]; do n=$((n + 1)); r="${r#*"${BASH_REMATCH[0]}"}"; done
+    [ "$n" -eq 1 ] || continue
+    [[ "$COMMAND" =~ (for|read)[^\;\&\|]*[[:space:]]${v}([[:space:]\;]|$) ]] && continue
+    p="\\\$\\{?${v}\\}?/[^[:space:]\"';&|]*"
+    out=""; r="$_SM_SCAN"
+    while [[ "$r" =~ $p ]]; do
+      out+="${r%%"${BASH_REMATCH[0]}"*}/tmp/mktemp-path"; r="${r#*"${BASH_REMATCH[0]}"}"
+    done
+    _SM_SCAN="$out$r"
+  done
+}
 # v4.1.19: redirect/verb/in-place arms read CMD_SCAN, so a commit or PR message
 # that merely names a config file and a verb is prose, not an edit. The
 # interpreter-write arm keeps reading CMD: code inside `python -c` is not blanked.
-if _cat_enabled "selfmod" \
-   && { [[ "$CMD_SCAN" =~ $_SELFMOD_REDIR ]] || [[ "$CMD_SCAN" =~ $_SELFMOD_VERB ]] \
-        || { [[ "$CMD_SCAN" =~ $_SELFMOD_INPLACE ]] && [[ "$CMD_SCAN" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
+if _cat_enabled "selfmod" && _selfmod_scan \
+   && { [[ "$_SM_SCAN" =~ $_SELFMOD_REDIR ]] || [[ "$_SM_SCAN" =~ $_SELFMOD_VERB ]] \
+        || { [[ "$_SM_SCAN" =~ $_SELFMOD_INPLACE ]] && [[ "$_SM_SCAN" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
         || _selfmod_interp_write; }; then
   block "self-modification — agent should not directly edit its own guardrail config files"
 fi
