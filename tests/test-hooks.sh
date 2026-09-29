@@ -2953,6 +2953,15 @@ INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'add a login button 
 OUT=$(printf '%s' "$INPUT" | bash "$LEARN_PROMPTS" 2>&1)
 [ -z "$OUT" ] && pass || fail "expected silent exit on neutral prompt, got: $OUT"
 
+# 2026-09-29: the harness puts Stop hook feedback in the prompt slot; its
+# "wrong, not verified" was logged as the USER correcting Claude.
+begin_test "learn-from-prompts: Stop hook feedback is not logged as a user correction"
+INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'Stop hook feedback:\n[claim-evidence-gate]: wrong, no, that was not verified', 'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | bash "$LEARN_PROMPTS" 2>&1)
+CTRL=$(python3 -c "import json; print(json.dumps({'prompt':'wrong, no, that was not verified', 'cwd':'/tmp'}))" | bash "$LEARN_PROMPTS" 2>&1)
+if [ -z "$OUT" ] && [ -n "$CTRL" ]; then pass
+else fail "harness text logged, or the typed control stopped logging: out=$OUT ctrl=$CTRL"; fi
+
 begin_test "learn-from-prompts: empty prompt exits cleanly"
 INPUT=$(python3 -c "import json; print(json.dumps({'prompt':'', 'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | bash "$LEARN_PROMPTS" 2>&1)

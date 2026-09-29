@@ -21,6 +21,9 @@ if [ -z "$PROMPT" ]; then
 fi
 
 [ -z "$PROMPT" ] && exit 0
+# Stop hook feedback ("wrong, not verified") is not the user correcting Claude.
+# shellcheck source=hooks/lib-prompt-source.sh
+. "${BASH_SOURCE[0]%/*}/lib-prompt-source.sh" 2>/dev/null && prompt_is_harness "$PROMPT" && exit 0
 
 PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).

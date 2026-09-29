@@ -53,15 +53,9 @@ init_hook_suppress "$PROJECT_DIR"
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
 rm -f "$SCOPE_DIR/.prompt-cost-${SESSION_ID}" "$SCOPE_DIR/.prompt-tokens-${SESSION_ID}" "$SCOPE_DIR/.last-prompt-tokens-${SESSION_ID}"
 
-# Messages the harness writes into the prompt slot are not a task: background-task
-# notices, slash-command echoes, `!` shell output, subagent hand-backs, the
-# post-compaction summary. Measured on real transcripts: 3,000+ of them, each
-# classified as if typed ("status" in a task notice routed to the Critic). Say
-# nothing, and leave the last real classification in place.
-case "$PROMPT" in
-  "<task-notification"*|"<command-"*|"<local-command-"*|"<bash-"*|"<system-reminder"*|\
-  "Another Claude session sent a message"*|"This session is being continued"*|"Stop hook feedback:"*) exit 0 ;;
-esac
+# Harness messages are not a task: say nothing and keep the last real verdict.
+# shellcheck source=hooks/lib-prompt-source.sh
+. "$HOOKS_DIR/lib-prompt-source.sh" 2>/dev/null && prompt_is_harness "$PROMPT" && exit 0
 
 AGENT=""
 
@@ -205,25 +199,17 @@ if [ -z "$TIER" ]; then
 fi
 [ -z "$TIER" ] && TIER="lean"
 
-# Track last-seen category and tier for suppression logic
-LAST_CATEGORY_FILE="$SCOPE_DIR/.last-category-${SESSION_ID}"
-LAST_TIER_FILE="$SCOPE_DIR/.last-tier-${SESSION_ID}"
-# v2.7.48: fork-free reads via the read builtin (single-value scope files)
-LAST_CATEGORY=""; [ -f "$LAST_CATEGORY_FILE" ] && IFS= read -r LAST_CATEGORY < "$LAST_CATEGORY_FILE" 2>/dev/null || true
-LAST_TIER="";     [ -f "$LAST_TIER_FILE" ]     && IFS= read -r LAST_TIER     < "$LAST_TIER_FILE" 2>/dev/null     || true
-echo "$CATEGORY" > "$LAST_CATEGORY_FILE"
-echo "$TIER" > "$LAST_TIER_FILE"
-
 # Build compact key=value context (#3: replace verbose natural language)
+# v4.1.21: the task=/agent= hint is no longer sent to Claude. Measured on 6,557
+# typed prompts: of 1,398 that named an agent, Claude dispatched that agent on
+# 16 (1.1%), against 0.1% when a different agent was named — it picks subagents
+# by the task, not the hint. The classification still feeds the statusline,
+# agent-gate and session analytics through $ROUTE_FILE.
 if [ -n "$PROJECT_AGENTS_LIST" ]; then
   echo "[Supercharger] Project agents detected — will prefer over global" >&2
-  CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} project=${PROJECT_AGENTS_LIST} tier=${TIER}"
-elif [ "$AGENT_KEY" = "generalist" ]; then
-  # No rule matched: that is "unknown", not "general task". Naming an agent here
-  # is a guess dressed as a verdict, and a wrong hint is worse than none.
-  CONTEXT="[CTX] tier=${TIER}"
+  CONTEXT="[CTX] project=${PROJECT_AGENTS_LIST} tier=${TIER}"
 else
-  CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} tier=${TIER}"
+  CONTEXT="[CTX] tier=${TIER}"
 fi
 
 # #1: Dedup — if identical to last injection AND seen within TTL, skip entirely.
@@ -244,11 +230,6 @@ printf '%s\n' "$CONTEXT" > "$HASH_FILE"
 
 if [ -n "$CONTEXT" ] && [ "$CONTEXT" = "$LAST_CONTEXT" ] && [ "$LAST_MTIME" -gt 0 ] && [ $((NOW_TS - LAST_MTIME)) -lt 30 ]; then
   exit 0  # Context unchanged within 30s TTL — skip injection
-fi
-
-# #7: Category unchanged — only re-emit if tier changed (abbreviated form)
-if [ -n "$LAST_CATEGORY" ] && [ "$CATEGORY" = "$LAST_CATEGORY" ] && [ "$TIER" != "$LAST_TIER" ]; then
-  CONTEXT="[CTX] tier=${TIER}"
 fi
 
 # v2.7.9 (B2): we've passed the dedup gates and will emit — if this emission

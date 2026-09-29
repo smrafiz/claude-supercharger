@@ -31,6 +31,15 @@ case "$_INPUT" in
   *) exit 0 ;;
 esac
 
+# A subagent report or task notice quoting a command is not the user asking for it.
+# shellcheck source=hooks/lib-json-fast.sh
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
+# shellcheck source=hooks/lib-prompt-source.sh
+if . "${BASH_SOURCE[0]%/*}/lib-prompt-source.sh" 2>/dev/null && command -v _json_get >/dev/null 2>&1; then
+  _P=""; _json_get _P prompt "$_INPUT" '.prompt // empty'
+  prompt_is_harness "$_P" && exit 0
+fi
+
 HOOK_INPUT="$_INPUT" python3 <<'PYEOF'
 import json, os, re, sys
 
