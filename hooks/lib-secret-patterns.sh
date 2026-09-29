@@ -8,7 +8,7 @@
 # ONE list prevents cross-channel parity drift — a secret caught in output but
 # not at commit (or vice-versa) is exactly the divergence this file exists to
 # prevent. Add a pattern here and BOTH channels gain it.
-# Not executable on its own — it only defines an array.
+# Not executable on its own — it defines an array and ledger_redact().
 
 # shellcheck disable=SC2034  # consumed by the sourcing hook, not this file
 SECRET_PATTERNS=(
@@ -139,3 +139,28 @@ SECRET_PATTERNS=(
   # assignment — all three still match, the digest line no longer does.
   '(^|[^0-9A-Za-z])[5KL][1-9A-HJ-NP-Za-km-z]{50,51}([^0-9A-Za-z]|$)'
 )
+
+# ledger_redact <text> — sets LEDGER_SAFE to <text> with every secret masked.
+# For the block ledger (scope/.blocked-commands), which records blocked command
+# text in plain view and is read back by /why and learn-from-blocks. Measured
+# 2026-09-29: a 64-hex CRON_SECRET passed as a quoted printf argument reached
+# the ledger intact — safety.sh only masked the text right after `SECRET=`, and
+# git-safety / harness-tamper masked nothing. Also masks a bare hex run of 32+
+# (tokens, keys; git SHAs go too, which a block ledger can spare).
+#
+# Consumes left to right, so a replacement can never be matched again: a loop
+# that re-scans its own output after replacing is how a guard hangs.
+ledger_redact() {
+  local s="$1" p m out rest
+  for p in "${SECRET_PATTERNS[@]}" '[A-Fa-f0-9]{32,}'; do
+    out=""; rest="$s"
+    while [[ "$rest" =~ $p ]]; do
+      m="${BASH_REMATCH[0]}"
+      [ -z "$m" ] && break
+      out+="${rest%%"$m"*}[REDACTED]"
+      rest="${rest#*"$m"}"
+    done
+    s="$out$rest"
+  done
+  LEDGER_SAFE="$s"
+}

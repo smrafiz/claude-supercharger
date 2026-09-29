@@ -234,4 +234,19 @@ PY
 )
 [ -z "$BAD" ] && pass || fail "writer(s) below the 400-char budget: $BAD"
 
+# 2026-09-29: a 64-hex secret passed as its own printf argument reached the ledger
+# intact (safety.sh masked only `KEY=`), and git-safety masked nothing at all.
+_HEX=$(printf '7f%.0s' $(seq 1 32))
+_GHP="ghp_$(printf 'A%.0s' $(seq 1 36))"
+for _case in "safety.sh|printf 'CRON_SECRET=%s' \"$_HEX\" >> .env" \
+             "git-safety.sh|git push --force https://x:$_GHP@github.com/o/r main"; do
+  _hook="${_case%%|*}"; _cmd="${_case#*|}"
+  begin_test "ledger: $_hook masks a secret passed as its own argument"
+  ST=$(run_hook "$_hook" "$_cmd")
+  LED=$(cat "$ST/scope/.blocked-commands" 2>/dev/null)
+  if [ -n "$LED" ] && ! printf '%s' "$LED" | grep -qE "$_HEX|$_GHP"; then pass
+  else fail "secret in ledger (or no entry): $LED"; fi
+  rm -rf "$ST"
+done
+
 report

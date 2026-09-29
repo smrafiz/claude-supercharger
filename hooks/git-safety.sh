@@ -66,7 +66,11 @@ block() {
   # (5256.2ms vs 22.5ms on a real 17.5KB command). Output is byte-identical: the
   # replacements are 1:1 in length and per-character. No redaction step here, so
   # nothing has to run on the full text first.
-  local safe_cmd="${COMMAND:0:400}"   # v2.26.67: 120 starved /why, not context
+  local safe_cmd="${COMMAND:0:1000}"
+  # Mask secrets before the ledger sees them (e.g. a token inside a push URL).
+  # shellcheck source=hooks/lib-secret-patterns.sh
+  . "${BASH_SOURCE[0]%/*}/lib-secret-patterns.sh" 2>/dev/null && ledger_redact "$safe_cmd" && safe_cmd="$LEDGER_SAFE"
+  safe_cmd="${safe_cmd:0:400}"   # v2.26.67: 120 starved /why, not context
   safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.
