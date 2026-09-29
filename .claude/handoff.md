@@ -6,7 +6,7 @@ session on any machine.**
 ### Current State
 *Verified 2026-09-28, session `3d213381`.*
 
-- **v4.1.19 being released** from master (#59-#64). Includes a SECURITY fix (#64):
+- **v4.1.19 RELEASED** 2026-09-29 (#59-#66). Includes a SECURITY fix (#64):
   a `VAR=` prefix holding `[brackets]` hung normalize_cmd forever (unquoted glob in
   `${cmd#${BASH_REMATCH[0]}}`), Claude Code killed the hook and ran the command, so
   `P=[x] <destructive>` bypassed every normalizing guard. Anyone on <= v4.1.18 is
@@ -19,8 +19,7 @@ session on any machine.**
 - CI: Windows on master pushes only; promote needs master's Windows run at the
   release base. GitHub skipped the push run for #64's merge once (0 runs for the
   SHA) - if promote waits forever, check `gh api .../actions/runs?head_sha=`.
-- **Machine A (this box): INSTALLED v4.1.18** until v4.1.19 promotes (rel CI green,
-  waiting on master Windows at `e30cc97`). #66 widened the hang test for Windows.
+- **Machine A (this box): INSTALLED v4.1.19** (verified: `P=[x] rm -rf ~` denies in <2s).
 - **Machine B**: unknown. Update straight to the latest release.
 - **Open**: heredoc code tripping the credential/DNS rules; command-string mutation
   (heredoc unescape, Windows backslash halving, >8KB truncation) needs probes.
