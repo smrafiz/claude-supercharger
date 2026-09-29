@@ -166,8 +166,12 @@ block() {
           # the ledger that /why and the [BLOCKS] summary read.
           local _al="$SUPERCHARGER_STATE/scope/.blocked-commands"
           mkdir -p "$(dirname "$_al")" 2>/dev/null || true
+          LEDGER_SAFE="${COMMAND:0:1000}"
+          # shellcheck source=hooks/lib-secret-patterns.sh
+          . "${BASH_SOURCE[0]%/*}/lib-secret-patterns.sh" 2>/dev/null && ledger_redact "$LEDGER_SAFE"
+          LEDGER_SAFE="${LEDGER_SAFE//$'\n'/ }"
           printf '[%s] ALLOWED by allowPatterns (would have blocked: %s) — %.400s\n' \
-            "$(date '+%Y-%m-%d %H:%M')" "$1" "$COMMAND" >> "$_al" 2>/dev/null || true
+            "$(date '+%Y-%m-%d %H:%M')" "$1" "$LEDGER_SAFE" >> "$_al" 2>/dev/null || true
           echo "[Supercharger] safety: allowPatterns exempted this command (would have blocked: $1)" >&2
           exit 0
         fi
@@ -196,6 +200,13 @@ block() {
     -e 's/\(API_KEY=\)[^ ]*/\1[REDACTED]/g' \
     -e 's/ghp_[A-Za-z0-9]\{36\}/[REDACTED]/g' \
     -e 's/sk-[A-Za-z0-9]\{32,\}/[REDACTED]/g')
+  # The sed above only masks KEY=value; a secret passed as its own argument went
+  # through. Mask with the shared patterns too, before the 400 cap below, so a
+  # secret straddling the cut is still whole when matched.
+  # shellcheck source=hooks/lib-secret-patterns.sh
+  if . "${BASH_SOURCE[0]%/*}/lib-secret-patterns.sh" 2>/dev/null; then
+    ledger_redact "${safe_cmd:0:1000}"; safe_cmd="$LEDGER_SAFE"
+  fi
   # v2.26.67: 400, was 120. The original rationale — "avoid bloating session context"
   # — stopped being true in v2.26.63, when the [BLOCKS] summary switched to injecting
   # REASONS only and never command text. So the cap no longer protects the context
