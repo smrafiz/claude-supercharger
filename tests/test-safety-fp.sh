@@ -505,4 +505,32 @@ allows "find-name"  "find . -name '*.ts'"
 allows "find-chmod" "find . -type f -exec chmod 644 {} +"
 allows "find-grep"  "find src -exec grep -l TODO {} +"
 
+# v4.1.23: fp-triage on a real ledger found 23 distinct self-modification blocks
+# that depended on text. Two shapes: a verb matched inside a word ("installer"),
+# and test fixtures writing config under a directory the same command made with
+# mktemp. A replay of 497 real config-mentioning commands flipped 40 to allow,
+# none a write to a live config path. The bypasses the exemption must not open
+# are pinned right below.
+begin_test "selfmod: fixtures under a mktemp dir and verbs inside words are allowed"
+# Real commands from the ledger: "installed" / "install register" is prose, and
+# the rest of the line reads the config (grep), it does not write it.
+allows "sm-installed"  'echo "--- marker in installed CLAUDE.md:"
+grep -c "^# --- Claude Supercharger" ~/.claude/CLAUDE.md'
+allows "sm-install-w"  "echo \"=== installer mode: tag present in ~/.claude/settings.json? ===\"; grep -c '#supercharger' ~/.claude/settings.json 2>/dev/null; echo \"=== plugin mode: does a plugin install register there too? ===\"; ls -d ~/.claude/plugins/data/*supercharger* 2>/dev/null | head -2"
+allows "sm-tmp-home"   "T=\$(mktemp -d); echo '{}' > \"\$T/.claude/settings.json\""
+allows "sm-tmp-proj"   "TD=\$(mktemp -d); echo '{\"budget\":0.5}' > \"\$TD/.supercharger.json\""
+allows "sm-tmp-scope"  "D=\$(mktemp -d); rm -f \"\$D/scope/.autopilot-until\""
+
+begin_test "selfmod: the mktemp exemption cannot be steered to the live config"
+denies "sm-live"       "echo '{}' > ~/.claude/settings.json"
+denies "sm-reassign"   "T=\$(mktemp -d); T=\$HOME; echo x > \"\$T/.claude/settings.json\""
+denies "sm-symlink"    "T=\$(mktemp -d); ln -s ~/.claude \"\$T/.claude\"; echo x > \"\$T/.claude/settings.json\""
+denies "sm-traverse"   "T=\$(mktemp -d); echo x > \"\$T/../../../../\$HOME/.claude/settings.json\""
+denies "sm-printf-v"   "T=\$(mktemp -d); printf -v T '%s' ~; echo x > \"\$T/.claude/settings.json\""
+denies "sm-append"     "T=\$(mktemp -d); T+=/../..; echo x > \"\$T/.claude/settings.json\""
+denies "sm-declare"    "T=\$(mktemp -d); declare T=~; echo x > \"\$T/.claude/settings.json\""
+denies "sm-for"        "for T in ~; do :; done; T=\$(mktemp -d); echo x > \$T/.claude/settings.json"
+denies "sm-mixed"      "T=\$(mktemp -d); echo x > \"\$T/.claude/settings.json\"; echo y >> ~/.claude/settings.json"
+denies "sm-install"    "install -m 644 x ~/.claude/settings.json"
+
 report
