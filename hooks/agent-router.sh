@@ -53,9 +53,35 @@ init_hook_suppress "$PROJECT_DIR"
 # Signal new prompt to statusline — delete cost marker so statusline saves fresh start cost
 rm -f "$SCOPE_DIR/.prompt-cost-${SESSION_ID}" "$SCOPE_DIR/.prompt-tokens-${SESSION_ID}" "$SCOPE_DIR/.last-prompt-tokens-${SESSION_ID}"
 
+# Messages the harness writes into the prompt slot are not a task: background-task
+# notices, slash-command echoes, `!` shell output, subagent hand-backs, the
+# post-compaction summary. Measured on real transcripts: 3,000+ of them, each
+# classified as if typed ("status" in a task notice routed to the Critic). Say
+# nothing, and leave the last real classification in place.
+case "$PROMPT" in
+  "<task-notification"*|"<command-"*|"<local-command-"*|"<bash-"*|"<system-reminder"*|\
+  "Another Claude session sent a message"*|"This session is being continued"*|"Stop hook feedback:"*) exit 0 ;;
+esac
+
 AGENT=""
 
-PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
+# Classify the words the user typed, not the text they pasted: a pasted log's
+# nouns ("Please report this issue") are not the request.
+_TYPED="$PROMPT"
+# The closing tag repeats the id (`</pasted_content id="…">`), so cut to its `>`.
+while [[ "$_TYPED" == *"<pasted_content"*"</pasted_content"*">"* ]]; do
+  # Look for the close AFTER the open: a stray close earlier in the text would
+  # otherwise splice the open back in and the loop would never end.
+  _rest="${_TYPED#*<pasted_content}"; _rest="${_rest#*</pasted_content}"
+  _TYPED="${_TYPED%%<pasted_content*}${_rest#*>}"
+done
+
+PROMPT_LOWER=$(printf '%s\n' "$_TYPED" | tr '[:upper:]' '[:lower:]')
+# The leading verb decides intent, but people rarely lead with it: "can you
+# create a doc…", "okay, also fix…". Drop the politeness before looking.
+_LEAD="$PROMPT_LOWER"
+_LEAD_RE='^[[:space:]]*(ok(ay)?|also|so|now|then|please|pls|hey|hi|and|but|great|thanks|can you|could you|would you|will you|i want to|i need to|i('\''d| would) like (you )?to|let'\''s|lets)[[:space:],.!:]+'
+while [[ "$_LEAD" =~ $_LEAD_RE ]]; do _LEAD="${_LEAD:${#BASH_REMATCH[0]}}"; done
 
 # The Detective and Analyst rules below match on NOUNS (error, csv, report) and
 # sit near the front, so they used to capture prompts whose VERB states a
@@ -68,32 +94,32 @@ PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 # "explain" ("the stack trace is hard to explain") is still a debugging request,
 # and only a leading verb is reliable evidence of intent.
 _PROSE_LED=0; _WORK_LED=0
-[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(explain|document|describe|summari[sz]e) ]] && _PROSE_LED=1
-[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(fix|write|draft|add|build|create|refactor|implement) ]] && _WORK_LED=1
+[[ "$_LEAD" =~ ^[[:space:]]*(explain|document|describe|summari[sz]e) ]] && _PROSE_LED=1
+[[ "$_LEAD" =~ ^[[:space:]]*(fix|write|draft|add|build|create|refactor|implement) ]] && _WORK_LED=1
 # "check my error handling" is a review request that happens to name an error.
 _REVIEW_LED=0
-[[ "$PROMPT_LOWER" =~ ^[[:space:]]*(review|check\ my|critique|audit) ]] && _REVIEW_LED=1
+[[ "$_LEAD" =~ ^[[:space:]]*(review|check\ my|critique|audit) ]] && _REVIEW_LED=1
 
 # Ordered by specificity — most specific first
-if [[ "$_PROSE_LED" -eq 0 ]] && [[ "$_REVIEW_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (error|exception|stack\ trace|not\ working|broken|failing|crash|null\ pointer|undefined\ is\ not|bug\ at\ line|segfault|traceback|exit\ code\ [0-9]) ]]; then
+if [[ "$_PROSE_LED" -eq 0 ]] && [[ "$_REVIEW_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(error|exception|stack\ trace|not\ working|broken|failing|crash|null\ pointer|undefined\ is\ not|bug\ at\ line|segfault|traceback|exit\ code\ [0-9]) ]]; then
   AGENT="Sherlock Holmes (Detective)"
-elif [[ "$PROMPT_LOWER" =~ (review|security\ issue|code\ smell|what\ do\ you\ think\ of|look\ at\ this|check\ my|critique|audit\ this|lgtm) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(review|security\ issue|code\ smell|what\ do\ you\ think\ of|look\ at\ this|check\ my|critique|audit\ this|lgtm) ]]; then
   AGENT="Gordon Ramsay (Critic)"
-elif [[ "$_WORK_LED" -eq 0 ]] && [[ "$_PROSE_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
+elif [[ "$_WORK_LED" -eq 0 ]] && [[ "$_PROSE_LED" -eq 0 ]] && [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(analyze|query|sql|csv|how\ many|metrics|report|data\ file|show\ me\ the|dataset|aggregate|pivot|histogram) ]]; then
   AGENT="Albert Einstein (Analyst)"
-elif [[ "$PROMPT_LOWER" =~ (where\ (is|are|does|do)|which\ file|locate\ |find\ (the|all|every|where)|call\ ?sites|callers\ of|who\ calls|what\ calls|trace\ (the|this|through)|(where|how)\ (is|are).*(defined|implemented|used|handled|located|wired)|explore\ the\ (code|repo|codebase)|search\ the\ (code|codebase)|grep\ for|map\ the\ (code|codebase)) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(where\ (is|are|does|do)|which\ file|locate\ |find\ (the|all|every|where)|call\ ?sites|callers\ of|who\ calls|what\ calls|trace\ (the|this|through)|(where|how)\ (is|are).*(defined|implemented|used|handled|located|wired)|explore\ the\ (code|repo|codebase)|search\ the\ (code|codebase)|grep\ for|map\ the\ (code|codebase)) ]]; then
   AGENT="Ferdinand Magellan (Navigator)"
-elif [[ "$PROMPT_LOWER" =~ (write\ a\ function|write\ a\ test|write\ a\ class|write\ a\ script|write\ a\ method|write\ a\ module|write\ a\ component|write\ a\ hook|write\ a\ handler|write\ a\ parser) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(write\ a\ function|write\ a\ test|write\ a\ class|write\ a\ script|write\ a\ method|write\ a\ module|write\ a\ component|write\ a\ hook|write\ a\ handler|write\ a\ parser) ]]; then
   AGENT="Tony Stark (Engineer)"
-elif [[ "$PROMPT_LOWER" =~ (write|draft|blog|readme|document|describe|summari[sz]e|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(write|draft|blog|readme|markdown|write-?up|(create|make|generate)\ (an?\ |the\ )?(md\ )?(doc|docs|guide)|document|describe|summari[sz]e|explain\ to|email|release\ notes|marketing|copywriting|prose) ]]; then
   AGENT="Ernest Hemingway (Writer)"
-elif [[ "$PROMPT_LOWER" =~ (design|architect|before\ we\ build|system\ design|how\ should\ i\ structure|adr|architecture\ decision|diagram) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(design|architect|before\ we\ build|system\ design|how\ should\ i\ structure|adr|architecture\ decision|diagram) ]]; then
   AGENT="Leonardo da Vinci (Architect)"
-elif [[ "$PROMPT_LOWER" =~ (plan|break\ down|estimate|how\ should\ i|should\ i\ use|should\ i\ go\ with|what.s\ the\ best\ approach|help\ me\ think|roadmap|prioritize|scope\ this) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(plan|break\ down|estimate|how\ should\ i|should\ i\ use|should\ i\ go\ with|what.s\ the\ best\ approach|help\ me\ think|roadmap|prioritize|scope\ this) ]]; then
   AGENT="Sun Tzu (Strategist)"
-elif [[ "$PROMPT_LOWER" =~ (what\ is|how\ (does|do|is|are|can)|compare|difference\ between|research|best\ way\ to|explain\ (how|what|why|the)|versus|trade.?off) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(what\ is|how\ (does|do|is|are|can)|compare|difference\ between|research|best\ way\ to|explain\ (how|what|why|the)|versus|trade.?off) ]]; then
   AGENT="Marie Curie (Scientist)"
-elif [[ "$PROMPT_LOWER" =~ (build|implement|add\ |add\ a\ |fix|create|refactor|write\ a\ function|write\ a\ test|make\ it|update\ the) ]]; then
+elif [[ "$PROMPT_LOWER" =~ (^|[^a-z0-9_])(build|implement|add\ |add\ a\ |fix|create|refactor|write\ a\ function|write\ a\ test|make\ it|update\ the) ]]; then
   AGENT="Tony Stark (Engineer)"
 fi
 
@@ -192,6 +218,10 @@ echo "$TIER" > "$LAST_TIER_FILE"
 if [ -n "$PROJECT_AGENTS_LIST" ]; then
   echo "[Supercharger] Project agents detected — will prefer over global" >&2
   CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} project=${PROJECT_AGENTS_LIST} tier=${TIER}"
+elif [ "$AGENT_KEY" = "generalist" ]; then
+  # No rule matched: that is "unknown", not "general task". Naming an agent here
+  # is a guess dressed as a verdict, and a wrong hint is worse than none.
+  CONTEXT="[CTX] tier=${TIER}"
 else
   CONTEXT="[CTX] task=${CATEGORY} agent=${AGENT_KEY} tier=${TIER}"
 fi
