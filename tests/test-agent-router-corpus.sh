@@ -33,7 +33,7 @@ _route() {  # $1 = prompt -> first token of the classified agent
   local d f
   d=$(mktemp -d); mkdir -p "$d/.claude/supercharger/scope"
   P="$1" python3 -c "import json,os;print(json.dumps({'prompt':os.environ['P']}))" \
-    | HOME="$d" bash "$ROUTER" >/dev/null 2>&1
+    | HOME="$d" perl -e 'alarm 10; exec @ARGV' bash "$ROUTER" >/dev/null 2>&1
   f="$d/.claude/supercharger/scope/.agent-classified-default"
   if [ -f "$f" ]; then head -1 "$f" | awk '{print $1}'; else echo "(none)"; fi
   rm -rf "$d"
@@ -79,6 +79,21 @@ document why the crash happens on startup|Ernest
 explain what a stack trace actually contains|Marie
 describe the metrics we report to the board|Ernest
 summarize the audit findings for the team|Ernest
+# --- 2026-09-29: misroutes seen live. Harness text is not a task (no verdict),
+#     pasted text is not the request, politeness hides the leading verb, and a
+#     keyword must start a word ("plan" is not in "explanation") ---
+<task-notification><status>completed</status><summary>review finished</summary></task-notification>|(none)
+Another Claude session sent a message: review report attached|(none)
+<command-message>sc-status</command-message>|(none)
+This session is being continued from a previous conversation. Fix the error|(none)
+<pasted_content id="a1">Warning: Please report this issue to the csv maintainers</pasted_content> what does this mean|Steve
+<pasted_content id="b2">Products query failed: TypeError</pasted_content id="b2">|Steve
+Stop hook feedback: claim-evidence-gate blocked the report|(none)
+a</pasted_content id="x"> b <pasted_content id="y">log</pasted_content id="y"> fix the parser|Tony
+can you create a md doc with all the details and researches|Ernest
+okay, also fix the csv export|Tony
+could you explain the error handling here|Marie
+give me an explanation of the retry flow|Steve
 # --- AMBIGUOUS: pinned to current behaviour, not asserted as ideal ---
 review the plan before I start building|Gordon
 design a logo for the docs site|Leonardo
