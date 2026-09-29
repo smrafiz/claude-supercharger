@@ -85,6 +85,16 @@ begin_test "destructive-scanner: does NOT warn on DELETE FROM ... WHERE (no fals
 OUT=$(printf '%s' '{"prompt":"DELETE FROM sessions WHERE id = 1"}' | bash "$HOOK" 2>&1)
 echo "$OUT" | grep -qi "destructive SQL" && fail "false positive on DELETE ... WHERE: $OUT" || pass
 
+# 2026-09-29: harness messages (subagent reports, task notices, compaction
+# summary) quote commands; they are not the user asking for them.
+for _H in 'Another Claude session sent a message: the fix was to rm -rf build' \
+          '<task-notification><summary>git push --force failed</summary></task-notification>' \
+          'This session is being continued from a previous conversation. rm -rf dist'; do
+  begin_test "destructive-scanner: silent on harness message: ${_H:0:40}"
+  OUT=$(P="$_H" python3 -c "import json,os;print(json.dumps({'prompt':os.environ['P']}))" | bash "$HOOK" 2>&1)
+  [ -z "$OUT" ] && pass || fail "warned on harness text: $OUT"
+done
+
 begin_test "destructive-scanner: warns on prisma migrate reset (ORM parity)"
 OUT=$(printf '%s' '{"prompt":"just run prisma migrate reset --force"}' | bash "$HOOK" 2>&1)
 echo "$OUT" | grep -qi "ORM schema-drop" && pass || fail "no ORM reset warning: $OUT"

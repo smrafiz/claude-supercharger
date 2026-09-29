@@ -159,4 +159,14 @@ if echo "$ROUTE" | grep -qi "Magellan"; then pass
 else fail ".agent-classified-default wrong: $ROUTE (expected Ferdinand Magellan)"; fi
 teardown_test_home
 
+# v4.1.21: the agent hint is not injected (followed on 1.1% of hinted prompts);
+# the classification is still written for the statusline and agent-gate.
+begin_test "agent-router: classifies to the route file but injects no agent hint"
+setup_test_home
+OUTPUT=$(echo '{"prompt":"there is a null pointer exception at line 42"}' | bash "$ROUTER" 2>/dev/null)
+ROUTE=$(cat "$HOME/.claude/supercharger/scope/.agent-classified-default" 2>/dev/null)
+if echo "$ROUTE" | grep -q "Sherlock" && ! echo "$OUTPUT" | grep -qE 'agent=|task='; then pass
+else fail "route=$ROUTE out=$OUTPUT"; fi
+teardown_test_home
+
 report
