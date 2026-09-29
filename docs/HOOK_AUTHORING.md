@@ -589,3 +589,39 @@ there is. Group by reason, trace a few of each to the transcript, and replay the
 still-blocked ones through current code. Most entries in a guard's own repo are the
 author's probes — count only blocks from real work. Four of the five fixes above started
 there.
+
+### A guard that hangs is a guard that is off
+
+Claude Code kills a hook at its timeout and runs the command. So a slow path is
+not a performance bug: it is a bypass. v4.1.19 fixed one. `normalize_cmd`
+stripped leading `VAR=value` with `cmd="${cmd#${BASH_REMATCH[0]}}"`, and the
+unquoted match is a glob: in `P=[x] ` the `[x]` is a character class, the prefix
+never matched, the loop never advanced, and `P=[x] rm -rf ~` ran unguarded.
+
+- Quote every `${var#pat}` / `%` / `/` pattern that comes from input:
+  `"${cmd#"${BASH_REMATCH[0]}"}"`.
+- Any `while` loop that shrinks a string must be proven to shrink it.
+- Tests that could hang run the hook under a hard time limit so they FAIL
+  instead of stalling the suite (`_timed_verdict` in
+  `tests/test-safety-bash-evasions.sh`). Allow a wide margin: Windows CI runs the
+  suite 4-wide under Git Bash and hooks are several times slower there.
+- A replay that times out on a real command is a finding. Bisect it
+  (`start_new_session=True` + `os.killpg`, or the killed child keeps spinning).
+
+### Rules that look at shell must skip interpreter heredocs
+
+The normalizer keeps interpreter heredoc bodies (`python3 - <<'PY'`) on purpose:
+their code is checked for shell-outs. A rule anchored to command position must
+still not read that code as shell. The env-dump rule matched Python
+`sorted(set)`, C# `{ get; set; }` and a list holding `"env"` in 23 real commands.
+Pattern that works and costs nothing on ordinary commands: run the cheap regex
+first; only on a hit, re-check a copy with every heredoc body removed and quoted
+strings blanked.
+
+### Verify platform assumptions before you block
+
+`pkill -f` matches its own ancestors on Linux (procps) but not on BSD/macOS. A
+self-kill rule written from the Linux behaviour would have blocked ~30 harmless
+real commands on macOS. Gate such rules on `uname`, and run the cheap regex
+before the fork.
+
