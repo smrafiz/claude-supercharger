@@ -12,8 +12,9 @@ TOOL="$REPO_DIR/tools/input-budget.sh"
 T=$(mktemp -d)
 H="$T/home"; P="$T/proj"
 mkdir -p "$H/.claude/rules" "$P/.claude/rules"
-P_REAL=$(cd "$P" && pwd -P)
-ENC="-$(printf '%s' "$P_REAL" | sed 's|/|-|g; s|^-||')"
+# Encode through Python, as the tool does: on Windows Git Bash `pwd -P` says
+# /tmp/... while native Python sees C:\...\Temp\..., so a shell-side name misses.
+ENC=$(python3 -c 'import os,re,sys;print(re.sub("[^A-Za-z0-9]","-",os.path.realpath(sys.argv[1])))' "$P")
 mkdir -p "$H/.claude/projects/$ENC/memory"
 printf 'user notes\n@extra.md\n# --- Claude Supercharger v9 ---\nblock\n' > "$H/.claude/CLAUDE.md"
 printf 'imported\n' > "$H/.claude/extra.md"

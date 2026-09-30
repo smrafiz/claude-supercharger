@@ -83,7 +83,9 @@ if os.path.isdir(prd):
         if not f.endswith('.md') or not os.path.isfile(p): continue
         if conditional(p): cond.append((p, len((read(p) or '').encode())))
         else: load([p], 'project', rows, seen)
-enc = '-' + cwd.replace(os.sep, '-').lstrip('-')
+# Claude Code's projects/<dir> name: every non-alphanumeric character becomes '-'
+# (/Users/a/b -> -Users-a-b; C:\\Users\\a -> C--Users-a on Windows).
+enc = re.sub(r'[^A-Za-z0-9]', '-', cwd)
 load([os.path.join(home, '.claude', 'projects', enc, 'memory', 'MEMORY.md')], 'memory', rows, seen)
 
 OURS = ('supercharger.md', 'guardrails.md', 'economy.md', 'developer.md', 'writer.md', 'student.md',

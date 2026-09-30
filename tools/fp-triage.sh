@@ -51,8 +51,10 @@ PATTERNS=$(mktemp)
 trap 'rm -f "$PATTERNS"' EXIT
 printf '%s\n' "${SECRET_PATTERNS[@]}" '[A-Fa-f0-9]{32,}' > "$PATTERNS"
 
-# The guards must run under THIS bash: on Windows a bare `bash` from Python can
-# resolve to WSL's System32 bash.exe, where no guard runs and every block reads
-# as "fixed" (CI, 2026-09-30).
-FPT_REPO="$REPO_DIR" FPT_LEDGER="$LEDGER" FPT_PROJECTS="$PROJECTS" FPT_EXAMPLES="$EXAMPLES" \
-FPT_PATTERNS="$PATTERNS" FPT_BASH="${FPT_BASH:-${BASH:-bash}}" python3 "$REPO_DIR/tools/fp-triage.py"
+# The guards must run under THIS bash, not whatever `bash` Python finds on PATH.
+# Python here is a native Windows program under Git Bash: it cannot open an MSYS
+# path (/tmp/..., /usr/bin/bash). Hand it Windows paths (Windows CI, 2026-09-30).
+_w() { if command -v cygpath >/dev/null 2>&1; then cygpath -w -- "$1"; else printf '%s' "$1"; fi; }
+FPT_REPO="$(_w "$REPO_DIR")" FPT_LEDGER="$(_w "$LEDGER")" FPT_PROJECTS="$(_w "$PROJECTS")" \
+FPT_EXAMPLES="$EXAMPLES" FPT_PATTERNS="$(_w "$PATTERNS")" FPT_BASH="$(_w "${FPT_BASH:-${BASH:-bash}}")" \
+python3 "$(_w "$REPO_DIR/tools/fp-triage.py")"
