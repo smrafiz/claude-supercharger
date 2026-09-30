@@ -52,4 +52,16 @@ rm -rf "$T"
 if printf '%s' "$OUT" | grep -q 'text-only (likely FP): 1' && printf '%s' "$OUT" | grep -q 'still blocks on a command: 1'; then pass
 else fail "unexpected summary: $OUT"; fi
 
+# 2026-09-30: on Windows CI the guards never ran (a bare `bash` from Python can be
+# WSL's), so every block read as "fixed" and the tool reported nothing. It must
+# refuse to report when a known-bad command is not blocked.
+begin_test "fp-triage: refuses to report when the guards do not run"
+T=$(mktemp -d); mkdir -p "$T/projects"
+printf '[2026-01-01 00:00] r — rm -rf ~\n' > "$T/ledger"
+printf '#!/bin/sh\nexit 0\n' > "$T/nobash"; chmod +x "$T/nobash"
+OUT=$(FPT_BASH="$T/nobash" bash "$REPO_DIR/tools/fp-triage.sh" --ledger "$T/ledger" --projects "$T/projects" 2>&1); RC=$?
+rm -rf "$T"
+if [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q 'did not block a known-bad command'; then pass
+else fail "rc=$RC out=$OUT"; fi
+
 report

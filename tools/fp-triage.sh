@@ -51,5 +51,8 @@ PATTERNS=$(mktemp)
 trap 'rm -f "$PATTERNS"' EXIT
 printf '%s\n' "${SECRET_PATTERNS[@]}" '[A-Fa-f0-9]{32,}' > "$PATTERNS"
 
+# The guards must run under THIS bash: on Windows a bare `bash` from Python can
+# resolve to WSL's System32 bash.exe, where no guard runs and every block reads
+# as "fixed" (CI, 2026-09-30).
 FPT_REPO="$REPO_DIR" FPT_LEDGER="$LEDGER" FPT_PROJECTS="$PROJECTS" FPT_EXAMPLES="$EXAMPLES" \
-FPT_PATTERNS="$PATTERNS" python3 "$REPO_DIR/tools/fp-triage.py"
+FPT_PATTERNS="$PATTERNS" FPT_BASH="${FPT_BASH:-${BASH:-bash}}" python3 "$REPO_DIR/tools/fp-triage.py"

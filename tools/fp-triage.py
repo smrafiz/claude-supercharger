@@ -5,6 +5,7 @@ REPO = os.environ.get('FPT_REPO', '')
 LEDGER = os.environ.get('FPT_LEDGER', '')
 PROJECTS = os.environ.get('FPT_PROJECTS', '')
 EXAMPLES = int(os.environ.get('FPT_EXAMPLES', '3'))
+BASH = os.environ.get('FPT_BASH') or 'bash'
 GUARDS = ['safety.sh', 'git-safety.sh', 'harness-tamper-guard.sh']
 # Ledger writers that are not Bash command guards: nothing to replay.
 NOT_BASH = ('completion claimed', 'secret in staged commit', 'ambiguous secret pattern',
@@ -91,7 +92,7 @@ def blank_text(cmd):
 def blocked(cmd, state):
     for g in GUARDS:
         try:
-            r = subprocess.run(['bash', os.path.join(REPO, 'hooks', g)],
+            r = subprocess.run([BASH, os.path.join(REPO, 'hooks', g)],
                                input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': cmd},
                                                  'session_id': 'fp-triage', 'cwd': state}),
                                capture_output=True, text=True, timeout=20,
@@ -110,6 +111,12 @@ def main():
         print('fp-triage: no Bash guard entries in the ledger'); return
     idx = transcript_commands()
     state = tempfile.mkdtemp(); os.makedirs(state + '/sc/scope')
+    # An oracle that cannot run the guards reports every block as "fixed". Prove
+    # they run before trusting a single verdict.
+    if not blocked('rm -rf ~', state):
+        shutil.rmtree(state, ignore_errors=True)
+        sys.exit('fp-triage: the guards did not block a known-bad command; cannot triage '
+                 f'(bash used: {BASH})')
     rows = collections.defaultdict(lambda: collections.defaultdict(list))
     seen = {}
     try:
