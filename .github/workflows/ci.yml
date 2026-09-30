@@ -11,6 +11,10 @@ on:
     branches: [master, 'rel/**']
   pull_request:
     branches: [master]
+  # Manual run on any branch (Actions tab or `gh workflow run ci.yml --ref <branch>`),
+  # so a Windows fix can be tested before it reaches master. Windows only runs on
+  # master pushes otherwise, and each blind attempt cost a 75-min master run.
+  workflow_dispatch:
 
 # A newer push to the same branch/PR cancels the older run. Mostly for master,
 # where each push runs the ~80 min Windows job: back-to-back merges queued three.
@@ -132,7 +136,8 @@ jobs:
     runs-on: windows-latest
     # ~75 min, so master pushes only: not on every PR, not again on rel/**.
     # release.sh promote gates on this job for the release's base commit.
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    # Also on a manual workflow_dispatch, for testing a Windows fix on a branch.
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
     # Git Bash is the interpreter Claude Code auto-selects on Windows, so this is
     # the real target — not a POSIX approximation.
     defaults:
