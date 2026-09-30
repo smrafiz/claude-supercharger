@@ -26,6 +26,10 @@
 #
 # Usage: tools/fp-triage.sh [--ledger FILE] [--projects DIR] [--examples N]
 set -euo pipefail
+# The engine prints commands; a Windows console would default Python to cp1252.
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 LEDGER="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope/.blocked-commands"
 PROJECTS="$HOME/.claude/projects"
