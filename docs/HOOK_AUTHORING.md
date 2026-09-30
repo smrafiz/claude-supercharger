@@ -662,3 +662,29 @@ allow tests, and check that the allow tests fail on the old rule.
 
 CI ran `bash tests/run.sh | tee log` without pipefail for 13 days, so failing
 tests went green. After changing any gate, make it fail once on purpose.
+
+### Windows: Python under Git Bash is a native program
+
+A tool that hands paths from bash to Python must convert them: under Git Bash,
+`python3` cannot use `/tmp/...` or `/usr/bin/bash`. Pass `cygpath -w` output
+(when `cygpath` exists), and derive any path-based name (such as a Claude Code
+project directory) inside Python, from the path Python itself sees. A replay tool
+that cannot run the guards must say so rather than report every block as fixed.
+
+Two more traps, both found by one debug run on a branch:
+- **Pass a hook's path with forward slashes.** Hooks find their libs through
+  `${BASH_SOURCE[0]%/*}`. A backslash Windows path has no `/`, so `safety.sh`
+  looked for `safety.sh/lib-timing.sh` and died before checking anything.
+- **The shared secret patterns are POSIX ERE.** Python has no `[:space:]`
+  classes and silently reads them as literal characters. Translate the classes
+  before compiling them in Python (fp-triage's `ere()`), on every OS.
+
+Guessing at a Windows-only failure cost three master runs. A branch run with the
+Windows step narrowed by `TEST_GLOB` answered it in seven minutes.
+
+### Test failure messages print literally
+
+`fail()` prints its reason with `printf %s`. An `echo -e` turned a Windows path
+(`D:\a\claude...`) into a bell character and stopped at `\c`, so three Windows CI
+runs showed `out=D:` instead of the error. To test a Windows fix before it reaches
+master, run the Windows job on the branch: `gh workflow run ci.yml --ref <branch>`.
