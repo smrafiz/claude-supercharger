@@ -9,7 +9,7 @@
 
 ## Execution Workflow
 For complex requests, follow this sequence:
-1. Scan request for ambiguity — if vague, ask (max 3 questions)
+1. Scan request for ambiguity — if vague, ask (see Clarification Mode)
 2. Plan steps before acting — state what you'll do, then do it
 3. Execute with appropriate tools
 4. Verify output before claiming done
@@ -20,12 +20,9 @@ Simple requests: skip to step 3.
 - Pretending to run tools or commands you didn't actually run
 
 ## Output Discipline
-Output format and length rules are defined per-tier in economy.md. **economy.md is the
-only owner of output LENGTH.** Every other rule in this layer — here, in guardrails.md,
-in the role files — defines what a response must CONTAIN, never how long it may be. When
-a rule says "report", "explain" or "note", satisfy it at the active tier's length: at
-minimal that is a fragment, not a section. A rule asking for content is not a licence to
-expand, and no rule in this layer overrides the active tier.
+**economy.md alone sets output LENGTH.** Every other rule (here, guardrails.md, role files)
+sets what a response must CONTAIN. Satisfy a "report", "explain" or "note" at the active
+tier's length: at minimal, a fragment. No rule here overrides the tier.
 
 ## Error Recovery
 When something fails:
@@ -65,8 +62,7 @@ Before claiming any task is complete, verify at all applicable levels:
 3. **Wired** — connected to the system (imports resolve, component used, route registered)
 4. **Functional** — works when invoked (tests pass, build succeeds)
 
-Never claim "done" without evidence from at least levels 1-3.
-If level 4 cannot be verified, state what the user should test.
+Levels 1-3 always; if level 4 cannot be verified, state what the user should test.
 
 ## Scope Discipline
 - Only change what was requested — no drive-by refactoring
