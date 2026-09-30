@@ -11,9 +11,17 @@ GUARDS = ['safety.sh', 'git-safety.sh', 'harness-tamper-guard.sh']
 NOT_BASH = ('completion claimed', 'secret in staged commit', 'ambiguous secret pattern',
             'credentials — secret in', 'skills —', 'sendmessage —', 'ALLOWED by allowPatterns')
 
+# The shared patterns are POSIX ERE (for grep). Python has no [:space:]-style
+# classes: it read `[^:@/[:space:]]` as a set of literal characters and masked
+# less than grep does (and warned). Translate the classes before compiling.
+POSIX = {'[:space:]': r'\s', '[:alnum:]': 'A-Za-z0-9', '[:alpha:]': 'A-Za-z', '[:digit:]': '0-9',
+         '[:upper:]': 'A-Z', '[:lower:]': 'a-z', '[:xdigit:]': '0-9A-Fa-f', '[:punct:]': r'!-/:-@\[-`{-~'}
+def ere(p):
+    for k, v in POSIX.items(): p = p.replace(k, v)
+    return p
 SECRETS = []
 for p in (open(os.environ['FPT_PATTERNS']).read().splitlines() if os.environ.get('FPT_PATTERNS') else []):
-    try: SECRETS.append(re.compile(p))
+    try: SECRETS.append(re.compile(ere(p)))
     except re.error: pass
 
 
@@ -92,7 +100,9 @@ def blank_text(cmd):
 def blocked(cmd, state):
     for g in GUARDS:
         try:
-            r = subprocess.run([BASH, os.path.join(REPO, 'hooks', g)],
+            # Forward slashes: hooks find their libs via ${BASH_SOURCE[0]%/*}, which a
+            # backslash Windows path defeats (safety.sh/lib-timing.sh: Not a directory).
+            r = subprocess.run([BASH, os.path.join(REPO, 'hooks', g).replace(os.sep, '/')],
                                input=json.dumps({'tool_name': 'Bash', 'tool_input': {'command': cmd},
                                                  'session_id': 'fp-triage', 'cwd': state}),
                                capture_output=True, text=True, timeout=20,
