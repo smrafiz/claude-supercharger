@@ -106,7 +106,9 @@ pass() {
 fail() {
   local reason="${1:-}"
   TESTS_FAILED=$((TESTS_FAILED + 1))
-  echo -e "  ${RED}FAIL${NC} $CURRENT_TEST${reason:+ — $reason}"
+  # printf %s, not echo -e: a reason holding a Windows path (D:\a\claude...) had
+  # its \a turned into a bell and output cut at \c, hiding the real error on CI.
+  printf '  %bFAIL%b %s%s\n' "$RED" "$NC" "$CURRENT_TEST" "${reason:+ — $reason}"
 }
 
 assert_file_exists() {

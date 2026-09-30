@@ -39,6 +39,16 @@ never run rm -rf / here
 EOF")
 case "$OUT" in *rm*) fail "kept data: $OUT" ;; *) pass ;; esac
 
+# Windows: the tool refuses up front (the engine cannot run guards from Python
+# there yet). Pin the refusal, then stop: the end-to-end cases below need guards.
+case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*)
+  begin_test "fp-triage: says it is unsupported on Windows instead of reporting nothing"
+  T=$(mktemp -d); printf '[x] r — rm -rf ~\n' > "$T/l"
+  OUT=$(bash "$REPO_DIR/tools/fp-triage.sh" --ledger "$T/l" --projects "$T" 2>&1); RC=$?; rm -rf "$T"
+  if [ "$RC" -eq 3 ] && printf '%s' "$OUT" | grep -q 'not supported on Windows'; then pass; else fail "rc=$RC out=$OUT"; fi
+  report; exit $? ;;
+esac
+
 # End to end on a throwaway ledger: one text-only block, one real one.
 begin_test "fp-triage: classifies a text-only block and a real block"
 T=$(mktemp -d); mkdir -p "$T/scope" "$T/projects"
