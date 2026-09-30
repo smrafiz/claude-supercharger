@@ -30,6 +30,11 @@ jobs:
       - uses: actions/checkout@v5
 
       - name: Run tests
+        # `shell: bash` runs the step with `-eo pipefail`. Without it the default
+        # is `bash -e`, and tee's exit status wins: from #16 (2026-09-16) to
+        # 2026-09-29 this job went green with failing tests (PR #71 logged
+        # "6011 passed, 2 failed" on both OSes and passed).
+        shell: bash
         run: bash tests/run.sh | tee test-output.log
 
       # Live test-count badge: publish the suite total to a gist that shields.io
