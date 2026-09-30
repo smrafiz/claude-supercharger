@@ -662,3 +662,19 @@ allow tests, and check that the allow tests fail on the old rule.
 
 CI ran `bash tests/run.sh | tee log` without pipefail for 13 days, so failing
 tests went green. After changing any gate, make it fail once on purpose.
+
+### Windows: Python under Git Bash is a native program
+
+A tool that hands paths from bash to Python must convert them: under Git Bash,
+`python3` cannot use `/tmp/...` or `/usr/bin/bash`. Pass `cygpath -w` output
+(when `cygpath` exists), and derive any path-based name (such as a Claude Code
+project directory) inside Python, from the path Python itself sees. A replay tool
+that cannot run the guards must say so: fp-triage refuses on Windows until its
+guard-runner is fixed, rather than reporting every block as fixed.
+
+### Test failure messages print literally
+
+`fail()` prints its reason with `printf %s`. An `echo -e` turned a Windows path
+(`D:\a\claude...`) into a bell character and stopped at `\c`, so three Windows CI
+runs showed `out=D:` instead of the error. To test a Windows fix before it reaches
+master, run the Windows job on the branch: `gh workflow run ci.yml --ref <branch>`.
