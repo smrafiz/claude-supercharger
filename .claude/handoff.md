@@ -4,18 +4,16 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-30, session `3d213381`.*
+*Verified 2026-09-30 (evening), session `3d213381`.*
 
-- **Released: v4.1.23** (10:16 UTC): rule slimming (always-loaded 14.3 -> 11.7 KB),
-  input-budget in /sc-status + /sc-doctor, fp-triage (macOS/Linux), selfmod FPs,
-  CI test gate fixed. Master `b267a10` adds #80 (manual Windows run on any branch).
-- **No open PRs.** Debug branch `debug/fp-triage-win` exists: never merge; delete
-  once fp-triage's Windows fix lands.
+- **Released: v4.1.23.** Master `b267a10` adds #80 (manual Windows run on any branch).
+- **Open PRs:** #82 fp-triage works on Windows + POSIX-class secret masking
+  (Windows verification run 36706997897 in flight; merge when green, then v4.1.24).
+  #81 docs + handoff (auto-merge on green).
 - **Machine A (this box): INSTALLED v4.1.23**; ai-coding-token-optimizer skill
-  installed; memory index slimmed to 14.4 KB. Its block ledger still holds one
-  secret line from before v4.1.22 (user's call).
-- **Machine B**: unknown. Update to v4.1.23.
-- **Open**: fp-triage on Windows; radius-apps guard-push wrapper bypass.
+  installed; memory index 14.4 KB. Ledger still holds one pre-v4.1.22 secret line.
+- **Machine B**: unknown. Update to the latest release.
+- **Open**: radius-apps guard-push wrapper bypass (needs a session there).
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -43,6 +41,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-09-30 (evening) — 3d213381
+A 7-minute branch debug run found fp-triage's Windows cause (backslash hook
+path) and a cross-OS secret-masking gap; fixed in #82, verifying on Windows.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-09-30 (late) — 3d213381
 v4.1.23 out after three Windows refusals (MSYS paths, hidden failure text). Input
 budget built and used: 38.3 -> 27.6 KB per session here. Manual Windows CI trigger
@@ -67,11 +70,5 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 Released **v4.1.17** (cron rule prose FP). Swept every real deny that depended only on
 quoted or heredoc text: the real ones were search patterns scanned as shell, fixed in
 #57 (unreleased). Wrote the five-fix lesson into `docs/HOOK_AUTHORING.md`.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-27 (later) — 3d213381
-Released **v4.1.16**: a dotenv block on a real grep traced to quoted-`|` truncation in
-the sensitive-read rule, an FP and an FN in one line (#53). Moved Windows CI to master
-only (~80 min per PR saved) and fixed the promote gate that change broke (#54).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 

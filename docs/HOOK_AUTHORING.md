@@ -669,8 +669,18 @@ A tool that hands paths from bash to Python must convert them: under Git Bash,
 `python3` cannot use `/tmp/...` or `/usr/bin/bash`. Pass `cygpath -w` output
 (when `cygpath` exists), and derive any path-based name (such as a Claude Code
 project directory) inside Python, from the path Python itself sees. A replay tool
-that cannot run the guards must say so: fp-triage refuses on Windows until its
-guard-runner is fixed, rather than reporting every block as fixed.
+that cannot run the guards must say so rather than report every block as fixed.
+
+Two more traps, both found by one debug run on a branch:
+- **Pass a hook's path with forward slashes.** Hooks find their libs through
+  `${BASH_SOURCE[0]%/*}`. A backslash Windows path has no `/`, so `safety.sh`
+  looked for `safety.sh/lib-timing.sh` and died before checking anything.
+- **The shared secret patterns are POSIX ERE.** Python has no `[:space:]`
+  classes and silently reads them as literal characters. Translate the classes
+  before compiling them in Python (fp-triage's `ere()`), on every OS.
+
+Guessing at a Windows-only failure cost three master runs. A branch run with the
+Windows step narrowed by `TEST_GLOB` answered it in seven minutes.
 
 ### Test failure messages print literally
 
