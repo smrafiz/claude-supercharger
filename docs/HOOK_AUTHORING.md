@@ -625,3 +625,40 @@ self-kill rule written from the Linux behaviour would have blocked ~30 harmless
 real commands on macOS. Gate such rules on `uname`, and run the cheap regex
 before the fork.
 
+
+### The prompt slot carries text the user never typed
+
+`UserPromptSubmit`'s `prompt` also holds harness messages: background-task
+notices, slash-command echoes, `!` shell output, subagent hand-backs, Stop hook
+feedback and the post-compaction summary. Over 1,900 of 6,414 distinct
+transcript prompts were these. Three advisory hooks read them as intent: the
+router routed them, the destructive-intent scanner warned on a quoted command,
+and learn-from-prompts logged Stop feedback as a user correction. An advisory
+prompt hook calls `prompt_is_harness` (`hooks/lib-prompt-source.sh`) first. A
+security guard does not: the text still reaches the model.
+
+### A ledger is output: mask it
+
+`scope/.blocked-commands` stores blocked command text and is read back by `/why`
+and `learn-from-blocks`. Every writer passes the text through `ledger_redact`
+(`hooks/lib-secret-patterns.sh`) before it is capped. Masking only `KEY=value`
+missed a secret passed as its own quoted argument.
+
+### Measure the effect before improving the classifier
+
+The router's agent hint was followed on 16 of 1,398 prompts that named an agent
+(1.1%, against 0.1% when another agent was named). A better classifier could not
+move that, so the hint was removed instead. Before investing in accuracy,
+measure whether the output changes anything.
+
+### Exemptions are attack surface
+
+A narrowing (here: config writes under a `mktemp` directory are fixtures) is a
+new way past the guard. Probe it like a guard: the first draft was bypassed by
+`..`, `printf -v`, `eval` and `+=`. Pin each bypass as a deny test next to the
+allow tests, and check that the allow tests fail on the old rule.
+
+### Prove a gate can fail
+
+CI ran `bash tests/run.sh | tee log` without pipefail for 13 days, so failing
+tests went green. After changing any gate, make it fail once on purpose.

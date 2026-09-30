@@ -4,25 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-28, session `3d213381`.*
+*Verified 2026-09-30, session `3d213381`.*
 
-- **v4.1.19 RELEASED** 2026-09-29 (#59-#66). Includes a SECURITY fix (#64):
-  a `VAR=` prefix holding `[brackets]` hung normalize_cmd forever (unquoted glob in
-  `${cmd#${BASH_REMATCH[0]}}`), Claude Code killed the hook and ran the command, so
-  `P=[x] <destructive>` bypassed every normalizing guard. Anyone on <= v4.1.18 is
-  exposed: update.
-- Also in v4.1.19: env-dump + agent self-kill guards (#61), multi-line/clustered
-  commit messages no longer scanned (#60), injection scanner decodes base64/hex/
-  percent + bidi/hidden-html (#62), Vault/OpenBao ask (#63), CLAUDE.md blank-line
-  growth (#59).
-- **v4.1.18 RELEASED** (#57 grep patterns are data). v4.1.15-17 earlier.
-- CI: Windows on master pushes only; promote needs master's Windows run at the
-  release base. GitHub skipped the push run for #64's merge once (0 runs for the
-  SHA) - if promote waits forever, check `gh api .../actions/runs?head_sha=`.
-- **Machine A (this box): INSTALLED v4.1.19** (verified: `P=[x] rm -rf ~` denies in <2s).
-- **Machine B**: unknown. Update straight to the latest release.
-- **Open**: heredoc code tripping the credential/DNS rules; command-string mutation
-  (heredoc unescape, Windows backslash halving, >8KB truncation) needs probes.
+- **Released: v4.1.22** (block-ledger secret masking, #70). v4.1.20 router fix
+  (#68), v4.1.21 prompt hooks skip harness text + router hint removed (#69).
+- **Master `14f9936` is ahead of v4.1.22**: #71 fp-triage tool, #72 selfmod FPs.
+  The v4.1.23 stage FAILED: #71 broke test-list-hooks and test-python-encoding.
+- **CI test gate was broken 2026-09-16..09-29**: `run.sh | tee` without pipefail
+  reported green with failures. Fix is on branch `fix/fp-triage-ci` together
+  with the #71 follow-ups. Merge it, then stage v4.1.23.
+- **Machine A (this box): INSTALLED v4.1.22.** Its block ledger still holds one
+  secret line written before v4.1.22 (user decides scrub/rotate).
+- **Machine B**: unknown. Update to the latest release (v4.1.19 hang fix).
+- **Open**: radius-apps guard-push.mjs misses `env/sudo/nohup/timeout git push`
+  (fix drafted; needs a session in that repo).
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -50,6 +45,13 @@ session on any machine.**
 
 ## Log
 
+#### 2026-09-30 — 3d213381
+Released v4.1.19-22: router and prompt hooks stop reading harness text as user
+text, agent hint removed (1.1% uptake), block-ledger secret masking. Built
+fp-triage, fixed selfmod FPs. Found the CI test gate green-on-failure since
+09-16. Jev researched and parked.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-09-28 — 3d213381
 Research sweep (web, GitHub, upstream tracker) became six fixes (#59-#64). A history
 replay that timed out led to a SECURITY bug: a bracketed `VAR=` prefix hung every
@@ -74,13 +76,5 @@ Traced /sc-status's "recent blocks" to their transcripts and found two shipped d
 lesson-record saved dashboards/tables as lessons and fed itself (#48), and the claim
 gate read `failed=0` as a failure — nearly all its blocks were false (#49). Both caught
 a regression in their first draft only by replaying real transcripts. Staged v4.1.15.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-24 — 3d213381
-Released **v4.1.14**. Audited all 33 commands, research first: /learn rules never
-resurfaced (Jaccard 0.00), /reflect lessons never reached the next session (loader
-reads 4 lines), /why's filter was inverted, /profile ignored per-project config.
-Fixed the rm bypass (#44) after a 21k-command replay caught a false positive, and
-the mtime-ranked handoff loader (#45). New /design-review.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
