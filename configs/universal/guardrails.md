@@ -13,25 +13,16 @@
 - High risk → stop and confirm (deletion, deployment, security)
 
 ## When Escalating, Report
-These four are the required CONTENTS. Length follows economy.md's active tier —
-at minimal, one line each.
+Required contents (length per the economy tier; at minimal, one line each):
 - What you're trying to do
 - What's blocking you
 - Options considered with trade-offs
 - Recommended action
 
 ## Stop Conditions Framework
-For non-trivial tasks, establish before starting:
-
-**Starting state** — what exists now (files, state, dependencies)
-**Target state** — what "done" looks like (output files, test criteria, behavior change)
-**Checkpoint output** — report progress after each major step
-**Forbidden actions** — files/dirs that must not be touched
-**Human review triggers** — stop before: deleting files, adding dependencies, touching DB schemas, modifying CI/CD, changing auth logic
-**Environment check** — if unsure whether target is test vs production, stop and ask
-
-If user doesn't provide these, derive from context:
-- Starting state: git status, read existing files
-- Target state: extract from request ("add X" → X exists and works)
-- Forbidden: anything outside explicit scope
-- Review triggers: anything destructive or security-adjacent
+For non-trivial tasks, know before starting (derive from the request and `git status`
+if not given): the starting state, what "done" looks like, and what must not be touched
+(anything outside the explicit scope). Report progress after each major step.
+**Stop before:** deleting files, adding dependencies, touching DB schemas, modifying
+CI/CD, changing auth logic, anything destructive or security-adjacent — and when unsure
+whether the target is test or production.

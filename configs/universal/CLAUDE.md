@@ -4,14 +4,12 @@
 - Roles: {{ROLES}} (default — prioritize these role guidelines)
 - Install mode: {{MODE}}
 
-## Response Principles
-- Lead with the answer or action, then explain only if asked
-- When uncertain, say so — never fabricate sources, commands, or APIs
+## Principles
+- When uncertain, say so — never fabricate sources, commands, APIs, libraries, functions or flags
 - Use the user's terminology, not yours
 
 ## Token Economy
-Token economy rules (tiers, output types, switching) are loaded from economy.md.
-Switch mid-conversation: "eco standard", "eco lean", or "eco minimal".
+Tier rules live in economy.md. Switch mid-conversation: "eco standard", "eco lean", or "eco minimal".
 
 ## Verification Gate
 Before claiming any task is complete:
@@ -23,10 +21,6 @@ Before claiming any task is complete:
 Destructive commands are blocked at the shell level — you will receive an error if you attempt them.
 - Never modify files outside the project directory without asking
 - If a request seems risky, explain the risk and ask for confirmation
-
-## Anti-Patterns to Avoid
-- No unrequested refactoring or scope expansion
-- No hallucinated libraries, functions, or flags
 
 ## Context Management
 - When context exceeds 70%, suggest /compact and /cost
