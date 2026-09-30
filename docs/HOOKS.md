@@ -181,6 +181,7 @@ Run any of these manually:
 | `tools/hook-new.sh` | Claude Supercharger — New Hook Scaffolder |
 | `tools/hook-perf.sh` | Claude Supercharger — Hook Performance Profiler |
 | `tools/hook-toggle.sh` | Claude Supercharger — Hook Toggle Tool |
+| `tools/input-budget.sh` | Claude Supercharger — Input budget: what every session loads before the first prompt |
 | `tools/list-hooks.sh` | Claude Supercharger — Hook Catalog Generator |
 | `tools/mcp-custom.sh` | Claude Supercharger — Custom MCP servers, profile-aware |
 | `tools/mcp-profile.sh` | Claude Supercharger — MCP Profile Switcher |

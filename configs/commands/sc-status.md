@@ -58,6 +58,7 @@ Role           : <from .supercharger.json or current rules>
 Tier           : <minimal|lean|standard>
 MCP profile    : <light|dev|research|full>
 Hook profile   : <standard|fast|minimal>
+Input budget   : <verbatim output of `bash ~/.claude/supercharger/tools/input-budget.sh --line` run from the project dir; "—" if the tool is missing>
 
 Cost (session) : $X.XX / $Y.YY budget (Z% used)   [computed from the transcript — ground truth; budget from .supercharger.json]
 Subagents (all sessions): <N runs> | <top agent>: $A.AA, <2nd>: $B.BB, <3rd>: $C.CC  (or "—" if no .subagent-costs-*.jsonl files)
