@@ -36,7 +36,7 @@ done
 
 IB_MODE="$MODE" IB_DIR="$DIR" python3 - <<'PY'
 import json, os, re, sys
-home = os.path.expanduser('~')
+home = os.environ.get('HOME') or os.path.expanduser('~')  # $HOME first: Windows expanduser reads %USERPROFILE%
 cwd = os.path.realpath(os.environ['IB_DIR'])
 FENCE = '`' * 3
 
@@ -49,7 +49,7 @@ def imports(path, text, seen):
     """Claude Code follows @path imports (relative to the file, ~ or absolute)."""
     body = re.sub(FENCE + '.*?' + FENCE + r'|`[^`\n]*`', '', text, flags=re.S)
     for m in re.findall(r'(?<![\w/])@((?:~|\.{1,2})?/?[\w./-]+\.\w+)', body):
-        p = os.path.expanduser(m) if m.startswith('~') else os.path.join(os.path.dirname(path), m)
+        p = home + m[1:] if m.startswith('~') else os.path.join(os.path.dirname(path), m)
         p = os.path.realpath(p)
         if p not in seen and os.path.isfile(p): yield p
 
