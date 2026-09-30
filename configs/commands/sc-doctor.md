@@ -19,3 +19,9 @@ Then do three things, in this order:
 
 If the script is missing, the install is broken in a way this command cannot
 diagnose — tell the user to re-run the installer rather than guessing.
+
+Also run `bash ~/.claude/supercharger/tools/input-budget.sh --line` and show its
+line as **Input budget**. It is a finding only when it says OVER budget: then name
+the largest always-loaded file (run the tool without `--line` for the list) and
+note that a project's own oversized `CLAUDE.md` can be slimmed with the
+`ai-coding-token-optimizer` skill if it is installed.
