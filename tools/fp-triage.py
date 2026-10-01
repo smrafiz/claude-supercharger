@@ -110,6 +110,10 @@ def blocked(cmd, state):
                                     'SUPERCHARGER_NO_TELEMETRY': '1'})
         except subprocess.TimeoutExpired:
             return 'HANG'
+        except OSError:
+            # bash could not be launched at all (missing, or on Windows a script
+            # that is not an executable): no guard ran. The self-check reports it.
+            return ''
         if r.returncode == 2 or '"deny"' in r.stdout:
             return g
     return ''
