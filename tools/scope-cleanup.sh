@@ -49,6 +49,7 @@ patterns_max_age=(
   ".keep-going-*:$SECS_WEEK"
   ".stack-cache-*:$SECS_MONTH"
   ".router-hash-*:$SECS_DAY"
+  ".blocks-summary-*:$SECS_DAY"
   ".router-cache-*:$SECS_DAY"
   ".router-roster-*:$SECS_WEEK"
   ".last-tier-*:$SECS_WEEK"

@@ -142,4 +142,21 @@ OUT=$(summarize "this row has no timestamp at all
 [$TODAY 09:00] self-modification — rm hook")
 printf '%s' "$OUT" | grep -q 'self-modification' && pass || fail "one bad row broke the summary: $OUT"
 
+# 2026-10-01: a resumed session fires SessionStart as "startup" AND "resume" at
+# once; the summary was printed by both, so every resume showed it twice.
+begin_test "learn-from-blocks: one summary when startup and resume fire together"
+st=$(mktemp -d); mkdir -p "$st/scope" "$st/home"
+printf '[%s 09:00] recursive force rm on dangerous target — rm -rf ~\n' "$TODAY" > "$st/scope/.blocked-commands"
+n=0
+for src in startup resume; do
+  o=$(printf '{"session_id":"dup","cwd":"%s","hook_event_name":"SessionStart","source":"%s"}' "$st" "$src" \
+    | env HOME="$st/home" SUPERCHARGER_STATE="$st" bash "$REPO_DIR/hooks/learn-from-blocks.sh" 2>/dev/null)
+  case "$o" in *BLOCKS*) n=$((n + 1)) ;; esac
+done
+o=$(printf '{"session_id":"other","cwd":"%s","hook_event_name":"SessionStart","source":"startup"}' "$st" \
+  | env HOME="$st/home" SUPERCHARGER_STATE="$st" bash "$REPO_DIR/hooks/learn-from-blocks.sh" 2>/dev/null)
+rm -rf "$st"
+case "$o" in *BLOCKS*) other=1 ;; *) other=0 ;; esac
+[ "$n" -eq 1 ] && [ "$other" -eq 1 ] && pass || fail "same session printed $n times (want 1); another session printed $other (want 1)"
+
 report

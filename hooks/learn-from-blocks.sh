@@ -186,5 +186,18 @@ PYEOF
 )
 
 [ -z "$OUT" ] && exit 0
+# Resuming a session fires SessionStart twice at once (source "startup" and
+# "resume"), and each printed this summary, so every resume showed it twice
+# (measured on 9 resumes, 2026-09-29..10-01). Print once per session per 30s:
+# a later /clear or compaction still gets it, since that context was dropped.
+SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || echo "")
+if [ -n "$SID" ]; then
+  _MARK="$SCOPE_DIR/.blocks-summary-$SID"
+  _NOW=$(date +%s); _LAST=0
+  [ -f "$_MARK" ] && IFS= read -r _LAST < "$_MARK" 2>/dev/null || true
+  case "$_LAST" in ''|*[!0-9]*) _LAST=0 ;; esac
+  [ $((_NOW - _LAST)) -lt 30 ] && exit 0
+  printf '%s\n' "$_NOW" > "$_MARK" 2>/dev/null || true
+fi
 printf '%s\n' "$OUT"
 exit 0

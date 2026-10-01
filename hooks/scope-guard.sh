@@ -262,6 +262,7 @@ if [[ "$MODE" == "clear" ]]; then
     -o -name '.last-category-*' \
     -o -name '.last-tier-*' \
     -o -name '.router-hash-*' \
+    -o -name '.blocks-summary-*' \
     -o -name '.repetition-flag-*' \
     -o -name '.subagent-safety-injected-*' \
     -o -name '.subagent-costs-*.jsonl' \
