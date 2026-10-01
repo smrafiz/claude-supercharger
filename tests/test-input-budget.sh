@@ -48,5 +48,13 @@ case "$L1$L2" in *"within 32 KB"*"OVER budget 0.5 KB"*) pass ;; *) fail "L1=$L1 
 begin_test "input-budget: exits 0 even over budget (report-only)"
 BUDGET=0.1 run --line >/dev/null; [ $? -eq 0 ] && pass || fail "non-zero exit over budget"
 
+begin_test "input-budget: counts the skills list separately, outside the total"
+mkdir -p "$H/.claude/skills/demo"
+printf -- '---\nname: demo\ndescription: does a thing\n---\nbody text not counted\n' > "$H/.claude/skills/demo/SKILL.md"
+OUT=$(run); L=$(run --line)
+if printf '%s' "$OUT" | grep -q 'user skills (1)' && printf '%s' "$OUT" | grep -q "~$(( TOTAL / 4 )) tok" \
+   && printf '%s' "$L" | grep -q 'skills list up to'; then pass
+else fail "skills not listed, or counted in the total: $OUT"; fi
+
 rm -rf "$T"
 report
