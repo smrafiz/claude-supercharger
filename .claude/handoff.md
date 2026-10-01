@@ -4,16 +4,17 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-09-30 (evening), session `3d213381`.*
+*Verified 2026-10-01, session `3d213381`.*
 
-- **Released: v4.1.23.** Master `b267a10` adds #80 (manual Windows run on any branch).
-- **Open PRs:** #82 fp-triage works on Windows + POSIX-class secret masking
-  (Windows verification run 36706997897 in flight; merge when green, then v4.1.24).
-  #81 docs + handoff (auto-merge on green).
-- **Machine A (this box): INSTALLED v4.1.23**; ai-coding-token-optimizer skill
-  installed; memory index 14.4 KB. Ledger still holds one pre-v4.1.22 secret line.
+- **Released: v4.1.25** (installed on Machine A): input-budget shows the skills list,
+  session-start summary prints once; v4.1.24 fp-triage works on Windows.
+- **Open PRs:** #85 PowerShell output scanning; #86 elicitation-guard trust fix +
+  URL-mode checks. Merge when green, release v4.1.26.
+- **Machine A (this box):** Shopify skills moved into the two Shopify repos; ledger
+  secret line scrubbed. Stale v2.16.2 plugin record is inert.
 - **Machine B**: unknown. Update to the latest release.
-- **Open**: radius-apps guard-push wrapper bypass (needs a session there).
+- **Open**: ShareOnboardingGuide guard; classifierContext needs a measured sync path;
+  radius-apps guard-push wrapper bypass; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -41,6 +42,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-01 — 3d213381
+v4.1.24 and v4.1.25 out. Coverage diff vs CC 2.1.286 found PowerShell output and
+elicitation gaps (#85, #86, pending). Skills list was the largest context cost;
+Shopify skills moved into their projects.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-09-30 (evening) — 3d213381
 A 7-minute branch debug run found fp-triage's Windows cause (backslash hook
 path) and a cross-OS secret-masking gap; fixed in #82, verifying on Windows.
@@ -64,11 +71,5 @@ Research sweep (web, GitHub, upstream tracker) became six fixes (#59-#64). A his
 replay that timed out led to a SECURITY bug: a bracketed `VAR=` prefix hung every
 Bash guard, which fails open. Every guard change was replayed against ~48k real
 commands first; three first drafts regressed and were caught that way.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-27 (late) — 3d213381
-Released **v4.1.17** (cron rule prose FP). Swept every real deny that depended only on
-quoted or heredoc text: the real ones were search patterns scanned as shell, fixed in
-#57 (unreleased). Wrote the five-fix lesson into `docs/HOOK_AUTHORING.md`.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
