@@ -56,7 +56,9 @@ except Exception:
 
 # Defensive key fallbacks — the exact Elicitation payload shape is not pinned in
 # the docs, so accept the same alternatives elicitation-discovery.sh handles.
-server = (data.get('server_name') or data.get('mcp_server') or data.get('server')
+# The documented field is `mcp_server_name` (hooks reference, Elicitation input).
+# Without it `server` was always empty, so no server could ever be trusted.
+server = (data.get('mcp_server_name') or data.get('server_name') or data.get('mcp_server') or data.get('server')
           or data.get('source') or '')
 schema = (data.get('schema') or data.get('requestedSchema') or data.get('requested_schema')
           or data.get('elicitation_schema') or {})
@@ -197,6 +199,39 @@ def audit(action):
             f.write(json.dumps(rec) + '\n')
     except Exception:
         pass
+
+# URL-mode elicitation (`mode: "url"`) asks the user to open a link, typically an
+# auth page. A link that hides where it goes is the phishing shape: not https, a
+# raw IP host, an internationalised (punycode) host, or credentials in the URL.
+# Loopback http is the normal local OAuth callback and stays allowed.
+url_flag = ''
+_url = data.get('url') or ''
+if isinstance(_url, str) and _url:
+    from urllib.parse import urlsplit
+    import ipaddress
+    try:
+        u = urlsplit(_url.strip()); host = (u.hostname or '').lower()
+    except ValueError:
+        u = None; host = ''
+    def _is_ip(h):
+        try: ipaddress.ip_address(h); return True
+        except ValueError: return False
+    loopback = host in ('localhost', '127.0.0.1', '::1')
+    if u is None or not host: url_flag = 'an unparseable link'
+    elif '@' in (u.netloc or ''): url_flag = 'a link with embedded credentials'
+    elif u.scheme != 'https' and not (u.scheme == 'http' and loopback): url_flag = 'a non-https link'
+    elif _is_ip(host) and not loopback: url_flag = 'a link to a raw IP address'
+    elif any(part.startswith('xn--') for part in host.split('.')): url_flag = 'a link to a punycode (look-alike) domain'
+
+if url_flag and not is_trusted:
+    audit('declined-url')
+    sys.stderr.write(
+        "[Supercharger] elicitation-guard: DECLINED " + url_flag
+        + " from MCP server '" + (server or 'unknown') + "'. "
+        + "If this server is trusted, add it to trustedElicitationServers in .supercharger.json.\n"
+    )
+    print(json.dumps({'hookSpecificOutput': {'hookEventName': 'Elicitation', 'action': 'decline'}}))
+    sys.exit(0)
 
 if (cred_fields or msg_trigger) and not is_trusted:
     audit('declined')
