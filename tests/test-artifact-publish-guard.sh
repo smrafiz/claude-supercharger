@@ -124,9 +124,9 @@ rm -rf "$TD" "$(dirname "$F")"
 [ "$RC" -eq 2 ] && pass || fail "shared pattern additions not picked up: rc=$RC"
 
 # --- registration ------------------------------------------------------------
-begin_test "registered on PreToolUse:Artifact (before the publish, not after)"
-grep -q 'PreToolUse|Artifact|.*artifact-publish-guard.sh' "$REPO_DIR/lib/hooks.sh" && pass \
-  || fail "not registered as PreToolUse|Artifact"
+begin_test "registered on PreToolUse for Artifact AND ShareOnboardingGuide (before upload)"
+grep -q 'PreToolUse|Artifact,ShareOnboardingGuide|.*artifact-publish-guard.sh' "$REPO_DIR/lib/hooks.sh" && pass \
+  || fail "not registered as PreToolUse|Artifact,ShareOnboardingGuide"
 
 begin_test "generated hooks.json carries the registration"
 grep -q 'artifact-publish-guard' "$REPO_DIR/hooks/hooks.json" && pass \
@@ -341,5 +341,26 @@ else
 fi
 chmod 755 "$_APX_TD/locked" 2>/dev/null || true
 rm -rf "$_APX_TD"
+
+# --- ShareOnboardingGuide: uploads <cwd>/ONBOARDING.md, path is implicit ------
+_SOG_TD=$(mktemp -d)
+sog() { # mode -> sets RC
+  printf '{"tool_name":"ShareOnboardingGuide","tool_input":{"mode":"%s"},"cwd":"%s"}' "$1" "$_SOG_TD" \
+    | bash "$GUARD" >/dev/null 2>&1; RC=$?
+}
+printf '# Onboarding\nexport AWS_ACCESS_KEY_ID=%s\n' "$AWS_ID" > "$_SOG_TD/ONBOARDING.md"
+for m in check update create; do
+  begin_test "ShareOnboardingGuide $m: denies an ONBOARDING.md holding a key"
+  sog "$m"; [ "$RC" -eq 2 ] && pass || fail "rc=$RC"
+done
+begin_test "ShareOnboardingGuide delete: uploads nothing, not scanned"
+sog delete; [ "$RC" -eq 0 ] && pass || fail "rc=$RC"
+printf '# Onboarding\nRun ./install.sh\n' > "$_SOG_TD/ONBOARDING.md"
+begin_test "ShareOnboardingGuide: a clean guide is allowed"
+sog check; [ "$RC" -eq 0 ] && pass || fail "rc=$RC"
+rm -f "$_SOG_TD/ONBOARDING.md"
+begin_test "ShareOnboardingGuide: no local guide (has_existing) is allowed"
+sog check; [ "$RC" -eq 0 ] && pass || fail "rc=$RC"
+rm -rf "$_SOG_TD"
 
 report

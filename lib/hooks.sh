@@ -165,7 +165,8 @@ get_hooks_for_mode() {
   # the machine, irreversibly. None of the exfil guards matched it (they cover
   # Bash/MCP/WebFetch), and output-secrets-scanner is PostToolUse, i.e. after the
   # publish. PreToolUse so the check happens before anything is sent.
-  hooks+=("PreToolUse|Artifact|${hooks_dir}/artifact-publish-guard.sh|")
+  # ShareOnboardingGuide uploads ./ONBOARDING.md to an org share link: same egress.
+  hooks+=("PreToolUse|Artifact,ShareOnboardingGuide|${hooks_dir}/artifact-publish-guard.sh|")
   # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
   # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
   # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops

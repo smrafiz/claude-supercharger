@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Artifact Publish Guard
-# Event: PreToolUse | Matcher: Artifact
+# Event: PreToolUse | Matcher: Artifact,ShareOnboardingGuide
 #
 # The Artifact tool renders a local file to a page hosted on claude.ai and
 # returns a URL. That is a FIRST-CLASS EGRESS PRIMITIVE — content leaves the
@@ -32,11 +32,22 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 . "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
 . "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 
-# Fast path: publish carries a file; reply and room_send carry outbound TEXT.
-case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*) ;; *) exit 0 ;; esac
+# Fast path: publish carries a file; reply and room_send carry outbound TEXT;
+# ShareOnboardingGuide carries no path at all (see below).
+case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*|*ShareOnboardingGuide*) ;; *) exit 0 ;; esac
 
 ACTION=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.action // empty' 2>/dev/null || true)
 [ "$ACTION" = "list" ] && exit 0
+
+# ShareOnboardingGuide uploads ./ONBOARDING.md (up to 64KB) to an org-wide share
+# link -- same egress as an Artifact publish, but the path is implicit: its only
+# inputs are mode (check|update|create|delete) and short_code. Every mode but
+# delete uploads the file when present, so scan it exactly like a published page.
+TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
+if [ "$TOOL_NAME" = "ShareOnboardingGuide" ]; then
+  [ "$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.mode // "check"' 2>/dev/null)" = "delete" ] && exit 0
+  _INPUT=$(printf '%s\n' "$_INPUT" | jq -c '.tool_input.file_path = "ONBOARDING.md"' 2>/dev/null) || exit 0
+fi
 
 # v2.29.15: reply and room_send are the SAME egress primitive as publish, and were
 # open while publish was denied - verified against the deployed hook, where a
