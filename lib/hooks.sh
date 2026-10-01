@@ -119,7 +119,7 @@ get_hooks_for_mode() {
   # doesn't cover the env-preload class. ASK, value-shape gated (NODE_OPTIONS=
   # --max-old-space-size / LD_LIBRARY_PATH=/usr/local/lib pass). /profile-gated.
   # Disable: SUPERCHARGER_ENV_EXEC_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/env-exec-guard.sh|")  # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/env-exec-guard.sh|")  # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in
   # trustedElicitationServers (.supercharger.json). SYNC — must run to block.
