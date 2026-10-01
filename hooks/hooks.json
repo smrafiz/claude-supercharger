@@ -658,7 +658,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -680,7 +680,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash|Read|WebFetch|WebSearch|mcp__.*"
+        "matcher": "Bash|PowerShell|Read|WebFetch|WebSearch|mcp__.*"
       },
       {
         "hooks": [
