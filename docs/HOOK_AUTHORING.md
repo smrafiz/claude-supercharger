@@ -688,3 +688,26 @@ Windows step narrowed by `TEST_GLOB` answered it in seven minutes.
 (`D:\a\claude...`) into a bell character and stopped at `\c`, so three Windows CI
 runs showed `out=D:` instead of the error. To test a Windows fix before it reaches
 master, run the Windows job on the branch: `gh workflow run ci.yml --ref <branch>`.
+
+### Async hooks cannot steer anything
+
+`async` and `asyncRewake` hooks run after the action. Claude Code ignores their
+response fields (`decision`, `permissionDecision`, `continue`, and in practice
+`classifierContext`): only stderr on exit 2 reaches Claude, as a reminder. A
+feature that must influence the next step (for example telling the auto-mode
+classifier a result was hostile) needs a synchronous hook, so measure its cost
+on real outputs before moving a scanner off the async path.
+
+### Read the documented input field, then fall back
+
+elicitation-guard looked for the server under four guessed names and never the
+documented `mcp_server_name`, so `server` was always empty and trusting a server
+had no effect for months. When a payload shape is documented, read the
+documented field first, keep the guesses as fallbacks, and pin it with a test
+that fails when the field is ignored.
+
+### Resume fires SessionStart twice
+
+A resumed session fires SessionStart with source `startup` and again with
+`resume`, at once. A hook that injects a summary there prints it twice unless it
+dedupes per session (learn-from-blocks keeps a 30-second marker per session id).
