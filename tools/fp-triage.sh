@@ -44,11 +44,6 @@ while [ $# -gt 0 ]; do
   esac
 done
 [ -f "$LEDGER" ] || { echo "fp-triage: no ledger at $LEDGER" >&2; exit 1; }
-# The engine runs each guard from Python; under Git Bash that fails in a way not yet
-# diagnosed (Windows CI, 2026-09-30). Say so rather than report nothing.
-case "$(uname -s 2>/dev/null)" in
-  MINGW*|MSYS*|CYGWIN*) echo "fp-triage: not supported on Windows yet; run it on macOS or Linux" >&2; exit 3 ;;
-esac
 
 # shellcheck source=hooks/lib-secret-patterns.sh
 . "$REPO_DIR/hooks/lib-secret-patterns.sh"

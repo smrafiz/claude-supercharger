@@ -39,16 +39,6 @@ never run rm -rf / here
 EOF")
 case "$OUT" in *rm*) fail "kept data: $OUT" ;; *) pass ;; esac
 
-# Windows: the tool refuses up front (the engine cannot run guards from Python
-# there yet). Pin the refusal, then stop: the end-to-end cases below need guards.
-case "$(uname -s 2>/dev/null)" in MINGW*|MSYS*|CYGWIN*)
-  begin_test "fp-triage: says it is unsupported on Windows instead of reporting nothing"
-  T=$(mktemp -d); printf '[x] r — rm -rf ~\n' > "$T/l"
-  OUT=$(bash "$REPO_DIR/tools/fp-triage.sh" --ledger "$T/l" --projects "$T" 2>&1); RC=$?; rm -rf "$T"
-  if [ "$RC" -eq 3 ] && printf '%s' "$OUT" | grep -q 'not supported on Windows'; then pass; else fail "rc=$RC out=$OUT"; fi
-  report; exit $? ;;
-esac
-
 # End to end on a throwaway ledger: one text-only block, one real one.
 begin_test "fp-triage: classifies a text-only block and a real block"
 T=$(mktemp -d); mkdir -p "$T/scope" "$T/projects"
@@ -73,5 +63,14 @@ OUT=$(FPT_BASH="$T/nobash" bash "$REPO_DIR/tools/fp-triage.sh" --ledger "$T/ledg
 rm -rf "$T"
 if [ "$RC" -ne 0 ] && printf '%s' "$OUT" | grep -q 'did not block a known-bad command'; then pass
 else fail "rc=$RC out=$OUT"; fi
+
+begin_test "fp-triage: POSIX classes in the shared secret patterns work in Python"
+OUT=$(PYTHONPATH="$REPO_DIR/tools" python3 -W error -c '
+import importlib.util, os, re
+s = importlib.util.spec_from_file_location("t", os.path.join(os.environ["PYTHONPATH"], "fp-triage.py"))
+m = importlib.util.module_from_spec(s); s.loader.exec_module(m)
+r = re.compile(m.ere("://[^:@/[:space:]]+:[^@/[:space:]]+@"))
+print(bool(r.search("https://user:pw@host")), bool(r.search("https://a b:pw@host")))' 2>&1)
+[ "$OUT" = "True False" ] && pass || fail "got: $OUT"
 
 report
