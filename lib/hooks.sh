@@ -134,7 +134,7 @@ get_hooks_for_mode() {
   # than through the gated WebFetch tool. Same override payloads, unscanned channel
   # (cross-channel-parity-drift). WARN-only; a cheap grep seed-gate keeps it off the
   # hot path (one grep, python only on a hit). Fail-open. Disable: SUPERCHARGER_BASH_INJECTION_SCANNER=0.
-  hooks+=("PostToolUse|Bash|${hooks_dir}/bash-injection-scanner.sh|asyncRewake")
+  hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/bash-injection-scanner.sh|asyncRewake")
   # v2.7.2: structural provenance check on MCP results — forged tool-call/system
   # framing the prompt-injection-scanner's persuasion patterns don't cover (ASI04).
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-provenance.sh|asyncRewake")
@@ -148,7 +148,7 @@ get_hooks_for_mode() {
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
-  hooks+=("PostToolUse|Bash,Read,WebFetch,WebSearch,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
+  hooks+=("PostToolUse|Bash,PowerShell,Read,WebFetch,WebSearch,mcp__|${hooks_dir}/output-secrets-scanner.sh|asyncRewake")
   # v4.0.15: the same patterns, applied to the WRITE channel — the one they never
   # covered. Output, commits and prompts were all scanned; writing a credential
   # INTO a file was not. Measured against the installed harness before this
