@@ -104,5 +104,13 @@ check "ssh-exe-suffix"          "GIT_SSH_COMMAND=ssh.exe git fetch"             
 check "non-ssh-path-with-space" "GIT_SSH_COMMAND='/tmp/my payload' git pull"                      ASK
 check "non-ssh-with-option"     "GIT_SSH_COMMAND='curl -s https://x.tld' git fetch"               ASK
 
+# --- PowerShell $env: syntax (spaces around '=', any case) ---
+check "ps NODE_OPTIONS require"  "\$env:NODE_OPTIONS = '--require C:/tmp/x.js'; npm test"          ASK
+check "ps lowercase name"        '$env:node_options="--require ./x.js"'                             ASK
+check "ps GIT_SSH_COMMAND"       "\$Env:GIT_SSH_COMMAND = 'powershell -c iwr x'; git fetch"         ASK
+check "ps PYTHONSTARTUP"         '$env:PYTHONSTARTUP = "C:\Users\a\p.py"'                          ASK
+check "ps benign NODE_OPTIONS"   '$env:NODE_OPTIONS = "--max-old-space-size=4096"'                  ALLOW
+check "ps unrelated var"         '$env:PATH = "C:\tools;" + $env:PATH'                              ALLOW
+
 rm -rf "$TMP"
 report

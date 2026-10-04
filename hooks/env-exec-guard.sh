@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Env Exec Guard
-# Event: PreToolUse | Matcher: Bash
+# Event: PreToolUse | Matcher: Bash, Monitor, PowerShell
 #
 # Setting a code-injecting environment variable causes arbitrary code execution on
 # the NEXT process spawn — the `git status` / `npm test` that runs afterwards looks
@@ -27,7 +27,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 # Fast-path: one of the code-injecting var names must be present.
 case "$_INPUT" in
-  *LD_PRELOAD*|*DYLD_INSERT_LIBRARIES*|*LD_LIBRARY_PATH*|*DYLD_LIBRARY_PATH*|*NODE_OPTIONS*|*BASH_ENV*|*PYTHONSTARTUP*|*PYTHONPATH*|*PERL5OPT*|*RUBYOPT*|*PROMPT_COMMAND*|*GIT_SSH_COMMAND*|*GIT_SSH*|*GIT_EXTERNAL_DIFF*|*ENV=*) : ;;
+  *LD_PRELOAD*|*DYLD_INSERT_LIBRARIES*|*LD_LIBRARY_PATH*|*DYLD_LIBRARY_PATH*|*NODE_OPTIONS*|*BASH_ENV*|*PYTHONSTARTUP*|*PYTHONPATH*|*PERL5OPT*|*RUBYOPT*|*PROMPT_COMMAND*|*GIT_SSH_COMMAND*|*GIT_SSH*|*GIT_EXTERNAL_DIFF*|*ENV=*|*[Ee][Nn][Vv]:*) : ;;
   *) exit 0 ;;
 esac
 
@@ -108,9 +108,11 @@ def dangerous(policy, val):
 names = "|".join(sorted(POLICY, key=len, reverse=True))
 # VAR=value  (optionally `export VAR=`); value = quoted or up to whitespace.
 rx = re.compile(r'\b(' + names + r')=("[^"]*"|\'[^\']*\'|\S*)')
+# PowerShell: $env:NODE_OPTIONS = '--require x' -- spaces around '=' and any case.
+ps = re.compile(r'\$env:(' + names + r')\s*=\s*("[^"]*"|\'[^\']*\'|\S*)', re.I)
 hit = None
-for m in rx.finditer(cmd):
-    var, raw = m.group(1), m.group(2)
+for m in list(rx.finditer(cmd)) + list(ps.finditer(cmd)):
+    var, raw = m.group(1).upper(), m.group(2)
     if raw[:1] in ('"', "'") and raw[-1:] == raw[:1]:
         raw = raw[1:-1]
     if dangerous(POLICY[var], raw):
