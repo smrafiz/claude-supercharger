@@ -130,10 +130,13 @@ _json_get() { # var, key, payload, jq_filter
       esac
     fi
     __pre="${__body%%\"$2\"*}"
-    __o="${__pre//[^\{]/}"
-    __c="${__pre//[^\}]/}"
+    # Count braces by deleting THEM, not by deleting everything else: bash 3.2's
+    # ${v//pat/} costs per replacement, so stripping every non-brace char was
+    # quadratic in the prefix (5.2s at 4KB, ~20ms at a real 150B header).
+    __o="${__pre//\{/}"
+    __c="${__pre//\}/}"
     # Exactly one unclosed brace before the key == top level.
-    if [ $(( ${#__o} - ${#__c} )) -eq 1 ]; then
+    if [ $(( ${#__c} - ${#__o} )) -eq 1 ]; then
       __val="$_JSON_FAST_VAL"
     fi
   fi
