@@ -106,4 +106,18 @@ GOT=$(bash -c '. "$1"; _json_get V cwd "$2" ".cwd // .workspace.current_dir // e
 [ "$GOT" = "/correct" ] && pass || fail "took '$GOT', expected /correct (the nested cwd must not win)"
 rm -rf "$SHIM"
 
+# Brace counting must be linear. ${v//[^\{]/} rebuilt the string per non-brace
+# char on bash 3.2: 5.2s per call on a 4KB payload with the key last, 8.2s for a
+# whole PostToolUse scan. Found on real transcript outputs, 2026-10-04.
+begin_test "_json_get stays fast with the key at the end of a ~4KB payload"
+_JG_P=$(python3 -c "import json;print(json.dumps({'tool_input':{'command':'x'*3900},'session_id':'s1','cwd':'/top'}))")
+_JG_T0=$(python3 -c 'import time;print(time.time())')
+_json_get _JG_V cwd "$_JG_P" '.cwd // empty'
+_JG_MS=$(python3 -c "import time;print(int((time.time()-$_JG_T0)*1000))")
+[ "$_JG_V" = "/top" ] && [ "$_JG_MS" -lt 1500 ] && pass || fail "val=$_JG_V took ${_JG_MS}ms"
+
+begin_test "_json_get still rejects a nested key and keeps the top-level one"
+_json_get _JG_V cwd '{"tool_input":{"cwd":"/nested"},"x":1}' '.cwd // empty'
+[ -z "$_JG_V" ] && pass || fail "took nested cwd: $_JG_V"
+
 report
