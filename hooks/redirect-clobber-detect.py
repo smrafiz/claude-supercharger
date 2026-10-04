@@ -139,6 +139,51 @@ for seg in segments(cmd):
     elif dest not in sources:
         cands.append(dest)
 
+# 7) PowerShell (tool_name PowerShell only): the clobber vocabulary is cmdlets.
+#    Set-Content / Out-File (no -Append) / Clear-Content overwrite their -Path or
+#    first positional; Copy-Item / Move-Item overwrite -Destination or the second
+#    positional. -Recurse copies are skipped, like cp -r. `>` is caught by (1).
+PS_WRITE = {"set-content", "sc", "out-file", "clear-content", "clc"}
+PS_COPY = {"copy-item", "copy", "cpi", "move-item", "move", "mi"}
+PS_PATH_FLAGS = ("-path", "-filepath", "-literalpath", "-lp", "-pspath")
+PS_VALUE_FLAGS = ("-value", "-encoding", "-inputobject", "-width", "-filter",
+                  "-include", "-exclude", "-credential", "-stream")
+if os.environ.get("SC_SHELL") == "PowerShell":
+    for seg in segments(cmd):
+        try:
+            toks = shlex.split(seg)
+        except Exception:
+            toks = seg.split()
+        low = [t.lower() for t in toks]
+        verb = next((t for t in low if t in PS_WRITE or t in PS_COPY), None)
+        if verb is None:
+            continue
+        rest = toks[low.index(verb) + 1:]
+        lrest = [t.lower() for t in rest]
+        if verb in ("out-file",) and "-append" in lrest:
+            continue
+        if verb in PS_COPY and any(t.startswith("-recurse") for t in lrest):
+            continue
+        named, pos, i = {}, [], 0
+        while i < len(rest):
+            t, lt = rest[i], lrest[i]
+            if lt.startswith("-") and ":" in lt:          # -Path:foo
+                named[lt.split(":", 1)[0]] = t.split(":", 1)[1]; i += 1; continue
+            if lt in PS_PATH_FLAGS or lt == "-destination" or lt in PS_VALUE_FLAGS:
+                if i + 1 < len(rest):
+                    named[lt] = rest[i + 1]
+                i += 2; continue
+            if lt.startswith("-"):
+                i += 1; continue                          # switch (-Force, -NoNewline)
+            pos.append(t); i += 1
+        if verb in PS_WRITE:
+            target = next((named[f] for f in PS_PATH_FLAGS if f in named), None)
+            target = target or (pos[0] if pos else None)
+        else:
+            target = named.get("-destination") or (pos[1] if len(pos) > 1 else None)
+        if target:
+            cands.append(target)
+
 # One git fork answers "is ANY candidate tracked?". Every `>` inside a heredoc'd
 # program (`a > b`, `=>`) is a candidate, and the loop below forks git once per
 # candidate. Only when something is tracked (or the batch errors, e.g. a bad
