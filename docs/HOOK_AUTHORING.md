@@ -727,3 +727,24 @@ catch typos. Registering a hook on a new tool fails the full suite until the
 tool is added to `KNOWN` (or to `COMPAT` with a reason). The guard's own test
 file passes either way, so run the full suite or expect CI to catch it.
 
+
+### Global substitution costs per replacement on bash 3.2
+
+`${v//pat/}` rebuilds the string once per match. Stripping every character you
+do NOT want (`${v//[^\{]/}`) is quadratic: 5.2s on a 4KB string. Delete the few
+characters you DO want and subtract lengths instead (`${#v} - ${#x}` where
+`x="${v//\{/}"`): same count, cost scales with the matches.
+
+### No subshell per line
+
+`x=$(fn "$y")` forks. Inside a loop over command segments, a 105-line heredoc
+paid 110 forks. Give helpers a form that returns through a variable, and strip
+trailing newlines yourself if callers relied on `$(...)` doing it.
+
+### Measure on real payloads
+
+Synthetic tests never put a key late in a 4KB payload or a 100-line heredoc in a
+command. Replay real tool calls from `~/.claude/projects/*/*.jsonl` through the
+hooks, in Claude Code's field order (header first), and compare old vs new back
+to back: absolute timings on a shared machine are noise. Counting process
+launches per call (PATH shims) is a load-independent cost measure.
