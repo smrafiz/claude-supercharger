@@ -38,6 +38,10 @@ check 'cat other | tee -a app.ts'     "tee -a (append)"                         
 check 'echo x > newfile.ts'           "untracked file"                          ALLOW
 check 'echo x > /tmp/scratch.txt'     "outside-repo path"                       ALLOW
 check 'echo x > dist/bundle.js'       "tracked but generated dir (excluded)"    ALLOW
+# Batched git lookup (one fork for all candidates) must not hide the real target
+# behind untracked ones, nor fire when none is tracked.
+check 'echo a > n1.ts; echo b > n2.ts; echo c > app.ts'  "tracked target after untracked ones (batch)" ASK
+check 'echo a > n1.ts; echo b > n2.ts; echo c > n3.ts'   "several candidates, none tracked (batch)"    ALLOW
 check 'grep foo app.ts > /tmp/out'    "redirect to untracked target"            ALLOW
 check 'ls -la app.ts'                 "no clobber op"                            ALLOW
 # v2.22.10: fd-qualified truncate + clobber-force

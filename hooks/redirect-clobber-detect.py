@@ -139,6 +139,21 @@ for seg in segments(cmd):
     elif dest not in sources:
         cands.append(dest)
 
+# One git fork answers "is ANY candidate tracked?". Every `>` inside a heredoc'd
+# program (`a > b`, `=>`) is a candidate, and the loop below forks git once per
+# candidate. Only when something is tracked (or the batch errors, e.g. a bad
+# pathspec) do we fall through to the per-candidate loop, which keeps its order.
+_batch = [c.strip().strip('"').strip("'") for c in cands]
+_batch = [p for p in dict.fromkeys(_batch) if p and not excluded(p)]
+if len(_batch) > 1:
+    try:
+        _r = subprocess.run(["git", "-C", proj, "ls-files", "--", *_batch],
+                            stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, timeout=3)
+        if _r.returncode == 0 and not _r.stdout.strip():
+            cands = []
+    except Exception:
+        pass
+
 seen = set()
 for raw in cands:
     p = raw.strip().strip('"').strip("'")
