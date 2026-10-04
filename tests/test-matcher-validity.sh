@@ -51,6 +51,7 @@ KNOWN = {
     'EnterPlanMode', 'ExitPlanMode', 'EnterWorktree', 'ExitWorktree',
     'PushNotification', 'RemoteTrigger', 'SendMessage', 'DesignSync',
     'ListMcpResourcesTool', 'ReadMcpResourceTool', 'ReadMcpResourceDirTool',
+    'ShareOnboardingGuide',  # /team-onboarding; verified in the CC 2.1.286 binary
 }
 # Deliberately registered though absent from KNOWN. Each needs a REASON, so that a
 # genuine typo cannot be waved through by appending it here.
