@@ -52,30 +52,6 @@ FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_inpu
 . "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path FILE_PATH
 [ -z "$FILE_PATH" ] && exit 0
 
-# Disabled categories from .supercharger.json (project-level opt-out)
-DISABLED_CATS=""
-EXTRA_ROOTS=""
-if [ -f "$CONFIG_ROOT/.supercharger.json" ]; then
-  # One fork reads both keys. CONFIG_ROOT goes through the ENVIRONMENT, not
-  # string interpolation into the python source: a project path containing a
-  # quote used to break (or inject into) this program.
-  _PG_CFG=$(SC_CFG_ROOT="$CONFIG_ROOT" python3 -c "
-import json, os
-try:
-    with open(os.path.join(os.environ['SC_CFG_ROOT'], '.supercharger.json')) as f:
-        d = json.load(f)
-    print(','.join(c for c in (d.get('disableSecurityCategories') or []) if isinstance(c, str)))
-    # v2.26.41: additionalRoots — sibling directories that count as in-project.
-    # Tab-joined: a tab cannot appear in a sane path and keeps this to one line.
-    print('\t'.join(r for r in (d.get('additionalRoots') or []) if isinstance(r, str)))
-except Exception:
-    print(''); print('')
-" 2>/dev/null || printf '\n\n')
-  DISABLED_CATS=$(printf '%s\n' "$_PG_CFG" | sed -n '1p')
-  EXTRA_ROOTS=$(printf '%s\n' "$_PG_CFG" | sed -n '2p')
-fi
-_cat_enabled() { case ",$DISABLED_CATS," in *",$1,"*) return 1 ;; esac; return 0; }
-
 # Session launch dir (recorded by project-config.sh at SessionStart). Read
 # fork-free; absent for a session that started before this version, which simply
 # means the boundary behaves as it did then.
@@ -107,25 +83,6 @@ fi
 # Both go through the SAME refusals as a configured root — CC granting read
 # access to $HOME must not silently make the home directory writable here.
 CC_DIRS=""
-_CC_SETTINGS="$HOME/.claude/settings.json"
-_CC_PROJ="$CONFIG_ROOT/.claude/settings.json"
-_CC_PROJ_LOCAL="$CONFIG_ROOT/.claude/settings.local.json"
-if [ -f "$_CC_SETTINGS" ] || [ -f "$_CC_PROJ" ] || [ -f "$_CC_PROJ_LOCAL" ]; then
-  CC_DIRS=$(SC_S1="$_CC_SETTINGS" SC_S2="$_CC_PROJ" SC_S3="$_CC_PROJ_LOCAL" python3 -c "
-import json, os
-out = []
-for k in ('SC_S1', 'SC_S2', 'SC_S3'):
-    try:
-        with open(os.environ[k]) as f:
-            d = json.load(f)
-        for v in ((d.get('permissions') or {}).get('additionalDirectories') or []):
-            if isinstance(v, str) and v:
-                out.append(v)
-    except Exception:
-        continue
-print('\t'.join(out))
-" 2>/dev/null || echo "")
-fi
 # In-session /add-dir, recorded per session by dir-added-record.sh.
 if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   _SD_F="$SUPERCHARGER_STATE/scope/.session-dirs-$CLAUDE_CODE_SESSION_ID"
@@ -136,15 +93,42 @@ if [ -n "${CLAUDE_CODE_SESSION_ID:-}" ]; then
   fi
 fi
 
-REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" DISABLED="$DISABLED_CATS" \
-         EXTRA_ROOTS="$EXTRA_ROOTS" SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
+# .supercharger.json and the three settings files are read INSIDE the python
+# below: they were two extra python processes per Write/Edit, each ~20ms, feeding
+# values to this one. Session dirs (CC_DIRS here) are appended after settings dirs.
+REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" SC_CFG_ROOT="$CONFIG_ROOT" \
+         SC_S1="$HOME/.claude/settings.json" SC_S2="$CONFIG_ROOT/.claude/settings.json" \
+         SC_S3="$CONFIG_ROOT/.claude/settings.local.json" \
+         SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
          SID="${CLAUDE_CODE_SESSION_ID:-}" \
          python3 <<'PYEOF'
-import os, sys, re
+import json, os, sys, re
 
 p = os.environ.get('FILE_PATH', '')
 proj = os.environ.get('PROJECT_DIR', '')
-disabled = set(c.strip() for c in os.environ.get('DISABLED', '').split(',') if c.strip())
+def _json_file(path):
+    try:
+        with open(path) as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+def _strs(v):
+    # A malformed value must read as "nothing configured", never crash this
+    # process: an exception here would empty REASON and the guard would allow.
+    return [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+
+_cfg = _json_file(os.path.join(os.environ.get('SC_CFG_ROOT', ''), '.supercharger.json'))
+disabled = set(c.strip() for c in _strs(_cfg.get('disableSecurityCategories')) if c.strip())
+os.environ['EXTRA_ROOTS'] = '\t'.join(_strs(_cfg.get('additionalRoots')))
+_cc = []
+for _k in ('SC_S1', 'SC_S2', 'SC_S3'):
+    _perm = _json_file(os.environ.get(_k, '')).get('permissions')
+    _cc.extend(v for v in _strs(_perm.get('additionalDirectories') if isinstance(_perm, dict) else None) if v)
+if os.environ.get('CC_DIRS'):
+    _cc.append(os.environ['CC_DIRS'])
+os.environ['CC_DIRS'] = '\t'.join(_cc)
 
 
 def _msys_path(x):

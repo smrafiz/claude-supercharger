@@ -37,6 +37,16 @@ begin_test "path-guard: .CLAUDE/settings.json (case) is denied"
 begin_test "path-guard: .NEXT/ artifact (case) is denied"
 [ "$(verdict ".NEXT/evil.js")" = DENY ] && pass || fail "case .NEXT/ allowed"
 
+# ---- malformed config must not fail open ----
+# The config is parsed inside the guard's python; a wrongly-typed value must read
+# as "nothing configured", never crash it (an empty REASON would allow).
+printf '{"disableSecurityCategories": 5, "additionalRoots": "nope"}' > "$PROJ/.supercharger.json"
+begin_test "path-guard: malformed .supercharger.json still denies .git/config"
+[ "$(verdict ".git/config")" = DENY ] && pass || fail "malformed config made the guard allow"
+begin_test "path-guard: malformed .supercharger.json still allows an ordinary file"
+[ "$(verdict "src/app.ts")" = ALLOW ] && pass || fail "malformed config blocked an ordinary write"
+rm -f "$PROJ/.supercharger.json"
+
 # ---- symlink-redirected writes (must DENY) ----
 begin_test "path-guard: absolute basename symlink to outside is denied"
 if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: Git Bash created no symlink — nothing to escape through)"; pass
