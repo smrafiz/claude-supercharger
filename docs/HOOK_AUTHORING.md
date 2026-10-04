@@ -711,3 +711,19 @@ that fails when the field is ignored.
 A resumed session fires SessionStart with source `startup` and again with
 `resume`, at once. A hook that injects a summary there prints it twice unless it
 dedupes per session (learn-from-blocks keeps a 30-second marker per session id).
+
+### Read a tool's schema from the binary
+
+Hook input for a tool not in any docs (here `ShareOnboardingGuide`) can be read
+from the Claude Code binary: search the bytes with Python `re` for the tool name,
+then for `name:<minified const>` to reach `inputSchema`. `grep -o` with wide
+context fails on a 225 MB file. A tool whose target is implicit (this one always
+uploads `./ONBOARDING.md`) has no path in its input: the guard must supply it.
+
+### A new matcher token needs the known-tools list
+
+`tests/test-matcher-validity.sh` rejects any matcher token it does not know, to
+catch typos. Registering a hook on a new tool fails the full suite until the
+tool is added to `KNOWN` (or to `COMPAT` with a reason). The guard's own test
+file passes either way, so run the full suite or expect CI to catch it.
+

@@ -4,17 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-01, session `3d213381`.*
+*Verified 2026-10-01 12:35 UTC, session `3d213381`.*
 
-- **Released: v4.1.25** (installed on Machine A): input-budget shows the skills list,
-  session-start summary prints once; v4.1.24 fp-triage works on Windows.
-- **Open PRs:** #85 PowerShell output scanning; #86 elicitation-guard trust fix +
-  URL-mode checks. Merge when green, release v4.1.26.
-- **Machine A (this box):** Shopify skills moved into the two Shopify repos; ledger
-  secret line scrubbed. Stale v2.16.2 plugin record is inert.
+- **Released: v4.1.25.** v4.1.26 (#85 PowerShell output scanning, #86 elicitation
+  trust + URL checks) is STAGED (rel/4.1.26 CI green) and a detached job
+  (`.claude/worktrees/tmp/rel4126.sh`, log `rel4126.out`, per-machine A) promotes
+  it once master's Windows run for 515f900 is green, then runs update.sh.
+- **Open PRs, green, NOT merged:** #88 ShareOnboardingGuide secret scan, #89
+  env-exec-guard PowerShell `$env:`. Merge only AFTER v4.1.26 promotes (promote
+  fast-forwards master; any merge before it makes promote refuse). Auto mode
+  refused scheduling these merges unattended: merge by hand.
+- **Machine A:** installed 4.1.25 at 12:33; a `sog` stash entry duplicates #88, drop it.
 - **Machine B**: unknown. Update to the latest release.
-- **Open**: ShareOnboardingGuide guard; classifierContext needs a measured sync path;
-  radius-apps guard-push wrapper bypass; rotate CRON_SECRET.
+- **Open**: classifierContext needs a measured sync path; redirect-clobber-guard
+  PowerShell (deferred); radius-apps guard-push wrapper bypass; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -42,6 +45,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-01 (pm) — 3d213381
+v4.1.26 staged, promote pending master Windows. #88 guards ShareOnboardingGuide
+(uploads ./ONBOARDING.md, schema read from the CC binary); #89 env-exec-guard
+PowerShell. Coverage-diff #12 (LSP) closed as no-leak.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-10-01 — 3d213381
 v4.1.24 and v4.1.25 out. Coverage diff vs CC 2.1.286 found PowerShell output and
 elicitation gaps (#85, #86, pending). Skills list was the largest context cost;
@@ -64,12 +73,5 @@ Released v4.1.19-22: router and prompt hooks stop reading harness text as user
 text, agent hint removed (1.1% uptake), block-ledger secret masking. Built
 fp-triage, fixed selfmod FPs. Found the CI test gate green-on-failure since
 09-16. Jev researched and parked.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-28 — 3d213381
-Research sweep (web, GitHub, upstream tracker) became six fixes (#59-#64). A history
-replay that timed out led to a SECURITY bug: a bracketed `VAR=` prefix hung every
-Bash guard, which fails open. Every guard change was replayed against ~48k real
-commands first; three first drafts regressed and were caught that way.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
