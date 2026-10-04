@@ -135,7 +135,7 @@ SCPYEOF
 # release set out to fix, committed while fixing it.
 #
 # Callers must never re-implement this. A second copy is a second bug.
-_sc_strip_wrapper_prelude() {
+_sc_wrapper_prelude_into() {
   local cmd="$1"
   local _before_struct
   # v2.29.34: STRUCTURAL PRELUDE. A segment only had its verb recognised when the
@@ -272,8 +272,14 @@ _sc_strip_wrapper_prelude() {
   done
     [ "$cmd" = "$_before_all" ] && break
   done
-  printf '%s' "$cmd"
+  # Same bytes $(...) would hand back: command substitution strips trailing newlines.
+  while [[ "$cmd" == *$'\n' ]]; do cmd="${cmd%$'\n'}"; done
+  _SC_WP="$cmd"
 }
+
+# Result in $_SC_WP, no subshell. split_segments called the printing form once
+# per segment: a 105-line python heredoc paid 110 forks (587ms at load 50).
+_sc_strip_wrapper_prelude() { _sc_wrapper_prelude_into "$1"; printf '%s' "$_SC_WP"; }
 
 normalize_cmd() {
   local cmd="$1" _sc_rest _sc_tails _sc_sub _sc_prev _sc_i
@@ -304,7 +310,7 @@ normalize_cmd() {
   # "##/% strips stay linear" is true only on a HIT. Through safety.sh end to
   # end, 128 KB command: 2856 -> 879 cpu-ms. `case` and `${v:1}` are both flat.
   case "$cmd" in \\*) cmd="${cmd:1}" ;; esac
-  cmd=$(_sc_strip_wrapper_prelude "$cmd")
+  _sc_wrapper_prelude_into "$cmd"; cmd="$_SC_WP"
   # v2.6.80: strip leading POSIX inline env-var assignments (VAR=value cmd ...).
   # Fuzz harness found this bypass: `env FOO=bar rm -rf /` stripped to
   # `FOO=bar rm -rf /` and the first token check saw `FOO=bar` instead of `rm`,
@@ -449,7 +455,7 @@ split_segments() {
       # Mirror the python per-segment logic (strip() first, THEN prefixes) so the
       # fast-path is self-contained and order-identical to the fork path.
       seg="${seg#"${seg%%[![:space:]]*}"}"; seg="${seg%"${seg##*[![:space:]]}"}"
-      seg=$(_sc_strip_wrapper_prelude "$seg")
+      _sc_wrapper_prelude_into "$seg"; seg="$_SC_WP"
       while [[ "$seg" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do seg="${seg#"${BASH_REMATCH[0]}"}"; done
       [ -n "$seg" ] && printf '%s\n' "$seg"
       return ;;
@@ -528,7 +534,7 @@ for seg in segments:
     # The python splitter strips only sudo/command/env (its own historical copy).
     # Re-run every segment through the shared stripper so the separator path and
     # the fork-free path cannot drift apart again.
-    _seg=$(_sc_strip_wrapper_prelude "$_seg")
+    _sc_wrapper_prelude_into "$_seg"; _seg="$_SC_WP"
     [ -n "$_seg" ] && printf '%s\n' "$_seg"
   done
 }
