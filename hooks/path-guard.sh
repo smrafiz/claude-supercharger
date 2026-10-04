@@ -29,7 +29,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 . "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
 . "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
-PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
+. "${BASH_SOURCE[0]%/*}/lib-json-fast.sh"
+_json_get PROJECT_DIR cwd "$_INPUT" '.cwd // .workspace.current_dir // empty'; [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 # v2.6.36: PROJECT_DIR stays as the actual CWD (used as boundary for symlink/
 # abs-path checks — writes within the linked worktree must be allowed).
 # CONFIG_ROOT is the worktree-aware location for .supercharger.json.
@@ -38,7 +39,7 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "path-guard" && exit 0
 hook_profile_skip "path-guard" && exit 0
 
-TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
+_json_get TOOL_NAME tool_name "$_INPUT" '.tool_name // empty'
 case "$TOOL_NAME" in
   Edit|Write|MultiEdit|NotebookEdit) ;;   # v2.9.3: cover NotebookEdit (notebook_path) + MultiEdit
   *) exit 0 ;;
