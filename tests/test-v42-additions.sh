@@ -220,4 +220,9 @@ begin_test "git-safety: checkout -- deny names git stash as the way through"
 python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"git checkout -- src/app.ts"},"cwd":"/tmp"}))' \
   | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/git-safety.sh" 2>/dev/null | grep -q 'git stash push' && pass || fail "no remedy"
 
+# crontab -e followed by a separator (fuzz find): the flag needed trailing space/EOL
+vc Bash 'crontab -e; echo done' "crontab -e then ;" deny
+vc Bash 'crontab -r&&ls' "crontab -r then &&" deny
+vc Bash 'crontab -l; echo x' "crontab -l then ;" allow
+
 report

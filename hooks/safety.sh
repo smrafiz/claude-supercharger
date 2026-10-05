@@ -1256,7 +1256,7 @@ if _cat_enabled "persistence"; then
   # path), not anywhere. Unanchored, "crontab" followed by any word matched prose:
   # `echo "=== grep crontab in docs ==="`, a heredoc saying "needs a crontab entry",
   # a commit message. Five real commands were denied that way; none ran crontab.
-  if [[ "$CMD" =~ (^|[\;\&\|\(\`]|\$\(|$'\n')[[:space:]]*([^[:space:]\;\&\|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:]]|$)|-([[:space:]]|$)|[^-[:space:]][^[:space:]]*) ]]; then
+  if [[ "$CMD" =~ (^|[\;\&\|\(\`]|\$\(|$'\n')[[:space:]]*([^[:space:]\;\&\|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:];\&\|\)]|$)|-([[:space:];\&\|\)]|$)|[^-[:space:]][^[:space:]]*) ]]; then
     block "cron job modification — agent should not create persistent scheduled tasks"
   fi
 
