@@ -1114,12 +1114,28 @@ if _cat_enabled "credentials"; then
   )
 
   JOINED_CRED=$(IFS='|'; echo "${CRED_PATTERNS[*]}")
+  # v4.2.0: blank DATA before the credential match (FP audit: 6 of 7 real-work denies
+  # of this rule were data — a sed redaction expression, a grep for a secret regex, a
+  # heredoc test fixture). Starts from the ORIGINAL command so a leading
+  # `API_KEY=secret cmd` stays visible; removes data-only heredoc bodies, then blanks
+  # commit messages and the quoted script/pattern operand of grep/rg/ag/ack/sed/awk.
+  CRED_SCAN=$(strip_heredoc_bodies "$COMMAND" 2>/dev/null) || CRED_SCAN="$COMMAND"
+  case "$CRED_SCAN" in
+    *grep*|*rg\ *|*ag\ *|*ack\ *|*sed\ *|*awk\ *|*m\ *|*--message\ *|*--body\ *)
+      CRED_SCAN=$(printf '%s' "$CRED_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
+        -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+        -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' \
+        -e "s/((^|[;&|(]|[[:space:]])((e|f)?grep|rg|ag|ack|sed|g?awk)(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+))'[^']*'/\1''/g" \
+        -e 's/((^|[;&|(]|[[:space:]])((e|f)?grep|rg|ag|ack|sed|g?awk)(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+))"[^"]*"/\1""/g' \
+        | tr '\036' '\n') || CRED_SCAN="$COMMAND"
+      ;;
+  esac
   # v2.6.80: scan the ORIGINAL command, not the normalized one. cmd-normalize
   # strips leading `VAR=value` env-var assignments, which is correct for the
   # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
   # but it would hide credential leaks like `API_KEY=secret123 echo done`
   # where the secret IS the env-var value.
-  if printf '%s\n' "$COMMAND" | LC_ALL=C grep -qE "$JOINED_CRED"; then
+  if printf '%s\n' "$CRED_SCAN" | LC_ALL=C grep -qE "$JOINED_CRED"; then
     block "potential credential in command — never embed secrets in commands"
   fi
 fi
@@ -1467,6 +1483,15 @@ fi
 if [ -n "${_RM_VAR_ASK:-}" ]; then
   echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
   sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+# v4.2.0: removing branch protection or a ruleset through the REST API silently drops
+# required reviews and status checks (gh repo delete is denied; this sibling was open).
+if [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])(gh|glab)[[:space:]]+api[[:space:]] ]] \
+   && [[ "$CMD" =~ (-X[[:space:]]*|--method[[:space:]=]+)(DELETE|PUT|PATCH|delete|put|patch) ]] \
+   && [[ "$CMD" =~ (/protection|/rulesets|/protected_branches|required_pull_request_reviews|required_status_checks) ]]; then
+  sc_decision ask "this API call changes or removes branch protection / rulesets, which can drop required reviews and checks on a protected branch." "confirm the change is intended"
   exit 0
 fi
 

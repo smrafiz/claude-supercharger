@@ -42,6 +42,9 @@ is_critical_infra_path() {
   esac
   case "$lbase" in
     jenkinsfile) echo "CI/CD pipeline"; return 0 ;;
+    # v4.2.0: CODEOWNERS decides whose review a change needs; editing it can route
+    # review away from the people who must approve (root, .github/ or docs/).
+    codeowners) echo "code-owner review rules (CODEOWNERS)"; return 0 ;;
   esac
 
   # 2. Container / infra-as-code deploy
