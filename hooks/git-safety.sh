@@ -187,7 +187,9 @@ while IFS= read -r seg; do
     # It is a real force flag — --force-with-lease plus a reflog-include check —
     # and still REPLACES remote history. It was unrecognised, so
     # `git push --force-if-includes origin main` force-overwrote main unguarded.
-    if [[ "$seg" =~ (^|[[:space:]])(--force-with-lease(=[^[:space:]]*)?|--force-if-includes|--force|-f)([[:space:]]|$) ]]; then
+    # v4.2.0: combined short flags (`-uf`, `-fu`) force-pushed past the bare `-f` arm
+    # (self-audit: 1 of 46 spellings). Same shape the rm/clean rules already use.
+    if [[ "$seg" =~ (^|[[:space:]])(--force-with-lease(=[^[:space:]]*)?|--force-if-includes|--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
       has_force=true
     fi
     # v2.7.41: `git push origin +main` / `+HEAD:master` — the leading-`+` refspec
@@ -223,7 +225,9 @@ while IFS= read -r seg; do
       # Non-protected branch — strip force flag, push safely.
       # Only rewrite when the whole command is the single git push (no compound).
       if [ "$CMD" = "$seg" ]; then
-        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force-if-includes|--force|-f)([[:space:]]|$)/ /g' | tr -s ' ' | sed 's/[[:space:]]*$//')
+        # Then drop just the `f` from a combined flag, so `-uf` keeps its `-u`.
+        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force-if-includes|--force|-f)([[:space:]]|$)/ /g' \
+          | sed -E 's/(^|[[:space:]])-([a-zA-Z]*)f([a-zA-Z]*)([[:space:]]|$)/\1-\2\3\4/g' | tr -s ' ' | sed 's/[[:space:]]*$//')
         rewrite "$safe" "stripped --force from non-protected branch push"
       fi
     fi

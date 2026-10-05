@@ -75,4 +75,16 @@ _SL=$(printf '%s' '{"model":{"display_name":"Opus"},"workspace":{"current_dir":"
   | bash "$H/statusline.sh" 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g')
 printf '%s' "$_SL" | grep -q 'Concise' && printf '%s' "$_SL" | grep -q 'Spend cap: 62%' && pass || fail "segments missing: $_SL"
 
+# --- git push combined short flags (-uf/-fu) are a force push ---
+gpv() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}))' "$1" \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/git-safety.sh" 2>/dev/null; }
+begin_test "git-safety: push -uf to main is denied"
+gpv 'git push -uf origin main' | grep -q '"deny"' && pass || fail "allowed"
+begin_test "git-safety: push -fu to master is denied"
+gpv 'git push -fu origin master' | grep -q '"deny"' && pass || fail "allowed"
+begin_test "git-safety: push -uf to a feature branch is rewritten to -u"
+gpv 'git push -uf origin feature' | grep -q '"command":"git push -u origin feature"' && pass || fail "not rewritten to -u"
+begin_test "git-safety: push -u to main stays allowed"
+[ -z "$(gpv 'git push -u origin main')" ] && pass || fail "flagged a plain upstream push"
+
 report
