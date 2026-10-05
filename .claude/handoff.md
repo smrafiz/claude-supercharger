@@ -4,13 +4,15 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-05, session `3d213381`.*
+*Verified 2026-10-05 evening, session `3d213381`.*
 
-- **Released: v4.1.30** (installed on Machine A). master = dc254be (#97, v4.2.0 feature PR merged).
-  A 4.2.0 stage was WITHDRAWN before promotion (rel/4.2.0 deleted) so batch 4 ships with it.
-- **In flight:** branch feat/batch4-2026-10-05 (worktree .claude/worktrees/b4), committed, NOT pushed.
-  3 test failures left before PR; exact list in `.claude/handoff-3d213381-...md` "RESUME HERE".
-  User approved: merge when green, `release.sh stage minor` -> v4.2.0.
+- **Released: v4.1.30** (installed on Machine A). master = 50405e3 (#97 + #98, all of v4.2.0).
+- **In flight: v4.2.0 release**, detached on Machine A: `release.sh stage minor` then
+  `.claude/worktrees/tmp/finish420.sh` (waits rel/4.2.0 CI + master Windows, promotes, update.sh).
+  Logs: .claude/worktrees/tmp/{stage420,finish420,promote420}.log. Verify: `gh release view v4.2.0`.
+  Do NOT merge to master until promoted (the ff promote refuses).
+- **Unpushed:** branch docs/handoff-2026-10-05b (this handoff + HOOK_AUTHORING notes). Push + PR
+  after 4.2.0 is promoted.
 - **Machine A:** many redundant worktrees under .claude/worktrees/; stash `sog` (user's to delete).
 - **Machine B**: unknown. **Open (user)**: radius-apps guard-push wrapper; rotate CRON_SECRET.
 
@@ -40,6 +42,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-05 (evening) — 3d213381
+Batch 4 merged (#98, 50405e3) after fixing 3 tests (2 test bugs, 1 real crontab separator gap
+present since v4.1.17); suite 6212/0. v4.2.0 staging/promoting detached.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (Status — evening)
+
 #### 2026-10-05 — 3d213381
 v4.1.30 out (#93 #94 #96). Four research rounds -> #97 (v4.2.0 features) merged; batch 4
 (FP audit fixes, CI/GitHub, infra coverage, docs) on feat/batch4, 3 tests to fix, then ship 4.2.0.
@@ -62,9 +69,3 @@ v4.1.24 and v4.1.25 out. Coverage diff vs CC 2.1.286 found PowerShell output and
 elicitation gaps (#85, #86, pending). Skills list was the largest context cost;
 Shopify skills moved into their projects.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-30 (evening) — 3d213381
-A 7-minute branch debug run found fp-triage's Windows cause (backslash hook
-path) and a cross-OS secret-masking gap; fixed in #82, verifying on Windows.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-

@@ -768,3 +768,18 @@ continuations for every rule (9 of 325), and nothing else would have shown it.
 Our own guards deny a probe command that contains the strings it tests (`.env`,
 credential assignments, `bash -c`, `rm -rf`). Write the probe as a python file,
 assemble the risky strings at runtime, and pipe JSON payloads to the hook.
+
+### End a flag match on separators, not just whitespace
+
+`crontab[[:space:]]+-e([[:space:]]|$)` missed `crontab -e; echo done` for eleven
+releases: after the flag came `;`, not a space or the end. Any rule that ends a flag
+or a word must also accept `;`, `&`, `|` and `)`. The fuzz harness
+(`tests/fuzz-safety.sh`, not in the suite) found it; run it after touching safety.sh.
+
+### When narrowing a rule breaks a test, read what the test runs
+
+Removing the blanket `bash -c` deny failed two `find -exec bash -c` tests. The
+tests built the command from `$D`, which an earlier section of the same file had
+set to `DROP`, so they ran `bash -c "DROP -rf /"`. They had passed only because
+every `bash -c` was denied. Print the exact command a failing test sends before
+deciding whether the rule or the test is wrong.
