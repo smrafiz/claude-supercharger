@@ -555,7 +555,7 @@ jobs:
           # it: grep read the file, python raised FileNotFoundError on the same path
           # and upload-artifact found nothing. Same class as the product bugs this
           # job exists to find.
-          TEST_JOBS=4 bash tests/run.sh > win-suite.log 2>&1 || true
+          TEST_JOBS=4 TEST_GLOB='test-*root*.sh' bash tests/run.sh > win-suite.log 2>&1; TEST_GLOB='test-path-guard*.sh' bash tests/run.sh >> win-suite.log 2>&1 || true
           echo "=== totals ==="
           grep -E '^Total:' win-suite.log | tail -1
           # Group with python, not awk: the awk form printed NOTHING on Git Bash
