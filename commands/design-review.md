@@ -1,3 +1,6 @@
+---
+description: "Review the UI for accessibility, hierarchy and responsiveness: $ARGUMENTS"
+---
 Review the UI for accessibility, hierarchy and responsiveness: $ARGUMENTS
 
 Read-only: this produces a report, it changes no files. To create a design brief, use `/design`.

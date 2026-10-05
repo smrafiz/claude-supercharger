@@ -1,3 +1,6 @@
+---
+description: "Run a multi-lens review by dispatching parallel specialist agents: $ARGUMENTS"
+---
 Run a multi-lens review by dispatching parallel specialist agents: $ARGUMENTS
 
 Finders fan out across lenses; a SEPARATE, fresh-context verifier then tries to refute every serious finding; only what survives is reported. Findings raised by 2+ lenses are highest priority.

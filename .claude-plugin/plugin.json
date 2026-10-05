@@ -1,10 +1,13 @@
 {
   "name": "supercharger",
+  "displayName": "Claude Supercharger",
   "description": "Shell-level guardrails for Claude Code. Command blocking, code security scanner, self-teaching, token economy, agent routing, MCP profiles, and session memory.",
   "version": "4.1.30",
   "author": {
     "name": "smrafiz"
   },
+  "homepage": "https://github.com/smrafiz/claude-supercharger",
+  "repository": "https://github.com/smrafiz/claude-supercharger",
   "license": "MIT",
   "keywords": [
     "guardrails",

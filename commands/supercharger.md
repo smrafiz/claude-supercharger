@@ -1,3 +1,6 @@
+---
+description: "Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS"
+---
 Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS
 
 There are more user-invoked commands than anyone holds in their head, so this screen has

@@ -1,3 +1,6 @@
+---
+description: "Scoped time + complexity estimate for: $ARGUMENTS"
+---
 Scoped time + complexity estimate for: $ARGUMENTS
 
 Do NOT write code. Do NOT start work. This is a report-only analysis.

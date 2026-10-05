@@ -1,3 +1,6 @@
+---
+description: "Sweep $ARGUMENTS for inconsistency, drift and rot. Read the relevant files first, then check each dimension."
+---
 Sweep $ARGUMENTS for inconsistency, drift and rot. Read the relevant files first, then check each dimension.
 
 This is not a diff review (`/multi-review`) or a security review (`/security`). It asks: is this codebase consistent with itself, its docs and its config — and where is it rotting fastest? Every finding names the canonical pattern AND where that canonical comes from; a finding with no cited basis is a style opinion and is dropped.

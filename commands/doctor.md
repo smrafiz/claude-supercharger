@@ -1,3 +1,6 @@
+---
+description: "Diagnose this Claude Supercharger installation. Arguments: $ARGUMENTS"
+---
 Diagnose this Claude Supercharger installation. Arguments: $ARGUMENTS
 
 Run the installed diagnostic and report its output:

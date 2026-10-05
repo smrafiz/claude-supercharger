@@ -1,3 +1,6 @@
+---
+description: "Strict mode \u2014 \"ask me everything\" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)"
+---
 Strict mode — "ask me everything" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 
 While strict mode is on, Supercharger **auto-approves nothing** — every tool call falls through to Claude Code's normal permission prompt, including the read-only calls it would usually wave through. Use it near a deploy, on production config, or any time you want to eyeball each step. It **overrides `/sc-autopilot`** while active. It **auto-expires** and is hard-capped at **2 hours**.

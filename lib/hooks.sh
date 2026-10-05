@@ -282,9 +282,11 @@ get_hooks_for_mode() {
     # v2.9.17: classify URLs in MCP tool args — block metadata-SSRF / webhook /
     # paste-site egress, warn on private-network targets. (from efij Stallion)
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-egress-guard.sh|")
-    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
-    hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
-    hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")
+    # v4.2.0: sync, so an opt-in terminalSequence (SUPERCHARGER_NOTIFY_MODE) is read;
+    # an async hook's output fields are dropped. Rare events, fired while idle.
+    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|")
+    hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|")
+    hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     # v2.26.85: the `if` field is REMOVED. Both guards were inert on every classic
@@ -550,6 +552,10 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
+    # v4.2.0: PreModelSwitch is wired in CC 2.1.289 (hook input carries from_model and
+    # to_model). The docs listed it earlier; a research pass misread the binary as having
+    # no dispatcher. Asks before an up-tier switch once half a set budget is spent.
+    hooks+=("PreModelSwitch||${hooks_dir}/budget-cap.sh check|")
     hooks+=("PreToolUse||${hooks_dir}/tool-call-limiter.sh|")
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/human-approval-gate.sh|")    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")

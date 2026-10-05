@@ -1,3 +1,6 @@
+---
+description: "Stress-test this decision: $ARGUMENTS"
+---
 Stress-test this decision: $ARGUMENTS
 
 Be adversarial. The goal is to find the flaw that would sink this, not to confirm it. But do not manufacture problems: "no real blocker found" is an allowed, honest outcome.

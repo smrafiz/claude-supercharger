@@ -96,6 +96,26 @@ _send_notification() {
   local safe_sub
   safe_sub=$(printf '%s' "$subtitle" | tr -d '`$' | sed "s/\\\\/\\\\\\\\/g; s/\"/\\\\\"/g" | head -c 120)
 
+  # v4.2.0: native terminal notification, opt-in. Claude Code forwards a hook's
+  # terminalSequence (OSC 0/1/2/9/99/777 + BEL only) to the terminal, so no
+  # osascript/notify-send/powershell process is started. Only a SYNCHRONOUS hook's
+  # output is read, so only callers that run sync set SC_NOTIFY_SYNC=1 (notify.sh on
+  # Notification events); async callers keep the OS notification below.
+  #   SUPERCHARGER_NOTIFY_MODE=osc9    iTerm2, Windows Terminal, WezTerm, Ghostty
+  #   SUPERCHARGER_NOTIFY_MODE=osc777  urxvt, foot, Ghostty
+  if [ "${SC_NOTIFY_SYNC:-}" = "1" ]; then
+    local _osc_t _osc_b _seq=""
+    _osc_t=$(printf '%s' "$title" | tr -d '\000-\037;\\"' | head -c 80)
+    _osc_b=$(printf '%s' "$msg" | tr -d '\000-\037;\\"' | head -c 200)
+    case "${SUPERCHARGER_NOTIFY_MODE:-}" in
+      osc9)   _seq='\u001b]9;'"$_osc_t: $_osc_b"'\u0007' ;;
+      osc777) _seq='\u001b]777;notify;'"$_osc_t"';'"$_osc_b"'\u0007' ;;
+    esac
+    if [ -n "$_seq" ]; then
+      printf '{"terminalSequence":"%s"}\n' "$_seq"
+      return 0
+    fi
+  fi
   if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
     printf '\a'
   elif [[ "$OSTYPE" == "darwin"* ]]; then

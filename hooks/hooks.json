@@ -1254,8 +1254,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "idle_prompt"
@@ -1265,8 +1264,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "auth_success"
@@ -1276,8 +1274,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "elicitation_dialog"
@@ -1644,6 +1641,17 @@
           }
         ],
         "matcher": ".env|.envrc|package.json|settings.json|.claude/settings.json|settings.local.json|.claude/settings.local.json|.mcp.json|.supercharger.json|CLAUDE.md"
+      }
+    ],
+    "PreModelSwitch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh check",
+            "timeout": 15
+          }
+        ]
       }
     ]
   }

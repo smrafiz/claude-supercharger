@@ -1,3 +1,6 @@
+---
+description: "Show hook cache statistics for typecheck and quality-gate. Arguments: $ARGUMENTS"
+---
 Show hook cache statistics for typecheck and quality-gate. Arguments: $ARGUMENTS
 
 Run this inline Python to report cache state:

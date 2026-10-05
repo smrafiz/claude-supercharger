@@ -351,6 +351,14 @@ try:
                          break
  except Exception:
      pass
+ # v4.2.0: the output style shapes reply length more than the tier (it changes the
+ # system prompt), so show it beside the tier when one is set; the two can disagree.
+ try:
+     _os = str((data.get('output_style') or {}).get('name') or '')
+     if _os and _os.lower() != 'default':
+         eco += f' {DIM}· {_os}{RESET}' if eco else f' {DIM}|{RESET} {DIM}Style: {_os}{RESET}'
+ except Exception:
+     pass
 
  # Memory restore indicator (shown 5 min after compaction). v2.7.47: per-session
  # file — a global one lit the badge in every concurrent session, not just the
@@ -574,6 +582,15 @@ try:
              rl_str += f' {DIM}· Weekly: {float(rl_7d_pct):.0f}%{RESET}'
  except Exception:
      rl_str = ''
+ # v4.2.0: rate_limits.spend_limit (CC 2.1.251+): a spend cap set by an org or a
+ # gateway. Shown on its own, since API and gateway users have no 5h window.
+ try:
+     _sl = (rate_limits.get('spend_limit') or {}).get('used_percentage') or 0
+     if float(_sl) > 0:
+         _slc = RED if float(_sl) >= 80 else YELLOW if float(_sl) >= 50 else DIM
+         rl_str += f' {DIM}|{RESET} {_slc}Spend cap: {float(_sl):.0f}%{RESET}'
+ except Exception:
+     pass
 
  # Plan-aware cost label.
  # Auto-detect: Anthropic API users have no weekly limit — only subscribers do.

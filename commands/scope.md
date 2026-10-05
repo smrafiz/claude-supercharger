@@ -1,3 +1,6 @@
+---
+description: "Pre-flight scope check before starting: $ARGUMENTS"
+---
 Pre-flight scope check before starting: $ARGUMENTS
 
 Do NOT start implementation. This is a planning gate: it fixes exactly what will change, what that touches, where the work stops, and then waits for approval.

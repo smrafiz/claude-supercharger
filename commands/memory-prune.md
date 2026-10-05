@@ -1,3 +1,6 @@
+---
+description: "Archive resolved memory entries so they stop loading into context every session. Arguments: $ARGUMENTS"
+---
 Archive resolved memory entries so they stop loading into context every session. Arguments: $ARGUMENTS
 
 Claude's file-memory (`~/.claude/projects/<project>/memory/`) loads its `MEMORY.md`

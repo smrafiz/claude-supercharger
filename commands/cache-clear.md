@@ -1,3 +1,6 @@
+---
+description: "Clear typecheck and quality-gate hash caches. Arguments: $ARGUMENTS"
+---
 Clear typecheck and quality-gate hash caches. Arguments: $ARGUMENTS
 
 Runs `tools/cache-clear.sh` to remove all cached hash files so hooks re-check all files on next run.

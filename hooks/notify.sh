@@ -31,7 +31,7 @@ if [[ "$MSG_LOWER" =~ (processing|thinking|running|executing|compiling|loading) 
   exit 0
 fi
 
-_send_notification "Claude — Input Needed" "$MSG"
+SC_NOTIFY_SYNC=1 _send_notification "Claude — Input Needed" "$MSG"
 
 # Webhook
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

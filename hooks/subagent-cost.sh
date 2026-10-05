@@ -176,6 +176,19 @@ PRICING = {
     'haiku':  (0.80, 1.00, 0.08,  4.00),
     'fable':  (10.00, 12.50, 1.00, 50.00),  # v2.9.3: Fable/Mythos 5 = 2x Opus (else priced as sonnet, ~3x too low)
 }
+
+# v4.2.0: per-tier price override for Bedrock/Vertex/gateway users, whose rates are
+# not these first-party ones (a gateway may be free). Same order as the tuples, USD
+# per million tokens: SUPERCHARGER_PRICE_OPUS="5,6.25,0.5,25". Malformed = ignored.
+for _t in list(PRICING):
+    _ov = os.environ.get('SUPERCHARGER_PRICE_' + _t.upper(), '')
+    if _ov:
+        try:
+            _v = tuple(float(x) for x in _ov.split(','))
+            if len(_v) == 4 and all(x >= 0 for x in _v):
+                PRICING[_t] = _v
+        except ValueError:
+            pass
 payload_model = (d.get('model') or transcript_model or '').lower()
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
 if override in PRICING:
