@@ -144,8 +144,8 @@ begin_test "peer-message-scanner: an ordinary report is silent"
 <agent-message from=\"a1\">3 files changed, tests pass.</agent-message>")" ] && pass || fail "noisy"
 
 # post-write advisor stays quiet on scratch files
-begin_test "post-write: no [not executable] notice for a temp script"
-_TF=$(mktemp -d /tmp/pw.XXXXXX)/probe.sh; printf '#!/bin/sh\necho hi\n' > "$_TF"
+begin_test "post-write: no [not executable] notice for a scratchpad script"
+_TF=$(mktemp -d)/scratchpad/probe.sh; mkdir -p "${_TF%/*}"; printf '#!/bin/sh\necho hi\n' > "$_TF"
 ( cd "$H" && python3 -c 'import lib_postwrite as m,sys;sys.exit(0 if m.check_shebang(sys.argv[1],"#!/bin/sh",0o644) is None else 1)' "$_TF" ) && pass || fail "fired on a temp file"
 begin_test "post-write: still notices a project script"
 ( cd "$H" && python3 -c 'import lib_postwrite as m,sys;sys.exit(0 if m.check_shebang("/repo/hooks/new.sh","#!/bin/sh",0o644) else 1)' ) && pass || fail "silent on a project file"
