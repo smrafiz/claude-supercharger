@@ -804,6 +804,8 @@ CLOUD_PATTERNS=(
   'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
   # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
   '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
+  # v4.2.0: `apply -destroy` is the same teardown spelled as an apply (infra audit).
+  '(terraform|tofu|opentofu|terragrunt)[[:space:]]+apply[^;&|]*[[:space:]]-destroy([[:space:]]|$)'
   'pulumi[[:space:]]+destroy([[:space:]]|$)'
   # 2026-09-13 (from AhmadShayan/claude-code-guardrails): whole-repository
   # teardown. `gh repo delete` / `glab repo delete` destroy an entire remote repo
