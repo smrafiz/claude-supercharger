@@ -282,9 +282,11 @@ get_hooks_for_mode() {
     # v2.9.17: classify URLs in MCP tool args — block metadata-SSRF / webhook /
     # paste-site egress, warn on private-network targets. (from efij Stallion)
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-egress-guard.sh|")
-    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|async")
-    hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|async")
-    hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|async")
+    # v4.2.0: sync, so an opt-in terminalSequence (SUPERCHARGER_NOTIFY_MODE) is read;
+    # an async hook's output fields are dropped. Rare events, fired while idle.
+    hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|")
+    hooks+=("Notification|auth_success|${hooks_dir}/notify.sh|")
+    hooks+=("Notification|elicitation_dialog|${hooks_dir}/notify.sh|")
     hooks+=("Stop|*|${hooks_dir}/notify-stop.sh|async")
     hooks+=("PermissionRequest||${hooks_dir}/notify-permission.sh|async")
     # v2.26.85: the `if` field is REMOVED. Both guards were inert on every classic
@@ -388,6 +390,9 @@ get_hooks_for_mode() {
     # so this is a real guard rather than another discovery log. Blocking, not
     # async: an ask cannot gate a tool call from a detached hook.
     hooks+=("PreToolUse|RemoteTrigger|${hooks_dir}/remote-trigger-guard.sh|")
+    # v4.2.0: the local twin of RemoteTrigger. A cron/wakeup prompt runs later,
+    # unattended; durable crons outlive the session. cron-discovery stays for logging.
+    hooks+=("PreToolUse|CronCreate,ScheduleWakeup|${hooks_dir}/cron-guard.sh|")
     # v2.29.9: DesignSync write_files uploads local files by path - the tool
     # reads them from disk itself, so per its own description the "contents never
     # enter your context". Every other secret check we own runs on text that
@@ -445,6 +450,9 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
+    # v4.2.0: inbound messages from other sessions/agents are harness text, which the
+    # prompt scanners skip; this one scans exactly those, advisory only.
+    hooks+=("UserPromptSubmit||${hooks_dir}/peer-message-scanner.sh|")
     # v2.10.9: block a pasted LIVE credential in the prompt before it reaches the
     # model + transcript. Shares lib-secret-patterns.sh. Override with
     # SUPERCHARGER_ALLOW_PROMPT_SECRETS=1. From dwarvesf/claude-guardrails.
@@ -534,12 +542,26 @@ get_hooks_for_mode() {
     # message anyway it lands in the terminal, the scrollback, and any screen share
     # running at the time. MessageDisplay's displayContent rewrites what is rendered.
     hooks+=("MessageDisplay||${hooks_dir}/display-secret-redactor.sh|")
-    hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
+    # v4.1.31: this registration never fired. Claude Code builds the WATCH list by
+    # splitting the matcher on "|" (relative tokens join the cwd), then MATCHES a change
+    # by testing the matcher as a regex against the file's BASENAME (FileChanged is not
+    # a plain-name event). The comma list was one nonexistent path and one regex that
+    # matched nothing. commas_to_pipes now converts FileChanged too (this registry is
+    # itself |-delimited). Every token is a valid relative path AND a basename regex:
+    # `.claude/settings.json` adds the watch, `settings.json` matches it. A dot is a
+    # regex wildcard here, harmless because only watched paths can fire. Sync, because
+    # the systemMessage of an async hook is dropped. config-scan adds the git-root
+    # copies of these files via SessionStart watchPaths (subdir launches).
+    hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md|${hooks_dir}/file-watcher.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
+    # v4.2.0: PreModelSwitch is wired in CC 2.1.289 (hook input carries from_model and
+    # to_model). The docs listed it earlier; a research pass misread the binary as having
+    # no dispatcher. Asks before an up-tier switch once half a set budget is spent.
+    hooks+=("PreModelSwitch||${hooks_dir}/budget-cap.sh check|")
     hooks+=("PreToolUse||${hooks_dir}/tool-call-limiter.sh|")
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/human-approval-gate.sh|")    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")
@@ -777,6 +799,13 @@ EXACT_MATCHER_CHARS = set(
 
 
 def commas_to_pipes(event, m):
+    # FileChanged: Claude Code splits the matcher on the pipe to build its watch
+    # list and tests it as a regex against the basename, so commas made it watch one
+    # nonexistent path and match nothing. Its tokens are file names, not tool names,
+    # so the exact-character gate below does not apply. (No double quotes in this
+    # block: it sits inside a double-quoted python -c string.)
+    if event == 'FileChanged' and ',' in m:
+        return '|'.join(t.strip() for t in m.split(',') if t.strip())
     if event not in ('PreToolUse', 'PostToolUse'):
         return m
     if ',' not in m or set(m) - EXACT_MATCHER_CHARS:

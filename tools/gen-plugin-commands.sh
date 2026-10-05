@@ -61,6 +61,15 @@ subs = [
 for pat, repl in subs:
     text = re.sub(pat, repl, text)
 
+# v4.2.0: `claude plugin validate --strict` fails on a command with no frontmatter
+# (31 warnings). The installer copy stays verbatim (CC takes the first line as the
+# description there); the plugin copy gets a frontmatter block carrying that same
+# line. JSON quoting is valid YAML double-quoting, so any quote or colon survives.
+if not text.startswith('---'):
+    import json as _json
+    first = next((l.strip() for l in text.splitlines() if l.strip()), '')
+    text = '---\ndescription: ' + _json.dumps(first[:250]) + '\n---\n' + text
+
 # v2.27.39: write BYTES, not text. Windows python's text-mode stdout translates
 # every newline to CRLF on the way out, so the generated form differed from the
 # committed LF file on EVERY line — which is exactly what the runner's staleness

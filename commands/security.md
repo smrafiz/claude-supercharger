@@ -1,3 +1,6 @@
+---
+description: "Run a structured security review of: $ARGUMENTS"
+---
 Run a structured security review of: $ARGUMENTS
 
 Find vulnerabilities an attacker can actually exploit — across every major language, framework and platform — and report only what survives an independent attempt to refute it. Specific file paths, line numbers, evidence. No generic advice.

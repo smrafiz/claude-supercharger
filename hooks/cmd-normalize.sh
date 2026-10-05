@@ -440,6 +440,13 @@ normalize_cmd() {
 # Output: one segment per line.
 split_segments() {
   local cmd="$1"
+  # v4.2.0: a backslash-newline is a line continuation: the shell joins the lines, so
+  # `rm \<newline> -rf /` IS `rm -rf /`. Unjoined, the newline split cut it into
+  # `rm \` and `-rf /`, neither a complete rm (self-audit). Joined HERE, for the
+  # segment rules only: joining in normalize_cmd also fed the whole-command pattern
+  # scan, which newly denied 9 of 325 real continuation commands (token headers to a
+  # project's own API, `curl | node` JSON parsing). Costs per continuation.
+  case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\n'/ }" ;; esac
   # v2.8.12: fork-free fast-path. The python splitter only earns its ~31ms fork
   # when the command actually contains a shell separator (&& || ; |). Most Bash
   # calls (npm test, git status, cat x) have none → a single segment. Any of

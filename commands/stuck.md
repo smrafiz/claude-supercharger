@@ -1,3 +1,6 @@
+---
+description: "Break out of a debugging loop. Current symptom: $ARGUMENTS"
+---
 Break out of a debugging loop. Current symptom: $ARGUMENTS
 
 Stop retrying. Step back. Look, don't think.

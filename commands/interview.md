@@ -1,3 +1,6 @@
+---
+description: "Gather requirements before planning: $ARGUMENTS"
+---
 Gather requirements before planning: $ARGUMENTS
 
 Do NOT write any code or create an implementation plan. This is a requirements gate.

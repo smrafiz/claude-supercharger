@@ -1,3 +1,6 @@
+---
+description: "Trust an MCP server to request credentials via Elicitation forms. Argument: $ARGUMENTS (a server name, or `--list`, or `--remove <server>`)"
+---
 Trust an MCP server to request credentials via Elicitation forms. Argument: $ARGUMENTS (a server name, or `--list`, or `--remove <server>`)
 
 Supercharger's elicitation-guard declines any MCP server that asks for a password / token / API-key — in a form field or in the prompt text — via an `Elicitation` dialog, unless that server is trusted. Use this command to trust a server you recognize (e.g. your own database or GitHub MCP) so its legitimate credential prompts go through.

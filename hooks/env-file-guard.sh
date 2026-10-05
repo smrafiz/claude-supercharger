@@ -256,6 +256,21 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     kubeconfig)
       block "Read of kubeconfig blocked ($base) — cluster credentials" "$FILE_PATH" ;;
   esac
+  # Crypto-wallet app data (v4.1.31): keystores and seed vaults live in app folders,
+  # not in files named *.wallet. Names from trailofbits/claude-code-config's deny
+  # list (macOS Application Support), plus the Linux ~/.config twin and ~/.electrum.
+  # Case-insensitive (Electrum vs electrum); a path inside, or the folder itself.
+  shopt -s nocasematch
+  case "$FILE_PATH/" in
+    */"Application Support"/metamask*/*|*/"Application Support"/electrum*/*|\
+    */"Application Support"/exodus*/*|*/"Application Support"/phantom*/*|\
+    */"Application Support"/solflare*/*|\
+    */.config/metamask*/*|*/.config/electrum*/*|*/.config/exodus*/*|\
+    */.config/phantom*/*|*/.config/solflare*/*|*/.electrum/*)
+      shopt -u nocasematch
+      block "Access to crypto-wallet app data blocked ($FILE_PATH) — wallet keystores and seeds live here" "$FILE_PATH" ;;
+  esac
+  shopt -u nocasematch
   # credential paths not distinguished by basename alone
   case "$FILE_PATH" in
     */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config|\

@@ -1,3 +1,6 @@
+---
+description: "Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS"
+---
 Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
 
 If `$ARGUMENTS` is empty, examine the most recent hook activity. If `$ARGUMENTS` names a hook (e.g., `confidence-gate`), explain that hook's last firing specifically.

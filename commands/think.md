@@ -1,3 +1,6 @@
+---
+description: "Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS"
+---
 Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS
 
 This command FRAMES a problem before anyone commits to an answer. It ends in a direction, not a verdict. Siblings: `/challenge` stress-tests a decision once made (pre-mortem, kill criteria); `/stuck` breaks a failing debug loop. Do not do their jobs here.

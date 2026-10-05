@@ -517,6 +517,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cron-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "CronCreate|ScheduleWakeup"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/designsync-upload-guard.sh",
             "timeout": 15
           }
@@ -1213,6 +1223,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/peer-message-scanner.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/prompt-secret-guard.sh",
             "timeout": 15
           }
@@ -1254,8 +1273,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "idle_prompt"
@@ -1265,8 +1283,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "auth_success"
@@ -1276,8 +1293,7 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/notify.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
         "matcher": "elicitation_dialog"
@@ -1640,11 +1656,21 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/file-watcher.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
-        "matcher": ".env,.envrc,package.json,.claude/settings.json"
+        "matcher": ".env|.envrc|package.json|settings.json|.claude/settings.json|settings.local.json|.claude/settings.local.json|.mcp.json|.supercharger.json|CLAUDE.md"
+      }
+    ],
+    "PreModelSwitch": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh check",
+            "timeout": 15
+          }
+        ]
       }
     ]
   }

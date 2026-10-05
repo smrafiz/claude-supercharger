@@ -43,4 +43,12 @@ begin_test "file-watcher: output contains systemMessage"
 output=$(run_file_watcher "/project/package.json")
 if echo "$output" | python3 -c "import sys,json; d=json.load(sys.stdin); assert 'systemMessage' in d" 2>/dev/null; then pass; else fail "missing systemMessage"; fi
 
+# --- v4.1.31: newly watched files carry their own notice ---
+for f in .mcp.json .supercharger.json CLAUDE.md settings.local.json; do
+  begin_test "file-watcher: $f change emits a specific notice"
+  output=$(run_file_watcher "/project/$f")
+  if echo "$output" | grep -q "modified externally" && ! echo "$output" | grep -q "was modified externally.\"" ; then pass; else fail "generic or missing message for $f: $output"; fi
+done
+
+
 report

@@ -1,3 +1,6 @@
+---
+description: "Show or switch the active performance profile. Arguments: $ARGUMENTS"
+---
 Show or switch the active performance profile. Arguments: $ARGUMENTS
 
 ## Show current profile (no arguments)

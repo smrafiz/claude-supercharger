@@ -63,21 +63,25 @@ print('COMMA: ' + '; '.join(sorted(set(bad))) if bad else 'OK')
 " "$HOOKS_JSON" 2>&1)
 if [ "$RES" = "OK" ]; then pass; else fail "inert on Claude Code < 2.1.191: $RES"; fi
 
-begin_test "non-tool events keep their own matcher dialect"
-# FileChanged matches FILE PATHS and Notification has its own vocabulary
-# (idle_prompt, auth_success). Their commas are not tool-name separators, so a
-# blanket comma rewrite would corrupt them. Assert we left them alone.
+begin_test "FileChanged matcher is pipe-separated (watch list + basename regex)"
+# v4.1.31: the old assertion here REQUIRED the comma form, on the belief that
+# FileChanged matches file paths. Claude Code splits a FileChanged matcher on the
+# pipe to build its watch list and tests it as a regex against the BASENAME, so the
+# comma form watched one nonexistent path and matched nothing (file-watcher never
+# fired). Each token must be a plain relative path, joined by pipes.
 RES=$(python3 -c "$CC_PY
 h = load(sys.argv[1])
 fc = [e.get('matcher', '') for e in h.get('FileChanged', [])]
 if not fc:
     print('MISSING FileChanged registration')
-elif not any(',' in m and '.' in m for m in fc):
-    print('REWRITTEN ' + str(fc))
+elif any(',' in m for m in fc):
+    print('COMMA ' + str(fc))
+elif not any('settings.json' in m.split('|') and '.claude/settings.json' in m.split('|') for m in fc):
+    print('NO-SETTINGS-PAIR ' + str(fc))
 else:
     print('OK')
 " "$HOOKS_JSON" 2>&1)
-if [ "$RES" = "OK" ]; then pass; else fail "non-tool matcher dialect damaged: $RES"; fi
+if [ "$RES" = "OK" ]; then pass; else fail "FileChanged matcher would not fire: $RES"; fi
 
 begin_test "rewrite is semantically a no-op (same tools selected)"
 # The source tuples in lib/hooks.sh are the pre-rewrite truth. Every emitted

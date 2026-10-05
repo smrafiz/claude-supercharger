@@ -1,3 +1,6 @@
+---
+description: "Generate a structured session handoff brief. Context: $ARGUMENTS"
+---
 Generate a structured session handoff brief. Context: $ARGUMENTS
 
 This produces a machine-readable resume that can be pasted into the next session or consumed by session-memory-inject.

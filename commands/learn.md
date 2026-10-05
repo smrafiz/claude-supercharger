@@ -1,3 +1,6 @@
+---
+description: "Record an explicit user-stated rule. Arguments: $ARGUMENTS"
+---
 Record an explicit user-stated rule. Arguments: $ARGUMENTS
 
 Capture `$ARGUMENTS` as a project rule. Rules recorded here are shown to Claude on **every** prompt in this project (by `hooks/lesson-recall.sh`, newest 10), so keep each one short and genuinely standing.

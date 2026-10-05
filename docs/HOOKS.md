@@ -43,6 +43,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
 | `critical-infra-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Forces an explicit human confirm before Claude edits a critical-infra file — |
 | `cron-discovery` | PreToolUse | CronCreate, CronDelete, CronList | CronCreate/CronDelete/CronList are scheduled-task tool types Claude Code |
+| `cron-guard` | PreToolUse | CronCreate, ScheduleWakeup | CronCreate and ScheduleWakeup store a PROMPT that runs later, unattended. With |
 | `cwd-changed` | CwdChanged | (none) | Re-runs stack detection when working directory changes, injects updated context. |
 | `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
 | `dependency-preflight` | SessionStart | — | install.sh refuses to proceed without `jq` and `python3` (install.sh:8, :25). A |
@@ -63,7 +64,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
-| `file-watcher` | FileChanged | .env,.envrc,package.json,.claude/settings.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
+| `file-watcher` | FileChanged | .env .envrc package.json settings*.json .mcp.json .supercharger.json CLAUDE.md | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `generated-file-guard` | PreToolUse | Write, Edit, MultiEdit | Editing a GENERATED/derived file instead of its source is wasted work — the edit |
 | `git-config-exec-guard` | PreToolUse | Bash | the next ordinary git command into arbitrary shell execution — core.fsmonitor, |
 | `git-remote-guard` | PreToolUse | Bash (git *) | git-safety.sh polices HOW you push (force, --no-verify, protected branch) but |
@@ -96,6 +97,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `package-credibility-guard` | PostToolUse | Bash | Slopsquatting. An LLM asked for a package name that does not exist, someone |
 | `package-source-guard` | PreToolUse | Write, Edit, MultiEdit | Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
+| `peer-message-scanner` | UserPromptSubmit | (none) | Text from ANOTHER session, machine or agent (SendMessage, Remote Control, subagent |
 | `permission-denied-advisor` | PermissionDenied | (none) | Injects context when user denies a permission, so Claude stops retrying |
 | `phantom-import-guard` | PostToolUse | Write, Edit, MultiEdit | Catches a hallucinated LOCAL relative import (`./services/email` when the file is |
 | `plugin-config-seed` | SessionStart | # Event: SessionStart | The installer has an interactive wizard that writes role / economy-tier / |

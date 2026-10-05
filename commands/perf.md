@@ -1,3 +1,6 @@
+---
+description: "Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)"
+---
 Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)
 
 Run the hook performance profiler and display results.

@@ -136,6 +136,10 @@ for p in scan_paths:
         text = p.read_text(encoding='utf-8', errors='replace')
     except Exception:
         continue
+    # v4.2.0: the resolver now also returns a skill's scripts; bound each read so a
+    # bundled .js cannot stall the Skill call. Payloads sit early in a script.
+    if not p.name.lower().endswith('.md'):
+        text = text[:262144]
     fname = p.name
     if _shared_scan is not None:
         _f, _c = _shared_scan(text, fname)

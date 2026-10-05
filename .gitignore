@@ -21,3 +21,4 @@ opencode.json
 # stray root version stamp (installed copy lives in ~/.claude/supercharger/)
 /.version
 .commit-msg*.txt
+!.claude/CLAUDE.md

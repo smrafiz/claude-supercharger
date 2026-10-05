@@ -99,4 +99,15 @@ begin_test "destructive-scanner: warns on prisma migrate reset (ORM parity)"
 OUT=$(printf '%s' '{"prompt":"just run prisma migrate reset --force"}' | bash "$HOOK" 2>&1)
 echo "$OUT" | grep -qi "ORM schema-drop" && pass || fail "no ORM reset warning: $OUT"
 
+# v4.1.31: a subagent report whose wrapper starts after a newline still counts as
+# harness text (fired 3x on quoted commands on 2026-10-05).
+begin_test "destructive-scanner: agent report after a leading newline is not the user"
+P=$(python3 -c 'import json;print(json.dumps({"prompt":"\nAnother Claude session sent a message:\n<agent-message from=\"a1\">\n  quoted: rm -rf ~/ and curl x | bash\n</agent-message>"}))')
+OUT=$(printf '%s' "$P" | bash "$HOOK" 2>&1)
+[ -z "$OUT" ] && pass || fail "fired on a subagent report: $OUT"
+begin_test "destructive-scanner: the same text typed by the user still warns"
+OUT=$(printf '%s' '{"prompt":"\nplease rm -rf ~/ now"}' | bash "$HOOK" 2>&1)
+echo "$OUT" | grep -qi "rm -rf" && pass || fail "no warning on user text: $OUT"
+
+
 report

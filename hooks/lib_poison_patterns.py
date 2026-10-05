@@ -43,7 +43,9 @@ PATTERNS = [
     ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh', I),                    'CRITICAL'),
     ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl', I), 'CRITICAL'),
     ('reverse shell pattern',         re.compile(r'mkfifo|/dev/tcp/|nc\s+-[el]', I),                                  'CRITICAL'),
-    ('hidden instruction override',   re.compile(r'ignore\s+(?:previous|above|all)\s+(?:instructions|rules)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
+    # v4.2.0: up to three qualifiers: 'ignore all previous instructions' slipped past
+    # the single-qualifier form, in every scanner sharing this list.
+    ('hidden instruction override',   re.compile(r'ignore\s+(?:(?:all|any|the|previous|prior|above|earlier|your)\s+){1,3}(?:instructions|rules|directives)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
     ('obfuscated variable expansion', re.compile(r'\$\{[A-Z_]*:.*:.*\}.*\$\{', I),                                    'HIGH'),
     ('credential file access',        re.compile(r'/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain', I),     'HIGH'),
     ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process', I),    'MEDIUM'),

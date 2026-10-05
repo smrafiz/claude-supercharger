@@ -1,3 +1,6 @@
+---
+description: "Add an entry to the project's DEV-LOG.md: $ARGUMENTS"
+---
 Add an entry to the project's DEV-LOG.md: $ARGUMENTS
 
 DEV-LOG.md is a living architecture journal — a running log of non-obvious decisions, context that isn't in the code, and rationale that git commit messages can't hold. It is NOT a changelog. It captures the WHY.

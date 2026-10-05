@@ -1,3 +1,6 @@
+---
+description: "Render the current Claude Supercharger session state. Arguments: $ARGUMENTS"
+---
 Render the current Claude Supercharger session state. Arguments: $ARGUMENTS
 
 Read these files (silently — do not show their raw content) and produce a dashboard:

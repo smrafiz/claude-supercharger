@@ -14,7 +14,11 @@
 
 # prompt_is_harness <prompt> — 0 when the prompt is a harness message.
 prompt_is_harness() {
-  case "$1" in
+  # Leading whitespace first: a report delivered as "\nAnother Claude session..."
+  # slipped past every prefix below and fired destructive-prompt-scanner on the
+  # commands it quoted (3x on 2026-10-05). Fork-free ltrim.
+  local _p="${1#"${1%%[![:space:]]*}"}"
+  case "$_p" in
     "<task-notification"*|"<command-"*|"<local-command-"*|"<bash-"*|"<system-reminder"*|\
     "Another Claude session sent a message"*|"This session is being continued"*|"Stop hook feedback:"*)
       return 0 ;;

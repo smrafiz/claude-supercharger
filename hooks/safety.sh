@@ -274,6 +274,26 @@ if _cat_enabled "filesystem"; then
         has_force=true
       fi
 
+      # Variable-rooted recursive rm: `rm -rf "$VAR/"`, `$VAR/*`, `"${VAR}/"*`. With
+      # VAR unset or empty this IS `rm -rf /` or `/*`, and the literal-root rule
+      # below never sees it (anthropics/claude-code#95426 lost ~600GB this way;
+      # #92737 #93392 #92593). Only the exact shape is flagged: the variable
+      # followed by `/` then nothing or `*`. `$S/old` (unset -> /old) is not a
+      # wipe. Measured: 0 hits in 488 real recursive rm calls. ASK, not deny:
+      # `rm -rf "$BUILD_DIR/"*` is a legit script idiom. `${VAR:?}/` fails safe
+      # when unset and does not match. $HOME/$PWD are denied below.
+      if $has_recursive && [ -z "${_RM_VAR_ASK:-}" ]; then
+        _rmv_rest="$args"
+        _rmv_rx='(^|[[:space:]])["'"'"']?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?["'"'"']?/["'"'"']?\*?["'"'"']?([[:space:]]|$)'
+        while [[ "$_rmv_rest" =~ $_rmv_rx ]]; do
+          case "${BASH_REMATCH[2]}" in
+            HOME|PWD) ;;
+            *) _RM_VAR_ASK="${BASH_REMATCH[2]}"; break ;;
+          esac
+          _rmv_rest="${_rmv_rest#*"${BASH_REMATCH[0]}"}"
+        done
+      fi
+
       if $has_recursive && $has_force; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since
@@ -914,10 +934,40 @@ POWERSHELL_PATTERNS=(
   '(powershell|pwsh)[^;&|]*-(nop|NoProfile)[^;&|]*-(w|WindowStyle)[[:space:]]*Hidden'
 )
 
+# v4.2.0: native Windows commands. Native Windows has no OS sandbox (CC sandboxes
+# WSL2 only), so these patterns are the only layer there. CC 2.1.289 itself patched
+# `cmd /c rd|del` reaching drive roots in its PowerShell tool; Bash (Git Bash)
+# still passes `cmd /c ...` through. Case-insensitive like every pattern here.
+# Recursive rd/del only on a drive root, the user profile or a system folder:
+# `rd /s /q build` stays allowed.
+WIN_DESTRUCT_PATTERNS=(
+  '(^|[^[:alnum:]_])(rd|rmdir|del|erase)[[:space:]]+([^;&|]*[[:space:]])?/s([[:space:]]|/)[^;&|]*(["'"'"']?[A-Za-z]:\\?["'"'"']?([[:space:]]|$|\*)|%(userprofile|homepath|homedrive|systemroot|windir|programfiles|appdata|localappdata)%|\$env:(userprofile|homepath|systemroot|windir|appdata|localappdata)|[A-Za-z]:\\(users\\[^\\[:space:]"'"'"']+|windows|program files[^\\]*)\\?["'"'"']?([[:space:]]|$|\*))'
+  '(^|[^[:alnum:]_])format(\.com)?[[:space:]]+[A-Za-z]:'
+  '(^|[^[:alnum:]_])vssadmin(\.exe)?[[:space:]]+(delete|resize)[[:space:]]+shadow'
+  '(^|[^[:alnum:]_])wbadmin(\.exe)?[[:space:]]+delete'
+  '(^|[^[:alnum:]_])wmic(\.exe)?[^;&|]*shadowcopy[^;&|]*delete'
+  '(^|[^[:alnum:]_])cipher(\.exe)?[[:space:]]+/w'
+  '(^|[^[:alnum:]_])bcdedit(\.exe)?[^;&|]*(recoveryenabled[[:space:]]+no|bootstatuspolicy[[:space:]]+ignoreallfailures)'
+)
+# Registry autorun: the Windows twin of a shell-profile backdoor.
+WIN_PERSIST_PATTERNS=(
+  '(reg(\.exe)?[[:space:]]+add|New-ItemProperty|Set-ItemProperty)[^;&|]*\\CurrentVersion\\Run(Once)?([^A-Za-z]|$)'
+)
+# Living-off-the-land downloaders: what curl|wget are on a box without them.
+# certutil is also a hashing tool; only its -urlcache download mode matches.
+WIN_NETWORK_PATTERNS=(
+  '(^|[^[:alnum:]_])certutil(\.exe)?[^;&|]*-urlcache'
+  '(^|[^[:alnum:]_])bitsadmin(\.exe)?[^;&|]*/transfer'
+  '(^|[^[:alnum:]_])Start-BitsTransfer([[:space:]]|$)'
+)
+
 DANGEROUS_PATTERNS=()
 _cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
 if _cat_enabled "destructive" || _cat_enabled "network"; then DANGEROUS_PATTERNS+=("${POWERSHELL_PATTERNS[@]}"); fi
 _cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
+_cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${WIN_DESTRUCT_PATTERNS[@]}")
+_cat_enabled "network" && DANGEROUS_PATTERNS+=("${WIN_NETWORK_PATTERNS[@]}")
+_cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${WIN_PERSIST_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
 _cat_enabled "network" && DANGEROUS_PATTERNS+=("${EXFIL_PATTERNS[@]}")
 _cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
@@ -1410,6 +1460,39 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi
+fi
+
+# Variable-rooted rm (recorded above). Emitted LAST so any deny in the same command
+# wins; an ask only when nothing denied.
+if [ -n "${_RM_VAR_ASK:-}" ]; then
+  echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
+  sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+# v4.2.0: installing a plugin, adding a marketplace or a skill pulls in code that runs
+# with your privileges (plugin hooks, MCP servers, scripts). A self-hosted marketplace
+# auto-updates under the trust given at install, with no re-consent (claude-code
+# #73914), and `claude plugin eval` loads and runs the plugin. ASK, not deny.
+if [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])claude[[:space:]]+plugins?[[:space:]]+(install|i|update|eval|marketplace[[:space:]]+(add|update))([[:space:]]|$) ]] \
+   || [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])(npx|pnpm[[:space:]]+dlx|bunx)[[:space:]]+(-y[[:space:]]+)?skills(@[^[:space:]]+)?[[:space:]]+add([[:space:]]|$) ]]; then
+  sc_decision ask "this installs or updates Claude Code extension code (plugin, marketplace or skill). It runs with your privileges, and a plugin from a self-hosted marketplace can later update itself without asking again. Check the source before trusting it." "confirm the source, or review it first with claude plugin details <name>"
+  exit 0
+fi
+
+# v4.2.0: a PLAIN redirect of the API endpoint or token (no metacharacters, so the
+# CRED rule above does not deny it). Pointing ANTHROPIC_BASE_URL at another host sends
+# every prompt and file Claude reads there; a cloned repo's settings.json doing the
+# same already warns (config-scan, CVE-2026-21852). Bedrock/Vertex/LiteLLM setups do
+# this on purpose, so this informs both sides instead of asking: systemMessage to
+# the human, additionalContext to Claude, no permission decision.
+# Raw $COMMAND, not $CMD: normalize_cmd strips leading VAR=value prefixes.
+if [[ "$COMMAND" =~ (^|[[:space:]\;\&\|])(export[[:space:]]+)?(ANTHROPIC_BASE_URL|ANTHROPIC_AUTH_TOKEN|ANTHROPIC_BEDROCK_BASE_URL|ANTHROPIC_VERTEX_BASE_URL)= ]]; then
+  _bu_var="${BASH_REMATCH[3]}"
+  _bu_msg="Supercharger: this command sets ${_bu_var}. Every prompt and every file Claude reads in a session using it goes to that endpoint. Fine for your own gateway, Bedrock or Vertex; if this came from a README, issue or script you did not write, stop and check the host."
+  _sc_json_escape "$_bu_msg"
+  printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"%s"}}\n' "$_SC_JSON" "$_SC_JSON"
+  exit 0
 fi
 
 # --- Production reads (warn only — exit 1, not exit 2) ---

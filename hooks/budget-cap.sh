@@ -138,6 +138,19 @@ PRICING = {
     'haiku':  (0.80,  1.00, 0.08,  4.00),
     'fable':  (10.00, 12.50, 1.00, 50.00),  # v2.9.3: Fable/Mythos 5 = 2x Opus; without this they'd fall to the sonnet fallback and be priced ~3x too LOW (budget cap overruns)
 }
+
+# v4.2.0: per-tier price override for Bedrock/Vertex/gateway users, whose rates are
+# not these first-party ones (a gateway may be free). Same order as the tuples, USD
+# per million tokens: SUPERCHARGER_PRICE_OPUS="5,6.25,0.5,25". Malformed = ignored.
+for _t in list(PRICING):
+    _ov = os.environ.get('SUPERCHARGER_PRICE_' + _t.upper(), '')
+    if _ov:
+        try:
+            _v = tuple(float(x) for x in _ov.split(','))
+            if len(_v) == 4 and all(x >= 0 for x in _v):
+                PRICING[_t] = _v
+        except ValueError:
+            pass
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
 
 # v2.7.16: serialize the whole read-modify-write — shared with subagent-cost via
@@ -445,6 +458,23 @@ if sid and scope_dir:
 pct = (spend / cap_f * 100) if cap_f > 0 else 0
 READ_ONLY = {'Read', 'Glob', 'Grep'}
 
+# v4.2.0: PreModelSwitch (wired in CC 2.1.289; payload carries from_model/to_model).
+# Switching UP a price tier while a budget is set and already half spent asks first.
+# Never 'allow': for this event allow also skips CC's own cache-miss confirm.
+if data.get('hook_event_name') == 'PreModelSwitch':
+    def _tier(m):
+        m = str(m or '').lower()
+        if 'haiku' in m: return 1
+        if 'opus' in m or 'fable' in m or 'mythos' in m: return 3
+        return 2 if m else 0
+    frm, to = data.get('from_model'), data.get('to_model')
+    if _tier(to) > _tier(frm) > 0 and pct >= 50:
+        print(f'ask:Switching from {frm} to {to}, a more expensive model, with {pct:.0f}% of this '
+              f'session budget used (${spend:.2f} of ${cap_f:.2f}).')
+    else:
+        print('pass')
+    sys.exit(0)
+
 if pct >= 100:
     if tool in READ_ONLY:
         print('pass')
@@ -463,6 +493,9 @@ PYEOF
     echo "[Supercharger] budget-cap: warning — $MSG" >&2
     CONTEXT_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || printf '"%s"' "$MSG")
     printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":%s}}\n' "$CONTEXT_JSON"
+    exit 0
+  elif [[ "$DECISION" == ask:* ]]; then
+    sc_decision ask "${DECISION#ask:}" "confirm the switch, or stay on the current model" "PreModelSwitch"
     exit 0
   elif [[ "$DECISION" == block:* ]]; then
     REASON="${DECISION#block:}"

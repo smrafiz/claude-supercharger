@@ -279,4 +279,21 @@ case "$OUT" in
   *) fail "reason channel has no remedy: $OUT" ;;
 esac
 
+# --- v4.1.31: crypto-wallet app data (keystores/seeds live in app folders) ---
+wal() { # tool key path -> 0 if blocked
+  python3 -c 'import json,sys;print(json.dumps({"tool_name":sys.argv[1],"tool_input":{sys.argv[2]:sys.argv[3]},"cwd":"/tmp"}))' "$1" "$2" "$3" \
+    | bash "$HOOK" >/dev/null 2>&1
+}
+begin_test "env-guard: Electrum wallet dir (macOS) blocked"
+wal Read file_path "$HOME/Library/Application Support/Electrum/wallets/default_wallet"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Exodus app data (Linux ~/.config) blocked"
+wal Read file_path "$HOME/.config/Exodus/exodus.wallet/seed.seco"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Grep of ~/.electrum blocked"
+wal Grep path "$HOME/.electrum"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: an ordinary Application Support file is allowed"
+wal Read file_path "$HOME/Library/Application Support/Code/User/settings.json"; [ "$?" = "0" ] && pass || fail "blocked"
+begin_test "env-guard: a project file merely named like a wallet is allowed"
+wal Read file_path "/repo/src/phantom-types.ts"; [ "$?" = "0" ] && pass || fail "blocked"
+
+
 report
