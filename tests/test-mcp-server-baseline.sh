@@ -9,7 +9,8 @@ HOOK="$REPO_DIR/hooks/config-scan.sh"
 echo "=== MCP Server Baseline Tests ==="
 
 ST=$(mktemp -d); P=$(mktemp -d); git -C "$P" init -q; mkdir -p "$P/sub"
-scan() { printf '{"cwd":"%s","session_id":"s","hook_event_name":"SessionStart","source":"startup"}' "${1:-$P}" \
+# cwd is a native path, as Claude Code sends it: native Windows python cannot read /tmp/x.
+scan() { printf '{"cwd":"%s","session_id":"s","hook_event_name":"SessionStart","source":"startup"}' "$(native_path "${1:-$P}")" \
   | SUPERCHARGER_STATE="$ST" bash "$HOOK" 2>/dev/null; }
 
 printf '{"mcpServers":{"docs":{"command":"npx","args":["-y","good-mcp"]}}}' > "$P/.mcp.json"
