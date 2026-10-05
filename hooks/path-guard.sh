@@ -122,11 +122,40 @@ def _strs(v):
 
 _cfg = _json_file(os.path.join(os.environ.get('SC_CFG_ROOT', ''), '.supercharger.json'))
 disabled = set(c.strip() for c in _strs(_cfg.get('disableSecurityCategories')) if c.strip())
-os.environ['EXTRA_ROOTS'] = '\t'.join(_strs(_cfg.get('additionalRoots')))
+_roots = _strs(_cfg.get('additionalRoots'))
 _cc = []
 for _k in ('SC_S1', 'SC_S2', 'SC_S3'):
     _perm = _json_file(os.environ.get(_k, '')).get('permissions')
     _cc.extend(v for v in _strs(_perm.get('additionalDirectories') if isinstance(_perm, dict) else None) if v)
+
+
+def _msys_native(vals):
+    # These came from JSON, not through the environment. When bash handed them over
+    # as env vars, MSYS converted /tmp/x and /c/x to C:/... in transit; read here,
+    # native Windows python sees the POSIX spelling, isdir() fails and the root is
+    # silently dropped (windows CI, #93). Same conversion, one cygpath for all.
+    if os.name != 'nt' or not os.environ.get('MSYSTEM'):
+        return vals
+    idx = [i for i, v in enumerate(vals) if v.startswith('/')]
+    if not idx:
+        return vals
+    try:
+        import subprocess
+        r = subprocess.run(['cygpath', '-m'] + [vals[i] for i in idx],
+                           capture_output=True, text=True, timeout=5)
+        conv = r.stdout.splitlines()
+        if r.returncode == 0 and len(conv) == len(idx):
+            vals = list(vals)
+            for i, c in zip(idx, conv):
+                vals[i] = c
+    except Exception:
+        pass
+    return vals
+
+
+_conv = _msys_native(_roots + _cc)
+os.environ['EXTRA_ROOTS'] = '\t'.join(_conv[:len(_roots)])
+_cc = _conv[len(_roots):]
 if os.environ.get('CC_DIRS'):
     _cc.append(os.environ['CC_DIRS'])
 os.environ['CC_DIRS'] = '\t'.join(_cc)
