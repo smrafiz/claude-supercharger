@@ -763,7 +763,10 @@ NETWORK_PATTERNS=(
   # caught these, so narrowing had silently reopened them — found by the
   # pipe-to-shell bases added to fuzz-safety.sh, which is why they were added.
   '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
-  '(^|;|&|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
+  # v4.2.0: command-position `bash -c` is judged below (_sc_opaque_shell_c), not
+  # here: a LITERAL body is appended by normalize_cmd and checked by every rule,
+  # so only an opaque body (variable, $( ), backtick, decoded) is still denied.
+  # The blanket form denied `bash -c 'until grep -q x f; do sleep 1; done'` (FP audit).
   '(^|;|&|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
   'base64.*\|.*(bash|sh|zsh)([[:space:]]|$)' '<<<.*\|.*(bash|sh|zsh)([[:space:]]|$)'
@@ -1028,6 +1031,33 @@ case "$CMD_SCAN" in
       -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g')
     ;;
 esac
+
+# v4.2.0: command-position `bash|sh|zsh|dash -c BODY`. A literal body is appended to
+# the command by normalize_cmd, so every rule above and below judges it. Only a body
+# whose content cannot be judged is denied: unquoted, a command substitution or
+# backtick, base64/eval, or a body whose command word is a variable.
+if _cat_enabled "destructive"; then
+  _shc_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*(/[^[:space:]]*/)?(bash|sh|zsh|dash)[[:space:]]+(-[[:alpha:]]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+(.*)$'
+  if [[ "$COMMAND" =~ $_shc_rx ]]; then
+    _shc_rest="${BASH_REMATCH[5]}"
+    _shc_opaque=1
+    _shc_q="${_shc_rest:0:1}"
+    if [ "$_shc_q" = "'" ] || [ "$_shc_q" = '"' ]; then
+      _shc_body="${_shc_rest:1}"; _shc_body="${_shc_body%%"$_shc_q"*}"
+      _shc_opaque=0
+      case "$_shc_body" in
+        *'$('*|*'`'*|*base64*|*eval*) _shc_opaque=1 ;;
+      esac
+      if [ "$_shc_q" = '"' ]; then
+        case "$_shc_body" in *'${'*) _shc_opaque=1 ;; esac
+      fi
+      [[ "$_shc_body" =~ (^|[\;\&\|]|\&\&|\|\|)[[:space:]]*\$ ]] && _shc_opaque=1
+    fi
+    if [ "$_shc_opaque" = 1 ]; then
+      block "dangerous pattern: shell -c with a body that cannot be checked (variable, command substitution or decoded text)"
+    fi
+  fi
+fi
 
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")

@@ -521,7 +521,7 @@ def check_sensitive_read(c: str) -> str | None:
         # v4.2.0: a glob filter names files to SKIP or include, it reads nothing:
         # `grep -r --exclude='<envfile>*' X .` was denied as an env read (FP audit).
         if m.group("tool") in ("grep", "egrep", "fgrep", "rg", "ag", "ack"):
-            args = re.sub(r"""(?:^|\s)(?:--(?:exclude|include|exclude-dir|include-dir|glob|iglob)|-g)(?:=|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", args)
+            args = re.sub(r"""(?:^|\s)(?:--(?:exclude|include|exclude-dir|include-dir|glob|iglob)|-g)(?:[=]|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", args)
         sm = _SENSITIVE_NAME_RE.search(args)
         if sm:
             # A PUBLIC key matches only because it contains the private

@@ -77,7 +77,7 @@ block() {
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then
     tail -n 500 "$blocks_log" > "$blocks_log.tmp" 2>/dev/null && mv "$blocks_log.tmp" "$blocks_log" 2>/dev/null || true
   fi
-  sc_decision deny "$1"
+  sc_decision deny "$1" "${2:-}"
   exit 2
 }
 
@@ -234,7 +234,7 @@ while IFS= read -r seg; do
   fi
 
   if [[ "$seg" =~ ^git\ reset[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])--hard([[:space:]]|$) ]]; then
-    block "git reset --hard can destroy uncommitted work"
+    block "git reset --hard can destroy uncommitted work" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
   if [[ "$seg" =~ ^git\ (checkout|restore)[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
@@ -244,7 +244,7 @@ while IFS= read -r seg; do
   # git checkout <ref> -- .   /   git checkout <ref> .  → overwrites working tree from <ref>,
   # silently destroying unstaged work. Real-world loss reported in claude-code#55024.
   if [[ "$seg" =~ ^git\ checkout[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+(--[[:space:]]+)?\.([[:space:]]|$) ]]; then
-    block "git checkout <ref> -- . overwrites all working-tree files from <ref>, destroying unstaged work"
+    block "git checkout <ref> -- . overwrites all working-tree files from <ref>, destroying unstaged work" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
   # v2.10.8: git checkout -- <path>  (NO ref before `--`) → discards uncommitted
@@ -254,7 +254,7 @@ while IFS= read -r seg; do
   # requirement stays clear of `--patch`/`--theirs` (no space after `--`) and of
   # branch ops (`checkout -b`, `checkout <branch>`). From kenryu42/cc-safety-net.
   if [[ "$seg" =~ ^git\ checkout[[:space:]]+--[[:space:]]+[^[:space:]] ]]; then
-    block "git checkout -- <path> discards uncommitted changes to those files"
+    block "git checkout -- <path> discards uncommitted changes to those files" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
   # git restore --source=<ref> .   → overwrites the WHOLE working tree from <ref>
@@ -270,7 +270,7 @@ while IFS= read -r seg; do
   if [[ "$seg" =~ ^git\ restore[[:space:]] ]] \
      && ! [[ "$seg" =~ (^|[[:space:]])--staged([[:space:]]|$) ]] \
      && ! [[ "$seg" =~ (^|[[:space:]])--source[=[:space:]] ]]; then
-    block "git restore <path> discards uncommitted working-tree changes"
+    block "git restore <path> discards uncommitted working-tree changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
   if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then

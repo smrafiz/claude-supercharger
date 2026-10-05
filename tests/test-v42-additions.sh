@@ -207,4 +207,17 @@ done
 vc Bash 'terraform apply -destroy -auto-approve' "terraform apply -destroy" deny
 vc Bash 'terraform apply'                         "terraform apply"         allow
 
+# shell -c: a literal body is judged by its content, an opaque body is denied
+_SB="ba""sh -c "; _RM="rm -r""f"
+vc Bash "${_SB}'until grep -q done /tmp/f; do sleep 1; done'"  "literal wait loop"            allow
+vc Bash "${_SB}\"npm run build && npm test\""                   "literal build"                allow
+vc Bash "${_SB}'${_RM} /'"                                      "literal body that wipes /"    deny
+vc Bash "${_SB}\"\$CMD\""                                       "variable body"                deny
+vc Bash "${_SB}\"\$(cat payload)\""                             "command-substitution body"    deny
+
+# git discard denies name the recoverable way through
+begin_test "git-safety: checkout -- deny names git stash as the way through"
+python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"git checkout -- src/app.ts"},"cwd":"/tmp"}))' \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/git-safety.sh" 2>/dev/null | grep -q 'git stash push' && pass || fail "no remedy"
+
 report
