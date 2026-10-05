@@ -4,20 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-01 12:35 UTC, session `3d213381`.*
+*Verified 2026-10-04 12:35 UTC, session `3d213381`.*
 
-- **Released: v4.1.25.** v4.1.26 (#85 PowerShell output scanning, #86 elicitation
-  trust + URL checks) is STAGED (rel/4.1.26 CI green) and a detached job
-  (`.claude/worktrees/tmp/rel4126.sh`, log `rel4126.out`, per-machine A) promotes
-  it once master's Windows run for 515f900 is green, then runs update.sh.
-- **Open PRs, green, NOT merged:** #88 ShareOnboardingGuide secret scan, #89
-  env-exec-guard PowerShell `$env:`. Merge only AFTER v4.1.26 promotes (promote
-  fast-forwards master; any merge before it makes promote refuse). Auto mode
-  refused scheduling these merges unattended: merge by hand.
-- **Machine A:** installed 4.1.25 at 12:33; a `sog` stash entry duplicates #88, drop it.
+- **Released: v4.1.29** (installed on Machine A). v4.1.30 (#93 path-guard one
+  python) is STAGED; detached job `.claude/worktrees/tmp/rel4130.sh` (Machine A,
+  log `rel4130.out`) promotes after master Windows CI, then runs update.sh.
+- **Open PR, green:** #94 redirect-clobber-guard PowerShell. Merge AFTER v4.1.30
+  promotes (promote fast-forwards master), then release v4.1.31.
+- **Coverage diff vs CC 2.1.286: closed** (#85 #86 #88 #89 #94; rest rejected,
+  see brief). classifierContext stays rejected (scanners 30-60ms sync).
+- **Machine A:** redundant worktrees under `.claude/worktrees/` (sog envps hd2 jgb
+  cnf pg rcps) and stash `sog` — user's to delete.
 - **Machine B**: unknown. Update to the latest release.
-- **Open**: classifierContext needs a measured sync path; redirect-clobber-guard
-  PowerShell (deferred); radius-apps guard-push wrapper bypass; rotate CRON_SECRET.
+- **Open (user-side)**: radius-apps guard-push wrapper bypass; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -45,6 +44,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-04 — 3d213381
+v4.1.26-4.1.29 out. Real-payload hook replay found 3 size-dependent slowdowns
+(#91 quadratic brace count, #92 per-line forks); path-guard 3->1 python (#93,
+staged as 4.1.30); PowerShell clobber coverage (#94, open).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-10-01 (pm) — 3d213381
 v4.1.26 staged, promote pending master Windows. #88 guards ShareOnboardingGuide
 (uploads ./ONBOARDING.md, schema read from the CC binary); #89 env-exec-guard
@@ -66,12 +71,5 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 v4.1.23 out after three Windows refusals (MSYS paths, hidden failure text). Input
 budget built and used: 38.3 -> 27.6 KB per session here. Manual Windows CI trigger
 added; fp-triage Windows debug in flight.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-30 — 3d213381
-Released v4.1.19-22: router and prompt hooks stop reading harness text as user
-text, agent hint removed (1.1% uptake), block-ledger secret masking. Built
-fp-triage, fixed selfmod FPs. Found the CI test gate green-on-failure since
-09-16. Jev researched and parked.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
