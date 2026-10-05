@@ -14,7 +14,7 @@ verdict() {
 
 # ---- Finding 1: & background operator + bash -c ----
 begin_test "safety: 'x & bash -c <destructive>' is blocked (& anchor)"
-[ "$(verdict "true & bash -c 'rm -rf /tmp/zzz'")" = BLOCK ] && pass || fail "& bash -c evaded"
+[ "$(verdict "true & bash -c 'rm -rf /'")" = BLOCK ] && pass || fail "& bash -c evaded"
 begin_test "safety: 'x & eval ...' is blocked"
 [ "$(verdict "sleep 0 & eval \"\$P\"")" = BLOCK ] && pass || fail "& eval evaded"
 

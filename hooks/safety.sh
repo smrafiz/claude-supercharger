@@ -763,7 +763,10 @@ NETWORK_PATTERNS=(
   # caught these, so narrowing had silently reopened them — found by the
   # pipe-to-shell bases added to fuzz-safety.sh, which is why they were added.
   '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
-  '(^|;|&|&&|\|\|)[[:space:]]*(bash|sh|zsh)[[:space:]]+-c[[:space:]]'
+  # v4.2.0: command-position `bash -c` is judged below (_sc_opaque_shell_c), not
+  # here: a LITERAL body is appended by normalize_cmd and checked by every rule,
+  # so only an opaque body (variable, $( ), backtick, decoded) is still denied.
+  # The blanket form denied `bash -c 'until grep -q x f; do sleep 1; done'` (FP audit).
   '(^|;|&|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
   'base64.*\|.*(bash|sh|zsh)([[:space:]]|$)' '<<<.*\|.*(bash|sh|zsh)([[:space:]]|$)'
@@ -804,6 +807,8 @@ CLOUD_PATTERNS=(
   'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
   # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
   '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
+  # v4.2.0: `apply -destroy` is the same teardown spelled as an apply (infra audit).
+  '(terraform|tofu|opentofu|terragrunt)[[:space:]]+apply[^;&|]*[[:space:]]-destroy([[:space:]]|$)'
   'pulumi[[:space:]]+destroy([[:space:]]|$)'
   # 2026-09-13 (from AhmadShayan/claude-code-guardrails): whole-repository
   # teardown. `gh repo delete` / `glab repo delete` destroy an entire remote repo
@@ -1027,6 +1032,33 @@ case "$CMD_SCAN" in
     ;;
 esac
 
+# v4.2.0: command-position `bash|sh|zsh|dash -c BODY`. A literal body is appended to
+# the command by normalize_cmd, so every rule above and below judges it. Only a body
+# whose content cannot be judged is denied: unquoted, a command substitution or
+# backtick, base64/eval, or a body whose command word is a variable.
+if _cat_enabled "destructive"; then
+  _shc_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*(/[^[:space:]]*/)?(bash|sh|zsh|dash)[[:space:]]+(-[[:alpha:]]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+(.*)$'
+  if [[ "$COMMAND" =~ $_shc_rx ]]; then
+    _shc_rest="${BASH_REMATCH[5]}"
+    _shc_opaque=1
+    _shc_q="${_shc_rest:0:1}"
+    if [ "$_shc_q" = "'" ] || [ "$_shc_q" = '"' ]; then
+      _shc_body="${_shc_rest:1}"; _shc_body="${_shc_body%%"$_shc_q"*}"
+      _shc_opaque=0
+      case "$_shc_body" in
+        *'$('*|*'`'*|*base64*|*eval*) _shc_opaque=1 ;;
+      esac
+      if [ "$_shc_q" = '"' ]; then
+        case "$_shc_body" in *'${'*) _shc_opaque=1 ;; esac
+      fi
+      [[ "$_shc_body" =~ (^|[\;\&\|]|\&\&|\|\|)[[:space:]]*\$ ]] && _shc_opaque=1
+    fi
+    if [ "$_shc_opaque" = 1 ]; then
+      block "dangerous pattern: shell -c with a body that cannot be checked (variable, command substitution or decoded text)"
+    fi
+  fi
+fi
+
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
   if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
@@ -1114,12 +1146,28 @@ if _cat_enabled "credentials"; then
   )
 
   JOINED_CRED=$(IFS='|'; echo "${CRED_PATTERNS[*]}")
+  # v4.2.0: blank DATA before the credential match (FP audit: 6 of 7 real-work denies
+  # of this rule were data — a sed redaction expression, a grep for a secret regex, a
+  # heredoc test fixture). Starts from the ORIGINAL command so a leading
+  # `API_KEY=secret cmd` stays visible; removes data-only heredoc bodies, then blanks
+  # commit messages and the quoted script/pattern operand of grep/rg/ag/ack/sed/awk.
+  CRED_SCAN=$(strip_heredoc_bodies "$COMMAND" 2>/dev/null) || CRED_SCAN="$COMMAND"
+  case "$CRED_SCAN" in
+    *grep*|*rg\ *|*ag\ *|*ack\ *|*sed\ *|*awk\ *|*m\ *|*--message\ *|*--body\ *)
+      CRED_SCAN=$(printf '%s' "$CRED_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
+        -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
+        -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' \
+        -e "s/((^|[;&|(]|[[:space:]])((e|f)?grep|rg|ag|ack|sed|g?awk)(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+))'[^']*'/\1''/g" \
+        -e 's/((^|[;&|(]|[[:space:]])((e|f)?grep|rg|ag|ack|sed|g?awk)(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+))"[^"]*"/\1""/g' \
+        | tr '\036' '\n') || CRED_SCAN="$COMMAND"
+      ;;
+  esac
   # v2.6.80: scan the ORIGINAL command, not the normalized one. cmd-normalize
   # strips leading `VAR=value` env-var assignments, which is correct for the
   # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
   # but it would hide credential leaks like `API_KEY=secret123 echo done`
   # where the secret IS the env-var value.
-  if printf '%s\n' "$COMMAND" | LC_ALL=C grep -qE "$JOINED_CRED"; then
+  if printf '%s\n' "$CRED_SCAN" | LC_ALL=C grep -qE "$JOINED_CRED"; then
     block "potential credential in command — never embed secrets in commands"
   fi
 fi
@@ -1208,7 +1256,7 @@ if _cat_enabled "persistence"; then
   # path), not anywhere. Unanchored, "crontab" followed by any word matched prose:
   # `echo "=== grep crontab in docs ==="`, a heredoc saying "needs a crontab entry",
   # a commit message. Five real commands were denied that way; none ran crontab.
-  if [[ "$CMD" =~ (^|[\;\&\|\(\`]|\$\(|$'\n')[[:space:]]*([^[:space:]\;\&\|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:]]|$)|-([[:space:]]|$)|[^-[:space:]][^[:space:]]*) ]]; then
+  if [[ "$CMD" =~ (^|[\;\&\|\(\`]|\$\(|$'\n')[[:space:]]*([^[:space:]\;\&\|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:];\&\|\)]|$)|-([[:space:];\&\|\)]|$)|[^-[:space:]][^[:space:]]*) ]]; then
     block "cron job modification — agent should not create persistent scheduled tasks"
   fi
 
@@ -1467,6 +1515,15 @@ fi
 if [ -n "${_RM_VAR_ASK:-}" ]; then
   echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
   sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+# v4.2.0: removing branch protection or a ruleset through the REST API silently drops
+# required reviews and status checks (gh repo delete is denied; this sibling was open).
+if [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])(gh|glab)[[:space:]]+api[[:space:]] ]] \
+   && [[ "$CMD" =~ (-X[[:space:]]*|--method[[:space:]=]+)(DELETE|PUT|PATCH|delete|put|patch) ]] \
+   && [[ "$CMD" =~ (/protection|/rulesets|/protected_branches|required_pull_request_reviews|required_status_checks) ]]; then
+  sc_decision ask "this API call changes or removes branch protection / rulesets, which can drop required reviews and checks on a protected branch." "confirm the change is intended"
   exit 0
 fi
 

@@ -154,8 +154,8 @@ Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 
 | Mode | Hooks | Use when |
 |--|--|--|
-| **Safe** | 25 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 90 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Safe** | 43 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
+| **Full** | 140 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -243,6 +243,8 @@ SUPERCHARGER_PROFILE=fast claude
 | All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
 | Daily update check (network) | `SUPERCHARGER_NO_UPDATE_CHECK=1` |
+| Cron/wakeup prompt guard | `SUPERCHARGER_CRON_GUARD=0` |
+| Cross-session message scan | `SUPERCHARGER_PEER_MESSAGE_SCANNER=0` |
 
 ### Tune behavior
 
@@ -252,6 +254,8 @@ SUPERCHARGER_PROFILE=fast claude
 | Pricing model override (cost trackers) | `SUPERCHARGER_PRICING_MODEL` | auto-detect from payload |
 | Performance profile | `SUPERCHARGER_PROFILE` | `standard` (or `fast`, `minimal`) |
 | Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
+| Native terminal notifications instead of OS pop-ups | `SUPERCHARGER_NOTIFY_MODE` | unset (or `osc9`: iTerm2, WezTerm, Ghostty, Windows Terminal; `osc777`: foot, urxvt) |
+| Per-tier price, USD per million tokens (Bedrock, Vertex, gateways) | `SUPERCHARGER_PRICE_<TIER>` e.g. `_OPUS` | first-party rates; `"input,cache_write,cache_read,output"` |
 
 Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.
 
@@ -353,9 +357,9 @@ chmod +x .claude/verify.sh
 Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
 
-- **Line 1** — model, project, git branch, detected stack, economy tier, active agent, active MCP profile, lines added/removed
+- **Line 1** — model, project, git branch, detected stack, economy tier (plus the active output style when one is set, e.g. `Eco: Minimal · Concise`), active agent, active MCP profile, lines added/removed
 - **Line 2** — context bar, percentage, token counts (in/out), cache efficiency and tokens saved
-- **Line 3** — session cost, duration, rate-limit burn rate and weekly usage
+- **Line 3** — session cost, duration, rate-limit burn rate and weekly usage, and `Spend cap: N%` when an org or gateway spend limit applies
 
 Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Scan: Code`, `⚠ Scan: Injection`
 

@@ -35,6 +35,12 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 case "$_INPUT" in
   *pull_request_target*|*workflow_run*|*allow-unsafe-pr-checkout*) : ;;
   *head.sha*|*head.ref*|*pull_request.head*|*refs/pull*) : ;;
+  # v4.2.0 shapes, only for workflow files (the path must be in the payload).
+  *.github/workflows/*)
+    case "$_INPUT" in
+      *github.event*|*github.head_ref*|*write-all*|*id-token*|*self-hosted*|*secrets.*) : ;;
+      *) exit 0 ;;
+    esac ;;
   *) exit 0 ;;
 esac
 check_hook_disabled "workflow-pwn-guard" 2>/dev/null && exit 0
@@ -87,6 +93,24 @@ pr_head = re.search(
     combined)
 if trigger and pr_head:
     print("ASK|%s + checkout of the untrusted PR head" % trigger.group(1))
+    sys.exit(0)
+
+# v4.2.0: other high-impact workflow shapes, judged on the ADDED text so an existing
+# workflow does not ask again on every edit (GitHub Security Lab guidance).
+why = []
+if re.search(r'\$\{\{\s*github\.(head_ref|event\.(issue|pull_request|comment|review|review_comment|discussion|head_commit|commits|pages|workflow_run)\b)[^}]*\}\}', add) \
+        and re.search(r'(?m)^\s*(-\s*)?run\s*:', combined):
+    why.append("untrusted event text (${{ github.event.* }} / head_ref) in a workflow with run: steps - script injection")
+if re.search(r'(?m)^\s*permissions\s*:\s*write-all\b', add):
+    why.append("permissions: write-all")
+if re.search(r'(?m)^\s*id-token\s*:\s*write\b', add):
+    why.append("id-token: write (OIDC cloud credentials for this workflow)")
+if re.search(r'runs-on\s*:[^\n]*self-hosted', add) and re.search(r'\bpull_request(_target)?\b', combined):
+    why.append("a self-hosted runner on a pull_request trigger (fork code on your machine)")
+if re.search(r'(?m)\b(echo|printf|cat)\b[^\n]*\$\{\{\s*secrets\.', add):
+    why.append("a secret printed in a run step (lands in the job log)")
+if why:
+    print("WHY|" + "; ".join(why))
 PYEOF
 _RES=$(cat "$_WP_OUT" 2>/dev/null); rm -f "$_WP_OUT" 2>/dev/null
 [ -z "$_RES" ] && exit 0
@@ -99,6 +123,12 @@ if [ "$_VERDICT" = "DENY" ]; then
   sc_decision deny "$_MSG"
   echo "[Supercharger] workflow-pwn-guard: DENY allow-unsafe-pr-checkout" >&2
   exit 2
+fi
+
+if [ "$_VERDICT" = "WHY" ]; then
+  sc_decision ask "This workflow edit adds: ${_LABEL}. Each widens what the workflow, or code it runs, can do with the repository's token and secrets. Confirm it is intended. (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"
+  echo "[Supercharger] workflow-pwn-guard: ASK workflow risk (${_LABEL})" >&2
+  exit 0
 fi
 
 _MSG="This workflow combines a privileged trigger (${_LABEL}). A pull_request_target/workflow_run job runs with the base repo's GITHUB_TOKEN + secrets, and checking out the untrusted fork-PR head then running it (npm ci/build/test) executes attacker code with those secrets — the 'pwn request' supply-chain vector. Confirm this is intended and the job does NOT expose secrets to PR-controlled code (or check out a trusted ref instead). (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"

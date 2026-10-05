@@ -748,3 +748,23 @@ command. Replay real tool calls from `~/.claude/projects/*/*.jsonl` through the
 hooks, in Claude Code's field order (header first), and compare old vs new back
 to back: absolute timings on a shared machine are noise. Counting process
 launches per call (PATH shims) is a load-independent cost measure.
+
+### Widen a fast-path gate by exact verbs
+
+A hook's `case "$_INPUT"` gate exists so ordinary calls pay nothing. Adding `*npm*`
+or `*docker*` to reach one new destructive arm sends every `npm install` and
+`docker ps` through the full grep chain. Gate on the destructive verb itself
+(`*unpublish*`, `*'docker rm'*`).
+
+### Measure a new rule against real commands before shipping
+
+Replay real commands from the transcripts through the old and the new hook and
+count verdict changes. In one session this caught three rules that would have
+denied normal work: sourcing an env file (43 of 608 commands), joining line
+continuations for every rule (9 of 325), and nothing else would have shown it.
+
+### Probe guards from a file
+
+Our own guards deny a probe command that contains the strings it tests (`.env`,
+credential assignments, `bash -c`, `rm -rf`). Write the probe as a python file,
+assemble the risky strings at runtime, and pipe JSON payloads to the hook.

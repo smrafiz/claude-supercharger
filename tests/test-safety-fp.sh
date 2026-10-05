@@ -494,9 +494,9 @@ allows "grep-switch" "grep -c . $_SW/.disabled-hooks 2>/dev/null"
 # "<rm -rf />" +` was ALLOWED by the whole chain AND auto-approved. normalize_cmd
 # now rewrites -exec to `;` so the existing separator machinery sees it.
 begin_test "find -exec cannot launder a destructive command"
-denies "exec-bash"  "find . -maxdepth 0 -exec bash -c \"$D -rf /\" +"
+denies "exec-bash"  "find . -maxdepth 0 -exec bash -c \"r""m -rf /\" +"
 denies "exec-rm"    "find . -maxdepth 0 -exec rm -rf / +"
-denies "execdir"    "find . -execdir bash -c \"$D -rf /\" +"
+denies "execdir"    "find . -execdir bash -c \"r""m -rf /\" +"
 
 begin_test "ordinary find is untouched"
 # find is one of the most common commands an agent runs; blocking it would be

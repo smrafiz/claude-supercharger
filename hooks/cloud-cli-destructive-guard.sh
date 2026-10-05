@@ -44,6 +44,11 @@ case "$_INPUT" in
   *fly*|*heroku*|*turso*|*pscale*|*neonctl*|*firebase*) : ;;
   # v4.1.19: secret managers, widened WITH the vault/bao arm below.
   *vault*|*bao*) : ;;
+  # v4.2.0: PaaS, Pulumi, Docker, GitHub CLI and package registries, widened WITH
+  # their arms below (infra audit: 21 of 65 destructive commands were allowed).
+  # Exact verbs only: `npm install`, `docker ps`, `gh pr` must not pay the greps below.
+  *vercel*|*netlify*|*railway*|*'render '*|*wrangler*|*'stack rm'*|*'docker rm'*|*'docker container rm'*) : ;;
+  *'release delete'*|*'secret delete'*|*'variable delete'*|*unpublish*|*'npm deprecate'*|*'cargo yank'*|*'twine upload'*) : ;;
   *xargs*) : ;;
   *parallel*) : ;;
   *) exit 0 ;;
@@ -73,6 +78,17 @@ elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete)[[:spac
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(doctl|flyctl|fly)[^;&|]*(delete|destroy)([[:space:]]|$)';          then op="doctl/flyctl delete/destroy"
 # v4.1.13: hosted-database CLIs — each wipes or deletes a managed database.
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(heroku[[:space:]]+pg:reset|turso[[:space:]]+db[[:space:]]+destroy|pscale[[:space:]]+(database|branch)[[:space:]]+delete|neonctl[[:space:]]+(projects?|branch(es)?|databases?)[[:space:]]+delete|firebase[[:space:]]+(firestore:delete|database:remove))([[:space:]]|$)'; then op="hosted database reset/delete"
+# v4.2.0 (infra audit, 44/65 covered before): whole-app/site/project teardown on
+# PaaS CLIs, the modern `gcloud storage` spelling of `gsutil rm -r`, Pulumi stack
+# removal, manifest-wide kubectl deletes, force-removing containers, GitHub release/
+# secret deletes, and registry operations that break every dependent.
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(vercel[[:space:]]+(rm|remove|project[[:space:]]+rm)|netlify[[:space:]]+sites:delete|heroku[[:space:]]+apps:destroy|railway[[:space:]]+(down|delete)|render[[:space:]]+services?[[:space:]]+delete|wrangler[[:space:]]+(delete|(d1|kv[[:space:]]+namespace|r2[[:space:]]+bucket|queues)[[:space:]]+delete)|firebase[[:space:]]+(projects:delete|hosting:disable))([[:space:]]|$)'; then op="PaaS app/site/project teardown"
+elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*storage[[:space:]]+rm[^;&|]*(-r|--recursive)([[:space:]]|$)'; then op="gcloud storage recursive delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])pulumi[[:space:]]+stack[[:space:]]+rm([[:space:]]|$)'; then op="pulumi stack rm (orphans live resources)"
+elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]delete[^;&|]*[[:space:]](-f|-k|--filename|--kustomize)([[:space:]=]|$)'; then op="kubectl delete -f/-k (everything in the manifest)"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]+(-[a-zA-Z]*f|--force)'; then op="docker rm --force"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+(release|secret|variable)[[:space:]]+delete([[:space:]]|$)'; then op="gh release/secret/variable delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(npm[[:space:]]+(unpublish|deprecate)|cargo[[:space:]]+yank|twine[[:space:]]+upload)([[:space:]]|$)'; then op="package registry publish/unpublish (affects every dependent)"
 # v2.29.28: found by diffing this guard against hamzazulfiqar2/Devops-architect.
 # The existing arms key on "delete" and "terminate", but AWS spells destruction
 # several other ways -- and none of the IaC state verbs were covered at all.

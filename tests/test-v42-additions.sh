@@ -150,4 +150,79 @@ _TF=$(mktemp -d)/scratchpad/probe.sh; mkdir -p "${_TF%/*}"; printf '#!/bin/sh\ne
 begin_test "post-write: still notices a project script"
 ( cd "$H" && python3 -c 'import lib_postwrite as m,sys;sys.exit(0 if m.check_shebang("/repo/hooks/new.sh","#!/bin/sh",0o644) else 1)' ) && pass || fail "silent on a project file"
 
+# --- batch 4 ---------------------------------------------------------------
+# credential rule: data is blanked, real assignments still deny
+_PW="PASS""WORD="; _AK="API_""KEY="
+vc Bash "PG${_PW}hunter2 psql -h db"                        "credential in an assignment"       deny
+vc Bash "sed 's/PG${_PW}[^ ]*/PG${_PW}***/' app.log"        "sed redaction expression"          allow
+vc Bash "grep -nE '${_AK}[A-Za-z0-9]+' src/"                "grep for a secret pattern"         allow
+vc Bash "git commit -m \"fix ${_PW} parsing\""              "commit message naming a var"       allow
+
+# env rule: glob filters are not reads
+_E2=".""env"
+sdv() { CMD="$1" python3 "$H/safety-detect.py" 2>/dev/null; }
+begin_test "safety-detect: grep --exclude glob is not a read"; [ -z "$(sdv "grep -rn --exclude='${_E2}*' TODO .")" ] && pass || fail "flagged"
+begin_test "safety-detect: rg -g negated glob is not a read"; [ -z "$(sdv "rg -g '!${_E2}*' foo")" ] && pass || fail "flagged"
+begin_test "safety-detect: grep KEY on the env file is still a read"; [ -n "$(sdv "grep KEY ${_E2}")" ] && pass || fail "missed"
+
+# branch protection via API
+vc Bash 'gh api -X DELETE repos/o/r/branches/main/protection'      "deleting branch protection"  ask
+vc Bash 'glab api -X DELETE projects/1/protected_branches/main'    "glab protected branch"       ask
+vc Bash 'gh api repos/o/r/branches/main/protection'                "reading protection"          allow
+
+# CODEOWNERS is critical infra
+begin_test "critical-infra: .github/CODEOWNERS is critical"
+( . "$H/lib-critical-infra.sh"; [ -n "$(is_critical_infra_path .github/CODEOWNERS)" ] ) && pass || fail "not critical"
+
+# workflow content
+_WD=$(mktemp -d); _WF="$_WD/.github/workflows/ci.yml"
+wf() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Write","tool_input":{"file_path":sys.argv[1],"content":sys.argv[2]},"cwd":sys.argv[3]}))' "$_WF" "$1" "$_WD" \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/workflow-pwn-guard.sh" 2>/dev/null; }
+_X='$''{{'
+begin_test "workflow: untrusted event text in a run step asks"
+wf "on: issues
+jobs:
+  a:
+    runs-on: ubuntu-latest
+    steps:
+      - run: echo \"$_X github.event.issue.title }}\"" | grep -q '"ask"' && pass || fail "silent"
+begin_test "workflow: permissions: write-all asks"; wf 'permissions: write-all' | grep -q '"ask"' && pass || fail "silent"
+begin_test "workflow: a plain push workflow is silent"
+[ -z "$(wf 'on: push
+jobs:
+  t:
+    runs-on: ubuntu-latest
+    steps:
+      - run: npm test')" ] && pass || fail "noisy"
+
+# infra coverage
+ccv() { python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"cwd":"/tmp"}))' "$1" \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/cloud-cli-destructive-guard.sh" 2>/dev/null; }
+for c in 'vercel rm my-app' 'heroku apps:destroy -a x' 'gcloud storage rm -r gs://b' 'kubectl delete -f manifests/' 'npm unpublish pkg@1.0.0' 'gh secret delete X'; do
+  begin_test "cloud-cli: '$c' asks"; ccv "$c" | grep -q '"ask"' && pass || fail "silent"
+done
+for c in 'npm install' 'docker ps' 'gh release list' 'vercel ls'; do
+  begin_test "cloud-cli: '$c' is silent"; [ -z "$(ccv "$c")" ] && pass || fail "noisy"
+done
+vc Bash 'terraform apply -destroy -auto-approve' "terraform apply -destroy" deny
+vc Bash 'terraform apply'                         "terraform apply"         allow
+
+# shell -c: a literal body is judged by its content, an opaque body is denied
+_SB="ba""sh -c "; _RM="rm -r""f"
+vc Bash "${_SB}'until grep -q done /tmp/f; do sleep 1; done'"  "literal wait loop"            allow
+vc Bash "${_SB}\"npm run build && npm test\""                   "literal build"                allow
+vc Bash "${_SB}'${_RM} /'"                                      "literal body that wipes /"    deny
+vc Bash "${_SB}\"\$CMD\""                                       "variable body"                deny
+vc Bash "${_SB}\"\$(cat payload)\""                             "command-substitution body"    deny
+
+# git discard denies name the recoverable way through
+begin_test "git-safety: checkout -- deny names git stash as the way through"
+python3 -c 'import json;print(json.dumps({"tool_name":"Bash","tool_input":{"command":"git checkout -- src/app.ts"},"cwd":"/tmp"}))' \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$H/git-safety.sh" 2>/dev/null | grep -q 'git stash push' && pass || fail "no remedy"
+
+# crontab -e followed by a separator (fuzz find): the flag needed trailing space/EOL
+vc Bash 'crontab -e; echo done' "crontab -e then ;" deny
+vc Bash 'crontab -r&&ls' "crontab -r then &&" deny
+vc Bash 'crontab -l; echo x' "crontab -l then ;" allow
+
 report
