@@ -103,6 +103,7 @@ vc Bash "rm \\
  -rf /" "rm split by a line continuation" deny
 vc Bash "ls -la \\
  /tmp" "harmless continuation" allow
+vc Bash "$(printf 'rm \\\r\n -rf /')" "rm split by a CRLF continuation" deny
 
 # plugin / skill installs ask
 vc Bash 'claude plugin install foo@bar'            "plugin install"        ask
