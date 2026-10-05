@@ -80,12 +80,18 @@ def commas_to_pipes(event, m):
 
     Rewriting to pipes is back-compat only; semantics are unchanged.
 
-    Only PreToolUse/PostToolUse — FileChanged matches file PATHS and
-    Notification has its own vocabulary. The charset test keeps this off
-    regex matchers, where | is alternation rather than a list separator.
+    PreToolUse/PostToolUse, plus FileChanged. v4.1.31: FileChanged was excluded on
+    the belief that it "matches file PATHS"; the binary says otherwise. Claude Code
+    splits a FileChanged matcher on "|" to build its watch list and tests it as a
+    regex against the BASENAME, so a comma list watched one nonexistent path and
+    matched nothing: file-watcher never fired. Notification keeps its own
+    vocabulary. The charset test keeps tool matchers off regex forms, where | is
+    alternation rather than a list separator.
 
     Logic-identical to the copy in lib/hooks.sh; tests assert the emitters agree.
     """
+    if event == 'FileChanged' and ',' in m:
+        return '|'.join(t.strip() for t in m.split(',') if t.strip())
     if event not in ('PreToolUse', 'PostToolUse'):
         return m
     if ',' not in m or set(m) - EXACT_MATCHER_CHARS:

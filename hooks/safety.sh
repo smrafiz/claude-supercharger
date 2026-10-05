@@ -274,6 +274,26 @@ if _cat_enabled "filesystem"; then
         has_force=true
       fi
 
+      # Variable-rooted recursive rm: `rm -rf "$VAR/"`, `$VAR/*`, `"${VAR}/"*`. With
+      # VAR unset or empty this IS `rm -rf /` or `/*`, and the literal-root rule
+      # below never sees it (anthropics/claude-code#95426 lost ~600GB this way;
+      # #92737 #93392 #92593). Only the exact shape is flagged: the variable
+      # followed by `/` then nothing or `*`. `$S/old` (unset -> /old) is not a
+      # wipe. Measured: 0 hits in 488 real recursive rm calls. ASK, not deny:
+      # `rm -rf "$BUILD_DIR/"*` is a legit script idiom. `${VAR:?}/` fails safe
+      # when unset and does not match. $HOME/$PWD are denied below.
+      if $has_recursive && [ -z "${_RM_VAR_ASK:-}" ]; then
+        _rmv_rest="$args"
+        _rmv_rx='(^|[[:space:]])["'"'"']?\$\{?([A-Za-z_][A-Za-z0-9_]*)\}?["'"'"']?/["'"'"']?\*?["'"'"']?([[:space:]]|$)'
+        while [[ "$_rmv_rest" =~ $_rmv_rx ]]; do
+          case "${BASH_REMATCH[2]}" in
+            HOME|PWD) ;;
+            *) _RM_VAR_ASK="${BASH_REMATCH[2]}"; break ;;
+          esac
+          _rmv_rest="${_rmv_rest#*"${BASH_REMATCH[0]}"}"
+        done
+      fi
+
       if $has_recursive && $has_force; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since
@@ -1410,6 +1430,14 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi
+fi
+
+# Variable-rooted rm (recorded above). Emitted LAST so any deny in the same command
+# wins; an ask only when nothing denied.
+if [ -n "${_RM_VAR_ASK:-}" ]; then
+  echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
+  sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
 fi
 
 # --- Production reads (warn only — exit 1, not exit 2) ---

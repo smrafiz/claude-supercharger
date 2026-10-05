@@ -1640,11 +1640,10 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/file-watcher.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
         ],
-        "matcher": ".env,.envrc,package.json,.claude/settings.json"
+        "matcher": ".env|.envrc|package.json|settings.json|.claude/settings.json|settings.local.json|.claude/settings.local.json|.mcp.json|.supercharger.json|CLAUDE.md"
       }
     ]
   }

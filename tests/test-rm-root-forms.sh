@@ -166,4 +166,24 @@ else
   [ -z "$(resolves_to_root "-rf /tmp/scratch")" ] && pass || fail "resolver over-matched"
 fi
 
+# --- v4.1.31: variable-rooted recursive rm ASKS (unset/empty var = rm -rf /) ---
+rmv() { # command -> ask|deny|allow
+  printf '%s' "$(CMD="$1" CWD="$REPO_DIR" python3 -c '
+import json, os
+print(json.dumps({"tool_name": "Bash", "cwd": os.environ["CWD"],
+                  "tool_input": {"command": os.environ["CMD"]}}))')" \
+    | SUPERCHARGER_STATE="$(mktemp -d)" bash "$SAFETY" 2>/dev/null \
+    | grep -o '"permissionDecision":"[a-z]*"' | cut -d'"' -f4
+}
+rmc() { begin_test "rm var-root: $1 → $2"; local g; g=$(rmv "$1"); [ "${g:-allow}" = "$2" ] && pass || fail "got ${g:-allow} for: $1"; }
+rmc 'rm -rf "$BUILD/"'          ask
+rmc 'rm -rf $TMPDIR/*'          ask
+rmc 'rm -rf "${OUT_DIR}/"*'     ask
+rmc 'rm -r "$X"/'               ask
+rmc 'rm -rf "$DIR"'             allow
+rmc 'rm -rf $S/old'             allow
+rmc 'rm -rf "${OUT:?}/"*'       allow
+rmc 'rm -rf "$A/" /'            deny
+
+
 report

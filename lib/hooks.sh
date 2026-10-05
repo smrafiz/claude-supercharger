@@ -534,7 +534,17 @@ get_hooks_for_mode() {
     # message anyway it lands in the terminal, the scrollback, and any screen share
     # running at the time. MessageDisplay's displayContent rewrites what is rendered.
     hooks+=("MessageDisplay||${hooks_dir}/display-secret-redactor.sh|")
-    hooks+=("FileChanged|.env,.envrc,package.json,.claude/settings.json|${hooks_dir}/file-watcher.sh|async")
+    # v4.1.31: this registration never fired. Claude Code builds the WATCH list by
+    # splitting the matcher on "|" (relative tokens join the cwd), then MATCHES a change
+    # by testing the matcher as a regex against the file's BASENAME (FileChanged is not
+    # a plain-name event). The comma list was one nonexistent path and one regex that
+    # matched nothing. commas_to_pipes now converts FileChanged too (this registry is
+    # itself |-delimited). Every token is a valid relative path AND a basename regex:
+    # `.claude/settings.json` adds the watch, `settings.json` matches it. A dot is a
+    # regex wildcard here, harmless because only watched paths can fire. Sync, because
+    # the systemMessage of an async hook is dropped. config-scan adds the git-root
+    # copies of these files via SessionStart watchPaths (subdir launches).
+    hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md|${hooks_dir}/file-watcher.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
@@ -777,6 +787,13 @@ EXACT_MATCHER_CHARS = set(
 
 
 def commas_to_pipes(event, m):
+    # FileChanged: Claude Code splits the matcher on the pipe to build its watch
+    # list and tests it as a regex against the basename, so commas made it watch one
+    # nonexistent path and match nothing. Its tokens are file names, not tool names,
+    # so the exact-character gate below does not apply. (No double quotes in this
+    # block: it sits inside a double-quoted python -c string.)
+    if event == 'FileChanged' and ',' in m:
+        return '|'.join(t.strip() for t in m.split(',') if t.strip())
     if event not in ('PreToolUse', 'PostToolUse'):
         return m
     if ',' not in m or set(m) - EXACT_MATCHER_CHARS:

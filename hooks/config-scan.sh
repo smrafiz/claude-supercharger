@@ -347,6 +347,7 @@ def _mcp_server_risk(server, project_dir):
                 break
     return reasons or None
 
+servers = {}
 mcp_json = Path(project_dir) / '.mcp.json'
 if mcp_json.is_file():
     try:
@@ -368,7 +369,79 @@ if mcp_json.is_file():
                     f"Verify this server is intentional before trusting this folder."
                 )
 
+# --- MCP server baseline. The risk check above stays quiet for npx/uvx/docker
+# launchers, and a `git pull` can swap any server's command between sessions with
+# nothing noticing. Record each stdio server's command+args per project; warn when
+# one appears or changes after the first sighting. First sighting is a one-line
+# notice (by SessionStart, a server already spawned on trust: record, do not cry).
+def _mcp_baseline(servers, project_dir):
+    import hashlib
+    state = os.environ.get('SUPERCHARGER_STATE') or os.path.join(
+        os.environ.get('HOME') or os.path.expanduser('~'), '.claude', 'supercharger')
+    key = hashlib.sha256(os.path.realpath(project_dir).encode()).hexdigest()[:16]
+    path = os.path.join(state, 'scope', 'mcp-baseline', key + '.json')
+    cur = {}
+    for name, srv in servers.items():
+        if isinstance(srv, dict) and isinstance(srv.get('command'), str) and srv['command']:
+            args = srv.get('args') if isinstance(srv.get('args'), list) else []
+            cur[str(name)] = ' '.join([srv['command']] + [str(a) for a in args])[:300]
+    try:
+        with open(path) as f:
+            old = json.load(f)
+        old = old if isinstance(old, dict) else None
+    except Exception:
+        old = None
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(path, 'w') as f:
+            json.dump(cur, f)
+    except Exception:
+        pass
+    if old is None:
+        return ('notice', sorted(cur)) if cur else None
+    changed = sorted(n for n in cur if old.get(n) != cur[n])
+    return ('changed', [(n, n in old, cur[n][:80]) for n in changed]) if changed else None
+
+if isinstance(servers, dict) and servers:
+    _bl = _mcp_baseline(servers, project_dir)
+    if _bl and _bl[0] == 'changed':
+        for name, existed, cmdline in _bl[1]:
+            what = 'command changed' if existed else 'new server'
+            sys.stderr.write(f'[Supercharger] config-scan: .mcp.json {what}: "{name}"\n')
+            warnings.append(
+                f"[SECURITY] Project .mcp.json {what} since last session: '{name}' now runs "
+                f"`{cmdline}`. Stdio MCP servers start as OS processes with your privileges; "
+                f"if you did not make this change (e.g. it arrived with a git pull), review it "
+                f"before continuing.")
+    elif _bl and _bl[0] == 'notice':
+        sys.stderr.write(f'[Supercharger] config-scan: recorded {len(_bl[1])} project MCP '
+                         f'server(s) as baseline: {", ".join(_bl[1])[:120]}\n')
+
+# SessionStart watchPaths: the FileChanged matcher's relative tokens resolve against
+# the cwd, so a session launched in a subdirectory watched the wrong files. Hand
+# Claude Code the git-root copies as absolute paths (it accepts nonexistent ones,
+# so a file created mid-session is still seen).
+def _watch_paths(start):
+    root, d = None, os.path.realpath(start) if start else ''
+    while d:
+        if os.path.exists(os.path.join(d, '.git')):
+            root = d; break
+        nd = os.path.dirname(d)
+        if nd == d: break
+        d = nd
+    root = root or (os.path.realpath(start) if start else '')
+    if not root:
+        return []
+    rels = ('.env', '.envrc', 'package.json', '.mcp.json', '.supercharger.json', 'CLAUDE.md',
+            '.claude/settings.json', '.claude/settings.local.json')
+    return [os.path.join(root, r) for r in rels]
+
+watch = _watch_paths(project_dir)
+
 if not warnings:
+    if watch:
+        print(json.dumps({'suppressOutput': True,
+                          'hookSpecificOutput': {'hookEventName': 'SessionStart', 'watchPaths': watch}}))
     sys.exit(0)
 
 combined = ' '.join(warnings)
@@ -376,7 +449,8 @@ combined = ' '.join(warnings)
 # (systemMessage) AND Claude (additionalContext) — Claude needs to know the
 # project config may be hostile so it stays skeptical of injected instructions.
 print(json.dumps({'systemMessage': combined, 'suppressOutput': not debug_on,
-                  'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': combined}}))
+                  'hookSpecificOutput': {'hookEventName': 'SessionStart', 'additionalContext': combined,
+                                         **({'watchPaths': watch} if watch else {})}}))
 PYEOF
 )
 

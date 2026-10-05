@@ -63,7 +63,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
-| `file-watcher` | FileChanged | .env,.envrc,package.json,.claude/settings.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
+| `file-watcher` | FileChanged | .env .envrc package.json settings*.json .mcp.json .supercharger.json CLAUDE.md | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `generated-file-guard` | PreToolUse | Write, Edit, MultiEdit | Editing a GENERATED/derived file instead of its source is wasted work — the edit |
 | `git-config-exec-guard` | PreToolUse | Bash | the next ordinary git command into arbitrary shell execution — core.fsmonitor, |
 | `git-remote-guard` | PreToolUse | Bash (git *) | git-safety.sh polices HOW you push (force, --no-verify, protected branch) but |

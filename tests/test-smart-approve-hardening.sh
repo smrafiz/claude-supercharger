@@ -74,4 +74,31 @@ begin_test "smart-approve: curl -f (--fail) GET still auto-approves"
 [ "$(verdict "$D" "$(bash_json '"curl -f https://x"')")" = APPROVE ] && pass || fail "curl -f over-blocked"
 
 rm -rf "$D"
+# --- v4.1.31: read-only verb, writing/executing ARGUMENTS (Codex/Cursor CVE class) ---
+D=$(new_state)
+sa() { begin_test "smart-approve: $1 → $3"; [ "$(verdict "$D" "$(bash_json "$(python3 -c 'import json,sys;print(json.dumps(sys.argv[1]))' "$2")")")" = "$3" ] && pass || fail "expected $3 for: $2"; }
+sa "git branch -D deletes"        'git branch -D feature'          DENY
+sa "git branch -m renames"        'git branch -m old new'          DENY
+sa "git branch --delete"          'git branch --delete x'          DENY
+sa "git branch lists"             'git branch'                     APPROVE
+sa "git branch -a lists"          'git branch -a'                  APPROVE
+sa "git branch -vv lists"         'git branch -vv'                 APPROVE
+sa "git tag <name> creates"       'git tag v1.0'                   DENY
+sa "git tag -d deletes"           'git tag -d v1.0'                DENY
+sa "git tag lists"                'git tag'                        APPROVE
+sa "git tag -l lists"             'git tag -l v1*'                 APPROVE
+sa "git remote set-url"           'git remote set-url origin x'    DENY
+sa "git remote add"               'git remote add evil x'          DENY
+sa "git remote -v lists"          'git remote -v'                  APPROVE
+sa "git log --output writes"      'git log --output=f.txt'         DENY
+sa "git log reads"                'git log --oneline -5'           APPROVE
+sa "sort -o writes"               'sort -o out.txt in.txt'         DENY
+sa "sort reads"                   'sort in.txt'                    APPROVE
+sa "uniq in out writes"           'uniq in.txt out.txt'            DENY
+sa "uniq in reads"                'uniq -c in.txt'                 APPROVE
+sa "rg --pre executes"            'rg --pre ./x.sh foo'            DENY
+sa "rg reads"                     'rg foo src'                     APPROVE
+sa "find -fprint writes"          'find . -name x -fprint out'     DENY
+sa "find reads"                   'find . -name x'                 APPROVE
+
 report

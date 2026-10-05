@@ -362,6 +362,33 @@ smart_approve_verdict() {
       *';'*|*'&'*|*'|'*|*'<'*|*'>'*|*$'\n'*) return 1 ;;
     esac
 
+    # v4.1.31: the allow rules below match the leading word(s), so ARGUMENTS that
+    # write or execute rode along on a read-only verb (the Codex/Cursor CVE class:
+    # allow-listed name, dangerous arguments). Each form here defers to the user.
+    #   git branch -d/-D/-m/-M/-c/-C/-f/-u, --delete/--move/--copy/--force/
+    #     --set-upstream-to/--unset-upstream/--edit-description  (mutate refs)
+    #   git tag <name> or -d/-a/-s/-f/-m  (only a bare or -l/--list listing is read-only)
+    #   git remote add/remove/rm/rename/set-url/set-head/set-branches/prune/update
+    #   git log/diff --output  (writes a file)
+    #   sort -o/--output, uniq with an output operand, rg --pre, find -fprint/-fprint0
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+branch[[:space:]](.*[[:space:]])?(-[a-zA-Z]*[dDmMcCfu][a-zA-Z]*|--(delete|move|copy|force|set-upstream-to|unset-upstream|edit-description))([[:space:]=]|$)'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+tag([[:space:]]|$)' \
+       && ! printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+tag([[:space:]]+(-l|--list)([[:space:]].*)?)?[[:space:]]*$'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+remote[[:space:]]+(add|remove|rm|rename|set-url|set-head|set-branches|prune|update)([[:space:]]|$)'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*git[[:space:]]+(log|diff)[[:space:]](.*[[:space:]])?--output([[:space:]=]|$)'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*sort[[:space:]](.*[[:space:]])?(-[a-zA-Z]*o|--output)'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*rg[[:space:]](.*[[:space:]])?--pre([[:space:]=]|$)'; then return 1; fi
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*find[[:space:]](.*[[:space:]])?-fprint0?([[:space:]]|$)'; then return 1; fi
+    # uniq [opts] [input [output]]: a second operand is a file it overwrites.
+    if printf '%s\n' "$command" | grep -qE '^[[:space:]]*uniq([[:space:]]|$)'; then
+      _sa_ops=0
+      read -r -a _sa_arr <<< "${command#*uniq}"   # no glob expansion, unlike a bare for-in
+      for _sa_t in "${_sa_arr[@]+"${_sa_arr[@]}"}"; do
+        case "$_sa_t" in -*) ;; *) _sa_ops=$((_sa_ops + 1)) ;; esac
+      done
+      [ "$_sa_ops" -ge 2 ] && return 1
+    fi
+
     # --help / --version
     printf '%s\n' "$command" | grep -qE '(^|[[:space:]])--(help|version)([[:space:]]|$)' && return 0
     # Read-only shell commands
