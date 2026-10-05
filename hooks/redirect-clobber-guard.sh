@@ -29,6 +29,13 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 # Superset match on the raw stdin — precise parsing happens only past this gate.
 case "$_INPUT" in
   *'>'*|*'sed '*|*'sed\t'*|*'tee '*|*'dd '*|*'truncate '*|*'cp '*|*'mv '*) ;;
+  # PowerShell cmdlets: gated on the tool name so a Bash command that merely says
+  # "content" does not pay the parse. Substring, not a compact-JSON literal.
+  *PowerShell*)
+    case "$_INPUT" in
+      *[Cc]ontent*|*[Oo]ut-[Ff]ile*|*-[Ii]tem*|*'copy '*|*'move '*|*'cpi '*|*'mi '*|*'sc '*|*'clc '*) ;;
+      *) exit 0 ;;
+    esac ;;
   *) exit 0 ;;
 esac
 
@@ -40,14 +47,14 @@ check_hook_disabled "redirect-clobber-guard" && exit 0
 hook_profile_skip "redirect-clobber-guard" && exit 0
 
 TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null || true)
-[ "$TOOL_NAME" = "Bash" ] || exit 0
+case "$TOOL_NAME" in Bash|PowerShell) ;; *) exit 0 ;; esac
 CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 [ -z "$CMD" ] && exit 0
 
 # Parse clobber targets and return the FIRST that is git-tracked (empty = nothing to
 # ask). The parser lives in a sibling .py (deployed alongside — see lib/hooks.sh) to
 # avoid heredoc-in-shell quoting hazards.
-TARGET=$(CMD="$CMD" PROJECT_DIR="$PROJECT_DIR" python3 "$HOOKS_DIR/redirect-clobber-detect.py" 2>/dev/null || true)
+TARGET=$(CMD="$CMD" PROJECT_DIR="$PROJECT_DIR" SC_SHELL="$TOOL_NAME" python3 "$HOOKS_DIR/redirect-clobber-detect.py" 2>/dev/null || true)
 
 [ -z "$TARGET" ] && exit 0
 

@@ -63,6 +63,27 @@ check 'cp -r somedir app.ts'          "recursive copy skipped"                  
 check 'scp app.ts host:/p'            "scp is not cp/mv (no false-fire)"        ALLOW
 
 # once-per-file dedup: same file twice (no reset) → 2nd silent
+# --- PowerShell: cmdlet vocabulary, only on the PowerShell tool ---
+rcgps() {
+  rm -f "$_RCG_ST/scope/.redirect-clobber-ack-rcgs"
+  local payload out
+  payload=$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"PowerShell","cwd":sys.argv[1],"tool_input":{"command":sys.argv[2]},"session_id":"rcgs"}))' "$_RCG_R" "$1")
+  out=$(printf '%s' "$payload" | SUPERCHARGER_STATE="$_RCG_ST" bash "$H" 2>/dev/null)
+  if printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ASK; else echo ALLOW; fi
+}
+psc() { begin_test "redirect-clobber (PowerShell): $2 → $3"; [ "$(rcgps "$1")" = "$3" ] && pass || fail "expected $3 for: $1"; }
+psc 'Set-Content -Path app.ts -Value "x"'          "Set-Content -Path over tracked"        ASK
+psc 'set-content app.ts "x"'                       "set-content positional, lowercase"     ASK
+psc '"x" | Out-File -FilePath lib/core.ts'         "Out-File -FilePath over tracked"       ASK
+psc '"x" | Out-File lib/core.ts -Append'           "Out-File -Append"                      ALLOW
+psc 'Clear-Content app.ts'                         "Clear-Content over tracked"            ASK
+psc 'Copy-Item other.ts -Destination app.ts'       "Copy-Item -Destination over tracked"   ASK
+psc 'Move-Item new.ts app.ts -Force'               "Move-Item positional over tracked"     ASK
+psc 'Copy-Item src -Destination lib -Recurse'      "Copy-Item -Recurse skipped"            ALLOW
+psc 'Set-Content -Path notes.txt -Value x'         "untracked target"                      ALLOW
+psc '"x" > app.ts'                                 "PowerShell > redirect over tracked"    ASK
+check 'Set-Content -Path app.ts -Value x'          "cmdlet text on the BASH tool is not parsed as PowerShell" ALLOW
+
 begin_test "redirect-clobber: asks once per file per session"
 rm -f "$_RCG_ST/scope/.redirect-clobber-ack-rcgs"
 _P=$(python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":sys.argv[1],"tool_input":{"command":"echo x > app.ts"},"session_id":"rcgs"}))' "$_RCG_R")

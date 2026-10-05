@@ -310,7 +310,7 @@ get_hooks_for_mode() {
     # bypasses ALL of it. Asks (not deny) ONLY when the target is git-tracked, once
     # per file per session. Fork-free fast-path; parser in redirect-clobber-detect.py.
     # Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor|${hooks_dir}/redirect-clobber-guard.sh|")    # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/redirect-clobber-guard.sh|")    # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
     # `git commit`: secret-in-staged-diff (default on), Co-Authored-By trailer (opt-in),
     # and Conventional Commit format (opt-in via .conventional-commits). Merged from
     # three separate hooks (commit-secret-guard/commit-coauthor-guard/commit-check) to
