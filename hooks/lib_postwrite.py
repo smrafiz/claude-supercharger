@@ -109,6 +109,14 @@ def check_shebang(path, first_line, mode):
         return None
     if not first_line.startswith("#!") or mode is None or (mode & 0o111):
         return None
+    # v4.2.0: scratch and temp files are run as `bash x.sh` / `python3 x.py`, never
+    # ./x — the notice fired 119 times (~13.9K tokens) on those alone. Project files
+    # (a new hook, a tool) keep it: there the missing +x is a real bug.
+    _p = path.replace("\\", "/")
+    _tmp = (os.environ.get("TMPDIR") or "/tmp").rstrip("/") + "/"
+    if ("/scratchpad/" in _p or _p.startswith(("/tmp/", "/private/tmp/", "/var/folders/",
+                                                "/private/var/folders/", _tmp))):
+        return None
     interp = first_line[2:].strip()[:60] or "a shebang"
     base = path.rsplit("/", 1)[-1]
     return ("[not executable] The file just written starts with a shebang (%s) but "

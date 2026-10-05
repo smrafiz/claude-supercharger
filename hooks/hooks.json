@@ -517,6 +517,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cron-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "CronCreate|ScheduleWakeup"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/designsync-upload-guard.sh",
             "timeout": 15
           }
@@ -1205,6 +1215,15 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/destructive-prompt-scanner.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/peer-message-scanner.sh",
             "timeout": 15
           }
         ]

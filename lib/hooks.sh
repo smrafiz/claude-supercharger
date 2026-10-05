@@ -390,6 +390,9 @@ get_hooks_for_mode() {
     # so this is a real guard rather than another discovery log. Blocking, not
     # async: an ask cannot gate a tool call from a detached hook.
     hooks+=("PreToolUse|RemoteTrigger|${hooks_dir}/remote-trigger-guard.sh|")
+    # v4.2.0: the local twin of RemoteTrigger. A cron/wakeup prompt runs later,
+    # unattended; durable crons outlive the session. cron-discovery stays for logging.
+    hooks+=("PreToolUse|CronCreate,ScheduleWakeup|${hooks_dir}/cron-guard.sh|")
     # v2.29.9: DesignSync write_files uploads local files by path - the tool
     # reads them from disk itself, so per its own description the "contents never
     # enter your context". Every other secret check we own runs on text that
@@ -447,6 +450,9 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
+    # v4.2.0: inbound messages from other sessions/agents are harness text, which the
+    # prompt scanners skip; this one scans exactly those, advisory only.
+    hooks+=("UserPromptSubmit||${hooks_dir}/peer-message-scanner.sh|")
     # v2.10.9: block a pasted LIVE credential in the prompt before it reaches the
     # model + transcript. Shares lib-secret-patterns.sh. Override with
     # SUPERCHARGER_ALLOW_PROMPT_SECRETS=1. From dwarvesf/claude-guardrails.

@@ -21,6 +21,11 @@ SECRET_PATTERNS=(
   '[Aa][Ww][Ss]_[Ss][Ee][Cc][Rr][Ee][Tt]_[Aa][Cc][Cc][Ee][Ss][Ss]_[Kk][Ee][Yy].{0,6}[A-Za-z0-9/+]{40}'
   # GitHub — classic ghp_/gho_/ghs_/ghu_ + refresh ghr_ (v2.22.0)
   'gh[oprsu]_[A-Za-z0-9_]{36,}'
+  # OAuth (v4.2.0): Google access tokens, and any OAuth token RESPONSE an MCP server or
+  # API returns ({"access_token": "...", "refresh_token": "..."}). Value length >= 20 so
+  # schema docs and empty fields do not match.
+  'ya29\.[0-9A-Za-z_-]{20,}'
+  '"(access|refresh)_token"[[:space:]]*:[[:space:]]*"[A-Za-z0-9._~+/=-]{20,}"'
   # GitHub fine-grained PAT (v2.22.0) — github_pat_<...>, 60+ tail
   'github_pat_[A-Za-z0-9_]{60,}'
   # Generic key/secret/token — anchor on <keyword><:|=><16+ char value>

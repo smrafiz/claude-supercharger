@@ -84,7 +84,29 @@ def resolve_skill_paths(skill, home_dir, cwd):
                             out.append(p)
             except Exception:
                 continue
-    return out
+    # v4.2.0: a skill's SKILL.md is often a thin wrapper that tells the agent to run
+    # scripts/x.sh; the markdown can be clean while the script carries the payload
+    # (Feb 2026 skill audit: 76 malicious of 3,984). Both consumers get the scripts:
+    # the poisoning scanner reads them and the integrity guard notices when they
+    # change. Only for directory skills (SKILL.md/skill.md), capped so a vendored
+    # tree cannot make a Skill call slow.
+    _SCRIPT_EXT = ('.sh', '.bash', '.zsh', '.py', '.js', '.mjs', '.cjs', '.ts', '.rb', '.pl', '.ps1')
+    extra = []
+    for p in list(out):
+        if p.name.lower() != 'skill.md':
+            continue
+        try:
+            for q in sorted(p.parent.rglob('*')):
+                if len(extra) >= 40:
+                    break
+                if (q.is_file() and q.suffix.lower() in _SCRIPT_EXT
+                        and len(q.relative_to(p.parent).parts) <= 4
+                        and _identity(q) not in seen):
+                    seen.add(_identity(q))
+                    extra.append(q)
+        except Exception:
+            continue
+    return out + extra
 
 
 def _identity(p):

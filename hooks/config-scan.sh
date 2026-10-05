@@ -417,6 +417,61 @@ if isinstance(servers, dict) and servers:
         sys.stderr.write(f'[Supercharger] config-scan: recorded {len(_bl[1])} project MCP '
                          f'server(s) as baseline: {", ".join(_bl[1])[:120]}\n')
 
+# v4.2.0: hooks shipped by installed plugins run commands with the user's privileges
+# on every matching event, and a self-hosted marketplace can update them without
+# re-consent (claude-code #73914). Scan the INSTALLED copies (plugins/cache) for the
+# shapes that only make sense as a payload, and warn once per file version.
+def _plugin_hook_findings():
+    import hashlib
+    home = os.environ.get('HOME') or os.path.expanduser('~')
+    cache = os.path.join(home, '.claude', 'plugins', 'cache')
+    if not os.path.isdir(cache):
+        return []
+    state = os.environ.get('SUPERCHARGER_STATE') or os.path.join(home, '.claude', 'supercharger')
+    seen_f = os.path.join(state, 'scope', 'plugin-hooks-seen.json')
+    try:
+        seen = set(json.load(open(seen_f)))
+    except Exception:
+        seen = set()
+    bad = re.compile(
+        r'(curl|wget|iwr|Invoke-WebRequest)[^|;&]*\|\s*(ba|z|da)?sh\b'
+        r'|base64\s+(-d|--decode)[^|;&]*\|\s*(ba|z)?sh\b'
+        r'|\b(nc|ncat)\b[^|;&]*\s-e\s|/dev/tcp/'
+        r'|\b(bash|sh)\s+-c\s+[\x22\x27][^\x22\x27]*(curl|wget)\b', re.I)
+    out, files = [], []
+    for root, dirs, fnames in os.walk(cache):
+        if root[len(cache):].count(os.sep) > 5:
+            dirs[:] = []
+            continue
+        for fn in fnames:
+            if fn == 'hooks.json' or (fn == 'plugin.json' and root.endswith('.claude-plugin')):
+                files.append(os.path.join(root, fn))
+    for path in files[:200]:
+        try:
+            raw = open(path, 'rb').read(262144)
+        except Exception:
+            continue
+        key = path + ':' + hashlib.sha256(raw).hexdigest()[:16]
+        if key in seen:
+            continue
+        seen.add(key)
+        cmds = re.findall(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"', raw.decode('utf-8', 'replace'))
+        hits = [c for c in cmds if bad.search(c)]
+        if hits:
+            rel = os.path.relpath(path, cache)
+            out.append(f"[SECURITY] Installed plugin hook file {rel} has a command that fetches or "
+                       f"decodes code into a shell, or opens a socket: {hits[0][:100]!r}. Plugin hooks "
+                       f"run with your privileges on every matching event. If you did not expect this, "
+                       f"disable the plugin (claude plugin disable) and review it.")
+    try:
+        os.makedirs(os.path.dirname(seen_f), exist_ok=True)
+        json.dump(sorted(seen)[-2000:], open(seen_f, 'w'))
+    except Exception:
+        pass
+    return out
+
+warnings.extend(_plugin_hook_findings())
+
 # SessionStart watchPaths: the FileChanged matcher's relative tokens resolve against
 # the cwd, so a session launched in a subdirectory watched the wrong files. Hand
 # Claude Code the git-root copies as absolute paths (it accepts nonexistent ones,

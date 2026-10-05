@@ -11,7 +11,11 @@ import sys
 
 cmd = os.environ.get("CMD", "")
 
-ENV_FILE_RE = r"(^|[\s/=\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
+# v4.2.0: a name before `.env` (prod.env, backup.env) is a credential file too; the
+# old left boundary let any word prefix through, drifting from safety-detect.py's
+# _SENSITIVE_NAME_RE. `process.env` / `import.meta.env` are property accesses, not
+# files: excluded by name (a word boundary would also drop prod.env).
+ENV_FILE_RE = r"(^|[\s/=\'\"])(?!process\.env\b)([\w-]*)\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 
 # v4.1.6 (F1): a search PATTERN is not a path. Searching docs FOR the dotenv
@@ -83,7 +87,7 @@ cmd = _strip_metadata_text(_strip_pattern_operands(cmd))
 flagged = []
 for m in re.finditer(ENV_FILE_RE, cmd):
     full = cmd[m.start():m.end()]
-    token = re.search(r"\.env(\.[a-zA-Z0-9_-]+)?", full)
+    token = re.search(r"[\w-]*\.env(\.[a-zA-Z0-9_-]+)?", full)
     if not token:
         continue
     name = token.group(0)
@@ -96,6 +100,10 @@ if not flagged:
 
 READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
+    # v4.2.0: byte/text dumpers read content exactly as cat does (self-audit: 4 of 26
+    # spellings). NOT `source`/`.`: `set -a; . ./.env` is how projects run scripts
+    # (43 of 608 real .env commands would have been denied), and it prints nothing.
+    r"\b(od|xxd|strings|nl|hexdump|base64)\s+",
     r"\b(nano|vim?|emacs|code|subl|atom|gedit)\s+",
     r"\b(cp|mv|scp|rsync)\s+",
     r"\bgrep\s+",

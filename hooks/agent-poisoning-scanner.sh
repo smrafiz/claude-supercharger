@@ -159,6 +159,47 @@ for p in scan_paths:
     findings.extend(f)
     critical += c
 
+# v4.2.0: tool grants. A definition with no `tools:` line inherits EVERY tool; one
+# that later gains Bash (a git pull into .claude/agents) runs with more power than
+# the agent that was reviewed. Remember each definition's grant and warn when it
+# widens. First sight records only: listing grants on every call would be noise.
+def _tools(text):
+    m = re.match(r"^---\s*\n(.*?)\n---", text, re.S)
+    if not m:
+        return None
+    t = re.search(r"(?m)^tools:\s*(.*)$", m.group(1))
+    if not t:
+        return ["*"]
+    v = t.group(1).strip().strip("[]")
+    return sorted({x.strip().strip("\x22\x27") for x in v.split(",") if x.strip()}) or ["*"]
+
+_state = os.environ.get("SUPERCHARGER_STATE") or os.path.join(home_dir or "", ".claude", "supercharger")
+_seen_f = os.path.join(_state, "scope", "agent-tools-seen.json")
+try:
+    _seen = json.load(open(_seen_f))
+except Exception:
+    _seen = {}
+for p in scan_paths:
+    try:
+        cur = _tools(p.read_text(encoding="utf-8", errors="replace"))
+    except Exception:
+        continue
+    if cur is None:
+        continue
+    key = str(p)
+    old = _seen.get(key)
+    _seen[key] = cur
+    if old is None or old == cur or old == ["*"]:
+        continue
+    added = ["ALL TOOLS"] if cur == ["*"] else [x for x in cur if x not in old]
+    if added:
+        findings.append("  [tools-widened] %s now grants %s (was %s)" % (p.name, ", ".join(added), ", ".join(old)))
+try:
+    os.makedirs(os.path.dirname(_seen_f), exist_ok=True)
+    json.dump(_seen, open(_seen_f, "w"))
+except Exception:
+    pass
+
 if not findings:
     sys.exit(0)
 

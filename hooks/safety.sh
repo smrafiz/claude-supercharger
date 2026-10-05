@@ -1470,6 +1470,16 @@ if [ -n "${_RM_VAR_ASK:-}" ]; then
   exit 0
 fi
 
+# v4.2.0: installing a plugin, adding a marketplace or a skill pulls in code that runs
+# with your privileges (plugin hooks, MCP servers, scripts). A self-hosted marketplace
+# auto-updates under the trust given at install, with no re-consent (claude-code
+# #73914), and `claude plugin eval` loads and runs the plugin. ASK, not deny.
+if [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])claude[[:space:]]+plugins?[[:space:]]+(install|i|update|eval|marketplace[[:space:]]+(add|update))([[:space:]]|$) ]] \
+   || [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])(npx|pnpm[[:space:]]+dlx|bunx)[[:space:]]+(-y[[:space:]]+)?skills(@[^[:space:]]+)?[[:space:]]+add([[:space:]]|$) ]]; then
+  sc_decision ask "this installs or updates Claude Code extension code (plugin, marketplace or skill). It runs with your privileges, and a plugin from a self-hosted marketplace can later update itself without asking again. Check the source before trusting it." "confirm the source, or review it first with claude plugin details <name>"
+  exit 0
+fi
+
 # v4.2.0: a PLAIN redirect of the API endpoint or token (no metacharacters, so the
 # CRED rule above does not deny it). Pointing ANTHROPIC_BASE_URL at another host sends
 # every prompt and file Claude reads there; a cloned repo's settings.json doing the
