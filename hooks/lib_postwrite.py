@@ -113,9 +113,7 @@ def check_shebang(path, first_line, mode):
     # ./x — the notice fired 119 times (~13.9K tokens) on those alone. Project files
     # (a new hook, a tool) keep it: there the missing +x is a real bug.
     _p = path.replace("\\", "/")
-    _tmp = (os.environ.get("TMPDIR") or "/tmp").rstrip("/") + "/"
-    if ("/scratchpad/" in _p or _p.startswith(("/tmp/", "/private/tmp/", "/var/folders/",
-                                                "/private/var/folders/", _tmp))):
+    if "/scratchpad/" in _p or _p.startswith(("/tmp/", "/private/tmp/")):
         return None
     interp = first_line[2:].strip()[:60] or "a shebang"
     base = path.rsplit("/", 1)[-1]
