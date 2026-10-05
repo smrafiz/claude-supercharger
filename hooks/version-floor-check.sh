@@ -54,6 +54,7 @@ _BASELINE='PreToolUse PostToolUse SessionStart Stop UserPromptSubmit
 PreCompact SubagentStop SessionEnd Notification UserPromptExpansion'
 
 _FLOORS='
+PreModelSwitch|2.1.251|budget ask before switching up a model tier
 DirectoryAdded|2.1.219|/add-dir audit record
 MessageDisplay|2.1.152|SECURITY: secret redaction in displayed messages
 PostToolUseFailure|2.1.119|tool-failure advice and failure telemetry
