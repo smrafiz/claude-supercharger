@@ -634,6 +634,10 @@ DESTRUCT_PATTERNS=(
   '(^|[^[:alnum:]_.-])tmutil[[:space:]]+(delete|deletelocalsnapshots)([[:space:]]|$)'
   '(^|[^[:alnum:]_.-])(format-volume|clear-disk|diskpart)([[:space:]]|$)'
   '(^|[^[:alnum:]_.-])bcdedit(\.exe)?[[:space:]][^;&|]*/delete'
+  # Interactive shell wired to a network socket (schlock/dcg corpora).
+  '/dev/(tcp|udp)/[^[:space:]]+/[0-9]+'
+  '(^|[^[:alnum:]_.-])(nc|ncat|netcat)[[:space:]][^;&|]*(-e|-c|--exec|--sh-exec|--lua-exec)[[:space:]]'
+  'socat[[:space:]][^;&|]*(exec|system):'
   # Recursive ownership/permission change on a system or home directory.
   '(^|[^[:alnum:]_.-])(chmod|chown|chgrp)[[:space:]]+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)[[:space:]][^;&|]*[[:space:]](/|/(etc|usr|bin|sbin|lib|var|System|Library|home|Users|opt)/?|~/?|\$HOME/?)([[:space:]]|$)'
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
