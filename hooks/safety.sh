@@ -264,7 +264,8 @@ if _cat_enabled "filesystem"; then
       seg="${seg#"${seg%%[![:space:]]*}"}"
       args="${seg#rm }"
 
-      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
+      # v4.2.0: -R is the same flag as -r (rm(1)); lowercase-only let -Rf through.
+      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*[rR][a-zA-Z]*([[:space:]]|$) ]] || \
          [[ "$args" =~ (^|[[:space:]])--recursive([[:space:]]|$) ]]; then
         has_recursive=true
       fi
@@ -294,6 +295,12 @@ if _cat_enabled "filesystem"; then
         done
       fi
 
+      # v4.2.0: without a tty rm never prompts, so -r alone on root or home is as
+      # final as -rf. Only the root/home arm: plain `rm -r build` stays allowed.
+      if $has_recursive && ! $has_force && \
+         [[ "$args" =~ (^|[[:space:]])(\/|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/)([[:space:]]|$) ]]; then
+        block "recursive rm on root or home directory"
+      fi
       if $has_recursive && $has_force; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since

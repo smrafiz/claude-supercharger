@@ -291,7 +291,16 @@ normalize_cmd() {
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
   # gets the same answer — one place, no cross-guard drift.
   cmd=$(strip_heredoc_bodies "$cmd")
-  local _sb_src="$cmd"  # pre-prelude text, for the substitution scan below
+  # Pre-prelude text for the substitution scan below. A heredoc body still here is
+  # CODE for another language (python, node), where `$(` and backticks are not
+  # shell: replaying real commands showed 3 python heredocs newly denied when it
+  # was scanned. Keep only the text before the first heredoc body.
+  local _sb_src="$cmd"
+  if [[ "$_sb_src" =~ (^|[^<])\<\<-?[[:space:]]*[\'\"]?[A-Za-z_] ]] && [[ "$_sb_src" == *$'\n'* ]]; then
+    local _sb_head="${_sb_src%%"${BASH_REMATCH[0]}"*}"
+    local _sb_rest="${_sb_src#"$_sb_head"}"
+    _sb_src="$_sb_head${_sb_rest%%$'\n'*}"
+  fi
   # v2.8.12: pure-bash — was 4×sed + 1×tr (~10ms of forks per call). This helper
   # is sourced by safety.sh, git-safety.sh, enforce-pkg-manager.sh and runs on
   # EVERY Bash tool call, so the forks compounded on the hot path. Parameter
