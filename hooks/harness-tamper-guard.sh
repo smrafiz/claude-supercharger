@@ -45,7 +45,7 @@ case "$_INPUT" in
   # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
   # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
   *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*) : ;;
   *) exit 0 ;;
 esac
 
@@ -77,6 +77,14 @@ if [ -z "$REASON" ]; then
   # `{`) is the smuggling signal; a plain `--settings ./file.json` is left alone.
   if printf '%s' "$CMD" | grep -Eq -- 'claude\b[^|;&]*--(settings|mcp-config)[[:space:]=]+["'\'']?\{'; then
     REASON="passes inline --settings/--mcp-config JSON to claude — this defines hooks or MCP servers (arbitrary code execution) on a sub-instance without writing a file, bypassing the file-write guardrails. Use a reviewed settings/config FILE, not inline JSON."
+  fi
+fi
+if [ -z "$REASON" ]; then
+  # v4.2.0 (CC 2.1.287 Claude Mods): `--plugin-dir` loads a plugin straight from a
+  # directory, and a plugin can carry a mod -- in-process code whose tool.check can
+  # approve a call a PreToolUse hook (this whole layer) denied.
+  if printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|(/])claude[[:space:]][^;&|]*--plugin-dir([[:space:]=]|$)'; then
+    REASON="launches Claude with --plugin-dir, loading an unreviewed plugin from a directory. A plugin can carry a mod whose code approves tool calls Supercharger denied. Install plugins through the plugin manager after reviewing them, or run this yourself."
   fi
 fi
 if [ -z "$REASON" ]; then
@@ -124,7 +132,7 @@ if [ -z "$REASON" ]; then
   # v2.24.14: the code-dir arms required a trailing slash, so the bare directory
   # (`cd ~/.claude/supercharger/hooks`) did not match and the two-step `cd … ; rm -rf .`
   # attack slipped past. Now `(hooks|lib|tools)` also matches at a space or end.
-  _HT_TARGET='(\.claude/supercharger/(hooks|lib|tools)(/|[[:space:]]|$)|/supercharger/(hooks|lib|tools)(/|[[:space:]]|$)|\.claude/hooks/|\.claude/plugins/[^;&|]*/hooks/|\.claude/supercharger/?([[:space:]]|$)|\.claude/supercharger/(scope|audit)/?([[:space:]]|$)|\.supercharger-disabled)'
+  _HT_TARGET='(\.claude/supercharger/(hooks|lib|tools)(/|[[:space:]]|$)|/supercharger/(hooks|lib|tools)(/|[[:space:]]|$)|\.claude/hooks/|\.claude/plugins/[^;&|]*/hooks/|\.claude/supercharger/?([[:space:]]|$)|\.claude/supercharger/(scope|audit)/?([[:space:]]|$)|\.supercharger-disabled|\.claude/dev-mods(/|[[:space:]]|$))'
   # v2.23.22: PowerShell cmdlet verbs added for cross-channel parity (matcher now
   # Bash,PowerShell) — Remove-Item/Move-Item/Rename-Item/Clear-Content/Set-Content/
   # Out-File are the PowerShell equivalents of rm/mv/truncate/redirect over the hooks.
