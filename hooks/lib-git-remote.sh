@@ -30,17 +30,38 @@ def host_of(url):
     m = re.match(r'^([^/:]+)', u)                        # host up to / or :
     return m.group(1).lower() if m else None
 
+# v4.2.0: on a SHARED forge every account has the same host, so host equality says
+# nothing about whose repo it is. A push of this repo to another account's repo on
+# github.com (skill exfiltration, agents publishing screenshots to public repos --
+# Mitiga, PixelLeak, Sept 2026) matched origin's host and passed.
+SHARED_FORGES = {'github.com', 'gitlab.com', 'bitbucket.org', 'codeberg.org'}
+
+def owner_of(url):
+    if not url:
+        return None
+    u = re.sub(r'^[a-zA-Z][a-zA-Z0-9+.-]*://', '', url.strip())
+    m = re.match(r'^(?:[^/@]+@)?[^:/]+[:/]+([^/]+)/', u)
+    return m.group(1).lower() if m else None
+
 def is_urlish(tok):
     return bool(re.match(r'^([a-zA-Z][a-zA-Z0-9+.-]*://|[^/@\s]+@[^/@\s]+:)', tok))
 
 # name -> host from the repo's real remotes.
 name_host = {}
+name_url = {}
 for line in remotes_raw.splitlines():
     if '\t' not in line:
         continue
     name, url = line.split('\t', 1)
     name_host[name.strip()] = host_of(url)
+    name_url[name.strip()] = url.strip()
 origin_host = name_host.get('origin')
+origin_owner = owner_of(name_url.get('origin'))
+
+def foreign_owner(url):
+    # Same shared-forge host as origin, different account.
+    h, o = host_of(url), owner_of(url)
+    return bool(h and h == origin_host and h in SHARED_FORGES and o and origin_owner and o != origin_owner)
 
 # Tokenize (quote-aware); fall back to naive split on malformed quoting.
 try:
@@ -120,12 +141,14 @@ invs = list(git_invocations(toks))
 # `git remote add x <url> && git push x --all` — at PreToolUse the add hasn't run,
 # so x isn't in the repo's remotes yet; learn it from the command itself).
 local_added = {}
+local_added_url = {}
 for inv in invs:
     sub, args = subcommand_and_args(inv)
     if sub == 'remote' and args and args[0] == 'add':
         name, url = remote_add_name_url(args[1:])
         if name and url:
             local_added[name] = host_of(url)
+            local_added_url[name] = url
 
 known = dict(name_host); known.update(local_added)
 
@@ -162,6 +185,12 @@ for inv in invs:
         target = push_target(args)
         if not target:
             continue
+        # Only a URL or a remote added in this same command: a remote the user
+        # already configured (an upstream on another account) is their decision.
+        _u = target if is_urlish(target) else local_added_url.get(target)
+        if _u and foreign_owner(_u):
+            print(f"ASK\t{host_of(_u)}\tPushes this repository to another account's repo ({owner_of(_u)}) on {host_of(_u)}, not origin's ({origin_owner}) -- a whole-repo exfiltration vector that the same host hides. Confirm this destination is yours.")
+            raise SystemExit(0)
         if is_urlish(target):
             th = host_of(target)
             if th and (origin_host is None or th != origin_host):
