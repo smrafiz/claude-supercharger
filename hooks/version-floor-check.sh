@@ -177,7 +177,7 @@ EOF
 _head="Claude Code $CC_VER predates $n hook event(s) Supercharger uses.\\nThese hooks are registered but WILL NOT FIRE, and Claude Code reports no error for them:$inert"
 [ "$n" -gt 0 ] || _head="Claude Code $CC_VER predates fixes for hooks that failed open."
 _core="Core protection is unaffected: the guards on PreToolUse and PostToolUse (safety, path, secret and injection scanning) run on events every supported build has."
-[ -n "$fixes" ] && _core="Until you upgrade, those PreToolUse protections can be skipped in the cases listed."
+[ -n "$fixes" ] && _core="${_core} EXCEPT the hook fixes listed: until you upgrade, PreToolUse protections can be skipped in those cases."
 [ -n "$fixes" ] && _head="${_head}\\n\\n  Hook fixes this build lacks:${fixes}"
 
 # ── Warn at most once a day per version ───────────────────────────────────────
