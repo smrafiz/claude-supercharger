@@ -61,6 +61,8 @@ if [ -z "$CMD" ]; then
   CMD=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json;ti=json.load(sys.stdin).get('tool_input',{});print(ti.get('command') or ti.get('script') or '')" 2>/dev/null || echo "")
 fi
 [ -z "$CMD" ] && exit 0
+# v4.2.0: a command asking for --help runs nothing (`gh release delete --help`).
+CMD=$(printf '%s' "$CMD" | LC_ALL=C sed -E 's/(^|[;&|])[^;&|]*[[:space:]]--help([[:space:]][^;&|]*)?([;&|]|$)/\1 \3/g')
 
 # Destructive bulk-delete operations per provider. Each pattern targets an
 # irreversible resource teardown; ordinary reads/list/describe do not match.

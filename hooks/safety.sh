@@ -626,7 +626,9 @@ DESTRUCT_PATTERNS=(
   # a privilege-escalation / persistence binary. Only chmod 777 was caught before.
   # 4-digit modes with a special leading bit (2/4/6/7); benign 3-digit + 0/1-lead pass.
   'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
-  'mkfs\.' 'dd[[:space:]]+if='
+  # v4.2.0: dd denied only when it WRITES a disk device; `dd if=/dev/zero of=disk.img`
+  # and `of=/dev/null` benchmarks are routine.
+  'mkfs\.' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
   # v4.1.2: raw-device destruction / partition-table writers — the SIBLING family
   # of mkfs./dd of=/>dev already above. Same effect (wipe a disk or its partition
@@ -1019,7 +1021,7 @@ _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 # release create` as message-bearing — the enumeration existed and was not consulted.
 CMD_SCAN="$CMD"
 case "$CMD_SCAN" in
-  *m\ *|*--message\ *|*--body\ *|*--notes\ *)
+  *m\ *|*--message\ *|*--body\ *|*--notes\ *|*--search\ *|*--title\ *)
     # v4.1.19: newlines are folded to \036 around the sed, so a MULTI-LINE
     # message (`git commit -m "subject<newline><newline>body"`) is blanked too;
     # line-by-line sed never saw its closing quote and scanned the body as shell.
@@ -1027,8 +1029,8 @@ case "$CMD_SCAN" in
     # git commit's no-argument letters may precede the m, so `sh -cm '...'` can
     # never blank a script body.
     CMD_SCAN=$(printf '%s' "$CMD_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
-      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
+      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)'[^']*'/\1''/g" \
+      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
     ;;
 esac
 # v4.1.17: a search tool's quoted PATTERN is data too. `grep -E '\.(cs|py|sh)$'`
@@ -1045,6 +1047,17 @@ case "$CMD_SCAN" in
     ;;
 esac
 
+# v4.2.0: a `gh search <kind> "<query>"` query is data, and a gh command asking for
+# --help runs nothing. Both were denied by the patterns their text happened to name.
+case "$CMD_SCAN" in
+  *gh\ *)
+    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+      -e "s/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)'[^']*'/\1''/g" \
+      -e 's/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)"[^"]*"/\1""/g' \
+      -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?$/\1gh help/' \
+      -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
+    ;;
+esac
 # v4.2.0: command-position `bash|sh|zsh|dash -c BODY`. A literal body is appended to
 # the command by normalize_cmd, so every rule above and below judges it. Only a body
 # whose content cannot be judged is denied: unquoted, a command substitution or

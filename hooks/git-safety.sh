@@ -273,7 +273,9 @@ while IFS= read -r seg; do
     block "git restore <path> discards uncommitted working-tree changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
-  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+  # v4.2.0: -n / --dry-run only lists what would go.
+  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])(--dry-run|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$) ]]; then
     block "git clean with force permanently removes untracked files"
   fi
 
