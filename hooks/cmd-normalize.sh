@@ -228,7 +228,7 @@ _sc_wrapper_prelude_into() {
     /*/?*) [ -n "${_t0##*/}" ] && cmd="${_t0##*/}${cmd#"$_t0"}" ;;
   esac
   # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
-  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox)[[:space:]]+ ]]; do
+  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
     cmd="${cmd#"${BASH_REMATCH[0]}"}"
     while :; do
@@ -246,7 +246,9 @@ _sc_wrapper_prelude_into() {
             timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
             stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
             xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
-            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
+            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S|\
+            caffeinate:-t|caffeinate:-w|watch:-n|watch:--interval|flock:-w|flock:-E|\
+            xcrun:--sdk|xcrun:--toolchain|wsl:-d|wsl:--distribution|wsl:-u|wsl:--user|wsl:--cd)
               cmd="${cmd#"${cmd%%[![:space:]]*}"}"
               _tok="${cmd%%[[:space:]]*}"
               cmd="${cmd#"$_tok"}"
@@ -259,6 +261,11 @@ _sc_wrapper_prelude_into() {
       # Only for wrappers that take one -- never for sudo/env, where the next token
       # IS the command and dropping it would hide what actually runs.
       case "$_w" in
+        # v4.2.0: these take a lock or log FILE before the command it runs.
+        flock|script)
+          _tok="${cmd%%[[:space:]]*}"
+          [ -n "$_tok" ] && { cmd="${cmd#"$_tok"}"; _w=done; continue; }
+          ;;
         timeout|nice|ionice|chrt|taskset)
           _tok="${cmd%%[[:space:]]*}"
           # v4.1.14: a duration starts with a digit or a dot. Without that, `sh` —
