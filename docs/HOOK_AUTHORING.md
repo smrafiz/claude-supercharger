@@ -783,3 +783,26 @@ tests built the command from `$D`, which an earlier section of the same file had
 set to `DROP`, so they ran `bash -c "DROP -rf /"`. They had passed only because
 every `bash -c` was denied. Print the exact command a failing test sends before
 deciding whether the rule or the test is wrong.
+
+### A normalizer change can silently disable a rule that read what you removed
+
+Dropping git's global options (`-C`, `-c`, `--no-pager`) let `git -C dir reset --hard`
+reach the reset rule — and also removed `-c` from the segment the `-c core.hooksPath`
+rule was reading, so that rule stopped firing. The new probes all passed; only the full
+`tests/test-hooks.sh` caught it. Before changing what `normalize_cmd` or `split_segments`
+emits, grep every rule that reads the segment for the text you are removing, and run the
+whole hook suite, not just the cases you added.
+
+### Extend the fast-path gate with the rule
+
+Three times in one change set a new rule never ran: git-safety's case-glob gate did not
+admit `branch -f`, `read-tree` or `alias.`, and safety.sh's `_NEED_PY` gate did not admit
+the new token-store paths. A rule's probe that returns "allow" may mean the gate exited,
+not that the rule judged it. Add the gate token in the same edit, and include one
+deny case per new rule in the tests.
+
+### Blank data with a placeholder, not a space
+
+Replacing quoted text with a space changed what the remaining text meant: `cut -d'"'`
+became `cut -d `, which the network-upload rule reads as `curl -d `. Blanking must keep
+token boundaries; use a placeholder (`_Q_`) so flags keep their operands.

@@ -4,15 +4,15 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-05 evening, session `3d213381`.*
+*Verified 2026-10-06 evening, session `3d213381`.*
 
-- **Released: v4.1.30** (installed on Machine A). master = 50405e3 (#97 + #98, all of v4.2.0).
-- **In flight: v4.2.0 release**, detached on Machine A: `release.sh stage minor` then
-  `.claude/worktrees/tmp/finish420.sh` (waits rel/4.2.0 CI + master Windows, promotes, update.sh).
-  Logs: .claude/worktrees/tmp/{stage420,finish420,promote420}.log. Verify: `gh release view v4.2.0`.
-  Do NOT merge to master until promoted (the ff promote refuses).
-- **Unpushed:** branch docs/handoff-2026-10-05b (this handoff + HOOK_AUTHORING notes). Push + PR
-  after 4.2.0 is promoted.
+- **Released: v4.1.30** (installed on Machine A). master = 945b46d (#97 #98 #99).
+- **Open PR #100** (feat/sweep5): sweep-5 bypass + FP fixes, 33 commits, PR checks green;
+  Windows run 37456015740 pending. User approved: merge when green, then release v4.2.0.
+- **Release recipe:** `release.sh stage minor --yes --message "..."` detached (nohup & disown);
+  `echo y |` does NOT work (it answers the CHANGELOG prompt). Then promote --yes, update.sh.
+- **Unpushed:** docs/handoff-2026-10-05b (worktree b4): this carry file, briefs, HOOK_AUTHORING notes.
+- **4.2.1 list** in PR #100 body (quote decode, ssh/sed-e, Windows C:/Users + .NET Delete).
 - **Machine A:** many redundant worktrees under .claude/worktrees/; stash `sog` (user's to delete).
 - **Machine B**: unknown. **Open (user)**: radius-apps guard-push wrapper; rotate CRON_SECRET.
 
@@ -42,6 +42,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-06 — 3d213381
+#99 fixed master Windows (CR-CR-LF). Sweep 5 (4 research agents) -> PR #100: normalizer
+bypasses, FPs, Mods/Artifact/token/remote coverage. Classifier cut many patch turns.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-06 deep)
+
 #### 2026-10-05 (evening) — 3d213381
 Batch 4 merged (#98, 50405e3) after fixing 3 tests (2 test bugs, 1 real crontab separator gap
 present since v4.1.17); suite 6212/0. v4.2.0 staging/promoting detached.
@@ -62,10 +67,4 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 v4.1.26 staged, promote pending master Windows. #88 guards ShareOnboardingGuide
 (uploads ./ONBOARDING.md, schema read from the CC binary); #89 env-exec-guard
 PowerShell. Coverage-diff #12 (LSP) closed as no-leak.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-10-01 — 3d213381
-v4.1.24 and v4.1.25 out. Coverage diff vs CC 2.1.286 found PowerShell output and
-elicitation gaps (#85, #86, pending). Skills list was the largest context cost;
-Shopify skills moved into their projects.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
