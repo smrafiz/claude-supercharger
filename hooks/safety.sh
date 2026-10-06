@@ -629,6 +629,13 @@ DESTRUCT_PATTERNS=(
   # v4.2.0: dd denied only when it WRITES a disk device; `dd if=/dev/zero of=disk.img`
   # and `of=/dev/null` benchmarks are routine.
   'mkfs\.' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
+  # v4.2.0 (sweep 5, dcg corpus): macOS and Windows disk and backup destruction.
+  '(^|[^[:alnum:]_.-])diskutil[[:space:]]+(erase[[:alnum:]]*|zeroDisk|secureErase|reformat|partitionDisk|apfs[[:space:]]+delete[[:alnum:]]*)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])tmutil[[:space:]]+(delete|deletelocalsnapshots)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])(format-volume|clear-disk|diskpart)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])bcdedit(\.exe)?[[:space:]][^;&|]*/delete'
+  # Recursive ownership/permission change on a system or home directory.
+  '(^|[^[:alnum:]_.-])(chmod|chown|chgrp)[[:space:]]+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)[[:space:]][^;&|]*[[:space:]](/|/(etc|usr|bin|sbin|lib|var|System|Library|home|Users|opt)/?|~/?|\$HOME/?)([[:space:]]|$)'
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
   # v4.1.2: raw-device destruction / partition-table writers — the SIBLING family
   # of mkfs./dd of=/>dev already above. Same effect (wipe a disk or its partition
