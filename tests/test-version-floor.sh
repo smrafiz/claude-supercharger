@@ -36,7 +36,7 @@ _run_at() {  # $1 = version -> the hook's stdout
 }
 
 begin_test "current Claude Code produces no warning"
-OUT=$(_run_at "2.1.289")
+OUT=$(_run_at "2.1.290")
 [ -z "$OUT" ] && pass || fail "expected silence on a current build, got: $OUT"
 
 begin_test "a build below the highest floor warns"
@@ -94,7 +94,7 @@ CALLS=$(wc -l < "$T/calls" | tr -d ' ')
 [ "$CALLS" = "1" ] && pass || fail "expected 1 version fork across 3 runs, got $CALLS"
 
 begin_test "cache invalidates when the claude binary changes"
-printf '#!/bin/sh\necho called >> %s/calls\necho "2.1.289 (Claude Code)"\n' "$T" > "$T/claude"
+printf '#!/bin/sh\necho called >> %s/calls\necho "2.1.290 (Claude Code)"\n' "$T" > "$T/claude"
 chmod +x "$T/claude"; touch -t 202601011300.00 "$T/claude"
 SUPERCHARGER_STATE="$S" SUPERCHARGER_CC_BIN="$T/claude" bash "$HOOK" </dev/null >/dev/null 2>&1 || true
 CALLS=$(wc -l < "$T/calls" | tr -d ' ')
@@ -139,7 +139,7 @@ begin_test "emits nothing on stdout when the build is current"
 # A stray non-JSON byte on stdout would be parsed as a hook response every
 # session, so silence has to mean actually silent.
 S9=$(mktemp -d)
-OUT=$(SUPERCHARGER_STATE="$S9" SUPERCHARGER_CC_BIN="$(_fake_cc 2.1.289)" bash "$HOOK" </dev/null 2>/dev/null || true)
+OUT=$(SUPERCHARGER_STATE="$S9" SUPERCHARGER_CC_BIN="$(_fake_cc 2.1.290)" bash "$HOOK" </dev/null 2>/dev/null || true)
 [ -z "$OUT" ] && pass || fail "expected empty stdout, got: $OUT"
 
 # ── Drift guard ───────────────────────────────────────────────────────────────
