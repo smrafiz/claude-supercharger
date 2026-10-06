@@ -34,7 +34,7 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 
 # Fast path: publish carries a file; reply and room_send carry outbound TEXT;
 # ShareOnboardingGuide carries no path at all (see below).
-case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*|*ShareOnboardingGuide*) ;; *) exit 0 ;; esac
+case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*|*ShareOnboardingGuide*|*'"files"'*|*'"data"'*) ;; *) exit 0 ;; esac
 
 ACTION=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.action // empty' 2>/dev/null || true)
 [ "$ACTION" = "list" ] && exit 0
@@ -64,8 +64,12 @@ fi
 # 4KiB JSON payload is not something an approval dialog makes obvious, which is the
 # same argument sendmessage-guard was built on. Same shared pattern list as the
 # rest of the egress family.
+# v4.2.0: ArtifactData set/update writes an inline `data` document every viewer of
+# the page can read -- the same egress as a reply. (ArtifactComments reply already
+# carries action=reply; both tools were missing from the hook's matcher.)
+case "$TOOL_NAME:$ACTION" in ArtifactData:set|ArtifactData:update|ArtifactData:batch) ACTION=reply ;; esac
 if [ "$ACTION" = "reply" ] || [ "$ACTION" = "room_send" ]; then
-  OUTBOUND=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.text // empty, (.tool_input.data // empty | tostring)] | join("\n")' 2>/dev/null || true)
+  OUTBOUND=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.text // empty, (.tool_input.data // empty | tostring), (.tool_input.writes // empty | tostring)] | join("\n")' 2>/dev/null || true)
   if [ -n "$OUTBOUND" ]; then
     # shellcheck source=hooks/lib-secret-patterns.sh
     . "$HOOKS_DIR/lib-secret-patterns.sh"
@@ -87,6 +91,20 @@ Remove the secret and send a reference instead."
     fi
   fi
   exit 0
+fi
+
+# v4.2.0: a publish can carry MORE than one local file -- `file_paths` (asset batch)
+# and the `files` map (supporting files, string or {from} sources). Only file_path
+# was scanned, so a key in a supporting script published unscanned. Each extra
+# source is run back through this hook as a single-file publish.
+_AP_EXTRA=$(printf '%s\n' "$_INPUT" | jq -r '[(.tool_input.file_paths // [])[], ((.tool_input.files // {}) | if type=="object" then (to_entries[] | .value | if type=="string" then . elif type=="object" then (.from // empty) else empty end) elif type=="array" then (.[] | .path // empty) else empty end)] | .[]' 2>/dev/null || true)
+if [ -n "$_AP_EXTRA" ]; then
+  while IFS= read -r _ap_f; do
+    [ -n "$_ap_f" ] || continue
+    printf '%s\n' "$_INPUT" | jq -c --arg f "$_ap_f" '.tool_input = {action: "publish", file_path: $f} | .tool_name = "Artifact"' \
+      | bash "${BASH_SOURCE[0]}"; _ap_rc=$?
+    [ "$_ap_rc" -ne 0 ] && exit "$_ap_rc"
+  done <<< "$_AP_EXTRA"
 fi
 
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)

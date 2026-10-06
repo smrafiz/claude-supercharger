@@ -264,7 +264,8 @@ if _cat_enabled "filesystem"; then
       seg="${seg#"${seg%%[![:space:]]*}"}"
       args="${seg#rm }"
 
-      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*r[a-zA-Z]*([[:space:]]|$) ]] || \
+      # v4.2.0: -R is the same flag as -r (rm(1)); lowercase-only let -Rf through.
+      if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*[rR][a-zA-Z]*([[:space:]]|$) ]] || \
          [[ "$args" =~ (^|[[:space:]])--recursive([[:space:]]|$) ]]; then
         has_recursive=true
       fi
@@ -294,6 +295,12 @@ if _cat_enabled "filesystem"; then
         done
       fi
 
+      # v4.2.0: without a tty rm never prompts, so -r alone on root or home is as
+      # final as -rf. Only the root/home arm: plain `rm -r build` stays allowed.
+      if $has_recursive && ! $has_force && \
+         [[ "$args" =~ (^|[[:space:]])(\/|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/)([[:space:]]|$) ]]; then
+        block "recursive rm on root or home directory"
+      fi
       if $has_recursive && $has_force; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since
@@ -619,7 +626,20 @@ DESTRUCT_PATTERNS=(
   # a privilege-escalation / persistence binary. Only chmod 777 was caught before.
   # 4-digit modes with a special leading bit (2/4/6/7); benign 3-digit + 0/1-lead pass.
   'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
-  'mkfs\.' 'dd[[:space:]]+if='
+  # v4.2.0: dd denied only when it WRITES a disk device; `dd if=/dev/zero of=disk.img`
+  # and `of=/dev/null` benchmarks are routine.
+  'mkfs\.' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
+  # v4.2.0 (sweep 5, dcg corpus): macOS and Windows disk and backup destruction.
+  '(^|[^[:alnum:]_.-])diskutil[[:space:]]+(erase[[:alnum:]]*|zeroDisk|secureErase|reformat|partitionDisk|apfs[[:space:]]+delete[[:alnum:]]*)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])tmutil[[:space:]]+(delete|deletelocalsnapshots)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])(format-volume|clear-disk|diskpart)([[:space:]]|$)'
+  '(^|[^[:alnum:]_.-])bcdedit(\.exe)?[[:space:]][^;&|]*/delete'
+  # Interactive shell wired to a network socket (schlock/dcg corpora).
+  '/dev/(tcp|udp)/[^[:space:]]+/[0-9]+'
+  '(^|[^[:alnum:]_.-])(nc|ncat|netcat)[[:space:]][^;&|]*(-e|-c|--exec|--sh-exec|--lua-exec)[[:space:]]'
+  'socat[[:space:]][^;&|]*(exec|system):'
+  # Recursive ownership/permission change on a system or home directory.
+  '(^|[^[:alnum:]_.-])(chmod|chown|chgrp)[[:space:]]+(-[a-zA-Z]*R[a-zA-Z]*|--recursive)[[:space:]][^;&|]*[[:space:]](/|/(etc|usr|bin|sbin|lib|var|System|Library|home|Users|opt)/?|~/?|\$HOME/?)([[:space:]]|$)'
   '>[[:space:]]*/dev/sd' 'truncate[[:space:]]+-s[[:space:]]*0'
   # v4.1.2: raw-device destruction / partition-table writers — the SIBLING family
   # of mkfs./dd of=/>dev already above. Same effect (wipe a disk or its partition
@@ -667,7 +687,13 @@ DESTRUCT_PATTERNS=(
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
   # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
-  'find[[:space:]].*-delete([[:space:]]|$)' 'find[[:space:]].*-exec[[:space:]]+rm([[:space:]]|$)'
+  # v4.2.0: only where the search ROOT is the danger: an absolute path, home, a
+  # parent, or `.` with nothing narrowing it. `find . -name '*.pyc' -delete` and
+  # `find dist -type f -delete` are routine cleanup (dcg/flowrail allow corpora).
+  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.)[^;&|]*[[:space:]]-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
+  'find([[:space:]]+\./?)?[[:space:]]+-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
+  # ...and anywhere when the match is the repository's own .git metadata.
+  'find[[:space:]][^;&|]*-(i?name|path)[[:space:]]+["'"'"']?[^[:space:]]*\.git["'"'"']?[[:space:]][^;&|]*-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
   # v2.9.9: Docker data destruction — `docker volume rm/prune` and `system prune
   # --volumes` delete named volumes (databases, uploads) irreversibly. Plain
   # `system prune` (no --volumes) is left allowed — it only clears dangling
@@ -681,7 +707,8 @@ DESTRUCT_PATTERNS=(
   # not undoable from local state — hence blocked here rather than left alone.
   # Verified against the deployed hook first: --volumes and `volume prune` both
   # returned rc=2 while -a passed clean. (Clear-Capabilities/agentic-security)
-  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-a([[:space:]]|$)|--all([[:space:]]|$))'
+  # v4.2.0: combined short flags (`-af`, `-fa`) are the same -a.
+  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-[a-zA-Z]*a[a-zA-Z]*([[:space:]]|$)|--all([[:space:]]|$))'
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
@@ -1004,33 +1031,9 @@ _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 # --message and stopped there, so `gh pr create --body "...DROP TABLE..."` still
 # denied. safety-detect.py check_sensitive_read had ALREADY listed `gh pr|issue|
 # release create` as message-bearing — the enumeration existed and was not consulted.
-CMD_SCAN="$CMD"
-case "$CMD_SCAN" in
-  *m\ *|*--message\ *|*--body\ *|*--notes\ *)
-    # v4.1.19: newlines are folded to \036 around the sed, so a MULTI-LINE
-    # message (`git commit -m "subject<newline><newline>body"`) is blanked too;
-    # line-by-line sed never saw its closing quote and scanned the body as shell.
-    # Clustered short flags too (`git commit -am "..."`, `-qm`). Only
-    # git commit's no-argument letters may precede the m, so `sh -cm '...'` can
-    # never blank a script body.
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
-      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
-    ;;
-esac
-# v4.1.17: a search tool's quoted PATTERN is data too. `grep -E '\.(cs|py|sh)$'`
-# read as a pipe into sh, `grep 'prisma migrate reset' docs` as a DB reset,
-# `grep -E 'blkdiscard|...' hooks/` as a disk wipe - all real commands, all denied.
-# Only a quoted pattern directly after the tool name and its flags (or -e) is
-# blanked; files, pipes and anything chained after stay scanned, and an unquoted
-# or unterminated pattern is left intact.
-case "$CMD_SCAN" in
-  *grep*|*rg\ *|*ag\ *|*ack\ *)
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-      -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+)'[^']*'/\1\6''/g" \
-      -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g')
-    ;;
-esac
+# Blanking lives in cmd-normalize.sh (sc_blank_data_into), shared with
+# human-approval-gate.sh so the two never drift apart again.
+sc_blank_data_into "$CMD"; CMD_SCAN="$_SC_SCAN"
 
 # v4.2.0: command-position `bash|sh|zsh|dash -c BODY`. A literal body is appended to
 # the command by normalize_cmd, so every rule above and below judges it. Only a body
@@ -1463,6 +1466,8 @@ case "$CMD" in
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
   *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  # v4.2.0: AI-agent token stores (same list as the detector) -- two-gate trap.
+  *.credentials.json*|*oauth_creds*|*github-copilot*) _NEED_PY=true ;;
   # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).
   # Gate is a superset of the detector's _SENSITIVE_NAME_RE clause; the detector
   # decides. `client_secret` over-admits (it is also an env-var name) but only

@@ -162,9 +162,13 @@ _sc_wrapper_prelude_into() {
     while :; do
       _before_struct="$cmd"
       cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+      # v4.2.0: also drop the group's CLOSING token. Stripping only the opener left
+      # `)` glued to the last word, so `(rm -rf /)` was checked as `rm -rf /)` and
+      # every target and end-anchored flag rule missed it.
       case "$cmd" in
-        '(('*)  cmd="${cmd#??}" ;;
-        '('*|'{'*) cmd="${cmd#?}" ;;
+        '(('*)  cmd="${cmd#??}"; cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%))}" ;;
+        '('*)   cmd="${cmd#?}";  cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%)}" ;;
+        '{'*)   cmd="${cmd#?}";  cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%\}}"; cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%;}" ;;
       esac
       # v2.29.36: a `case` GLOB, not a regex. The regex form
       #   [[ "$cmd" =~ ^(if|then|...|!)[[:space:]]+ ]]
@@ -224,7 +228,7 @@ _sc_wrapper_prelude_into() {
     /*/?*) [ -n "${_t0##*/}" ] && cmd="${_t0##*/}${cmd#"$_t0"}" ;;
   esac
   # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
-  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox)[[:space:]]+ ]]; do
+  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
     cmd="${cmd#"${BASH_REMATCH[0]}"}"
     while :; do
@@ -242,7 +246,9 @@ _sc_wrapper_prelude_into() {
             timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
             stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
             xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
-            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S)
+            parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S|\
+            caffeinate:-t|caffeinate:-w|watch:-n|watch:--interval|flock:-w|flock:-E|\
+            xcrun:--sdk|xcrun:--toolchain|wsl:-d|wsl:--distribution|wsl:-u|wsl:--user|wsl:--cd)
               cmd="${cmd#"${cmd%%[![:space:]]*}"}"
               _tok="${cmd%%[[:space:]]*}"
               cmd="${cmd#"$_tok"}"
@@ -255,6 +261,11 @@ _sc_wrapper_prelude_into() {
       # Only for wrappers that take one -- never for sudo/env, where the next token
       # IS the command and dropping it would hide what actually runs.
       case "$_w" in
+        # v4.2.0: these take a lock or log FILE before the command it runs.
+        flock|script)
+          _tok="${cmd%%[[:space:]]*}"
+          [ -n "$_tok" ] && { cmd="${cmd#"$_tok"}"; _w=done; continue; }
+          ;;
         timeout|nice|ionice|chrt|taskset)
           _tok="${cmd%%[[:space:]]*}"
           # v4.1.14: a duration starts with a digit or a dot. Without that, `sh` —
@@ -272,6 +283,43 @@ _sc_wrapper_prelude_into() {
   done
     [ "$cmd" = "$_before_all" ] && break
   done
+  # v4.2.0: git's global options sit between `git` and the subcommand, and the git
+  # rules anchor on `git <subcommand>`. Drop them (with their values) so the rules
+  # see the subcommand.
+  case "$cmd" in
+    'git '*)
+      local _g_rest="${cmd#git}" _g_tok
+      while :; do
+        _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
+        _g_tok="${_g_rest%%[[:space:]]*}"
+        case "$_g_tok" in
+          -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--config-env|--super-prefix)
+            _g_rest="${_g_rest#"$_g_tok"}"
+            _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
+            _g_tok="${_g_rest%%[[:space:]]*}"; _g_rest="${_g_rest#"$_g_tok"}" ;;
+          -*) [ -z "${_g_tok#-}" ] && break; _g_rest="${_g_rest#"$_g_tok"}" ;;
+          *) break ;;
+        esac
+      done
+      cmd="git $_g_rest"
+      # git accepts any unambiguous prefix of a long option, and `--force=<bool>`.
+      # Spell the ones the rules key on out in full.
+      case "$cmd" in
+        *' --'*)
+          local _g_pad=" $cmd " _g_p _g_full
+          for _g_p in ha:hard har:hard for:force forc:force del:delete dele:delete delet:delete \
+                      no-v:no-verify no-ve:no-verify no-ver:no-verify no-veri:no-verify no-verif:no-verify; do
+            _g_full="${_g_p#*:}"; _g_p="${_g_p%%:*}"
+            _g_pad="${_g_pad// --$_g_p / --$_g_full }"
+          done
+          while [[ "$_g_pad" =~ [[:space:]]--force=[^[:space:]]* ]]; do
+            _g_pad="${_g_pad/"${BASH_REMATCH[0]}"/ --force}"
+          done
+          _g_pad="${_g_pad# }"; cmd="${_g_pad% }"
+          ;;
+      esac
+      ;;
+  esac
   # Same bytes $(...) would hand back: command substitution strips trailing newlines.
   while [[ "$cmd" == *$'\n' ]]; do cmd="${cmd%$'\n'}"; done
   _SC_WP="$cmd"
@@ -287,6 +335,16 @@ normalize_cmd() {
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
   # gets the same answer — one place, no cross-guard drift.
   cmd=$(strip_heredoc_bodies "$cmd")
+  # Pre-prelude text for the substitution scan below. A heredoc body still here is
+  # CODE for another language (python, node), where `$(` and backticks are not
+  # shell: replaying real commands showed 3 python heredocs newly denied when it
+  # was scanned. Keep only the text before the first heredoc body.
+  local _sb_src="$cmd"
+  if [[ "$_sb_src" =~ (^|[^<])\<\<-?[[:space:]]*[\'\"]?[A-Za-z_] ]] && [[ "$_sb_src" == *$'\n'* ]]; then
+    local _sb_head="${_sb_src%%"${BASH_REMATCH[0]}"*}"
+    local _sb_rest="${_sb_src#"$_sb_head"}"
+    _sb_src="$_sb_head${_sb_rest%%$'\n'*}"
+  fi
   # v2.8.12: pure-bash — was 4×sed + 1×tr (~10ms of forks per call). This helper
   # is sourced by safety.sh, git-safety.sh, enforce-pkg-manager.sh and runs on
   # EVERY Bash tool call, so the forks compounded on the hot path. Parameter
@@ -404,7 +462,7 @@ normalize_cmd() {
   # the -exec block above does, so every segment rule sees it. The original text
   # stays in place for the rules that match on it.
   case "$cmd" in
-    *sh\ *-*c*)
+    *sh\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*)
       local _sc_scan="$cmd" _sc_body
       # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
@@ -417,11 +475,12 @@ normalize_cmd() {
           ;;
       esac
       local _sc_q="'" _sc_shc
-      _sc_shc='(^|[[:space:];&|(`])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh|ash)[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      # v4.2.0: also a Windows spelling: `.exe`, a drive or backslash path, a quoted path.
+      _sc_shc='(^|[[:space:];&|(`])(["'"$_sc_q"']?([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash)(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
       _sc_tails=""
       for _sc_i in 1 2 3 4 5; do
         [[ "$_sc_scan" =~ $_sc_shc ]] || break
-        _sc_body="${BASH_REMATCH[5]}"
+        _sc_body="${BASH_REMATCH[7]}"
         _sc_scan="${_sc_scan#*"${BASH_REMATCH[0]}"}"
         case "$_sc_body" in
           "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
@@ -431,7 +490,92 @@ normalize_cmd() {
       [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
       ;;
   esac
+  # v4.2.0: command and process SUBSTITUTION bodies run too. `echo $(<cmd>)`,
+  # `x=$(<cmd>)`, a backtick body and `<(<cmd>)` all execute <cmd>, and nothing
+  # emitted them as segments, so every segment rule missed them. A here-string
+  # or process substitution of echo/printf FED TO A SHELL runs its text as a
+  # script. Same append-never-replace rule as -exec and -c above; single-quoted
+  # text is inert and is blanked before looking. Fork-free; entered only when
+  # one of these forms is present.
+  case "$_sb_src" in
+    *'$('*|*'`'*|*'<('*|*'<<<'*)
+      local _sb_scan="$_sb_src" _sb_body _sb_q="'"
+      # A placeholder, not a space: `cut -d'"'` blanked to `cut -d ` read as curl's -d.
+      while [[ "$_sb_scan" =~ ${_sb_q}[^${_sb_q}]*${_sb_q} ]]; do
+        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/_Q_}"
+      done
+      _sc_tails=""
+      for _sc_i in 1 2 3 4 5 6; do
+        if [[ "$_sb_scan" =~ (\$|<)\(([^()]*)\) ]]; then
+          _sb_body="${BASH_REMATCH[2]}"
+        elif [[ "$_sb_scan" =~ \`([^\`]*)\` ]]; then
+          _sb_body="${BASH_REMATCH[1]}"
+        else
+          break
+        fi
+        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/ }"
+        [ -n "${_sb_body//[[:space:]]/}" ] && _sc_tails="$_sc_tails ; $_sb_body"
+      done
+      local _sb_sh='(^|[[:space:];&|(])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh)[[:space:]]+(<<<|<\((echo|printf)[[:space:]]+)[[:space:]]*('"$_sb_q"'[^'"$_sb_q"']*'"$_sb_q"'|"[^"]*"|[^[:space:];&|)]+)'
+      if [[ "$_sb_src" =~ $_sb_sh ]]; then
+        _sb_body="${BASH_REMATCH[6]}"
+        case "$_sb_body" in
+          "'"*"'"|'"'*'"') _sb_body="${_sb_body:1:${#_sb_body}-2}" ;;
+        esac
+        [ -n "$_sb_body" ] && _sc_tails="$_sc_tails ; $_sb_body"
+      fi
+      [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
+      ;;
+  esac
   printf '%s\n' "$cmd"
+}
+
+# Data in a command -- commit/PR messages, search queries, a search tool's quoted
+# pattern, a --help request -- blanked so pattern rules judge only what runs.
+# Moved here from safety.sh (v4.2.0): human-approval-gate.sh matched the raw
+# command and kept denying data that safety.sh had stopped denying in v4.1.17.
+# Result in $_SC_SCAN (no subshell).
+sc_blank_data_into() {
+  local CMD_SCAN="$1"
+  case "$CMD_SCAN" in
+    *m\ *|*--message\ *|*--body\ *|*--notes\ *|*--search\ *|*--title\ *)
+      # v4.1.19: newlines are folded to \036 around the sed, so a MULTI-LINE
+      # message (`git commit -m "subject<newline><newline>body"`) is blanked too;
+      # line-by-line sed never saw its closing quote and scanned the body as shell.
+      # Clustered short flags too (`git commit -am "..."`, `-qm`). Only
+      # git commit's no-argument letters may precede the m, so `sh -cm '...'` can
+      # never blank a script body.
+      CMD_SCAN=$(printf '%s' "$CMD_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
+        -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)'[^']*'/\1''/g" \
+        -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
+      ;;
+  esac
+  # v4.1.17: a search tool's quoted PATTERN is data too. `grep -E '\.(cs|py|sh)$'`
+  # read as a pipe into sh, `grep 'prisma migrate reset' docs` as a DB reset,
+  # `grep -E 'blkdiscard|...' hooks/` as a disk wipe - all real commands, all denied.
+  # Only a quoted pattern directly after the tool name and its flags (or -e) is
+  # blanked; files, pipes and anything chained after stay scanned, and an unquoted
+  # or unterminated pattern is left intact.
+  case "$CMD_SCAN" in
+    *grep*|*rg\ *|*ag\ *|*ack\ *)
+      CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+        -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+)'[^']*'/\1\6''/g" \
+        -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g')
+      ;;
+  esac
+
+  # v4.2.0: a `gh search <kind> "<query>"` query is data, and a gh command asking for
+  # --help runs nothing. Both were denied by the patterns their text happened to name.
+  case "$CMD_SCAN" in
+    *gh\ *)
+      CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+        -e "s/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)'[^']*'/\1''/g" \
+        -e 's/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)"[^"]*"/\1""/g' \
+        -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?$/\1gh help/' \
+        -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
+      ;;
+  esac
+  _SC_SCAN="$CMD_SCAN"
 }
 
 # Split a shell command on &&, ||, ;, |  into individual segments.

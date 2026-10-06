@@ -235,7 +235,7 @@ def check_shell_wrapper(c: str) -> str | None:
 # 2. .env file access detection
 # ──────────────────────────────────────────────────────────────────────────
 
-_ENV_FILE_RE = r"(^|[\s/=\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
+_ENV_FILE_RE = r"(^|[\s/=:<\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 _SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 
 # Extended sensitive file/dir patterns (claudekit-inspired)
@@ -274,6 +274,8 @@ _SENSITIVE_NAME_RE = re.compile(
     # names -- matching them by basename would fire on ordinary project files. The
     # secret is the LOCATION, so that is what the pattern requires.
     r"|\.config/gh/hosts\.yml|\.claude\.json|\.codex/auth\.json|\.cursor/config\.json"
+    # v4.2.0: AI-agent token stores -- same list as env-file-guard.sh.
+    r"|\.claude/\.credentials\.json|\.gemini/oauth_creds\.json|github-copilot/(?:apps|hosts)\.json|opencode/auth\.json"
     # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
     r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
@@ -762,6 +764,8 @@ def check_pipeline_bypass(c: str) -> str | None:
     return None
 _ENV_READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
+    r"\bgit\s+(show|diff|blame|cat-file)\s+",
+    r"\b(od|xxd|strings|nl|hexdump|base64|sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
     r"\b(nano|vim?|emacs|code|subl|atom|gedit)\s+",
     r"\b(cp|mv|scp|rsync)\s+",
     r"\bgrep\s+",
@@ -771,6 +775,7 @@ _ENV_READ_WRITE_PREFIXES = [
     r"\b(curl|wget)\s+.*\s-o\s+",
 ]
 _ENV_SELF_CONTAINED = [
+    r"<\s*\.env\b",
     r">\s*\.env\b",
     r">>\s*\.env\b",
 ]
@@ -784,6 +789,11 @@ def check_env_file(c: str) -> str | None:
     # A search PATTERN is not a path -- see _strip_pattern_operands. The dotenv
     # file as a search TARGET is untouched: only the first non-flag operand goes.
     c = _strip_pattern_operands(c)
+
+    # v4.2.0: cp FROM a template creates a dotenv; it reads only the template.
+    # Same rule as hooks/env-file-detect.py -- keep the two in sync.
+    c = re.sub(r"\bcp\s+(-[a-zA-Z]+\s+)*['\"]?[\w./-]*\.env\.(example|template|sample|dist)['\"]?\s+"
+               r"['\"]?[\w./-]*\.env(\.[\w-]+)?['\"]?(?=\s*($|[;&|\n]))", " ", c)
 
     flagged = []
     for m in re.finditer(_ENV_FILE_RE, c):

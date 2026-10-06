@@ -277,6 +277,14 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     */.config/gh/hosts.yml|*/.claude.json|*/.codex/auth.json|*/.cursor/config.json|\
     */.cargo/credentials*|*/.gem/credentials|*/pip.conf)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
+    # v4.2.0: AI-agent token stores, a current infostealer target (Gen Digital,
+    # Sept 2026). .credentials.json missed the basename arm by its leading dot.
+    */.claude/.credentials.json|*/.gemini/oauth_creds.json|*/.config/github-copilot/apps.json|\
+    */.config/github-copilot/hosts.json|*/opencode/auth.json)
+      block "Read of AI-agent token store blocked" "$FILE_PATH" ;;
+    # MCP configs hold server commands AND often API keys in env blocks: ask.
+    */.cursor/mcp.json|*/.codeium/windsurf/mcp_config.json|*/claude_desktop_config.json)
+      ask_read "Read of $base — MCP server config, which often carries API keys in env entries. Confirm if you need it." ;;
     */.composer/auth.json|*/.config/composer/auth.json|*/.bundle/config|\
     */pypoetry/auth.toml)
       block "Read of package-manager credential store blocked" "$FILE_PATH" ;;

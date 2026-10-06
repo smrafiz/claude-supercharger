@@ -22,7 +22,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 case "$_INPUT" in
   *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"branch --delete"*|\
   *"stash drop"*|*"stash clear"*|*switch*|*reflog*|*prune*|*filter-branch*|\
-  *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*) ;;
+  *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*|\
+  *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*[hH]ooks[pP]ath*) ;;
   *) exit 0 ;;
 esac
 
@@ -160,9 +161,16 @@ while IFS= read -r seg; do
   # `git push -n` is --dry-run (harmless), so -n is blocked for commit only.
   seg_flags=$(printf '%s' "$seg" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
   if [[ "$seg" =~ ^git[[:space:]] ]]; then
-    seg_lc=$(printf '%s' "$seg_flags" | tr '[:upper:]' '[:lower:]')
+    # v4.2.0: normalize_cmd now drops git's global options (so `git -C x reset --hard`
+    # reaches the reset rule), which removes `-c` from the segment: read the RAW
+    # command for the inline-config checks instead.
+    seg_lc=$(printf '%s' "$COMMAND" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g' | tr '[:upper:]' '[:lower:]')
     if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+core\.hookspath[=[:space:]] ]]; then
       block "git -c core.hooksPath= disables git hooks — verification bypass"
+    fi
+    # An inline alias runs whatever its value says, under a name no rule knows.
+    if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?alias\. ]]; then
+      ask "git -c alias.<name>=... defines a command inline; its body is not checked by the git rules. Confirm what it runs."
     fi
   fi
   if [[ "$seg" =~ ^git\ commit([[:space:]]|$) ]] && \
@@ -273,7 +281,9 @@ while IFS= read -r seg; do
     block "git restore <path> discards uncommitted working-tree changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
-  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+  # v4.2.0: -n / --dry-run only lists what would go.
+  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])(--dry-run|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$) ]]; then
     block "git clean with force permanently removes untracked files"
   fi
 
@@ -290,6 +300,25 @@ while IFS= read -r seg; do
 
   if [[ "$seg" =~ ^git\ stash\ (drop|clear)([[:space:]]|$) ]]; then
     block "git stash drop/clear permanently removes stashed changes"
+  fi
+
+  # v4.2.0 (sweep 5): more spellings of the same outcomes.
+  # restore --staged --worktree discards the working tree too (--staged alone does not).
+  if [[ "$seg" =~ ^git\ restore[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--worktree|-W)([[:space:]]|$) ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])--source[=[:space:]] ]]; then
+    block "git restore --worktree discards uncommitted working-tree changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
+  fi
+  # Moving main/master to another commit rewrites the branch without a push.
+  if [[ "$seg" =~ ^git\ branch[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(-f|--force)([[:space:]]|$) ]] \
+     && [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
+    block "git branch -f moves a protected branch (main/master) to another commit"
+  fi
+  if [[ "$seg" =~ ^git\ read-tree[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])--reset([[:space:]]|$) ]]; then
+    block "git read-tree --reset overwrites the index (and with -u the working tree), discarding changes"
+  fi
+  # A computed pathspec can overwrite any number of files from <ref> at once.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+[^[:space:]-][^[:space:]]*[[:space:]]+--[[:space:]]+[^[:space:]]*(\$\(|\`) ]]; then
+    ask "git checkout <ref> -- \$(...) overwrites every file the substitution lists with its <ref> version, discarding local changes to them. Confirm the list."
   fi
 
   # ---------------------------------------------------------------------------

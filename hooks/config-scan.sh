@@ -421,6 +421,9 @@ if isinstance(servers, dict) and servers:
 # on every matching event, and a self-hosted marketplace can update them without
 # re-consent (claude-code #73914). Scan the INSTALLED copies (plugins/cache) for the
 # shapes that only make sense as a payload, and warn once per file version.
+def fn_is_hooks(path):
+    return os.path.basename(path) == 'hooks.json'
+
 def _plugin_hook_findings():
     import hashlib
     home = os.environ.get('HOME') or os.path.expanduser('~')
@@ -439,13 +442,17 @@ def _plugin_hook_findings():
         r'|\b(nc|ncat)\b[^|;&]*\s-e\s|/dev/tcp/'
         r'|\b(bash|sh)\s+-c\s+[\x22\x27][^\x22\x27]*(curl|wget)\b', re.I)
     out, files = [], []
-    for root, dirs, fnames in os.walk(cache):
-        if root[len(cache):].count(os.sep) > 5:
-            dirs[:] = []
+    # v4.2.0: dev mods (CC 2.1.287) live in ~/.claude/dev-mods and load like plugins.
+    for base in (cache, os.path.join(home, '.claude', 'dev-mods')):
+        if not os.path.isdir(base):
             continue
-        for fn in fnames:
-            if fn == 'hooks.json' or (fn == 'plugin.json' and root.endswith('.claude-plugin')):
-                files.append(os.path.join(root, fn))
+        for root, dirs, fnames in os.walk(base):
+            if root[len(base):].count(os.sep) > 5:
+                dirs[:] = []
+                continue
+            for fn in fnames:
+                if fn == 'hooks.json' or (fn == 'plugin.json' and root.endswith('.claude-plugin')):
+                    files.append(os.path.join(root, fn))
     for path in files[:200]:
         try:
             raw = open(path, 'rb').read(262144)
@@ -455,6 +462,15 @@ def _plugin_hook_findings():
         if key in seen:
             continue
         seen.add(key)
+        # v4.2.0: a "modules" entry is a Claude Mod -- in-process code whose tool.check
+        # or tool.call can approve a call Supercharger denied, or skip our hooks
+        # entirely. Not a payload signature: the capability itself is the news.
+        if fn_is_hooks(path) and re.search(r'"modules"\s*:', raw.decode('utf-8', 'replace')):
+            rel = os.path.relpath(path, home)
+            out.append(f"[SECURITY] {rel} loads a Claude Mod. A mod runs inside Claude Code and, "
+                       f"without managed settings, can approve tool calls that Supercharger's hooks "
+                       f"denied. Keep it only if you reviewed it; admins can set allowManagedModsOnly, "
+                       f"and 'claude --safe-mode' starts without mods.")
         cmds = re.findall(r'"command"\s*:\s*"((?:[^"\\]|\\.)*)"', raw.decode('utf-8', 'replace'))
         hits = [c for c in cmds if bad.search(c)]
         if hits:
@@ -471,6 +487,54 @@ def _plugin_hook_findings():
     return out
 
 warnings.extend(_plugin_hook_findings())
+
+# v4.2.0: a repo can ARRIVE with a hostile .git/config -- an archive or synced folder
+# that kept its .git (GitSpawn, Manifold Security, Sept 2026). core.fsmonitor and its
+# siblings then run a command on the agent's next ordinary `git status`. Our
+# git-config-exec-guard stops the agent SETTING these; nothing read the ones already
+# there. Same key classes, read once at session start.
+def _git_config_findings():
+    import subprocess
+    gd = Path(project_dir) / '.git'
+    if gd.is_file():
+        try:
+            m = re.match(r'gitdir:\s*(.+)', gd.read_text(errors='replace').strip())
+            gd = (Path(project_dir) / m.group(1)).resolve() if m else None
+        except Exception:
+            gd = None
+    if not gd or not gd.is_dir():
+        return []
+    shape = re.compile(r'(^\s*!|\$\(|`|;|\||&&|\b(ba|z)?sh\s+-c\b|\bpython3?\s+-c\b|\bnode\s+-e\b|\bperl\s+-e\b|/\S+\.(sh|py|rb|pl|js|ps1)\b)', re.I)
+    hits = []
+    for cf in (gd / 'config', gd / 'config.worktree'):
+        if not cf.is_file():
+            continue
+        try:
+            out = subprocess.run(['git', 'config', '--file', str(cf), '--includes', '--list'],
+                                 capture_output=True, text=True, timeout=3).stdout
+        except Exception:
+            continue
+        for line in out.splitlines():
+            k, _, v = line.partition('=')
+            k = k.lower()
+            bad = (k == 'core.fsmonitor' and v.strip().lower() not in ('', 'true', 'false', '0', '1')) \
+                or re.match(r'(filter\.[^.]+\.(clean|smudge|process)|diff\.[^.]+\.(command|textconv)|(difftool|mergetool)\.[^.]+\.cmd)$', k) \
+                or (k in ('core.sshcommand', 'core.pager', 'core.editor', 'credential.helper', 'core.askpass',
+                          'sequence.editor', 'diff.external', 'gpg.program') and shape.search(v))
+            # Git LFS installs its own filter in every LFS repo; that one is expected.
+            if bad and not re.match(r'\s*git[- ]lfs\b', v):
+                hits.append(f'{k}={v[:80]}')
+    if not hits:
+        return []
+    return [f"[SECURITY] This repository's own .git/config sets a command git will run on ordinary "
+            f"operations: {'; '.join(hits[:3])}. A repo that arrived with its .git intact (archive, "
+            f"synced folder) can carry this. Review .git/config before running git here; "
+            f"'git config --local --unset <key>' removes one."]
+
+try:
+    warnings.extend(_git_config_findings())
+except Exception:
+    pass
 
 # SessionStart watchPaths: the FileChanged matcher's relative tokens resolve against
 # the cwd, so a session launched in a subdirectory watched the wrong files. Hand

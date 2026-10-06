@@ -74,6 +74,12 @@ Setup|2.1.10|setup health check on --init
 PermissionRequest|2.0.45|smart-approve and permission notifications
 SubagentStart|2.0.43|subagent safety, cost tracking and circuit breaker'
 
+# v4.2.0: Claude Code releases that fixed hooks failing OPEN. Not events, so not in
+# the table above (the drift test keys that table to registrations).
+_FIX_FLOORS='
+2.1.290|SECURITY: permission rules and safety checks were skipped after a PreToolUse hook rewrote a tool input (git-safety rewrites force-pushes)
+2.1.288|SECURITY: PreToolUse and PermissionRequest hooks were skipped when matching them failed'
+
 # ── Version compare ───────────────────────────────────────────────────────────
 # True when $1 is strictly older than $2. Field-by-field numeric, so 2.1.9 sorts
 # BELOW 2.1.10 (a string compare gets that backwards, which is the whole point).
@@ -158,7 +164,21 @@ done <<EOF
 $_FLOORS
 EOF
 
-[ "$n" -gt 0 ] || exit 0            # current build - the common case, stay silent
+fixes=""
+while IFS='|' read -r floor what; do
+  [ -n "$floor" ] || continue
+  if _sc_older_than "$CC_VER" "$floor"; then
+    fixes="${fixes}\\n    ${floor}: ${what}"
+  fi
+done <<EOF
+$_FIX_FLOORS
+EOF
+[ "$n" -gt 0 ] || [ -n "$fixes" ] || exit 0   # current build - the common case, stay silent
+_head="Claude Code $CC_VER predates $n hook event(s) Supercharger uses.\\nThese hooks are registered but WILL NOT FIRE, and Claude Code reports no error for them:$inert"
+[ "$n" -gt 0 ] || _head="Claude Code $CC_VER predates fixes for hooks that failed open."
+_core="Core protection is unaffected: the guards on PreToolUse and PostToolUse (safety, path, secret and injection scanning) run on events every supported build has."
+[ -n "$fixes" ] && _core="${_core} EXCEPT the hook fixes listed: until you upgrade, PreToolUse protections can be skipped in those cases."
+[ -n "$fixes" ] && _head="${_head}\\n\\n  Hook fixes this build lacks:${fixes}"
 
 # ── Warn at most once a day per version ───────────────────────────────────────
 # A user pinned to an old build on purpose should not be nagged every session,
@@ -178,7 +198,7 @@ printf '%s\n' "$_stamp" > "$WARNED_FILE" 2>/dev/null || true
 # it must not ship on that channel itself. Registered BLOCKING for the same
 # reason - the steady-state cost is one stat, so there is nothing to gain by
 # going async and detaching the output.
-printf '{"systemMessage":"Claude Code %s predates %d hook event(s) Supercharger uses.\\nThese hooks are registered but WILL NOT FIRE, and Claude Code reports no error for them:\\n%s\\n\\nCore protection is unaffected: the guards on PreToolUse and PostToolUse (safety, path, secret and injection scanning) run on events every supported build has.\\n\\nFix: upgrade Claude Code.  Silence: SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1"}\n' \
-  "$CC_VER" "$n" "$inert"
+printf '{"systemMessage":"%s\\n\\n%s\\n\\nFix: upgrade Claude Code.  Silence: SUPERCHARGER_NO_VERSION_FLOOR_CHECK=1"}\n' \
+  "$_head" "$_core"
 
 exit 0

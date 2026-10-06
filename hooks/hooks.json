@@ -210,7 +210,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Artifact|ShareOnboardingGuide"
+        "matcher": "Artifact|ArtifactComments|ArtifactData|ShareOnboardingGuide"
       },
       {
         "hooks": [

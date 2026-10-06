@@ -49,6 +49,8 @@ case "$_INPUT" in
   # Exact verbs only: `npm install`, `docker ps`, `gh pr` must not pay the greps below.
   *vercel*|*netlify*|*railway*|*'render '*|*wrangler*|*'stack rm'*|*'docker rm'*|*'docker container rm'*) : ;;
   *'release delete'*|*'secret delete'*|*'variable delete'*|*unpublish*|*'npm deprecate'*|*'cargo yank'*|*'twine upload'*) : ;;
+  # v4.2.0 (sweep 5): widened WITH the arms added below.
+  *gist*|*'repo create'*|*'repo edit'*|*publish*|*s3api*|*'gh api'*|*'glab api'*) : ;;
   *xargs*) : ;;
   *parallel*) : ;;
   *) exit 0 ;;
@@ -61,6 +63,8 @@ if [ -z "$CMD" ]; then
   CMD=$(printf '%s\n' "$_INPUT" | python3 -c "import sys,json;ti=json.load(sys.stdin).get('tool_input',{});print(ti.get('command') or ti.get('script') or '')" 2>/dev/null || echo "")
 fi
 [ -z "$CMD" ] && exit 0
+# v4.2.0: a command asking for --help runs nothing (`gh release delete --help`).
+CMD=$(printf '%s' "$CMD" | LC_ALL=C sed -E 's/(^|[;&|])[^;&|]*[[:space:]]--help([[:space:]][^;&|]*)?([;&|]|$)/\1 \3/g')
 
 # Destructive bulk-delete operations per provider. Each pattern targets an
 # irreversible resource teardown; ordinary reads/list/describe do not match.
@@ -71,9 +75,9 @@ elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*rds[[:space:]]+delete-db-(insta
 elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*(dynamodb[[:space:]]+delete-table|cloudformation[[:space:]]+delete-stack|eks[[:space:]]+delete-cluster|ecr[[:space:]]+delete-repository|lambda[[:space:]]+delete-function|elasticache[[:space:]]+delete)'; then op="aws bulk resource delete"
 elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*projects[[:space:]]+delete';                                             then op="gcloud projects delete"
 elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*(compute|sql|container|storage|functions|run|redis|spanner)[^;&|]*[[:space:]]delete([[:space:]]|$)'; then op="gcloud resource delete"
-elif printf '%s' "$CMD" | grep -Eq -- 'gsutil[[:space:]]+(rm[[:space:]]+-[rR]|rb)';                                          then op="gsutil bucket/recursive delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'gsutil([[:space:]]+-[[:alnum:]]+)*[[:space:]]+(rm[^;&|]*[[:space:]]-[a-zA-Z]*[rRa]|rb)';                                          then op="gsutil bucket/recursive delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])az[[:space:]]+(group|vm|aks|sql|webapp|storage)[^;&|]*[[:space:]]delete([[:space:]]|$)'; then op="az resource delete"
-elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*delete[^;&|]*(namespace|deployment|statefulset|daemonset|pvc|persistentvolume|--all([[:space:]]|$))'; then op="kubectl delete (namespace/workload/--all)"
+elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*delete[^;&|]*([[:space:]](ns|namespaces?|deploy|deployments?|sts|statefulsets?|ds|daemonsets?|pvc|pv|persistentvolumes?|persistentvolumeclaims?)([[:space:]/]|$)|--all([[:space:]]|$))'; then op="kubectl delete (namespace/workload/--all)"
 elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete)[[:space:]]';                                       then op="helm uninstall/delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(doctl|flyctl|fly)[^;&|]*(delete|destroy)([[:space:]]|$)';          then op="doctl/flyctl delete/destroy"
 # v4.1.13: hosted-database CLIs — each wipes or deletes a managed database.
@@ -89,6 +93,15 @@ elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]delete[^;&|]*[[:
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]+(-[a-zA-Z]*f|--force)'; then op="docker rm --force"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+(release|secret|variable)[[:space:]]+delete([[:space:]]|$)'; then op="gh release/secret/variable delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(npm[[:space:]]+(unpublish|deprecate)|cargo[[:space:]]+yank|twine[[:space:]]+upload)([[:space:]]|$)'; then op="package registry publish/unpublish (affects every dependent)"
+# v4.2.0 (sweep 5): version purges, publishing, public exposure, API ref edits.
+elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*storage[[:space:]]+rm[^;&|]*(--all-versions|[[:space:]]-a([[:space:]]|$))'; then op="gcloud storage rm of all object versions"
+elif printf '%s' "$CMD" | grep -Eq -- 'az[[:space:]]+storage[[:space:]]+blob[[:space:]]+delete-batch'; then op="az storage blob delete-batch"
+elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*s3api[[:space:]]+(delete-objects|delete-object[^;&|]*--version-id)'; then op="aws s3api versioned/bulk object delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(npm|pnpm|yarn|bun|cargo)[[:space:]]+publish([[:space:]]|$)'; then op="package publish (public and permanent)"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+gist[[:space:]]+create([[:space:]]|$)'; then op="gh gist create (a gist is reachable by anyone with the URL)"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+repo[[:space:]]+(create[^;&|]*--public|edit[^;&|]*--visibility[[:space:]=]+public)'; then op="gh repo made public"
+elif printf '%s' "$CMD" | grep -Eq -- '(gh|glab)[[:space:]]+api[^;&|]*(-X[[:space:]]*|--method[[:space:]=]+)POST[^;&|]*/gists'; then op="gist created via gh api"
+elif printf '%s' "$CMD" | grep -Eq -- '(gh|glab)[[:space:]]+api[^;&|]*(-X[[:space:]]*|--method[[:space:]=]+)(DELETE|PATCH)[^;&|]*/git/refs/'; then op="git ref deleted or force-moved via the API"
 # v2.29.28: found by diffing this guard against hamzazulfiqar2/Devops-architect.
 # The existing arms key on "delete" and "terminate", but AWS spells destruction
 # several other ways -- and none of the IaC state verbs were covered at all.
@@ -149,6 +162,8 @@ elif printf '%s' "$CMD" | grep -Eq -- 'parallel([[:space:]]+-[^[:space:]]+)*[[:s
 elif printf '%s' "$CMD" | grep -Eq -- 'parallel([[:space:]]+-[^[:space:]]+)*[[:space:]]+(ba|z|k|da)?sh([[:space:]]|$)'; then op="parallel into a shell (runs an arbitrary command per input line)"; op_reason="GNU parallel is being handed a shell, so every line of upstream output becomes a command. Confirm the input is trusted and bounded." 
 fi
 
+# A publish dry run uploads nothing.
+case "$op:$CMD" in "package publish"*--dry-run*) op="" ;; esac
 [ -z "$op" ] && exit 0
 
 reason="${op_reason:-}"

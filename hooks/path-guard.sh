@@ -466,6 +466,12 @@ if 'git-internals' not in disabled:
     if _pn.startswith(_hn + '/.claude/hooks') or _pn.startswith(_hn + '/.claude/supercharger/hooks'):
         print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
         sys.exit(0)
+    # v4.2.0 (CC 2.1.287 Claude Mods): a session's dev mod loads at the end of the
+    # turn, and its tool.check can approve calls a PreToolUse hook denied. The
+    # generic absolute-path rule caught this only while ~ stayed outside the roots.
+    if (_hn + '/.claude/dev-mods/') in _pn + '/':
+        print('write to ~/.claude/dev-mods — a mod there loads into Claude Code and can override Supercharger denies; review and install mods yourself')
+        sys.exit(0)
 
 # --- 3.3b Self-modification — agent disabling its own guardrails (OWASP 2026
 # Least-Agency; mirrors the Bash-side check in safety.sh `selfmod` category).

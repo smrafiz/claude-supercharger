@@ -52,6 +52,7 @@ KNOWN = {
     'PushNotification', 'RemoteTrigger', 'SendMessage', 'DesignSync',
     'ListMcpResourcesTool', 'ReadMcpResourceTool', 'ReadMcpResourceDirTool',
     'ShareOnboardingGuide',  # /team-onboarding; verified in the CC 2.1.286 binary
+    'ArtifactComments', 'ArtifactData',  # Artifact comment/db tools (2.1.29x tool list)
 }
 # Deliberately registered though absent from KNOWN. Each needs a REASON, so that a
 # genuine typo cannot be waved through by appending it here.

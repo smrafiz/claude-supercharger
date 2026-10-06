@@ -15,7 +15,7 @@ cmd = os.environ.get("CMD", "")
 # old left boundary let any word prefix through, drifting from safety-detect.py's
 # _SENSITIVE_NAME_RE. `process.env` / `import.meta.env` are property accesses, not
 # files: excluded by name (a word boundary would also drop prod.env).
-ENV_FILE_RE = r"(^|[\s/=\'\"])(?!process\.env\b)([\w-]*)\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
+ENV_FILE_RE = r"(^|[\s/=:<\'\"])(?!process\.env\b)([\w-]*)\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 
 # v4.1.6 (F1): a search PATTERN is not a path. Searching docs FOR the dotenv
@@ -83,6 +83,12 @@ def _strip_metadata_text(c: str) -> str:
 
 
 cmd = _strip_metadata_text(_strip_pattern_operands(cmd))
+# v4.2.0: `cp .env.example .env` creates a dotenv FROM a template: it reads only the
+# template. It was denied as a .env read, on one of the commonest setup steps
+# (dcg/flowrail allow corpora). Only cp with a template SOURCE; the target may
+# be any dotenv name. `cp .env x` still reads secrets and still denies.
+cmd = re.sub(r"\bcp\s+(-[a-zA-Z]+\s+)*['\"]?[\w./-]*\.env\.(example|template|sample|dist)['\"]?\s+"
+             r"['\"]?[\w./-]*\.env(\.[\w-]+)?['\"]?(?=\s*($|[;&|\n]))", " ", cmd)
 
 flagged = []
 for m in re.finditer(ENV_FILE_RE, cmd):
@@ -100,6 +106,8 @@ if not flagged:
 
 READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
+    r"\bgit\s+(show|diff|blame|cat-file)\s+",
+    r"\b(sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
     # v4.2.0: byte/text dumpers read content exactly as cat does (self-audit: 4 of 26
     # spellings). NOT `source`/`.`: `set -a; . ./.env` is how projects run scripts
     # (43 of 608 real .env commands would have been denied), and it prints nothing.
@@ -113,6 +121,7 @@ READ_WRITE_PREFIXES = [
     r"\b(curl|wget)\s+.*\s-o\s+",
 ]
 SELF_CONTAINED = [
+    r"<\s*\.env\b",
     r">\s*\.env\b",
     r">>\s*\.env\b",
 ]

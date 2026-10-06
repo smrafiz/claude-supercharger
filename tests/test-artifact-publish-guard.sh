@@ -125,8 +125,8 @@ rm -rf "$TD" "$(dirname "$F")"
 
 # --- registration ------------------------------------------------------------
 begin_test "registered on PreToolUse for Artifact AND ShareOnboardingGuide (before upload)"
-grep -q 'PreToolUse|Artifact,ShareOnboardingGuide|.*artifact-publish-guard.sh' "$REPO_DIR/lib/hooks.sh" && pass \
-  || fail "not registered as PreToolUse|Artifact,ShareOnboardingGuide"
+grep -q 'PreToolUse|Artifact,ArtifactComments,ArtifactData,ShareOnboardingGuide|.*artifact-publish-guard.sh' "$REPO_DIR/lib/hooks.sh" && pass \
+  || fail "not registered as PreToolUse|Artifact,ArtifactComments,ArtifactData,ShareOnboardingGuide"
 
 begin_test "generated hooks.json carries the registration"
 grep -q 'artifact-publish-guard' "$REPO_DIR/hooks/hooks.json" && pass \
