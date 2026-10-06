@@ -302,6 +302,22 @@ _sc_wrapper_prelude_into() {
         esac
       done
       cmd="git $_g_rest"
+      # git accepts any unambiguous prefix of a long option, and `--force=<bool>`.
+      # Spell the ones the rules key on out in full.
+      case "$cmd" in
+        *' --'*)
+          local _g_pad=" $cmd " _g_p _g_full
+          for _g_p in ha:hard har:hard for:force forc:force del:delete dele:delete delet:delete \
+                      no-v:no-verify no-ve:no-verify no-ver:no-verify no-veri:no-verify no-verif:no-verify; do
+            _g_full="${_g_p#*:}"; _g_p="${_g_p%%:*}"
+            _g_pad="${_g_pad// --$_g_p / --$_g_full }"
+          done
+          while [[ "$_g_pad" =~ [[:space:]]--force=[^[:space:]]* ]]; do
+            _g_pad="${_g_pad/"${BASH_REMATCH[0]}"/ --force}"
+          done
+          _g_pad="${_g_pad# }"; cmd="${_g_pad% }"
+          ;;
+      esac
       ;;
   esac
   # Same bytes $(...) would hand back: command substitution strips trailing newlines.
