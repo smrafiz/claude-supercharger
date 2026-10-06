@@ -462,7 +462,7 @@ normalize_cmd() {
   # the -exec block above does, so every segment rule sees it. The original text
   # stays in place for the rules that match on it.
   case "$cmd" in
-    *sh\ *-*c*)
+    *sh\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*)
       local _sc_scan="$cmd" _sc_body
       # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
@@ -475,11 +475,12 @@ normalize_cmd() {
           ;;
       esac
       local _sc_q="'" _sc_shc
-      _sc_shc='(^|[[:space:];&|(`])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh|ash)[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      # v4.2.0: also a Windows spelling: `.exe`, a drive or backslash path, a quoted path.
+      _sc_shc='(^|[[:space:];&|(`])(["'"$_sc_q"']?([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash)(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
       _sc_tails=""
       for _sc_i in 1 2 3 4 5; do
         [[ "$_sc_scan" =~ $_sc_shc ]] || break
-        _sc_body="${BASH_REMATCH[5]}"
+        _sc_body="${BASH_REMATCH[7]}"
         _sc_scan="${_sc_scan#*"${BASH_REMATCH[0]}"}"
         case "$_sc_body" in
           "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
