@@ -274,6 +274,8 @@ _SENSITIVE_NAME_RE = re.compile(
     # names -- matching them by basename would fire on ordinary project files. The
     # secret is the LOCATION, so that is what the pattern requires.
     r"|\.config/gh/hosts\.yml|\.claude\.json|\.codex/auth\.json|\.cursor/config\.json"
+    # v4.2.0: AI-agent token stores -- same list as env-file-guard.sh.
+    r"|\.claude/\.credentials\.json|\.gemini/oauth_creds\.json|github-copilot/(?:apps|hosts)\.json|opencode/auth\.json"
     # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
     r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"

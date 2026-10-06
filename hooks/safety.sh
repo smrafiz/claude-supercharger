@@ -1454,6 +1454,8 @@ case "$CMD" in
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
   *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  # v4.2.0: AI-agent token stores (same list as the detector) -- two-gate trap.
+  *.credentials.json*|*oauth_creds*|*github-copilot*) _NEED_PY=true ;;
   # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).
   # Gate is a superset of the detector's _SENSITIVE_NAME_RE clause; the detector
   # decides. `client_secret` over-admits (it is also an env-var name) but only
