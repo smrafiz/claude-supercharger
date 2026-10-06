@@ -291,6 +291,7 @@ normalize_cmd() {
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
   # gets the same answer — one place, no cross-guard drift.
   cmd=$(strip_heredoc_bodies "$cmd")
+  local _sb_src="$cmd"  # pre-prelude text, for the substitution scan below
   # v2.8.12: pure-bash — was 4×sed + 1×tr (~10ms of forks per call). This helper
   # is sourced by safety.sh, git-safety.sh, enforce-pkg-manager.sh and runs on
   # EVERY Bash tool call, so the forks compounded on the hot path. Parameter
@@ -432,6 +433,42 @@ normalize_cmd() {
         esac
         [ -n "$_sc_body" ] && _sc_tails="$_sc_tails ; $_sc_body"
       done
+      [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
+      ;;
+  esac
+  # v4.2.0: command and process SUBSTITUTION bodies run too. `echo $(<cmd>)`,
+  # `x=$(<cmd>)`, a backtick body and `<(<cmd>)` all execute <cmd>, and nothing
+  # emitted them as segments, so every segment rule missed them. A here-string
+  # or process substitution of echo/printf FED TO A SHELL runs its text as a
+  # script. Same append-never-replace rule as -exec and -c above; single-quoted
+  # text is inert and is blanked before looking. Fork-free; entered only when
+  # one of these forms is present.
+  case "$_sb_src" in
+    *'$('*|*'`'*|*'<('*|*'<<<'*)
+      local _sb_scan="$_sb_src" _sb_body _sb_q="'"
+      while [[ "$_sb_scan" =~ $_sb_q[^$_sb_q]*$_sb_q ]]; do
+        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/ }"
+      done
+      _sc_tails=""
+      for _sc_i in 1 2 3 4 5 6; do
+        if [[ "$_sb_scan" =~ (\$|<)\(([^()]*)\) ]]; then
+          _sb_body="${BASH_REMATCH[2]}"
+        elif [[ "$_sb_scan" =~ \`([^\`]*)\` ]]; then
+          _sb_body="${BASH_REMATCH[1]}"
+        else
+          break
+        fi
+        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/ }"
+        [ -n "${_sb_body//[[:space:]]/}" ] && _sc_tails="$_sc_tails ; $_sb_body"
+      done
+      local _sb_sh='(^|[[:space:];&|(])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh)[[:space:]]+(<<<|<\((echo|printf)[[:space:]]+)[[:space:]]*('"$_sb_q"'[^'"$_sb_q"']*'"$_sb_q"'|"[^"]*"|[^[:space:];&|)]+)'
+      if [[ "$_sb_src" =~ $_sb_sh ]]; then
+        _sb_body="${BASH_REMATCH[6]}"
+        case "$_sb_body" in
+          "'"*"'"|'"'*'"') _sb_body="${_sb_body:1:${#_sb_body}-2}" ;;
+        esac
+        [ -n "$_sb_body" ] && _sc_tails="$_sc_tails ; $_sb_body"
+      fi
       [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
       ;;
   esac
