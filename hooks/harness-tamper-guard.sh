@@ -45,7 +45,7 @@ case "$_INPUT" in
   # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
   # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
   *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*) : ;;
+  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*) : ;;
   *) exit 0 ;;
 esac
 
@@ -338,6 +338,22 @@ if [ -z "$REASON" ]; then
       exit 0
       ;;
   esac
+fi
+
+# v4.2.0: the agent's own TRACE -- Supercharger's audit logs and block ledger, Claude
+# Code's transcripts and prompt history. Agents erase or rewrite these, prompted or
+# not (arXiv 2609.30266). v2.24.9 narrowed the audit arm above to whole directories
+# to stop denying reads, so per-file deletion passed. ASK on a destructive verb aimed
+# at one; reading, tailing and grepping them stay silent.
+if [ -z "$REASON" ]; then
+  _HT_TRACE='(supercharger/audit/[^[:space:];&|]*|\.claude/supercharger/scope/\.blocked-commands|\.claude/projects/[^[:space:];&|]*\.jsonl|\.claude/history\.jsonl)'
+  _HT_TVERB='(^|[[:space:];&|(])(rm|unlink|truncate|shred|mv|sed[[:space:]]+-i|perl[[:space:]]+-[a-zA-Z]*i|:[[:space:]]*>|>)'
+  _HT_TR_HIT=$(printf '%s' "$CMD" | sed -E 's/(&&|\|\||;|\|)/\'$'\n''/g' \
+    | _HT_V="$_HT_TVERB" _HT_T="$_HT_TRACE" awk 'BEGIN{v=ENVIRON["_HT_V"]; t=ENVIRON["_HT_T"]} $0 ~ v && $0 ~ t {print "1"; exit}')
+  if [ -n "$_HT_TR_HIT" ]; then
+    sc_decision ask "This deletes or rewrites a session trace (Supercharger audit log, block ledger, or a Claude Code transcript/history). Those records are how you can see later what the agent did. Approve only if you asked for this."
+    exit 0
+  fi
 fi
 
 [ -z "$REASON" ] && exit 0
