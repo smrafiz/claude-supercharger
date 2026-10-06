@@ -446,8 +446,9 @@ split_segments() {
   # segment rules only: joining in normalize_cmd also fed the whole-command pattern
   # scan, which newly denied 9 of 325 real continuation commands (token headers to a
   # project's own API, `curl | node` JSON parsing). Costs per continuation.
-  # Windows python prints CRLF, so the continuation can arrive as backslash-CR-LF.
-  case "$cmd" in *\\$'\r\n'*) cmd="${cmd//\\$'\r\n'/ }" ;; esac
+  # Windows python prints CRLF, so the continuation can arrive as backslash-CR-LF,
+  # and a CRLF already in the command doubles to CR-CR-LF. Drop CRs before LF.
+  while :; do case "$cmd" in *$'\r\n'*) cmd="${cmd//$'\r\n'/$'\n'}" ;; *) break ;; esac; done
   case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\n'/ }" ;; esac
   # v2.8.12: fork-free fast-path. The python splitter only earns its ~31ms fork
   # when the command actually contains a shell separator (&& || ; |). Most Bash
