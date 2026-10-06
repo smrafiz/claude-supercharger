@@ -674,7 +674,13 @@ DESTRUCT_PATTERNS=(
   ':\(\)\{[[:space:]]*:\|:&[[:space:]]*\};:' 'kill[[:space:]]+-9[[:space:]]+-1'
   # v2.7.41: find-based recursive deletion — same destructive power as rm -rf,
   # and previously unguarded (find . -delete / find ~ -exec rm -rf {}).
-  'find[[:space:]].*-delete([[:space:]]|$)' 'find[[:space:]].*-exec[[:space:]]+rm([[:space:]]|$)'
+  # v4.2.0: only where the search ROOT is the danger: an absolute path, home, a
+  # parent, or `.` with nothing narrowing it. `find . -name '*.pyc' -delete` and
+  # `find dist -type f -delete` are routine cleanup (dcg/flowrail allow corpora).
+  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.)[^;&|]*[[:space:]]-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
+  'find([[:space:]]+\./?)?[[:space:]]+-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
+  # ...and anywhere when the match is the repository's own .git metadata.
+  'find[[:space:]][^;&|]*-(i?name|path)[[:space:]]+["'"'"']?[^[:space:]]*\.git["'"'"']?[[:space:]][^;&|]*-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
   # v2.9.9: Docker data destruction — `docker volume rm/prune` and `system prune
   # --volumes` delete named volumes (databases, uploads) irreversibly. Plain
   # `system prune` (no --volumes) is left allowed — it only clears dangling
