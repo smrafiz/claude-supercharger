@@ -1,0 +1,118 @@
+deny	(RM -rf /)
+deny	(RM -rf ~)
+deny	( RM -rf / )
+deny	{ RM -rf /; }
+block	(git push --force origin main)
+block	(git clean -fdx)
+block	true && (git reset --hard)
+allow	(cd sub && ls)
+allow	(npm test)
+allow	{ echo a; echo b; } > out.txt
+allow	echo "(a)"
+deny	echo $(RM -rf ~)
+deny	x=$(RM -rf /)
+deny	echo `RM -rf ~`
+block	echo $(git reset --hard)
+deny	env -C /tmp/$(RM -rf /) git status
+deny	bash <<<'RM -rf /'
+deny	bash <(echo 'RM -rf ~')
+deny	diff <(RM -rf ~) b
+allow	echo $(date)
+allow	x=$(git rev-parse HEAD)
+allow	echo '$(RM -rf /)'
+allow	grep -c x $(git ls-files '*.sh')
+allow	diff <(sort a) <(sort b)
+allow	bash <<<'echo hi'
+allow	echo "built at $(date +%s)"
+deny	RM -Rf /
+deny	RM -fR /
+deny	RM -R -f ~
+deny	RM -r ~
+deny	RM -R /
+deny	RM -r $HOME
+allow	RM -r build
+allow	RM -R dist/out
+allow	RM -rf node_modules
+allow	RM -r /tmp/x
+deny	caffeinate -i RM -rf ~
+deny	xcrun RM -rf ~
+deny	arch -arm64 RM -rf ~
+deny	flock /tmp/l RM -rf ~
+deny	script -q /dev/null RM -rf ~
+deny	chronic RM -rf ~
+allow	caffeinate -i npm test
+allow	xcrun simctl list
+allow	arch -arm64 brew install jq
+allow	flock /tmp/l make build
+allow	watch -n 5 git status
+block	git -C /tmp/repo reset --hard
+block	git --no-pager reset --hard
+block	git -c a.b=c clean -fdx
+block	git -c a.b=c push --force origin main
+block	git -C x stash clear
+block	git -C . commit -m x --no-verify
+allow	git -C sub status
+allow	git --no-pager log --oneline -5
+allow	git -c color.ui=always diff
+allow	git -C /tmp/repo push origin feat
+block	git reset --har HEAD~1
+block	git reset --ha
+block	git push --forc origin main
+block	git push --for origin main
+block	git push --force=true origin main
+block	git clean --forc -d
+block	git commit --no-verif -m x
+allow	git log --format=%H -3
+allow	git push --follow-tags origin feat
+allow	git reset --soft HEAD~1
+allow	git branch --delete-merged
+allow	find . -name '*.pyc' -delete
+allow	find dist -type f -delete
+allow	find . -type d -name __pycache__ -exec RM -rf {} +
+deny	find / -delete
+deny	find ~ -name x -delete
+deny	find . -delete
+deny	find -delete
+deny	find /etc -type f -delete
+deny	find $HOME -exec RM -rf {} +
+deny	find . -name .git -exec RM -rf {} +
+deny	find . -maxdepth 0 -exec RM -rf / +
+deny	find . -name .git -delete
+deny	/c/msys64/usr/bin/bash.exe -lc 'RM -rf /'
+deny	bash.exe -c 'RM -rf ~'
+deny	"C:\Program Files\Git\bin\bash.exe" -c 'RM -rf ~'
+deny	bash -c 'RM -rf /'
+deny	/bin/sh -c 'RM -rf /'
+allow	bash.exe -lc 'npm test'
+allow	/c/msys64/usr/bin/bash.exe -lc 'make build'
+allow	bash -c 'echo hi'
+deny	git restore --staged --worktree src/a.ts
+deny	git restore -W src/a.ts
+deny	git branch -f main HEAD~5
+deny	git read-tree --reset -u HEAD
+block	git checkout feat -- $(git diff --name-only main..feat)
+allow	git restore --staged src/a.ts
+allow	git restore --source=HEAD~1 --worktree src/a.ts
+allow	git branch -f feat-x HEAD
+allow	git read-tree -m HEAD
+allow	git checkout feat -- src/a.ts
+block	git -c alias.x=status x
+allow	git -c color.ui=always log -1
+deny	diskutil eraseDisk APFS X disk4
+deny	diskutil apfs deleteVolume disk3s5
+deny	tmutil deletelocalsnapshots /
+deny	chmod -R 755 /etc
+deny	chown -R me /
+deny	chmod -R 000 ~
+allow	diskutil list
+allow	diskutil info disk0
+allow	tmutil listlocalsnapshots /
+allow	chmod -R 755 dist
+allow	chmod -R u+w ./build
+allow	chown -R me ./node_modules
+deny	docker system prune -af
+deny	docker system prune -fa
+deny	docker system prune -a
+allow	docker system prune -f
+allow	docker system prune
+allow	docker image prune -f
