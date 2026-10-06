@@ -785,6 +785,11 @@ def check_env_file(c: str) -> str | None:
     # file as a search TARGET is untouched: only the first non-flag operand goes.
     c = _strip_pattern_operands(c)
 
+    # v4.2.0: cp FROM a template creates a dotenv; it reads only the template.
+    # Same rule as hooks/env-file-detect.py -- keep the two in sync.
+    c = re.sub(r"\bcp\s+(-[a-zA-Z]+\s+)*['\"]?[\w./-]*\.env\.(example|template|sample|dist)['\"]?\s+"
+               r"['\"]?[\w./-]*\.env(\.[\w-]+)?['\"]?(?=\s*($|[;&|\n]))", " ", c)
+
     flagged = []
     for m in re.finditer(_ENV_FILE_RE, c):
         token = re.search(r"\.env(\.[a-zA-Z0-9_-]+)?", c[m.start():m.end()])

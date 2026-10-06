@@ -83,6 +83,12 @@ def _strip_metadata_text(c: str) -> str:
 
 
 cmd = _strip_metadata_text(_strip_pattern_operands(cmd))
+# v4.2.0: `cp .env.example .env` creates a dotenv FROM a template: it reads only the
+# template. It was denied as a .env read, on one of the commonest setup steps
+# (dcg/flowrail allow corpora). Only cp with a template SOURCE; the target may
+# be any dotenv name. `cp .env x` still reads secrets and still denies.
+cmd = re.sub(r"\bcp\s+(-[a-zA-Z]+\s+)*['\"]?[\w./-]*\.env\.(example|template|sample|dist)['\"]?\s+"
+             r"['\"]?[\w./-]*\.env(\.[\w-]+)?['\"]?(?=\s*($|[;&|\n]))", " ", cmd)
 
 flagged = []
 for m in re.finditer(ENV_FILE_RE, cmd):
