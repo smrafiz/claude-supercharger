@@ -15,7 +15,7 @@ cmd = os.environ.get("CMD", "")
 # old left boundary let any word prefix through, drifting from safety-detect.py's
 # _SENSITIVE_NAME_RE. `process.env` / `import.meta.env` are property accesses, not
 # files: excluded by name (a word boundary would also drop prod.env).
-ENV_FILE_RE = r"(^|[\s/=\'\"])(?!process\.env\b)([\w-]*)\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
+ENV_FILE_RE = r"(^|[\s/=:<\'\"])(?!process\.env\b)([\w-]*)\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 
 # v4.1.6 (F1): a search PATTERN is not a path. Searching docs FOR the dotenv
@@ -106,6 +106,8 @@ if not flagged:
 
 READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
+    r"\bgit\s+(show|diff|blame|cat-file)\s+",
+    r"\b(sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
     # v4.2.0: byte/text dumpers read content exactly as cat does (self-audit: 4 of 26
     # spellings). NOT `source`/`.`: `set -a; . ./.env` is how projects run scripts
     # (43 of 608 real .env commands would have been denied), and it prints nothing.
@@ -119,6 +121,7 @@ READ_WRITE_PREFIXES = [
     r"\b(curl|wget)\s+.*\s-o\s+",
 ]
 SELF_CONTAINED = [
+    r"<\s*\.env\b",
     r">\s*\.env\b",
     r">>\s*\.env\b",
 ]

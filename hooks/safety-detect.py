@@ -235,7 +235,7 @@ def check_shell_wrapper(c: str) -> str | None:
 # 2. .env file access detection
 # ──────────────────────────────────────────────────────────────────────────
 
-_ENV_FILE_RE = r"(^|[\s/=\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
+_ENV_FILE_RE = r"(^|[\s/=:<\'\"])\.env(\.[a-zA-Z0-9_-]+)?(?=[\s\'\")\]]|$)"
 _SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 
 # Extended sensitive file/dir patterns (claudekit-inspired)
@@ -764,6 +764,8 @@ def check_pipeline_bypass(c: str) -> str | None:
     return None
 _ENV_READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
+    r"\bgit\s+(show|diff|blame|cat-file)\s+",
+    r"\b(od|xxd|strings|nl|hexdump|base64|sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
     r"\b(nano|vim?|emacs|code|subl|atom|gedit)\s+",
     r"\b(cp|mv|scp|rsync)\s+",
     r"\bgrep\s+",
@@ -773,6 +775,7 @@ _ENV_READ_WRITE_PREFIXES = [
     r"\b(curl|wget)\s+.*\s-o\s+",
 ]
 _ENV_SELF_CONTAINED = [
+    r"<\s*\.env\b",
     r">\s*\.env\b",
     r">>\s*\.env\b",
 ]

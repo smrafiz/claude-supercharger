@@ -500,8 +500,9 @@ normalize_cmd() {
   case "$_sb_src" in
     *'$('*|*'`'*|*'<('*|*'<<<'*)
       local _sb_scan="$_sb_src" _sb_body _sb_q="'"
+      # A placeholder, not a space: `cut -d'"'` blanked to `cut -d ` read as curl's -d.
       while [[ "$_sb_scan" =~ $_sb_q[^$_sb_q]*$_sb_q ]]; do
-        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/ }"
+        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/_Q_}"
       done
       _sc_tails=""
       for _sc_i in 1 2 3 4 5 6; do
