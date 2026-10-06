@@ -162,9 +162,13 @@ _sc_wrapper_prelude_into() {
     while :; do
       _before_struct="$cmd"
       cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+      # v4.2.0: also drop the group's CLOSING token. Stripping only the opener left
+      # `)` glued to the last word, so `(rm -rf /)` was checked as `rm -rf /)` and
+      # every target and end-anchored flag rule missed it.
       case "$cmd" in
-        '(('*)  cmd="${cmd#??}" ;;
-        '('*|'{'*) cmd="${cmd#?}" ;;
+        '(('*)  cmd="${cmd#??}"; cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%))}" ;;
+        '('*)   cmd="${cmd#?}";  cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%)}" ;;
+        '{'*)   cmd="${cmd#?}";  cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%\}}"; cmd="${cmd%"${cmd##*[![:space:]]}"}"; cmd="${cmd%;}" ;;
       esac
       # v2.29.36: a `case` GLOB, not a regex. The regex form
       #   [[ "$cmd" =~ ^(if|then|...|!)[[:space:]]+ ]]
