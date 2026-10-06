@@ -707,7 +707,8 @@ DESTRUCT_PATTERNS=(
   # not undoable from local state — hence blocked here rather than left alone.
   # Verified against the deployed hook first: --volumes and `volume prune` both
   # returned rc=2 while -a passed clean. (Clear-Capabilities/agentic-security)
-  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-a([[:space:]]|$)|--all([[:space:]]|$))'
+  # v4.2.0: combined short flags (`-af`, `-fa`) are the same -a.
+  'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-[a-zA-Z]*a[a-zA-Z]*([[:space:]]|$)|--all([[:space:]]|$))'
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
