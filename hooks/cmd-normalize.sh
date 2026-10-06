@@ -283,6 +283,27 @@ _sc_wrapper_prelude_into() {
   done
     [ "$cmd" = "$_before_all" ] && break
   done
+  # v4.2.0: git's global options sit between `git` and the subcommand, and the git
+  # rules anchor on `git <subcommand>`. Drop them (with their values) so the rules
+  # see the subcommand.
+  case "$cmd" in
+    'git '*)
+      local _g_rest="${cmd#git}" _g_tok
+      while :; do
+        _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
+        _g_tok="${_g_rest%%[[:space:]]*}"
+        case "$_g_tok" in
+          -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--config-env|--super-prefix)
+            _g_rest="${_g_rest#"$_g_tok"}"
+            _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
+            _g_tok="${_g_rest%%[[:space:]]*}"; _g_rest="${_g_rest#"$_g_tok"}" ;;
+          -*) [ -z "${_g_tok#-}" ] && break; _g_rest="${_g_rest#"$_g_tok"}" ;;
+          *) break ;;
+        esac
+      done
+      cmd="git $_g_rest"
+      ;;
+  esac
   # Same bytes $(...) would hand back: command substitution strips trailing newlines.
   while [[ "$cmd" == *$'\n' ]]; do cmd="${cmd%$'\n'}"; done
   _SC_WP="$cmd"
