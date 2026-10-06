@@ -1019,45 +1019,10 @@ _cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
 # --message and stopped there, so `gh pr create --body "...DROP TABLE..."` still
 # denied. safety-detect.py check_sensitive_read had ALREADY listed `gh pr|issue|
 # release create` as message-bearing — the enumeration existed and was not consulted.
-CMD_SCAN="$CMD"
-case "$CMD_SCAN" in
-  *m\ *|*--message\ *|*--body\ *|*--notes\ *|*--search\ *|*--title\ *)
-    # v4.1.19: newlines are folded to \036 around the sed, so a MULTI-LINE
-    # message (`git commit -m "subject<newline><newline>body"`) is blanked too;
-    # line-by-line sed never saw its closing quote and scanned the body as shell.
-    # Clustered short flags too (`git commit -am "..."`, `-qm`). Only
-    # git commit's no-argument letters may precede the m, so `sh -cm '...'` can
-    # never blank a script body.
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | tr '\n' '\036' | LC_ALL=C sed -E \
-      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--search|--title)[[:space:]]+)"[^"]*"/\1""/g' | tr '\036' '\n')
-    ;;
-esac
-# v4.1.17: a search tool's quoted PATTERN is data too. `grep -E '\.(cs|py|sh)$'`
-# read as a pipe into sh, `grep 'prisma migrate reset' docs` as a DB reset,
-# `grep -E 'blkdiscard|...' hooks/` as a disk wipe - all real commands, all denied.
-# Only a quoted pattern directly after the tool name and its flags (or -e) is
-# blanked; files, pipes and anything chained after stay scanned, and an unquoted
-# or unterminated pattern is left intact.
-case "$CMD_SCAN" in
-  *grep*|*rg\ *|*ag\ *|*ack\ *)
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-      -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+)'[^']*'/\1\6''/g" \
-      -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g')
-    ;;
-esac
+# Blanking lives in cmd-normalize.sh (sc_blank_data_into), shared with
+# human-approval-gate.sh so the two never drift apart again.
+sc_blank_data_into "$CMD"; CMD_SCAN="$_SC_SCAN"
 
-# v4.2.0: a `gh search <kind> "<query>"` query is data, and a gh command asking for
-# --help runs nothing. Both were denied by the patterns their text happened to name.
-case "$CMD_SCAN" in
-  *gh\ *)
-    CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-      -e "s/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)'[^']*'/\1''/g" \
-      -e 's/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)"[^"]*"/\1""/g' \
-      -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?$/\1gh help/' \
-      -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
-    ;;
-esac
 # v4.2.0: command-position `bash|sh|zsh|dash -c BODY`. A literal body is appended to
 # the command by normalize_cmd, so every rule above and below judges it. Only a body
 # whose content cannot be judged is denied: unquoted, a command substitution or

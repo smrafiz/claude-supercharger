@@ -149,8 +149,16 @@ except Exception:
 
 [ -z "$COMMAND" ] && exit 0
 
+# v4.2.0: judge what RUNS. Data-only heredoc bodies, messages, search queries and
+# search patterns are blanked by the same helper safety.sh uses; matching the raw
+# text denied `rg '<db reset>' docs/`, a fixture written by a heredoc, and issue
+# searches (upstream-tracker sweep). The deny message still quotes $COMMAND.
+# shellcheck source=hooks/cmd-normalize.sh
+. "$HOOKS_DIR/cmd-normalize.sh"
+sc_blank_data_into "$(strip_heredoc_bodies "$COMMAND")"; COMMAND_SCAN="$_SC_SCAN"
+
 # Normalize: collapse whitespace, lowercase for matching
-CMD_NORM=$(printf '%s\n' "$COMMAND" | tr '[:upper:]' '[:lower:]' | tr -s ' \t' ' ' | sed 's/^ //; s/ $//')
+CMD_NORM=$(printf '%s\n' "$COMMAND_SCAN" | tr '[:upper:]' '[:lower:]' | tr -s ' \t' ' ' | sed 's/^ //; s/ $//')
 
 # ── Pattern matching ──────────────────────────────────────────────────────────
 # Config wins; the namespaced env var is the documented override.
@@ -194,7 +202,7 @@ fi
 if [ -z "$MATCH_REASON" ] && ! _hag_skipped git; then
   # Git flags are case-sensitive (-d safe vs -D force); match against original
   # COMMAND not lowercased CMD_NORM.
-  if _hag_re "$COMMAND" '(^|[[:space:]&|;])git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
+  if _hag_re "$COMMAND_SCAN" '(^|[[:space:]&|;])git[[:space:]].*(reset[[:space:]]+--hard|branch[[:space:]]+-D[[:space:]]|tag[[:space:]]+-d[[:space:]]|reflog[[:space:]]+delete)'; then
     MATCH_REASON="destructive git operation"
     MATCH_CAT="git"
   fi
