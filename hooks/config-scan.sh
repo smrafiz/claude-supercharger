@@ -488,6 +488,54 @@ def _plugin_hook_findings():
 
 warnings.extend(_plugin_hook_findings())
 
+# v4.2.0: a repo can ARRIVE with a hostile .git/config -- an archive or synced folder
+# that kept its .git (GitSpawn, Manifold Security, Sept 2026). core.fsmonitor and its
+# siblings then run a command on the agent's next ordinary `git status`. Our
+# git-config-exec-guard stops the agent SETTING these; nothing read the ones already
+# there. Same key classes, read once at session start.
+def _git_config_findings():
+    import subprocess
+    gd = Path(project_dir) / '.git'
+    if gd.is_file():
+        try:
+            m = re.match(r'gitdir:\s*(.+)', gd.read_text(errors='replace').strip())
+            gd = (Path(project_dir) / m.group(1)).resolve() if m else None
+        except Exception:
+            gd = None
+    if not gd or not gd.is_dir():
+        return []
+    shape = re.compile(r'(^\s*!|\$\(|`|;|\||&&|\b(ba|z)?sh\s+-c\b|\bpython3?\s+-c\b|\bnode\s+-e\b|\bperl\s+-e\b|/\S+\.(sh|py|rb|pl|js|ps1)\b)', re.I)
+    hits = []
+    for cf in (gd / 'config', gd / 'config.worktree'):
+        if not cf.is_file():
+            continue
+        try:
+            out = subprocess.run(['git', 'config', '--file', str(cf), '--includes', '--list'],
+                                 capture_output=True, text=True, timeout=3).stdout
+        except Exception:
+            continue
+        for line in out.splitlines():
+            k, _, v = line.partition('=')
+            k = k.lower()
+            bad = (k == 'core.fsmonitor' and v.strip().lower() not in ('', 'true', 'false', '0', '1')) \
+                or re.match(r'(filter\.[^.]+\.(clean|smudge|process)|diff\.[^.]+\.(command|textconv)|(difftool|mergetool)\.[^.]+\.cmd)$', k) \
+                or (k in ('core.sshcommand', 'core.pager', 'core.editor', 'credential.helper', 'core.askpass',
+                          'sequence.editor', 'diff.external', 'gpg.program') and shape.search(v))
+            # Git LFS installs its own filter in every LFS repo; that one is expected.
+            if bad and not re.match(r'\s*git[- ]lfs\b', v):
+                hits.append(f'{k}={v[:80]}')
+    if not hits:
+        return []
+    return [f"[SECURITY] This repository's own .git/config sets a command git will run on ordinary "
+            f"operations: {'; '.join(hits[:3])}. A repo that arrived with its .git intact (archive, "
+            f"synced folder) can carry this. Review .git/config before running git here; "
+            f"'git config --local --unset <key>' removes one."]
+
+try:
+    warnings.extend(_git_config_findings())
+except Exception:
+    pass
+
 # SessionStart watchPaths: the FileChanged matcher's relative tokens resolve against
 # the cwd, so a session launched in a subdirectory watched the wrong files. Hand
 # Claude Code the git-root copies as absolute paths (it accepts nonexistent ones,
