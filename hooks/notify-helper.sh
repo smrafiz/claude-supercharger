@@ -119,6 +119,19 @@ _send_notification() {
   if [ -f "$SUPERCHARGER_DIR/.sound-only-notify" ]; then
     printf '\a'
   elif [[ "$OSTYPE" == "darwin"* ]]; then
+    # 4.3.0: our own notifier app (tools/notifier, built at install) posts under
+    # "Claude Supercharger" instead of Script Editor, and a click brings back the
+    # app this ran in (__CFBundleIdentifier: Warp, WebStorm, iTerm...). Arguments
+    # go as argv, so no escaping. Non-zero exit (missing, or notifications off for
+    # it) falls through to osascript.
+    # ponytail: no watchdog; the app exits itself within 30s at worst.
+    local _nb="${SUPERCHARGER_NOTIFIER:-$HOME/Applications/Claude Supercharger.app/Contents/MacOS/notifier}"
+    # Name the project in the title: Warp/IDEs focus the app on click but cannot
+    # switch to the tab, so the banner itself has to say which session it is.
+    if [ -x "$_nb" ] && "$_nb" "$title${PWD:+ · ${PWD##*/}}" "$(printf '%s' "$msg" | head -c 200)" \
+         "$(printf '%s' "$subtitle" | head -c 120)" "${__CFBundleIdentifier:-}" >/dev/null 2>&1; then
+      return 0
+    fi
     # Notification with click-to-focus: activate the terminal app
     local term_app="${TERM_PROGRAM:-Terminal}"
     case "$term_app" in

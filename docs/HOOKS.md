@@ -176,6 +176,7 @@ Run any of these manually:
 | `tools/config-health.sh` | Claude Supercharger — Scored Installation Health Check |
 | `tools/economy-switch.sh` | Claude Supercharger — Economy Tier Switcher |
 | `tools/fp-triage.sh` | Claude Supercharger — False-positive triage for the block ledger (maintainer tool) |
+| `tools/gen-commands-shipped.sh` | Regenerate configs/commands-shipped.txt: every slash-command file name ever |
 | `tools/gen-plugin-commands.sh` | Claude Supercharger — Plugin commands/ generator |
 | `tools/gen-plugin-hooks.sh` | Claude Supercharger — Plugin hooks.json generator |
 | `tools/hook-concurrency.sh` | Claude Supercharger — Hook concurrency reconstructor |

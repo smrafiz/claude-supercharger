@@ -100,6 +100,11 @@ done
 python3 "$SCRIPT_DIR/tools/commands-migrate.py" uninstall "$HOME/.claude/commands" "$SCRIPT_DIR" 2>/dev/null || true
 rmdir "$HOME/.claude/commands" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Commands removed"
+# 4.3.0 macOS notifier app (built by install.sh). Ours by bundle id, never a lookalike.
+_scn="$HOME/Applications/Claude Supercharger.app"
+if [ -f "$_scn/Contents/Info.plist" ] && grep -q 'dev.supercharger.notifier' "$_scn/Contents/Info.plist" 2>/dev/null; then
+  rm -rf "$_scn" && echo -e "  ${GREEN}✓${NC} Notifier app removed"
+fi
 
 # Remove claude-check
 rm -f "$HOME/.claude/claude-check.sh"

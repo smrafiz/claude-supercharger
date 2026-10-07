@@ -255,6 +255,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Performance profile | `SUPERCHARGER_PROFILE` | `standard` (or `fast`, `minimal`) |
 | Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
 | Native terminal notifications instead of OS pop-ups | `SUPERCHARGER_NOTIFY_MODE` | unset (or `osc9`: iTerm2, WezTerm, Ghostty, Windows Terminal; `osc777`: foot, urxvt) |
+| Skip building the macOS notifier app (notifications then show as Script Editor) | `SUPERCHARGER_NO_NOTIFIER=1` at install | unset: install builds `~/Applications/Claude Supercharger.app` when Swift is available. Turn it on once in System Settings → Notifications → Claude Supercharger. A click on a notification returns to the app you were in |
 | Per-tier price, USD per million tokens (Bedrock, Vertex, gateways) | `SUPERCHARGER_PRICE_<TIER>` e.g. `_OPUS` | first-party rates; `"input,cache_write,cache_read,output"` |
 
 Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.

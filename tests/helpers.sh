@@ -35,6 +35,9 @@ for _sc_v in $(env | sed -n 's/^\(SUPERCHARGER_[A-Za-z0-9_]*\)=.*/\1/p'); do
   unset "$_sc_v"
 done
 unset _sc_v
+# 4.3.0: install.sh compiles the macOS notifier app (seconds per install). Tests
+# install many times; only test-notifier.sh builds it, by unsetting this.
+export SUPERCHARGER_NO_NOTIFIER=1
 
 # --- bytecode-cache isolation ------------------------------------------------
 # Many tests point HOME at an unwritable path (/nonexistent) to exercise the

@@ -503,6 +503,12 @@ if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   success "${CMD_COUNT} command(s) installed (${CMD_NAMES})"
 fi
 
+# 4.3.0: macOS notifier app — notifications as "Claude Supercharger", not Script
+# Editor. Built locally from tools/notifier (needs Swift); never fatal.
+if [[ "${OSTYPE:-}" == darwin* ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ]; then
+  bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null | sed 's/^/  /' || true
+fi
+
 # Deploy hooks
 if [[ "$SETTINGS_ACTION" != "skip" ]]; then
   deploy_hook_scripts "$SCRIPT_DIR"
