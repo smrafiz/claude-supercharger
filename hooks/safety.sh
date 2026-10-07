@@ -402,6 +402,24 @@ PYEOF
         # /var for the same reason the python side does (macOS temp dirs).
         case "$OSTYPE" in
           msys*|cygwin*|win32*)
+            # 4.2.1: drive-letter spellings (C:/Users/x, C:\Users\x) never matched
+            # the POSIX-form checks below. Rewrite them to the Git Bash form
+            # (/c/Users/x) once, so every check here sees one spelling.
+            args="${args//\\//}"
+            while [[ "$args" =~ (^|[[:space:]\"])([A-Za-z]):/ ]]; do
+              _d=$(printf '%s' "${BASH_REMATCH[2]}" | tr 'A-Z' 'a-z')
+              args="${args/"${BASH_REMATCH[0]}"/${BASH_REMATCH[1]}/$_d/}"
+            done
+            # Home itself, or another user's home (/c/Users/x) — python check 3.
+            for _tok in $args; do
+              _t="${_tok%\"}"; _t="${_t#\"}"; _t="${_t%/}"
+              if [ -n "${HOME:-}" ] && [ "$_t" = "${HOME%/}" ]; then
+                block "recursive force rm on home directory (Windows text match)"
+              fi
+              if [[ "$_t" =~ ^/[a-z]/Users/[^/]+$ ]]; then
+                block "recursive force rm on a user home directory (Windows text match)"
+              fi
+            done
             # System roots, and anything beneath one.
             if [[ "$args" =~ (^|[[:space:]])\"?/(etc|usr|bin|sbin|lib|lib64|boot|sys|dev|proc|root|System|Library)(/|\"?[[:space:]]|\"?$) ]]; then
               block "recursive force rm on protected path (Windows text match)"
@@ -957,6 +975,8 @@ INPUT_INJECT_PATTERNS=(
 POWERSHELL_PATTERNS=(
   'Remove-Item[^;&|]*-(Recurse|Force|r[[:space:]]|fo)'
   'Remove-Item[^;&|]*-(Recurse|Force)'
+  # 4.2.1: the .NET call behind Remove-Item -Recurse (recursive flag = $true)
+  '\[(System\.)?IO\.Directory\]::Delete[[:space:]]*\([^)]*,[[:space:]]*\$true'
   '(^|[^A-Za-z])(Invoke-Expression|iex)([[:space:]]|\()'
   '(Invoke-WebRequest|Invoke-RestMethod|iwr|irm|New-Object[[:space:]]+Net\.WebClient)[^;&|]*(DownloadString|DownloadFile|OutFile)'
   '(DownloadString|DownloadData)[[:space:]]*\('

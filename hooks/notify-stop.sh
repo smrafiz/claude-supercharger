@@ -37,7 +37,19 @@ _cooldown_ok "stop" 12 "$_NS_SID" || exit 0
 
 # v2.7.34: duration gate — only notify for turns past the threshold so quick
 # replies stay silent. Override seconds via scope/.notify-min-seconds.
-DURATION_MS=$(printf '%s\n' "$_INPUT" | jq -r '.cost.total_duration_ms // 0' 2>/dev/null || echo 0)
+# 4.2.1: the Stop payload carries no `cost` (that is a statusline field), so this
+# read 0 for every turn and the gate silenced ALL turn-end notifications. The turn
+# length is now taken from the transcript: now minus the last typed prompt.
+_T=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+DURATION_MS=0
+if [ -n "$_T" ] && [ -f "$_T" ]; then
+  DURATION_MS=$(tail -n 400 "$_T" 2>/dev/null | jq -rs '
+    [.[] | select(.type == "user" and .timestamp)
+      | select((.message.content | type) == "string"
+               or ([.message.content[]? | select(.type == "text")] | length > 0))]
+    | last | .timestamp // empty | sub("\\.[0-9]+"; "") | fromdateiso8601
+    | (now - .) * 1000 | floor' 2>/dev/null || echo 0)
+fi
 case "$DURATION_MS" in ''|*[!0-9]*) DURATION_MS=0 ;; esac
 MIN_SECS=30
 if [ -f "$SUPERCHARGER_DIR/scope/.notify-min-seconds" ]; then

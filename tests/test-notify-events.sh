@@ -116,13 +116,21 @@ EXIT=$?
 teardown_test_home
 [ "$EXIT" -eq 0 ] && pass || fail "exit=$EXIT out=$OUT"
 
+# 4.2.1: the turn length comes from the transcript (the Stop payload has no cost
+# field — these tests used to supply one, which is how the gate silenced every
+# real turn while passing). _tx writes a prompt timestamped $2 ms ago.
+_tx() { python3 -c 'import json,sys,datetime as d
+t=d.datetime.now(d.timezone.utc)-d.timedelta(milliseconds=int(sys.argv[2]))
+open(sys.argv[1],"w").write(json.dumps({"type":"user","timestamp":t.strftime("%Y-%m-%dT%H:%M:%S.000Z"),"message":{"content":"hi"}})+"\n")' "$1" "$2"; }
+
 # v2.7.34: duration gate — short turns stay silent, long turns notify.
 begin_test "notify-stop: gates sub-threshold turns, notifies long turns"
 if [[ "$OSTYPE" == darwin* ]]; then
   _gate() { # $1=ms → fired|silent  (fresh HOME so the 12s cooldown never bleeds across cases)
     local h m; h=$(mktemp -d); mkdir -p "$h/.claude/supercharger/scope"
     m=$(mktemp -d); printf '#!/bin/sh\ntouch "%s/n"\n' "$m" > "$m/osascript"; chmod +x "$m/osascript"
-    printf '{"cost":{"total_duration_ms":%s},"transcript_path":""}' "$1" | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
+    _tx "$h/t.jsonl" "$1"
+    printf '{"transcript_path":"%s"}' "$h/t.jsonl" | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
     [ -f "$m/n" ] && echo fired || echo silent; rm -rf "$h" "$m"
   }
   SHORT=$(_gate 5000); LONG=$(_gate 90000)
@@ -135,7 +143,8 @@ if [[ "$OSTYPE" == darwin* ]]; then
   echo 3 > "$h/.claude/supercharger/scope/.notify-min-seconds"
   m=$(mktemp -d); printf '#!/bin/sh\ntouch "%s/n"\n' "$m" > "$m/osascript"; chmod +x "$m/osascript"
   # 5s turn: default (30) would gate, but override=3 → notifies
-  printf '{"cost":{"total_duration_ms":5000},"transcript_path":""}' | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
+  _tx "$h/t.jsonl" 5000
+  printf '{"transcript_path":"%s"}' "$h/t.jsonl" | env HOME="$h" PATH="$m:$PATH" bash "$NS" >/dev/null 2>&1
   [ -f "$m/n" ] && pass || fail "override to 3s should notify a 5s turn"; rm -rf "$h" "$m"
 else pass; fi
 

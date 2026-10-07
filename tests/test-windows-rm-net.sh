@@ -196,5 +196,19 @@ begin_test "a temp dir under /var is still allowed on Windows"
 [ "$(probe 'rm -rf /var/folders/t5/tmp.XYZ' msys)" = "allow" ] && pass \
   || fail "net is stricter than SYS_ROOTS — /var should not be protected"
 
+begin_test "4.2.1: drive-letter spellings reach the Windows net"
+R=""
+for c in 'rm -rf C:/Users/bob' 'rm -rf "C:\Users\bob"' 'rm -rf c:/Users/bob/' 'rm -rf /c/Users/bob'; do
+  [ "$(probe "$c" msys)" = "allow" ] && R="$R [$c]"
+done
+[ -z "$R" ] && pass || fail "drive-letter form evades the net:$R"
+
+begin_test "4.2.1: deeper paths under a user home stay allowed on Windows"
+R=""
+for c in 'rm -rf C:/Users/bob/proj/build' 'rm -rf /c/Users/bob/proj/node_modules'; do
+  [ "$(probe "$c" msys)" = "BLOCK" ] && R="$R [$c]"
+done
+[ -z "$R" ] && pass || fail "false positive:$R"
+
 rm -rf "$STUBDIR"
 report
