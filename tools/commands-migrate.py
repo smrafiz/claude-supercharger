@@ -41,7 +41,7 @@ def main():
         with open(path, 'rb') as f:
             data = f.read()
         new = 'sc-' + name
-        is_stub = new in current and data == stub(name, new).encode()
+        is_stub = new in current and data.replace(b'\r', b'') == stub(name, new).encode()
         ours = sha(data) in shipped[name]
         if mode == 'uninstall':
             if ours or is_stub:
@@ -54,8 +54,8 @@ def main():
                 print(f'  /{name}: you edited it, so it was left alone; the Supercharger command is now /{new}')
             continue
         if new in current:
-            with open(path, 'w') as f:
-                f.write(stub(name, new))
+            with open(path, 'wb') as f:  # binary: text mode writes CRLF on Windows
+                f.write(stub(name, new).encode())
             print(f'  /{name} -> /{new}')
         else:
             os.remove(path)

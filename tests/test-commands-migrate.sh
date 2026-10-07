@@ -43,6 +43,14 @@ begin_test "uninstall: removes stubs and our files, keeps the user's"
 python3 "$M" uninstall "$C" "$REPO_DIR"
 for f in "$REPO_DIR/configs/commands/"*.md; do rm -f "$C/$(basename "$f")"; done
 [ "$(cd "$C" && ls | tr '\n' ' ')" = "build.md pr.md sc-mine.md " ] && pass || fail "left: $(ls "$C" | tr '\n' ' ')"
+
+# Windows: a stub that came back with CRLF line endings is still our stub.
+begin_test "uninstall: removes a CRLF stub"
+old_version security > "$C/security.md"
+python3 "$M" install "$C" "$REPO_DIR" >/dev/null
+python3 -c 'import sys;p=sys.argv[1];d=open(p,"rb").read();open(p,"wb").write(d.replace(b"\n",b"\r\n"))' "$C/security.md"
+python3 "$M" uninstall "$C" "$REPO_DIR"
+[ ! -e "$C/security.md" ] && pass || fail "CRLF stub left behind"
 rm -rf "$T"
 
 begin_test "every shipped command is in the manifest, at its current content"
