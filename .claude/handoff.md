@@ -4,15 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-06 evening, session `3d213381`.*
+*Verified 2026-10-07, session `3d213381`.*
 
-- **Released: v4.1.30** (installed on Machine A). master = 945b46d (#97 #98 #99).
-- **Open PR #100** (feat/sweep5): sweep-5 bypass + FP fixes, 33 commits, PR checks green;
-  Windows run 37456015740 pending. User approved: merge when green, then release v4.2.0.
-- **Release recipe:** `release.sh stage minor --yes --message "..."` detached (nohup & disown);
-  `echo y |` does NOT work (it answers the CHANGELOG prompt). Then promote --yes, update.sh.
-- **Unpushed:** docs/handoff-2026-10-05b (worktree b4): this carry file, briefs, HOOK_AUTHORING notes.
-- **4.2.1 list** in PR #100 body (quote decode, ssh/sed-e, Windows C:/Users + .NET Delete).
+- **Released: v4.2.0** (2026-10-07T03:14:45Z; installed on Machine A). master = a618ba8.
+  Contains #97 #98 #99 #100 (sweep 5).
+- **Open PR #101:** this docs branch (handoffs + HOOK_AUTHORING notes). Docs only.
+- **Next (4.2.1):** list in PR #100 body — general quote/escape decode, ssh/sed-e bodies,
+  Windows C:/Users targets + [IO.*]::Delete, Bash allowed_domains. Write as small one-rule
+  Edit-tool edits (see memory: classifier-stops-guard-patches).
+- **Watch:** new asks in 4.2.0 (npm publish, foreign-owner push, trace deletion, Mod warning)
+  for false positives in real use.
+- **Release recipe:** `release.sh stage minor --yes --message "..."` detached, then
+  `promote X.Y.Z --yes`, then update.sh. `echo y |` does NOT work.
 - **Machine A:** many redundant worktrees under .claude/worktrees/; stash `sog` (user's to delete).
 - **Machine B**: unknown. **Open (user)**: radius-apps guard-push wrapper; rotate CRON_SECRET.
 
