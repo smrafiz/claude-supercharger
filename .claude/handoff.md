@@ -4,13 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-05, session `3d213381`.*
+*Verified 2026-10-07, session `3d213381`.*
 
-- **Released: v4.1.30** (installed on Machine A). master = dc254be (#97, v4.2.0 feature PR merged).
-  A 4.2.0 stage was WITHDRAWN before promotion (rel/4.2.0 deleted) so batch 4 ships with it.
-- **In flight:** branch feat/batch4-2026-10-05 (worktree .claude/worktrees/b4), committed, NOT pushed.
-  3 test failures left before PR; exact list in `.claude/handoff-3d213381-...md` "RESUME HERE".
-  User approved: merge when green, `release.sh stage minor` -> v4.2.0.
+- **Released: v4.2.0** (2026-10-07T03:14:45Z; installed on Machine A). master = a618ba8.
+  Contains #97 #98 #99 #100 (sweep 5).
+- **Open PR #101:** this docs branch (handoffs + HOOK_AUTHORING notes). Docs only.
+- **Next (4.2.1):** list in PR #100 body — general quote/escape decode, ssh/sed-e bodies,
+  Windows C:/Users targets + [IO.*]::Delete, Bash allowed_domains. Write as small one-rule
+  Edit-tool edits (see memory: classifier-stops-guard-patches).
+- **Watch:** new asks in 4.2.0 (npm publish, foreign-owner push, trace deletion, Mod warning)
+  for false positives in real use.
+- **Release recipe:** `release.sh stage minor --yes --message "..."` detached, then
+  `promote X.Y.Z --yes`, then update.sh. `echo y |` does NOT work.
 - **Machine A:** many redundant worktrees under .claude/worktrees/; stash `sog` (user's to delete).
 - **Machine B**: unknown. **Open (user)**: radius-apps guard-push wrapper; rotate CRON_SECRET.
 
@@ -40,6 +45,16 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-06 — 3d213381
+#99 fixed master Windows (CR-CR-LF). Sweep 5 (4 research agents) -> PR #100: normalizer
+bypasses, FPs, Mods/Artifact/token/remote coverage. Classifier cut many patch turns.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-06 deep)
+
+#### 2026-10-05 (evening) — 3d213381
+Batch 4 merged (#98, 50405e3) after fixing 3 tests (2 test bugs, 1 real crontab separator gap
+present since v4.1.17); suite 6212/0. v4.2.0 staging/promoting detached.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (Status — evening)
+
 #### 2026-10-05 — 3d213381
 v4.1.30 out (#93 #94 #96). Four research rounds -> #97 (v4.2.0 features) merged; batch 4
 (FP audit fixes, CI/GitHub, infra coverage, docs) on feat/batch4, 3 tests to fix, then ship 4.2.0.
@@ -56,15 +71,3 @@ v4.1.26 staged, promote pending master Windows. #88 guards ShareOnboardingGuide
 (uploads ./ONBOARDING.md, schema read from the CC binary); #89 env-exec-guard
 PowerShell. Coverage-diff #12 (LSP) closed as no-leak.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-10-01 — 3d213381
-v4.1.24 and v4.1.25 out. Coverage diff vs CC 2.1.286 found PowerShell output and
-elicitation gaps (#85, #86, pending). Skills list was the largest context cost;
-Shopify skills moved into their projects.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-09-30 (evening) — 3d213381
-A 7-minute branch debug run found fp-triage's Windows cause (backslash hook
-path) and a cross-OS secret-masking gap; fixed in #82, verifying on Windows.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-

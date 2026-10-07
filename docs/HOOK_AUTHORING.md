@@ -768,3 +768,41 @@ continuations for every rule (9 of 325), and nothing else would have shown it.
 Our own guards deny a probe command that contains the strings it tests (`.env`,
 credential assignments, `bash -c`, `rm -rf`). Write the probe as a python file,
 assemble the risky strings at runtime, and pipe JSON payloads to the hook.
+
+### End a flag match on separators, not just whitespace
+
+`crontab[[:space:]]+-e([[:space:]]|$)` missed `crontab -e; echo done` for eleven
+releases: after the flag came `;`, not a space or the end. Any rule that ends a flag
+or a word must also accept `;`, `&`, `|` and `)`. The fuzz harness
+(`tests/fuzz-safety.sh`, not in the suite) found it; run it after touching safety.sh.
+
+### When narrowing a rule breaks a test, read what the test runs
+
+Removing the blanket `bash -c` deny failed two `find -exec bash -c` tests. The
+tests built the command from `$D`, which an earlier section of the same file had
+set to `DROP`, so they ran `bash -c "DROP -rf /"`. They had passed only because
+every `bash -c` was denied. Print the exact command a failing test sends before
+deciding whether the rule or the test is wrong.
+
+### A normalizer change can silently disable a rule that read what you removed
+
+Dropping git's global options (`-C`, `-c`, `--no-pager`) let `git -C dir reset --hard`
+reach the reset rule — and also removed `-c` from the segment the `-c core.hooksPath`
+rule was reading, so that rule stopped firing. The new probes all passed; only the full
+`tests/test-hooks.sh` caught it. Before changing what `normalize_cmd` or `split_segments`
+emits, grep every rule that reads the segment for the text you are removing, and run the
+whole hook suite, not just the cases you added.
+
+### Extend the fast-path gate with the rule
+
+Three times in one change set a new rule never ran: git-safety's case-glob gate did not
+admit `branch -f`, `read-tree` or `alias.`, and safety.sh's `_NEED_PY` gate did not admit
+the new token-store paths. A rule's probe that returns "allow" may mean the gate exited,
+not that the rule judged it. Add the gate token in the same edit, and include one
+deny case per new rule in the tests.
+
+### Blank data with a placeholder, not a space
+
+Replacing quoted text with a space changed what the remaining text meant: `cut -d'"'`
+became `cut -d `, which the network-upload rule reads as `curl -d `. Blanking must keep
+token boundaries; use a placeholder (`_Q_`) so flags keep their operands.
