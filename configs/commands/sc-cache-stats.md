@@ -1,3 +1,7 @@
+---
+description: "Show typecheck and quality-gate hook cache statistics."
+disable-model-invocation: true
+---
 Show hook cache statistics for typecheck and quality-gate. Arguments: $ARGUMENTS
 
 Run this inline Python to report cache state:

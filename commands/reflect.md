@@ -1,5 +1,7 @@
 ---
-description: "Score this session and write quality observations to memory: $ARGUMENTS"
+description: "Score this session and write quality observations to memory."
+argument-hint: "[focus]"
+disable-model-invocation: true
 ---
 Score this session and write quality observations to memory: $ARGUMENTS
 

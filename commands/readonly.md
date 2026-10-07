@@ -1,5 +1,7 @@
 ---
-description: "Read-only mode \u2014 \"look, don't touch\" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)"
+description: "Read-only mode: block edits and writes for a while."
+argument-hint: "<duration> [session|global] | off | status"
+disable-model-invocation: true
 ---
 Read-only mode — "look, don't touch" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 

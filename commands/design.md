@@ -1,5 +1,7 @@
 ---
-description: "Generate a DESIGN.md brand context file for this project: $ARGUMENTS"
+description: "Write a DESIGN.md brand and design context file for this project."
+argument-hint: "[brand notes]"
+disable-model-invocation: true
 ---
 Generate a DESIGN.md brand context file for this project: $ARGUMENTS
 

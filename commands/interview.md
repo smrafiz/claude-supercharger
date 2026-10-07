@@ -1,5 +1,6 @@
 ---
-description: "Gather requirements before planning: $ARGUMENTS"
+description: "Gather requirements from the user before planning, one question at a time."
+argument-hint: "<feature or idea>"
 ---
 Gather requirements before planning: $ARGUMENTS
 

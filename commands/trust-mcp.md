@@ -1,5 +1,7 @@
 ---
-description: "Trust an MCP server to request credentials via Elicitation forms. Argument: $ARGUMENTS (a server name, or `--list`, or `--remove <server>`)"
+description: "Trust an MCP server to request credentials via Elicitation forms."
+argument-hint: "<server> | --list | --remove <server>"
+disable-model-invocation: true
 ---
 Trust an MCP server to request credentials via Elicitation forms. Argument: $ARGUMENTS (a server name, or `--list`, or `--remove <server>`)
 

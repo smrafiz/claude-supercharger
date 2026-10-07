@@ -1,3 +1,7 @@
+---
+description: "Review UI for accessibility, visual hierarchy and responsiveness. Read-only."
+argument-hint: "[page, component or path]"
+---
 Review the UI for accessibility, hierarchy and responsiveness: $ARGUMENTS
 
 Read-only: this produces a report, it changes no files. To create a design brief, use `/sc-design`.

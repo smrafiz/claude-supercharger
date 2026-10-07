@@ -1,5 +1,6 @@
 ---
-description: "Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS"
+description: "Pick the right Supercharger command for a situation, or list them all."
+argument-hint: "[situation]"
 ---
 Route to the right Supercharger command, or list them all. Arguments: $ARGUMENTS
 

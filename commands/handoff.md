@@ -1,5 +1,7 @@
 ---
-description: "Generate a structured session handoff brief. Context: $ARGUMENTS"
+description: "Write a session handoff brief that auto-loads next session."
+argument-hint: "[--deep] [context]"
+disable-model-invocation: true
 ---
 Generate a structured session handoff brief. Context: $ARGUMENTS
 

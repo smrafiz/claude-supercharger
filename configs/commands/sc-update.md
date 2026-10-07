@@ -1,3 +1,7 @@
+---
+description: "Check for and apply Supercharger updates."
+disable-model-invocation: true
+---
 Check for and apply Claude Supercharger updates. Arguments: $ARGUMENTS
 
 **Step 1 — Check for updates**

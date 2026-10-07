@@ -81,13 +81,13 @@ COMMANDS_DIR="$REPO_DIR/configs/commands"
 EXPECTED_COMMANDS=("think" "challenge" "audit" "handoff" "security" "stuck" "scope" "pr" "interview" "devlog" "design" "design-review" "multi-review" "reflect")
 
 for cmd in "${EXPECTED_COMMANDS[@]}"; do
-  begin_test "commands: $cmd.md exists in configs/commands/"
-  assert_file_exists "$COMMANDS_DIR/$cmd.md" && pass
+  begin_test "commands: sc-$cmd.md exists in configs/commands/"
+  assert_file_exists "$COMMANDS_DIR/sc-$cmd.md" && pass
 done
 
 for cmd in "${EXPECTED_COMMANDS[@]}"; do
-  begin_test "commands: $cmd.md has non-empty content"
-  CONTENT=$(cat "$COMMANDS_DIR/$cmd.md")
+  begin_test "commands: sc-$cmd.md has non-empty content"
+  CONTENT=$(cat "$COMMANDS_DIR/sc-$cmd.md")
   [ -n "$CONTENT" ] && pass || fail "$cmd.md is empty"
 done
 

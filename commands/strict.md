@@ -1,5 +1,7 @@
 ---
-description: "Strict mode \u2014 \"ask me everything\" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)"
+description: "Strict mode: ask before every action for a while."
+argument-hint: "<duration> [session|global] | off | status"
+disable-model-invocation: true
 ---
 Strict mode — "ask me everything" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 

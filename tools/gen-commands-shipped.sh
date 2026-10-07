@@ -6,6 +6,7 @@
 # hashing so a CRLF checkout hashes the same as LF.
 # Usage: bash tools/gen-commands-shipped.sh   (run after changing a command)
 set -euo pipefail
+: "${PYTHONIOENCODING:=utf-8}"; : "${PYTHONUTF8:=1}"; export PYTHONIOENCODING PYTHONUTF8
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 git log --all --format=%H -- configs/commands \
   | while read -r c; do

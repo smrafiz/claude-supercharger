@@ -1,5 +1,7 @@
 ---
-description: "Time-boxed auto-approve \u2014 stop the yes/no prompts for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)"
+description: "Time-boxed auto-approve: stop permission prompts for a while."
+argument-hint: "<duration> [session|global] | off | status"
+disable-model-invocation: true
 ---
 Time-boxed auto-approve — stop the yes/no prompts for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 

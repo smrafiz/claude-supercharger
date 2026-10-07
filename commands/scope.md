@@ -1,5 +1,6 @@
 ---
-description: "Pre-flight scope check before starting: $ARGUMENTS"
+description: "Pre-flight check before starting work: files to touch, risks, blast radius, stop conditions."
+argument-hint: "<task>"
 ---
 Pre-flight scope check before starting: $ARGUMENTS
 

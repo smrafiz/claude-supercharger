@@ -1,3 +1,8 @@
+---
+description: "Show or switch the Supercharger performance profile."
+argument-hint: "[standard|fast|minimal]"
+disable-model-invocation: true
+---
 Show or switch the active performance profile. Arguments: $ARGUMENTS
 
 ## Show current profile (no arguments)

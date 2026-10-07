@@ -1,3 +1,7 @@
+---
+description: "Structured reasoning for an ambiguous problem before acting."
+argument-hint: "<problem>"
+---
 Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS
 
 This command FRAMES a problem before anyone commits to an answer. It ends in a direction, not a verdict. Siblings: `/sc-challenge` stress-tests a decision once made (pre-mortem, kill criteria); `/sc-stuck` breaks a failing debug loop. Do not do their jobs here.

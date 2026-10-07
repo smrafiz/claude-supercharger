@@ -1,3 +1,7 @@
+---
+description: "Gather requirements from the user before planning, one question at a time."
+argument-hint: "<feature or idea>"
+---
 Gather requirements before planning: $ARGUMENTS
 
 Do NOT write any code or create an implementation plan. This is a requirements gate.

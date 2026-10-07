@@ -1,3 +1,8 @@
+---
+description: "Resolve an in-progress merge or rebase conflict and verify the result."
+argument-hint: "[context]"
+disable-model-invocation: true
+---
 Resolve an in-progress merge or rebase conflict. Context: $ARGUMENTS
 
 Design sources: git's own merge machinery (`zdiff3`, stage blobs, `rerere`, `git log --merge`), Fowler on semantic conflicts (a clean text merge that breaks the build or behaviour), and the evidence on automated merging — purpose-built neural mergers (MergeBERT, DeepMerge) resolve only about 55–69% of conflicts correctly, so a hunk you had to judge is a guess until verified.

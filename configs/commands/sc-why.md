@@ -1,3 +1,7 @@
+---
+description: "Explain the most recent Supercharger hook block or warning."
+argument-hint: "[hook name]"
+---
 Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
 
 If `$ARGUMENTS` is empty, examine the most recent hook activity. If `$ARGUMENTS` names a hook (e.g., `confidence-gate`), explain that hook's last firing specifically.

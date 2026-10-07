@@ -1,3 +1,7 @@
+---
+description: "Estimate time, complexity and uncertainty for a task. Report only, no work."
+argument-hint: "<task>"
+---
 Scoped time + complexity estimate for: $ARGUMENTS
 
 Do NOT write code. Do NOT start work. This is a report-only analysis.

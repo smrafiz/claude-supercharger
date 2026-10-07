@@ -1,5 +1,6 @@
 ---
-description: "Break out of a debugging loop. Current symptom: $ARGUMENTS"
+description: "Break out of a debugging loop after repeated failed fixes."
+argument-hint: "<current symptom>"
 ---
 Break out of a debugging loop. Current symptom: $ARGUMENTS
 

@@ -18,7 +18,9 @@ def sha(data):
 
 
 def stub(old, new):
-    return (f'{STUB_MARK}\n'
+    # User-only and description-less in context: a redirect must not cost tokens every turn.
+    return (f'---\ndescription: "Renamed: use /{new}"\ndisable-model-invocation: true\n---\n'
+            f'{STUB_MARK}\n'
             f'`/{old}` was renamed to `/{new}` in Supercharger 4.3.0 (this redirect goes away in 4.4.0).\n\n'
             f'Tell the user, in one line, that `/{old}` is now `/{new}`. Then run `/{new}` with: $ARGUMENTS\n')
 

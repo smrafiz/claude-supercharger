@@ -1,5 +1,6 @@
 ---
-description: "Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS"
+description: "Explain the most recent Supercharger hook block or warning."
+argument-hint: "[hook name]"
 ---
 Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
 

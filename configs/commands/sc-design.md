@@ -1,3 +1,8 @@
+---
+description: "Write a DESIGN.md brand and design context file for this project."
+argument-hint: "[brand notes]"
+disable-model-invocation: true
+---
 Generate a DESIGN.md brand context file for this project: $ARGUMENTS
 
 DESIGN.md is a portable design brief that future sessions auto-load when editing styles. It defines brand identity, tokens, and conventions in one place. To review an existing UI (accessibility, hierarchy, responsiveness), use `/sc-design-review`.

@@ -1,5 +1,7 @@
 ---
-description: "Prepare a pull request for the current branch. Context: $ARGUMENTS"
+description: "Prepare a pull request for the current branch, with pre-flight checks."
+argument-hint: "[context]"
+disable-model-invocation: true
 ---
 Prepare a pull request for the current branch. Context: $ARGUMENTS
 

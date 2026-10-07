@@ -1,5 +1,6 @@
 ---
-description: "Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS"
+description: "Structured reasoning for an ambiguous problem before acting."
+argument-hint: "<problem>"
 ---
 Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS
 

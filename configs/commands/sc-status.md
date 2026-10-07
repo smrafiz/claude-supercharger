@@ -1,3 +1,6 @@
+---
+description: "Show the current Supercharger session state: economy, guards, cost, memory."
+---
 Render the current Claude Supercharger session state. Arguments: $ARGUMENTS
 
 Read these files (silently — do not show their raw content) and produce a dashboard:

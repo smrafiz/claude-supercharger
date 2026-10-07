@@ -1,5 +1,5 @@
 ---
-description: "Render the current Claude Supercharger session state. Arguments: $ARGUMENTS"
+description: "Show the current Supercharger session state: economy, guards, cost, memory."
 ---
 Render the current Claude Supercharger session state. Arguments: $ARGUMENTS
 

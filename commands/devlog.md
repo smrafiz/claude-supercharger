@@ -1,5 +1,7 @@
 ---
-description: "Add an entry to the project's DEV-LOG.md: $ARGUMENTS"
+description: "Append a WHY-focused entry to the project's DEV-LOG.md."
+argument-hint: "<what changed and why>"
+disable-model-invocation: true
 ---
 Add an entry to the project's DEV-LOG.md: $ARGUMENTS
 

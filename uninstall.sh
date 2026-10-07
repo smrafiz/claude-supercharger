@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
 set -euo pipefail
+: "${PYTHONIOENCODING:=utf-8}"; : "${PYTHONUTF8:=1}"; export PYTHONIOENCODING PYTHONUTF8
 umask 077
 
 # Resolve source directory

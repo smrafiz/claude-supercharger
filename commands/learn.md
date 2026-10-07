@@ -1,5 +1,7 @@
 ---
-description: "Record an explicit user-stated rule. Arguments: $ARGUMENTS"
+description: "Record a rule the user explicitly states so it is recalled in later sessions."
+argument-hint: "<rule>"
+disable-model-invocation: true
 ---
 Record an explicit user-stated rule. Arguments: $ARGUMENTS
 

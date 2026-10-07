@@ -1,3 +1,8 @@
+---
+description: "Score this session and write quality observations to memory."
+argument-hint: "[focus]"
+disable-model-invocation: true
+---
 Score this session and write quality observations to memory: $ARGUMENTS
 
 Run after completing significant work. Scores what worked, what didn't, and writes structured observations that future sessions will load — building a project-specific improvement signal over time.

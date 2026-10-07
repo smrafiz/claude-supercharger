@@ -1,5 +1,6 @@
 ---
-description: "Diagnose this Claude Supercharger installation. Arguments: $ARGUMENTS"
+description: "Diagnose this Supercharger installation and print a one-line verdict."
+disable-model-invocation: true
 ---
 Diagnose this Claude Supercharger installation. Arguments: $ARGUMENTS
 
