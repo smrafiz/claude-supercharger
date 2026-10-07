@@ -1,11 +1,12 @@
 ---
-description: "Pre-flight scope check before starting: $ARGUMENTS"
+description: "Pre-flight check before starting work: files to touch, risks, blast radius, stop conditions."
+argument-hint: "<task>"
 ---
 Pre-flight scope check before starting: $ARGUMENTS
 
 Do NOT start implementation. This is a planning gate: it fixes exactly what will change, what that touches, where the work stops, and then waits for approval.
 
-Siblings: `/estimate` sizes work before deciding to do it (ranges, reference class); `/challenge` stress-tests a hard-to-reverse decision. This command owns the file list, the blast radius and the finish line — not time estimates.
+Siblings: `/supercharger:estimate` sizes work before deciding to do it (ranges, reference class); `/supercharger:challenge` stress-tests a hard-to-reverse decision. This command owns the file list, the blast radius and the finish line — not time estimates.
 
 Design sources: Claude Code plan mode (catching "this is used in 12 places" before the edit), GitHub Spec Kit and AWS Kiro specs (acceptance criteria and a definition of done per task), Google design docs (non-goals), change-impact / blast-radius analysis, and the agent evidence that the most common failure is completing the authorized task plus unrequested extra changes.
 
@@ -29,7 +30,7 @@ For each modified function, type, config key or file: its direct callers and dep
 - **Minimal diff**: the smallest change that meets the definition of done.
 
 **Step 5 — Reversibility and review triggers**
-Mark each change easy or hard to undo. Hard-to-undo changes, and anything touching a schema, auth, a public API, CI/CD, a deletion or a new dependency, need explicit human sign-off — list them. For a hard-to-undo decision that is still contested, run `/challenge` before approving.
+Mark each change easy or hard to undo. Hard-to-undo changes, and anything touching a schema, auth, a public API, CI/CD, a deletion or a new dependency, need explicit human sign-off — list them. For a hard-to-undo decision that is still contested, run `/supercharger:challenge` before approving.
 
 **Step 6 — Assumptions and risks**
 The assumptions the plan rests on. If one of them would change the file list and the context cannot settle it, ask exactly one question before presenting the gate. Then 2–3 specific risks — each names a mechanism, a trigger and a component, not a category.

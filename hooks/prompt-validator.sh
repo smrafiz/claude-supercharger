@@ -15,7 +15,7 @@ set -euo pipefail
 # This hook runs async (v2.26.37) so it no longer delays the prompt, but that
 # means its advice can land beside or after the answer instead of before it. It
 # was already losable when synchronous — a nudge scrolled past was simply gone.
-# Recording it makes `/why` able to show it afterwards, which is strictly better
+# Recording it makes `/sc-why` able to show it afterwards, which is strictly better
 # than the old behaviour rather than a consolation for going async.
 #
 # Session id comes from the environment: reading it out of the payload would cost
@@ -173,7 +173,7 @@ if m(r"\b(getting an error|there.s a bug|it.s broken|not working|fails|crashes)\
 for n in notes:
     sys.stderr.write('[Supercharger] ' + n + '\n')
 
-# Persist for /why. Best-effort and last: a failure here must never cost the
+# Persist for /sc-why. Best-effort and last: a failure here must never cost the
 # user the stderr note they would otherwise have seen.
 notes_file = os.environ.get('PV_NOTES_FILE', '')
 if notes and notes_file:

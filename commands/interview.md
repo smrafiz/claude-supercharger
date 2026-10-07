@@ -1,11 +1,12 @@
 ---
-description: "Gather requirements before planning: $ARGUMENTS"
+description: "Gather requirements from the user before planning, one question at a time."
+argument-hint: "<feature or idea>"
 ---
 Gather requirements before planning: $ARGUMENTS
 
 Do NOT write any code or create an implementation plan. This is a requirements gate.
 
-It draws out what the **user** wants — the ambiguity is in their head, not in the code. If the problem is that the request itself can be read several ways, that is `/think`. The brief this produces feeds `/scope` (files and approval) and `/estimate` (size).
+It draws out what the **user** wants — the ambiguity is in their head, not in the code. If the problem is that the request itself can be read several ways, that is `/supercharger:think`. The brief this produces feeds `/supercharger:scope` (files and approval) and `/supercharger:estimate` (size).
 
 Design sources: Rob Fitzpatrick's *The Mom Test* (ask about past behaviour and specifics, never opinions or hypotheticals), Jobs-to-be-Done switch interviews (the struggling moment, why now), Matt Wynne's example mapping (rules, examples, open questions), EARS requirement syntax and AWS Kiro specs, ISO/IEC 25010 quality characteristics, GitHub spec-kit `/clarify` (at most five questions, ranked by impact × uncertainty), obra/superpowers brainstorming (read the project first; one question per message), Matt Pocock's grill-me (always propose an answer), ClarifyGPT (ask only where readings diverge), and the evidence that agents both under-ask — filling gaps with invented answers — and over-ask on clear requests.
 
@@ -49,7 +50,7 @@ Stop when any of these holds:
 - you have asked **5** questions — past that, answers get shallow. Record what is still open.
 
 **Step 5 — Write the brief and hand off**
-Output the brief, then invoke `/scope` if the design is clear, or the `superpowers:brainstorming` skill if it is not.
+Output the brief, then invoke `/supercharger:scope` if the design is clear, or the `superpowers:brainstorming` skill if it is not.
 
 Output format:
 ```
@@ -80,5 +81,5 @@ Assumptions (unverified — would change the scope if wrong):
 Open questions (nobody could answer yet):
   - [... | none]
 
-NEXT: /scope | superpowers:brainstorming
+NEXT: /supercharger:scope | superpowers:brainstorming
 ```

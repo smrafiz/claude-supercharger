@@ -1,3 +1,8 @@
+---
+description: "Prepare a pull request for the current branch, with pre-flight checks."
+argument-hint: "[context]"
+disable-model-invocation: true
+---
 Prepare a pull request for the current branch. Context: $ARGUMENTS
 
 Design sources: Google engineering practices (small changes; a description whose first line says what and whose body says why), the SmartBear / Cisco review study (defect detection drops sharply past ~400 changed lines), GitHub's docs on closing keywords, templates, CODEOWNERS and drafts, and the 2026 study of AI-agent PRs (arXiv 2601.04886) — descriptions claiming changes the diff doesn't contain were the most common inconsistency, and inconsistent PRs were accepted far less often and merged far more slowly.

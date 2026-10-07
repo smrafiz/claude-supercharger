@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Block-ledger line integrity (v2.26.17)
 #
-# scope/.blocked-commands is LINE-BASED: /why reads the last N lines, and
+# scope/.blocked-commands is LINE-BASED: /sc-why reads the last N lines, and
 # learn-from-blocks parses it into the [BLOCKS] summary injected into every session's
 # context. All three writers embedded the raw command, so a MULTI-LINE blocked command
 # wrote a multi-line entry — a fragment such as `rm -rf .` became its own row and read

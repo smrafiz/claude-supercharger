@@ -78,7 +78,7 @@ try:
 except Exception:
     pass
 
-# v2.23.0: rich /handoff narrative (Done/Decisions/What-failed/Resume-with).
+# v2.23.0: rich /sc-handoff narrative (Done/Decisions/What-failed/Resume-with).
 # Model-authored, so it carries what the mechanical memory doc can't. No
 # freshness gate — compaction is same-session, a present handoff is relevant.
 # session-memory-inject.sh does the mirror at the SessionStart boundary.

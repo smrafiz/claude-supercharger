@@ -12,12 +12,12 @@
 #   - NO-OP under the installer runtime (CLAUDE_PLUGIN_ROOT unset) — the wizard owns
 #     those files there.
 #   - NEVER clobbers an existing scope file — a runtime switch ("eco minimal",
-#     /profile, mcp-profile.sh) always wins over the enable-time default.
+#     /sc-profile, mcp-profile.sh) always wins over the enable-time default.
 # Disable: SUPERCHARGER_PLUGIN_NUDGE=0
 set -uo pipefail
 
 # v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing
-# lib-timing exits at source time when the disable flag is set (and adds /perf timing).
+# lib-timing exits at source time when the disable flag is set (and adds /sc-perf timing).
 # No bootstrap trap: this only seeds config VALUES, never the flag itself, and
 # sc-toggle creates its own scope dir + sets SUPERCHARGER_TOGGLE to bypass on `sc on`.
 # shellcheck source=hooks/lib-timing.sh

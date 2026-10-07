@@ -204,7 +204,7 @@ rm -rf "$PROJ" "$FAKE_HOME"
 BACKUPHOOK="$REPO_DIR/hooks/compaction-backup.sh"
 
 # Test: nudges once when no handoff exists, then stays silent (once per project)
-begin_test "compaction-backup: nudges to /handoff once, then dedups"
+begin_test "compaction-backup: nudges to /sc-handoff once, then dedups"
 PROJ=$(mktemp -d)
 FAKE_HOME=$(mktemp -d)
 mkdir -p "$PROJ/.claude"
@@ -212,7 +212,7 @@ mkdir -p "$PROJ/.claude"
 INPUT='{"session_id":"nudge-t"}'
 OUT1=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
 OUT2=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
-if echo "$OUT1" | grep -q "Tip: run /handoff" && ! echo "$OUT2" | grep -q "Tip: run /handoff"; then
+if echo "$OUT1" | grep -q "Tip: run /sc-handoff" && ! echo "$OUT2" | grep -q "Tip: run /sc-handoff"; then
   pass
 else
   fail "expected nudge on run 1 only; run1=[$OUT1] run2=[$OUT2]"
@@ -228,7 +228,7 @@ mkdir -p "$PROJ/.claude"
 printf 'brief\n' > "$PROJ/.claude/handoff.md"
 INPUT='{"session_id":"nudge-t"}'
 OUT=$(cd "$PROJ" && export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
-if echo "$OUT" | grep -q "Tip: run /handoff"; then
+if echo "$OUT" | grep -q "Tip: run /sc-handoff"; then
   fail "should not nudge when fresh handoff exists, got: $OUT"
 else
   pass
@@ -243,7 +243,7 @@ mkdir -p "$PROJ/.claude"
 (cd "$PROJ" && git init -q && git commit --allow-empty -m init -q)
 INPUT='{"session_id":"nudge-t"}'
 OUT=$(cd "$PROJ" && export HOME="$FAKE_HOME" SUPERCHARGER_HANDOFF_NUDGE=0; printf '%s' "$INPUT" | bash "$BACKUPHOOK" 2>&1 >/dev/null)
-if echo "$OUT" | grep -q "Tip: run /handoff"; then
+if echo "$OUT" | grep -q "Tip: run /sc-handoff"; then
   fail "kill switch should suppress nudge, got: $OUT"
 else
   pass

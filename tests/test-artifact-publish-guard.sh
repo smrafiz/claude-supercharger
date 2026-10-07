@@ -135,7 +135,7 @@ grep -q 'artifact-publish-guard' "$REPO_DIR/hooks/hooks.json" && pass \
 begin_test "hook is executable"
 [ -x "$GUARD" ] && pass || fail "not executable (Write creates 0644)"
 
-begin_test "the block is recorded in the ledger for /why"
+begin_test "the block is recorded in the ledger for /sc-why"
 ST=$(mktemp -d); mkdir -p "$ST/scope"
 F=$(mkpage "key=$AWS_ID")
 printf '{"tool_name":"Artifact","tool_input":{"file_path":"%s"},"cwd":"/tmp"}' "$F" \

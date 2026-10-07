@@ -82,7 +82,7 @@ Outside full-profiling mode, a hook that takes under 40ms **records nothing**.
 
 That is exactly backwards for this architecture. The failure mode here is not one slow hook —
 it is 47 fast ones. Forty-seven hooks at 8ms each cost **376ms per tool call** and log
-**zero rows**. `/perf` reports "no timing data found" and everything looks fine.
+**zero rows**. `/sc-perf` reports "no timing data found" and everything looks fine.
 
 The always-on path is built to catch an outlier. The actual risk is accumulation. Full
 profiling (`.profiling` sentinel) does capture every fire, but it is opt-in, undiscoverable,
@@ -192,7 +192,7 @@ payload and report total wall time.
 
 - `tests/perf-chain.sh`
 - `docs/perf-baseline.json` — committed baseline, regenerated deliberately via `--write-baseline`
-- `/perf --chain` surfaces it to users
+- `/sc-perf --chain` surfaces it to users
 
 **Acceptance:** running it prints a total-ms figure for the PreToolUse:Bash chain on both a
 fast-pathed and a non-fast-pathed command. That number does not exist today.
@@ -327,7 +327,7 @@ hook count grows materially; the CI report from Phase 3 is what will show that.
   they do redundant work on trivially-safe commands.
 - Revisit what `profile: fast` and `profile: minimal` skip, based on measured cost rather
   than assumed cost.
-- Publish a real number in the README, replacing the current `/perf` pointer.
+- Publish a real number in the README, replacing the current `/sc-perf` pointer.
 
 ---
 

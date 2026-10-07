@@ -1,3 +1,8 @@
+---
+description: "Find and remove dead code and unused imports, with safety tiers."
+argument-hint: "[path]"
+disable-model-invocation: true
+---
 Dead code and unused-import removal for: $ARGUMENTS
 
 Two-tier safety model. Auto-fix only what a compiler or linter has **proven** unused inside one file (**Tier 1**). Everything else needs explicit approval (**Tier 2**). When in doubt, keep the code: a missed deletion costs nothing, a wrong one breaks production.

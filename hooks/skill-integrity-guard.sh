@@ -154,7 +154,7 @@ A skill is instructions Claude follows. This one is not the file that was record
 Approve if you (or an update you expected) changed it — the new content becomes the baseline. Decline if you did not."
 sc_decision ask "$_SIG_REASON"
 
-# Block ledger — /why and the session [BLOCKS] summary read this.
+# Block ledger — /sc-why and the session [BLOCKS] summary read this.
 SCOPE_DIR="$_SC_STATE/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 printf '[%s] skills — skill content changed since first load — %s\n' \

@@ -1,5 +1,7 @@
 ---
-description: "Resolve an in-progress merge or rebase conflict. Context: $ARGUMENTS"
+description: "Resolve an in-progress merge or rebase conflict and verify the result."
+argument-hint: "[context]"
+disable-model-invocation: true
 ---
 Resolve an in-progress merge or rebase conflict. Context: $ARGUMENTS
 

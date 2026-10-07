@@ -61,6 +61,10 @@ subs = [
 for pat, repl in subs:
     text = re.sub(pat, repl, text)
 
+# 4.3.0: installer names are /sc-<name>; under the plugin they are
+# /supercharger:<name> (the file rename below drops the prefix).
+text = re.sub(r'(?<![\w:./-])/sc-([a-z][a-z-]*)', r'/supercharger:\1', text)
+
 # v4.2.0: `claude plugin validate --strict` fails on a command with no frontmatter
 # (31 warnings). The installer copy stays verbatim (CC takes the first line as the
 # description there); the plugin copy gets a frontmatter block carrying that same

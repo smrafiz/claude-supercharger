@@ -58,7 +58,7 @@ echo "=== Custom Project Pattern Tests ==="
 begin_test "a custom pattern blocks what it names"
 [ "$(verdict 'terraform apply -auto-approve' 'terraform[[:space:]]+apply')" = "DENY" ] && pass || fail "custom pattern did not block"
 
-begin_test "the block names the custom pattern, so /why is useful"
+begin_test "the block names the custom pattern, so /sc-why is useful"
 OUT=$(stderr_of 'terraform apply -auto-approve' 'terraform[[:space:]]+apply')
 printf '%s' "$OUT" | grep -qi 'custom project pattern' && pass || fail "block reason does not identify it as a project rule: $OUT"
 

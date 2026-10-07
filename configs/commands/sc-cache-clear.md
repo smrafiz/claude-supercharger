@@ -1,11 +1,14 @@
+---
+description: "Clear the typecheck and quality-gate hash caches."
+argument-hint: "[--dry-run]"
+disable-model-invocation: true
+---
 Clear typecheck and quality-gate hash caches. Arguments: $ARGUMENTS
 
 Runs `tools/cache-clear.sh` to remove all cached hash files so hooks re-check all files on next run.
 
 ```bash
-if [ -f "$(dirname "$0")/../../tools/cache-clear.sh" ]; then
-  bash "$(dirname "$0")/../../tools/cache-clear.sh" $ARGUMENTS
-elif [ -f "$HOME/.claude/supercharger/tools/cache-clear.sh" ]; then
+if [ -f "$HOME/.claude/supercharger/tools/cache-clear.sh" ]; then
   bash "$HOME/.claude/supercharger/tools/cache-clear.sh" $ARGUMENTS
 else
   echo "cache-clear.sh not found. Re-run install.sh to restore tools."

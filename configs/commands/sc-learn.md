@@ -1,10 +1,15 @@
+---
+description: "Record a rule the user explicitly states so it is recalled in later sessions."
+argument-hint: "<rule>"
+disable-model-invocation: true
+---
 Record an explicit user-stated rule. Arguments: $ARGUMENTS
 
 Capture `$ARGUMENTS` as a project rule. Rules recorded here are shown to Claude on **every** prompt in this project (by `hooks/lesson-recall.sh`, newest 10), so keep each one short and genuinely standing.
 
 **Action:**
 
-1. **Validate** — `$ARGUMENTS` must contain a clear directive (verb + object). If empty or vague (fewer than 4 words, no verb), respond: `Usage: /learn <rule>. Example: /learn always use pnpm in this project.` If it describes a one-off ("fix the login bug"), it is a task, not a rule — say so and stop.
+1. **Validate** — `$ARGUMENTS` must contain a clear directive (verb + object). If empty or vague (fewer than 4 words, no verb), respond: `Usage: /sc-learn <rule>. Example: /sc-learn always use pnpm in this project.` If it describes a one-off ("fix the login bug"), it is a task, not a rule — say so and stop.
 
 2. **Find the file** — `.claude/supercharger/lessons.jsonl` at the project root (walk up from cwd to the directory holding `.git`).
 

@@ -1,8 +1,12 @@
+---
+description: "Break out of a debugging loop after repeated failed fixes."
+argument-hint: "<current symptom>"
+---
 Break out of a debugging loop. Current symptom: $ARGUMENTS
 
 Stop retrying. Step back. Look, don't think.
 
-This command localizes a concrete, observed failure. It does not reframe the goal (that is `/think`) or judge an approach (that is `/challenge`).
+This command localizes a concrete, observed failure. It does not reframe the goal (that is `/sc-think`) or judge an approach (that is `/sc-challenge`).
 
 Design sources: David Agans, *Debugging: 9 Indispensable Rules* (make it fail, quit thinking and look, divide and conquer, change one thing, keep an audit trail, check the plug, get a fresh view, if you didn't fix it it ain't fixed); Zeller's scientific debugging and delta debugging; Julia Evans' debugging manifesto; obra/superpowers systematic-debugging (three failed fixes means question the design); and the agent evidence — loops come from re-emitting the same failed edit (SWE-agent warns after 4–6 repeats), and self-correction without an outside signal makes answers worse (arXiv 2310.01798).
 
@@ -46,7 +50,7 @@ Change one thing at a time. If the test needs temporary logging, tag every line 
 Dispatch a read-only agent that receives only the facts, the raw error and the reproduction steps — **not** the story of what was tried or why it should have worked. That story is what the main context is anchored on. Ask it for its single most likely cause and the test that would confirm it.
 
 **Step 8 — Stop condition**
-After **three** failed fixes, stop fixing. Three misses mean the problem is not where you are looking — question the design or the premise (`/challenge` is built for that), or hand it to the user with the minimal reproduction and the logbook below. When a fix does appear to work, prove it was the fix: remove it and watch the failure return, then put it back.
+After **three** failed fixes, stop fixing. Three misses mean the problem is not where you are looking — question the design or the premise (`/sc-challenge` is built for that), or hand it to the user with the minimal reproduction and the logbook below. When a fix does appear to work, prove it was the fix: remove it and watch the failure return, then put it back.
 
 **Output format:**
 ```

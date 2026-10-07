@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing
-# lib-timing exits at source time when the disable flag is set (and adds /perf timing).
+# lib-timing exits at source time when the disable flag is set (and adds /sc-perf timing).
 # shellcheck source=hooks/lib-timing.sh
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh" 2>/dev/null || true
 

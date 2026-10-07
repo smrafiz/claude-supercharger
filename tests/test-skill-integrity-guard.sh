@@ -87,7 +87,7 @@ case "$SIG_OUT" in *SKILL.md*changed*) pass ;; *) fail "reason does not describe
 begin_test "skill-lock: after asking once, the new hash becomes the baseline"
 [ "$(sig demo)" = "none" ] && pass || fail "should not ask twice for the same content"
 
-begin_test "skill-lock: the block is recorded in the ledger for /why"
+begin_test "skill-lock: the block is recorded in the ledger for /sc-why"
 grep -q 'skills —' "$SIG_STATE/scope/.blocked-commands" 2>/dev/null && pass \
   || fail "nothing written to the ledger"
 

@@ -185,11 +185,11 @@ OUT=$(SUPERCHARGER_TIER=standard bash -c "echo '$INPUT' | bash $RECALL_HOOK" 2>/
 rm -rf "$PROJ"
 teardown_test_home
 
-# v4.1.14: a rule the user recorded with /learn is a standing instruction, not a
+# v4.1.14: a rule the user recorded with /sc-learn is a standing instruction, not a
 # keyword hint. Word-overlap scoring buried it: "always use pnpm in this project"
 # scored 0.00 against "add lodash as a dependency" — the exact moment it applies —
 # and 0.07 against a normal-length prompt that even contains "pnpm".
-begin_test "lessons: a /learn rule (source user-explicit) is injected with no keyword overlap"
+begin_test "lessons: a /sc-learn rule (source user-explicit) is injected with no keyword overlap"
 setup_test_home
 PROJ=$(mktemp -d)
 mkdir -p "$PROJ/.claude/supercharger"

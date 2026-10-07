@@ -1,5 +1,7 @@
 ---
-description: "Dead code and unused-import removal for: $ARGUMENTS"
+description: "Find and remove dead code and unused imports, with safety tiers."
+argument-hint: "[path]"
+disable-model-invocation: true
 ---
 Dead code and unused-import removal for: $ARGUMENTS
 

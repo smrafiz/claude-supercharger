@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing
-# lib-timing exits at source time when the disable flag is set (and adds /perf timing).
+# lib-timing exits at source time when the disable flag is set (and adds /sc-perf timing).
 # shellcheck source=hooks/lib-timing.sh
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh" 2>/dev/null || true
 
@@ -48,7 +48,7 @@ if (( NOW - LAST_ROTATION > 86400 )); then
 fi
 
 # --- Handoff discoverability nudge (v2.23.1) ----------------------------------
-# Users know /compact; most don't know /handoff. Compaction is the exact moment a
+# Users know /compact; most don't know /sc-handoff. Compaction is the exact moment a
 # richer resume brief pays off, so emit a ONE-TIME (per project) stderr hint —
 # zero context tokens. Skipped when memory is disabled, when a fresh handoff
 # already exists (they know the feature), or via SUPERCHARGER_HANDOFF_NUDGE=0.
@@ -68,7 +68,7 @@ if [ "${SUPERCHARGER_NO_MEMORY:-0}" != "1" ] && [ "${SUPERCHARGER_HANDOFF_NUDGE:
   if [ "$_HN_FRESH" = 0 ] && [ ! -f "$_HN_FLAG" ]; then
     mkdir -p "$_HN_SCOPE" 2>/dev/null || true
     touch "$_HN_FLAG" 2>/dev/null || true
-    echo "[Supercharger] Tip: run /handoff before you stop — it writes a fuller resume brief that auto-loads after this compaction and in your next session. (silence: SUPERCHARGER_HANDOFF_NUDGE=0)" >&2
+    echo "[Supercharger] Tip: run /sc-handoff before you stop — it writes a fuller resume brief that auto-loads after this compaction and in your next session. (silence: SUPERCHARGER_HANDOFF_NUDGE=0)" >&2
   fi
 fi
 

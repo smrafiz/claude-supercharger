@@ -132,7 +132,7 @@ if [ "$_TC_ELAPSED" -ge "${SUPERCHARGER_TYPECHECK_SLOW_S:-3}" ] 2>/dev/null; the
   _TC_NUDGE="$SCOPE_DIR/.typecheck-slow-nudge-${PROJ_HASH}"
   if [ ! -f "$_TC_NUDGE" ]; then
     touch "$_TC_NUDGE" 2>/dev/null || true
-    echo "[Supercharger] typecheck ran ${_TC_ELAPSED}s on this repo. To skip it here: create '.supercharger-no-typecheck' in the repo root (or use /profile minimal). Shown once per repo." >&2
+    echo "[Supercharger] typecheck ran ${_TC_ELAPSED}s on this repo. To skip it here: create '.supercharger-no-typecheck' in the repo root (or use /sc-profile minimal). Shown once per repo." >&2
   fi
 fi
 

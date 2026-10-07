@@ -1,5 +1,7 @@
 ---
-description: "Score this session and write quality observations to memory: $ARGUMENTS"
+description: "Score this session and write quality observations to memory."
+argument-hint: "[focus]"
+disable-model-invocation: true
 ---
 Score this session and write quality observations to memory: $ARGUMENTS
 
@@ -41,7 +43,7 @@ For each dimension below 2: list the contributing factors (usually more than one
 3. **Checkable** — names a concrete action or trigger: "run the suite before claiming done when X", "grep every caller of a shared function before editing it". "Be more careful" fails.
 4. **New** — not already in the observations file or project memory. If it is, strengthen that entry instead of adding a duplicate; if it contradicts one, say so and reconcile.
 
-Most sessions produce zero or one lesson. That is the expected result. A rule the user stated goes to `/learn`; the reason behind a design decision goes to `/devlog`.
+Most sessions produce zero or one lesson. That is the expected result. A rule the user stated goes to `/supercharger:learn`; the reason behind a design decision goes to `/supercharger:devlog`.
 
 **Step 6 — Write to `.claude/session-observations.md`**
 Create if absent. Prepend the new entry (most recent first). **Lessons go on the lines right after the heading, with no blank lines**: the next session loads only the first four lines of each of the three newest entries, so anything further down is never seen.

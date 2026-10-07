@@ -639,7 +639,7 @@ security guard does not: the text still reaches the model.
 
 ### A ledger is output: mask it
 
-`scope/.blocked-commands` stores blocked command text and is read back by `/why`
+`scope/.blocked-commands` stores blocked command text and is read back by `/sc-why`
 and `learn-from-blocks`. Every writer passes the text through `ledger_redact`
 (`hooks/lib-secret-patterns.sh`) before it is capped. Masking only `KEY=value`
 missed a secret passed as its own quoted argument.

@@ -6,7 +6,7 @@
 #
 # 1. prompt-validator moved to async in v2.26.37 (35ms off the prompt path). Its
 #    stderr note can now land beside or after the answer instead of before it.
-#    The note is therefore PERSISTED as well, so /why can show it later. Note that
+#    The note is therefore PERSISTED as well, so /sc-why can show it later. Note that
 #    a nudge was already losable when the hook was synchronous — scrolled past, it
 #    was gone. Recording it is a net improvement, not a consolation.
 #
@@ -33,11 +33,11 @@ ST=$(mktemp -d); mkdir -p "$ST/scope"
 begin_test "a triggering prompt still emits its note on stderr"
 run_pv 'fix all the things' "$ST" sid1 | grep -q 'Supercharger' && pass || fail "note lost"
 
-begin_test "and the note is persisted for /why"
+begin_test "and the note is persisted for /sc-why"
 NF="$ST/scope/.prompt-notes-sid1"
 [ -s "$NF" ] && grep -q 'All' "$NF" && pass || fail "not recorded: $(ls -A "$ST/scope" | tr '\n' ' ')"
 
-begin_test "the record carries a timestamp so /why can order it"
+begin_test "the record carries a timestamp so /sc-why can order it"
 grep -qE '^\[[0-9]{4}-[0-9]{2}-[0-9]{2} [0-9]{2}:[0-9]{2}\] ' "$NF" && pass || fail "no timestamp: $(head -1 "$NF")"
 
 begin_test "notes are per-session, not shared across sessions"
@@ -66,8 +66,8 @@ ST3=$(mktemp -d); mkdir -p "$ST3/scope"; chmod 500 "$ST3/scope"
 run_pv 'fix all the things' "$ST3" sid1 | grep -q 'Supercharger' && pass || fail "advice lost when the file was unwritable"
 chmod 700 "$ST3/scope"; rm -rf "$ST3"
 
-begin_test "/why knows where to look"
-grep -q 'prompt-notes' "$REPO_DIR/configs/commands/why.md" && pass || fail "why.md does not read the notes file"
+begin_test "/sc-why knows where to look"
+grep -q 'prompt-notes' "$REPO_DIR/configs/commands/sc-why.md" && pass || fail "why.md does not read the notes file"
 
 begin_test "the generated command carries it too (commands/ is generated)"
 grep -q 'prompt-notes' "$REPO_DIR/commands/why.md" && pass \

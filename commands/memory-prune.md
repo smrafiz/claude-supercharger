@@ -1,5 +1,7 @@
 ---
-description: "Archive resolved memory entries so they stop loading into context every session. Arguments: $ARGUMENTS"
+description: "Archive resolved memory entries so they stop loading every session."
+argument-hint: "[apply]"
+disable-model-invocation: true
 ---
 Archive resolved memory entries so they stop loading into context every session. Arguments: $ARGUMENTS
 

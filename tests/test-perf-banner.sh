@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# v2.23.39 — /perf must warn that avg_ms is unreliable on bash < 5 (profiler fork is
+# v2.23.39 — /sc-perf must warn that avg_ms is unreliable on bash < 5 (profiler fork is
 # counted; observed 10-60x over-report). On bash 5+ the fork-free clock is accurate,
 # so the banner must NOT appear.
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
-echo "=== /perf Reliability Banner Tests ==="
+echo "=== /sc-perf Reliability Banner Tests ==="
 
 OUT=$(bash "$REPO_DIR/tools/hook-perf.sh" 2>/dev/null || true)
 

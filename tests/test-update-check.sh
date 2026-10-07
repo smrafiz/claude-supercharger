@@ -102,11 +102,11 @@ begin_test "update-check: no stderr writes remain in the source"
   || fail "a >&2 came back — SessionStart stderr is not delivered"
 rm -rf "$_UCS_TD"
 
-begin_test "the /memory-prune nudge is a nudge, not a trace, so it is on stdout"
+begin_test "the /sc-memory-prune nudge is a nudge, not a trace, so it is on stdout"
 # Second instance of the same defect, found by auditing siblings rather than
 # assuming one. The two "injected ..." lines in that hook stay on stderr on
 # purpose — they are traces. A blanket stderr ban would be the wrong fix.
-grep -q 'run /memory-prune to archive\."$' "$REPO_DIR/hooks/session-memory-inject.sh" && pass \
+grep -q 'run /sc-memory-prune to archive\."$' "$REPO_DIR/hooks/session-memory-inject.sh" && pass \
   || fail "the memory-prune nudge is back on stderr"
 
 # --- v4.0.33: the banner must be rendered, not merely written ----------------

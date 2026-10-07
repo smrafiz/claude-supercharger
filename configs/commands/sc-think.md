@@ -1,6 +1,10 @@
+---
+description: "Structured reasoning for an ambiguous problem before acting."
+argument-hint: "<problem>"
+---
 Structured reasoning for an ambiguous problem. Apply this process to: $ARGUMENTS
 
-This command FRAMES a problem before anyone commits to an answer. It ends in a direction, not a verdict. Siblings: `/challenge` stress-tests a decision once made (pre-mortem, kill criteria); `/stuck` breaks a failing debug loop. Do not do their jobs here.
+This command FRAMES a problem before anyone commits to an answer. It ends in a direction, not a verdict. Siblings: `/sc-challenge` stress-tests a decision once made (pre-mortem, kill criteria); `/sc-stuck` breaks a failing debug loop. Do not do their jobs here.
 
 Design sources: Cynefin (Snowden & Boone — the right method depends on the kind of problem), Rephrase-and-Respond (arXiv 2311.04205), Step-Back prompting (arXiv 2310.06117), least-to-most decomposition (arXiv 2205.10625) and MECE issue trees, Platt's strong inference (Science, 1964), analogical prompting (arXiv 2310.01714), Anthropic's "think" tool and extended-thinking guidance — and the overthinking evidence that accuracy falls when simple problems get long chains.
 
@@ -31,7 +35,7 @@ Two or three candidate answers to the crux. They are distinct only if each **pre
 The cheapest read-only fact that would most change the answer, and exactly how to get it (a file, a command, a query). If you can get it now, get it and update Step 5.
 
 **Step 7 — Direction**
-The leading path and your confidence in it. Not a verdict: before committing to anything expensive or hard to reverse, it goes through `/challenge`. In a complex problem, give the probe instead.
+The leading path and your confidence in it. Not a verdict: before committing to anything expensive or hard to reverse, it goes through `/sc-challenge`. In a complex problem, give the probe instead.
 
 **Output format:**
 ```
@@ -51,5 +55,5 @@ H2: ...
 DECISIVE FACT: [what] — how: [command / file] — [result, if already checked]
 
 DIRECTION: [leading path] · confidence: [low | medium | high]
-NEXT: [/challenge before committing | PROBE: safe-to-fail test for a complex problem]
+NEXT: [/sc-challenge before committing | PROBE: safe-to-fail test for a complex problem]
 ```

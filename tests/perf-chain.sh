@@ -2,7 +2,7 @@
 # Claude Supercharger — Hook-chain latency harness (HOOK-LATENCY-PLAN Phase 1)
 #
 # Measures the cost of the WHOLE registered hook chain for one event+tool, not one
-# hook — the thing /perf's per-hook, >40ms-threshold instrument is structurally blind
+# hook — the thing /sc-perf's per-hook, >40ms-threshold instrument is structurally blind
 # to (47 fast hooks logging zero rows is the real failure mode, not one slow one).
 #
 # Selects the hooks.json entries that fire for a given event + tool, runs each (in

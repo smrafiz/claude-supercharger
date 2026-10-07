@@ -126,7 +126,7 @@ Explicit, so it's a conscious tradeoff and documented for users:
 | **Statusline** | No `statusLine` manifest field; can't write settings.json | Ship a one-line copy-paste snippet in the plugin README; or a `/supercharger:statusline` command that prints it |
 | **`env.ENABLE_PROMPT_CACHING_1H`** | settings.json side-write | Document as a recommended manual setting |
 | **`attribution` (no co-author trailer)** | settings.json side-write | Our `commit-coauthor-guard` hook already covers the enforcement path; document the setting |
-| **Command names** | Plugin namespacing | `/audit` → `/supercharger:audit`, etc. (26 commands). `/sc-update` → native `/plugin update`; `/sc on\|off` → native `/plugin enable\|disable` |
+| **Command names** | Plugin namespacing | `/sc-audit` → `/supercharger:audit`, etc. (26 commands). `/sc-update` → native `/plugin update`; `/sc on\|off` → native `/plugin enable\|disable` |
 | **Interactive install wizard** | No lifecycle script | `userConfig` prompts at enable time (role/tier/MCP-profile) → `${CLAUDE_PLUGIN_OPTION_*}` env into hooks; lazy first-run init on SessionStart |
 | **`jq` / `python3` auto-check** | No install script | SessionStart preflight hook warns if missing (81 hooks use `jq`, 98 use `python3`) |
 
@@ -212,7 +212,7 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
   `~` and `$HOME` forms; **project-scoped `~/.claude/projects/...` left untouched**. Installer keeps using
   `configs/commands/` verbatim → **zero installer regression**.
 - **Meta-commands with native equivalents dropped** from the plugin edition: `/sc` → `/plugin enable|disable`,
-  `/sc-update` → `/plugin update` (24 of 26 commands emitted). `/sc-status`, `/why`, `/perf`, etc. retained.
+  `/sc-update` → `/plugin update` (24 of 26 commands emitted). `/sc-status`, `/sc-why`, `/sc-perf`, etc. retained.
 - **`plugin.json` validates** (only the pre-existing marketplace.json `id`/`homepage` warnings remain →
   Phase 5). `bump-version.sh` regenerates `commands/` + stages it. `tests/test-plugin-commands.sh` (10 tests)
   guards transforms + drift. Full suite green.
@@ -224,7 +224,7 @@ Ordered so each phase is independently verifiable and value/risk-front-loaded.
 - **First-run seeder** `hooks/plugin-config-seed.sh` (SessionStart, registered first) — the plugin analog of
   the installer wizard: under the plugin runtime it writes `scope/.economy-tier|.mcp-profile|.roles` from
   `CLAUDE_PLUGIN_OPTION_*`. **No-ops under the installer** (`CLAUDE_PLUGIN_ROOT` unset) and **never clobbers**
-  an existing file (a runtime switch — "eco minimal", `/profile`, `mcp-profile.sh` — always wins).
+  an existing file (a runtime switch — "eco minimal", `/sc-profile`, `mcp-profile.sh` — always wins).
 - **Env bridge:** `prompt-layer-inject.sh` role/mode/tier now chain `SUPERCHARGER_* → CLAUDE_PLUGIN_OPTION_* →
   default`.
 - **`marketplace.json` cleaned:** dropped the invalid `id` + `metadata.homepage` (moved homepage into the
@@ -283,7 +283,7 @@ Both default to `~/.claude/supercharger` when the plugin vars are unset, preserv
 
 ## 9. Risks & open questions
 
-- **Command-name break is user-visible.** `/audit` → `/supercharger:audit`. Acceptable (native
+- **Command-name break is user-visible.** `/sc-audit` → `/supercharger:audit`. Acceptable (native
   plugin convention) but must be loud in docs. *Open:* is a shorter plugin `name` worth it for terser
   namespacing (e.g. `sc` → `/sc:audit`)? Trades discoverability for brevity.
 - **Running installer + plugin simultaneously** could double-fire hooks and split state across two dirs.

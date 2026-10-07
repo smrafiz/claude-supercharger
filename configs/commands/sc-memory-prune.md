@@ -1,3 +1,8 @@
+---
+description: "Archive resolved memory entries so they stop loading every session."
+argument-hint: "[apply]"
+disable-model-invocation: true
+---
 Archive resolved memory entries so they stop loading into context every session. Arguments: $ARGUMENTS
 
 Claude's file-memory (`~/.claude/projects/<project>/memory/`) loads its `MEMORY.md`

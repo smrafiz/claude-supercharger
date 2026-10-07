@@ -35,7 +35,7 @@ while [[ $# -gt 0 ]]; do
 done
 
 # The profiling sentinel must be enabled manually so data can accumulate across
-# multiple sessions. Previous behavior touched + trap'd it on every /perf run,
+# multiple sessions. Previous behavior touched + trap'd it on every /sc-perf run,
 # meaning profiling was only ever active for the few seconds the report ran —
 # no timing data could ever be captured. Sentinel is now user-controlled:
 #   touch ~/.claude/supercharger/scope/.profiling   # start collecting
@@ -68,7 +68,7 @@ cutoff = time.time() - days * 86400
 # v2.7.70: only report REAL deployed hooks. The audit log can pick up junk — test
 # artifacts (a test that sources lib-suppress under .profiling records timing under
 # the TEST file's name, e.g. "test-lib-suppress-timing") and records with no hook
-# field ("?"). Filter to names that have a matching hooks/<name>.sh, so /perf never
+# field ("?"). Filter to names that have a matching hooks/<name>.sh, so /sc-perf never
 # presents a test file (or noise) as a hook.
 hooks_dir = os.environ.get('SUPERCHARGER_HOOKS_DIR', '')
 if not hooks_dir and audit_dir:

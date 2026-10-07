@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Lesson Recaller (Reflexion Memory)
 # Event: UserPromptSubmit | Matcher: (none)
-# Injects every rule the user recorded with /learn (newest 10), then tokenizes
+# Injects every rule the user recorded with /sc-learn (newest 10), then tokenizes
 # the prompt and adds the top 3 auto-captured lessons by Jaccard overlap
 # (threshold 0.35). Auto-lesson output is tier-scaled; user rules print in full.
 # Disable: SUPERCHARGER_LESSONS=0
@@ -70,7 +70,7 @@ def tokenize(text):
 p_tokens = tokenize(prompt)  # may be empty ("ok") — user rules still apply
 
 scored = []
-# v4.1.14: a rule the user recorded with /learn is a standing instruction, not a
+# v4.1.14: a rule the user recorded with /sc-learn is a standing instruction, not a
 # keyword hint, so it is injected on every prompt. Scoring buried it: "always use
 # pnpm in this project" scored 0.00 against "add lodash as a dependency" — the one
 # moment it applies. Capped, newest last, so a long list cannot flood the context.

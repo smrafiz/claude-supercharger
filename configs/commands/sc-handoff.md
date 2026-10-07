@@ -1,3 +1,8 @@
+---
+description: "Write a session handoff brief that auto-loads next session."
+argument-hint: "[--deep] [context]"
+disable-model-invocation: true
+---
 Generate a structured session handoff brief. Context: $ARGUMENTS
 
 This produces a machine-readable resume that can be pasted into the next session or consumed by session-memory-inject.
@@ -57,7 +62,7 @@ Output format:
 
 ### Start With
 [the 1-2 Supercharger commands the next session should run first, and why —
- e.g. "/resolve-conflicts — the rebase is mid-flight" or "/why — a guard fired
+ e.g. "/sc-resolve-conflicts — the rebase is mid-flight" or "/sc-why — a guard fired
  and the cause is unclear". Write "none" if nothing applies. Use /supercharger
  <situation> if you are unsure which command fits.]
 ```

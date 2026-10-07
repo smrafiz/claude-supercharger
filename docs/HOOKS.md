@@ -76,7 +76,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |
 | `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |
-| `lesson-recall` | UserPromptSubmit | (none) | Injects every rule the user recorded with /learn (newest 10), then tokenizes |
+| `lesson-recall` | UserPromptSubmit | (none) | Injects every rule the user recorded with /sc-learn (newest 10), then tokenizes |
 | `lesson-record` | Stop | * | Scans assistant's last transcript message for diagnostic markers |
 | `lockfile-integrity-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Dependency lockfiles are MACHINE-GENERATED — they encode a resolved dependency |
 | `mcp-circuit-breaker` | — | — | Events: PreToolUse | mcp__   (blocks calls to a server in cooldown) |
@@ -176,6 +176,7 @@ Run any of these manually:
 | `tools/config-health.sh` | Claude Supercharger — Scored Installation Health Check |
 | `tools/economy-switch.sh` | Claude Supercharger — Economy Tier Switcher |
 | `tools/fp-triage.sh` | Claude Supercharger — False-positive triage for the block ledger (maintainer tool) |
+| `tools/gen-commands-shipped.sh` | Regenerate configs/commands-shipped.txt: every slash-command file name ever |
 | `tools/gen-plugin-commands.sh` | Claude Supercharger — Plugin commands/ generator |
 | `tools/gen-plugin-hooks.sh` | Claude Supercharger — Plugin hooks.json generator |
 | `tools/hook-concurrency.sh` | Claude Supercharger — Hook concurrency reconstructor |

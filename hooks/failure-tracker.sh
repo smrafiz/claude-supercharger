@@ -53,7 +53,7 @@ COMMAND=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/
 # v2.26.17; this sibling never did). Two consequences, and the second is not
 # cosmetic:
 #   1. A multi-line failing command wrote a multi-line row, so its continuation
-#      became an orphan entry in the ledger /why and [FAILS] read.
+#      became an orphan entry in the ledger /sc-why and [FAILS] read.
 #   2. The repeat-failure counter below is `awk index($0,k)` — a key containing a
 #      newline can never match a single line, so FAIL_COUNT stayed 0 and the
 #      "failed 3x, try a different approach" nudge NEVER FIRED for multi-line

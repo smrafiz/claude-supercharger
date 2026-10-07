@@ -107,7 +107,7 @@ SESSION_ID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "default"' 2>/dev/n
 #    hook into the parent's context. Reported twice from the field: the report
 #    WAS recovered to disk, and the parent still said "verifying the files
 #    directly" — the behaviour you would see if the pointer never arrived. Until
-#    that is settled, `/why` reads this file, so the path is always reachable.
+#    that is settled, `/sc-why` reads this file, so the path is always reachable.
 #
 # 2. INSTRUMENTATION. Nothing recorded whether this hook fired, so "did it not
 #    run?" and "did it run and CC discard the context?" were indistinguishable.

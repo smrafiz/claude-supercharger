@@ -108,7 +108,7 @@ if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   # v4.0.17: record WHICH pattern fired, never the value. A user asked why this
   # warned on a graphql import listing and nothing on disk could answer -- the
   # alert was the bare word "secrets". Reconstructing it meant grepping the raw
-  # transcript, and the answer was a DIFFERENT line in the same output. /why reads
+  # transcript, and the answer was a DIFFERENT line in the same output. /sc-why reads
   # this file, so it can now name the rule instead of confirming that something
   # happened. Same shape as the Windows arc: knowing THAT is not knowing WHY.
   #

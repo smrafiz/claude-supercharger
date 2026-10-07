@@ -163,7 +163,7 @@ block() {
       *)
         if printf '%s\n' "$CMD" | LC_ALL=C grep -qiE "$_ALLOW_JOINED" 2>/dev/null; then
           # Visible, not silent: an exemption is a widened guard and belongs in
-          # the ledger that /why and the [BLOCKS] summary read.
+          # the ledger that /sc-why and the [BLOCKS] summary read.
           local _al="$SUPERCHARGER_STATE/scope/.blocked-commands"
           mkdir -p "$(dirname "$_al")" 2>/dev/null || true
           LEDGER_SAFE="${COMMAND:0:1000}"
@@ -210,7 +210,7 @@ block() {
   # v2.26.67: 400, was 120. The original rationale — "avoid bloating session context"
   # — stopped being true in v2.26.63, when the [BLOCKS] summary switched to injecting
   # REASONS only and never command text. So the cap no longer protects the context
-  # window; it only starves /why and post-hoc analysis.
+  # window; it only starves /sc-why and post-hoc analysis.
   #
   # Measured cost of that: a false-positive investigation on 2026-08-06 could not use
   # its own ledger, because the blocks being investigated were `--message` values that
@@ -231,7 +231,7 @@ block() {
   # fix; safety.sh and git-safety.sh were the arms it never reached.
   safe_cmd="${safe_cmd:0:400}"
   # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
-  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+  # /sc-why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
   # summary injected into every session. A multi-line command wrote a multi-line
   # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
   # destructive block. Shortening alone would still leave an embedded newline.

@@ -495,9 +495,18 @@ fi
 if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   mkdir -p "$HOME/.claude/commands"
   cp "$SCRIPT_DIR/configs/commands/"*.md "$HOME/.claude/commands/" 2>/dev/null || true
+  # 4.3.0: commands renamed to sc-<name>. Old names become a one-release redirect,
+  # commands we dropped are removed — only when the file is a version we shipped.
+  python3 "$SCRIPT_DIR/tools/commands-migrate.py" install "$HOME/.claude/commands" "$SCRIPT_DIR" || true
   CMD_NAMES=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | xargs -I{} basename {} .md | sed 's/^/\//' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
   CMD_COUNT=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
   success "${CMD_COUNT} command(s) installed (${CMD_NAMES})"
+fi
+
+# 4.3.0: macOS notifier app — notifications as "Claude Supercharger", not Script
+# Editor. Built locally from tools/notifier (needs Swift); never fatal.
+if [[ "${OSTYPE:-}" == darwin* ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ]; then
+  bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null | sed 's/^/  /' || true
 fi
 
 # Deploy hooks

@@ -164,7 +164,7 @@ if [ -z "$REASON" ]; then
   _HT_VERB="$_HT_VERB"'|(^|[[:space:];&|(])wget[^;&|]*[[:space:]]-(O|-output-document)([[:space:]]|=)'
   _HT_VERB="$_HT_VERB"'|(^|[[:space:];&|(])perl[[:space:]]+-[a-zA-Z]*i'
   _HT_VERB="$_HT_VERB"'|(^|[[:space:];&|(])(python3?|node|ruby)[[:space:]]+-[ce][^;&|]*(open\([^)]*,[[:space:]]*.(w|a)|\.write\(|writeFileSync|truncate)'
-  # Writing a scope SENTINEL is normal, documented operation — /perf tells users to
+  # Writing a scope SENTINEL is normal, documented operation — /sc-perf tells users to
   # `touch …/scope/.profiling`, and autopilot/readonly/strict/profile write flags
   # there constantly. That is handled by _HT_TARGET above matching scope/ only as a
   # whole directory, so no separate stripping pass is needed.
@@ -361,11 +361,11 @@ fi
 sc_decision deny "harness-tamper: $REASON"
 echo "[Supercharger] harness-tamper-guard: DENY — $REASON" >&2
 
-# Log to the block ledger for /why and audits (best-effort).
+# Log to the block ledger for /sc-why and audits (best-effort).
 _BLK="$SUPERCHARGER_STATE/scope/.blocked-commands"
 mkdir -p "$(dirname "$_BLK")" 2>/dev/null || true
 # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
-# /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+# /sc-why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
 # summary injected into every session. A multi-line command wrote a multi-line
 # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
 # destructive block. Shortening alone would still leave an embedded newline.

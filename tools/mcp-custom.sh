@@ -5,7 +5,7 @@
 # stdio, http, sse, headers, env). This tool deliberately does not reimplement that.
 # What Claude Code has no notion of is Supercharger's context-cost PROFILES, so this
 # lets a server you already added participate in them: register it once, pick which
-# profiles it belongs to, and `/profile` will add/remove it as you switch.
+# profiles it belongs to, and `/sc-profile` will add/remove it as you switch.
 #
 # Usage:
 #   mcp-custom.sh adopt <name> [profiles]   register an existing server (default: all)
@@ -113,7 +113,7 @@ print("Registered '%s' for profile(s): %s" % (name, profiles))
 PY
     rc=$?
     [ "$rc" -ne 0 ] && exit "$rc"
-    echo "  Apply it with:  /profile   (or bash tools/mcp-profile.sh <profile>)"
+    echo "  Apply it with:  /sc-profile   (or bash tools/mcp-profile.sh <profile>)"
     echo "  It is now Supercharger-managed: profile switches add/remove it, and /sc off moves it aside."
     ;;
 

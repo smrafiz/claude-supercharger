@@ -361,7 +361,7 @@ if config_file and os.path.isfile(config_file):
         #   * git-safety, path-guard and harness-tamper-guard are untouched — the
         #     human-approval floor is not negotiable from a config file.
         # Every exemption is written to the block ledger, so it stays visible in
-        # /why and the [BLOCKS] summary rather than silently widening the guard.
+        # /sc-why and the [BLOCKS] summary rather than silently widening the guard.
         allow = config.get('allowPatterns', [])
         allow_file = _scope('.allow-patterns')
         if isinstance(allow, list):

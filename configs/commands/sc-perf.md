@@ -1,3 +1,7 @@
+---
+description: "Show the hook performance timing report."
+argument-hint: "[--slow] [--days N]"
+---
 Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)
 
 Run the hook performance profiler and display results.
@@ -10,12 +14,12 @@ bash ~/.claude/supercharger/tools/hook-perf.sh $ARGUMENTS
 
 If the command exits with "No hook timing data found", explain:
 - On **bash 5+** (zero-fork `EPOCHREALTIME` clock), hooks slower than ~40ms are
-  recorded **automatically** — no setup; just use Claude and re-run `/perf`.
+  recorded **automatically** — no setup; just use Claude and re-run `/sc-perf`.
   Tune with `SUPERCHARGER_PERF_THRESHOLD_MS`.
 - On **bash 3.2** (macOS default — no cheap ms clock) auto-timing is off to avoid
   a per-hook python fork. Check `bash --version`; if 3.2, enable full profiling.
 - **Full profiling** (every hook fire, any bash): `touch ~/.claude/supercharger/scope/.profiling`,
-  use Claude for a session, re-run `/perf`, then `rm ~/.claude/supercharger/scope/.profiling`.
+  use Claude for a session, re-run `/sc-perf`, then `rm ~/.claude/supercharger/scope/.profiling`.
 
 **Step 2 — Interpret results**
 

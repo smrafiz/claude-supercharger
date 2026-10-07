@@ -11,7 +11,7 @@
 # (trustedElicitationServers), but that file is protected by the self-modification
 # path-guard — so this tool writes a separate, global scope allowlist the guard
 # ALSO reads: ~/.claude/supercharger/scope/.trusted-elicitation-servers
-# (one lowercased server name per line). Lets /trust-mcp add a server without
+# (one lowercased server name per line). Lets /sc-trust-mcp add a server without
 # hand-editing config.
 
 set -euo pipefail
@@ -62,7 +62,7 @@ _list() {
     echo "Trusted MCP servers for Elicitation credential prompts:"
     printf '%s\n' "$u" | sed 's/^/  - /'
   else
-    echo "No trusted MCP servers yet. Trust one with: /trust-mcp <server>"
+    echo "No trusted MCP servers yet. Trust one with: /sc-trust-mcp <server>"
   fi
 }
 
@@ -94,7 +94,7 @@ case "${1:-}" in
       _trust_add "$srv"
       echo "Trusted '$srv' for Elicitation credential prompts."
       echo "It can now request password/token/API-key fields without being declined."
-      echo "Undo with: /trust-mcp --remove $srv"
+      echo "Undo with: /sc-trust-mcp --remove $srv"
     fi
     ;;
 esac

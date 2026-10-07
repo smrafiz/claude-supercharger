@@ -138,7 +138,7 @@ msg_trigger = bool(MSG_CRED.search(message)) or any(MSG_CRED.search(t) for t in 
 
 # Trusted-server allowlist. Two sources, unioned:
 #   1. .supercharger.json trustedElicitationServers (project-level, versioned)
-#   2. the global scope allowlist managed by /trust-mcp (scope/.trusted-
+#   2. the global scope allowlist managed by /sc-trust-mcp (scope/.trusted-
 #      elicitation-servers) — because .supercharger.json is itself protected by
 #      the self-modification path-guard, so the command can't edit it directly.
 # v2.7.74: normalize IDENTICALLY to the writer (tools/trust-mcp.sh does
@@ -161,7 +161,7 @@ except Exception:
 # v2.26.24: read EVERY scope root, not just $HOME. tools/trust-mcp.sh writes via
 # sc_scope_dirs(), which treats an explicitly-set CLAUDE_PLUGIN_DATA as the ONLY root
 # (v2.24.3). The reader hardcoded $HOME, so under that layout the tool wrote one file
-# and the guard read another — /trust-mcp reported success and the server stayed
+# and the guard read another — /sc-trust-mcp reported success and the server stayed
 # untrusted. Fail-safe in direction (it over-declines) but silent, which is the same
 # "declared but not effective" class as the inert matchers.
 _trust_roots = []

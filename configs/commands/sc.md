@@ -1,3 +1,8 @@
+---
+description: "Turn Supercharger off, on, or show status. Off disables ALL guards."
+argument-hint: "off | on | status"
+disable-model-invocation: true
+---
 Activate or deactivate Claude Supercharger. Arguments: $ARGUMENTS (off | on | status)
 
 Deactivate to get plain default Claude Code behavior on demand; reactivate when you want the guards, memory, economy, and statusline back. Nothing is uninstalled — `off` just switches everything off and keeps the files dormant on disk so `on` can restore them.

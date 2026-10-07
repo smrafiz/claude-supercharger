@@ -663,7 +663,7 @@ Claude-Session: https://claude.ai/code/session_01W2YAQaUGF33CC1GpvBDGP4"
 - Consumes: the shipped hook.
 - Produces: the user-visible description.
 
-`/why` needs no change. Checked before writing this task: `configs/commands/why.md`
+`/sc-why` needs no change. Checked before writing this task: `configs/commands/why.md`
 is a source-priority list, not a category table — source #2 reads the last line of
 `.blocked-commands` and explains whatever it finds. The ledger line written in
 Task 3 is picked up by that path already.

@@ -1,3 +1,8 @@
+---
+description: "Read-only mode: block edits and writes for a while."
+argument-hint: "<duration> [session|global] | off | status"
+disable-model-invocation: true
+---
 Read-only mode — "look, don't touch" for a while. Arguments: $ARGUMENTS (<duration> [session|global] | off | status)
 
 The inverse of `/sc-autopilot`: while read-only mode is on, Supercharger **blocks every file edit** (Write/Edit/MultiEdit/NotebookEdit) and **every mutating shell command** (`rm`, `mv`, `git commit/push`, `npm install`, `sed -i`, redirects that write a file, …). Reads, searches, and planning stay allowed. Great for exploring or reviewing a codebase without any risk of accidental changes. It **auto-expires** and is hard-capped at **2 hours**.

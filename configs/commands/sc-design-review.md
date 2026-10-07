@@ -1,6 +1,10 @@
+---
+description: "Review UI for accessibility, visual hierarchy and responsiveness. Read-only."
+argument-hint: "[page, component or path]"
+---
 Review the UI for accessibility, hierarchy and responsiveness: $ARGUMENTS
 
-Read-only: this produces a report, it changes no files. To create a design brief, use `/design`.
+Read-only: this produces a report, it changes no files. To create a design brief, use `/sc-design`.
 
 Design sources: WCAG 2.2 (W3C WAI — the current standard, adding focus-not-obscured, target size and dragging alternatives at AA), Deque's measurement that automated tools find only a minority of accessibility issues, Nielsen's usability heuristics, and the OneRedOak design-review workflow (look at the rendered UI first, three viewports, severity triage, describe the problem rather than prescribe the fix).
 
