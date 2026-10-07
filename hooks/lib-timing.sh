@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Standalone Timing Instrumentation
 # Source this in any hook that does NOT source lib-suppress.sh, to get
-# /perf coverage. Single line at the top: . "$HOOKS_DIR/lib-timing.sh"
+# /sc-perf coverage. Single line at the top: . "$HOOKS_DIR/lib-timing.sh"
 #
 # Activates only when ~/.claude/supercharger/scope/.profiling exists.
 # Skips if a trap on EXIT is already set (preserves hook cleanup logic).

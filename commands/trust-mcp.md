@@ -14,8 +14,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/tools/trust-mcp.sh $ARGUMENTS
 Then report the tool's output verbatim.
 
 - No argument → show the current trusted list and the usage.
-- `/trust-mcp <server>` → trust that server (matches the MCP server name the guard sees).
-- `/trust-mcp --list` → list trusted servers.
-- `/trust-mcp --remove <server>` → untrust a server.
+- `/supercharger:trust-mcp <server>` → trust that server (matches the MCP server name the guard sees).
+- `/supercharger:trust-mcp --list` → list trusted servers.
+- `/supercharger:trust-mcp --remove <server>` → untrust a server.
 
 **Security note:** only trust servers you recognize. A trusted server can request credential fields without being declined — that is the entire protection you are turning off for it. If you didn't expect a credential prompt, do NOT trust the server; investigate it instead.

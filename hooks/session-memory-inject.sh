@@ -25,7 +25,7 @@ init_hook_suppress "$PROJECT_DIR"
 # FIRST so the common path is a single stat, no scan), remind (stderr only, zero
 # context tokens) if any file-memory entries are marked status: resolved/superseded
 # and are still loading their index line every session. Never prunes — just points
-# at /memory-prune. Self-contained; cannot affect the memory injection below.
+# at /sc-memory-prune. Self-contained; cannot affect the memory injection below.
 _MP_FLAG="$SUPERCHARGER_STATE/scope/.mem-prune-nudge"
 _mp_due=1
 if [ -f "$_MP_FLAG" ]; then
@@ -44,7 +44,7 @@ if [ "$_mp_due" = 1 ]; then
       # stdout, not stderr: this is a user NUDGE, and SessionStart stderr is not
       # delivered (see hooks/update-check.sh). The two "injected ..." diagnostics
       # below stay on stderr on purpose — they are traces, not messages.
-      echo "[MEM] $_mp_n resolved memory $_mp_word still loading each session — run /memory-prune to archive."
+      echo "[MEM] $_mp_n resolved memory $_mp_word still loading each session — run /sc-memory-prune to archive."
     fi
     touch "$_MP_FLAG" 2>/dev/null || true
   fi
@@ -54,7 +54,7 @@ fi
 MEMORY_FILE="${PROJECT_DIR}/.claude/supercharger-memory.md"
 
 # --- Handoff brief (v2.23.0) ---------------------------------------------------
-# The rich /handoff narrative (Done/Decisions/What-failed/Resume-with), loaded at
+# The rich /sc-handoff narrative (Done/Decisions/What-failed/Resume-with), loaded at
 # session start so a shifted session resumes without re-explaining. Freshness-gated
 # to 7 days so a stale brief doesn't flood context forever. Injected in EVERY path
 # below (including the no-memory-file and stub paths) — it's the top resume signal.

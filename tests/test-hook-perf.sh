@@ -65,7 +65,7 @@ else
 fi
 rm -rf "$TMPDIR_JSON"
 
-# v2.7.70: /perf must only report REAL hooks. Test artifacts (a test that sources
+# v2.7.70: /sc-perf must only report REAL hooks. Test artifacts (a test that sources
 # lib-suppress under .profiling records timing under the TEST file's name) and
 # records with no hook field leaked into the report as bogus "hooks". Filter by
 # hooks/<name>.sh existence.

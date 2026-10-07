@@ -13,8 +13,8 @@ Design sources: Michael Nygard's architecture decision records and MADR (status,
 |---|---|
 | what changed, fully explained by the diff | the commit message |
 | what shipped in a release, for users | the changelog |
-| a rule the agent must follow from now on | `/learn` or `CLAUDE.md` |
-| where this session got to, how to resume | `/handoff` |
+| a rule the agent must follow from now on | `/supercharger:learn` or `CLAUDE.md` |
+| where this session got to, how to resume | `/supercharger:handoff` |
 | **why the system is built this way — a decision with real alternatives and lasting consequences** | **here** |
 
 If the project keeps formal ADRs (`docs/adr/`, `doc/adr/`, `adr/`), a significant decision gets a new ADR in that format; use this log only for lighter context.

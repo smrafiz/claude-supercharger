@@ -6,7 +6,7 @@
 set -euo pipefail
 
 # v2.x (HOOK-LATENCY-PLAN Phase 2): the only uninstrumented hot-path hook. Sourcing
-# lib-timing installs the /perf EXIT-trap timing AND makes this advisory hook honor
+# lib-timing installs the /sc-perf EXIT-trap timing AND makes this advisory hook honor
 # the /sc-off kill-switch (it exits at source time when disabled — previously it ran
 # even with Supercharger off). No other behavior change.
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

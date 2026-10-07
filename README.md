@@ -37,7 +37,7 @@ Everything else is optional. These five are what you'll actually use day to day.
 | Just work normally | Destructive commands (`rm -rf`, force-push to main, `curl \| bash`, credential leaks) are blocked before they run. Read-only tools auto-approve, so you're prompted less, not more. |
 | **`/sc-autopilot 2h`** | Stops the yes/no permission prompts for two hours. The safety floor stays on. This is the single biggest speed win. |
 | **`/sc-status`** | What's active right now — session cost, economy tier, disabled hooks, per-subagent spend. |
-| **`/why`** | Something got blocked and you don't know why? This explains the last hook firing and how to get past it. |
+| **`/sc-why`** | Something got blocked and you don't know why? This explains the last hook firing and how to get past it. |
 | **`/sc off`** | Flips you back to plain, stock Claude Code — every hook, the statusline, the prompt rules, and Supercharger's own MCP servers all stand down. Nothing is uninstalled; `/sc on` restores it. |
 
 Two things worth setting once, per project, in a `.supercharger.json` at your repo root:
@@ -109,7 +109,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **MCP guard** — destructive/SQL write gates on GitHub and Postgres MCP servers, a per-server circuit-breaker (trips on 429/503), egress classification of MCP tool-argument URLs, and secret-scanning of MCP responses
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
 - **Rules & memory poisoning guard** — write-time protection on `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, persistent-memory files, and editor auto-run configs (`.vscode/tasks.json` `folderOpen`, `mcp.json`, `.gemini/settings.json`)
-- **Elicitation credential guard** — an MCP server can solicit input via a form; a malicious one uses that to phish an "API token" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`) or whose prompt text asks for one in prose — unless the server is trusted via `trustedElicitationServers` or `/trust-mcp <server>`. Since an elicitation carries no in-session message, a declined form raises a desktop notification so the block isn't silent
+- **Elicitation credential guard** — an MCP server can solicit input via a form; a malicious one uses that to phish an "API token" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`) or whose prompt text asks for one in prose — unless the server is trusted via `trustedElicitationServers` or `/sc-trust-mcp <server>`. Since an elicitation carries no in-session message, a declined form raises a desktop notification so the block isn't silent
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) skip confirmation automatically
 
 ### Cost & context control
@@ -184,7 +184,7 @@ At enable time you're prompted for role, economy tier, and MCP profile. Update w
 
 **Every guard runs identically on both channels.** What differs is packaging:
 
-- **Slash commands are namespaced** — `/audit` becomes `/supercharger:audit`
+- **Slash commands are namespaced** — `/sc-audit` becomes `/supercharger:audit`
 - **`/sc-update` → `/plugin update`** and **`/sc on|off` → `/plugin enable|disable`** (those two aren't shipped in the plugin)
 - The guardrail layer is delivered as **SessionStart context** instead of a `CLAUDE.md` block — same rules, and uninstalling leaves zero residue
 - **Statusline, 1h prompt cache and attribution** need three `settings.json` keys a plugin cannot declare (its manifest supports only `agent` and `subagentStatusLine`). Answer **yes** to *"Write statusline + prompt-cache settings"* when enabling and they're written for you on first run — backed up first, never overwriting a statusline you already set, and undoable with `tools/plugin-setup.sh --revert`. Answer **no** to keep the plugin strictly inside its own space; you can run that script yourself later instead.
@@ -275,7 +275,7 @@ For the false positive you hit repeatedly. Without it the only escape is `disabl
 - **`git-safety`, `path-guard` and `harness-tamper-guard` are untouched.** The human-approval floor is not negotiable from a config file.
 - **An invalid regex fails safe.** The command stays blocked; a broken allow rule never widens the guard.
 
-Every exemption is written to the block ledger, so `/why` and the session `[BLOCKS]` summary show what was let through.
+Every exemption is written to the block ledger, so `/sc-why` and the session `[BLOCKS]` summary show what was let through.
 
 Work across directories outside the project: `{"additionalRoots": ["/path/to/parent"]}`
 
@@ -319,20 +319,20 @@ Measured, not estimated: **Claude Code runs same-event hooks concurrently** (obs
 
 Reproduce it on your own machine with `bash tests/perf-chain.sh` (from a clone) — it reports the felt estimate, the sequential sum split into process spawn and hook work, and the slowest single hook. `--target statusline` measures the status bar separately. CI runs both on every push and posts the table to the job summary.
 
-**A caveat on `/perf`:** on bash 3.2 — the macOS default — its `avg_ms` column is inflated, sometimes 10–60×, because the profiler forks `python` per hook fire to read the clock and that fork lands inside the measurement. `/perf` prints a warning to this effect; rank by its **Calls** column and measure a specific hook independently before optimising it. On bash 5+ the clock is fork-free and the numbers are accurate.
+**A caveat on `/sc-perf`:** on bash 3.2 — the macOS default — its `avg_ms` column is inflated, sometimes 10–60×, because the profiler forks `python` per hook fire to read the clock and that fork lands inside the measurement. `/sc-perf` prints a warning to this effect; rank by its **Calls** column and measure a specific hook independently before optimising it. On bash 5+ the clock is fork-free and the numbers are accurate.
 
 That said, most felt slowness is not the hooks. Biggest levers, in order of impact:
 
 **Faster**
 - **`/sc-autopilot 2h`** — stop the per-command yes/no prompts for a while (safety hooks still run). Permission waits dwarf hook overhead; this is the single biggest latency win
 - **Background long commands** — run `tsc`, builds, tests, and dev servers in the background so they don't block the turn
-- **`/profile fast`** (skips 7 analytics hooks) or **`/profile minimal`** (skips 10; security-only)
+- **`/sc-profile fast`** (skips 7 analytics hooks) or **`/sc-profile minimal`** (skips 10; security-only)
 - **`.supercharger-no-typecheck`** in a repo root — skip type-checking on just that repo (the one real per-edit cost on big projects)
 - **Thinking a long time on a *simple* request?** That's native Claude reasoning effort, not Supercharger — use `/effort low` or `/effort medium`
 
 **Fewer tokens**
 - **`/compact`** when context is high; **`/clear`** when switching to unrelated work
-- **`/memory-prune`** — archive resolved memory entries so they stop loading every session
+- **`/sc-memory-prune`** — archive resolved memory entries so they stop loading every session
 - Supercharger's own footprint is small — rule files are path-scoped and per-prompt injections are a few tokens — so the dominant token cost is **conversation length**, not the hooks
 
 ### Project verify hook
@@ -379,7 +379,7 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 | `/sc-strict 30m` | Confirm **every** call — auto-approves nothing. Overrides autopilot while active |
 | `/sc off\|on\|status` | Flip to plain Claude Code and back — guards, statusline, prompt rules and Supercharger's MCP servers all stand down; no uninstall |
 | `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
-| `/profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
+| `/sc-profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
 | `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
 | `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
 
@@ -387,38 +387,38 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 | Command | Purpose |
 |--|--|
-| `/handoff [context]` | Session resume brief → `.claude/handoff.md` |
-| `/pr [description]` | Prepare and create a pull request |
-| `/scope [task]` | Pre-flight check — files to touch, risks, blast radius |
-| `/estimate [task]` | Time + complexity report. Halts before code starts |
-| `/interview [topic]` | Structured requirements gathering, one question at a time |
-| `/multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
-| `/security [scope]` | OWASP-anchored review with severity-ranked findings |
-| `/audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
-| `/cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
+| `/sc-handoff [context]` | Session resume brief → `.claude/handoff.md` |
+| `/sc-pr [description]` | Prepare and create a pull request |
+| `/sc-scope [task]` | Pre-flight check — files to touch, risks, blast radius |
+| `/sc-estimate [task]` | Time + complexity report. Halts before code starts |
+| `/sc-interview [topic]` | Structured requirements gathering, one question at a time |
+| `/sc-multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
+| `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
+| `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
+| `/sc-cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
 
 **Reasoning & debugging:**
 
 | Command | Purpose |
 |--|--|
-| `/think [problem]` | Structured reasoning for ambiguous problems |
-| `/challenge [decision]` | Adversarial stress-test — assumptions, failure modes, strongest alternative |
-| `/stuck [symptom]` | Breaks debug loops with fresh hypotheses |
-| `/why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
+| `/sc-think [problem]` | Structured reasoning for ambiguous problems |
+| `/sc-challenge [decision]` | Adversarial stress-test — assumptions, failure modes, strongest alternative |
+| `/sc-stuck [symptom]` | Breaks debug loops with fresh hypotheses |
+| `/sc-why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
 
 **Insight, memory & housekeeping:**
 
 | Command | Purpose |
 |--|--|
-| `/learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
-| `/memory-prune` | Archive resolved memory entries so they stop loading into context |
-| `/perf [--slow]` | Hook timing report |
-| `/cache-stats` · `/cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
-| `/trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) |
-| `/reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
-| `/devlog [entry]` | Append a decision to `DEV-LOG.md` |
-| `/design [brand]` | Generate `DESIGN.md` — tokens read from the project's theme, typography, components |
-| `/design-review [pages]` | Review UI: WCAG 2.2 AA with measured values, hierarchy, responsiveness (read-only) |
+| `/sc-learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
+| `/sc-memory-prune` | Archive resolved memory entries so they stop loading into context |
+| `/sc-perf [--slow]` | Hook timing report |
+| `/sc-cache-stats` · `/sc-cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
+| `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) |
+| `/sc-reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
+| `/sc-devlog [entry]` | Append a decision to `DEV-LOG.md` |
+| `/sc-design [brand]` | Generate `DESIGN.md` — tokens read from the project's theme, typography, components |
+| `/sc-design-review [pages]` | Review UI: WCAG 2.2 AA with measured values, hierarchy, responsiveness (read-only) |
 | `/supercharger` | List all slash commands |
 
 </details>
@@ -484,7 +484,7 @@ All in `~/.claude/supercharger/tools/` after install:
 No. The installer backs up everything before touching it. `./uninstall.sh` restores exactly what you had.
 
 **A hook blocked something I actually need.**
-Run `/why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
+Run `/sc-why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
 
 **My script copies a file into `~/.claude/supercharger/hooks/` and is now denied.**
 Expected as of 2.24.14. Writing over an installed hook is how the guardrail layer gets torn down, so `cp`/`install`/`rsync`/`curl -o`/`wget -O` aimed **into** the install dir are blocked alongside `rm` and `>`. Use `./install.sh` or `tools/update.sh`, which the guard does not intercept. Reading and copying **out** (`cp <hook> /tmp/`) still work.

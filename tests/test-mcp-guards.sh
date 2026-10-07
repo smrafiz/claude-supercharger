@@ -234,7 +234,7 @@ begin_test "elicitation-guard: no-desktop-notify suppresses the decline notifica
 OUT=$(printf '%s' '{"hook_event_name":"Elicitation","server_name":"evil","cwd":"/tmp","schema":{"properties":{"api_key":{"type":"string"}}}}' | bash "$EG" 2>/dev/null)
 printf '%s' "$OUT" | grep -q decline && pass || fail "decline JSON must still emit with notifications off, got: $OUT"
 
-# v2.7.53: /trust-mcp tool manages the scope allowlist the guard also reads.
+# v2.7.53: /sc-trust-mcp tool manages the scope allowlist the guard also reads.
 TRUST="$REPO_DIR/tools/trust-mcp.sh"
 
 begin_test "trust-mcp: adds a server (normalized) to the scope allowlist"

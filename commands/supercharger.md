@@ -13,49 +13,49 @@ problem and don't want to scan a list to name it.
 Claude Supercharger — Slash Commands
 
   Code & Review
-    /audit          Sweep project for naming, pattern, doc, and structure inconsistencies
-    /security       OWASP-style security review of current changes
-    /multi-review   Run multiple review passes (correctness, perf, security, style)
-    /challenge      Devil's advocate — stress-test a decision or approach
-    /think          Force deep reasoning on a hard problem before acting
+    /supercharger:audit          Sweep project for naming, pattern, doc, and structure inconsistencies
+    /supercharger:security       OWASP-style security review of current changes
+    /supercharger:multi-review   Run multiple review passes (correctness, perf, security, style)
+    /supercharger:challenge      Devil's advocate — stress-test a decision or approach
+    /supercharger:think          Force deep reasoning on a hard problem before acting
 
   Workflow
-    /scope          Pre-flight gate — confirm scope, risks, and stop conditions before starting
-    /estimate       Time + complexity estimate (report-only, no work started)
-    /cleanup        Dead code + unused-import removal (two-tier safety: auto-fix safe, gate risky)
-    /pr             One-step pull request (summary + test plan + gh pr create)
-    /resolve-conflicts  Resolve an in-progress merge/rebase conflict (recover intent, verify, finish)
-    /handoff        Session resume brief — decisions, files changed, next steps
-    /devlog         Update living architecture journal with what changed and why
-    /interview      Structured requirements gathering, one question at a time
+    /supercharger:scope          Pre-flight gate — confirm scope, risks, and stop conditions before starting
+    /supercharger:estimate       Time + complexity estimate (report-only, no work started)
+    /supercharger:cleanup        Dead code + unused-import removal (two-tier safety: auto-fix safe, gate risky)
+    /supercharger:pr             One-step pull request (summary + test plan + gh pr create)
+    /supercharger:resolve-conflicts  Resolve an in-progress merge/rebase conflict (recover intent, verify, finish)
+    /supercharger:handoff        Session resume brief — decisions, files changed, next steps
+    /supercharger:devlog         Update living architecture journal with what changed and why
+    /supercharger:interview      Structured requirements gathering, one question at a time
 
   Design
-    /design         Write DESIGN.md — brand tokens read from the project's own theme
-    /design-review  UI review — WCAG 2.2 AA with measured values, hierarchy, 3 viewports
-    /reflect        Post-task retrospective — what worked, what to improve
+    /supercharger:design         Write DESIGN.md — brand tokens read from the project's own theme
+    /supercharger:design-review  UI review — WCAG 2.2 AA with measured values, hierarchy, 3 viewports
+    /supercharger:reflect        Post-task retrospective — what worked, what to improve
 
   Diagnostics
-    /stuck          Break a debug loop — fresh eyes, new hypothesis
-    /why            Explain the most recent Supercharger hook action
-    /perf           Hook timing report with slowdown suggestions
-    /cache-stats    Typecheck + quality-gate cache state
-    /cache-clear    Clear hash caches (forces full re-check on next run)
-    /profile        Show or switch performance profile (standard / fast / minimal)
+    /supercharger:stuck          Break a debug loop — fresh eyes, new hypothesis
+    /supercharger:why            Explain the most recent Supercharger hook action
+    /supercharger:perf           Hook timing report with slowdown suggestions
+    /supercharger:cache-stats    Typecheck + quality-gate cache state
+    /supercharger:cache-clear    Clear hash caches (forces full re-check on next run)
+    /supercharger:profile        Show or switch performance profile (standard / fast / minimal)
 
   Memory
-    /learn          Record an explicit project rule (surfaces on future prompts)
-    /memory-prune   Archive resolved memory entries so they stop loading every session
+    /supercharger:learn          Record an explicit project rule (surfaces on future prompts)
+    /supercharger:memory-prune   Archive resolved memory entries so they stop loading every session
 
   Meta
     /sc             Activate / deactivate Supercharger (off | on | status) — flip to default Claude
-    /sc-autopilot   Time-boxed auto-approve — skip permission prompts for a duration (safety hooks stay on)
-    /sc-readonly    Time-boxed read-only — block edits + mutating commands for a duration (look, don't touch)
-    /sc-strict      Time-boxed strict — auto-approve nothing; confirm every call (overrides autopilot)
-    /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
-    /trust-mcp      Trust an MCP server to request credentials via Elicitation forms
+    /supercharger:autopilot   Time-boxed auto-approve — skip permission prompts for a duration (safety hooks stay on)
+    /supercharger:readonly    Time-boxed read-only — block edits + mutating commands for a duration (look, don't touch)
+    /supercharger:strict      Time-boxed strict — auto-approve nothing; confirm every call (overrides autopilot)
+    /supercharger:status      Render current Supercharger session state (cost, lessons, disabled hooks)
+    /supercharger:trust-mcp      Trust an MCP server to request credentials via Elicitation forms
     /supercharger   This screen — pass a situation to route instead of browse
-    /sc-update      Check for and apply Supercharger updates
-    /sc-doctor      Diagnose the install — registration, integrity, permissions, update status
+    /supercharger:update      Check for and apply Supercharger updates
+    /supercharger:doctor      Diagnose the install — registration, integrity, permissions, update status
 ```
 
 Then add one line: `Tip: /supercharger <what you're trying to do> routes you instead.`
@@ -79,38 +79,38 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 
 | They say something like | Route to | Not to |
 |---|---|---|
-| "is this safe to ship", "check my changes for vulns" | `/security` | `/audit` — that's consistency, not vulnerabilities |
-| "review this properly", "what did I miss" | `/multi-review` | `/security` unless they said security |
-| "the codebase feels inconsistent", "naming is a mess" | `/audit` | `/cleanup` — that deletes, this reports |
-| "remove dead code", "unused imports" | `/cleanup` | `/audit` |
-| "am I sure about this decision", "poke holes in this" | `/challenge` | `/think` — that reasons, this attacks |
-| "this is hard, don't rush it" | `/think` | |
-| "I've been stuck on this bug for ages", "same error again" | `/stuck` | `/think` — a debug loop needs a new hypothesis, not more reasoning |
-| "why was that blocked", "what fired" | `/why` | |
-| "before we start", "what's in scope" | `/scope` | `/interview` — that gathers, this gates |
-| "I don't know what I want yet" | `/interview` | `/scope` |
-| "how long will this take" | `/estimate` | |
-| "open a PR", "ship this" | `/pr` | |
-| "I have merge conflicts", "rebase blew up" | `/resolve-conflicts` | `/stuck` — that is for debug loops, not conflicts |
-| "I'm running out of context", "continue tomorrow" | `/handoff` | |
-| "record why we did it this way" | `/devlog` | `/learn` — that's a rule, this is history |
-| "remember this rule for next time" | `/learn` | `/devlog` |
-| "does this UI work", "accessibility" | `/design-review` | `/design` — that writes the brand brief, it does not review |
-| "set up our design tokens", "brand brief" | `/design` | `/design-review` |
-| "how did that session go" | `/reflect` | |
-| "Claude keeps asking permission" | `/sc-autopilot` | `/sc` — that removes the safety floor too |
-| "don't let it touch anything" | `/sc-readonly` | `/sc-strict` — that still allows edits, just confirms each |
-| "confirm every single call" | `/sc-strict` | `/sc-readonly` |
-| "turn it all off", "I want plain Claude" | `/sc off` | `/sc-readonly` if they only want to stop edits |
-| "what's active right now", "what's this costing" | `/sc-status` | `/perf` — that's hook latency, this is session state |
-| "everything feels slow" | `/perf` | `/profile` — check the measurement before switching profile |
-| "make it faster" | `/profile` | `/perf` first |
-| "context keeps filling up" | `/memory-prune` | |
-| "typecheck seems stale", "is it caching" | `/cache-stats` | `/cache-clear` — look before you wipe |
-| "force a full re-check" | `/cache-clear` | `/cache-stats` first |
-| "an MCP server wants my credentials" | `/trust-mcp` | |
-| "update Supercharger" | `/sc-update` | |
-| "is my install healthy", "did something break", "guards don't seem to run" | `/sc-doctor` | Ends with one pasteable line — ask for that when helping someone remotely |
+| "is this safe to ship", "check my changes for vulns" | `/supercharger:security` | `/supercharger:audit` — that's consistency, not vulnerabilities |
+| "review this properly", "what did I miss" | `/supercharger:multi-review` | `/supercharger:security` unless they said security |
+| "the codebase feels inconsistent", "naming is a mess" | `/supercharger:audit` | `/supercharger:cleanup` — that deletes, this reports |
+| "remove dead code", "unused imports" | `/supercharger:cleanup` | `/supercharger:audit` |
+| "am I sure about this decision", "poke holes in this" | `/supercharger:challenge` | `/supercharger:think` — that reasons, this attacks |
+| "this is hard, don't rush it" | `/supercharger:think` | |
+| "I've been stuck on this bug for ages", "same error again" | `/supercharger:stuck` | `/supercharger:think` — a debug loop needs a new hypothesis, not more reasoning |
+| "why was that blocked", "what fired" | `/supercharger:why` | |
+| "before we start", "what's in scope" | `/supercharger:scope` | `/supercharger:interview` — that gathers, this gates |
+| "I don't know what I want yet" | `/supercharger:interview` | `/supercharger:scope` |
+| "how long will this take" | `/supercharger:estimate` | |
+| "open a PR", "ship this" | `/supercharger:pr` | |
+| "I have merge conflicts", "rebase blew up" | `/supercharger:resolve-conflicts` | `/supercharger:stuck` — that is for debug loops, not conflicts |
+| "I'm running out of context", "continue tomorrow" | `/supercharger:handoff` | |
+| "record why we did it this way" | `/supercharger:devlog` | `/supercharger:learn` — that's a rule, this is history |
+| "remember this rule for next time" | `/supercharger:learn` | `/supercharger:devlog` |
+| "does this UI work", "accessibility" | `/supercharger:design-review` | `/supercharger:design` — that writes the brand brief, it does not review |
+| "set up our design tokens", "brand brief" | `/supercharger:design` | `/supercharger:design-review` |
+| "how did that session go" | `/supercharger:reflect` | |
+| "Claude keeps asking permission" | `/supercharger:autopilot` | `/sc` — that removes the safety floor too |
+| "don't let it touch anything" | `/supercharger:readonly` | `/supercharger:strict` — that still allows edits, just confirms each |
+| "confirm every single call" | `/supercharger:strict` | `/supercharger:readonly` |
+| "turn it all off", "I want plain Claude" | `/sc off` | `/supercharger:readonly` if they only want to stop edits |
+| "what's active right now", "what's this costing" | `/supercharger:status` | `/supercharger:perf` — that's hook latency, this is session state |
+| "everything feels slow" | `/supercharger:perf` | `/supercharger:profile` — check the measurement before switching profile |
+| "make it faster" | `/supercharger:profile` | `/supercharger:perf` first |
+| "context keeps filling up" | `/supercharger:memory-prune` | |
+| "typecheck seems stale", "is it caching" | `/supercharger:cache-stats` | `/supercharger:cache-clear` — look before you wipe |
+| "force a full re-check" | `/supercharger:cache-clear` | `/supercharger:cache-stats` first |
+| "an MCP server wants my credentials" | `/supercharger:trust-mcp` | |
+| "update Supercharger" | `/supercharger:update` | |
+| "is my install healthy", "did something break", "guards don't seem to run" | `/supercharger:doctor` | Ends with one pasteable line — ask for that when helping someone remotely |
 
 ### If the situation is a whole JOB, not a single step — return a sequence
 
@@ -119,9 +119,9 @@ it is a scope decision, a review, and a record of what was found. When the situa
 matches a workflow below, return the **ordered sequence** instead of a single route:
 
 ```
-→ /security        1. the core review — diff-scoped, OWASP-anchored
-  /multi-review    2. breadth beyond security, if the change is large
-  /devlog          3. record what was found and decided
+→ /supercharger:security        1. the core review — diff-scoped, OWASP-anchored
+  /supercharger:multi-review    2. breadth beyond security, if the change is large
+  /supercharger:devlog          3. record what was found and decided
 ```
 
 Number the steps and say what each contributes. **Cap at four** — past that it stops being
@@ -131,19 +131,19 @@ complete.
 
 | The job | Sequence | Why this order |
 |---|---|---|
-| Security audit | `/security` → `/multi-review` → `/devlog` | Narrow before broad. `/security` is diff-scoped and cheap; `/multi-review` spawns agents, so only widen if the first pass warrants it |
-| Starting a substantial feature | `/interview` → `/scope` → `/estimate` | Requirements before boundaries before time. Estimating an unscoped task is guesswork |
-| Inherited or unfamiliar codebase | `/audit` → `/security` → `/cleanup` | Understand shape, then risk, then remove. Deleting before understanding is how you delete something load-bearing |
-| Finishing a work session | `/reflect` → `/handoff` | Reflect first — its observations are what makes the handoff worth reading |
-| Shipping a change | `/multi-review` → `/pr` → `/devlog` | Review before the PR exists, so the description reflects what survived review |
-| Stuck and going in circles | `/stuck` → `/why` | `/stuck` reframes; `/why` only if a guard is involved and the cause is unclear |
-| Something feels slow | `/perf` → `/profile` | Measure before switching profile. The measurement usually names a single hook, not a profile problem |
+| Security audit | `/supercharger:security` → `/supercharger:multi-review` → `/supercharger:devlog` | Narrow before broad. `/supercharger:security` is diff-scoped and cheap; `/supercharger:multi-review` spawns agents, so only widen if the first pass warrants it |
+| Starting a substantial feature | `/supercharger:interview` → `/supercharger:scope` → `/supercharger:estimate` | Requirements before boundaries before time. Estimating an unscoped task is guesswork |
+| Inherited or unfamiliar codebase | `/supercharger:audit` → `/supercharger:security` → `/supercharger:cleanup` | Understand shape, then risk, then remove. Deleting before understanding is how you delete something load-bearing |
+| Finishing a work session | `/supercharger:reflect` → `/supercharger:handoff` | Reflect first — its observations are what makes the handoff worth reading |
+| Shipping a change | `/supercharger:multi-review` → `/supercharger:pr` → `/supercharger:devlog` | Review before the PR exists, so the description reflects what survived review |
+| Stuck and going in circles | `/supercharger:stuck` → `/supercharger:why` | `/supercharger:stuck` reframes; `/supercharger:why` only if a guard is involved and the cause is unclear |
+| Something feels slow | `/supercharger:perf` → `/supercharger:profile` | Measure before switching profile. The measurement usually names a single hook, not a profile problem |
 
 If the request is a single step, do **not** manufacture a sequence — one route is the
 better answer, and padding it wastes the user's attention.
 
 ### When two look equally right
 
-Prefer the one that **reports** over the one that **changes** — `/audit` before `/cleanup`,
-`/perf` before `/profile`, `/estimate` before `/pr`. A wrong report costs a paragraph; a
+Prefer the one that **reports** over the one that **changes** — `/supercharger:audit` before `/supercharger:cleanup`,
+`/supercharger:perf` before `/supercharger:profile`, `/supercharger:estimate` before `/supercharger:pr`. A wrong report costs a paragraph; a
 wrong change costs a revert.

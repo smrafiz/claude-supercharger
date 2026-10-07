@@ -62,7 +62,7 @@ _emit_hook_timing() {
   local elapsed=$((end_ms - HOOK_START_MS))
   # v2.7.45: outside full-profiling mode, only record SLOW invocations so
   # always-on timing costs ~nothing (2 clock reads + a compare, no I/O) for the
-  # fast common case, while still surfacing the hooks worth optimizing in /perf.
+  # fast common case, while still surfacing the hooks worth optimizing in /sc-perf.
   if [ "${_HOOK_PERF_FULL:-0}" != 1 ] && [ "$elapsed" -lt "${SUPERCHARGER_PERF_THRESHOLD_MS:-40}" ]; then
     return
   fi

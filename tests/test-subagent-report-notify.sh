@@ -101,7 +101,7 @@ rm -rf "$_NST"
 # additionalContext pointer never arrived. Whether Claude Code delivers
 # additionalContext from a SubagentStop hook is unconfirmed, so this hook no
 # longer relies on it alone:
-#   - `/why` reads .subagent-report-<sid>, a channel that cannot be discarded
+#   - `/sc-why` reads .subagent-report-<sid>, a channel that cannot be discarded
 #   - an entry proves the hook FIRED, which separates "did not run" from
 #     "ran and the context was dropped" — previously indistinguishable
 rec() { # state_dir, sid -> file contents
@@ -130,7 +130,7 @@ SUPERCHARGER_NO_DEDUP=0 printf '%s' '{"agent_id":"recA","agent_name":"Translator
 begin_test "record: a HEALTHY final records nothing"
 printf '%s' '{"agent_id":"recB","agent_name":"Good","last_assistant_message":"I reviewed src/auth.ts:44 and found three issues worth fixing before release.","session_id":"rs1","cwd":"."}' \
   | SUPERCHARGER_STATE="$RST" bash "$H" >/dev/null 2>&1
-rec "$RST" rs1 | grep -q 'recB' && fail "recorded a healthy agent — /why would report a non-event" || pass
+rec "$RST" rs1 | grep -q 'recB' && fail "recorded a healthy agent — /sc-why would report a non-event" || pass
 
 begin_test "record: per-session, never shared"
 printf '%s' '{"agent_id":"recC","agent_name":"Other","last_assistant_message":"Done.","session_id":"rs2","cwd":"."}' \
@@ -155,16 +155,16 @@ N=$(rec "$RST" rs1 | wc -l | tr -d ' ')
 [ "$N" -le 200 ] && pass || fail "grew to $N lines unbounded"
 rm -rf "$RST"
 
-begin_test "record: /why knows to read it"
-grep -q 'subagent-report' "$REPO_DIR/configs/commands/why.md" && pass \
+begin_test "record: /sc-why knows to read it"
+grep -q 'subagent-report' "$REPO_DIR/configs/commands/sc-why.md" && pass \
   || fail "why.md does not read the subagent-report file"
 
 begin_test "record: the generated command carries it (commands/ is generated)"
 grep -q 'subagent-report' "$REPO_DIR/commands/why.md" && pass \
   || fail "run tools/gen-plugin-commands.sh — config and generated copy have drifted"
 
-begin_test "record: /why frames it as recovered work, not a failure"
-grep -qi 'not a block\|nothing failed' "$REPO_DIR/configs/commands/why.md" && pass \
+begin_test "record: /sc-why frames it as recovered work, not a failure"
+grep -qi 'not a block\|nothing failed' "$REPO_DIR/configs/commands/sc-why.md" && pass \
   || fail "why.md should say the work completed and only the reply was lost"
 
 # --- both channels (v2.26.55) -------------------------------------------------

@@ -2,7 +2,7 @@ Scoped time + complexity estimate for: $ARGUMENTS
 
 Do NOT write code. Do NOT start work. This is a report-only analysis.
 
-It answers "how big, how long, how uncertain?" before anyone decides to do the work. The exact file list, blast radius and approval gate belong to `/scope`, run once the decision is made.
+It answers "how big, how long, how uncertain?" before anyone decides to do the work. The exact file list, blast radius and approval gate belong to `/sc-scope`, run once the decision is made.
 
 Design sources: Kahneman's planning fallacy and Flyvbjerg's reference-class forecasting (the outside view first), three-point / PERT estimation, Hubbard's calibrated 90% intervals (*How to Measure Anything*), the cone of uncertainty, #NoEstimates (spike instead of inventing a number), and METR — the 2025 study where developers using AI believed they were 20% faster and were measured 19% slower, and METR's task time-horizon work.
 
@@ -48,7 +48,7 @@ UNKNOWNS (by impact):
 
 BOTTOM LINE: [range] | SPIKE FIRST: [time-boxed probe] — settles [...]
 
-(Estimate only — no work started. Run /scope before implementing.)
+(Estimate only — no work started. Run /sc-scope before implementing.)
 ```
 
 End after the report. Do not start work even if asked in the same prompt — require explicit confirmation in a separate prompt.

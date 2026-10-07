@@ -95,6 +95,8 @@ for cmd_file in "$SCRIPT_DIR/configs/commands/"*.md; do
   cmd=$(basename "$cmd_file" .md)
   rm -f "$HOME/.claude/commands/$cmd.md"
 done
+# Pre-4.3.0 names, redirect stubs, dropped commands — only unmodified copies of ours.
+python3 "$SCRIPT_DIR/tools/commands-migrate.py" uninstall "$HOME/.claude/commands" "$SCRIPT_DIR" 2>/dev/null || true
 rmdir "$HOME/.claude/commands" 2>/dev/null || true
 echo -e "  ${GREEN}✓${NC} Commands removed"
 

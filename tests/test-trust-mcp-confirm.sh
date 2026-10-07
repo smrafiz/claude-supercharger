@@ -88,7 +88,7 @@ rm -rf "$TD"
 begin_test "trust is honoured when stored under CLAUDE_PLUGIN_DATA (plugin layout)"
 TD=$(mktemp -d)
 [ "$(elicit_with_root trusted-srv "$TD" CLAUDE_PLUGIN_DATA)" = "ALLOW" ] && pass \
-  || fail "trust written by the tool under the plugin root was never read — /trust-mcp reports success and does nothing"
+  || fail "trust written by the tool under the plugin root was never read — /sc-trust-mcp reports success and does nothing"
 rm -rf "$TD"
 
 begin_test "an untrusted server is still declined (the guard still guards)"

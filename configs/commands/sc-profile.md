@@ -57,12 +57,12 @@ for name, (d, _) in profiles.items():
     marker = "●" if name == active else "○"
     print(f"  {marker} {name:10s} — {d}")
 print()
-print("Switch: /profile fast  |  /profile minimal  |  /profile standard")
+print("Switch: /sc-profile fast  |  /sc-profile minimal  |  /sc-profile standard")
 print("Or set per-project: add {\"profile\": \"fast\"} to .supercharger.json")
 EOF
 ```
 
-## Switch profile (e.g. /profile fast)
+## Switch profile (e.g. /sc-profile fast)
 
 Parse the argument from `$ARGUMENTS`. If a profile name is given (`standard`, `fast`, or `minimal`), write it to the scope file:
 

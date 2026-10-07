@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Meta-test: every scope-file a slash COMMAND reads must match how the hooks/tools
 # actually WRITE it. This is the "stale scope-file path" class that silently broke
-# /sc-status, /why, /perf, /cache-stats — commands referencing names/suffixes that
-# drifted (e.g. /why globbed `.blocked-commands-*` when the real file is the bare
+# /sc-status, /sc-why, /sc-perf, /sc-cache-stats — commands referencing names/suffixes that
+# drifted (e.g. /sc-why globbed `.blocked-commands-*` when the real file is the bare
 # `.blocked-commands`; /sc-status read `.tool-history` when it's `.tool-history-<sid>`).
 # Unit tests can't catch it (they use fixtures); this derives ground truth from the
 # writers and validates every command reference against it.

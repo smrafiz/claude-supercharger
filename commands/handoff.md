@@ -60,7 +60,7 @@ Output format:
 
 ### Start With
 [the 1-2 Supercharger commands the next session should run first, and why —
- e.g. "/resolve-conflicts — the rebase is mid-flight" or "/why — a guard fired
+ e.g. "/supercharger:resolve-conflicts — the rebase is mid-flight" or "/supercharger:why — a guard fired
  and the cause is unclear". Write "none" if nothing applies. Use /supercharger
  <situation> if you are unsure which command fits.]
 ```

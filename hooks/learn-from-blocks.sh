@@ -113,7 +113,7 @@ context_parts = []
 #
 # These now collapse into ONE line carrying what is actually usable: that command
 # patterns are being blocked, how many distinct rules, how often. The regex stays
-# in the ledger for /why, which shows single entries and has room for detail.
+# in the ledger for /sc-why, which shows single entries and has room for detail.
 #
 # Deliberately NOT relabelled per-family (piping to a shell, destructive SQL)
 # by pattern-matching the regex text: the bucket spans shell, SQL, network and

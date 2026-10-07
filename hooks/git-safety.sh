@@ -58,7 +58,7 @@ block() {
   local blocks_log="$SUPERCHARGER_STATE/scope/.blocked-commands"
   mkdir -p "$(dirname "$blocks_log")" 2>/dev/null || true
   # v2.26.17: collapse newlines/tabs BEFORE shortening. The ledger is line-based —
-  # /why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
+  # /sc-why reads the last N lines and learn-from-blocks parses it into the [BLOCKS]
   # summary injected into every session. A multi-line command wrote a multi-line
   # entry, so a fragment like `rm -rf .` appeared as its own row and read as a real
   # destructive block. Shortening alone would still leave an embedded newline.
@@ -71,7 +71,7 @@ block() {
   # Mask secrets before the ledger sees them (e.g. a token inside a push URL).
   # shellcheck source=hooks/lib-secret-patterns.sh
   . "${BASH_SOURCE[0]%/*}/lib-secret-patterns.sh" 2>/dev/null && ledger_redact "$safe_cmd" && safe_cmd="$LEDGER_SAFE"
-  safe_cmd="${safe_cmd:0:400}"   # v2.26.67: 120 starved /why, not context
+  safe_cmd="${safe_cmd:0:400}"   # v2.26.67: 120 starved /sc-why, not context
   safe_cmd="${safe_cmd//$'\n'/ }"; safe_cmd="${safe_cmd//$'\r'/ }"; safe_cmd="${safe_cmd//$'\t'/ }"
   printf '[%s] %s — %s\n' "$(date '+%Y-%m-%d %H:%M')" "$1" "$safe_cmd" >> "$blocks_log" 2>/dev/null || true
   # v2.7.23: cap the log (was unbounded append — grew to 3.4MB). Keep last 500.

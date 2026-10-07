@@ -16,7 +16,7 @@ Then do three things, in this order:
    can send back when something is wrong.
 2. **Name only what actually failed.** Do not restate passing checks; a report
    that lists everything is a report nobody reads to the end.
-3. **Give the single next action.** Almost every finding resolves to `/sc-update`
+3. **Give the single next action.** Almost every finding resolves to `/supercharger:update`
    (a partial install, stale version, or old permissions). Say so plainly rather
    than explaining the check.
 

@@ -17,10 +17,10 @@ bash ${CLAUDE_PLUGIN_ROOT}/tools/autopilot.sh $ARGUMENTS
 
 Then report the tool's output verbatim.
 
-- `/sc-autopilot 30m` — auto-approve for 30 minutes in **this session only**. Accepts `30m`, `2h`, `90s`, or a bare number (minutes).
-- `/sc-autopilot 30m global` — auto-approve for **all** sessions on the machine.
-- `/sc-autopilot off` — turn it off now (clears both this session's and the global window); normal prompts return.
-- `/sc-autopilot status` — show whether it's on (per-session and/or global) and how long is left.
+- `/supercharger:autopilot 30m` — auto-approve for 30 minutes in **this session only**. Accepts `30m`, `2h`, `90s`, or a bare number (minutes).
+- `/supercharger:autopilot 30m global` — auto-approve for **all** sessions on the machine.
+- `/supercharger:autopilot off` — turn it off now (clears both this session's and the global window); normal prompts return.
+- `/supercharger:autopilot status` — show whether it's on (per-session and/or global) and how long is left.
 
 Notes to surface to the user:
 - This does **not** disable any safety guard — only the permission prompts. `rm -rf`, force-push, credential leaks, etc. are still blocked by the PreToolUse hooks.

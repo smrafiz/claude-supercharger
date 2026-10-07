@@ -192,7 +192,7 @@ Publishing sends this file to a hosted URL. That is not reversible — the page 
 Remove the secret from the file, then publish again. If it is a placeholder or test fixture, rename the value so it does not match a live credential shape, or set disableSecurityCategories: [\"credentials\"] for this project."
   sc_decision deny "$REASON"
 
-  # Block ledger — /why and the session [BLOCKS] summary read this.
+  # Block ledger — /sc-why and the session [BLOCKS] summary read this.
   SCOPE_DIR="$SUPERCHARGER_STATE/scope"
   mkdir -p "$SCOPE_DIR" 2>/dev/null || true
   printf '[%s] credentials — secret in published artifact — %s\n' \

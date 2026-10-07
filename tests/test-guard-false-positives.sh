@@ -57,9 +57,9 @@ expect "$HT" DENY "harness-tamper: STILL blocks ln -sf over a hook script" \
 expect "$HT" DENY "harness-tamper: STILL blocks ln with a path arg over hooks" \
 'ln /tmp/evil.sh ~/.claude/supercharger/hooks/safety.sh'
 
-# FP: the documented profiling sentinel (/perf) and the time-boxed mode flags all
+# FP: the documented profiling sentinel (/sc-perf) and the time-boxed mode flags all
 # live under scope/, which sits inside the install dir.
-expect "$HT" ALLOW "harness-tamper: /perf's documented profiling sentinel" \
+expect "$HT" ALLOW "harness-tamper: /sc-perf's documented profiling sentinel" \
 'touch ~/.claude/supercharger/scope/.profiling'
 
 expect "$HT" ALLOW "harness-tamper: clearing the profiling sentinel" \

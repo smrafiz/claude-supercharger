@@ -667,7 +667,7 @@ deploy_hook_scripts() {
 
   # Remove hook .sh files that no longer exist in source. Without this, hooks
   # deleted in newer versions linger on disk forever (they're harmless because
-  # settings.json doesn't register them, but they pollute /why explanations,
+  # settings.json doesn't register them, but they pollute /sc-why explanations,
   # diagnostics, and confuse audits).
   for installed in "$target_dir/"*.sh; do
     [ ! -f "$installed" ] && continue

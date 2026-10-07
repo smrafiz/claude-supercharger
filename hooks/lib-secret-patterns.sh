@@ -147,7 +147,7 @@ SECRET_PATTERNS=(
 
 # ledger_redact <text> — sets LEDGER_SAFE to <text> with every secret masked.
 # For the block ledger (scope/.blocked-commands), which records blocked command
-# text in plain view and is read back by /why and learn-from-blocks. Measured
+# text in plain view and is read back by /sc-why and learn-from-blocks. Measured
 # 2026-09-29: a 64-hex CRON_SECRET passed as a quoted printf argument reached
 # the ledger intact — safety.sh only masked the text right after `SECRET=`, and
 # git-safety / harness-tamper masked nothing. Also masks a bare hex run of 32+

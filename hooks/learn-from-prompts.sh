@@ -7,7 +7,7 @@
 set -euo pipefail
 
 # v2.23.44: honor the global kill-switch — /sc off must silence EVERY hook. Sourcing
-# lib-timing exits at source time when the disable flag is set (and adds /perf timing).
+# lib-timing exits at source time when the disable flag is set (and adds /sc-perf timing).
 # shellcheck source=hooks/lib-timing.sh
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh" 2>/dev/null || true
 
@@ -45,7 +45,7 @@ PROJ_HASH="${PROJ_HASH:0:8}"
 # v2.26.64: collapse newlines/tabs BEFORE shortening — same fix safety.sh got in
 # v2.26.17, never applied to this sibling. Both ledgers below are LINE-BASED:
 # learn-from-blocks parses them into the [CORR]/[WORKS] summaries injected at every
-# session start, and /why reads the last N lines. A multi-line correction wrote a
+# session start, and /sc-why reads the last N lines. A multi-line correction wrote a
 # multi-line row, so its continuation became an orphan entry — observed live as
 #     [CORR] no need, this:|Want me to write a short "perf & tokens" section...
 # where the second field is not a correction at all, just the tail of the first.

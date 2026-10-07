@@ -20,7 +20,7 @@
 #   3. An invalid regex FAILS SAFE. grep returns rc>1, which is not rc 0, so the
 #      command stays blocked. A broken allow rule must never widen the guard.
 #
-# Every exemption is appended to the block ledger so it stays visible in /why and
+# Every exemption is appended to the block ledger so it stays visible in /sc-why and
 # the [BLOCKS] summary instead of silently loosening things.
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
@@ -60,7 +60,7 @@ begin_test "the exemption is recorded in the ledger, not silent"
 : > "$ST/scope/.blocked-commands"
 verdict 'rm -rf ~/Library/Caches/mytool' >/dev/null
 grep -q 'ALLOWED by allowPatterns' "$ST/scope/.blocked-commands" && pass \
-  || fail "a widened guard left no trace for /why or [BLOCKS]"
+  || fail "a widened guard left no trace for /sc-why or [BLOCKS]"
 
 begin_test "the exemption tells the user what would have been blocked"
 OUT=$(printf '{"tool_name":"Bash","cwd":"%s","tool_input":{"command":"rm -rf ~/Library/Caches/x"}}' "$PJ" \

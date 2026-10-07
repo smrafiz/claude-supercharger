@@ -91,4 +91,4 @@ Compute confidence score using the same formula as `hooks/confidence-gate.sh`:
 
 If a file doesn't exist, write `—` for that field. Don't fabricate values. Don't pad with marketing language.
 
-If `$ARGUMENTS` contains `--watch`, suggest the user run the supercharger statusline component instead — `/sc-status` is a one-shot snapshot.
+If `$ARGUMENTS` contains `--watch`, suggest the user run the supercharger statusline component instead — `/supercharger:status` is a one-shot snapshot.
