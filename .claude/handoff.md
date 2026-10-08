@@ -6,24 +6,18 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-08, session `3d213381`.*
 
-- **Released: v4.3.0** (2026-10-08; installed on Machine A). Contains #102 (4.2.1: notify
-  duration fix, Windows drive-letter rm, PowerShell .NET delete), #103 (all commands renamed
-  `sc-<name>` + migration, command frontmatter, 19 user-only commands, macOS notifier app),
-  301e3a0 (CRLF redirect-stub fix, pushed direct to master — origin unknown), #104 (README
-  complete through 4.3.0), #105 (notifier app is opt-in: install asks [y/N], updates never
-  build it, `/sc-notifier`).
-- **Open PR #106:** `/sc-profile` help counts 7/10 (was 8/11) + this carry-file update.
-- **Next:** quote/escape decode in the command normalizer, then ssh/sed-e bodies (write as
-  one-rule Edit edits — memory: classifier-stops-guard-patches). Then `!` live context in
-  sc-status/perf/why (test the not-allowlisted behaviour first).
-- **Watch:** 4.3.0 migration on colleagues' machines (stubs, "you edited it" notices); 4.2.0
-  asks (npm publish, foreign-owner push, trace deletion) for false positives.
-- **Release recipe:** `release.sh stage minor --yes --message "..."` detached, then
-  `promote X.Y.Z --yes`, then update.sh. `gh run watch` returns early — poll `gh run view`.
-  A failed stage can leave a LOCAL `rel/X.Y.Z` branch: delete it before re-staging.
-- **Machine A:** stashes `osc-notify-default-4.3.0`, `aborted-stage-4.3.0-bump`, `sog`
-  (all safe to drop; user's call). Notifier app NOT installed (removed for the update test).
-- **Machine B**: unknown. **Open (user)**: radius-apps guard-push wrapper; rotate CRON_SECRET.
+- **Released: v4.3.0.** #107 (4.3.1 content) merged to master as `cecb1fd`; **4.3.1 stage
+  running** (detached). Remaining: rel/4.3.1 CI + master Windows → promote → update.sh.
+- **Open PRs:** this carry-file update (`docs/2026-10-08-handoff`).
+- **Next:** MCP tool-description poisoning — can hooks see descriptions? Then `!` live
+  context in sc-status/perf/why (test the not-allowlisted behaviour first).
+- **Watch:** 4.3.0 command migration on colleagues' machines; 4.2.0 asks for FPs.
+- **Release recipe:** stage detached (`nohup … & disown`), promote `--yes`, update.sh `--yes`.
+  A failed stage leaves a local `rel/X.Y.Z` AND uncommitted bump edits.
+- **Machine A:** installed 4.3.0 (4.3.1 pending). Notifier app installed, its notification
+  permission OFF (re-enable in System Settings). Stashes `osc-notify-default-4.3.0`,
+  `aborted-stage-4.3.0-bump`, `sog` safe to drop. Worktree `b4` (merged branch) removable.
+- **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -51,6 +45,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-08 (deep) — 3d213381
+#106 + #107 merged (quote-split join, symlinked dotenv, notifier icon/spinner, 2.1.292 floor);
+4.3.1 staging. Notifier lessons → memory macos-notification-facts, consent rule.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-08 deep)
+
 #### 2026-10-08 — 3d213381
 4.2.1 + 4.3.0 shipped: notification never fired (Stop payload has no cost field), commands
 renamed sc- with hash-checked migration, frontmatter/user-only commands, opt-in macOS
@@ -69,11 +68,5 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (Status — ev
 #### 2026-10-05 — 3d213381
 v4.1.30 out (#93 #94 #96). Four research rounds -> #97 (v4.2.0 features) merged; batch 4
 (FP audit fixes, CI/GitHub, infra coverage, docs) on feat/batch4, 3 tests to fix, then ship 4.2.0.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-10-04 — 3d213381
-v4.1.26-4.1.29 out. Real-payload hook replay found 3 size-dependent slowdowns
-(#91 quadratic brace count, #92 per-line forks); path-guard 3->1 python (#93,
-staged as 4.1.30); PowerShell clobber coverage (#94, open).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
