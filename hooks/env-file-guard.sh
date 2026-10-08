@@ -184,6 +184,12 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     esac
   fi
   [ -z "$FILE_PATH" ] && exit 0
+  # 4.3.1: a symlink reads its target, so judge the target — a harmless-looking
+  # link to a dotenv file passed every name rule below. One fork, symlinks only.
+  if [ -L "$FILE_PATH" ]; then
+    _EFG_REAL=$(python3 -c 'import os,sys;print(os.path.realpath(sys.argv[1]))' "$FILE_PATH" 2>/dev/null || true)
+    [ -n "$_EFG_REAL" ] && FILE_PATH="$_EFG_REAL"
+  fi
 
   # v2.6.83: block /proc/<pid>/environ and /sys reads. Real incident: GitHub
   # issue-body prompt injection caused agent to Read /proc/self/environ,
