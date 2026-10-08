@@ -26,7 +26,7 @@ Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as
 
 **Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.7+ · `jq`
 
-**macOS, one-time:** install builds a small notifier app so notifications show as "Claude Supercharger" (otherwise they show as Script Editor). Turn it on once in System Settings → Notifications → Claude Supercharger. Needs Swift (`xcode-select --install`); without it you get the Script Editor ones.
+**macOS, optional:** notifications show as "Script Editor" by default. If you want them as "Claude Supercharger", with a click returning you to your terminal or editor, say yes when install asks, or run `/sc-notifier` any time. It builds a small app on your Mac (`~/Applications/Claude Supercharger.app`, needs Swift: `xcode-select --install`). Updates never install it unless you said yes; then turn it on once in System Settings → Notifications → Claude Supercharger.
 
 **Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. For one release the old names still work and point you to the new one. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
 
@@ -148,7 +148,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
-- **Desktop notifications (macOS)** — when a long turn finishes or Claude needs input, a banner from "Claude Supercharger" names the project and branch; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
+- **Desktop notifications** — when a long turn finishes or Claude needs input. On macOS, the optional notifier app (`/sc-notifier`) shows them as "Claude Supercharger" with the project and branch named; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
 - **Stale-state warning** — when `.env`, `.envrc`, `package.json`, `settings*.json`, `.mcp.json`, `.supercharger.json` or `CLAUDE.md` changes on disk mid-session, Claude is told, so it doesn't keep acting on what it read earlier
 - **30+ slash commands** — [full list below](#slash-commands)
 
@@ -261,7 +261,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Performance profile | `SUPERCHARGER_PROFILE` | `standard` (or `fast`, `minimal`) |
 | Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
 | Native terminal notifications instead of OS pop-ups | `SUPERCHARGER_NOTIFY_MODE` | unset (or `osc9`: iTerm2, WezTerm, Ghostty, Windows Terminal; `osc777`: foot, urxvt) |
-| Skip building the macOS notifier app (notifications then show as Script Editor) | `SUPERCHARGER_NO_NOTIFIER=1` at install | unset: install builds `~/Applications/Claude Supercharger.app` when Swift is available. Turn it on once in System Settings → Notifications → Claude Supercharger. A click on a notification returns to the app you were in |
+| Never build or update the macOS notifier app, even if accepted before | `SUPERCHARGER_NO_NOTIFIER=1` at install | unset: the app is opt-in (`/sc-notifier`, or yes at install) and only kept up to date once accepted |
 | Per-tier price, USD per million tokens (Bedrock, Vertex, gateways) | `SUPERCHARGER_PRICE_<TIER>` e.g. `_OPUS` | first-party rates; `"input,cache_write,cache_read,output"` |
 
 Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.
@@ -390,6 +390,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
 | `/sc-profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
 | `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
+| `/sc-notifier [install\|status\|remove]` | macOS: install, check or remove the optional notifier app (notifications as "Claude Supercharger" instead of Script Editor) |
 | `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
 
 **Workflow:**

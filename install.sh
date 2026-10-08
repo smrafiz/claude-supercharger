@@ -503,10 +503,33 @@ if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   success "${CMD_COUNT} command(s) installed (${CMD_NAMES})"
 fi
 
-# 4.3.0: macOS notifier app — notifications as "Claude Supercharger", not Script
-# Editor. Built locally from tools/notifier (needs Swift); never fatal.
+# 4.3.0: macOS notifier app — opt-in. It installs a program outside ~/.claude, so
+# it is never added without a yes. Asked only on an interactive macOS install with
+# popups on; an app the user already accepted is kept up to date below.
+NOTIFIER_CHOICE="no"
+_SC_NOTIFIER_APP="$HOME/Applications/Claude Supercharger.app"
+if [[ "${OSTYPE:-}" == darwin* ]] && [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$NOTIFY_MODE" == "on" ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ] \
+   && [ ! -d "$_SC_NOTIFIER_APP" ]; then
+  echo -e "${BOLD}Notification app (macOS, optional)${NC}"
+  echo ""
+  echo "  Notifications show as \"Script Editor\" by default. A small app built on this"
+  echo "  Mac (~/Applications/Claude Supercharger.app, needs Swift) shows them as"
+  echo "  \"Claude Supercharger\" and a click returns to your terminal or editor."
+  echo ""
+  read -rp "  Install it? [y/N] > " notifier_choice || notifier_choice=""
+  case "$notifier_choice" in [yY]*) NOTIFIER_CHOICE="yes" ;; esac
+  echo ""
+fi
+
+# 4.3.0: macOS notifier app. Built only when the user said yes above, or kept up
+# to date when they accepted it before (our bundle id already in ~/Applications).
+# Otherwise one line says it exists. Never fatal.
 if [[ "${OSTYPE:-}" == darwin* ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ]; then
-  bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null | sed 's/^/  /' || true
+  if [[ "$NOTIFIER_CHOICE" == "yes" ]] || grep -q 'dev.supercharger.notifier' "$_SC_NOTIFIER_APP/Contents/Info.plist" 2>/dev/null; then
+    bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null | sed 's/^/  /' || true
+  elif [[ "$NOTIFY_MODE" == "on" ]]; then
+    echo -e "  Optional: notifications as \"Claude Supercharger\" instead of Script Editor — run ${BOLD}/sc-notifier${NC}"
+  fi
 fi
 
 # Deploy hooks

@@ -57,6 +57,7 @@ Claude Supercharger — Slash Commands
     /supercharger   This screen — pass a situation to route instead of browse
     /sc-update      Check for and apply Supercharger updates
     /sc-doctor      Diagnose the install — registration, integrity, permissions, update status
+    /sc-notifier    macOS: install, check or remove the optional notifier app (notifications as "Claude Supercharger")
 ```
 
 Then add one line: `Tip: /supercharger <what you're trying to do> routes you instead.`
@@ -111,6 +112,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "force a full re-check" | `/sc-cache-clear` | `/sc-cache-stats` first |
 | "an MCP server wants my credentials" | `/sc-trust-mcp` | |
 | "update Supercharger" | `/sc-update` | |
+| "notifications say Script Editor", "notifications don't show", "click a notification to get back" | `/sc-notifier` | macOS only; `status` first if it's installed but silent |
 | "is my install healthy", "did something break", "guards don't seem to run" | `/sc-doctor` | Ends with one pasteable line — ask for that when helping someone remotely |
 
 ### If the situation is a whole JOB, not a single step — return a sequence

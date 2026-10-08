@@ -35,6 +35,27 @@ begin_test "notifier: no app installed falls back to osascript"
 OUT=$(send none)
 [ "$OUT" = osascript ] && pass || fail "got: $OUT"
 
+# Consent: the app installs a program outside ~/.claude, so an install or update
+# that was never told yes must not build it — only mention it.
+begin_test "notifier: a non-interactive install (what updates run) does not install the app, only tells the user"
+H=$(mktemp -d)
+OUT=$(env -u SUPERCHARGER_NO_NOTIFIER HOME="$H" bash "$REPO_DIR/install.sh" --mode full --roles developer \
+  --config deploy --settings deploy --economy lean 2>&1)
+{ [ ! -e "$H/Applications/Claude Supercharger.app" ] && printf '%s' "$OUT" | grep -q '/sc-notifier'; } \
+  && pass || fail "app built without consent, or no tip: $(printf '%s' "$OUT" | grep -i notifier)"
+rm -rf "$H"
+
+begin_test "notifier: interactive install — no answer installs nothing, 'y' installs the app"
+H1=$(mktemp -d); H2=$(mktemp -d)
+printf '\n1\n' | env -u SUPERCHARGER_NO_NOTIFIER HOME="$H1" bash "$REPO_DIR/install.sh" >/dev/null 2>&1
+if xcrun --find swiftc >/dev/null 2>&1; then
+  printf '\n1\ny\n' | env -u SUPERCHARGER_NO_NOTIFIER HOME="$H2" SC_NOTIFIER_NO_REGISTER=1 bash "$REPO_DIR/install.sh" >/dev/null 2>&1
+  Y_OK=$([ -x "$H2/Applications/Claude Supercharger.app/Contents/MacOS/notifier" ] && echo yes)
+else Y_OK=yes; fi
+{ [ ! -e "$H1/Applications/Claude Supercharger.app" ] && [ "$Y_OK" = yes ]; } && pass \
+  || fail "default-no built=$([ -e "$H1/Applications/Claude Supercharger.app" ] && echo yes || echo no) y-installed=${Y_OK:-no}"
+rm -rf "$H1" "$H2"
+
 begin_test "notifier: the app builds, is signed, and a rebuild of unchanged source is skipped"
 if xcrun --find swiftc >/dev/null 2>&1; then
   T=$(mktemp -d)
