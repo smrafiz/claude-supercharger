@@ -148,7 +148,8 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
-- **Desktop notifications (macOS)** — when a long turn finishes or Claude needs input, a banner from "Claude Supercharger" names the project and branch; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab
+- **Desktop notifications (macOS)** — when a long turn finishes or Claude needs input, a banner from "Claude Supercharger" names the project and branch; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
+- **Stale-state warning** — when `.env`, `.envrc`, `package.json`, `settings*.json`, `.mcp.json`, `.supercharger.json` or `CLAUDE.md` changes on disk mid-session, Claude is told, so it doesn't keep acting on what it read earlier
 - **30+ slash commands** — [full list below](#slash-commands)
 
 Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
@@ -160,7 +161,7 @@ Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 43 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 140 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 152 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -404,6 +405,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
 | `/sc-cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
+| `/sc-resolve-conflicts [context]` | Resolve an in-progress merge or rebase conflict, then verify it with the typecheck and tests |
 
 **Reasoning & debugging:**
 
