@@ -48,6 +48,14 @@ begin_test "env-guard: allows unrelated commands"
 run_input '{"tool_name":"Bash","tool_input":{"command":"ls -la"}}'
 [ "$?" = "0" ] && pass || fail "ls incorrectly blocked"
 
+begin_test "env-guard: blocks Read through a symlink to .env, allows a symlink to an ordinary file (4.3.1)"
+_LD=$(mktemp -d); echo 'K=v' > "$_LD/.env"; echo hi > "$_LD/readme.md"
+ln -s "$_LD/.env" "$_LD/notes.txt"; ln -s "$_LD/readme.md" "$_LD/doc.txt"
+run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_LD/notes.txt\"}}"; _R1=$?
+run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_LD/doc.txt\"}}"; _R2=$?
+rm -rf "$_LD"
+{ [ "$_R1" = 2 ] && [ "$_R2" = 0 ]; } && pass || fail "link to .env rc=$_R1 (want 2), link to readme rc=$_R2 (want 0)"
+
 begin_test "env-guard: blocks Read of .env"
 run_input '{"tool_name":"Read","tool_input":{"file_path":"/proj/.env"}}'
 [ "$?" = "2" ] && pass || fail "Read .env not blocked"
