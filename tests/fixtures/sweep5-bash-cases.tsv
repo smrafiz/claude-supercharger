@@ -125,3 +125,15 @@ allow	echo 'it''s fine'
 allow	git commit -m "don't split words"
 allow	printf "a""b\n"
 allow	r''m -f build/out.o
+deny	printf "a\tb"; RM -rf /
+deny	echo "C:\Users\x"; RM -rf ~
+deny	env
+allow	env | cut -d= -f1
+deny	printenv
+allow	printenv HOME
+deny	kubectl get secret db -o jsonpath='{.data.password}'
+allow	kubectl get secret db -o name
+deny	cat .env
+allow	ls -la .env
+deny	grep -r API_KEY .env
+allow	grep -l API_KEY -r src
