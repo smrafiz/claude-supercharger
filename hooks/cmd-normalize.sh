@@ -527,6 +527,25 @@ normalize_cmd() {
       [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
       ;;
   esac
+  # 4.3.1: the shell joins a word that quotes or backslashes split, so rules
+  # matching the word missed it. APPEND the joined spelling, as above. Entered only
+  # when a quote or backslash touches a word character; one sed fork, size-capped.
+  # Shell text only: a heredoc body is another language's code (_sb_src stops there).
+  case "$_sb_src" in
+    *[[:alnum:]_][\'\"\\]*)
+      if [ "${#_sb_src}" -le 4096 ]; then
+        local _sc_j
+        _sc_j=$(printf '%s' "$_sb_src" | LC_ALL=C sed -E \
+          -e "s/([[:alnum:]_])''([[:alnum:]_])/\\1\\2/g" -e 's/([[:alnum:]_])""([[:alnum:]_])/\1\2/g' \
+          -e 's/([[:alnum:]_])\\([[:alnum:]_])/\1\2/g' \
+          -e "s/([[:alnum:]_])'([[:alnum:]_./-]*)'/\\1\\2/g" \
+          -e 's/([[:alnum:]_])"([[:alnum:]_./-]*)"/\1\2/g' \
+          -e "s/(^|[[:space:];&|])'([[:alnum:]_./-]+)'([[:alnum:]_])/\\1\\2\\3/g" \
+          -e 's/(^|[[:space:];&|])"([[:alnum:]_./-]+)"([[:alnum:]_])/\1\2\3/g')
+        [ -n "$_sc_j" ] && [ "$_sc_j" != "$_sb_src" ] && cmd="$cmd ; $_sc_j"
+      fi
+      ;;
+  esac
   printf '%s\n' "$cmd"
 }
 

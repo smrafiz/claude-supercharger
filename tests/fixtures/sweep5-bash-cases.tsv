@@ -116,3 +116,12 @@ deny	docker system prune -a
 allow	docker system prune -f
 allow	docker system prune
 allow	docker image prune -f
+deny	r''m -rf /
+deny	r""m -rf ~
+deny	r"m" -rf /
+deny	"r"m -rf /
+deny	r\m -rf /
+allow	echo 'it''s fine'
+allow	git commit -m "don't split words"
+allow	printf "a""b\n"
+allow	r''m -f build/out.o
