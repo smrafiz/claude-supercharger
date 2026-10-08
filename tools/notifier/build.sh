@@ -20,14 +20,31 @@ fi
 
 TMP=$(mktemp -d) || exit 0
 trap 'rm -rf "$TMP"' EXIT
+
+# Progress: the Swift steps take ~20-30s with no output of their own, which read
+# as a hang. A spinner on a terminal; one line per step otherwise (piped, CI).
+_step() { # label, command... -> runs the command, shows progress, keeps its status
+  local label="$1"; shift
+  if [ -t 1 ]; then
+    "$@" & local pid=$! i=0 f='|/-\'
+    while kill -0 "$pid" 2>/dev/null; do
+      printf '\r%s %s ' "$label" "${f:i++%4:1}"; sleep 0.2
+    done
+    wait "$pid"; local rc=$?
+    printf '\r%s %s\n' "$label" "$([ $rc -eq 0 ] && echo done || echo failed)"
+    return $rc
+  fi
+  echo "$label"; "$@"
+}
+echo "notifier: building the notification app (about 30 seconds)"
 B="$TMP/Claude Supercharger.app/Contents"
 mkdir -p "$B/MacOS" "$B/Resources"
 cp "$SRC/Info.plist" "$B/Info.plist"
 echo "$STAMP" > "$B/Resources/source-hash"
-xcrun swiftc -O "$SRC/main.swift" -o "$B/MacOS/notifier" 2>"$TMP/err" || {
+_step "  compiling..." xcrun swiftc -O "$SRC/main.swift" -o "$B/MacOS/notifier" 2>"$TMP/err" || {
   echo "notifier: build failed — using osascript notifications"; sed 's/^/  /' "$TMP/err" | head -5; exit 0; }
 # Icon, drawn by icon.swift (no binary in the repo). Optional: no icon on failure.
-if xcrun swift "$SRC/icon.swift" "$TMP/icon.png" 2>/dev/null; then
+if _step "  drawing the icon..." xcrun swift "$SRC/icon.swift" "$TMP/icon.png" 2>/dev/null; then
   mkdir -p "$TMP/AppIcon.iconset"
   for s in 16 32 128 256 512; do
     sips -z $s $s "$TMP/icon.png" --out "$TMP/AppIcon.iconset/icon_${s}x${s}.png" >/dev/null 2>&1
@@ -49,4 +66,9 @@ mkdir -p "$DEST" && rm -rf "$APP" && mv "$TMP/Claude Supercharger.app" "$APP" ||
 [ -n "${SC_NOTIFIER_NO_REGISTER:-}" ] || "$LSREG" -f "$APP" 2>/dev/null || true
 [ -n "$_sc_refresh_icon" ] && [ -z "${SC_NOTIFIER_NO_REGISTER:-}" ] && killall NotificationCenter usernoted 2>/dev/null
 echo "notifier: built $APP"
-echo "  Turn it on once: System Settings → Notifications → Claude Supercharger → Allow notifications"
+if [ -n "$_sc_refresh_icon" ]; then
+  echo "  macOS may have switched its notifications off while refreshing the icon:"
+  echo "  System Settings → Notifications → Claude Supercharger → Allow notifications"
+else
+  echo "  Turn it on once: System Settings → Notifications → Claude Supercharger → Allow notifications"
+fi

@@ -526,7 +526,7 @@ fi
 # Otherwise one line says it exists. Never fatal.
 if [[ "${OSTYPE:-}" == darwin* ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ]; then
   if [[ "$NOTIFIER_CHOICE" == "yes" ]] || grep -q 'dev.supercharger.notifier' "$_SC_NOTIFIER_APP/Contents/Info.plist" 2>/dev/null; then
-    bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null | sed 's/^/  /' || true
+    bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null || true
   elif [[ "$NOTIFY_MODE" == "on" ]]; then
     echo -e "  Optional: notifications as \"Claude Supercharger\" instead of Script Editor — run ${BOLD}/sc-notifier${NC}"
   fi

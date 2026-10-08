@@ -77,6 +77,7 @@ SubagentStart|2.0.43|subagent safety, cost tracking and circuit breaker'
 # v4.2.0: Claude Code releases that fixed hooks failing OPEN. Not events, so not in
 # the table above (the drift test keys that table to registrations).
 _FIX_FLOORS='
+2.1.292|SECURITY: a PreToolUse hook approval (smart-approve, autopilot) could bypass the permission prompt in auto mode
 2.1.290|SECURITY: permission rules and safety checks were skipped after a PreToolUse hook rewrote a tool input (git-safety rewrites force-pushes)
 2.1.288|SECURITY: PreToolUse and PermissionRequest hooks were skipped when matching them failed'
 
