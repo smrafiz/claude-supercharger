@@ -26,6 +26,10 @@ Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as
 
 **Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.7+ · `jq`
 
+**macOS, one-time:** install builds a small notifier app so notifications show as "Claude Supercharger" (otherwise they show as Script Editor). Turn it on once in System Settings → Notifications → Claude Supercharger. Needs Swift (`xcode-select --install`); without it you get the Script Editor ones.
+
+**Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. For one release the old names still work and point you to the new one. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
+
 ---
 
 ## Your first five minutes
@@ -144,6 +148,8 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
+- **Desktop notifications (macOS)** — when a long turn finishes or Claude needs input, a banner from "Claude Supercharger" names the project and branch; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
+- **Stale-state warning** — when `.env`, `.envrc`, `package.json`, `settings*.json`, `.mcp.json`, `.supercharger.json` or `CLAUDE.md` changes on disk mid-session, Claude is told, so it doesn't keep acting on what it read earlier
 - **30+ slash commands** — [full list below](#slash-commands)
 
 Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
@@ -155,7 +161,7 @@ Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 43 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 140 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 152 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
@@ -368,6 +374,8 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 ## Slash commands
 
+Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update`, `/sc-pr`, `/sc-cleanup`…) run only when you type them: Claude can't invoke them on its own.
+
 <details>
 <summary><strong>Show all commands</strong></summary>
 
@@ -388,15 +396,16 @@ Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Sc
 
 | Command | Purpose |
 |--|--|
-| `/sc-handoff [context]` | Session resume brief → `.claude/handoff.md` |
+| `/sc-handoff [--deep] [context]` | Session resume brief → `.claude/handoff-<session>.md`, auto-loaded next session |
 | `/sc-pr [description]` | Prepare and create a pull request |
 | `/sc-scope [task]` | Pre-flight check — files to touch, risks, blast radius |
 | `/sc-estimate [task]` | Time + complexity report. Halts before code starts |
 | `/sc-interview [topic]` | Structured requirements gathering, one question at a time |
-| `/sc-multi-review [target]` | Three parallel agents (security / perf / DX), synthesized |
+| `/sc-multi-review [quick\|standard\|deep] [target]` | Parallel specialist reviewers, then a separate pass that tries to refute each finding |
 | `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
 | `/sc-cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
+| `/sc-resolve-conflicts [context]` | Resolve an in-progress merge or rebase conflict, then verify it with the typecheck and tests |
 
 **Reasoning & debugging:**
 
