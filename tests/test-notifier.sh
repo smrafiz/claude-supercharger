@@ -38,9 +38,14 @@ OUT=$(send none)
 # Consent: the app installs a program outside ~/.claude, so an install or update
 # that was never told yes must not build it — only mention it.
 begin_test "notifier: stays quiet while the app Claude runs in is frontmost (exit 0, no osascript fallback)"
-_F=$(osascript -e 'id of application (path to frontmost application as text)' 2>/dev/null)
-_ND=$(mktemp -d)
-if [ -z "$_F" ] || ! command -v swiftc >/dev/null 2>&1 || ! swiftc -O "$REPO_DIR/tools/notifier/main.swift" -o "$_ND/n" 2>/dev/null; then
+# Ask the SAME API the notifier uses: on a headless CI runner osascript and
+# NSWorkspace disagree about the frontmost app.
+_ND=$(mktemp -d); _F=""
+if command -v swiftc >/dev/null 2>&1; then
+  printf 'import AppKit\nprint(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "")\n' > "$_ND/f.swift"
+  swiftc "$_ND/f.swift" -o "$_ND/f" 2>/dev/null && _F=$("$_ND/f" 2>/dev/null)
+fi
+if [ -z "$_F" ] || ! swiftc -O "$REPO_DIR/tools/notifier/main.swift" -o "$_ND/n" 2>/dev/null; then
   echo "    (skipped: no frontmost app or no Swift)"; pass
 else
   _E=$("$_ND/n" t b "" "$_F" 2>&1); _RC=$?
