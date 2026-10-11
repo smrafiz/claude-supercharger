@@ -262,6 +262,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
 | Native terminal notifications instead of OS pop-ups | `SUPERCHARGER_NOTIFY_MODE` | unset (or `osc9`: iTerm2, WezTerm, Ghostty, Windows Terminal; `osc777`: foot, urxvt) |
 | Never build or update the macOS notifier app, even if accepted before | `SUPERCHARGER_NO_NOTIFIER=1` at install | unset: the app is opt-in (`/sc-notifier`, or yes at install) and only kept up to date once accepted |
+| macOS notifier app: notify even while the terminal/IDE Claude runs in is the frontmost app | `SUPERCHARGER_NOTIFY_WHEN_FOCUSED=1` | unset: the app stays quiet while you are looking at that app (like any Mac app) |
 | Per-tier price, USD per million tokens (Bedrock, Vertex, gateways) | `SUPERCHARGER_PRICE_<TIER>` e.g. `_OPUS` | first-party rates; `"input,cache_write,cache_read,output"` |
 
 Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.

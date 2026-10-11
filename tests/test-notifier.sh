@@ -37,6 +37,18 @@ OUT=$(send none)
 
 # Consent: the app installs a program outside ~/.claude, so an install or update
 # that was never told yes must not build it — only mention it.
+begin_test "notifier: stays quiet while the app Claude runs in is frontmost (exit 0, no osascript fallback)"
+_F=$(osascript -e 'id of application (path to frontmost application as text)' 2>/dev/null)
+_ND=$(mktemp -d)
+if [ -z "$_F" ] || ! command -v swiftc >/dev/null 2>&1 || ! swiftc -O "$REPO_DIR/tools/notifier/main.swift" -o "$_ND/n" 2>/dev/null; then
+  echo "    (skipped: no frontmost app or no Swift)"; pass
+else
+  _E=$("$_ND/n" t b "" "$_F" 2>&1); _RC=$?
+  { [ "$_RC" = 0 ] && [[ "$_E" == "skipped: $_F is frontmost"* ]] \
+    && grep -q 'SUPERCHARGER_NOTIFY_WHEN_FOCUSED' "$REPO_DIR/tools/notifier/main.swift"; } && pass || fail "rc=$_RC out=$_E"
+fi
+rm -rf "$_ND"
+
 begin_test "notifier: a non-interactive install (what updates run) does not install the app, only tells the user"
 H=$(mktemp -d)
 OUT=$(env -u SUPERCHARGER_NO_NOTIFIER HOME="$H" bash "$REPO_DIR/install.sh" --mode full --roles developer \
