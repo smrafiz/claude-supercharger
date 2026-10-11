@@ -294,7 +294,14 @@ result = {
 offsets[transcript] = new_offset
 offsets = {k: v for k, v in offsets.items() if k and os.path.isfile(k)}
 if len(offsets) > 40:
-    offsets = {transcript: new_offset}
+    # 4.3.2: keep the 40 most recently written transcripts. Clearing the map made
+    # every other live session re-count its whole transcript on its next call.
+    def _mt(k):
+        try:    return os.path.getmtime(k)
+        except Exception: return 0
+    keep = sorted(offsets, key=_mt)[-40:]
+    offsets = {k: offsets[k] for k in keep}
+    offsets[transcript] = new_offset
 result['main_offsets'] = offsets
 # Write atomically (tmp + rename) inside the lock, then release.
 tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')

@@ -361,6 +361,11 @@ try:
         new_state['main_total'] = state['main_total']
     if 'main_offset' in state:
         new_state['main_offset'] = state['main_offset']
+    # 4.3.2: and the per-transcript map that replaced it (v2.7.47). Dropping it on
+    # every subagent stop made budget-cap re-read each main transcript from byte 0
+    # and ADD its whole cost again — one machine's "lifetime" total reached $11.7M.
+    if 'main_offsets' in state:
+        new_state['main_offsets'] = state['main_offsets']
     tmp_file = cost_file + f'.{os.getpid()}.tmp'
     try:
         with open(tmp_file, 'w') as f:
