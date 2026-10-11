@@ -352,4 +352,50 @@ printf '%s' "$OUT" | grep -q 'does not exist\|9.9.9' && pass \
   || fail "expected 'does not exist' message, got: $(printf '%s' "$OUT" | head -3)"
 rm -rf "$FIX" "$MOCK_DIR"
 
+# ── stage skips the local smoke gate when master CI is green on the same commit ──
+# make_green_master_mock <dir> <sha> <windows_conclusion>
+make_green_master_mock() {
+  mkdir -p "$1"
+  cat > "$1/gh" << MOCKEOF
+#!/bin/sh
+case "\$*" in
+  *"run list"*) printf '[{"headSha":"%s","status":"completed","conclusion":"success","databaseId":77777}]\n' "$2" ;;
+  *"run view 77777"*) printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"success"},{"name":"Windows (Git Bash)","conclusion":"%s"}]}\n' "$3" ;;
+esac
+exit 0
+MOCKEOF
+  chmod +x "$1/gh"
+}
+FAILING_TEST='#!/usr/bin/env bash
+echo "  FAIL broken"
+echo ""
+echo "0 passed, 1 failed (1 total)"
+'
+
+begin_test "stage: master CI green on HEAD (Windows included) skips the local gate"
+FIX=$(make_fixture "$FAILING_TEST"); MOCK=$(mktemp -d)
+make_green_master_mock "$MOCK" "$(git -C "$FIX" rev-parse HEAD)" success
+OUT=$(printf 'y\ny\n' | PATH="$MOCK:$PATH" bash "$FIX/tools/release.sh" stage patch -m "test" 2>&1 || true)
+{ printf '%s' "$OUT" | grep -q 'local smoke gate skipped' \
+  && printf '%s' "$OUT" | grep -q 'CI green on' \
+  && ! printf '%s' "$OUT" | grep -q 'Fix failing tests'; } && pass \
+  || fail "gate not skipped: $(printf '%s' "$OUT" | tail -4)"
+rm -rf "$FIX" "$MOCK"
+
+begin_test "stage: Windows not green on master (skipped) still runs the local gate"
+FIX=$(make_fixture "$FAILING_TEST"); MOCK=$(mktemp -d)
+make_green_master_mock "$MOCK" "$(git -C "$FIX" rev-parse HEAD)" skipped
+OUT=$(printf 'y\ny\n' | PATH="$MOCK:$PATH" bash "$FIX/tools/release.sh" stage patch -m "test" 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'Fix failing tests' && pass \
+  || fail "gate should have run and failed: $(printf '%s' "$OUT" | tail -4)"
+rm -rf "$FIX" "$MOCK"
+
+begin_test "stage: SUPERCHARGER_RELEASE_LOCAL_GATE=1 forces the local gate"
+FIX=$(make_fixture "$FAILING_TEST"); MOCK=$(mktemp -d)
+make_green_master_mock "$MOCK" "$(git -C "$FIX" rev-parse HEAD)" success
+OUT=$(printf 'y\ny\n' | PATH="$MOCK:$PATH" SUPERCHARGER_RELEASE_LOCAL_GATE=1 bash "$FIX/tools/release.sh" stage patch -m "test" 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'Fix failing tests' && pass \
+  || fail "override ignored: $(printf '%s' "$OUT" | tail -4)"
+rm -rf "$FIX" "$MOCK"
+
 report
