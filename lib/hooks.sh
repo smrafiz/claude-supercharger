@@ -613,35 +613,25 @@ get_hooks_for_mode() {
 # Repo sources keep `#!/usr/bin/env bash` — portable for development and CI. Only the
 # deployed copies are stamped, and re-stamped on every install/update.
 # _swap_shebangs <dir> <from> <to>: rewrite line 1 of every <dir>/*.sh that is
-# exactly <from>, via temp file + rename (never edit a live hook in place — a
-# partial write would leave an unexecutable guard). Prints the count. One python
-# process: the per-file head/tail/chmod/mv loop it replaces cost ~9s for 166 hooks.
+# exactly <from>; prints the count. Matching uses the `read` builtin (no fork per
+# file) and ONE `sed -i` rewrites them all — sed -i writes a new file and renames
+# it over the old one, so a live hook is never left half-written. The per-file
+# head/tail/chmod/mv loop this replaces cost ~9s for 166 hooks. No python: native
+# Windows python stamped 0 hooks on Git Bash (4.3.1 master CI).
 _swap_shebangs() {
-  # Native Windows python cannot open an MSYS path (/tmp/x, /c/Users/..): hand it
-  # the mixed form (C:/Users/..). It stamped 0 hooks on Git Bash before this.
-  local _d="$1"; shift
-  command -v cygpath >/dev/null 2>&1 && _d=$(cygpath -m "$_d" 2>/dev/null || printf '%s' "$_d")
-  python3 - "$_d" "$@" <<'PYEOF' 2>/dev/null || echo 0
-import glob, os, sys
-d, old, new = sys.argv[1:4]
-n = 0
-for f in sorted(glob.glob(os.path.join(d, "*.sh"))):
-    try:
-        with open(f, "rb") as fh:
-            data = fh.read()
-        first, sep, rest = data.partition(b"\n")
-        if first.decode("utf-8", "replace") != old:
-            continue
-        tmp = f + ".stamp"
-        with open(tmp, "wb") as fh:
-            fh.write(new.encode() + b"\n" + rest)
-        os.chmod(tmp, 0o700)
-        os.replace(tmp, f)
-        n += 1
-    except OSError:
-        pass
-print(n)
-PYEOF
+  local dir="$1" from="$2" to="$3" f l
+  local -a hit=()
+  for f in "$dir"/*.sh; do
+    [ -f "$f" ] || continue
+    l=""; IFS= read -r l < "$f" || true
+    [ "$l" = "$from" ] && hit+=("$f")
+  done
+  [ "${#hit[@]}" -gt 0 ] || { echo 0; return 0; }
+  # '|' delimiter: neither shebang contains it. -i.scbak is the one spelling GNU and
+  # BSD sed both accept; the backups are removed right after.
+  sed -i.scbak "1s|^${from}\$|${to}|" "${hit[@]}" 2>/dev/null || { echo 0; return 0; }
+  rm -f "${hit[@]/%/.scbak}"
+  echo "${#hit[@]}"
 }
 
 stamp_hook_shebangs() {
