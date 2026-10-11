@@ -24,7 +24,7 @@ send() {
 
 begin_test "notifier: used when present — project in the title, calling app's bundle id for click-to-focus"
 OUT=$(send 0)
-{ printf '%s' "$OUT" | grep -q '^notifier:Claude — Done · myproj|body text|main|dev.warp.Warp-Stable$' \
+{ printf '%s' "$OUT" | grep -q '^notifier:myproj · Done|body text|main|dev.warp.Warp-Stable$' \
   && ! printf '%s' "$OUT" | grep -q osascript; } && pass || fail "got: $OUT"
 
 begin_test "notifier: notifications off for the app (exit 2) falls back to osascript"

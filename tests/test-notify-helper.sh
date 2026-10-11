@@ -223,7 +223,7 @@ PSEOF
 }
 
 begin_test "Git Bash (msys) uses the PowerShell toast path"
-_win_capture msys no no | grep -q '^PS-TITLE: Title' && pass || fail "no PowerShell backend on msys"
+_win_capture msys no no | grep -q '^PS-TITLE: .*Title' && pass || fail "no PowerShell backend on msys"
 
 begin_test "cygwin also routes to PowerShell"
 _win_capture cygwin no no | grep -q '^PS-TITLE:' && pass || fail "no PowerShell backend on cygwin"
