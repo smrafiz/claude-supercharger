@@ -617,7 +617,11 @@ get_hooks_for_mode() {
 # partial write would leave an unexecutable guard). Prints the count. One python
 # process: the per-file head/tail/chmod/mv loop it replaces cost ~9s for 166 hooks.
 _swap_shebangs() {
-  python3 - "$@" <<'PYEOF' 2>/dev/null || echo 0
+  # Native Windows python cannot open an MSYS path (/tmp/x, /c/Users/..): hand it
+  # the mixed form (C:/Users/..). It stamped 0 hooks on Git Bash before this.
+  local _d="$1"; shift
+  command -v cygpath >/dev/null 2>&1 && _d=$(cygpath -m "$_d" 2>/dev/null || printf '%s' "$_d")
+  python3 - "$_d" "$@" <<'PYEOF' 2>/dev/null || echo 0
 import glob, os, sys
 d, old, new = sys.argv[1:4]
 n = 0
