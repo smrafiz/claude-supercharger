@@ -4,19 +4,25 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-08, session `3d213381`.*
+*Verified 2026-10-11, session `3d213381`.*
 
-- **Released: v4.3.0.** #107 (4.3.1 content) merged to master as `cecb1fd`; **4.3.1 stage
-  running** (detached). Remaining: rel/4.3.1 CI + master Windows → promote → update.sh.
-- **Open PRs:** this carry-file update (`docs/2026-10-08-handoff`).
-- **Next:** MCP tool-description poisoning — can hooks see descriptions? Then `!` live
-  context in sc-status/perf/why (test the not-allowlisted behaviour first).
-- **Watch:** 4.3.0 command migration on colleagues' machines; 4.2.0 asks for FPs.
-- **Release recipe:** stage detached (`nohup … & disown`), promote `--yes`, update.sh `--yes`.
-  A failed stage leaves a local `rel/X.Y.Z` AND uncommitted bump edits.
-- **Machine A:** installed 4.3.0 (4.3.1 pending). Notifier app installed, its notification
-  permission OFF (re-enable in System Settings). Stashes `osc-notify-default-4.3.0`,
-  `aborted-stage-4.3.0-bump`, `sog` safe to drop. Worktree `b4` (merged branch) removable.
+- **Released: v4.3.1** (2026-10-11, tag on `f4c0556`; installed on Machine A). Contains
+  #107 (quote-split words, symlinked dotenv reads, notifier icon + build progress, CC
+  2.1.292 floor), #109 (install 17.8s→2s, tidier output, MCP tips only for installed
+  servers; notifications `<project> · <event>` / `branch · $X this session` / reply body,
+  silent while the host app is frontmost — `SUPERCHARGER_NOTIFY_WHEN_FOCUSED=1`; tests
+  never fire real popups), #110 (shebang stamp via read+sed — native Windows python
+  stamped 0 hooks).
+- **Open PRs:** none after this one.
+- **Known bug, not fixed:** `scope/.session-cost` lifetime total is inflated ($11.7M /
+  37.8M turns since 2026-07-20). Notifications no longer read it; cost-forecast and
+  session-checkpoint still do. Next fix.
+- **Next:** that bug; then MCP tool-description poisoning (can hooks see descriptions?);
+  then `!` live context in sc-status/perf/why.
+- **Watch:** release smoke gate flakes under machine load ~20+ (json-fast-size,
+  artifact-publish-guard both failed once, pass alone) — rerun alone, restage.
+- **Machine A:** stashes `osc-notify-default-4.3.0`, `aborted-stage-4.3.0-bump`, `sog`
+  safe to drop. Notifier app installed, notifications ON.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
@@ -45,6 +51,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-11 — 3d213381
+v4.3.1 released after 2 master-Windows reds (symlink test on Git Bash; python shebang
+stamp) and 2 load-flaked stage gates. Added install speed-up, notification redesign,
+quiet-when-focused. Found the inflated lifetime cost file.
+
 #### 2026-10-08 (deep) — 3d213381
 #106 + #107 merged (quote-split join, symlinked dotenv, notifier icon/spinner, 2.1.292 floor);
 4.3.1 staging. Notifier lessons → memory macos-notification-facts, consent rule.
@@ -64,9 +75,4 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-06 de
 Batch 4 merged (#98, 50405e3) after fixing 3 tests (2 test bugs, 1 real crontab separator gap
 present since v4.1.17); suite 6212/0. v4.2.0 staging/promoting detached.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (Status — evening)
-
-#### 2026-10-05 — 3d213381
-v4.1.30 out (#93 #94 #96). Four research rounds -> #97 (v4.2.0 features) merged; batch 4
-(FP audit fixes, CI/GitHub, infra coverage, docs) on feat/batch4, 3 tests to fix, then ship 4.2.0.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
