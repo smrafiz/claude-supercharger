@@ -185,6 +185,15 @@ if os.path.isfile(cost_file):
             state = json.load(f)
     except Exception:
         state = {}
+# 4.3.2: totals written before the offset-map fix were inflated by re-counted
+# transcripts ($11.7M on one machine). Start over once; keep the old file aside.
+if state and state.get('v') != 2:
+    try:
+        if not os.path.exists(cost_file + '.pre-4.3.2'):
+            os.replace(cost_file, cost_file + '.pre-4.3.2')
+    except Exception:
+        pass
+    state = {}
 
 prev_total    = float(state.get('total_usd', 0) or 0)
 prev_turns    = int(state.get('turn_count', 0) or 0)
@@ -281,6 +290,7 @@ new_total = new_main + prev_subagent
 avg = new_total / new_turns if new_turns > 0 else 0.0
 
 result = {
+    'v': 2,
     'total_usd': round(new_total, 8),
     'turn_count': new_turns,
     'avg_per_turn': round(avg, 8),
@@ -294,7 +304,14 @@ result = {
 offsets[transcript] = new_offset
 offsets = {k: v for k, v in offsets.items() if k and os.path.isfile(k)}
 if len(offsets) > 40:
-    offsets = {transcript: new_offset}
+    # 4.3.2: keep the 40 most recently written transcripts. Clearing the map made
+    # every other live session re-count its whole transcript on its next call.
+    def _mt(k):
+        try:    return os.path.getmtime(k)
+        except Exception: return 0
+    keep = sorted(offsets, key=_mt)[-40:]
+    offsets = {k: offsets[k] for k in keep}
+    offsets[transcript] = new_offset
 result['main_offsets'] = offsets
 # Write atomically (tmp + rename) inside the lock, then release.
 tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
