@@ -6,21 +6,19 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-11, session `3d213381`.*
 
-- **Released: v4.3.1** (2026-10-11, tag on `f4c0556`; installed on Machine A). Contains
-  #107 (quote-split words, symlinked dotenv reads, notifier icon + build progress, CC
-  2.1.292 floor), #109 (install 17.8s→2s, tidier output, MCP tips only for installed
-  servers; notifications `<project> · <event>` / `branch · $X this session` / reply body,
-  silent while the host app is frontmost — `SUPERCHARGER_NOTIFY_WHEN_FOCUSED=1`; tests
-  never fire real popups), #110 (shebang stamp via read+sed — native Windows python
-  stamped 0 hooks).
-- **Open PRs:** none after this one.
-- **Known bug, not fixed:** `scope/.session-cost` lifetime total is inflated ($11.7M /
-  37.8M turns since 2026-07-20). Notifications no longer read it; cost-forecast and
-  session-checkpoint still do. Next fix.
-- **Next:** that bug; then MCP tool-description poisoning (can hooks see descriptions?);
-  then `!` live context in sc-status/perf/why.
-- **Watch:** release smoke gate flakes under machine load ~20+ (json-fast-size,
-  artifact-publish-guard both failed once, pass alone) — rerun alone, restage.
+- **Released: v4.3.2** (2026-10-11; installed on Machine A). 4.3.1 = install speed-up +
+  notification redesign + quiet-when-focused; 4.3.2 = lifetime cost over-count fix + one-time
+  reset (old file kept as `scope/.session-cost.pre-4.3.2`).
+- **On master, unreleased:** #112 — stage skips the local smoke gate when master CI is
+  green on HEAD (`SUPERCHARGER_RELEASE_LOCAL_GATE=1` forces it).
+- **In flight:** `/sc-mcp-audit` on `feat/sc-mcp-audit` (pushed WIP `dc530fd`, worktree
+  `ma`): its own tests pass 4/4; command-list/install tests NOT yet run; no PR yet.
+- **Next:** finish mcp-audit → PR → Windows probe → release 4.3.3. Then `!` live context in
+  sc-status/perf/why.
+- **Watch:** colleagues' 4.3.2 cost reset; notification layout feedback.
+- **Release recipe:** stage right after master CI is green (gate skipped), one detached
+  finish job (stage → rel CI → promote → update) + ONE completion notice; user said "do not
+  monitor". Windows fix? probe with a TEST_GLOB-narrowed workflow_dispatch first.
 - **Machine A:** stashes `osc-notify-default-4.3.0`, `aborted-stage-4.3.0-bump`, `sog`
   safe to drop. Notifier app installed, notifications ON.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
@@ -51,6 +49,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-11 (deep) — 3d213381
+4.3.1 + 4.3.2 released; #112 release gate skip merged. Found/fixed $11.7M lifetime cost
+over-count (two writers dropping the offset map). /sc-mcp-audit WIP on its branch.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
+
 #### 2026-10-11 — 3d213381
 v4.3.1 released after 2 master-Windows reds (symlink test on Git Bash; python shebang
 stamp) and 2 load-flaked stage gates. Added install speed-up, notification redesign,
@@ -70,9 +73,4 @@ notifier app (consent fix after user flagged silent install). No per-session bri
 #99 fixed master Windows (CR-CR-LF). Sweep 5 (4 research agents) -> PR #100: normalizer
 bypasses, FPs, Mods/Artifact/token/remote coverage. Classifier cut many patch turns.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-06 deep)
-
-#### 2026-10-05 (evening) — 3d213381
-Batch 4 merged (#98, 50405e3) after fixing 3 tests (2 test bugs, 1 real crontab separator gap
-present since v4.1.17); suite 6212/0. v4.2.0 staging/promoting detached.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (Status — evening)
 
