@@ -342,6 +342,35 @@ run_per_file_gate() {
 }
 
 # ── cmd_stage ─────────────────────────────────────────────────────────────────
+# master_ci_green_sha: prints HEAD's sha when master CI on that exact commit is
+# completed with EVERY job success (Windows included) and the tree is clean and
+# equal to origin/master; prints nothing otherwise (gh missing, run absent,
+# running, any job not success). Silence means "run the local gate".
+master_ci_green_sha() {
+  [ "${SUPERCHARGER_RELEASE_LOCAL_GATE:-}" = "1" ] && return 0
+  command -v gh >/dev/null 2>&1 || return 0
+  [ -z "$(git -C "$REPO_DIR" status --porcelain 2>/dev/null)" ] || return 0
+  local sha run_id
+  sha=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null) || return 0
+  [ "$sha" = "$(git -C "$REPO_DIR" rev-parse origin/master 2>/dev/null)" ] || return 0
+  run_id=$(gh run list --branch master --commit "$sha" --limit 5 \
+    --json headSha,status,conclusion,databaseId 2>/dev/null | python3 -c "
+import sys, json
+runs = [r for r in json.load(sys.stdin) if r.get('headSha') == sys.argv[1]
+        and r.get('status') == 'completed' and r.get('conclusion') == 'success']
+print(runs[0]['databaseId'] if runs else '')
+" "$sha" 2>/dev/null) || return 0
+  [ -n "$run_id" ] || return 0
+  gh run view "$run_id" --json jobs 2>/dev/null | python3 -c "
+import sys, json
+jobs = json.load(sys.stdin).get('jobs', [])
+ok = jobs and all(j.get('conclusion') == 'success' for j in jobs) \
+     and any('Windows (Git Bash)' in j.get('name', '') for j in jobs)
+sys.exit(0 if ok else 1)
+" 2>/dev/null || return 0
+  printf '%s' "$sha"
+}
+
 cmd_stage() {
   compute_new_version
 
@@ -364,11 +393,26 @@ cmd_stage() {
   echo ""
 
   # Local smoke gate — OOM-safe per-file runner; real gate is CI in promote.
-  run_per_file_gate "$REPO_DIR" || {
-    echo -e "${RED}Fix failing tests before staging.${NC}"; exit 1
-  }
+  # Skipped when master CI (every job, Windows included) is already green on this
+  # exact commit and the tree is clean: it would re-run the same tests on the same
+  # code, ~55 min, and under machine load it failed on timing alone (twice in 4.3.1).
+  # SUPERCHARGER_RELEASE_LOCAL_GATE=1 forces it.
+  local _ci_sha
+  _ci_sha=$(master_ci_green_sha)
+  if [ -n "$_ci_sha" ]; then
+    echo -e "  ${GREEN}✓${NC} master CI green on ${_ci_sha:0:7} (all jobs, Windows included) — local smoke gate skipped"
+    TEST_COUNT="?"
+  else
+    run_per_file_gate "$REPO_DIR" || {
+      echo -e "${RED}Fix failing tests before staging.${NC}"; exit 1
+    }
+  fi
 
-  CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. ${TEST_COUNT} tests passing."
+  if [ "$TEST_COUNT" != "?" ]; then
+    CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. ${TEST_COUNT} tests passing."
+  else
+    CHANGELOG_LINE="- [${NEW}] - ${TODAY} — ${MESSAGE}. CI green on ${_ci_sha:0:7}."
+  fi
 
   echo ""
   echo -e "${BOLD}CHANGELOG entry:${NC}"
