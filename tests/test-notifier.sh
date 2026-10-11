@@ -24,7 +24,7 @@ send() {
 
 begin_test "notifier: used when present — project in the title, calling app's bundle id for click-to-focus"
 OUT=$(send 0)
-{ printf '%s' "$OUT" | grep -q '^notifier:Claude — Done · myproj|body text|main|dev.warp.Warp-Stable$' \
+{ printf '%s' "$OUT" | grep -q '^notifier:myproj · Done|body text|main|dev.warp.Warp-Stable$' \
   && ! printf '%s' "$OUT" | grep -q osascript; } && pass || fail "got: $OUT"
 
 begin_test "notifier: notifications off for the app (exit 2) falls back to osascript"
@@ -37,6 +37,23 @@ OUT=$(send none)
 
 # Consent: the app installs a program outside ~/.claude, so an install or update
 # that was never told yes must not build it — only mention it.
+begin_test "notifier: stays quiet while the app Claude runs in is frontmost (exit 0, no osascript fallback)"
+# Ask the SAME API the notifier uses: on a headless CI runner osascript and
+# NSWorkspace disagree about the frontmost app.
+_ND=$(mktemp -d); _F=""
+if command -v swiftc >/dev/null 2>&1; then
+  printf 'import AppKit\nprint(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "")\n' > "$_ND/f.swift"
+  swiftc "$_ND/f.swift" -o "$_ND/f" 2>/dev/null && _F=$("$_ND/f" 2>/dev/null)
+fi
+if [ -z "$_F" ] || ! swiftc -O "$REPO_DIR/tools/notifier/main.swift" -o "$_ND/n" 2>/dev/null; then
+  echo "    (skipped: no frontmost app or no Swift)"; pass
+else
+  _E=$("$_ND/n" t b "" "$_F" 2>&1); _RC=$?
+  { [ "$_RC" = 0 ] && [[ "$_E" == "skipped: $_F is frontmost"* ]] \
+    && grep -q 'SUPERCHARGER_NOTIFY_WHEN_FOCUSED' "$REPO_DIR/tools/notifier/main.swift"; } && pass || fail "rc=$_RC out=$_E"
+fi
+rm -rf "$_ND"
+
 begin_test "notifier: a non-interactive install (what updates run) does not install the app, only tells the user"
 H=$(mktemp -d)
 OUT=$(env -u SUPERCHARGER_NO_NOTIFIER HOME="$H" bash "$REPO_DIR/install.sh" --mode full --roles developer \

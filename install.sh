@@ -498,9 +498,8 @@ if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   # 4.3.0: commands renamed to sc-<name>. Old names become a one-release redirect,
   # commands we dropped are removed — only when the file is a version we shipped.
   python3 "$SCRIPT_DIR/tools/commands-migrate.py" install "$HOME/.claude/commands" "$SCRIPT_DIR" || true
-  CMD_NAMES=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | xargs -I{} basename {} .md | sed 's/^/\//' | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')
   CMD_COUNT=$(ls "$SCRIPT_DIR/configs/commands/"*.md 2>/dev/null | wc -l | tr -d ' ')
-  success "${CMD_COUNT} command(s) installed (${CMD_NAMES})"
+  success "${CMD_COUNT} command(s) installed — /supercharger lists them"
 fi
 
 # 4.3.0: macOS notifier app — opt-in. It installs a program outside ~/.claude, so
@@ -568,7 +567,7 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
     touch "$COMMITS_FLAG"
     success "Conventional commit enforcement enabled"
   else
-    info "Conventional commits: off (enable with --commits on)"
+    echo -e "    Conventional commits: off (enable with --commits on)"
   fi
 else
   info "Skipped hooks installation"
@@ -703,16 +702,14 @@ else
 fi
 echo ""
 
-# MCP Usage Tips
-if [[ "$SETTINGS_ACTION" != "skip" ]]; then
+# MCP Usage Tips — only for servers this install actually configured (the old
+# list was keyed on roles and advertised servers the profile never added).
+_sc_mcp_has() { grep -q "\"$1 #supercharger\"" "$HOME/.claude.json" 2>/dev/null; }
+if [[ "$SETTINGS_ACTION" != "skip" ]] && _sc_mcp_has context7; then
   echo -e "${CYAN}  MCP Quick Tips:${NC}"
   echo -e "  Try: ${BOLD}\"Look up React useEffect docs\"${NC} → Context7"
-  echo -e "  Try: ${BOLD}\"Think through this step by step\"${NC} → Sequential Thinking"
-  if echo "$ROLES_CSV" | grep -q "developer"; then
-    echo -e "  Try: ${BOLD}\"Test the login page in a browser\"${NC} → Playwright"
-  fi
-  if echo "$ROLES_CSV" | grep -qE "(writer|student|data|pm|designer|researcher)"; then
-    echo -e "  Try: ${BOLD}\"Search for CSS grid examples\"${NC} → DuckDuckGo"
-  fi
+  if _sc_mcp_has sequential-thinking; then echo -e "  Try: ${BOLD}\"Think through this step by step\"${NC} → Sequential Thinking"; fi
+  if _sc_mcp_has playwright; then echo -e "  Try: ${BOLD}\"Test the login page in a browser\"${NC} → Playwright"; fi
+  if _sc_mcp_has magic-ui; then echo -e "  Try: ${BOLD}\"Add an animated marquee of logos\"${NC} → Magic UI"; fi
   echo ""
 fi

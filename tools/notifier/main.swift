@@ -4,16 +4,25 @@
 //
 //   notifier <title> <body> [subtitle] [bundle-id-to-activate-on-click]
 //
-// Exit: 0 posted · 2 notifications not allowed for this app · 3 post failed.
+// Skips posting while that bundle id is the frontmost app (SUPERCHARGER_NOTIFY_WHEN_FOCUSED=1 to always post).
+// Exit: 0 posted or skipped · 2 notifications not allowed for this app · 3 post failed.
 // The caller falls back to osascript on any non-zero exit.
 import AppKit
 import UserNotifications
 
 final class Notifier: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
     func applicationDidFinishLaunching(_ n: Notification) {
+        let a = CommandLine.arguments
+        // Like any Mac app: stay quiet while the user is already looking at the
+        // app Claude runs in. Exit 0 so the caller does not fall back to osascript.
+        if a.count > 4, !a[4].isEmpty,
+           ProcessInfo.processInfo.environment["SUPERCHARGER_NOTIFY_WHEN_FOCUSED"] != "1",
+           NSWorkspace.shared.frontmostApplication?.bundleIdentifier == a[4] {
+            FileHandle.standardError.write("skipped: \(a[4]) is frontmost\n".data(using: .utf8)!)
+            exit(0)
+        }
         let center = UNUserNotificationCenter.current()
         center.delegate = self
-        let a = CommandLine.arguments
         guard a.count >= 3 else { return }   // relaunched by a click: wait for didReceive
         center.requestAuthorization(options: [.alert, .sound]) { ok, err in
             guard ok else {

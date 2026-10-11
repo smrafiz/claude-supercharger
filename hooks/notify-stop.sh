@@ -4,9 +4,9 @@
 # Notifies when a turn finishes — but only for turns longer than a threshold
 # (default 30s, override with scope/.notify-min-seconds) so quick back-and-forth
 # doesn't ping. Layout uses the title/subtitle/body tiers:
-#   title    Claude — Done (2m 14s)
-#   subtitle <branch> · $<cost> session
-#   body     "query" -> response
+#   title    <project> · Done · 2m 14s     (project added by notify-helper)
+#   subtitle <branch> · $<cost> this session
+#   body     the reply, markdown stripped
 
 set -euo pipefail
 
@@ -61,7 +61,6 @@ fi
 # Extract transcript path
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 
-QUERY=""
 RESPONSE=""
 
 # Small delay — Stop fires before transcript is fully flushed
@@ -84,43 +83,39 @@ if [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ]; then
     + "__SC_SEP__" +
     ([$a.message.content[] | select(.type == "text") | .text] | join(" "))
   ' 2>/dev/null || echo "__SC_SEP__")
-  QUERY="${PAIR%%__SC_SEP__*}"
+  # 4.3.1: the reply only. The quoted prompt used half the banner and was often
+  # harness text ("Another Claude session sent a message: <agent-message…").
   RESPONSE="${PAIR#*__SC_SEP__}"
-
-  [ ${#QUERY} -gt 60 ] && QUERY="${QUERY:0:57}..."
-  [ ${#RESPONSE} -gt 150 ] && RESPONSE="${RESPONSE:0:147}..."
+  RESPONSE=$(printf '%s' "$RESPONSE" | tr '\n\t' '  ' | sed -E 's/\*\*|__|`|^#+ //g; s/  +/ /g; s/^ //')
+  [ ${#RESPONSE} -gt 180 ] && RESPONSE="${RESPONSE:0:177}..."
 fi
 
 # Elapsed time for the title
 MINS=$((DURATION_MS / 60000))
 SECS=$(( (DURATION_MS % 60000) / 1000 ))
 if [ "$MINS" -gt 0 ]; then
-  ELAPSED=" (${MINS}m ${SECS}s)"
+  ELAPSED=" · ${MINS}m ${SECS}s"
 elif [ "$SECS" -gt 0 ]; then
-  ELAPSED=" (${SECS}s)"
+  ELAPSED=" · ${SECS}s"
 else
   ELAPSED=""
 fi
 
 # Body: what happened this turn
-if [ -n "$QUERY" ] && [ -n "$RESPONSE" ]; then
-  MSG="\"${QUERY}\" → ${RESPONSE}"
-elif [ -n "$RESPONSE" ]; then
+if [ -n "$RESPONSE" ]; then
   MSG="$RESPONSE"
 else
   MSG="Task completed"
 fi
 
-# Subtitle: branch + session cost context
+# Subtitle: this session's spend (notify-helper puts the branch in front). The
+# per-session file, as budget-cap uses — .session-cost is the machine's lifetime
+# total and was shown here as "session" ($11.7M on one machine).
 SUBTITLE=""
-BRANCH=$(_get_branch)
-[ -n "$BRANCH" ] && SUBTITLE="$BRANCH"
-if [ -f "$SUPERCHARGER_DIR/scope/.session-cost" ]; then
-  # v2.6.77: pass path via env var — prevents shell-interpolating $HOME into the
-  # python3 -c string (same injection class as the v2.6.72 osascript RCE fix)
-  COST_DISPLAY=$(SC_COST_FILE="$SUPERCHARGER_DIR/scope/.session-cost" \
-    python3 -c "import json,os; c=json.load(open(os.environ['SC_COST_FILE'])); print(f'{c.get(\"total_usd\",0):.2f}')" 2>/dev/null || echo "")
-  [ -n "$COST_DISPLAY" ] && SUBTITLE="${SUBTITLE:+$SUBTITLE · }\$${COST_DISPLAY} session"
+if [ -n "$_NS_SID" ] && [ -f "$SUPERCHARGER_DIR/scope/.main-tokens-$_NS_SID" ]; then
+  COST_DISPLAY=$(jq -r '.cost_usd // empty | . * 100 | round / 100 | tostring' \
+    "$SUPERCHARGER_DIR/scope/.main-tokens-$_NS_SID" 2>/dev/null || true)
+  case "$COST_DISPLAY" in ''|*[!0-9.]*) ;; *) SUBTITLE=$(printf '$%.2f this session' "$COST_DISPLAY") ;; esac
 fi
 
 _send_notification "Claude — Done${ELAPSED}" "$MSG" "$SUBTITLE"

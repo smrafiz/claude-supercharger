@@ -78,11 +78,16 @@ _send_notification() {
   local msg="$2"
   local subtitle="${3:-}"   # v2.7.34: optional middle tier (title/subtitle/body)
 
-  # A caller-supplied subtitle owns the context line; otherwise keep the legacy
-  # behaviour of appending the git branch to the title.
-  local branch
+  # 4.3.1 layout, every platform and event:
+  #   title     <project> · <event>        (project first: macOS truncates the end)
+  #   subtitle  <branch>[ · caller detail]
+  # Callers pass "Claude — <event>". A worktree is named after its main repo.
+  local branch _proj _gcd
   branch=$(_get_branch)
-  [ -z "$subtitle" ] && [ -n "$branch" ] && title="${title} [${branch}]"
+  _gcd=$(git rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)
+  case "$_gcd" in */.git) _proj="${_gcd%/.git}"; _proj="${_proj##*/}" ;; *) _proj="${PWD##*/}" ;; esac
+  [ -n "$_proj" ] && title="${_proj} · ${title#Claude — }"
+  [ -n "$branch" ] && case "$subtitle" in "$branch"*) ;; *) subtitle="${branch}${subtitle:+ · $subtitle}" ;; esac
 
   # Sanitize for osascript: strip backticks and $ first (shell-eval vectors
   # inside the -e argument since bash interprets the string BEFORE osascript
@@ -126,9 +131,7 @@ _send_notification() {
     # it) falls through to osascript.
     # ponytail: no watchdog; the app exits itself within 30s at worst.
     local _nb="${SUPERCHARGER_NOTIFIER:-$HOME/Applications/Claude Supercharger.app/Contents/MacOS/notifier}"
-    # Name the project in the title: Warp/IDEs focus the app on click but cannot
-    # switch to the tab, so the banner itself has to say which session it is.
-    if [ -x "$_nb" ] && "$_nb" "$title${PWD:+ · ${PWD##*/}}" "$(printf '%s' "$msg" | head -c 200)" \
+    if [ -x "$_nb" ] && "$_nb" "$title" "$(printf '%s' "$msg" | head -c 200)" \
          "$(printf '%s' "$subtitle" | head -c 120)" "${__CFBundleIdentifier:-}" >/dev/null 2>&1; then
       return 0
     fi
