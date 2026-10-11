@@ -612,6 +612,34 @@ get_hooks_for_mode() {
 #
 # Repo sources keep `#!/usr/bin/env bash` — portable for development and CI. Only the
 # deployed copies are stamped, and re-stamped on every install/update.
+# _swap_shebangs <dir> <from> <to>: rewrite line 1 of every <dir>/*.sh that is
+# exactly <from>, via temp file + rename (never edit a live hook in place — a
+# partial write would leave an unexecutable guard). Prints the count. One python
+# process: the per-file head/tail/chmod/mv loop it replaces cost ~9s for 166 hooks.
+_swap_shebangs() {
+  python3 - "$@" <<'PYEOF' 2>/dev/null || echo 0
+import glob, os, sys
+d, old, new = sys.argv[1:4]
+n = 0
+for f in sorted(glob.glob(os.path.join(d, "*.sh"))):
+    try:
+        with open(f, "rb") as fh:
+            data = fh.read()
+        first, sep, rest = data.partition(b"\n")
+        if first.decode("utf-8", "replace") != old:
+            continue
+        tmp = f + ".stamp"
+        with open(tmp, "wb") as fh:
+            fh.write(new.encode() + b"\n" + rest)
+        os.chmod(tmp, 0o700)
+        os.replace(tmp, f)
+        n += 1
+    except OSError:
+        pass
+print(n)
+PYEOF
+}
+
 stamp_hook_shebangs() {
   local dir="$1" bash_path probe rc
   [ "${SUPERCHARGER_STAMP_SHEBANG:-1}" = "0" ] && return 0
@@ -623,20 +651,9 @@ stamp_hook_shebangs() {
   esac
   [ -x "$bash_path" ] || return 0
 
-  local f changed=0
-  for f in "$dir"/*.sh; do
-    [ -f "$f" ] || continue
-    case "$(head -1 "$f")" in
-      '#!/usr/bin/env bash') : ;;
-      *) continue ;;
-    esac
-    # In-place rewrite of line 1 only, via a temp file (never edit a live hook in
-    # place — a partial write would leave an unexecutable guard).
-    { printf '#!%s\n' "$bash_path"; tail -n +2 "$f"; } > "$f.stamp" 2>/dev/null || continue
-    chmod 700 "$f.stamp" 2>/dev/null || true
-    mv -f "$f.stamp" "$f" 2>/dev/null && changed=1
-  done
-  [ "$changed" = "1" ] || return 0
+  local changed
+  changed=$(_swap_shebangs "$dir" '#!/usr/bin/env bash' "#!$bash_path")
+  [ "${changed:-0}" -gt 0 ] 2>/dev/null || return 0
 
   # Constraint 3: prove a stamped hook still executes. lib-suppress.sh is sourced by
   # nearly every hook and exits 0 on empty input, so it is a safe probe.
@@ -644,15 +661,7 @@ stamp_hook_shebangs() {
   if [ -x "$probe" ]; then
     "$probe" </dev/null >/dev/null 2>&1; rc=$?
     if [ "$rc" -gt 1 ]; then
-      for f in "$dir"/*.sh; do
-        [ -f "$f" ] || continue
-        case "$(head -1 "$f")" in
-          "#!$bash_path")
-            { printf '#!/usr/bin/env bash\n'; tail -n +2 "$f"; } > "$f.stamp" 2>/dev/null || continue
-            chmod 700 "$f.stamp" 2>/dev/null || true
-            mv -f "$f.stamp" "$f" 2>/dev/null || true ;;
-        esac
-      done
+      _swap_shebangs "$dir" "#!$bash_path" '#!/usr/bin/env bash' >/dev/null
       echo "  Note: shebang stamping reverted (probe failed) — hooks left on 'env bash'." >&2
     fi
   fi

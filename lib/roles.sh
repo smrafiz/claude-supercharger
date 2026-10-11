@@ -66,7 +66,7 @@ deploy_roles() {
   for role in "${SELECTED_ROLES[@]}"; do
     success "Primary role: ${role}"
   done
-  info "  All ${#AVAILABLE_ROLES[@]} roles available for mode switching"
+  echo -e "    All ${#AVAILABLE_ROLES[@]} roles available for mode switching"
 }
 
 format_roles_list() {

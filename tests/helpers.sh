@@ -35,6 +35,10 @@ for _sc_v in $(env | sed -n 's/^\(SUPERCHARGER_[A-Za-z0-9_]*\)=.*/\1/p'); do
   unset "$_sc_v"
 done
 unset _sc_v
+# Direct runs (bash tests/test-x.sh) never went through run.sh, so a guard test
+# fired REAL desktop popups ("Blocked credential request ... from evil"). Default
+# it here; the notify tests that need the real send path unset it themselves.
+export SUPERCHARGER_NO_NOTIFY="${SUPERCHARGER_NO_NOTIFY:-1}"
 # 4.3.0: install.sh compiles the macOS notifier app (seconds per install). Tests
 # install many times; only test-notifier.sh builds it, by unsetting this.
 export SUPERCHARGER_NO_NOTIFIER=1
