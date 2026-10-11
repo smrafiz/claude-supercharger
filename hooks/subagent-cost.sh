@@ -340,6 +340,14 @@ try:
                 state = json.load(f)
         except Exception:
             state = {}
+    # 4.3.2: pre-fix totals were inflated — reset once (budget-cap does the same).
+    if state and state.get('v') != 2:
+        try:
+            if not os.path.exists(cost_file + '.pre-4.3.2'):
+                os.replace(cost_file, cost_file + '.pre-4.3.2')
+        except Exception:
+            pass
+        state = {}
     prev_total = float(state.get('total_usd', 0) or 0)
     prev_turns = int(state.get('turn_count', 0) or 0)
     prev_subagent = float(state.get('subagent_total', 0) or 0)
@@ -348,6 +356,7 @@ try:
     new_subagent = prev_subagent + cost_delta
     avg = new_total / prev_turns if prev_turns > 0 else 0.0
     new_state = {
+        'v': 2,
         'total_usd': round(new_total, 8),
         'turn_count': prev_turns,
         'avg_per_turn': round(avg, 8),

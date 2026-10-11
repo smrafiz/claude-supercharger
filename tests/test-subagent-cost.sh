@@ -104,7 +104,7 @@ SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
 
 # Seed .session-cost with total=1.00
-printf '{"total_usd":1.00,"turn_count":5,"avg_per_turn":0.20,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}\n' > "$SCOPE_DIR/.session-cost"
+printf '{"v":2,"total_usd":1.00,"turn_count":5,"avg_per_turn":0.20,"first_updated":"2026-04-22T00:00:00Z","last_updated":"2026-04-22T00:00:00Z","subagent_total":0}\n' > "$SCOPE_DIR/.session-cost"
 
 # Seed start record
 NOW_PAST=$(python3 -c "
@@ -277,7 +277,7 @@ begin_test "stop: keeps budget-cap's main_offsets map (no main-transcript re-cou
 setup_test_home
 SCOPE_DIR="$HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-printf '{"total_usd":1.00,"turn_count":5,"main_total":1.00,"main_offsets":{"/t/a.jsonl":123},"first_updated":"x","last_updated":"x","subagent_total":0}\n' > "$SCOPE_DIR/.session-cost"
+printf '{"v":2,"total_usd":1.00,"turn_count":5,"main_total":1.00,"main_offsets":{"/t/a.jsonl":123},"first_updated":"x","last_updated":"x","subagent_total":0}\n' > "$SCOPE_DIR/.session-cost"
 printf '{"agent_id":"abc124","name":"code-helper","started_at":"%s"}\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" > "$SCOPE_DIR/.subagent-active-abc124"
 echo '{"agent_id":"abc124","agent_name":"code-helper","session_id":"sess1","cwd":"/tmp","usage":{"input_tokens":10000,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":0}}' | bash "$HOOK" stop >/dev/null 2>&1
 GOT=$(python3 -c "import json,sys;print(json.load(open(sys.argv[1])).get('main_offsets'))" "$SCOPE_DIR/.session-cost" 2>/dev/null)

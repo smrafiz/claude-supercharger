@@ -417,7 +417,7 @@ for i in range(40):
     f = os.path.join(d, 'old%02d.jsonl' % i); open(f, 'w').close()
     os.utime(f, (time.time() - 86400 - i, time.time() - 86400 - i))
     offs[f] = 0
-json.dump({'total_usd': 0.063, 'main_total': 0.063, 'turn_count': 1, 'main_offsets': offs,
+json.dump({'v': 2, 'total_usd': 0.063, 'main_total': 0.063, 'turn_count': 1, 'main_offsets': offs,
            'first_updated': 'x', 'last_updated': 'x', 'subagent_total': 0.0},
           open(os.path.join(d, '.session-cost'), 'w'))
 PYEOF
@@ -428,6 +428,20 @@ RES=$(python3 -c "
 import json, sys; d=json.load(open(sys.argv[1]))
 print('ok' if abs(d['total_usd']-0.063)<1e-6 and len(d['main_offsets'])<=41 else 'bad:%s/%d' % (d['total_usd'], len(d['main_offsets'])))" "$SCOPE_DIR/.session-cost" 2>/dev/null)
 [ "$RES" = "ok" ] && pass || fail "live transcript re-counted after eviction: $RES (want 0.063)"
+teardown_test_home
+
+# 4.3.2: a total written before the offset fix (no "v") is reset once and kept aside.
+begin_test "accumulate: a pre-4.3.2 (inflated) total is reset once and backed up"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TR="$SCOPE_DIR/trR.jsonl"; asst_msg 1000 0 0 4000 > "$TR"
+printf '{"total_usd":11742951.99,"turn_count":37790242,"main_total":11737506.6,"main_offsets":{},"subagent_total":5445.39}' > "$SCOPE_DIR/.session-cost"
+printf '{"tool_name":"Write","session_id":"sR","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
+printf '{"tool_name":"Write","session_id":"sR","transcript_path":"%s"}' "$TR" | bash "$HOOK" >/dev/null 2>&1
+RES=$(python3 -c "
+import json, sys; d=json.load(open(sys.argv[1])); b=json.load(open(sys.argv[1]+'.pre-4.3.2'))
+print('ok' if d.get('v')==2 and abs(d['total_usd']-0.063)<1e-6 and b['total_usd']>1e6 else 'bad:%s' % d)" "$SCOPE_DIR/.session-cost" 2>/dev/null)
+[ "$RES" = "ok" ] && pass || fail "reset/backup wrong: $RES"
 teardown_test_home
 
 report
