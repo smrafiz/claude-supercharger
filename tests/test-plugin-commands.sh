@@ -31,8 +31,12 @@ begin_test "commands/: state reads use \${CLAUDE_PLUGIN_DATA}/scope"
 if grep -qE '\$\{CLAUDE_PLUGIN_DATA\}/scope' "$OUT_DIR/status.md"; then pass; else fail "status.md scope path not rewritten to CLAUDE_PLUGIN_DATA"; fi
 
 begin_test "commands/: project-memory refs (~/.claude/projects) are preserved, NOT rewritten"
-# sc-status reads Claude file-memory under ~/.claude/projects — must stay literal
-if grep -qE '~/\.claude/projects|\$HOME/\.claude/projects' "$OUT_DIR/status.md"; then pass; else fail "project-memory ref was clobbered"; fi
+# sc-status reads Claude file-memory under ~/.claude/projects. Since 4.3.3 that read
+# lives in tools/command-context.py (never rewritten); the command must reach it
+# through the plugin root.
+if grep -q "'.claude', 'projects'" "$REPO_DIR/tools/command-context.py" \
+   && grep -q 'CLAUDE_PLUGIN_ROOT}/tools/command-context.py status' "$OUT_DIR/status.md"; then pass
+else fail "project-memory read lost, or status.md does not call command-context.py via the plugin root"; fi
 
 begin_test "commands/: every non-skipped source command has a generated counterpart"
 MISSING=""

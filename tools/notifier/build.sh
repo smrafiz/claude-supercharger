@@ -42,7 +42,20 @@ mkdir -p "$B/MacOS" "$B/Resources"
 cp "$SRC/Info.plist" "$B/Info.plist"
 echo "$STAMP" > "$B/Resources/source-hash"
 _step "  compiling..." xcrun swiftc -O "$SRC/main.swift" -o "$B/MacOS/notifier" 2>"$TMP/err" || {
-  echo "notifier: build failed — using osascript notifications"; sed 's/^/  /' "$TMP/err" | head -5; exit 0; }
+  echo "notifier: build failed — using osascript notifications"
+  if grep -q "redefinition of module 'SwiftBridging'" "$TMP/err"; then
+    # A broken Command Line Tools install (two modulemaps define SwiftBridging,
+    # usually a partial CLT update). Every Swift build fails, not just ours.
+    echo "  Your Swift toolchain is broken (a damaged Command Line Tools install), so"
+    echo "  nothing Swift can build on this Mac yet. Fix it in a terminal, then retry:"
+    echo "    with Xcode installed:  sudo xcode-select -s /Applications/Xcode.app/Contents/Developer"
+    echo "    without Xcode:         sudo rm -rf /Library/Developer/CommandLineTools && xcode-select --install"
+    echo "  Check with:  swift --version"
+    echo "  Then install the app:  /sc-notifier install   (or: bash ~/.claude/supercharger/tools/notifier/build.sh)"
+  else
+    sed 's/^/  /' "$TMP/err" | head -5
+  fi
+  exit 0; }
 # Icon, drawn by icon.swift (no binary in the repo). Optional: no icon on failure.
 if _step "  drawing the icon..." xcrun swift "$SRC/icon.swift" "$TMP/icon.png" 2>/dev/null; then
   mkdir -p "$TMP/AppIcon.iconset"

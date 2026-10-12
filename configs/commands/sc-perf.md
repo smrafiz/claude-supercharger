@@ -1,12 +1,19 @@
 ---
 description: "Show the hook performance timing report."
 argument-hint: "[--slow] [--days N]"
+allowed-tools: Bash(python3 ~/.claude/supercharger/tools/command-context.py:*)
 ---
 Show hook performance timing report. Options: $ARGUMENTS (e.g. --slow, --days 7)
 
 Run the hook performance profiler and display results.
 
-**Step 1 — Run the report**
+**Step 1 — The report** (last 7 days, run when this command loaded):
+
+```
+!`python3 ~/.claude/supercharger/tools/command-context.py perf`
+```
+
+Only if `$ARGUMENTS` asks for something else (`--slow`, another `--days`), run it yourself:
 
 ```bash
 bash ~/.claude/supercharger/tools/hook-perf.sh $ARGUMENTS

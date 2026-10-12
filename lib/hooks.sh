@@ -703,6 +703,8 @@ deploy_hook_scripts() {
   chmod 700 "$tools_dir/"*.sh
   # /sc-mcp-audit runs this from the install (it imports ../hooks/lib_poison_patterns).
   cp "$source_dir/tools/mcp-audit.py" "$tools_dir/" 2>/dev/null && chmod 700 "$tools_dir/mcp-audit.py"
+  # /sc-status, /sc-why, /sc-perf inject its output with `!` at load.
+  cp "$source_dir/tools/command-context.py" "$tools_dir/" 2>/dev/null && chmod 700 "$tools_dir/command-context.py"
 
   # Deploy lib dependencies that hooks/tools source at runtime
   local lib_dir="$HOME/.claude/supercharger/lib"
