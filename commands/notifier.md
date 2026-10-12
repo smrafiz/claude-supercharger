@@ -15,7 +15,7 @@ macOS only. If this is not macOS, say so and stop.
 bash ${CLAUDE_PLUGIN_ROOT}/tools/notifier/build.sh
 ```
 
-Report the output. If it says Swift was not found, tell the user to run `xcode-select --install` and try again. After a successful build, open the settings page and tell the user to switch on "Allow notifications" for Claude Supercharger — macOS keeps it off until they do:
+Report the output. If it says Swift was not found, tell the user to run `xcode-select --install` and try again. If it says the Swift toolchain is broken (`redefinition of module 'SwiftBridging'`), the Command Line Tools install is damaged: relay the two fix commands it printed (`sudo xcode-select -s …Xcode.app…` with Xcode, or remove and reinstall the Command Line Tools without it). They need the user's password, so the user runs them; once `swift --version` works, run this command again. After a successful build, open the settings page and tell the user to switch on "Allow notifications" for Claude Supercharger — macOS keeps it off until they do:
 
 ```bash
 open "x-apple.systempreferences:com.apple.Notifications-Settings.extension"

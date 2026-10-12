@@ -73,6 +73,22 @@ else Y_OK=yes; fi
   || fail "default-no built=$([ -e "$H1/Applications/Claude Supercharger.app" ] && echo yes || echo no) y-installed=${Y_OK:-no}"
 rm -rf "$H1" "$H2"
 
+begin_test "notifier: a broken Swift toolchain (SwiftBridging redefinition) prints the fix, installs nothing"
+_FX=$(mktemp -d); mkdir -p "$_FX/bin"
+cat > "$_FX/bin/xcrun" <<'XEOF'
+#!/bin/sh
+[ "$1" = "--find" ] && { echo /usr/bin/swiftc; exit 0; }
+echo "/Library/Developer/CommandLineTools/usr/include/swift/module.modulemap:13:8: error: redefinition of module 'SwiftBridging'" >&2
+exit 1
+XEOF
+chmod +x "$_FX/bin/xcrun"
+OUT=$(PATH="$_FX/bin:$PATH" SC_NOTIFIER_NO_REGISTER=1 bash "$REPO_DIR/tools/notifier/build.sh" "$_FX/apps" 2>&1); RC=$?
+{ [ "$RC" = 0 ] && [ ! -e "$_FX/apps/Claude Supercharger.app" ] \
+  && printf '%s' "$OUT" | grep -q 'Swift toolchain is broken' \
+  && printf '%s' "$OUT" | grep -q 'xcode-select --install' \
+  && printf '%s' "$OUT" | grep -q '/sc-notifier install'; } && pass || fail "rc=$RC out=$OUT"
+rm -rf "$_FX"
+
 begin_test "notifier: the app builds, is signed, and a rebuild of unchanged source is skipped"
 if xcrun --find swiftc >/dev/null 2>&1; then
   T=$(mktemp -d)
