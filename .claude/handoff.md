@@ -4,23 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-12 (after 4.3.5), session `3d213381`.*
+*Verified 2026-10-12 (evening), session `3d213381`.*
 
-- **Released: v4.3.5** (2026-10-12; installed on Machine A). 4.3.3 = `/sc-mcp-audit` +
-  release gate skip; 4.3.4 = live `!` context in `/sc-status`, `/sc-why`, `/sc-perf` + Swift
-  toolchain hint; 4.3.5 = installer asks about the app before installing, next-step line,
-  working claude-check/mcp-setup paths (#118) + README app requirements (#117).
-  master = `b0e118d`, no open PRs, nothing mid-flight.
-- **Merge PRs one at a time before a release:** two quick merges let CI's cancel-in-progress
-  kill the newest commit's run (4.3.5 lost a cycle). Rerun it + cancel the stale one.
-- **Unverified:** the three `!` commands inside a fresh interactive session (headless measured).
-- **Next (backlog):** 4.4.0 remove old command redirect stubs (needs a cleanup step).
-- **Watch:** colleagues' 4.3.2 cost reset; notification layout feedback.
-- **Release recipe:** stage right after master CI is green (gate skipped), one detached
-  finish job (stage → rel CI → promote → update) + ONE completion notice; user said "do not
-  monitor". Windows fix? probe with a TEST_GLOB-narrowed workflow_dispatch first.
-- **Machine A:** 4 stashes (`aborted-stage-4.3.0-bump`, `osc-notify-default-4.3.0`, `sog`,
-  release.sh copy of #54) + 8 extra worktrees; drop only on user's say-so.
+- **Released: v4.3.5** (installed on Machine A). master = `11cb752`, no open PRs at writing.
+- **In flight (agent-built, worktrees under `.claude/worktrees/`):** `fix/436-security-gaps`
+  (ArtifactData file_path/str_replace secret bypass, Windows `rm -rf \` + `X~1` home alias,
+  ExitWorktree discard ask, `~/.mcp-auth/`) and `fix/fp-env-dns-narrowing` (~31 real-work FPs
+  from check_env_file + dig/host rule). Plan: review → merge ONE AT A TIME → release 4.3.6.
+  FP PR merges only if all must-still-block tests pass.
+- **Parked research:** memory `candidate-features-2026-10-12` (GhostSplice, Chaindrop, GitSpawn).
+- **Unverified:** `!` commands in a fresh interactive session.
+- **Release recipe:** one detached finish job + ONE completion notice ("do not monitor").
+  Merge PRs one at a time — a double merge cancelled HEAD's CI (4.3.5).
+- **Machine A:** 4 stashes + extra worktrees; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
@@ -49,6 +45,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-12 (deep) — 3d213381
+4-track research sweep (coverage, upstream tracker, new attacks, own FP ledger); two agent
+PRs building 4.3.6 security fixes + FP narrowing.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-12 deep)
+
 #### 2026-10-12 (pm) — 3d213381
 4.3.5 released: installer UX from a recorded pty Quick install (9s, 2 questions) + README
 Supercharger app requirements. First finish job died on a cancelled master run (double merge).
@@ -63,13 +64,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 de
 4.3.1 + 4.3.2 released; #112 release gate skip merged. Found/fixed $11.7M lifetime cost
 over-count (two writers dropping the offset map). /sc-mcp-audit WIP on its branch.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
-
-#### 2026-10-11 — 3d213381
-v4.3.1 released after 2 master-Windows reds (symlink test on Git Bash; python shebang
-stamp) and 2 load-flaked stage gates. Added install speed-up, notification redesign,
-quiet-when-focused. Found the inflated lifetime cost file.
-
-#### 2026-10-08 (deep) — 3d213381
-#106 + #107 merged (quote-split join, symlinked dotenv, notifier icon/spinner, 2.1.292 floor);
-4.3.1 staging. Notifier lessons → memory macos-notification-facts, consent rule.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-08 deep)
