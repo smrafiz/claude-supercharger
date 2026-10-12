@@ -391,6 +391,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
 | `/sc-profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
 | `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
+| `/sc-mcp-audit [--accept] [--server NAME]` | Scan every MCP server's tool descriptions for hidden instructions (tool poisoning) and report tools whose description changed since you accepted it (rug pull). Hooks never see descriptions, so this is the only check on them |
 | `/sc-notifier [install\|status\|remove]` | macOS: install, check or remove the optional notifier app (notifications as "Claude Supercharger" instead of Script Editor) |
 | `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
 

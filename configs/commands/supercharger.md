@@ -54,6 +54,7 @@ Claude Supercharger — Slash Commands
     /sc-strict      Time-boxed strict — auto-approve nothing; confirm every call (overrides autopilot)
     /sc-status      Render current Supercharger session state (cost, lessons, disabled hooks)
     /sc-trust-mcp      Trust an MCP server to request credentials via Elicitation forms
+    /sc-mcp-audit   Scan MCP tool descriptions for hidden instructions; report tools changed since accepted
     /supercharger   This screen — pass a situation to route instead of browse
     /sc-update      Check for and apply Supercharger updates
     /sc-doctor      Diagnose the install — registration, integrity, permissions, update status
@@ -111,6 +112,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "typecheck seems stale", "is it caching" | `/sc-cache-stats` | `/sc-cache-clear` — look before you wipe |
 | "force a full re-check" | `/sc-cache-clear` | `/sc-cache-stats` first |
 | "an MCP server wants my credentials" | `/sc-trust-mcp` | |
+| "is this MCP server safe", "did an MCP tool change", "tool poisoning" | `/sc-mcp-audit` | Starts each server briefly; `--accept` after reviewing changes |
 | "update Supercharger" | `/sc-update` | |
 | "notifications say Script Editor", "notifications don't show", "click a notification to get back" | `/sc-notifier` | macOS only; `status` first if it's installed but silent |
 | "is my install healthy", "did something break", "guards don't seem to run" | `/sc-doctor` | Ends with one pasteable line — ask for that when helping someone remotely |
