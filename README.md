@@ -26,7 +26,13 @@ Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as
 
 **Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.7+ · `jq`
 
-**macOS, optional:** notifications show as "Script Editor" by default. If you want them as "Claude Supercharger", with a click returning you to your terminal or editor, say yes when install asks, or run `/sc-notifier` any time. It builds a small app on your Mac (`~/Applications/Claude Supercharger.app`, needs Swift: `xcode-select --install`). Updates never install it unless you said yes; then turn it on once in System Settings → Notifications → Claude Supercharger.
+**macOS, optional — the Supercharger app:** notifications show as "Script Editor" by default. To get them as "Claude Supercharger", with a click returning you to your terminal or editor:
+
+1. Make sure Swift works: `swift --version` (if missing: `xcode-select --install`).
+2. Say yes when install asks, or run `/sc-notifier install` any time. It builds `~/Applications/Claude Supercharger.app` on your Mac; nothing is downloaded.
+3. Turn it on once in System Settings → Notifications → Claude Supercharger (new apps start off).
+
+Updates never install it unless you said yes. Check it with `/sc-notifier status`, remove it with `/sc-notifier remove`.
 
 **Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. For one release the old names still work and point you to the new one. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
 
@@ -148,7 +154,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
-- **Desktop notifications** — when a long turn finishes or Claude needs input. On macOS, the optional notifier app (`/sc-notifier`) shows them as "Claude Supercharger" with the project and branch named; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
+- **Desktop notifications** — when a long turn finishes or Claude needs input. On macOS, the optional notifier app (`/sc-notifier`) shows them as "Claude Supercharger" titled `<project> · <event>` with the branch and this session's cost underneath, and stays quiet while you are already looking at that terminal or editor; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
 - **Stale-state warning** — when `.env`, `.envrc`, `package.json`, `settings*.json`, `.mcp.json`, `.supercharger.json` or `CLAUDE.md` changes on disk mid-session, Claude is told, so it doesn't keep acting on what it read earlier
 - **30+ slash commands** — [full list below](#slash-commands)
 
@@ -495,6 +501,11 @@ All in `~/.claude/supercharger/tools/` after install:
 
 **Will this break my existing Claude setup?**
 No. The installer backs up everything before touching it. `./uninstall.sh` restores exactly what you had.
+
+**`/sc-notifier` fails with `redefinition of module 'SwiftBridging'`.**
+Your Command Line Tools install is damaged, so nothing Swift can build on that Mac. Fix it, check with `swift --version`, then run `/sc-notifier install` again:
+- with Xcode installed: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
+- without Xcode: `sudo rm -rf /Library/Developer/CommandLineTools && xcode-select --install`
 
 **A hook blocked something I actually need.**
 Run `/sc-why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
