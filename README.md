@@ -28,6 +28,8 @@ Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as
 
 **macOS, optional — the Supercharger app:** notifications show as "Script Editor" by default. To get them as "Claude Supercharger", with a click returning you to your terminal or editor:
 
+**Needs:** macOS 10.14 or later and Apple's Command Line Tools (for Swift; full Xcode not required). No admin rights, no download: it is compiled from source on your Mac in under a minute.
+
 1. Make sure Swift works: `swift --version` (if missing: `xcode-select --install`).
 2. Say yes when install asks, or run `/sc-notifier install` any time. It builds `~/Applications/Claude Supercharger.app` on your Mac; nothing is downloaded.
 3. Turn it on once in System Settings → Notifications → Claude Supercharger (new apps start off).
