@@ -4,12 +4,15 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-12, session `3d213381`.*
+*Verified 2026-10-12 (after 4.3.5), session `3d213381`.*
 
-- **Released: v4.3.4** (2026-10-12; installed on Machine A, `command-context.py` runs).
-  4.3.3 = `/sc-mcp-audit` (#114) + release gate skip (#112); 4.3.4 = live context in
-  `/sc-status`, `/sc-why`, `/sc-perf` via `!` injection + notifier build explains a broken
-  Swift toolchain (#115). master = `a0ee078`, no open PRs, nothing mid-flight.
+- **Released: v4.3.5** (2026-10-12; installed on Machine A). 4.3.3 = `/sc-mcp-audit` +
+  release gate skip; 4.3.4 = live `!` context in `/sc-status`, `/sc-why`, `/sc-perf` + Swift
+  toolchain hint; 4.3.5 = installer asks about the app before installing, next-step line,
+  working claude-check/mcp-setup paths (#118) + README app requirements (#117).
+  master = `b0e118d`, no open PRs, nothing mid-flight.
+- **Merge PRs one at a time before a release:** two quick merges let CI's cancel-in-progress
+  kill the newest commit's run (4.3.5 lost a cycle). Rerun it + cancel the stale one.
 - **Unverified:** the three `!` commands inside a fresh interactive session (headless measured).
 - **Next (backlog):** 4.4.0 remove old command redirect stubs (needs a cleanup step).
 - **Watch:** colleagues' 4.3.2 cost reset; notification layout feedback.
@@ -46,6 +49,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-12 (pm) — 3d213381
+4.3.5 released: installer UX from a recorded pty Quick install (9s, 2 questions) + README
+Supercharger app requirements. First finish job died on a cancelled master run (double merge).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
+
 #### 2026-10-12 — 3d213381
 4.3.3 (/sc-mcp-audit, gate skip) and 4.3.4 (live `!` context in sc-status/why/perf, Swift
 toolchain hint) released; each via one detached finish job, gate skipped on green master.
@@ -65,8 +73,3 @@ quiet-when-focused. Found the inflated lifetime cost file.
 #106 + #107 merged (quote-split join, symlinked dotenv, notifier icon/spinner, 2.1.292 floor);
 4.3.1 staging. Notifier lessons → memory macos-notification-facts, consent rule.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-08 deep)
-
-#### 2026-10-08 — 3d213381
-4.2.1 + 4.3.0 shipped: notification never fired (Stop payload has no cost field), commands
-renamed sc- with hash-checked migration, frontmatter/user-only commands, opt-in macOS
-notifier app (consent fix after user flagged silent install). No per-session brief written.
