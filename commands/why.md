@@ -1,10 +1,19 @@
 ---
 description: "Explain the most recent Supercharger hook block or warning."
 argument-hint: "[hook name]"
+allowed-tools: Bash(python3 ${CLAUDE_PLUGIN_ROOT}/tools/command-context.py:*)
 ---
 Explain the most recent Supercharger hook action. Arguments: $ARGUMENTS
 
 If `$ARGUMENTS` is empty, examine the most recent hook activity. If `$ARGUMENTS` names a hook (e.g., `confidence-gate`), explain that hook's last firing specifically.
+
+Live context, gathered when this command loaded — the newest entry of each source below that has one (path and age in brackets):
+
+```
+!`python3 ${CLAUDE_PLUGIN_ROOT}/tools/command-context.py why`
+```
+
+Explain from that block first; read a source file yourself only for more detail (e.g. the audit trail, source 5, which is not in the block, or a hook named in `$ARGUMENTS`).
 
 **Sources to consult (read in order, stop at first match).** Scope files gained
 `-<session>`/`-<project-hash>` suffixes over time — these are the CURRENT names, so
