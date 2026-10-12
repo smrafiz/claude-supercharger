@@ -4,23 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-11, session `3d213381`.*
+*Verified 2026-10-12, session `3d213381`.*
 
-- **Released: v4.3.2** (2026-10-11; installed on Machine A). 4.3.1 = install speed-up +
-  notification redesign + quiet-when-focused; 4.3.2 = lifetime cost over-count fix + one-time
-  reset (old file kept as `scope/.session-cost.pre-4.3.2`).
-- **On master, unreleased:** #112 — stage skips the local smoke gate when master CI is
-  green on HEAD (`SUPERCHARGER_RELEASE_LOCAL_GATE=1` forces it).
-- **In flight:** `/sc-mcp-audit` on `feat/sc-mcp-audit` (pushed WIP `dc530fd`, worktree
-  `ma`): its own tests pass 4/4; command-list/install tests NOT yet run; no PR yet.
-- **Next:** finish mcp-audit → PR → Windows probe → release 4.3.3. Then `!` live context in
-  sc-status/perf/why.
+- **Released: v4.3.4** (2026-10-12; installed on Machine A, `command-context.py` runs).
+  4.3.3 = `/sc-mcp-audit` (#114) + release gate skip (#112); 4.3.4 = live context in
+  `/sc-status`, `/sc-why`, `/sc-perf` via `!` injection + notifier build explains a broken
+  Swift toolchain (#115). master = `a0ee078`, no open PRs, nothing mid-flight.
+- **Unverified:** the three `!` commands inside a fresh interactive session (headless measured).
+- **Next (backlog):** 4.4.0 remove old command redirect stubs (needs a cleanup step).
 - **Watch:** colleagues' 4.3.2 cost reset; notification layout feedback.
 - **Release recipe:** stage right after master CI is green (gate skipped), one detached
   finish job (stage → rel CI → promote → update) + ONE completion notice; user said "do not
   monitor". Windows fix? probe with a TEST_GLOB-narrowed workflow_dispatch first.
-- **Machine A:** stashes `osc-notify-default-4.3.0`, `aborted-stage-4.3.0-bump`, `sog`
-  safe to drop. Notifier app installed, notifications ON.
+- **Machine A:** 4 stashes (`aborted-stage-4.3.0-bump`, `osc-notify-default-4.3.0`, `sog`,
+  release.sh copy of #54) + 8 extra worktrees; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
@@ -49,6 +46,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-12 — 3d213381
+4.3.3 (/sc-mcp-audit, gate skip) and 4.3.4 (live `!` context in sc-status/why/perf, Swift
+toolchain hint) released; each via one detached finish job, gate skipped on green master.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
+
 #### 2026-10-11 (deep) — 3d213381
 4.3.1 + 4.3.2 released; #112 release gate skip merged. Found/fixed $11.7M lifetime cost
 over-count (two writers dropping the offset map). /sc-mcp-audit WIP on its branch.
@@ -68,9 +70,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-08 de
 4.2.1 + 4.3.0 shipped: notification never fired (Stop payload has no cost field), commands
 renamed sc- with hash-checked migration, frontmatter/user-only commands, opt-in macOS
 notifier app (consent fix after user flagged silent install). No per-session brief written.
-
-#### 2026-10-06 — 3d213381
-#99 fixed master Windows (CR-CR-LF). Sweep 5 (4 research agents) -> PR #100: normalizer
-bypasses, FPs, Mods/Artifact/token/remote coverage. Classifier cut many patch turns.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-06 deep)
-
