@@ -382,6 +382,26 @@ elif [ -f "$HOME/.claude/settings.json" ]; then
   echo ""
 fi
 
+# 4.3.0: macOS notifier app — opt-in. It installs a program outside ~/.claude, so
+# it is never added without a yes. Asked only on an interactive macOS install with
+# popups on; an app the user already accepted is kept up to date below.
+NOTIFIER_CHOICE="no"
+NOTIFIER_ASKED="false"
+_SC_NOTIFIER_APP="$HOME/Applications/Claude Supercharger.app"
+if [[ "${OSTYPE:-}" == darwin* ]] && [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$NOTIFY_MODE" == "on" ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ] \
+   && [ ! -d "$_SC_NOTIFIER_APP" ]; then
+  echo -e "${BOLD}Notification app (macOS, optional)${NC}"
+  echo ""
+  echo "  Notifications show as \"Script Editor\" by default. A small app built on this"
+  echo "  Mac (~/Applications/Claude Supercharger.app, needs Swift) shows them as"
+  echo "  \"Claude Supercharger\" and a click returns to your terminal or editor."
+  echo ""
+  NOTIFIER_ASKED="true"
+  read -rp "  Install it? [y/N] > " notifier_choice || notifier_choice=""
+  case "$notifier_choice" in [yY]*) NOTIFIER_CHOICE="yes" ;; esac
+  echo ""
+fi
+
 # Step 4: Install
 echo -e "${BOLD}Installing...${NC}"
 echo ""
@@ -502,31 +522,13 @@ if [ -d "$SCRIPT_DIR/configs/commands" ]; then
   success "${CMD_COUNT} command(s) installed — /supercharger lists them"
 fi
 
-# 4.3.0: macOS notifier app — opt-in. It installs a program outside ~/.claude, so
-# it is never added without a yes. Asked only on an interactive macOS install with
-# popups on; an app the user already accepted is kept up to date below.
-NOTIFIER_CHOICE="no"
-_SC_NOTIFIER_APP="$HOME/Applications/Claude Supercharger.app"
-if [[ "${OSTYPE:-}" == darwin* ]] && [[ "$NON_INTERACTIVE" == "false" ]] && [[ "$NOTIFY_MODE" == "on" ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ] \
-   && [ ! -d "$_SC_NOTIFIER_APP" ]; then
-  echo -e "${BOLD}Notification app (macOS, optional)${NC}"
-  echo ""
-  echo "  Notifications show as \"Script Editor\" by default. A small app built on this"
-  echo "  Mac (~/Applications/Claude Supercharger.app, needs Swift) shows them as"
-  echo "  \"Claude Supercharger\" and a click returns to your terminal or editor."
-  echo ""
-  read -rp "  Install it? [y/N] > " notifier_choice || notifier_choice=""
-  case "$notifier_choice" in [yY]*) NOTIFIER_CHOICE="yes" ;; esac
-  echo ""
-fi
-
 # 4.3.0: macOS notifier app. Built only when the user said yes above, or kept up
 # to date when they accepted it before (our bundle id already in ~/Applications).
 # Otherwise one line says it exists. Never fatal.
 if [[ "${OSTYPE:-}" == darwin* ]] && [ -z "${SUPERCHARGER_NO_NOTIFIER:-}" ]; then
   if [[ "$NOTIFIER_CHOICE" == "yes" ]] || grep -q 'dev.supercharger.notifier' "$_SC_NOTIFIER_APP/Contents/Info.plist" 2>/dev/null; then
     bash "$SCRIPT_DIR/tools/notifier/build.sh" 2>/dev/null || true
-  elif [[ "$NOTIFY_MODE" == "on" ]]; then
+  elif [[ "$NOTIFY_MODE" == "on" ]] && [[ "$NOTIFIER_ASKED" == "false" ]]; then
     echo -e "  Optional: notifications as \"Claude Supercharger\" instead of Script Editor — run ${BOLD}/sc-notifier${NC}"
   fi
 fi
@@ -543,7 +545,7 @@ if [[ "$SETTINGS_ACTION" != "skip" ]]; then
     HOOK_COUNT=$(count_installed_hooks "$MODE" "$HAS_DEVELOPER")
     success "${HOOK_COUNT} hook(s) installed (${MODE_LABEL} mode)"
   else
-    error "Failed to configure hooks. Run claude-check for details."
+    error "Failed to configure hooks. Run bash ~/.claude/claude-check.sh for details."
   fi
 
   # Apply notification preference
@@ -692,11 +694,12 @@ echo -e "  Roles:    ${BOLD}${ROLES_LIST}${NC}"
 echo -e "  Economy:  ${BOLD}$(capitalize "$SELECTED_TIER")${NC}"
 echo -e "  Notify:   ${BOLD}$(capitalize "$NOTIFY_MODE")${NC}"
 echo ""
+echo -e "  ${BOLD}Next: start a new Claude Code session${NC} to load Supercharger."
 echo -e "  Slash commands installed — type ${BOLD}/supercharger${NC} in any chat to list them."
 echo -e "  Want plain Claude for a bit? ${BOLD}/sc off${NC} switches to default Claude, ${BOLD}/sc on${NC} restores it."
-echo -e "  Want more MCP servers? Run: ${BOLD}bash tools/mcp-setup.sh${NC}"
+echo -e "  Want more MCP servers? Run: ${BOLD}bash ~/.claude/supercharger/tools/mcp-setup.sh${NC}"
 if [[ "$MODE" == "full" ]]; then
-  echo -e "  Run ${BOLD}claude-check${NC} to verify installation."
+  echo -e "  Verify: ${BOLD}bash ~/.claude/claude-check.sh${NC}"
 else
   echo -e "  Upgrade anytime: ${BOLD}./install.sh${NC} (choose Full)"
 fi
