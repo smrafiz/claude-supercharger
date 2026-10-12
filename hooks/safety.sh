@@ -295,6 +295,24 @@ if _cat_enabled "filesystem"; then
         done
       fi
 
+      # #436: Windows drive roots (upstream claude-code #97660, #99193). Under Git
+      # Bash a bare `\` target is the current drive's root, and an 8.3 short name
+      # (`RADIUS~1`) directly under a drive-root Users dir or at a drive root is a
+      # whole profile. Text match on every OS: the spelling is the intent, and the
+      # `C:`/`/c/` prefix plus `~N` keeps ordinary `foo~1` names out of it.
+      if $has_recursive; then
+        _wrx='^([A-Za-z]:|/[A-Za-z])(/Users)?/[^/]*~[0-9]+/?\*?$'
+        # read -a, not `for in $args`: no glob expansion of `*` against the hook's cwd.
+        read -r -a _wtoks <<< "$args" || true
+        for _tok in ${_wtoks[@]+"${_wtoks[@]}"}; do
+          _t="${_tok//\"/}"; _t="${_t//\'/}"
+          case "$_t" in -*|'') continue ;; esac
+          [ -z "${_t//\\/}" ] && block "recursive rm on a bare backslash (Windows drive root)"
+          _t="${_t//\\//}"
+          [[ "$_t" =~ $_wrx ]] && block "recursive rm on a Windows drive-root or user-profile short name ($_tok)"
+        done
+      fi
+
       # v4.2.0: without a tty rm never prompts, so -r alone on root or home is as
       # final as -rf. Only the root/home arm: plain `rm -r build` stays allowed.
       if $has_recursive && ! $has_force && \
@@ -1476,7 +1494,7 @@ case "$CMD" in
   # unreachable through the hook. Same two-gate trap as v2.29.37 and v2.29.23.
   # Trailing-slash-free forms too: `tar czf x.tgz /home/u/.ssh` names the
   # directory itself, which */.ssh/* does not match.
-  */.ssh|*/.ssh/*|*/.gnupg|*/.gnupg/*|*/.aws|*/.aws/*) _NEED_PY=true ;;
+  */.ssh|*/.ssh/*|*/.gnupg|*/.gnupg/*|*/.aws|*/.aws/*|*/.mcp-auth|*/.mcp-auth/*) _NEED_PY=true ;;
   # v2.29.37: the gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE
   # (see the note above) and it had drifted BELOW it. `.docker/config.json` and
   # `pip.conf` were in the detector and NOT here, so _NEED_PY never flipped and the
