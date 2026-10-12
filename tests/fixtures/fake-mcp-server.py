@@ -23,7 +23,7 @@ def reply(m):
 
 
 if len(sys.argv) > 2 and sys.argv[1] == '--http':
-    from http.server import BaseHTTPRequestHandler, HTTPServer
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer as HTTPServer
 
     class H(BaseHTTPRequestHandler):
         def do_POST(self):

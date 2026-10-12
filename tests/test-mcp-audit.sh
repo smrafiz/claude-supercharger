@@ -62,10 +62,11 @@ python3 - "$(_n "$HOME")/.claude.json" "$PORT" <<'PYEOF'
 import json, sys
 json.dump({'mcpServers': {'web': {'type': 'http', 'url': 'http://127.0.0.1:%s/mcp' % sys.argv[2]}}}, open(sys.argv[1], 'w'))
 PYEOF
-for _ in 1 2 3 4 5 6 7 8 9 10; do
-  python3 -c "import socket,sys; socket.create_connection(('127.0.0.1',int(sys.argv[1])),1)" "$PORT" 2>/dev/null && break; sleep 0.3
+# Ready = answers a real request (a raw connect can succeed before it serves).
+for _ in $(seq 1 40); do
+  python3 -c "import urllib.request as u,sys; u.urlopen(u.Request('http://127.0.0.1:%s/mcp' % sys.argv[1], b'{\"jsonrpc\":\"2.0\",\"method\":\"x\"}', {'Content-Type':'application/json'}), timeout=2)" "$PORT" 2>/dev/null && break; sleep 0.25
 done
-OUT=$(audit); RC=$?
+OUT=$(audit --timeout 30); RC=$?
 kill "$SRV" 2>/dev/null; wait "$SRV" 2>/dev/null
 { [ "$RC" = 1 ] && printf '%s' "$OUT" | grep -q '^- web \[user, http\]: 2 tool(s)$' \
   && printf '%s' "$OUT" | grep -q 'hidden-priority block (in add)'; } && pass || fail "rc=$RC out=$OUT"
