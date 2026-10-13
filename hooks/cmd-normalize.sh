@@ -25,8 +25,16 @@
 # `<<<` is a herestring, not a heredoc: it has no body to strip and is left alone.
 _HEREDOC_EXECUTORS='bash|sh|zsh|dash|ksh|fish|python|python2|python3|perl|ruby|node|deno|php|osascript|psql|mysql|mariadb|sqlite3|mongosh|mongo|redis-cli|clickhouse-client|cockroach|snowsql|bq|spark-sql|hive|beeline'
 
+#
+# fp-batch-2: `strip_heredoc_bodies CMD code` also drops PROSE from bodies fed to
+# a non-shell interpreter (python, node, perl, ruby, php, deno). Their text is
+# code in another language, so shell-shaped rules (crontab, `nano <file>`) misread
+# its strings and comments. A body line that shells out (os.system, subprocess,
+# execSync, backticks in perl/ruby/php, ...) is kept, so a command hidden in a
+# shell-out stays visible. Bodies a shell runs, or piped on to a shell, are kept.
 strip_heredoc_bodies() {
-  local cmd="$1"
+  local cmd="$1" _code=""
+  [ "${2:-}" = code ] && _code=1
   # Hot path: normalize_cmd runs on EVERY Bash tool call, so nothing forks unless
   # the command actually contains a heredoc operator. Commands that do are rare.
   case "$cmd" in
@@ -39,11 +47,17 @@ strip_heredoc_bodies() {
   # so running the guard EXECUTED the text it was meant to inspect (observed:
   # a stray "cd: x: No such file or directory" on every call). A quoted-delimiter
   # heredoc body is literal, which removes the whole class rather than this case.
-  CMD_INPUT="$cmd" SC_EXEC="$_HEREDOC_EXECUTORS" python3 - <<'SCPYEOF' 2>/dev/null || printf '%s' "$cmd"
+  CMD_INPUT="$cmd" SC_EXEC="$_HEREDOC_EXECUTORS" SC_CODE="$_code" python3 - <<'SCPYEOF' 2>/dev/null || printf '%s' "$cmd"
 import os, re, sys
 
 cmd = os.environ.get('CMD_INPUT', '')
 executors = set(os.environ.get('SC_EXEC', '').split('|'))
+code_mode = bool(os.environ.get('SC_CODE'))
+INTERP = {'python', 'python2', 'python3', 'perl', 'ruby', 'node', 'deno', 'php'}
+SHELLOUT = re.compile(
+    r'child_process|\b(?:exec|spawn|execFile|execSync|spawnSync|system|popen|'
+    r'passthru|shell_exec|proc_open|getoutput|getstatusoutput)\b|\bsubprocess\b|'
+    r'\bos\.(?:exec|spawn)|\bpty\b|\bqx\b|%x|\bDeno\.(?:run|Command)\b')
 
 # <<- allows a tab-indented terminator; <<< is a herestring and is NOT a heredoc.
 START = re.compile(r'<<(?!<)(-?)\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\2')
@@ -83,17 +97,14 @@ def first_token(seg):
     return ''
 
 
-def body_is_executed(line, start, end):
+def body_receivers(line, start, end):
     # Owner: the last segment BEFORE the operator, so "cd x; cat > y <<EOF"
     # resolves to cat rather than cd.
-    if first_token(re.split(r'[;&|]', line[:start])[-1]) in executors:
-        return True
     # Downstream: "cat <<EOF | sh" feeds the body to a shell even though the
     # owner is cat, so commands after the operator count too.
-    for seg in re.split(r'[;&|]', line[end:]):
-        if first_token(seg) in executors:
-            return True
-    return False
+    toks = [first_token(re.split(r'[;&|]', line[:start])[-1])]
+    toks += [first_token(seg) for seg in re.split(r'[;&|]', line[end:])]
+    return [t for t in toks if t in executors]
 
 
 lines = cmd.split('\n')
@@ -107,7 +118,11 @@ while i < len(lines):
         i += 1
         continue
     dash, delim = m.group(1), m.group(3)
-    keep_body = body_is_executed(line, m.start(), m.end())
+    recv = body_receivers(line, m.start(), m.end())
+    keep_body = bool(recv)
+    # code mode: every receiver is a non-shell interpreter -> keep shell-outs only.
+    prose_free = code_mode and keep_body and all(t in INTERP for t in recv)
+    ticks = any(t in ('perl', 'ruby', 'php') for t in recv)
     out.append(line)
     i += 1
     # Consume through the terminator either way; only the body's fate differs.
@@ -117,7 +132,8 @@ while i < len(lines):
             out.append(lines[i])
             i += 1
             break
-        if keep_body:
+        if keep_body and (not prose_free or SHELLOUT.search(lines[i])
+                          or (ticks and '`' in lines[i])):
             out.append(lines[i])
         i += 1
 

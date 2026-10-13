@@ -1017,7 +1017,11 @@ if "env_files" not in disabled:
         sys.exit(0)
 
 if "sensitive_read" not in disabled:
-    r = check_sensitive_read(cmd)
+    # fp-batch-2: the reader regex runs on CMD_CODE (safety.sh: CMD with prose in
+    # python/node/... heredoc bodies dropped, shell-out lines kept), so docs text
+    # like `sudo nano /etc/x.env` written by a python edit is not a read.
+    code = os.environ.get("CMD_CODE", "")
+    r = check_sensitive_read(_expand_sensitive_bindings(code) if code else cmd)
     if r:
         _say(r)
         sys.exit(0)

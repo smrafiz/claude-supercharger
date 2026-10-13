@@ -632,8 +632,11 @@ DB_PATTERNS+=(
   # MySQL file read / write.
   'LOAD_FILE[[:space:]]*\('
   'INTO[[:space:]]+(OUT|DUMP)FILE[[:space:]]'
-  # SQLite fileio extension: arbitrary read and write.
-  '(readfile|writefile)[[:space:]]*\('
+  # SQLite fileio extension: arbitrary read and write. fp-batch-2: SQL context is
+  # required (sqlite3 or a statement keyword earlier in the segment, no `.` before
+  # the call). Bare, it matched Node's fs `await writeFile(path, data)` in code a
+  # python heredoc was writing; grep -i makes case no help (`writeFile`).
+  '(^|[^[:alnum:]_])(sqlite3?|select|values|update|insert)([^[:alnum:]_][^;&|]*)?[^[:alnum:]_.](readfile|writefile)[[:space:]]*\('
   # SQLite ATTACH opens a file as a database, which reads it. Attaching another
   # database is ordinary work — `ATTACH DATABASE '/data/archive.sqlite'` must
   # keep passing, and it did NOT under the first version of this rule (measured;
@@ -779,7 +782,9 @@ NETWORK_PATTERNS=(
   # python/perl/ruby here — `curl x | python -m json.tool` and `curl x | perl -pe`
   # are legitimate stream processing, and POSIX ERE has no lookahead to separate
   # those from `curl x | python` (RCE). Bare curl|python is a documented residual.
-  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash|node|deno|bun)([[:space:]]|[;&|)]|$)'
+  # fp-batch-2: node/deno/bun moved to the _PIPE_JS block below, which exempts an
+  # INLINE script (`| node -e '...process.stdin...'`: stdin is data there).
+  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
   # v2.29.38: the INVERSE process-substitution shape. v2.29.31 covered a shell as
   # the SUBSTITUTED command (tee into a process substitution running a shell); this
   # is a shell as the OUTER command with a fetcher inside -- the same capability as
@@ -1111,6 +1116,28 @@ if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   fi
 fi
 
+# fp-batch-2: a download piped into node/deno/bun runs it as code, UNLESS the
+# runtime was given an inline script (-e/-p/--eval/--print, `deno eval`): then the
+# script is the code and the download is stdin DATA (`curl ... | node -e 'JSON..'`).
+# An inline script that evaluates or shells out what it reads is still RCE.
+if _cat_enabled "network"; then
+  _PIPE_JS='(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(node|deno|bun)(([[:space:]]+([^[:space:]]+))?)([[:space:]]|[;&|)]|$)'
+  if [[ "$CMD_SCAN" =~ $_PIPE_JS ]]; then
+    _pj_rt="${BASH_REMATCH[3]}" _pj_flag="${BASH_REMATCH[6]}"
+    # The script text: everything after the flag (plus a `-e'code'` glued to it).
+    _pj_code="${CMD_SCAN#*"${BASH_REMATCH[0]}"}"
+    case "$_pj_flag" in *[\'\"]*) _pj_code="${_pj_flag#*[\'\"]} $_pj_code" ;; esac
+    _pj_inline=0
+    case "$_pj_rt:$_pj_flag" in
+      node:-e*|node:-p*|node:--eval*|node:--print*|bun:-e*|bun:-p*|bun:--eval*|bun:--print*|deno:eval) _pj_inline=1 ;;
+    esac
+    if [ "$_pj_inline" = 0 ] \
+       || [[ "$_pj_code" =~ (eval|Function|vm\.|runInThisContext|child_process|exec|spawn|import[[:space:]]*\(|_compile|require[[:space:]]*\([[:space:]]*[^\'\"\`[:space:]]) ]]; then
+      block "dangerous pattern: download piped into $_pj_rt — runs remote code"
+    fi
+  fi
+fi
+
 # --- Per-project custom patterns (v2.26.21) ----------------------------------
 # Deliberately a SEPARATE grep from the built-ins above, never joined with them.
 # Every built-in pattern is combined into one alternation and matched in a single
@@ -1161,10 +1188,16 @@ fi
 
 # --- Credential leakage (category: credentials) ---
 if _cat_enabled "credentials"; then
+  # fp-batch-2: the NAME= rules need a LITERAL value. A reference is not a secret:
+  # JSX `apiKey={apiKey}`, `API_KEY=$API_KEY_PROD cmd`, `==`. Unspaced `NAME=value`
+  # (shell assignment) keeps any other bareword; spaced `name = x` is code, so only
+  # a quoted literal counts there. `{"sk-.."}` still hits. (No `[=` in the bracket:
+  # grep reads it as an equivalence class and errors, failing the rule OPEN.)
+  _CRED_VAL='(=([^[:space:]{$=]|\{["'\''`])|[[:space:]]*=[[:space:]]*["'\''`])'
   CRED_PATTERNS=(
-    '[Aa][Pp][Ii][_-]?[Kk][Ee][Yy][[:space:]]*='
-    '[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy][[:space:]]*='
-    '[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn][[:space:]]*='
+    '[Aa][Pp][Ii][_-]?[Kk][Ee][Yy]'"$_CRED_VAL"
+    '[Ss][Ee][Cc][Rr][Ee][Tt][_-]?[Kk][Ee][Yy]'"$_CRED_VAL"
+    '[Aa][Cc][Cc][Ee][Ss][Ss][_-]?[Tt][Oo][Kk][Ee][Nn]'"$_CRED_VAL"
     'AKIA[0-9A-Z]{16}'
     'ghp_[0-9a-zA-Z]{36}'
     'sk-[0-9a-zA-Z]{48}'
@@ -1173,9 +1206,7 @@ if _cat_enabled "credentials"; then
     'pk_live_[0-9a-zA-Z]{24}'
     'npm_[0-9a-zA-Z]{36}'
     'pypi-[0-9a-zA-Z_-]{16,}'
-    '[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd][[:space:]]*='
-    'DB_PASSWORD[[:space:]]*='
-    'MYSQL_ROOT_PASSWORD[[:space:]]*='
+    '[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]'"$_CRED_VAL"
     '-----BEGIN[[:space:]]+(RSA|EC|DSA|OPENSSH)?[[:space:]]*PRIVATE[[:space:]]+KEY-----'
     'eyJ[0-9a-zA-Z_-]{10,}\.[0-9a-zA-Z_-]{10,}\.'
     # CVE-2026-35020: TERMINAL env var injected with shell metacharacters is
@@ -1297,8 +1328,16 @@ if _cat_enabled "persistence"; then
   # path), not anywhere. Unanchored, "crontab" followed by any word matched prose:
   # `echo "=== grep crontab in docs ==="`, a heredoc saying "needs a crontab entry",
   # a commit message. Five real commands were denied that way; none ran crontab.
-  if [[ "$CMD" =~ (^|[\;\&\|\(\`]|\$\(|$'\n')[[:space:]]*([^[:space:]\;\&\|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:];\&\|\)]|$)|-([[:space:];\&\|\)]|$)|[^-[:space:]][^[:space:]]*) ]]; then
-    block "cron job modification — agent should not create persistent scheduled tasks"
+  # fp-batch-2: on a hit, re-check with interpreter-heredoc PROSE removed (python
+  # writing markdown that says "(crontab `17 3 * * *`)"). Shell bodies and
+  # shell-out lines stay -- see strip_heredoc_bodies' code mode.
+  _CRON_RX='(^|[;&|(`]|\$\(|'$'\n'')[[:space:]]*([^[:space:];&|]*/)?crontab([[:space:]]+-u[[:space:]]+[^[:space:]]+)?[[:space:]]+(-[er]([[:space:];&|)]|$)|-([[:space:];&|)]|$)|[^-[:space:]][^[:space:]]*)'
+  if [[ "$CMD" =~ $_CRON_RX ]]; then
+    _cron_src="$CMD"
+    case "$CMD" in *'<<'*) _cron_src=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _cron_src="$CMD" ;; esac
+    if [[ "$_cron_src" =~ $_CRON_RX ]]; then
+      block "cron job modification — agent should not create persistent scheduled tasks"
+    fi
   fi
 
   # 2.22.2: permissive target (a quote between `$HOME`/`~`/`/`/`.bashrc` broke the
@@ -1550,7 +1589,12 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   # file (python exits 2), crash, or the 0.5s timeout — `set -e` would otherwise
   # kill this hook with empty stderr, which CC renders as a phantom
   # "hook error: No stderr output" deny. Fail OPEN to the regex verdict instead.
-  PY_REASON=$(CMD="$CMD" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  # fp-batch-2: CMD_CODE = CMD minus interpreter-heredoc prose, for the reader rule
+  # (docs text saying `sudo nano /etc/x.env` in a python heredoc). One extra fork,
+  # only when a heredoc is present.
+  _CMD_CODE=""
+  case "$CMD" in *'<<'*) _CMD_CODE=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _CMD_CODE="" ;; esac
+  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi
