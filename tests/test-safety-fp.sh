@@ -533,4 +533,12 @@ denies "sm-for"        "for T in ~; do :; done; T=\$(mktemp -d); echo x > \$T/.c
 denies "sm-mixed"      "T=\$(mktemp -d); echo x > \"\$T/.claude/settings.json\"; echo y >> ~/.claude/settings.json"
 denies "sm-install"    "install -m 644 x ~/.claude/settings.json"
 
+# --- clipboard tool names inside identifiers (2026-10-12 ledger) ---------------
+begin_test "a filename containing a clipboard tool name is not clipboard access"
+allows "clip-in-word" "cat src/Mixsel.ts"
+begin_test "the clipboard tool itself still denies"
+denies "clip-xsel"    "echo hi | xsel -b"
+denies "clip-path"    "/usr/bin/xsel -o"
+denies "clip-pbpaste" "pbpaste > notes.txt"
+
 report
