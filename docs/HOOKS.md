@@ -61,6 +61,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `env-exec-guard` | PreToolUse | Bash, Monitor, PowerShell | Setting a code-injecting environment variable causes arbitrary code execution on |
 | `env-file-guard` | PreToolUse | Bash, Read, Grep, Glob | Blocks reading/editing .env and other credential files. Grep/Glob are covered |
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
+| `exitworktree-guard` | PreToolUse | ExitWorktree | Asks before ExitWorktree deletes a worktree together with its uncommitted work. |
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
 | `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |

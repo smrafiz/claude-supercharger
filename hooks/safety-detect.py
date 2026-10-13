@@ -595,7 +595,7 @@ def check_credential_laundering(c: str) -> str | None:
 # filename patterns above protect id_rsa and friends; a deploy key called
 # `github_ci` sitting beside it was completely unguarded, and custom key names
 # are ordinary practice.
-_SECRET_DIRS = ("/.ssh/", "/.gnupg/", "/.aws/")
+_SECRET_DIRS = ("/.ssh/", "/.gnupg/", "/.aws/", "/.mcp-auth/")
 # Members of those directories that are NOT secrets and are read routinely. A
 # blanket directory rule without this list denies `cat ~/.ssh/config`, which is
 # how a guard earns a reputation for crying wolf and gets switched off.
@@ -606,7 +606,7 @@ _SECRET_DIR_PUBLIC = re.compile(
 
 def check_secret_directory(c: str) -> str | None:
     """A read of a file inside a secret directory, whatever it is called."""
-    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/)[\w.-]+)", c):
+    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/)[\w.-]+)", c):
         path = m.group(1)
         if _SECRET_DIR_PUBLIC.search(path):
             continue
@@ -614,7 +614,7 @@ def check_secret_directory(c: str) -> str | None:
         if _SENSITIVE_NAME_RE.search(path):
             continue
         return (f"secret directory access: {path} — files under "
-                f".ssh/.gnupg/.aws are credentials regardless of their name")
+                f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
     return None
 
 

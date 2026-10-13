@@ -34,7 +34,7 @@ check_hook_disabled "artifact-publish-guard" && exit 0
 
 # Fast path: publish carries a file; reply and room_send carry outbound TEXT;
 # ShareOnboardingGuide carries no path at all (see below).
-case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*|*ShareOnboardingGuide*|*'"files"'*|*'"data"'*) ;; *) exit 0 ;; esac
+case "$_INPUT" in *file_path*|*room_send*|*'"reply"'*|*ShareOnboardingGuide*|*'"files"'*|*'"data"'*|*new_str*) ;; *) exit 0 ;; esac
 
 ACTION=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.action // empty' 2>/dev/null || true)
 [ "$ACTION" = "list" ] && exit 0
@@ -67,9 +67,9 @@ fi
 # v4.2.0: ArtifactData set/update writes an inline `data` document every viewer of
 # the page can read -- the same egress as a reply. (ArtifactComments reply already
 # carries action=reply; both tools were missing from the hook's matcher.)
-case "$TOOL_NAME:$ACTION" in ArtifactData:set|ArtifactData:update|ArtifactData:batch) ACTION=reply ;; esac
+case "$TOOL_NAME:$ACTION" in ArtifactData:set|ArtifactData:update|ArtifactData:batch|ArtifactData:str_replace) ACTION=reply ;; esac
 if [ "$ACTION" = "reply" ] || [ "$ACTION" = "room_send" ]; then
-  OUTBOUND=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.text // empty, (.tool_input.data // empty | tostring), (.tool_input.writes // empty | tostring)] | join("\n")' 2>/dev/null || true)
+  OUTBOUND=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.text // empty, (.tool_input.data // empty | tostring), (.tool_input.writes // empty | tostring), .tool_input.new_str // empty] | join("\n")' 2>/dev/null || true)
   if [ -n "$OUTBOUND" ]; then
     # shellcheck source=hooks/lib-secret-patterns.sh
     . "$HOOKS_DIR/lib-secret-patterns.sh"
@@ -89,6 +89,19 @@ Remove the secret and send a reference instead."
         >> "$SCOPE_DIR/.blocked-commands" 2>/dev/null || true
       exit 2
     fi
+  fi
+  # #436: ArtifactData set/update (and each batch writes[] entry) can take the
+  # document from a local JSON `file_path` instead of inline `data` -- the same
+  # egress, but only the path string was scanned above. Run every such file back
+  # through this hook's file-scan path as a single-file publish.
+  if [ "$TOOL_NAME" = "ArtifactData" ]; then
+    _AD_FILES=$(printf '%s\n' "$_INPUT" | jq -r '[.tool_input.file_path // empty, ((.tool_input.writes // []) | if type=="array" then .[] | objects | .file_path // empty else empty end)] | .[]' 2>/dev/null || true)
+    while IFS= read -r _ad_f; do
+      [ -n "$_ad_f" ] || continue
+      printf '%s\n' "$_INPUT" | jq -c --arg f "$_ad_f" '.tool_input = {action: "publish", file_path: $f} | .tool_name = "Artifact"' \
+        | bash "${BASH_SOURCE[0]}"; _ad_rc=$?
+      [ "$_ad_rc" -ne 0 ] && exit "$_ad_rc"
+    done <<< "$_AD_FILES"
   fi
   exit 0
 fi

@@ -396,6 +396,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/exitworktree-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "ExitWorktree"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-remote-guard.sh",
             "timeout": 15
           }

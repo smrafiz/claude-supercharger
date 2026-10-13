@@ -440,4 +440,31 @@ begin_test "safety: a [bracketed] VAR= prefix cannot smuggle a destructive comma
 [ "$(_timed_verdict "P=[x] rm -rf ~")" = BLOCK ] && [ "$(_timed_verdict "A=[a] B=[b] rm -rf /")" = BLOCK ] \
   && pass || fail "bracketed assignment prefix bypassed the rm rule (HANG = fail-open)"
 
+# ---- #436: Windows drive-root rm (claude-code #97660, #99193) ----
+# A bare backslash target is the current drive's root under Git Bash, and an 8.3
+# short name (RADIUS~1) under a drive-root Users dir is a whole user profile. All
+# of these returned 0 on every OS, including inside bash -c / sh -c bodies.
+_BS='\'
+_WIN_RM_DENY=(
+  "rm -rf $_BS"
+  "rm -rf \"$_BS$_BS\""
+  "rm -rf C:/Users/RADIUS~1"
+  "rm -rf /c/Users/RADIUS~1"
+  "rm -rf C:${_BS}Users${_BS}RADIUS~1"
+  "rm -rf C:/RADIUS~1"
+)
+for _c in "${_WIN_RM_DENY[@]}"; do
+  begin_test "safety: Windows drive-root rm is blocked: $_c"
+  [ "$(verdict "$_c")" = BLOCK ] && pass || fail "allowed: $_c"
+  for _w in "bash -c" "bash -lc" "sh -c"; do
+    _q=$(printf '%s' "$_c" | sed "s/'/'\\\\''/g")
+    begin_test "safety: Windows drive-root rm blocked inside $_w: $_c"
+    [ "$(verdict "$_w '$_q'")" = BLOCK ] && pass || fail "allowed: $_w '$_q'"
+  done
+done
+for _c in "rm -rf ./build" "rm -rf node_modules" "rm foo~1.txt" "rm -rf /tmp/x~1"; do
+  begin_test "safety: Windows drive-root rule does not over-block: $_c"
+  [ "$(verdict "$_c")" = ALLOW ] && pass || fail "over-blocked: $_c"
+done
+
 report

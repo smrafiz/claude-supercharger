@@ -305,7 +305,10 @@ get_hooks_for_mode() {
     # Bash call. Anyone restoring it must verify on a LIVE session that the gated
     # hook actually fires -- reading the syntax off the docs is what produced the
     # original bug.
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-safety.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —    # asks before pushing the whole repo to a non-origin host or hijacking origin's
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-safety.sh")
+    # #436: ExitWorktree remove+discard_changes is the tool-channel twin of the
+    # `git worktree remove --force` ASK above; it never reaches Bash.
+    hooks+=("PreToolUse|ExitWorktree|${hooks_dir}/exitworktree-guard.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —    # asks before pushing the whole repo to a non-origin host or hijacking origin's
     # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
     # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-remote-guard.sh")    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and

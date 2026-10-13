@@ -305,5 +305,17 @@ wal Read file_path "$HOME/Library/Application Support/Code/User/settings.json"; 
 begin_test "env-guard: a project file merely named like a wallet is allowed"
 wal Read file_path "/repo/src/phantom-types.ts"; [ "$?" = "0" ] && pass || fail "blocked"
 
+# #436: ~/.mcp-auth/ is mcp-remote's OAuth token cache -- a peer of
+# .gemini/oauth_creds.json, missing from every credential list.
+begin_test "env-guard: Read of ~/.mcp-auth token file blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.mcp-auth/mcp-remote-0.1.29/abc123_tokens.json"}}'
+[ "$?" = "2" ] && pass || fail ".mcp-auth Read not blocked"
+begin_test "env-guard: Grep of the ~/.mcp-auth directory blocked"
+run_input '{"tool_name":"Grep","tool_input":{"pattern":"access_token","path":"/home/u/.mcp-auth"}}'
+[ "$?" = "2" ] && pass || fail ".mcp-auth Grep not blocked"
+begin_test "env-guard: a project file merely named mcp-auth is allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/repo/src/mcp-auth/index.ts"}}'
+[ "$?" = "0" ] && pass || fail "mcp-auth project file blocked"
+
 
 report
