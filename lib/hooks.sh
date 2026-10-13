@@ -665,6 +665,14 @@ stamp_hook_shebangs() {
   return 0
 }
 
+# _swap_into <dest> <stage>: rename every file in <stage> over <dest> (one mv, each
+# file swapped atomically), then drop <stage>. If the rename fails (Windows refuses to
+# replace a file another process holds open), fall back to copying in place.
+_swap_into() {
+  mv -f "$2/"* "$1/" 2>/dev/null || cp -f "$2/"* "$1/"
+  rm -rf "$2"
+}
+
 deploy_hook_scripts() {
   local source_dir="$1"
   local target_dir="$HOME/.claude/supercharger/hooks"
@@ -686,38 +694,50 @@ deploy_hook_scripts() {
     fi
   done
 
-  cp "$source_dir/hooks/"*.sh "$target_dir/"
-  cp "$source_dir/lib/webhook.sh" "$target_dir/webhook-lib.sh"
-  chmod 700 "$target_dir/"*.sh
-  stamp_hook_shebangs "$target_dir"
+  # Build the new set in a staging dir and RENAME it into place. A plain `cp` over a
+  # live hook truncates and rewrites it in place: a hook that fires mid-update (or is
+  # already running - bash reads a script as it executes) sees a half-written file and
+  # dies with a syntax error ("unexpected |" at line 123 of typecheck.sh, during an
+  # update to 4.3.6). A rename swaps the inode, so a reader sees old or new, never half.
+  local stage
+  stage=$(mktemp -d "$target_dir/.stage.XXXXXX")
+  cp "$source_dir/hooks/"*.sh "$stage/"
+  cp "$source_dir/lib/webhook.sh" "$stage/webhook-lib.sh"
+  chmod 700 "$stage/"*.sh
+  stamp_hook_shebangs "$stage"
   # Python deep-scanners invoked by hooks (safety-detect.py, env-file-detect.py).
   # These live in hooks/ but were previously never deployed (only *.sh was copied),
   # so safety.sh/env-file-guard.sh ran `python3 <missing-file>` → python exits 2 →
   # under `set -e` the hook died with empty stderr → CC rendered a phantom
   # "hook error: No stderr output" deny on every command that tripped the deep-scan
   # gate (python -c, curl, find, .env, secret, aws, …). Deploy them here.
-  cp "$source_dir/hooks/"*.py "$target_dir/" 2>/dev/null || true
-  chmod 700 "$target_dir/"*.py 2>/dev/null || true
+  cp "$source_dir/hooks/"*.py "$stage/" 2>/dev/null || true
+  chmod 700 "$stage/"*.py 2>/dev/null || true
+  _swap_into "$target_dir" "$stage"
 
   # Deploy tools so they're available after one-liner installs (no local repo)
   local tools_dir="$HOME/.claude/supercharger/tools"
   mkdir -p "$tools_dir"
-  cp "$source_dir/tools/"*.sh "$tools_dir/"
-  chmod 700 "$tools_dir/"*.sh
+  stage=$(mktemp -d "$tools_dir/.stage.XXXXXX")
+  cp "$source_dir/tools/"*.sh "$stage/"
+  chmod 700 "$stage/"*.sh
   # /sc-mcp-audit runs this from the install (it imports ../hooks/lib_poison_patterns).
-  cp "$source_dir/tools/mcp-audit.py" "$tools_dir/" 2>/dev/null && chmod 700 "$tools_dir/mcp-audit.py"
+  cp "$source_dir/tools/mcp-audit.py" "$stage/" 2>/dev/null && chmod 700 "$stage/mcp-audit.py"
   # /sc-status, /sc-why, /sc-perf inject its output with `!` at load.
-  cp "$source_dir/tools/command-context.py" "$tools_dir/" 2>/dev/null && chmod 700 "$tools_dir/command-context.py"
+  cp "$source_dir/tools/command-context.py" "$stage/" 2>/dev/null && chmod 700 "$stage/command-context.py"
+  _swap_into "$tools_dir" "$stage"
 
   # Deploy lib dependencies that hooks/tools source at runtime
   local lib_dir="$HOME/.claude/supercharger/lib"
   mkdir -p "$lib_dir"
-  cp "$source_dir/lib/utils.sh" "$lib_dir/"
-  cp "$source_dir/lib/economy.sh" "$lib_dir/"
+  stage=$(mktemp -d "$lib_dir/.stage.XXXXXX")
+  cp "$source_dir/lib/utils.sh" "$stage/"
+  cp "$source_dir/lib/economy.sh" "$stage/"
   # Python modules imported by hooks (e.g., cwd-changed, project-config, statusline)
-  cp "$source_dir/lib/"*.py "$lib_dir/" 2>/dev/null || true
-  chmod 700 "$lib_dir/"*.sh
-  chmod 600 "$lib_dir/"*.py 2>/dev/null || true
+  cp "$source_dir/lib/"*.py "$stage/" 2>/dev/null || true
+  chmod 700 "$stage/"*.sh
+  chmod 600 "$stage/"*.py 2>/dev/null || true
+  _swap_into "$lib_dir" "$stage"
 
   # Deploy stack standards (rules/stacks/*.md) that standards-inject.sh reads.
   # Without this, standards-inject crashes at SessionStart on every install
