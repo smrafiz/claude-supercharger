@@ -61,7 +61,11 @@ is_instruction = (
     base in ('CLAUDE.md', 'AGENTS.md', 'GEMINI.md',
              '.cursorrules', '.clinerules', '.windsurfrules')
     or base == 'copilot-instructions.md'                        # .github/copilot-instructions.md
-    or ('/.claude/' in norm_path and base.endswith('.md'))     # .claude/**/*.md rules
+    # .claude/**/*.md rules, keyed on the LAST /.claude/ so a git worktree checkout
+    # (<repo>/.claude/worktrees/<wt>/README.md) is not taken for a rules file; the
+    # worktree's own .claude/rules/*.md still matches.
+    or ('/.claude/' in norm_path and base.endswith('.md')
+        and not norm_path.rsplit('/.claude/', 1)[1].startswith('worktrees/'))
     or re.search(r'/\.cursor/rules/.+\.mdc$', norm_path) is not None
 )
 if not (is_memory or is_instruction):
@@ -114,7 +118,9 @@ patterns = (
     (re.compile(r'<function_calls>'),                                                'tool-call injection'),
     (re.compile(r'[​‌‍﻿⁠]'),                                'zero-width chars'),
     # Credential-exfil directive persisted as a "fact" the agent will later act on.
-    (re.compile(r'(send|post|upload|exfiltrate|curl|fetch) .{0,40}(secret|credential|token|api[_ -]?key|password|\.env|/proc/self/environ)'), 'credential-exfil directive'),
+    # \b on the verb: docs naming a guard ("WebFetch url/prompt | ..._SECRET_GUARD")
+    # matched via the `fetch` inside `webfetch`.
+    (re.compile(r'\b(send|post|upload|exfiltrate|curl|fetch) .{0,40}(secret|credential|token|api[_ -]?key|password|\.env|/proc/self/environ)'), 'credential-exfil directive'),
 )
 
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
