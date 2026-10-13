@@ -9,6 +9,11 @@
 # the parity gap on the WebFetch/WebSearch tool channel. Same block/warn classes
 # as mcp-egress-guard (cross-channel parity by design). Fail-open.
 # Disable: SUPERCHARGER_WEBFETCH_EGRESS=0
+#
+# Also DENIES a WebFetch whose url (query string included) or prompt carries a
+# credential — the outbound secret scan shared with mcp-egress-guard
+# (lib_outbound_secret.py, patterns from lib-secret-patterns.sh). Same fork.
+# Disable: SUPERCHARGER_OUTBOUND_SECRET_GUARD=0 (independent of WEBFETCH_EGRESS).
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
@@ -16,14 +21,24 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-egress-patterns.sh
 . "$HOOKS_DIR/lib-egress-patterns.sh"
 
-[ "${SUPERCHARGER_WEBFETCH_EGRESS:-1}" = "0" ] && exit 0
+_EGRESS_ON=1; [ "${SUPERCHARGER_WEBFETCH_EGRESS:-1}" = "0" ] && _EGRESS_ON=0
+_SECRET_ON=1; [ "${SUPERCHARGER_OUTBOUND_SECRET_GUARD:-1}" = "0" ] && _SECRET_ON=0
+[ "$_EGRESS_ON$_SECRET_ON" = "00" ] && exit 0
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 . "${BASH_SOURCE[0]%/*}/lib-stdin.sh"; sc_read_input _INPUT
 
-OUT=$(printf '%s\n' "$_INPUT" | PYTHONUTF8=1 python3 -c "
+OUTBOUND_SECRET_PATTERNS=""
+if [ "$_SECRET_ON" = 1 ]; then
+  # shellcheck source=hooks/lib-secret-patterns.sh
+  . "$HOOKS_DIR/lib-secret-patterns.sh" 2>/dev/null && outbound_secret_gate "$_INPUT"
+fi
+[ "$_EGRESS_ON" = 0 ] && [ -z "$OUTBOUND_SECRET_PATTERNS" ] && exit 0
+
+OUT=$(printf '%s\n' "$_INPUT" | OUTBOUND_SECRET_PATTERNS="$OUTBOUND_SECRET_PATTERNS" EGRESS_ON="$_EGRESS_ON" \
+  HOOKS_DIR="$HOOKS_DIR" PYTHONUTF8=1 python3 -c "
 import os, sys, json, re, urllib.parse
 
 try:
@@ -57,6 +72,21 @@ if isinstance(ti, dict):
         # covered and re-scanning it would double-report.
         ws = ti.get('ws')
         blob = str((ws or {}).get('url') or '') if isinstance(ws, dict) else ''
+
+# Outbound secret scan (WebFetch only): the url, query string included, and the
+# prompt. A key in either leaves the session. Printed as a marker; shell denies.
+if tool == 'WebFetch' and isinstance(ti, dict) and os.environ.get('OUTBOUND_SECRET_PATTERNS'):
+    sys.path.insert(0, os.environ.get('HOOKS_DIR', ''))
+    try:
+        import lib_outbound_secret as los
+        label = los.find([str(ti.get(k)) for k in ('url', 'prompt') if ti.get(k)])
+        if label:
+            print('SECRET\t%s' % label)
+            sys.exit(0)
+    except Exception:
+        pass
+if os.environ.get('EGRESS_ON') == '0':
+    sys.exit(0)
 if not blob:
     sys.exit(0)
 # v2.22.5: percent-decode before matching. The tool decodes the URL before the
@@ -109,6 +139,14 @@ if PRIVATE and re.search(PRIVATE, low):
 " 2>/dev/null)
 
 [ -z "$OUT" ] && exit 0
+case "$OUT" in
+  SECRET$'\t'*)
+    # shellcheck source=hooks/lib-deny.sh
+    . "$HOOKS_DIR/lib-deny.sh"
+    sc_deny "this WebFetch carries a ${OUT#SECRET?} in its url or prompt (value not repeated here). A fetch is outbound, so the credential would leave the session, e.g. in the query string." \
+      "remove the credential from the request. If sending it is intended, set SUPERCHARGER_OUTBOUND_SECRET_GUARD=0"
+    ;;
+esac
 printf '%s\n' "$OUT"
 # A deny envelope must exit 2 so CC blocks the tool (matches every other guard).
 printf '%s' "$OUT" | grep -q '"permissionDecision":[[:space:]]*"deny"' && exit 2

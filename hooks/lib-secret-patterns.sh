@@ -5,6 +5,8 @@
 #   - output-secrets-scanner.sh  (scans tool OUTPUT — Bash/Read)
 #   - commit-guard.sh     (scans the STAGED git diff at commit)
 #   - sendmessage-guard.sh (scans a cross-session message body — SendMessage)
+#   - mcp-egress-guard.sh / webfetch-egress-guard.sh (outbound secret scan of
+#     MCP arguments and WebFetch url/prompt, via lib_outbound_secret.py)
 # ONE list prevents cross-channel parity drift — a secret caught in output but
 # not at commit (or vice-versa) is exactly the divergence this file exists to
 # prevent. Add a pattern here and BOTH channels gain it.
@@ -144,6 +146,25 @@ SECRET_PATTERNS=(
   # assignment — all three still match, the digest line no longer does.
   '(^|[^0-9A-Za-z])[5KL][1-9A-HJ-NP-Za-km-z]{50,51}([^0-9A-Za-z]|$)'
 )
+
+# outbound_secret_gate <raw-json-payload> — fork-free prefilter for the outbound
+# scan (lib_outbound_secret.py). Sets OUTBOUND_SECRET_PATTERNS to the
+# newline-joined list when the payload COULD carry a secret, else to "" so the
+# caller skips the Python import+compile (measured 5-13ms under load).
+# The gate is the same pattern set over the raw payload, a superset of the
+# string values the precise check reads, with two exceptions where JSON text
+# differs from the decoded value: escapes (`\"access_token\"`, `\n5K...`) and
+# percent-encoding. Any backslash or `%` therefore admits the payload unfiltered.
+outbound_secret_gate() {
+  local IFS re
+  OUTBOUND_SECRET_PATTERNS=""
+  case "$1" in
+    *%*|*\\*) ;;
+    *) IFS='|'; re="${SECRET_PATTERNS[*]}"
+       [[ $1 =~ $re ]] || return 0 ;;
+  esac
+  IFS=$'\n'; OUTBOUND_SECRET_PATTERNS="${SECRET_PATTERNS[*]}"
+}
 
 # ledger_redact <text> — sets LEDGER_SAFE to <text> with every secret masked.
 # For the block ledger (scope/.blocked-commands), which records blocked command

@@ -59,6 +59,11 @@ begin_test "a secret in INLINE data is denied as well"
 R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"files\":[{\"path\":\"c/i.js\",\"data\":\"const k='AKIAIOSFODNN7EXAMPLE';\"}]}")
 [ "$R" = "deny" ] && pass || fail "expected deny for inline secret, got $R"
 
+begin_test "a URL with an embedded password in inline data is denied (POSIX space class)"
+_URL=$(printf '%s%s%s' 'postgres://adm' 'in:hunt' 'er2@db.internal:5432/app')
+R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"files\":[{\"path\":\"c/u.js\",\"data\":\"const db='$_URL';\"}]}")
+[ "$R" = "deny" ] && pass || fail "expected deny, got $R"
+
 begin_test "the leaky file is found even when it is not the first entry"
 # An early clean file must not short-circuit the scan.
 R=$(_decide "{\"method\":\"write_files\",\"planId\":\"p1\",\"localDir\":\"$WORK_N\",\"files\":[{\"path\":\"a\",\"localPath\":\"clean.js\"},{\"path\":\"b\",\"localPath\":\"leaky.js\"}]}")

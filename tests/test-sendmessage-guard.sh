@@ -46,6 +46,13 @@ begin_test "an AWS key in the message body is denied"
 [ "$(send worker 'use this key AKIAIOSFODNN7EXAMPLE to fetch the bucket')" = "deny" ] \
   && pass || fail "credential left the session"
 
+begin_test "a URL with an embedded password is denied (pattern uses a POSIX space class)"
+# The shared patterns are bash ERE; python re reads [[:space:]] as literal
+# characters, so this pattern never matched on this channel until translated.
+_URL=$(printf '%s%s%s' 'postgres://adm' 'in:hunt' 'er2@db.internal:5432/app')
+[ "$(send worker "connect with $_URL")" = "deny" ] \
+  && pass || fail "URL credentials left the session"
+
 begin_test "a GitHub token is denied"
 [ "$(send worker 'token ghp_aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa go ahead')" = "deny" ] \
   && pass || fail "credential left the session"
