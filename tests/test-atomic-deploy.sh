@@ -25,7 +25,7 @@ left=$(find "$D" -name '.stage.*' | head -3)
 [ -z "$left" ] && pass || fail "leftover: $left"
 
 begin_test "atomic deploy: modes kept (hooks and tools 700)"
-m() { stat -f %Lp "$1" 2>/dev/null || stat -c %a "$1"; }
+m() { stat -c %a "$1" 2>/dev/null || stat -f %Lp "$1"; }
 [ "$(m "$D/hooks/typecheck.sh")" = 700 ] && [ "$(m "$D/tools/update.sh")" = 700 ] && pass || fail "modes: $(m "$D/hooks/typecheck.sh") $(m "$D/tools/update.sh")"
 
 begin_test "atomic deploy: a reader during redeploys never sees a partial hook"
