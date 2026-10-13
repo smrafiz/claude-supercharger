@@ -96,7 +96,6 @@ esac
 COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
 
 if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
-  echo "[Supercharger] output-secrets-scanner: SECRET DETECTED in tool output — warning Claude" >&2
   MSG='[SECURITY] Tool output contains what appears to be a secret/credential. Do NOT repeat, log, or include this value in your response. Refer to it generically (e.g., "the API key") without showing the actual value.'
   MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
   printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "$HOOK_SUPPRESS"
@@ -117,15 +116,66 @@ if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   # read back by a diagnostic command, and a scanner that guards against
   # credentials reaching the transcript must not spool them to disk itself.
   _OSS_IDX=""
+  _OSS_HIT=""
   _OSS_I=0
   for _oss_p in "${SECRET_PATTERNS[@]}"; do
     if printf '%s\n' "$OUTPUT" | LC_ALL=C grep -qE "$_oss_p" 2>/dev/null; then
       _OSS_IDX="${_OSS_IDX:+$_OSS_IDX,}$_OSS_I"
+      _OSS_HIT="$_OSS_HIT$_oss_p"$'\n'
     fi
     _OSS_I=$((_OSS_I + 1))
   done
-  printf 'secrets pattern=%s of %s\n' "${_OSS_IDX:-unknown}" "${#SECRET_PATTERNS[@]}" \
+  # The breadcrumb is keyed by session_id, which a subagent's hooks share with the
+  # parent, so a subagent's hit lands on the parent's statusline. Say so.
+  _OSS_SRC=""
+  case "$_INPUT" in *'"agent_id"'*) _OSS_SRC=" source=subagent" ;; esac
+  printf 'secrets pattern=%s of %s%s\n' "${_OSS_IDX:-unknown}" "${#SECRET_PATTERNS[@]}" "$_OSS_SRC" \
     > "$SCOPE_DIR/.scan-alert-${SID}" 2>/dev/null || true
+
+  # Attribution. This hook is asyncRewake: on exit 2 the ONLY thing Claude Code
+  # delivers is stderr, framed as `Stop hook blocking error from command
+  # "PostToolUse:Bash"` (the systemMessage above is ignored for async hooks, see
+  # docs/HOOK_AUTHORING.md "Async hooks cannot steer anything"), and a rewake
+  # raised inside a subagent wakes the PARENT. The old fixed line named no tool,
+  # command, pattern or source, so a fake fixture key printed by a background
+  # subagent's test run read as the parent's own blocking error (8x in one session,
+  # 2026-10-12/13). Name all four. Labels come from the pattern TEXT
+  # (lib_outbound_secret._LABELS), and the command prefix is redacted with the same
+  # pattern set BEFORE it is cut, so a secret can never be half-shown.
+  _OSS_LINE=$(printf '%s' "$_INPUT" | OSS_HIT="$_OSS_HIT" OSS_ALL="$(IFS=$'\n'; echo "${SECRET_PATTERNS[*]}")" \
+    HOOKS_DIR="$HOOKS_DIR" python3 -c '
+import json, os, re, sys
+sys.path.insert(0, os.environ["HOOKS_DIR"])
+import lib_outbound_secret as los
+d = json.load(sys.stdin)
+tool = str(d.get("tool_name") or "tool")
+ti = d.get("tool_input") if isinstance(d.get("tool_input"), dict) else {}
+subj = ""
+if not tool.startswith("mcp__"):
+    for k in ("command", "file_path", "url", "query"):
+        if isinstance(ti.get(k), str) and ti[k]:
+            subj = ti[k]
+            break
+subj = " ".join(subj[:2000].split())
+for rx, _ in los._compile(os.environ.get("OSS_ALL", "")) + [(re.compile(r"[A-Fa-f0-9]{32,}"), "")]:
+    subj = rx.sub("[REDACTED]", subj)
+if len(subj) > 60:
+    subj = subj[:60] + "..."
+labels = []
+for _, l in los._compile(os.environ.get("OSS_HIT", "")):
+    if l not in labels:
+        labels.append(l)
+src = ""
+if d.get("agent_id"):
+    at = re.sub(r"[^A-Za-z0-9_.:-]", "", str(d.get("agent_type") or ""))[:40]
+    src = ", from a subagent" + (" (%s)" % at if at else "")
+print("[Supercharger] output-secrets-scanner (warning, nothing was blocked): %s output%s matched %s%s. "
+      "Do not repeat, log or quote the value; refer to it generically. "
+      "If it is a test fixture, carry on." % (
+          tool, (" of `%s`" % subj) if subj else "", ", ".join(labels) or "a secret pattern", src))
+' 2>/dev/null) || _OSS_LINE=""
+  [ -n "$_OSS_LINE" ] || _OSS_LINE="[Supercharger] output-secrets-scanner (warning, nothing was blocked): tool output contains a secret-shaped value. Do not repeat, log or quote it."
+  printf '%s\n' "$_OSS_LINE" >&2
   exit 2
 fi
 

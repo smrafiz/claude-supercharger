@@ -1,6 +1,7 @@
 # Claude Supercharger — outbound secret scan (shared)
 # Imported by mcp-egress-guard.sh (MCP tool arguments) and webfetch-egress-guard.sh
-# (WebFetch url/prompt). Denies a call that would carry a credential OUT of the
+# (WebFetch url/prompt), and by output-secrets-scanner.sh on a hit (labels and
+# command-prefix redaction for its alert line). Denies a call that would carry a credential OUT of the
 # session — the "GhostSplice" shape, where a malicious MCP server's output tells
 # the agent to pass a key back as a tool argument.
 #
