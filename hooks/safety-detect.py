@@ -514,6 +514,10 @@ def check_sensitive_read(c: str) -> str | None:
     # as a path (sensitive file access: .env). The same cut hid every real file
     # argument after a quoted `|`. A lone unmatched quote is consumed as a char.
     for m in re.finditer(READER + _READER_ARGS, c):
+        # v4.3.6: grep -c/-q/-l prints a count, a status or a filename, never a
+        # value. See _segment_prints_nothing (shared with check_env_file).
+        if m.group("tool") in ("grep", "egrep", "fgrep") and _segment_prints_nothing(m.group(0)):
+            continue
         args = m.group(2)
         if m.group("tool") in _PATTERN_READERS:
             # BSD `sed -i ''`: the empty string is -i's backup suffix, not the script.
@@ -781,6 +785,87 @@ _ENV_SELF_CONTAINED = [
 ]
 
 
+# v4.3.6: the reader regex `<reader>.*\.env` ran over the WHOLE command, so its
+# `.*` crossed `&&`/`;`: `sed -i ... a.ts && bun --env-file=<dotenv> x.ts` paired
+# a reader in one segment with the name in another. Matching is now per segment.
+# Split outside quotes only: `grep -E 'A|B' <dotenv>` is one segment. Unbalanced
+# quotes return the whole command (fail toward MORE scanning).
+# Keep in sync with hooks/env-file-detect.py.
+def _env_segments(c: str) -> list:
+    segs, cur, q, esc = [], [], None, False
+    for ch in c:
+        if esc:
+            esc = False
+        elif ch == "\\" and q != "'":
+            esc = True
+        elif q:
+            if ch == q:
+                q = None
+        elif ch in "'\"":
+            q = ch
+        elif ch in ";&|\n":
+            segs.append("".join(cur))
+            cur = []
+            continue
+        cur.append(ch)
+    if q:
+        return [c]
+    segs.append("".join(cur))
+    return segs
+
+
+_ENV_NAME_ONLY_RE = re.compile(r"[\w-]*\.env(\.[\w-]+)?")
+
+
+def _segment_prints_nothing(seg: str) -> bool:
+    """True when a segment touches the dotenv without printing its values:
+    grep -c/-q/-l/-L (no -o), or cp/mv into another dotenv-named file locally.
+    A substitution executes, so a segment carrying one is never exempt.
+    Known ceiling: -q/-c are an exit-status oracle (one probe per guess); the
+    dotenv rules exist to keep VALUES out of the transcript, which they still do."""
+    if "$(" in seg or "`" in seg or "<(" in seg:
+        return False
+    try:
+        toks = shlex.split(seg)
+    except ValueError:
+        return False
+    while toks and re.match(r"^[A-Za-z_]\w*=", toks[0]):
+        toks = toks[1:]
+    if not toks:
+        return False
+    cmd = os.path.basename(toks[0].lstrip("("))
+    if cmd in ("grep", "egrep", "fgrep"):
+        quiet = printing = False
+        for t in toks[1:]:
+            if t == "--":
+                break
+            if t.startswith("--"):
+                name = t.split("=", 1)[0]
+                quiet |= name in ("--count", "--quiet", "--silent",
+                                  "--files-with-matches", "--files-without-match")
+                printing |= name == "--only-matching"
+            elif t.startswith("-"):
+                for ch in t[1:]:
+                    if ch in "cqlL":
+                        quiet = True
+                    elif ch == "o":
+                        printing = True
+                    elif ch in "efmABCdD":   # rest of the cluster is that flag's value
+                        break
+        return quiet and not printing
+    if cmd in ("cp", "mv"):
+        flags = [t for t in toks[1:] if t.startswith("-")]
+        ops = [t for t in toks[1:] if not t.startswith("-")]
+        if any(f.startswith("--target") or (not f.startswith("--") and "t" in f) for f in flags):
+            return False
+        if len(ops) < 2 or ":" in ops[-1]:
+            return False
+        dest = os.path.basename(ops[-1])
+        # A template is committed; copying secrets INTO one is the leak itself.
+        return bool(_ENV_NAME_ONLY_RE.fullmatch(dest)) and not dest.endswith(_SAFE_TEMPLATES)
+    return False
+
+
 def check_env_file(c: str) -> str | None:
     # Metadata text is prose, not a path -- see _strip_metadata_text. Sibling of
     # the same fix in check_sensitive_read; both carried the identical defect.
@@ -808,9 +893,12 @@ def check_env_file(c: str) -> str | None:
     if not flagged:
         return None
 
-    for pat in _ENV_READ_WRITE_PREFIXES:
-        if re.search(pat + r".*\.env\b", c, re.IGNORECASE):
-            return f".env file access ({flagged[0]}) — credentials likely present"
+    for seg in _env_segments(c):
+        if _segment_prints_nothing(seg):
+            continue
+        for pat in _ENV_READ_WRITE_PREFIXES:
+            if re.search(pat + r".*\.env\b", seg, re.IGNORECASE):
+                return f".env file access ({flagged[0]}) — credentials likely present"
     for pat in _ENV_SELF_CONTAINED:
         if re.search(pat, c, re.IGNORECASE):
             return f".env file access ({flagged[0]}) — credentials likely present"
@@ -869,8 +957,13 @@ _NETWORK_UPLOADS = [
 # v2.9.16: DNS-as-channel via a normal resolver tool (dig/nslookup/host/drill) —
 # only when paired with an encoding/secret payload, so plain `dig example.com`
 # stays allowed. (from efij Stallion)
-_DNS_RESOLVER_TOOLS = r"(?:^|[\s;&|])(?:dig|nslookup|host|drill)\b"
-_DNS_EXFIL_PAYLOAD = r"(?:base64|base32|xxd|openssl\s+enc|\$\((?:cat|printenv|env|whoami|hostname)|\.env\b|id_rsa)"
+# v4.3.6: the resolver must be in COMMAND position (segment start, `$(`, backtick,
+# new line). `[\s]` before it matched the WORD `host` in code and commit prose,
+# and `process.env` / the .example template counted as the dotenv payload; both
+# are excluded the way _SENSITIVE_NAME_RE excludes them.
+_DNS_RESOLVER_TOOLS = r"(?:^|[;&|(`\n])\s*(?:dig|nslookup|host|drill)\b"
+_DNS_EXFIL_PAYLOAD = (r"(?:base64|base32|xxd|openssl\s+enc|\$\((?:cat|printenv|env|whoami|hostname)"
+                      r"|(?<!process)(?<!meta)\.env\b(?!\.(?:example|template|sample|dist)\b)|id_rsa)")
 
 
 def check_exfiltration(c: str) -> str | None:

@@ -126,9 +126,81 @@ SELF_CONTAINED = [
     r">>\s*\.env\b",
 ]
 
+# v4.3.6: reader matching is per SEGMENT (the `.*` used to cross `&&`/`;`), and
+# a segment that prints no value -- grep -c/-q/-l, cp/mv into another dotenv --
+# is exempt. Keep in sync with _env_segments / _segment_prints_nothing in
+# hooks/safety-detect.py (same code; see the rationale there).
+def _env_segments(c):
+    segs, cur, q, esc = [], [], None, False
+    for ch in c:
+        if esc:
+            esc = False
+        elif ch == "\\" and q != "'":
+            esc = True
+        elif q:
+            if ch == q:
+                q = None
+        elif ch in "'\"":
+            q = ch
+        elif ch in ";&|\n":
+            segs.append("".join(cur))
+            cur = []
+            continue
+        cur.append(ch)
+    if q:
+        return [c]
+    segs.append("".join(cur))
+    return segs
+
+
+def _segment_prints_nothing(seg):
+    if "$(" in seg or "`" in seg or "<(" in seg:
+        return False
+    try:
+        toks = shlex.split(seg)
+    except ValueError:
+        return False
+    while toks and re.match(r"^[A-Za-z_]\w*=", toks[0]):
+        toks = toks[1:]
+    if not toks:
+        return False
+    tool = os.path.basename(toks[0].lstrip("("))
+    if tool in ("grep", "egrep", "fgrep"):
+        quiet = printing = False
+        for t in toks[1:]:
+            if t == "--":
+                break
+            if t.startswith("--"):
+                name = t.split("=", 1)[0]
+                quiet |= name in ("--count", "--quiet", "--silent",
+                                  "--files-with-matches", "--files-without-match")
+                printing |= name == "--only-matching"
+            elif t.startswith("-"):
+                for ch in t[1:]:
+                    if ch in "cqlL":
+                        quiet = True
+                    elif ch == "o":
+                        printing = True
+                    elif ch in "efmABCdD":
+                        break
+        return quiet and not printing
+    if tool in ("cp", "mv"):
+        flags = [t for t in toks[1:] if t.startswith("-")]
+        ops = [t for t in toks[1:] if not t.startswith("-")]
+        if any(f.startswith("--target") or (not f.startswith("--") and "t" in f) for f in flags):
+            return False
+        if len(ops) < 2 or ":" in ops[-1]:
+            return False
+        dest = os.path.basename(ops[-1])
+        return bool(re.fullmatch(r"[\w-]*\.env(\.[\w-]+)?", dest)) and not dest.endswith(SAFE_TEMPLATES)
+    return False
+
+
 triggered = False
-for pat in READ_WRITE_PREFIXES:
-    if re.search(pat + r".*\.env\b", cmd, re.IGNORECASE):
+for seg in _env_segments(cmd):
+    if _segment_prints_nothing(seg):
+        continue
+    if any(re.search(pat + r".*\.env\b", seg, re.IGNORECASE) for pat in READ_WRITE_PREFIXES):
         triggered = True
         break
 
