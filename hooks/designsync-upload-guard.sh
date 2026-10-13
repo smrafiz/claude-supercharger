@@ -103,6 +103,9 @@ for p in (os.environ.get('PATTERNS') or '').splitlines():
     p = p.strip()
     if not p:
         continue
+    # bash ERE POSIX classes mean nothing to python re; translate them
+    for _k, _v in (('[:space:]', r'\s'), ('[:digit:]', '0-9'), ('[:alnum:]', 'A-Za-z0-9'), ('[:alpha:]', 'A-Za-z'), ('[:upper:]', 'A-Z'), ('[:lower:]', 'a-z'), ('[:xdigit:]', '0-9A-Fa-f')):
+        p = p.replace(_k, _v)
     try:
         pats.append(re.compile(p))
     except re.error:
