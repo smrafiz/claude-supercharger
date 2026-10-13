@@ -58,7 +58,7 @@ check_hook_disabled "editor-config-guard" 2>/dev/null && exit 0
 hook_profile_skip "editor-config-guard" 2>/dev/null && exit 0
 
 _EC_OUT=$(mktemp 2>/dev/null) || _EC_OUT="${TMPDIR:-/tmp}/editorcfg.$$"
-HOOK_INPUT="$_INPUT" python3 > "$_EC_OUT" 2>/dev/null <<'PYEOF'
+HOOK_INPUT="$_INPUT" HOOKS_DIR="$HOOKS_DIR" python3 > "$_EC_OUT" 2>/dev/null <<'PYEOF'
 import os, re, sys, json
 
 try:
@@ -96,7 +96,15 @@ reason = None
 
 # 1. VS Code tasks / workspace set to auto-run on folder open.
 if re.search(r'(^|/)\.vscode/tasks\.json$', norm) or re.search(r'\.code-workspace$', norm):
-    if re.search(r'"?folderOpen"?', content):
+    # Shared with file-watcher's mid-session rescan (lib_config_checks); the inline
+    # bare-key test is the fallback if the lib is missing, never a silent pass.
+    sys.path.insert(0, os.environ.get("HOOKS_DIR", ""))
+    try:
+        from lib_config_checks import folder_open_tasks
+        _auto = bool(folder_open_tasks(content))
+    except Exception:
+        _auto = bool(re.search(r'"?folderOpen"?', content))
+    if _auto:
         reason = ("a task set to auto-run on folder open (runOn: folderOpen) — it "
                   "executes its command the next time this folder is opened")
 

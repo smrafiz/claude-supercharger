@@ -555,7 +555,7 @@ get_hooks_for_mode() {
     # regex wildcard here, harmless because only watched paths can fire. Sync, because
     # the systemMessage of an async hook is dropped. config-scan adds the git-root
     # copies of these files via SessionStart watchPaths (subdir launches).
-    hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md|${hooks_dir}/file-watcher.sh|")
+    hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md,tasks.json,.vscode/tasks.json|${hooks_dir}/file-watcher.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")

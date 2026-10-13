@@ -1669,7 +1669,7 @@
             "timeout": 15
           }
         ],
-        "matcher": ".env|.envrc|package.json|settings.json|.claude/settings.json|settings.local.json|.claude/settings.local.json|.mcp.json|.supercharger.json|CLAUDE.md"
+        "matcher": ".env|.envrc|package.json|settings.json|.claude/settings.json|settings.local.json|.claude/settings.local.json|.mcp.json|.supercharger.json|CLAUDE.md|tasks.json|.vscode/tasks.json"
       }
     ],
     "PreModelSwitch": [
