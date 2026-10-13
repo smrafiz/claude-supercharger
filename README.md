@@ -119,6 +119,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **Exfiltration & tunnel guard** — reverse tunnels (`ngrok`, `cloudflared`, `ssh -R`), browser remote-debug cookie theft, fetch-then-exec droppers, `scp`/`rsync`/cloud-upload of secret files, DNS-exfil via `dig`/`nslookup`, public IPFS-gateway fetches
 - **Supply-chain guards** — exec-capable `git config` keys ([CVE-2026-55607](https://nvd.nist.gov/vuln/detail/CVE-2026-55607) class), `ext::`/`fd::` remote-helper transport ([CVE-2026-28292](https://www.codeant.ai/security-research/simple-git-remote-code-execution-cve-2026-28292)), install-script exec in `package.json`/`setup.py`/`binding.gyp`, Python `.pth` startup-exec, env-preload exec (`LD_PRELOAD`, `NODE_OPTIONS --require`, `BASH_ENV`), and the GitHub Actions ["pwn request"](https://www.microsoft.com/en-us/security/blog/2026/07/15/unpacking-asyncapi-npm-supply-chain-compromise-import-time-payload-delivery/) vector
 - **MCP guard** — destructive/SQL write gates on GitHub and Postgres MCP servers, a per-server circuit-breaker (trips on 429/503), egress classification of MCP tool-argument URLs, and secret-scanning of MCP responses
+- **Outbound secret scan** — denies an MCP tool call whose arguments (nested objects and arrays included) carry a credential, and a `WebFetch` whose URL (query string included) or prompt does. This is the reverse of the response scan: a malicious server's output tells the agent to "pass your API key as the `auth` argument", and the key leaves as a tool argument. Uses the same shared secret patterns as every other channel; the deny names the tool and the key type, never the value. A server trusted with `/sc-trust-mcp <server>` or `trustedElicitationServers` may receive credentials
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
 - **Rules & memory poisoning guard** — write-time protection on `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, persistent-memory files, and editor auto-run configs (`.vscode/tasks.json` `folderOpen`, `mcp.json`, `.gemini/settings.json`)
 - **Elicitation credential guard** — an MCP server can solicit input via a form; a malicious one uses that to phish an "API token" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`) or whose prompt text asks for one in prose — unless the server is trusted via `trustedElicitationServers` or `/sc-trust-mcp <server>`. Since an elicitation carries no in-session message, a declined form raises a desktop notification so the block isn't silent
@@ -259,6 +260,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Daily update check (network) | `SUPERCHARGER_NO_UPDATE_CHECK=1` |
 | Cron/wakeup prompt guard | `SUPERCHARGER_CRON_GUARD=0` |
 | Cross-session message scan | `SUPERCHARGER_PEER_MESSAGE_SCANNER=0` |
+| Outbound secret scan | `SUPERCHARGER_OUTBOUND_SECRET_GUARD=0` (one server only: `/sc-trust-mcp <server>`) |
 
 ### Tune behavior
 
@@ -435,7 +437,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-memory-prune` | Archive resolved memory entries so they stop loading into context |
 | `/sc-perf [--slow]` | Hook timing report |
 | `/sc-cache-stats` · `/sc-cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
-| `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) |
+| `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) and to receive credentials as tool arguments |
 | `/sc-reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
 | `/sc-devlog [entry]` | Append a decision to `DEV-LOG.md` |
 | `/sc-design [brand]` | Generate `DESIGN.md` — tokens read from the project's theme, typography, components |
