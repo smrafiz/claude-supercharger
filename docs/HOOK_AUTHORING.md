@@ -806,3 +806,28 @@ deny case per new rule in the tests.
 Replacing quoted text with a space changed what the remaining text meant: `cut -d'"'`
 became `cut -d `, which the network-upload rule reads as `curl -d `. Blanking must keep
 token boundaries; use a placeholder (`_Q_`) so flags keep their operands.
+
+### Install files by rename, never by copying over them
+
+`cp` onto an installed hook truncates it and writes it again in place. Bash reads a
+script while it runs it, so a hook that fires during an update can read half a file:
+`typecheck.sh` failed with "syntax error near unexpected token `|`" during the 4.3.6
+update, and `bash -n` was clean a minute later. A reader looping during six redeploys
+saw a partial file 151 times in 1194 reads. Copy into a staging directory and `mv` it
+into place (`_swap_into` in `lib/hooks.sh`): a rename swaps the file whole.
+
+### Say who an async alert is about
+
+An `asyncRewake` hook reaches Claude only through stderr, framed as `Stop hook blocking
+error from command "PostToolUse:<tool>"`, and an alert raised inside a subagent wakes
+the parent. A fixed line ("SECRET DETECTED") reads as the parent's own failure when it
+came from a subagent printing a test fixture. Name the tool, a redacted prefix of the
+command, what matched, and whether a subagent raised it. Redact before you truncate,
+or the cut can leave half a secret showing.
+
+### PR CI does not run the Windows job
+
+The Windows job runs on master only. A test that assumes a Unix path in a reason, or
+that `ln -s` makes a link, passes on the PR and breaks master: on Git Bash the reason
+prints `C:\...` and `ln -s` makes a copy. Match a path by a name you control, and skip a
+symlink case when `[ -L ]` says none was made.
