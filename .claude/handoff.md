@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-12 (evening), session `3d213381`.*
+*Verified 2026-10-13, session `3d213381`.*
 
-- **Released: v4.3.5** (installed on Machine A). master = `11cb752`, no open PRs at writing.
-- **In flight (agent-built, worktrees under `.claude/worktrees/`):** `fix/436-security-gaps`
-  (ArtifactData file_path/str_replace secret bypass, Windows `rm -rf \` + `X~1` home alias,
-  ExitWorktree discard ask, `~/.mcp-auth/`) and `fix/fp-env-dns-narrowing` (~31 real-work FPs
-  from check_env_file + dig/host rule). Plan: review → merge ONE AT A TIME → release 4.3.6.
-  FP PR merges only if all must-still-block tests pass.
-- **Parked research:** memory `candidate-features-2026-10-12` (GhostSplice, Chaindrop, GitSpawn).
+- **Released: v4.3.8** (11:13Z). Installed v4.3.8 on Machine A. master = `b41d00e` (#128 merged).
+- **In flight:** 4.3.9 = #128 (install hooks/tools/lib by staging + rename; fixes torn-hook
+  syntax errors during updates). Machine A job: `~/.cache/sc-finish-4.3.9.sh` → `.result`.
+- **Open PR:** #129 docs (HOOK_AUTHORING notes + this carry file). Merge after 4.3.9 promotes.
+- **Gap found, unbuilt:** shell-outs inside perl/python heredocs pass safety.sh (memory
+  `candidate-features-2026-10-12`).
 - **Unverified:** `!` commands in a fresh interactive session.
 - **Release recipe:** one detached finish job + ONE completion notice ("do not monitor").
-  Merge PRs one at a time — a double merge cancelled HEAD's CI (4.3.5).
-- **Machine A:** 4 stashes + extra worktrees; drop only on user's say-so.
+  Merge one at a time; never edit the main checkout while a job runs (release.sh `git add -A`);
+  PR CI skips Windows — only master CI catches Windows breakage.
+- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5 + locked agent-aa4f…; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
@@ -44,6 +44,11 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-10-13 (deep) — 3d213381
+Released 4.3.6, 4.3.7 (GitSpawn/Chaindrop/GhostSplice), 4.3.8 (secret-alert attribution, six FPs);
+4.3.9 (install-by-rename) in flight. 4.3.7 needed a retry: PR CI skips Windows.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-13 deep)
 
 #### 2026-10-12 (deep) — 3d213381
 4-track research sweep (coverage, upstream tracker, new attacks, own FP ledger); two agent
