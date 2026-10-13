@@ -68,7 +68,7 @@ if [ -z "$_gce_pd" ]; then
   case "$_INPUT" in *"-C"*|*--git-dir*|*GIT_DIR*|*"cd "*|*pushd*) _GCE_AWAY=1 ;; esac
 else
   . "${BASH_SOURCE[0]%/*}/lib-json-fast.sh"
-  _json_get _GCE_CWD cwd "$_INPUT" '.cwd // empty'
+  _json_get _GCE_CWD cwd "$_INPUT" '.cwd // .workspace.current_dir // empty'
   _gce_in "$_GCE_CWD" || _GCE_AWAY=1
   if [ "$_GCE_AWAY" = 0 ]; then
     case "$_INPUT" in
@@ -196,11 +196,14 @@ try:
     payload = json.loads(os.environ.get("HOOK_INPUT", ""))
 except Exception:
     payload = {}
-home = os.environ.get("HOME") or os.path.expanduser("~")
-here = os.path.realpath(_msys(payload.get("cwd") or os.getcwd()))
+home = _msys(os.environ.get('HOME') or os.path.expanduser('~'))
+here = os.path.realpath(_msys(payload.get("cwd") or (payload.get("workspace") or {}).get("current_dir") or os.getcwd()))
 
 def res(p, base):
-    p = _msys(os.path.expanduser(os.path.expandvars(p)))
+    p = os.path.expandvars(p)
+    if p == "~" or p.startswith("~/"):
+        p = home + p[1:]
+    p = _msys(p)
     return os.path.realpath(p if os.path.isabs(p) else os.path.join(base, p))
 
 def find_repo(start):

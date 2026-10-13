@@ -102,7 +102,8 @@ check "linked worktree of the project"     "cd wt && git status"                
 check "payload cwd is project worktree"    "git status"                                  ALLOW "$P/wt"
 
 begin_test "missing lib asks instead of passing silently"
-HC=$(mktemp -d); cp "$REPO_DIR"/hooks/git-config-exec-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$HC/"
+HC=$(mktemp -d)
+cp "$REPO_DIR"/hooks/git-config-exec-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$HC/"
 mkin "$T/nl.json" "git -C $T/fsm status" "$P"
 HOME="$H" CLAUDE_PROJECT_DIR="$P" SUPERCHARGER_STATE="$(mktemp -d)" bash "$HC/git-config-exec-guard.sh" < "$T/nl.json" > "$T/o" 2>/dev/null
 grep -q '"ask"' "$T/o" && grep -q 'lib_config_checks' "$T/o" && pass || fail "no ask without lib: $(cat "$T/o")"
