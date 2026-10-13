@@ -211,7 +211,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   # trailing slash makes a path that ENDS at the directory match too.
   if [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; then
     case "$FILE_PATH/" in
-      */.ssh/*|*/.gnupg/*|*/.aws/*|*/.docker/*|*/.kube/*|*/.config/gcloud/*|*/.config/gh/*)
+      */.ssh/*|*/.gnupg/*|*/.aws/*|*/.docker/*|*/.kube/*|*/.config/gcloud/*|*/.config/gh/*|*/.mcp-auth/*)
         block "Search of a credential directory blocked ($FILE_PATH) — .ssh/.gnupg/.aws hold key material regardless of file name" "$FILE_PATH" ;;
     esac
   fi
@@ -285,8 +285,9 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
     # v4.2.0: AI-agent token stores, a current infostealer target (Gen Digital,
     # Sept 2026). .credentials.json missed the basename arm by its leading dot.
+    # #436: ~/.mcp-auth/ is mcp-remote's OAuth token cache (whole directory).
     */.claude/.credentials.json|*/.gemini/oauth_creds.json|*/.config/github-copilot/apps.json|\
-    */.config/github-copilot/hosts.json|*/opencode/auth.json)
+    */.config/github-copilot/hosts.json|*/opencode/auth.json|*/.mcp-auth/*)
       block "Read of AI-agent token store blocked" "$FILE_PATH" ;;
     # MCP configs hold server commands AND often API keys in env blocks: ask.
     */.cursor/mcp.json|*/.codeium/windsurf/mcp_config.json|*/claude_desktop_config.json)

@@ -99,6 +99,7 @@ release.keystore
 .ssh/github_ci
 .gnupg/secring.gpg
 .aws/sso-cache.json
+.mcp-auth/mcp-remote-0.1.29/abc_tokens.json
 credentials.toml
 secrets.yaml
 credentials.json

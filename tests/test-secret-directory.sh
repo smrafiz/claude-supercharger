@@ -48,6 +48,9 @@ done <<'CASES'
 /home/u/.ssh/work_ed25519|deny
 /home/u/.gnupg/secring.gpg|deny
 /home/u/.aws/sso-cache.json|deny
+# #436: mcp-remote's OAuth token cache (Read-channel parity: env-file-guard)
+/home/u/.mcp-auth/mcp-remote-0.1.29/abc123_tokens.json|deny
+~/.mcp-auth/mcp-remote-0.1.29/abc123_tokens.json|deny
 # --- the standard names must still be caught (no regression) ---
 /home/u/.ssh/id_rsa|deny
 /home/u/.aws/credentials|deny

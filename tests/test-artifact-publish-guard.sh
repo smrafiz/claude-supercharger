@@ -363,4 +363,34 @@ begin_test "ShareOnboardingGuide: no local guide (has_existing) is allowed"
 sog check; [ "$RC" -eq 0 ] && pass || fail "rc=$RC"
 rm -rf "$_SOG_TD"
 
+# --- #436: ArtifactData channels that bypassed the inline-`data` scan ----------
+# Inline `data` with a key was denied, but str_replace (`new_str`), set/update via
+# `file_path`, and batch writes[] entries via `file_path` all returned 0.
+_AD_TD=$(mktemp -d)
+printf '{"k":"%s"}\n' "$AWS_ID" > "$_AD_TD/doc.json"
+printf '{"k":"fine"}\n' > "$_AD_TD/clean.json"
+_ad_rc() { # tool_input json -> guard rc
+  printf '{"tool_name":"ArtifactData","cwd":"%s","tool_input":%s}' "$_AD_TD" "$1" \
+    | bash "$GUARD" >/dev/null 2>&1; echo $?
+}
+# Payloads go into variables first: bash 3.2 mis-parses \" inside "$( )".
+_AD_SR='{"action":"str_replace","url":"u","collection":"c","doc_id":"d","field":"f","old_str":"x","new_str":"'"$AWS_ID"'"}'
+_AD_BATCH='{"action":"batch","url":"u","writes":[{"op":"set","collection":"c","doc_id":"a","data":{"k":1}},{"op":"set","collection":"c","doc_id":"d","file_path":"doc.json"}]}'
+begin_test "ArtifactData str_replace: DENY a key in new_str"
+[ "$(_ad_rc "$_AD_SR")" = "2" ] && pass || fail "new_str not scanned"
+for _ada in set update; do
+  begin_test "ArtifactData $_ada: DENY a key inside file_path JSON"
+  _AD_P='{"action":"'"$_ada"'","url":"u","collection":"c","doc_id":"d","file_path":"'"$_AD_TD"'/doc.json"}'
+  [ "$(_ad_rc "$_AD_P")" = "2" ] && pass || fail "file_path not scanned"
+done
+begin_test "ArtifactData batch: DENY a key inside a writes[] file_path"
+[ "$(_ad_rc "$_AD_BATCH")" = "2" ] && pass || fail "writes[].file_path not scanned"
+begin_test "ArtifactData: clean str_replace / file_path / batch are allowed"
+_R1=$(_ad_rc '{"action":"str_replace","url":"u","collection":"c","doc_id":"d","field":"f","old_str":"x","new_str":"y"}')
+_AD_P='{"action":"set","url":"u","collection":"c","doc_id":"d","file_path":"'"$_AD_TD"'/clean.json"}'
+_R2=$(_ad_rc "$_AD_P")
+_R3=$(_ad_rc '{"action":"batch","url":"u","writes":[{"op":"set","collection":"c","doc_id":"d","file_path":"clean.json"}]}')
+[ "$_R1$_R2$_R3" = "000" ] && pass || fail "clean writes blocked: $_R1 $_R2 $_R3"
+rm -rf "$_AD_TD"
+
 report
