@@ -6,16 +6,19 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-14, session `3d213381`.*
 
-- **Released: v4.3.10** (2026-10-14 06:34Z). Installed v4.3.10 on Machine A. master = `f870306`.
-  4.3.9 = #128 install-by-rename (torn hooks) + #130 + #129 docs; 4.3.10 = #131 heredoc shell-outs.
-- **In flight:** fp-batch-3 PR (`api_key=os.environ[...]`/`getenv`/`process.env`/`ENV[` no longer
-  read as an embedded credential). Ships as 4.3.11.
-- **README:** user decided the existing README stays. A restructure (#132) was closed unmerged.
+- **Released: v4.3.11** (fp-batch-3, #133). Installed v4.3.11 on Machine A. master = `d06b268` (#134 merged 11:42Z).
+- **In flight:** 4.3.12 = #134 (ask before a command leaves the sandbox, autopilot cannot skip it; ask on a
+  `$schema` URL carrying data; ask on editor settings pointing at a binary). Machine A job
+  `~/.cache/sc-finish-4.3.12.sh` → `.result`.
+- **Open PR:** docs/eng-notes-2026-10-14 (HOOK_AUTHORING notes + this file). Merge after 4.3.12 promotes.
+- **Next candidates:** memory `research-2026-10-14-perf-tokens-guards` (ConfigChange block, dependency-confusion
+  install flags, `if` field on bookkeeping hooks, idle-machine timing re-run).
+- **README:** user decided the existing README stays (#132 closed).
 - **Unverified:** `!` commands in a fresh interactive session.
-- **Release recipe:** one detached finish job + ONE completion notice ("do not monitor").
-  Merge one at a time; never edit the main checkout while a job runs (release.sh `git add -A`);
-  PR CI skips Windows — only master CI catches Windows breakage.
-- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes + locked
+- **Release recipe:** one detached finish job + ONE completion notice ("do not monitor"). Merge one at a time;
+  never edit the main checkout while a job runs; the job's `gh pr merge --delete-branch` deletes the PR's
+  worktree, so finish local runs first. PR CI skips Windows.
+- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes/fp-envref + locked
   agent-aa4f…; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
