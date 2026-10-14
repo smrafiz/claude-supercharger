@@ -49,7 +49,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _EC_NOCASE=$(shopt -p nocasematch 2>/dev/null || true)
 shopt -s nocasematch 2>/dev/null || true
 case "$_INPUT" in
-  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*) _EC_HIT=1 ;;
+  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*|*'$schema'*|*settings.json*|*.code-workspace*) _EC_HIT=1 ;;
   *) _EC_HIT=0 ;;
 esac
 eval "$_EC_NOCASE" 2>/dev/null || true
@@ -81,6 +81,8 @@ norm = path.replace("\\", "/").lower()
 content = ti.get("content") or ti.get("new_string") or ""
 if not content and isinstance(ti.get("edits"), list):
     content = "\n".join(str(e.get("new_string", "")) for e in ti["edits"] if isinstance(e, dict))
+# What THIS call writes, before the on-disk merge below: arm 4 judges only new keys.
+written = content
 # For an Edit whose new_string is a fragment, fall back to the on-disk file so the
 # auto-run key set elsewhere in the file is still seen.
 if norm and os.path.isfile(path):
@@ -115,6 +117,30 @@ elif (re.search(r'(^|/)(\.vscode|\.cursor)/mcp\.json$', norm)
         reason = ("an editor MCP config defining a stdio server (\"command\": …) — the "
                   "editor launches that process on load")
 
+# 4. 2026-10-14: editor settings that point a tool at a binary. VS Code and its forks
+# run the configured executable on open or on save, so swapping it for a file the
+# agent wrote is code execution (IDEsaster: CVE-2025-53773, CVE-2025-54130,
+# CVE-2025-64660; `php.validate.executablePath`, `git.path`). Only keys in what this
+# call WRITES count, so editing an unrelated setting next to an existing
+# interpreter path does not prompt.
+if not reason and (re.search(r'(^|/)\.vscode/settings\.json$', norm) or norm.endswith('.code-workspace')):
+    m = re.search(r'"([\w.-]*(executablepath|binarypath|serverpath|interpreterpath|\.path))"\s*:\s*"[^"]+"', written, re.I)
+    if m:
+        reason = ("editor setting %s, which points the editor at a program it runs on open "
+                  "or save" % m.group(1))
+
+# 3. 2026-10-14: a JSON `$schema` URL that carries data. Editors fetch the schema as
+# soon as the file opens, so data in that URL's query string is sent with no
+# further step (IDEsaster: CVE-2025-49150, CVE-2025-53097, CVE-2025-58335). A plain
+# schema URL (schemastore, a vendor's /schema.json) has no query and passes.
+if not reason:
+    for url in re.findall(r'"\$schema"\s*:\s*"(https?://[^"]+)"', content, re.I):
+        _data = re.search(r'[?#].*=', url)
+        if _data:
+            reason = ("schema:a JSON $schema URL that carries data (%s) - editors fetch "
+                      "the schema when the file opens, sending it to that host" % url[:80])
+            break
+
 if reason:
     print(reason)
 PYEOF
@@ -132,7 +158,10 @@ fi
 mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
-_MSG="This writes ${_REASON}. That is the same auto-run primitive as a poisoned .claude/settings.json, ported to a sibling editor config (Contagious-Interview / Miasma / MCPoison class) — it runs code without any further action. Confirm the command is one you intend and trust. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)"
+case "$_REASON" in
+  schema:*) _MSG="This writes ${_REASON#schema:}. That is a known exfiltration path (IDEsaster). Confirm the URL is one you intend. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)" ;;
+  *) _MSG="This writes ${_REASON}. That is the same auto-run primitive as a poisoned .claude/settings.json, ported to a sibling editor config (Contagious-Interview / Miasma / MCPoison class) — it runs code without any further action. Confirm the command is one you intend and trust. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)" ;;
+esac
 sc_decision ask "$_MSG"
 echo "[Supercharger] editor-config-guard: ASK on auto-run editor config write" >&2
 exit 0
