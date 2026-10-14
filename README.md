@@ -46,6 +46,12 @@ You need the Claude Code CLI, Bash 3.2 or later (macOS, Linux, or Git Bash on Wi
    git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
    ```
 
+   Rather not keep the repo lying around? This clones into a temp dir, installs, and cleans up after itself:
+
+   ```bash
+   bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
+   ```
+
 2. Check that it took, then open a new Claude Code session.
 
    ```bash
@@ -58,7 +64,7 @@ You need the Claude Code CLI, Bash 3.2 or later (macOS, Linux, or Git Bash on Wi
 
 4. Changed your mind? `./uninstall.sh` from the clone. Details in [Uninstall](#uninstall).
 
-Other ways in (temp-dir one-liner, non-interactive flags, the Claude Code plugin, Windows notes) are in [docs/INSTALL.md](docs/INSTALL.md).
+Other ways in (non-interactive flags, the Claude Code plugin, Windows notes) are in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## What else is in the box
 
@@ -68,8 +74,8 @@ The guards are the reason it exists. The rest is what we wanted every day once t
 - Prompts you can switch off for a while. `/sc-autopilot 2h` stops the yes/no questions for two hours and the guards stay on. `/sc-readonly 20m` blocks every edit while you poke around. [Commands](docs/COMMANDS.md#control-and-modes)
 - A spending limit. Put `"budget": 5.00` in `.supercharger.json` and non-read tools stop once the session has spent $5. Say `eco lean` mid-chat for shorter answers. [Cost features](docs/FEATURES.md#cost-and-context-control)
 - Memory between sessions. `/sc-handoff` writes a brief that the next session picks up on its own, so you do not start every morning by explaining yesterday. [Memory](docs/FEATURES.md#memory-across-sessions)
-- Commands for the annoying parts. `/sc-why` explains the last block in plain words. `/sc-multi-review` sends parallel reviewers at a diff, then tries to knock down each finding before showing it to you. [All commands](docs/COMMANDS.md)
-- A statusline that tells you things. Context used, cache hit rate and what the session has cost so far, plus a notification when a long turn finishes. [Details](docs/FEATURES.md#developer-experience)
+- Commands for the annoying parts. `/sc-why` explains the last block in plain words. `/sc-multi-review` sends parallel reviewers at a diff, then tries to knock down each finding before showing it to you. [All commands](#commands)
+- A statusline that tells you things. Context used, cache hit rate and what the session has cost so far, plus a notification when a long turn finishes. [Details](#the-statusline)
 
 Per-project settings live in a `.supercharger.json` at the repo root. Commit it and everyone on the project gets the same rules:
 
@@ -81,6 +87,102 @@ Per-project settings live in a `.supercharger.json` at the repo root. Commit it 
 ```
 
 Every key and env var is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+
+## The statusline
+
+Three lines at the bottom of Claude Code, so you always know where the session stands:
+
+```
+[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +158/-23
+████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
+Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
+```
+
+- Line 1 is where you are: model, project, git branch, detected stack, economy tier, active agent, MCP profile, and lines added and removed.
+- Line 2 is how full the context window is, tokens in and out, and how much the prompt cache is saving you.
+- Line 3 is what it costs: session spend, time, rate-limit burn and weekly usage. `Spend cap: N%` shows up when an org or gateway limit applies.
+
+When something needs your eye, a short alert appears on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Scan: Code` or `⚠ Scan: Injection`.
+
+## Commands
+
+Type `/supercharger` in Claude Code to list them all. The ones you will reach for most:
+
+| Command | What it does |
+|---|---|
+| `/sc-why` | Explains the last block: what fired, why, and how to get past it |
+| `/sc-status` | What is on right now: cost, economy tier, disabled hooks |
+| `/sc-autopilot 2h` | No permission prompts for two hours; the guards stay on |
+| `/sc-readonly 20m` | Look around without any edits |
+| `/sc-handoff` | Write a brief the next session loads by itself |
+| `/sc-multi-review` | Parallel reviewers on a diff, then a pass that tries to disprove each finding |
+| `/sc-stuck` | Fresh hypotheses when a bug has you going in circles |
+| `/sc off` | Back to stock Claude Code until `/sc on`; nothing is uninstalled |
+
+Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update`, `/sc-pr`, `/sc-cleanup`) only run when you type them. Claude cannot start them on its own.
+
+<details>
+<summary>All commands</summary>
+
+#### Control and modes
+
+| Command | Purpose |
+|--|--|
+| `/sc-autopilot 2h` | Stop the yes/no permission prompts for a set time. The safety floor stays on |
+| `/sc-readonly 20m` | Block all edits and mutating shell commands; allow reads, searches and planning |
+| `/sc-strict 30m` | Confirm every call. Auto-approves nothing and overrides autopilot while active |
+| `/sc off\|on\|status` | Switch to plain Claude Code and back. Guards, statusline, prompt rules and Supercharger's MCP servers all stand down; nothing is uninstalled |
+| `/sc-status` | What is active now: session cost, economy tier, disabled hooks, per-subagent spend |
+| `/sc-profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
+| `/sc-update` | Check for and apply Supercharger updates (classic install; the plugin uses `/plugin update`) |
+| `/sc-mcp-audit [--accept] [--server NAME]` | Scan every MCP server's tool descriptions for hidden instructions (tool poisoning) and report tools whose description changed since you accepted it (rug pull). Hooks never see descriptions, so this is the only check on them |
+| `/sc-notifier [install\|status\|remove]` | macOS: install, check or remove the optional notifier app |
+| `/sc-doctor` | Diagnose the install: registration, deployed-code integrity, state permissions, update status. Ends with one line to paste when asking for help |
+
+The time-boxed modes expire on their own. They are per session by default (`global` is opt-in), capped at 2h, shown in the statusline, and need no daemon. When two modes conflict, the tighter one wins: `/sc-readonly` and `/sc-strict` override `/sc-autopilot`. Autopilot only removes approval prompts; `rm -rf`, force-push and credential leaks are still blocked.
+
+#### Workflow
+
+| Command | Purpose |
+|--|--|
+| `/sc-handoff [--deep] [context]` | Write a session resume brief to `.claude/handoff-<session>.md`, loaded automatically next session |
+| `/sc-pr [description]` | Prepare and create a pull request |
+| `/sc-scope [task]` | Pre-flight check: files to touch, risks, blast radius |
+| `/sc-estimate [task]` | Time and complexity report. Stops before any code is written |
+| `/sc-interview [topic]` | Structured requirements gathering, one question at a time |
+| `/sc-multi-review [quick\|standard\|deep] [target]` | Parallel specialist reviewers, then a separate pass that tries to refute each finding |
+| `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
+| `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs and interfaces |
+| `/sc-cleanup [scope]` | Dead code and unused-import removal with two-tier safety |
+| `/sc-resolve-conflicts [context]` | Resolve an in-progress merge or rebase conflict, then verify it with the typecheck and tests |
+
+#### Reasoning and debugging
+
+| Command | Purpose |
+|--|--|
+| `/sc-think [problem]` | Structured reasoning for ambiguous problems |
+| `/sc-challenge [decision]` | Adversarial stress-test: assumptions, failure modes, strongest alternative |
+| `/sc-stuck [symptom]` | Break a debugging loop with fresh hypotheses |
+| `/sc-why [hook]` | Explain the most recent hook firing: what triggered, what was blocked, how to get past it |
+
+#### Insight, memory and housekeeping
+
+| Command | Purpose |
+|--|--|
+| `/sc-learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
+| `/sc-memory-prune` | Archive resolved memory entries so they stop loading into context |
+| `/sc-perf [--slow]` | Hook timing report (see [PERFORMANCE.md](docs/PERFORMANCE.md) for its bash 3.2 caveat) |
+| `/sc-cache-stats`, `/sc-cache-clear` | Typecheck and quality-gate cache state, or clear the hash caches |
+| `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) and to receive credentials as tool arguments |
+| `/sc-reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
+| `/sc-devlog [entry]` | Append a decision to `DEV-LOG.md` |
+| `/sc-design [brand]` | Generate `DESIGN.md`: tokens read from the project's theme, typography, components |
+| `/sc-design-review [pages]` | Review UI: WCAG 2.2 AA with measured values, hierarchy, responsiveness (read-only) |
+| `/supercharger` | List all slash commands |
+
+</details>
+
+The bundled scripts (`update.sh`, `hook-toggle.sh`, `token-report.sh` and others) are listed in [docs/COMMANDS.md](docs/COMMANDS.md#bundled-tools).
 
 ## Limits and trade-offs
 
