@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-13, session `3d213381`.*
+*Verified 2026-10-14, session `3d213381`.*
 
-- **Released: v4.3.8** (11:13Z). Installed v4.3.8 on Machine A. master = `b41d00e` (#128 merged).
-- **In flight:** 4.3.9 = #128 (install hooks/tools/lib by staging + rename; fixes torn-hook
-  syntax errors during updates). Machine A job: `~/.cache/sc-finish-4.3.9.sh` → `.result`.
-- **Open PR:** #129 docs (HOOK_AUTHORING notes + this carry file). Merge after 4.3.9 promotes.
-- **Gap found, unbuilt:** shell-outs inside perl/python heredocs pass safety.sh (memory
-  `candidate-features-2026-10-12`).
+- **Released: v4.3.10** (2026-10-14 06:34Z). Installed v4.3.10 on Machine A. master = `f870306`.
+  4.3.9 = #128 install-by-rename (torn hooks) + #130 + #129 docs; 4.3.10 = #131 heredoc shell-outs.
+- **In flight:** fp-batch-3 PR (`api_key=os.environ[...]`/`getenv`/`process.env`/`ENV[` no longer
+  read as an embedded credential). Ships as 4.3.11.
+- **README:** user decided the existing README stays. A restructure (#132) was closed unmerged.
 - **Unverified:** `!` commands in a fresh interactive session.
 - **Release recipe:** one detached finish job + ONE completion notice ("do not monitor").
   Merge one at a time; never edit the main checkout while a job runs (release.sh `git add -A`);
   PR CI skips Windows — only master CI catches Windows breakage.
-- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5 + locked agent-aa4f…; drop only on user's say-so.
+- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes + locked
+  agent-aa4f…; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts

@@ -1234,6 +1234,15 @@ if _cat_enabled "credentials"; then
         | tr '\036' '\n') || CRED_SCAN="$COMMAND"
       ;;
   esac
+  # fp-batch-3: an env lookup is a reference, not a literal - `api_key=os.environ["K"]`,
+  # `os.getenv(`, `process.env.`, `ENV[`. Rewrite it to `=$REF` so the NAME= rules skip it.
+  case "$CRED_SCAN" in
+    *environ*|*getenv*|*process.env*|*ENV*)
+      CRED_SCAN=$(printf '%s' "$CRED_SCAN" | LC_ALL=C sed -E \
+        's/=[[:space:]]*(os\.environ[.[]|os\.getenv\(|process\.env[.[]|System\.getenv\(|getenv\(|ENV(\[|\.fetch\())/=$REF/g') \
+        || CRED_SCAN="$COMMAND"
+      ;;
+  esac
   # v2.6.80: scan the ORIGINAL command, not the normalized one. cmd-normalize
   # strips leading `VAR=value` env-var assignments, which is correct for the
   # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
