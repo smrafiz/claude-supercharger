@@ -49,7 +49,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 _EC_NOCASE=$(shopt -p nocasematch 2>/dev/null || true)
 shopt -s nocasematch 2>/dev/null || true
 case "$_INPUT" in
-  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*) _EC_HIT=1 ;;
+  *tasks.json*|*mcp.json*|*.gemini*|*folderOpen*|*mcpServers*|*'$schema'*) _EC_HIT=1 ;;
   *) _EC_HIT=0 ;;
 esac
 eval "$_EC_NOCASE" 2>/dev/null || true
@@ -115,6 +115,18 @@ elif (re.search(r'(^|/)(\.vscode|\.cursor)/mcp\.json$', norm)
         reason = ("an editor MCP config defining a stdio server (\"command\": …) — the "
                   "editor launches that process on load")
 
+# 3. 2026-10-14: a JSON `$schema` URL that carries data. Editors fetch the schema as
+# soon as the file opens, so data in that URL's query string is sent with no
+# further step (IDEsaster: CVE-2025-49150, CVE-2025-53097, CVE-2025-58335). A plain
+# schema URL (schemastore, a vendor's /schema.json) has no query and passes.
+if not reason:
+    for url in re.findall(r'"\$schema"\s*:\s*"(https?://[^"]+)"', content, re.I):
+        _data = re.search(r'[?#].*=', url)
+        if _data:
+            reason = ("schema:a JSON $schema URL that carries data (%s) - editors fetch "
+                      "the schema when the file opens, sending it to that host" % url[:80])
+            break
+
 if reason:
     print(reason)
 PYEOF
@@ -132,7 +144,10 @@ fi
 mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
 
-_MSG="This writes ${_REASON}. That is the same auto-run primitive as a poisoned .claude/settings.json, ported to a sibling editor config (Contagious-Interview / Miasma / MCPoison class) — it runs code without any further action. Confirm the command is one you intend and trust. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)"
+case "$_REASON" in
+  schema:*) _MSG="This writes ${_REASON#schema:}. That is a known exfiltration path (IDEsaster). Confirm the URL is one you intend. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)" ;;
+  *) _MSG="This writes ${_REASON}. That is the same auto-run primitive as a poisoned .claude/settings.json, ported to a sibling editor config (Contagious-Interview / Miasma / MCPoison class) — it runs code without any further action. Confirm the command is one you intend and trust. (Disable: SUPERCHARGER_EDITOR_CONFIG_GUARD=0)" ;;
+esac
 sc_decision ask "$_MSG"
 echo "[Supercharger] editor-config-guard: ASK on auto-run editor config write" >&2
 exit 0

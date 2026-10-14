@@ -197,6 +197,8 @@ smart_approve_verdict() {
   if [ "$_ci_tool" = "Bash" ] || [ "$_ci_tool" = "PowerShell" ]; then
     local _sc_cmd
     _sc_cmd=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
+    # 2026-10-14: a command leaving the sandbox carries harness-tamper-guard's confirm.
+    [ "$(printf '%s\n' "$input" | jq -r '.tool_input.dangerouslyDisableSandbox // false' 2>/dev/null)" = "true" ] && return 1
     case "$_sc_cmd" in
       *sc-toggle*off*|*sc-toggle*disable*) return 1 ;;
       # v2.26.23: hook-toggle disabling a security guard carries the same confirm,

@@ -45,7 +45,7 @@ case "$_INPUT" in
   # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
   # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
   *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
-  *dangerously-skip-permissions*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*) : ;;
+  *dangerously-skip-permissions*|*DisableSandbox*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*) : ;;
   *) exit 0 ;;
 esac
 
@@ -58,6 +58,15 @@ fi
 [ -z "$CMD" ] && exit 0
 
 REASON=""
+
+# 2026-10-14: the Bash tool's sandbox opt-out. Claude Code turns it into a permission
+# prompt, and an open autopilot window approves every prompt, so a sandbox the user
+# switched on could be left without anyone seeing it. ASK here; lib-smart-approve
+# declines it before the autopilot loop, so the confirm reaches the user.
+if [ "$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.dangerouslyDisableSandbox // false' 2>/dev/null)" = "true" ]; then
+  sc_decision ask "This runs a command OUTSIDE the Claude Code sandbox (dangerouslyDisableSandbox: true): no filesystem or network limits apply to it. Approve only if you know why the sandbox blocked it and trust the command: $CMD"
+  exit 0
+fi
 
 # (1) Launching an unguarded / reconfigured Claude instance.
 case "$CMD" in

