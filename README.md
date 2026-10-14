@@ -1,58 +1,60 @@
 # Claude Supercharger
 
-Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. Zero context-window cost: the rules live in your shell, not in your prompt.
+Shell hooks for Claude Code that block destructive commands and secret leaks before the tool call runs.
 
-![Version](https://img.shields.io/badge/version-4.3.9-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-4.3.9-blue) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) ![License](https://img.shields.io/badge/license-MIT-green)
 
-![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
+Supercharger registers bash hooks that Claude Code runs around every tool call. They block destructive shell commands (`rm -rf` on system paths, force-push to a protected branch, `curl | bash`), writes into credential and system directories, and credentials leaving through tool output, MCP arguments or a commit. These are guardrails for a capable agent that makes mistakes, not a sandbox: pattern matching can be evaded on purpose, and commands you run yourself with `!` never pass through a hook. A hook that hits an internal error allows the call, and one that runs past its timeout (15 seconds, 60 on Windows) is killed by Claude Code and the command runs. A broken guard fails open rather than blocking your work.
 
----
+## What a block looks like
 
-## Install
+Claude tried to run `git push --force origin main`. The hook stopped it before it ran and printed this:
 
-```bash
-git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
+```text
+Supercharger blocked this git operation.
+  Reason : force push to protected branch
+  Command: git push --force origin main
+  Override: if this is intentional, run it in your terminal directly. Git-safety
+            blocks are absolute by design ...
 ```
 
-Don't want the repo lying around? This clones to a temp dir, installs, and cleans up:
+Claude itself is told `Supercharger: force push to protected branch`, so it knows this is policy rather than a shell error. A recorded run of several blocks is in [assets/demo/demo.gif](assets/demo/demo.gif); `./assets/demo/try.sh '<command>'` replays any command through the guards without executing it.
 
-```bash
-bash -c 'TMP=$(mktemp -d) && git clone https://github.com/smrafiz/claude-supercharger.git "$TMP/cs" && "$TMP/cs/install.sh" && rm -rf "$TMP"'
-```
+## Quickstart
 
-Takes about 30 seconds. Your existing config is backed up first, and `./uninstall.sh` restores it exactly.
+You need the Claude Code CLI, Bash 3.2 or later (macOS, Linux, or Git Bash on Windows), Python 3.7 or later, and `jq`.
 
-Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as-a-plugin).
+1. Install. The installer asks for a mode (Safe or Full) and backs up your existing config to `~/.claude/backups/` first.
 
-**Requirements:** Claude Code CLI · Bash 3.2+ (macOS, Linux, or Git Bash on Windows) · Python 3.7+ · `jq`
+   ```bash
+   git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
+   ```
 
-**macOS, optional — the Supercharger app:** notifications show as "Script Editor" by default. To get them as "Claude Supercharger", with a click returning you to your terminal or editor:
+2. Check the install, then start a new Claude Code session.
 
-**Needs:** macOS 10.14 or later and Apple's Command Line Tools (for Swift; full Xcode not required). No admin rights, no download: it is compiled from source on your Mac in under a minute.
+   ```bash
+   bash ~/.claude/claude-check.sh
+   ```
 
-1. Make sure Swift works: `swift --version` (if missing: `xcode-select --install`).
-2. Say yes when install asks, or run `/sc-notifier install` any time. It builds `~/Applications/Claude Supercharger.app` on your Mac; nothing is downloaded.
-3. Turn it on once in System Settings → Notifications → Claude Supercharger (new apps start off).
+   Inside Claude Code, `/sc-doctor` runs the same kind of check and ends with one line you can paste into a bug report.
 
-Updates never install it unless you said yes. Check it with `/sc-notifier status`, remove it with `/sc-notifier remove`.
+3. Optional, macOS only: install the notifier app so notifications show as "Claude Supercharger" instead of "Script Editor". It needs macOS 10.14 or later and Apple's Command Line Tools (`swift --version`; if missing, `xcode-select --install`). It is compiled on your Mac in under a minute, downloads nothing and needs no admin rights. Run `/sc-notifier install`, then turn it on once in System Settings, Notifications, Claude Supercharger.
 
-**Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. For one release the old names still work and point you to the new one. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
+4. To remove it later, run `./uninstall.sh` from the clone. See [Uninstall](#uninstall).
 
----
+Other ways to install (temp-dir one-liner, non-interactive flags, Claude Code plugin, Windows notes) are in [docs/INSTALL.md](docs/INSTALL.md).
 
-## Your first five minutes
+## What it does
 
-Everything else is optional. These five are what you'll actually use day to day.
+- Destructive-command and path guards. Commands and file writes are checked before they run. Example: `rm -rf /`, `DROP TABLE`, `terraform destroy`, and an Edit to `~/.ssh/config` are denied. [Feature list](docs/FEATURES.md#runtime-enforcement), [every hook](docs/HOOKS.md).
+- Secret and egress scanning. Tool output, staged diffs, prompts and outbound MCP or WebFetch arguments are scanned for credentials. Example: an AWS key in the staged diff blocks `git commit`, and the message says a secret was found without repeating it. [Feature list](docs/FEATURES.md#runtime-enforcement).
+- Permission modes with a time limit. Example: `/sc-autopilot 2h` stops the yes/no prompts for two hours while the safety floor stays on; `/sc-readonly 20m` blocks every edit. [Commands](docs/COMMANDS.md#control-and-modes).
+- Cost and token economy. Example: `"budget": 5.00` in `.supercharger.json` blocks non-read tools once a session has spent $5, and `eco lean` asks for shorter answers. [Cost features](docs/FEATURES.md#cost-and-context-control), [configuration](docs/CONFIGURATION.md).
+- Memory between sessions. Example: `/sc-handoff` writes `.claude/handoff-<session>.md`, which the next session loads, and lessons from debugging are recalled on later prompts. [Memory features](docs/FEATURES.md#memory-across-sessions).
+- Slash commands for review and debugging. Example: `/sc-why` explains the last block, and `/sc-multi-review` runs parallel reviewers and then tries to refute each finding. [All commands](docs/COMMANDS.md).
+- Statusline and notifications. Example: the statusline shows context use, cache hit rate and session cost; a notification fires when a long turn finishes. [Developer features](docs/FEATURES.md#developer-experience).
 
-| Do this | What happens |
-|---|---|
-| Just work normally | Destructive commands (`rm -rf`, force-push to main, `curl \| bash`, credential leaks) are blocked before they run. Read-only tools auto-approve, so you're prompted less, not more. |
-| **`/sc-autopilot 2h`** | Stops the yes/no permission prompts for two hours. The safety floor stays on. This is the single biggest speed win. |
-| **`/sc-status`** | What's active right now — session cost, economy tier, disabled hooks, per-subagent spend. |
-| **`/sc-why`** | Something got blocked and you don't know why? This explains the last hook firing and how to get past it. |
-| **`/sc off`** | Flips you back to plain, stock Claude Code — every hook, the statusline, the prompt rules, and Supercharger's own MCP servers all stand down. Nothing is uninstalled; `/sc on` restores it. |
-
-Two things worth setting once, per project, in a `.supercharger.json` at your repo root:
+Most per-project settings go in a `.supercharger.json` at the repo root. Commit it and everyone on the project gets the same behaviour:
 
 ```json
 {
@@ -61,531 +63,87 @@ Two things worth setting once, per project, in a `.supercharger.json` at your re
 }
 ```
 
-`economy: lean` tells Claude to answer tersely — no preamble, no restating the request. For the largest cut in length, add `/output-style concise`: measured at a **45% median cut** with a tier already active ([method](configs/universal/economy.md#length-is-owned-by-the-output-style)). `budget` caps what a single session can spend. Commit the file and your whole team gets the same behavior. [Full config reference →](#configure)
+Every key and env var is listed in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
----
+## Limits and trade-offs
 
-## Why hooks instead of prompt rules
+### What it does not protect against
 
-Prompts are suggestions, and Claude is good at finding reasons to ignore suggestions.
+- A targeted attacker who controls your prompts. Matching is best effort; someone trying to evade it can. Run untrusted work in a container or VM.
+- Commands typed with Claude Code's `!` prefix and anything you run in your own terminal. Those never reach a hook.
+- Anything after the fact. Hooks that run after a tool call can warn, but cannot undo it.
+- Hangs. A guard that exceeds its timeout is killed and the command runs.
+- Documented open gaps, listed in [docs/KNOWN-ISSUES.md](docs/KNOWN-ISSUES.md).
 
-Every Claude Code user has a version of the same story: you ask to fix a typo and Claude rewrites the component. You ask a quick question and get an essay. You come back to find files overwritten, commands run, work undone — with no warning.
+The full threat model, failure table and block-ledger details are in [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md).
 
-The fix isn't better prompts. It's moving enforcement somewhere the model can't reach.
+### Cost per tool call
 
-```
-You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or exit 2
-                                    │
-                                    └── Runs outside Claude's view
-```
+Claude Code runs a tool call's hooks concurrently. On an M4 Pro with bash 3.2, the 19 PreToolUse hooks for a Bash call add about 6.8 ms when the command takes the fast path, and 23.4 ms when `safety.sh` runs its full scan. On a GitHub ubuntu runner the fast path measured 10.0 ms. Run `/sc-perf` to see timings from your own sessions; on bash 3.2 its averages read high, so read [docs/PERFORMANCE.md](docs/PERFORMANCE.md) before acting on them. From a clone, `bash tests/perf-chain.sh` reproduces the numbers above.
 
-Supercharger has two layers, and they come with different guarantees:
+### False positives and ways through
 
-- **Shell hooks run outside Claude's process, before commands execute.** Claude can't see them, can't reason about them, and can't be talked into skipping them. Exit code 2 means the command doesn't run.
-- **Prompt rules in `CLAUDE.md` shape behavior** — roles, economy tier, agent routing. Claude follows these reliably, but not unconditionally.
+Every block is logged to `~/.claude/supercharger/scope/.blocked-commands`, and `/sc-why` explains the most recent one. If a block is wrong, take the narrowest way through:
 
-|  | Prompt-only frameworks (`CLAUDE.md` rules) | `/permissions` (inside Claude) | Supercharger hooks (outside Claude) |
-|---|---|---|---|
-| Claude sees the rules | Yes | Yes | No |
-| Can be argued with | Yes | Yes | No — exit code 2 is not a negotiation |
-| Advisory or enforced | Advisory | Advisory | Enforced |
-| **Cost in context tokens** | **~5–20K per session** | a few hundred | **0** |
+1. Run that one command yourself in your terminal.
+2. Exempt that command shape for the project with `allowPatterns` in `.supercharger.json`. It cannot exempt self-modification, git-safety, path-guard or harness-tamper-guard blocks. [How](docs/CONFIGURATION.md#exempt-one-command).
+3. Turn off one guard with its env var, for example `SUPERCHARGER_PATH_GUARD=0 claude`. [Env var table](docs/CONFIGURATION.md#turn-off-one-feature).
+4. Turn off a category of rules for the project with `disableSecurityCategories`. [Categories](docs/CONFIGURATION.md#security-categories).
+5. `/sc off` turns every guard off until `/sc on`.
 
-That last row is the part people underestimate. Rules written as prompt text are re-read every session and shrink the window available for actual work. Supercharger's enforcement lives in the shell, so it costs nothing.
+Destructive git operations (force-push to a protected branch, `reset --hard`) have no project-level opt-out. Run those in your terminal.
 
-### What this does and doesn't guarantee
+## Where to go next
 
-Worth being precise, because the distinction matters:
+| I want to... | Read |
+|---|---|
+| Install as a plugin, on Windows, or without keeping the clone | [docs/INSTALL.md](docs/INSTALL.md) |
+| See everything it does | [docs/FEATURES.md](docs/FEATURES.md) |
+| Look up a hook by name | [docs/HOOKS.md](docs/HOOKS.md) |
+| Configure a project or turn something off | [docs/CONFIGURATION.md](docs/CONFIGURATION.md) |
+| Find a slash command or bundled tool | [docs/COMMANDS.md](docs/COMMANDS.md) |
+| Understand the threat model and failure behaviour | [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) |
+| Measure or reduce overhead | [docs/PERFORMANCE.md](docs/PERFORMANCE.md) |
+| See before/after examples | [docs/examples.md](docs/examples.md) |
+| Write my own hook | [docs/HOOK_AUTHORING.md](docs/HOOK_AUTHORING.md) |
+| Get an answer to a common question | [docs/FAQ.md](docs/FAQ.md) |
+| See what changed | [CHANGELOG.md](CHANGELOG.md) |
 
-- **The mechanism is not bypassable by the model.** A hook is a separate process. Claude cannot see it, disable it, or argue with its exit code. This is a hard guarantee.
-- **The patterns are best-effort.** The guards match commands and file writes against known-dangerous shapes. `cmd-normalize.sh` unwraps common obfuscation, but string matching has limits — a determined adversary with shell access can construct evasions.
+## Uninstall
 
-The threat model this is built for is a capable agent making mistakes, plus opportunistic prompt-injection from tool output. It raises the cost of both a great deal. It is not a sandbox, and it is not a defense against a targeted attacker who already controls your prompts. For that, layer real OS-level isolation underneath.
+If you only want a break, `/sc off` switches back to stock Claude Code without removing anything, and `/sc on` brings it back.
 
----
-
-## What you get
-
-### Runtime enforcement
-
-- **Destructive command blocking** — `rm -rf /`, `DROP TABLE`, `chmod 777`, `curl | bash`, force-push to main, `git reset --hard`, disk/partition wipe (`mkfs`, `dd`, `wipefs -a`, `fdisk`/`parted`), fork bombs, `shutdown`/`reboot`
-- **Path guard** — 6 attack categories on Edit/Write: path traversal (incl. URL-encoded `%2e%2e`, null bytes), symlink attacks, `.git/hooks/` writes, **self-modification** (writes to `.disabled-security-categories`, the `.claude/settings.json` hooks block, or `.supercharger.json` — closing the [Ona Security sandbox-bypass pattern](https://www.penligent.ai/hackinglabs/claude-code-sandbox-bypass/) where agents disable their own guardrails), writes to `~/.ssh/` / `~/.aws/` / `/etc/`, and build-artifact injection (`node_modules/.bin/`, `.next/`, `.venv/`). Each category is opt-out per project
-- **Confidence gate** — blocks Edit/Write/destructive Bash when confidence is low (recent failures, no prior read, repeated attempts)
-- **Code security scanning** — `eval()`, `pickle.load()`, SQL injection, weak crypto, hardcoded secrets, GitHub Actions injection
-- **Skill integrity** — a skill's content is hashed the first time it loads and compared on every later load. A changed skill asks before it is used, so an upstream edit, a marketplace pull, or a local rewrite of instructions Claude follows cannot land silently. Trust-on-first-use, so there is no lockfile to maintain. Complements the poisoning scanner, which asks whether a skill *looks* malicious rather than whether it *changed*. Kill switch: `SUPERCHARGER_SKILL_LOCK=0`
-- **Credential leak detection** — scans Bash and Read output for AWS, OpenAI, Slack, Stripe, GCP, Azure, and crypto-wallet (Ethereum / BIP-32 `xprv` / Bitcoin WIF) tokens before Claude can echo them; also blocks committing a secret in the staged diff
-- **Cloud & container guard** — instance-metadata SSRF (`169.254.169.254` / GCP / ECS IMDS), `aws sts assume-role`, `aws iam create-access-key`, container escape (`--privileged`, host sockets, `nsenter`, `chroot /host`), `kubectl` cluster-admin bindings and secret reads, `terraform destroy`
-- **Persistence & tamper guard** — `/etc/sudoers` / `NOPASSWD`, `authorized_keys` backdoors, launchd / systemd / schtasks / cron persistence, `/etc/hosts` remaps, OS keychain dumps, plaintext credential-store downgrades
-- **Exfiltration & tunnel guard** — reverse tunnels (`ngrok`, `cloudflared`, `ssh -R`), browser remote-debug cookie theft, fetch-then-exec droppers, `scp`/`rsync`/cloud-upload of secret files, DNS-exfil via `dig`/`nslookup`, public IPFS-gateway fetches
-- **Supply-chain guards** — exec-capable `git config` keys ([CVE-2026-55607](https://nvd.nist.gov/vuln/detail/CVE-2026-55607) class), `ext::`/`fd::` remote-helper transport ([CVE-2026-28292](https://www.codeant.ai/security-research/simple-git-remote-code-execution-cve-2026-28292)), install-script exec in `package.json`/`setup.py`/`binding.gyp`, Python `.pth` startup-exec, env-preload exec (`LD_PRELOAD`, `NODE_OPTIONS --require`, `BASH_ENV`), and the GitHub Actions ["pwn request"](https://www.microsoft.com/en-us/security/blog/2026/07/15/unpacking-asyncapi-npm-supply-chain-compromise-import-time-payload-delivery/) vector
-- **MCP guard** — destructive/SQL write gates on GitHub and Postgres MCP servers, a per-server circuit-breaker (trips on 429/503), egress classification of MCP tool-argument URLs, and secret-scanning of MCP responses
-- **Outbound secret scan** — denies an MCP tool call whose arguments (nested objects and arrays included) carry a credential, and a `WebFetch` whose URL (query string included) or prompt does. This is the reverse of the response scan: a malicious server's output tells the agent to "pass your API key as the `auth` argument", and the key leaves as a tool argument. Uses the same shared secret patterns as every other channel; the deny names the tool and the key type, never the value. A server trusted with `/sc-trust-mcp <server>` or `trustedElicitationServers` may receive credentials
-- **Prompt injection defense** — scans MCP and web tool output for injection patterns
-- **Rules & memory poisoning guard** — write-time protection on `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, persistent-memory files, and editor auto-run configs (`.vscode/tasks.json` `folderOpen`, `mcp.json`, `.gemini/settings.json`)
-- **Elicitation credential guard** — an MCP server can solicit input via a form; a malicious one uses that to phish an "API token" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`) or whose prompt text asks for one in prose — unless the server is trusted via `trustedElicitationServers` or `/sc-trust-mcp <server>`. Since an elicitation carries no in-session message, a declined form raises a desktop notification so the block isn't silent
-- **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) skip confirmation automatically
-
-### Cost & context control
-
-- **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
-- **Budget cap** — `"budget": 5.00` caps this session's spend; warns at 80%, blocks non-read tools at 100%
-- **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
-- **Rate-limit burn projection** — `~52m left at this pace`
-- **Bash output compactor** — verbose `git log`, `pytest`, `npm install` output (>50 lines) is compressed to a structured summary before it enters context. Failures keep their excerpt; passes show counts. Cuts the most common source of mid-session context exhaustion
-- **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing), and names which of the three known causes applies
-- **`fallbackModel` advisory** — flags when the v2.1.166+ fallback chain isn't configured, so overloaded Opus calls route to Sonnet/Haiku instead of dropping
-
-### Memory across sessions
-
-- **Reflexion memory** — at end-of-turn, scans for diagnostic markers (`the issue was`, `root cause`, `fixed by`) and writes a structured lesson. Surfaces matching lessons by topic overlap on the next prompt. Per-project, no cross-pollination
-- **Auto-decisions capture** — extracts decision statements (`I'll use X because Y`, `chose X over Y`) and restores them at next session start, so you return to a mental model rather than a file list
-- **Stack-derived standards** — detects React, Next.js, Vue, Svelte, Python, Go, Rust, PHP at session start and injects the relevant forbidden patterns and pitfalls
-- **Session memory** — modified files, recent commits, economy tier, corrections
-- **PreCompact preservation** — dumps lessons, decisions, and a transcript backup before compaction, so `/compact` doesn't lose them
-- **Crash-resilient checkpoints** — state saved after every file modification
-
-### Developer experience
-
-- **DX guards that catch mistakes before they cost a round-trip** — merge-conflict markers left in a file, unparseable `.json`/`.yaml`/`.toml`, edits to generated files, hallucinated relative imports, a shebang script left non-executable, `cp`/`mv` clobbering a tracked file, and a verification runner whose exit code is masked (`pytest || true`)
-- **Statusline** — model, project, branch, stack, tier, agent, MCP profile, context bar, cache efficiency, cost, rate-limit burn
-- **8 roles** — `developer`, `designer`, `devops`, `pm`, `researcher`, `student`, `data`, `writer`. Switch with `as developer`
-- **Token economy** — 3 tiers (`standard`, `lean`, `minimal`). Switch with `eco lean`. For length specifically, pair it with `/output-style concise`: measured **45% median cut** on this repo with the minimal tier already active and reinforced every turn ([method](configs/universal/economy.md#length-is-owned-by-the-output-style)). A style rewrites the system prompt; these tiers arrive as a user message after it. Built for two of Claude Code's longest-standing complaints: [verbose comments the model won't stop adding even when told to](https://github.com/anthropics/claude-code/issues/65961) (229👍) and [repetitive rhetorical tics that ignore style instructions](https://github.com/anthropics/claude-code/issues/77136) (563👍)
-- **10 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
-- **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers. `preferGhCli: true` opt-in redirects GitHub curl/wget/WebFetch to the matching `gh` subcommand — real auth token, not just style
-- **Per-subagent cost breakdown** — `/sc-status` shows which agent burned the budget
-- **Time-boxed modes** — auto-expiring session controls (per-session by default, `global` opt-in, 2h cap, statusline indicator, no daemon). One governing rule: **tighten beats loosen**
-  - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
-  - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
-  - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
-- **Desktop notifications** — when a long turn finishes or Claude needs input. On macOS, the optional notifier app (`/sc-notifier`) shows them as "Claude Supercharger" titled `<project> · <event>` with the branch and this session's cost underneath, and stays quiet while you are already looking at that terminal or editor; clicking it brings back the app you were in (Warp, WebStorm, VS Code, iTerm...). It can't switch to the exact terminal tab. Turn them off with `bash ~/.claude/supercharger/tools/notify-toggle.sh off` (`sound` for a bell only, `on` to restore)
-- **Stale-state warning** — when `.env`, `.envrc`, `package.json`, `settings*.json`, `.mcp.json`, `.supercharger.json` or `CLAUDE.md` changes on disk mid-session, Claude is told, so it doesn't keep acting on what it read earlier
-- **30+ slash commands** — [full list below](#slash-commands)
-
-Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
-
----
-
-## Install modes
-
-| Mode | Hooks | Use when |
-|--|--|--|
-| **Safe** | 43 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 152 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+To remove it, run this from a clone of the repo (clone it again if you installed from a temp dir):
 
 ```bash
-./install.sh                                    # interactive
-./install.sh --mode full --roles developer      # non-interactive (CI/scripts)
+./uninstall.sh
 ```
 
-Install writes hooks/agents/commands/rules to `~/.claude/`, registers them in `~/.claude/settings.json`, and appends a managed block to `~/.claude/CLAUDE.md`. It also sets two `settings.json` keys — `env.ENABLE_PROMPT_CACHING_1H=1` and an `attribution` override. `./uninstall.sh` reverses all of it from the pre-install backup.
+It asks before doing anything, then offers to restore the newest backup from `~/.claude/backups/`. It removes:
 
-### Install as a plugin
+- Supercharger's hook entries, statusline, `attribution` override and `ENABLE_PROMPT_CACHING_1H` from `~/.claude/settings.json`
+- the MCP servers it tagged `#supercharger` in `~/.claude.json`
+- the managed block at the end of `~/.claude/CLAUDE.md`, and its rule files in `~/.claude/rules/`
+- `~/.claude/supercharger/`, which holds the hooks, tools, block ledger and session state
+- the agents and commands it installed in `~/.claude/agents/` and `~/.claude/commands/`, by name; other files there are left alone
+- `~/.claude/claude-check.sh`, and `~/Applications/Claude Supercharger.app` if its bundle id is ours
 
-Supercharger ships the **full** framework through Claude Code's native plugin system, with no install script to run:
+It keeps `~/.claude/backups/` and anything inside your projects, such as `.supercharger.json` and handoff briefs. If you restore the backup, your pre-install `CLAUDE.md`, `rules/`, `shared/` and `settings.json` come back.
 
-```
-/plugin marketplace add smrafiz/claude-supercharger
-/plugin install supercharger@claude-supercharger
-```
+On the plugin channel, `/plugin disable` stops it, and `tools/plugin-setup.sh --revert` undoes the settings it wrote.
 
-At enable time you're prompted for role, economy tier, and MCP profile. Update with `/plugin update`, toggle with `/plugin enable|disable`.
+## Why this exists
 
-> **On Windows the plugin still needs Git Bash.** There is no install script to run,
-> but every hook *is* a bash script. Claude Code picks Git Bash as its hook
-> interpreter when it is installed and **falls back to PowerShell when it is not** —
-> and under PowerShell none of these hooks run. The classic installer cannot hit this
-> (it needs bash to execute at all); the plugin can, because nothing in the install
-> path requires bash. Install Git for Windows first.
+Rules in `CLAUDE.md` are text the model reads and can decide to set aside. A hook is a separate process with an exit code: Claude does not see it and cannot argue with it, and it costs no context tokens. We built Supercharger to put the rules we cared about most where the model cannot reach them, then added the cost, memory and workflow pieces we wanted in daily use. [docs/SECURITY-MODEL.md](docs/SECURITY-MODEL.md) compares the two approaches.
 
-**Every guard runs identically on both channels.** What differs is packaging:
+Status: actively maintained. Every release is listed in [CHANGELOG.md](CHANGELOG.md) (older entries in [docs/CHANGELOG-archive.md](docs/CHANGELOG-archive.md)), and planned work is in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-- **Slash commands are namespaced** — `/sc-audit` becomes `/supercharger:audit`
-- **`/sc-update` → `/plugin update`** and **`/sc on|off` → `/plugin enable|disable`** (those two aren't shipped in the plugin)
-- The guardrail layer is delivered as **SessionStart context** instead of a `CLAUDE.md` block — same rules, and uninstalling leaves zero residue
-- **Statusline, 1h prompt cache and attribution** need three `settings.json` keys a plugin cannot declare (its manifest supports only `agent` and `subagentStatusLine`). Answer **yes** to *"Write statusline + prompt-cache settings"* when enabling and they're written for you on first run — backed up first, never overwriting a statusline you already set, and undoable with `tools/plugin-setup.sh --revert`. Answer **no** to keep the plugin strictly inside its own space; you can run that script yourself later instead.
-- **MCP profile filtering doesn't apply.** The plugin ships its MCP servers through the manifest, so Claude Code's per-server approval is what selects them — the `light`/`dev`/`research`/`full` profiles only work when Supercharger writes `~/.claude.json` itself.
-- Hooks keep the portable `#!/usr/bin/env bash` shebang, so they're **~1.8 ms/exec slower** than a classic install, which rewrites them to an absolute interpreter path.
+## Contributing
 
-> **Pick one channel.** Don't run `install.sh` and the plugin at the same time — they'd double-fire hooks and split state across two directories. The plugin's setup detects a classic install and stands down rather than repointing your working statusline.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Bug reports and false positives are welcome as [issues](https://github.com/smrafiz/claude-supercharger/issues).
 
-
----
-
-## Configure
-
-<details>
-<summary><strong>Show the full configuration reference</strong></summary>
-
-### Project config
-
-Drop `.supercharger.json` in your repo root. Commit it so your whole team gets the same behavior:
-
-```json
-{
-  "roles": ["developer", "designer"],
-  "economy": "lean",
-  "budget": 5.00,
-  "profile": "fast",
-  "hints": "React + Tailwind, use pnpm"
-}
-```
-
-### Performance profiles
-
-| Profile | Behavior |
-|--|--|
-| `standard` | All hooks active (default) |
-| `fast` | Skips 7 analytics hooks; keeps code quality and security |
-| `minimal` | Skips 10 hooks; security-only |
-
-Security hooks always run regardless of profile.
-
-```bash
-SUPERCHARGER_PROFILE=fast claude
-# or per-project: {"profile": "fast"}
-```
-
-### Opt out of specific features
-
-| Feature | Env var |
-|--|--|
-| Reflexion memory | `SUPERCHARGER_LESSONS=0` |
-| Stack standards | `SUPERCHARGER_STANDARDS=0` |
-| Confidence gate | `SUPERCHARGER_CONFIDENCE=0` |
-| Path guard | `SUPERCHARGER_PATH_GUARD=0` |
-| Tool preferences | `SUPERCHARGER_TOOL_PREFS=0` |
-| Bash output compactor | `SUPERCHARGER_BASH_COMPACTOR=0` |
-| All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
-| Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
-| Daily update check (network) | `SUPERCHARGER_NO_UPDATE_CHECK=1` |
-| Cron/wakeup prompt guard | `SUPERCHARGER_CRON_GUARD=0` |
-| Cross-session message scan | `SUPERCHARGER_PEER_MESSAGE_SCANNER=0` |
-| Outbound secret scan | `SUPERCHARGER_OUTBOUND_SECRET_GUARD=0` (one server only: `/sc-trust-mcp <server>`) |
-
-### Tune behavior
-
-| Setting | Env var | Default |
-|--|--|--|
-| Lesson-recall match threshold (Jaccard overlap) | `SUPERCHARGER_LESSON_THRESHOLD` | `0.35` |
-| Pricing model override (cost trackers) | `SUPERCHARGER_PRICING_MODEL` | auto-detect from payload |
-| Performance profile | `SUPERCHARGER_PROFILE` | `standard` (or `fast`, `minimal`) |
-| Economy tier | `SUPERCHARGER_TIER` | `standard` (or `lean`, `minimal`) |
-| Native terminal notifications instead of OS pop-ups | `SUPERCHARGER_NOTIFY_MODE` | unset (or `osc9`: iTerm2, WezTerm, Ghostty, Windows Terminal; `osc777`: foot, urxvt) |
-| Never build or update the macOS notifier app, even if accepted before | `SUPERCHARGER_NO_NOTIFIER=1` at install | unset: the app is opt-in (`/sc-notifier`, or yes at install) and only kept up to date once accepted |
-| macOS notifier app: notify even while the terminal/IDE Claude runs in is the frontmost app | `SUPERCHARGER_NOTIFY_WHEN_FOCUSED=1` | unset: the app stays quiet while you are looking at that app (like any Mac app) |
-| Per-tier price, USD per million tokens (Bedrock, Vertex, gateways) | `SUPERCHARGER_PRICE_<TIER>` e.g. `_OPUS` | first-party rates; `"input,cache_write,cache_read,output"` |
-
-Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to 0.5 if noisy.
-
-Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
-
-Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
-
-Add your own blocks: `{"customPatterns": ["terraform[[:space:]]+apply", "kubectl[[:space:]]+delete"]}`
-
-Extended regex, matched case-insensitively against the command — the same engine the built-in patterns use. Commit it and the whole team inherits the rule. Capped at 50 patterns of 200 chars. A pattern that isn't valid regex is reported at session start and skipped — it cannot disable the built-in guards, which are evaluated separately for exactly that reason.
-
-Exempt a specific command: `{"allowPatterns": ["rm -rf .*/Library/Caches/"]}`
-
-For the false positive you hit repeatedly. Without it the only escape is `disableSecurityCategories`, which switches a whole category off — so this is the narrower instrument, never a wider one: it reaches exactly the blocks that setting already removes wholesale. Three limits are enforced in code, not just documented:
-
-- **It can never exempt a self-modification block.** These patterns live in `.supercharger.json`, which the `selfmod` rule protects — a pattern able to exempt `selfmod` could authorise edits to the file granting it that power.
-- **`git-safety`, `path-guard` and `harness-tamper-guard` are untouched.** The human-approval floor is not negotiable from a config file.
-- **An invalid regex fails safe.** The command stays blocked; a broken allow rule never widens the guard.
-
-Every exemption is written to the block ledger, so `/sc-why` and the session `[BLOCKS]` summary show what was let through.
-
-Work across directories outside the project: `{"additionalRoots": ["/path/to/parent"]}`
-
-**One entry per parent, not per directory.** Everything under a root counts as in-project — including directories created later. If you maintain many sibling directories (WordPress themes across Local sites, a plugins folder, a monorepo's packages), that is one line total:
-
-```json
-{"additionalRoots": ["/Users/you/Local Sites"]}
-```
-
-A single sibling works the same way — `{"additionalRoots": ["../my-pro-plugin"]}` — for a wrapper directory holding two repos that must change together (a free/pro plugin pair, an SDK and its example app).
-
-**Or use Claude Code's own authorisation.** Since v2.26.43, path-guard honours `--add-dir`, the `/add-dir` command, and `permissions.additionalDirectories` in `settings.json`. If you've told Claude Code a directory is in your workspace, writes to it are allowed. For a one-off directory in a single session, `/add-dir ../sibling-repo` is the quickest route.
-
-Which one depends on how often you come back to it. `/add-dir` is recorded **per session**, so directories you edit regularly have to be re-added every time you start Claude — a real papercut once there are more than one or two. `additionalRoots` is committed with the project and shared with the team; `permissions.additionalDirectories` is persistent but per user. Reach for a root when you are returning to the same directories.
-
-**And since v2.26.42** the project boundary is pinned to the directory you *launched* Claude in, and stays there for the whole session. Open Claude in the wrapper and both repos are in scope permanently — even after `cd` moves the working directory into one of them. Previously the boundary followed `cwd`, so a mid-session `cd` silently pushed the sibling out of the project and writes that worked at the start began failing with nothing explaining why.
-
-`additionalRoots` is for the case the launch directory can't cover: repos that aren't under one parent, or a session started inside one repo. Widening to the enclosing git repo doesn't help there, because each repo is its own git root.
-
-Paths are relative to the project root, or absolute. Put one in each repo pointing at the other; commit them and the team inherits the setup. *(Launching Claude from the wrapper directory needs no config at all — both repos are then already inside the boundary.)*
-
-It only widens the "is this inside my project" test, and it can never subtract a protection:
-
-- **`/`, `$HOME`, any ancestor of `$HOME`, and `~/.claude` are refused.** A root that resolves to any of them would disable the guard while looking like a whitelist. The same refusals apply to the launch directory *and* to Claude Code's own added directories — starting Claude from `~`, or running `/add-dir ~`, would otherwise quietly make your whole home directory writable. Claude Code granting **read** access to a tree is not consent to **write** to it.
-- **The credential and system list stays blocked** — `~/.ssh`, `~/.aws`, `~/.config`, `/etc/` and the rest are checked *before* the boundary test, so no whitelist can reach them.
-- **Roots are resolved through symlinks** before being trusted, and a path that doesn't exist (or isn't a directory) is ignored rather than silently accepted.
-
-This is the supported way to customise enforcement. Editing the installed hooks is not: `harness-tamper-guard` blocks it, and a forked guard stops receiving security updates.
-
-### Speed & tokens
-
-Measured, not estimated: **Claude Code runs same-event hooks concurrently** (observed ~11 at a time), so a tool call's *felt* cost is the slowest wave, not the sum of every hook.
-
-| machine | felt / tool call | chain sum (CPU) | statusline (cold / warm) |
-|---|---:|---:|---:|
-| M4 Pro, bash 3.2 | **6.8 ms** | 66.8 ms | 45.0 / 6.8 ms |
-| GitHub ubuntu runner | **10.0 ms** | 98.4 ms | 74.8 / 3.0 ms |
-| 2020 Intel Mac, bash 3.2 | 20–40 ms | — | — |
-
-**More than half the chain sum is not ours to give back.** Starting bash and exiting costs 2.00 ms on the M4 Pro, so 19 hooks pay 38 ms in process creation before one of them runs a line — 57% of the 66.8 ms. The per-hook spread is flat (2.4–6.8 ms, no outlier), and the cheapest guard is already *at* that floor. Optimising individual hooks can only touch the rest, and none of it is perceptible: the felt number is what you feel, and it is under 10 ms everywhere we measure.
-
-Reproduce it on your own machine with `bash tests/perf-chain.sh` (from a clone) — it reports the felt estimate, the sequential sum split into process spawn and hook work, and the slowest single hook. `--target statusline` measures the status bar separately. CI runs both on every push and posts the table to the job summary.
-
-**A caveat on `/sc-perf`:** on bash 3.2 — the macOS default — its `avg_ms` column is inflated, sometimes 10–60×, because the profiler forks `python` per hook fire to read the clock and that fork lands inside the measurement. `/sc-perf` prints a warning to this effect; rank by its **Calls** column and measure a specific hook independently before optimising it. On bash 5+ the clock is fork-free and the numbers are accurate.
-
-That said, most felt slowness is not the hooks. Biggest levers, in order of impact:
-
-**Faster**
-- **`/sc-autopilot 2h`** — stop the per-command yes/no prompts for a while (safety hooks still run). Permission waits dwarf hook overhead; this is the single biggest latency win
-- **Background long commands** — run `tsc`, builds, tests, and dev servers in the background so they don't block the turn
-- **`/sc-profile fast`** (skips 7 analytics hooks) or **`/sc-profile minimal`** (skips 10; security-only)
-- **`.supercharger-no-typecheck`** in a repo root — skip type-checking on just that repo (the one real per-edit cost on big projects)
-- **Thinking a long time on a *simple* request?** That's native Claude reasoning effort, not Supercharger — use `/effort low` or `/effort medium`
-
-**Fewer tokens**
-- **`/compact`** when context is high; **`/clear`** when switching to unrelated work
-- **`/sc-memory-prune`** — archive resolved memory entries so they stop loading every session
-- Supercharger's own footprint is small — rule files are path-scoped and per-prompt injections are a few tokens — so the dominant token cost is **conversation length**, not the hooks
-
-### Project verify hook
-
-Drop `.claude/verify.sh` in your repo. Claude runs it on stop; failures keep it fixing.
-
-```bash
-cp ~/.claude/supercharger/docs/templates/verify.sh .claude/verify.sh
-chmod +x .claude/verify.sh
-```
-
-</details>
-
-## Statusline indicators
-
-<details>
-<summary><strong>Show what each field means</strong></summary>
-
-```
-[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +158/-23
-████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
-Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
-```
-
-- **Line 1** — model, project, git branch, detected stack, economy tier (plus the active output style when one is set, e.g. `Eco: Minimal · Concise`), active agent, active MCP profile, lines added/removed
-- **Line 2** — context bar, percentage, token counts (in/out), cache efficiency and tokens saved
-- **Line 3** — session cost, duration, rate-limit burn rate and weekly usage, and `Spend cap: N%` when an org or gateway spend limit applies
-
-Transient alerts appear on line 1: `Mem: Restored`, `⚠ Scan: Secrets`, `⚠ Scan: Code`, `⚠ Scan: Injection`
-
-</details>
-
-## Slash commands
-
-Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update`, `/sc-pr`, `/sc-cleanup`…) run only when you type them: Claude can't invoke them on its own.
-
-<details>
-<summary><strong>Show all commands</strong></summary>
-
-**Control & modes** — the everyday levers, several unique to Supercharger:
-
-| Command | Purpose |
-|--|--|
-| `/sc-autopilot 2h` | Stop the yes/no permission prompts for a set time — the safety floor stays on. The single biggest speed win |
-| `/sc-readonly 20m` | "Look, don't touch" — blocks all edits **and** mutating shell commands, allows reads / searches / planning |
-| `/sc-strict 30m` | Confirm **every** call — auto-approves nothing. Overrides autopilot while active |
-| `/sc off\|on\|status` | Flip to plain Claude Code and back — guards, statusline, prompt rules and Supercharger's MCP servers all stand down; no uninstall |
-| `/sc-status` | What's active now — session cost, economy tier, disabled hooks, per-subagent spend |
-| `/sc-profile [fast\|minimal]` | Show or switch the performance profile (skips analytics hooks to cut overhead) |
-| `/sc-update` | Check for and apply Supercharger updates *(classic install; the plugin uses `/plugin update`)* |
-| `/sc-mcp-audit [--accept] [--server NAME]` | Scan every MCP server's tool descriptions for hidden instructions (tool poisoning) and report tools whose description changed since you accepted it (rug pull). Hooks never see descriptions, so this is the only check on them |
-| `/sc-notifier [install\|status\|remove]` | macOS: install, check or remove the optional notifier app (notifications as "Claude Supercharger" instead of Script Editor) |
-| `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
-
-**Workflow:**
-
-| Command | Purpose |
-|--|--|
-| `/sc-handoff [--deep] [context]` | Session resume brief → `.claude/handoff-<session>.md`, auto-loaded next session |
-| `/sc-pr [description]` | Prepare and create a pull request |
-| `/sc-scope [task]` | Pre-flight check — files to touch, risks, blast radius |
-| `/sc-estimate [task]` | Time + complexity report. Halts before code starts |
-| `/sc-interview [topic]` | Structured requirements gathering, one question at a time |
-| `/sc-multi-review [quick\|standard\|deep] [target]` | Parallel specialist reviewers, then a separate pass that tries to refute each finding |
-| `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
-| `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |
-| `/sc-cleanup [scope]` | Dead code / unused-import removal with two-tier safety |
-| `/sc-resolve-conflicts [context]` | Resolve an in-progress merge or rebase conflict, then verify it with the typecheck and tests |
-
-**Reasoning & debugging:**
-
-| Command | Purpose |
-|--|--|
-| `/sc-think [problem]` | Structured reasoning for ambiguous problems |
-| `/sc-challenge [decision]` | Adversarial stress-test — assumptions, failure modes, strongest alternative |
-| `/sc-stuck [symptom]` | Breaks debug loops with fresh hypotheses |
-| `/sc-why [hook]` | Explain the most recent hook firing — what triggered, what was blocked, fix step |
-
-**Insight, memory & housekeeping:**
-
-| Command | Purpose |
-|--|--|
-| `/sc-learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
-| `/sc-memory-prune` | Archive resolved memory entries so they stop loading into context |
-| `/sc-perf [--slow]` | Hook timing report |
-| `/sc-cache-stats` · `/sc-cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
-| `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) and to receive credentials as tool arguments |
-| `/sc-reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
-| `/sc-devlog [entry]` | Append a decision to `DEV-LOG.md` |
-| `/sc-design [brand]` | Generate `DESIGN.md` — tokens read from the project's theme, typography, components |
-| `/sc-design-review [pages]` | Review UI: WCAG 2.2 AA with measured values, hierarchy, responsiveness (read-only) |
-| `/supercharger` | List all slash commands |
-
-</details>
-
-## MCP profiles
-
-<details>
-<summary><strong>Show the profiles and their servers</strong></summary>
-
-| Profile | Servers | Context cost |
-|--|--|--|
-| `light` (default) | context7 | ~300 tokens |
-| `dev` | + Playwright, GitHub, Magic UI | ~1,200 tokens |
-| `research` | + Memory, Sequential Thinking | ~1,500 tokens |
-| `full` | everything (dev + research) | ~3,500 tokens |
-
-Supercharger tags its entries `#supercharger` and never touches your existing servers. Heavy servers are opt-in via `SUPERCHARGER_MCP_EXTRAS="playwright,github"`.
-
-```bash
-bash tools/mcp-profile.sh [profile]
-```
-
-**Your own MCP servers.** Adding a server is Claude Code's job — `claude mcp add <name> -- <cmd>`, or `--transport http <name> <url>` — and Supercharger doesn't reimplement it. What it adds is *profile awareness*: register a server you already added, pick which profiles it belongs to, and it's configured only while one of those is active (and moved aside by `/sc off`).
-
-```bash
-claude mcp add my-thing -- npx -y my-mcp-server     # Claude Code adds it
-bash tools/mcp-custom.sh adopt my-thing dev,full    # only loaded in dev + full
-bash tools/mcp-custom.sh list
-bash tools/mcp-custom.sh remove my-thing            # hands it back, untagged
-```
-
-Adopting takes ownership: the entry moves into a Supercharger registry (so a profile switch can add/remove it) and is restored to you untouched on `remove`. Servers you don't adopt are never modified.
-
-</details>
-
-## Tools
-
-<details>
-<summary><strong>Show the bundled tools</strong></summary>
-
-All in `~/.claude/supercharger/tools/` after install:
-
-| Script | Purpose |
-|--|--|
-| `update.sh` | Self-update |
-| `claude-check.sh` | Full diagnostic |
-| `hook-toggle.sh` | Enable/disable individual hooks |
-| `hook-new.sh` | Scaffold a custom hook |
-| `hook-doctor.sh` | Diagnose broken hook installs |
-| `economy-switch.sh` | Change economy tier permanently |
-| `mcp-profile.sh` | Switch MCP profile |
-| `token-report.sh` | Per-session token cost breakdown |
-| `session-analytics.sh` | Daily cost rollup (`--days N`) |
-| `hook-perf.sh` | Hook timing analysis |
-
-</details>
-
----
-
-## FAQ
-
-**Will this break my existing Claude setup?**
-No. The installer backs up everything before touching it. `./uninstall.sh` restores exactly what you had.
-
-**`/sc-notifier` fails with `redefinition of module 'SwiftBridging'`.**
-Your Command Line Tools install is damaged, so nothing Swift can build on that Mac. Fix it, check with `swift --version`, then run `/sc-notifier install` again:
-- with Xcode installed: `sudo xcode-select -s /Applications/Xcode.app/Contents/Developer`
-- without Xcode: `sudo rm -rf /Library/Developer/CommandLineTools && xcode-select --install`
-
-**A hook blocked something I actually need.**
-Run `/sc-why` to see what fired and why. Then either `bash tools/hook-toggle.sh <hook-name> off`, or run the command directly in your terminal outside Claude.
-
-**My script copies a file into `~/.claude/supercharger/hooks/` and is now denied.**
-Expected as of 2.24.14. Writing over an installed hook is how the guardrail layer gets torn down, so `cp`/`install`/`rsync`/`curl -o`/`wget -O` aimed **into** the install dir are blocked alongside `rm` and `>`. Use `./install.sh` or `tools/update.sh`, which the guard does not intercept. Reading and copying **out** (`cp <hook> /tmp/`) still work.
-
-**Can I temporarily switch back to plain Claude Code?**
-Yes — `/sc off` deactivates Supercharger globally (a kill-switch every hook honors instantly: no guards, no injection, no statusline) and `/sc on` restores it. Nothing is uninstalled; the files stay dormant and a timestamped backup is written first. It also moves **Supercharger's own** MCP servers aside so they stop loading and stop costing you context — MCP servers you added yourself are left alone. Two caveats: hooks stop immediately, but the `CLAUDE.md` prompt rules and the MCP change take effect on your **next** session; and **while off, the security guards are off too** — you're on stock Claude with no safety net until you `/sc on`.
-
-**How does this compare to SuperClaude, agent-os, or BMad?**
-Those are markdown files Claude reads and chooses to follow, and every rule costs context tokens that compound over a session. Supercharger's enforcement is a separate process with an exit code — no context cost, and no way for the model to opt out. The prompt-based layer here (roles, economy tiers) works the same way theirs does; the hook layer is what's different. See [What this does and doesn't guarantee](#what-this-does-and-doesnt-guarantee) for the limits.
-
-**How do I debug what hooks are doing?**
-Hook output is hidden by default. Per-project: `touch .supercharger-debug` in your repo root. Globally: `touch ~/.claude/supercharger/scope/.debug-hooks`.
-
-**How do I upgrade?**
-`bash ~/.claude/supercharger/tools/update.sh`
-
-**Does this send any data anywhere?**
-No telemetry, no analytics, no API keys read, and no user data ever leaves your machine. The only network call is an optional once-daily version check (`update-check.sh`, Full mode) that fetches this project's public version string from GitHub and sends nothing but a static `User-Agent`. Disable with `SUPERCHARGER_NO_UPDATE_CHECK=1`, `--mode safe`, or `hook-toggle.sh update-check off`. `tools/update.sh` also contacts GitHub, but only when you run it. Optional webhook notifications (opt-in) POST to URLs you configure. Nothing else makes network calls.
-
-**Can I write my own hooks?**
-```bash
-bash tools/hook-new.sh my-hook PostToolUse Bash
-bash tools/hook-toggle.sh my-hook on
-```
-Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
-
-**Windows?**
-Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash** — Claude Code auto-selects Git Bash as its hook interpreter on Windows, so the hooks run as-is. Git Bash is a **requirement, not a preference**: Claude Code falls back to PowerShell when it is absent, and every hook here is a bash script, so all of them silently fail to run.
-
-Every CI run exercises a `windows-latest` job under Git Bash. It verifies that hooks execute, `rm -rf /` is still blocked, the hashing used for per-project state works, the platform is detected for notifications, and `.sh` files check out with LF endings rather than CRLF. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
-
-Two things are **not** verified, and it would be dishonest to imply otherwise: nobody has watched a desktop notification actually render on Windows (the CI job proves the correct backend is selected, not that a toast appears), and no human has run a full install on a Windows desktop — only the scripted CI path. If you try it, [open an issue](https://github.com/smrafiz/claude-supercharger/issues) either way; that is the gap.
-
-Alpine Linux is **not supported** (it ships `ash`, not `bash`) — run inside a Debian/Ubuntu/Fedora container, or install GNU bash first.
-
----
-
-## Scope of protection
-
-Supercharger guards **agent-initiated** tool calls — anything the model invokes through Claude Code's tool channel passes through PreToolUse hooks first. Two flows fall outside that channel and cannot be enforced by exit-code blocking:
-
-- **User `!` shell escapes** — Claude Code's `! <cmd>` prompt prefix runs commands directly in your shell, not through the Bash tool, so PreToolUse hooks never fire. `shell-escape-advisor.sh` scans `!` prompts for `rm -rf`, `curl|bash`, `git push --force`, and `git reset --hard` and warns — but the shell still executes the command. Treat `!` like a separate terminal: Supercharger does not see it.
-- **Commands run in your terminal outside the Claude Code session** — by design. This is a Claude Code layer, not a shell-level guard.
-
-If you need shell-level enforcement regardless of source, layer that separately (e.g. an `rm` function in `~/.zshrc`).
-
-### Standards alignment
-
-Supercharger maps to the [**OWASP Top 10 for Agentic Applications 2026**](https://genai.owasp.org/resource/owasp-top-10-for-agentic-applications-for-2026/):
-
-- **Least-Agency** — every guardrail category is opt-out per project via `.supercharger.json`. Raising autonomy requires an explicit human-authored config change
-- **Strong Observability** — every blocked command, Edit/Write/Bash decision, and subagent spawn is logged to `~/.claude/supercharger/scope/.blocked-commands` and `audit/` JSONL
-- **Self-modification defense** — the `selfmod` category covers both the Bash channel (`safety.sh`) and the Write/Edit channel (`path-guard.sh`), closing the [March 2026 Ona Security sandbox-bypass pattern](https://www.penligent.ai/hackinglabs/claude-code-sandbox-bypass/)
-- **Sandbox-bypass detection** — `config-scan.sh` covers three documented CVEs at session start: foreign hook injection ([CVE-2025-59536](https://nvd.nist.gov/vuln/detail/CVE-2025-59536)), `ANTHROPIC_BASE_URL` exfiltration ([CVE-2026-21852](https://nvd.nist.gov/vuln/detail/CVE-2026-21852)), and `defaultMode=bypassPermissions` ([CVE-2026-33068](https://nvd.nist.gov/vuln/detail/CVE-2026-33068))
-
----
-
-## Going deeper
-
-- Every hook documented: [`docs/HOOKS.md`](docs/HOOKS.md) — event, matcher, purpose
-- Hook authoring guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
-- Roadmap: [`docs/ROADMAP.md`](docs/ROADMAP.md)
-- Contributing: [`CONTRIBUTING.md`](CONTRIBUTING.md)
-- Changelog: [`CHANGELOG.md`](CHANGELOG.md) · [archive](docs/CHANGELOG-archive.md)
-
----
-
-## Credits
-
-Built on patterns from [SuperClaude](https://github.com/SuperClaude-Org/SuperClaude_Framework), [agent-guardrails-template](https://github.com/TheArchitectit/agent-guardrails-template), [Trail of Bits claude-code-config](https://github.com/trailofbits/claude-code-config), [claude-code-quality-hook](https://github.com/dhofheinz/claude-code-quality-hook), [prompt-master](https://github.com/nidhinjs/prompt-master), [oh-my-claudecode](https://github.com/Yeachan-Heo/oh-my-claudecode), [get-shit-done](https://github.com/gsd-build/get-shit-done), [claude-code-system-prompts](https://github.com/Piebald-AI/claude-code-system-prompts), [claude-code-tips](https://github.com/ykdojo/claude-code-tips), and others.
-
-The security-hardening layer adapts enforcement patterns from several MIT-licensed guardrail projects — [efij/secure-claude-code (Stallion)](https://github.com/efij/secure-claude-code) (cloud/container/persistence/exfil/MCP vectors), [dwarvesf/claude-guardrails](https://github.com/dwarvesf/claude-guardrails) (staged-diff secret scan + crypto keys), [wintermeyer/heinzel](https://github.com/wintermeyer/heinzel) (disk/partition taboos), [mafiaguy/claude-security-guardrails](https://github.com/mafiaguy/claude-security-guardrails) (docker/system-power/scp-exfil), and [Chachamaru127/claude-code-harness](https://github.com/Chachamaru127/claude-code-harness) (file-lease, fact-gate, MCP circuit-breaker) — plus the commit-attribution-gate concept from [domengabrovsek/claude](https://github.com/domengabrovsek/claude). All were independently re-implemented as self-contained bash/python; see [NOTICE](NOTICE) for attributions.
+Supercharger builds on patterns from other Claude Code and guardrail projects; they are credited in [docs/CREDITS.md](docs/CREDITS.md) and [NOTICE](NOTICE).
 
 ## License
 
-MIT — see [LICENSE](LICENSE)
+MIT. See [LICENSE](LICENSE).
