@@ -84,5 +84,12 @@ check "schemastore schema"         "/p/tsconfig.json" '{"$schema":"https://json.
 check "vendor schema, no query"    "/p/biome.json"    '{"$schema":"https://biomejs.dev/schemas/1.9.4/schema.json"}' ALLOW
 check "local schema"               "/p/config.json"   '{"$schema":"./schema.json"}' ALLOW
 
+# --- 2026-10-14: editor settings pointing at a binary (IDEsaster) ----------------
+check "php executablePath"         "/p/.vscode/settings.json" '{"php.validate.executablePath":"/tmp/evil"}' ASK
+check "git.path"                   "/p/.vscode/settings.json" '{"git.path":"./tools/git"}' ASK
+check "workspace interpreterPath"  "/p/a.code-workspace"      '{"settings":{"python.defaultInterpreterPath":"/tmp/py"}}' ASK
+check "plain editor setting"       "/p/.vscode/settings.json" '{"editor.tabSize":2,"files.exclude":{"dist":true}}' ALLOW
+check "executablePath elsewhere"   "/p/src/settings.json"     '{"php.validate.executablePath":"/tmp/evil"}' ALLOW
+
 rm -rf "$TMP"
 report
