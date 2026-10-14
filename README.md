@@ -1,14 +1,30 @@
 # Claude Supercharger
 
-Shell hooks for Claude Code that block destructive commands and secret leaks before the tool call runs.
+**Claude Code is quick and very sure of itself. Supercharger is the part that says no.**
 
 ![Version](https://img.shields.io/badge/version-4.3.9-blue) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) ![License](https://img.shields.io/badge/license-MIT-green)
 
-Supercharger registers bash hooks that Claude Code runs around every tool call. They block destructive shell commands (`rm -rf` on system paths, force-push to a protected branch, `curl | bash`), writes into credential and system directories, and credentials leaving through tool output, MCP arguments or a commit. These are guardrails for a capable agent that makes mistakes, not a sandbox: pattern matching can be evaded on purpose, and commands you run yourself with `!` never pass through a hook. A hook that hits an internal error allows the call, and one that runs past its timeout (15 seconds, 60 on Windows) is killed by Claude Code and the command runs. A broken guard fails open rather than blocking your work.
+![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
-## What a block looks like
+You give an agent a shell and it will, one day, run something you would never have typed. A path variable comes back empty and `rm -rf "$DIR"/` points at the wrong place. A "quick fix" ends in `git push --force` on main. It reads `.env` to "check the config" and now your keys are in the transcript.
 
-Claude tried to run `git push --force origin main`. The hook stopped it before it ran and printed this:
+Supercharger is a set of hooks that Claude Code runs before and after every tool call. They live in your shell, not in the prompt, so Claude cannot talk its way past them and they cost zero context tokens. Install it once and keep working the way you already do.
+
+## What it catches
+
+| Claude tries to | What happens |
+|---|---|
+| `rm -rf ~/` | Blocked before it runs |
+| `rm -rf "$DIR"/` with a variable it has not checked | Stops and asks you first |
+| `git push --force origin main` | Blocked, and Claude is told why |
+| `cat .env` to "see the settings" | Blocked |
+| `curl -fsSL https://... \| bash` from a README it just read | Blocked |
+| Edit `~/.ssh/config` | Blocked |
+| Commit a file with a live API key in it | Commit blocked; the key is never echoed back |
+| Send a credential out as an MCP tool argument or a WebFetch URL | Blocked |
+| Keep going after the session passed the budget you set | Non-read tools stop at the limit |
+
+When something is blocked, Claude sees a plain reason instead of a mystery shell error, so it changes course instead of retrying the same thing:
 
 ```text
 Supercharger blocked this git operation.
@@ -18,43 +34,44 @@ Supercharger blocked this git operation.
             blocks are absolute by design ...
 ```
 
-Claude itself is told `Supercharger: force push to protected branch`, so it knows this is policy rather than a shell error. A recorded run of several blocks is in [assets/demo/demo.gif](assets/demo/demo.gif); `./assets/demo/try.sh '<command>'` replays any command through the guards without executing it.
+Want to see how a command would be judged without running it? `./assets/demo/try.sh '<command>'` replays it through the guards.
 
-## Quickstart
+## Install
 
 You need the Claude Code CLI, Bash 3.2 or later (macOS, Linux, or Git Bash on Windows), Python 3.7 or later, and `jq`.
 
-1. Install. The installer asks for a mode (Safe or Full) and backs up your existing config to `~/.claude/backups/` first.
+1. Clone and run the installer. It asks which mode you want (Safe or Full) and backs up your current config to `~/.claude/backups/` before touching anything.
 
    ```bash
    git clone https://github.com/smrafiz/claude-supercharger.git && cd claude-supercharger && ./install.sh
    ```
 
-2. Check the install, then start a new Claude Code session.
+2. Check that it took, then open a new Claude Code session.
 
    ```bash
    bash ~/.claude/claude-check.sh
    ```
 
-   Inside Claude Code, `/sc-doctor` runs the same kind of check and ends with one line you can paste into a bug report.
+   Inside Claude Code, `/sc-doctor` does the same and gives you one line to paste into a bug report.
 
-3. Optional, macOS only: install the notifier app so notifications show as "Claude Supercharger" instead of "Script Editor". It needs macOS 10.14 or later and Apple's Command Line Tools (`swift --version`; if missing, `xcode-select --install`). It is compiled on your Mac in under a minute, downloads nothing and needs no admin rights. Run `/sc-notifier install`, then turn it on once in System Settings, Notifications, Claude Supercharger.
+3. Optional, macOS only: the Supercharger app. Out of the box, macOS shows our notifications as coming from "Script Editor". Run `/sc-notifier install` and they arrive as "Claude Supercharger" instead, and clicking one takes you back to your terminal or editor. It needs macOS 10.14 or later and Apple's Command Line Tools (`swift --version`; if that fails, `xcode-select --install`). It is built from source on your Mac in under a minute: no download, no admin rights. Then switch it on once in System Settings, Notifications, Claude Supercharger.
 
-4. To remove it later, run `./uninstall.sh` from the clone. See [Uninstall](#uninstall).
+4. Changed your mind? `./uninstall.sh` from the clone. Details in [Uninstall](#uninstall).
 
-Other ways to install (temp-dir one-liner, non-interactive flags, Claude Code plugin, Windows notes) are in [docs/INSTALL.md](docs/INSTALL.md).
+Other ways in (temp-dir one-liner, non-interactive flags, the Claude Code plugin, Windows notes) are in [docs/INSTALL.md](docs/INSTALL.md).
 
-## What it does
+## What else is in the box
 
-- Destructive-command and path guards. Commands and file writes are checked before they run. Example: `rm -rf /`, `DROP TABLE`, `terraform destroy`, and an Edit to `~/.ssh/config` are denied. [Feature list](docs/FEATURES.md#runtime-enforcement), [every hook](docs/HOOKS.md).
-- Secret and egress scanning. Tool output, staged diffs, prompts and outbound MCP or WebFetch arguments are scanned for credentials. Example: an AWS key in the staged diff blocks `git commit`, and the message says a secret was found without repeating it. [Feature list](docs/FEATURES.md#runtime-enforcement).
-- Permission modes with a time limit. Example: `/sc-autopilot 2h` stops the yes/no prompts for two hours while the safety floor stays on; `/sc-readonly 20m` blocks every edit. [Commands](docs/COMMANDS.md#control-and-modes).
-- Cost and token economy. Example: `"budget": 5.00` in `.supercharger.json` blocks non-read tools once a session has spent $5, and `eco lean` asks for shorter answers. [Cost features](docs/FEATURES.md#cost-and-context-control), [configuration](docs/CONFIGURATION.md).
-- Memory between sessions. Example: `/sc-handoff` writes `.claude/handoff-<session>.md`, which the next session loads, and lessons from debugging are recalled on later prompts. [Memory features](docs/FEATURES.md#memory-across-sessions).
-- Slash commands for review and debugging. Example: `/sc-why` explains the last block, and `/sc-multi-review` runs parallel reviewers and then tries to refute each finding. [All commands](docs/COMMANDS.md).
-- Statusline and notifications. Example: the statusline shows context use, cache hit rate and session cost; a notification fires when a long turn finishes. [Developer features](docs/FEATURES.md#developer-experience).
+The guards are the reason it exists. The rest is what we wanted every day once they were in place.
 
-Most per-project settings go in a `.supercharger.json` at the repo root. Commit it and everyone on the project gets the same behaviour:
+- Secret scanning on the way out. Tool output, staged diffs, prompts, MCP arguments and WebFetch URLs are scanned for credentials. If a key shows up in output, Claude is told which tool printed it and asked not to repeat it. [More](docs/FEATURES.md#runtime-enforcement)
+- Prompts you can switch off for a while. `/sc-autopilot 2h` stops the yes/no questions for two hours and the guards stay on. `/sc-readonly 20m` blocks every edit while you poke around. [Commands](docs/COMMANDS.md#control-and-modes)
+- A spending limit. Put `"budget": 5.00` in `.supercharger.json` and non-read tools stop once the session has spent $5. Say `eco lean` mid-chat for shorter answers. [Cost features](docs/FEATURES.md#cost-and-context-control)
+- Memory between sessions. `/sc-handoff` writes a brief that the next session picks up on its own, so you do not start every morning by explaining yesterday. [Memory](docs/FEATURES.md#memory-across-sessions)
+- Commands for the annoying parts. `/sc-why` explains the last block in plain words. `/sc-multi-review` sends parallel reviewers at a diff, then tries to knock down each finding before showing it to you. [All commands](docs/COMMANDS.md)
+- A statusline that tells you things. Context used, cache hit rate and what the session has cost so far, plus a notification when a long turn finishes. [Details](docs/FEATURES.md#developer-experience)
+
+Per-project settings live in a `.supercharger.json` at the repo root. Commit it and everyone on the project gets the same rules:
 
 ```json
 {
@@ -63,7 +80,7 @@ Most per-project settings go in a `.supercharger.json` at the repo root. Commit 
 }
 ```
 
-Every key and env var is listed in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
+Every key and env var is in [docs/CONFIGURATION.md](docs/CONFIGURATION.md).
 
 ## Limits and trade-offs
 
