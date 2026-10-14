@@ -59,6 +59,30 @@ SHELLOUT = re.compile(
     r'passthru|shell_exec|proc_open|getoutput|getstatusoutput)\b|\bsubprocess\b|'
     r'\bos\.(?:exec|spawn)|\bpty\b|\bqx\b|%x|\bDeno\.(?:run|Command)\b')
 
+# The command a shell-out hands to the OS, written out on its own line so the shell
+# rules (anchored to command position) see it: `os.system('<cmd>')`,
+# `subprocess.run(['<cmd>', '<arg>'])`, perl/ruby backticks, `qx{...}`. Without this,
+# every shell rule missed a command run from an interpreter heredoc body.
+SHELLOUT_ARG = re.compile(
+    r'\b(?:system|popen|exec\w*|spawn\w*|run|call|check_output|check_call|Popen|'
+    r'getoutput|getstatusoutput|shell_exec|passthru|proc_open)\s*\(\s*[rfbuRFBU]?'
+    r'(\[[^\]]*\]|"[^"]*"|\'[^\']*\')')
+TICKS = re.compile(r'`([^`]+)`|\bqx\s*[({\[/]([^)}\]/]+)')
+
+
+def shellout_cmds(line, ticks):
+    found = []
+    for m in SHELLOUT_ARG.finditer(line):
+        arg = m.group(1)
+        if arg[0] == '[':
+            found.append(' '.join(re.findall(r'["\']([^"\']*)["\']', arg)))
+        else:
+            found.append(arg[1:-1])
+    if ticks:
+        found += [x or y for x, y in TICKS.findall(line)]
+    return [f for f in found if f.strip()]
+
+
 # <<- allows a tab-indented terminator; <<< is a herestring and is NOT a heredoc.
 START = re.compile(r'<<(?!<)(-?)\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\2')
 
@@ -123,6 +147,7 @@ while i < len(lines):
     # code mode: every receiver is a non-shell interpreter -> keep shell-outs only.
     prose_free = code_mode and keep_body and all(t in INTERP for t in recv)
     ticks = any(t in ('perl', 'ruby', 'php') for t in recv)
+    interp_body = keep_body and all(t in INTERP for t in recv)
     out.append(line)
     i += 1
     # Consume through the terminator either way; only the body's fate differs.
@@ -135,6 +160,8 @@ while i < len(lines):
         if keep_body and (not prose_free or SHELLOUT.search(lines[i])
                           or (ticks and '`' in lines[i])):
             out.append(lines[i])
+            if interp_body:
+                out.extend(shellout_cmds(lines[i], ticks))
         i += 1
 
 sys.stdout.write('\n'.join(out))
