@@ -22,7 +22,10 @@ except Exception:
         return x
 # HOME, not '~': native Windows python expands '~' from USERPROFILE.
 HOME = msys_path(os.environ.get('HOME')) or os.path.expanduser('~')
-SC = os.path.join(HOME, '.claude', 'supercharger')
+# Same resolution as hooks/lib-paths.sh: a plugin install keeps its state in
+# CLAUDE_PLUGIN_DATA, so reading only ~/.claude/supercharger showed an empty status.
+SC = (msys_path(os.environ.get('SUPERCHARGER_STATE') or os.environ.get('CLAUDE_PLUGIN_DATA') or '')
+      or os.path.join(HOME, '.claude', 'supercharger'))
 SCOPE = os.path.join(SC, 'scope')
 NA = '—'
 
