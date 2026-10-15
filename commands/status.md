@@ -37,6 +37,7 @@ Lessons        : <count> recorded
 Disabled hooks : <list from .disabled-hooks, or "none">
 Last compact   : <relative time from .memory-restored mtime, or "this session">
 
+Unscanned      : <unscanned_payloads: count of outputs a scanner timed out on and never checked, with the last hook; "0" when none. If above 0, say so plainly: those outputs were NOT checked for secrets or injection>
 Recent blocks  : <last 3 lines of scope/.blocked-commands — show the category/reason, not the raw command; or "—" if the file is absent>
 ```
 

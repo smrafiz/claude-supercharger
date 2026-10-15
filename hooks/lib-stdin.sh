@@ -87,6 +87,11 @@ sc_read_input_warn() {
   # `$? > 128` convention cannot be used on bash 3.2.
   if [ $((SECONDS - _sc_t0)) -ge "$_sc_to" ] || [ "$_sc_rc" -gt 128 ]; then
     echo "[Supercharger] ${_sc_hook}: stdin read timed out after ${_sc_to}s — this payload was NOT scanned" >&2
+    # 2026-10-15: stderr from a non-blocking hook lands in a debug log nobody reads,
+    # so the miss is also written where /sc-status looks. One `date` fork, on a path
+    # that only runs when the read already failed.
+    local _sc_st="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope"
+    mkdir -p "$_sc_st" 2>/dev/null && printf '%s %s\n' "$(date +%s 2>/dev/null || echo 0)" "$_sc_hook" >> "$_sc_st/.unscanned" 2>/dev/null
     exit 0
   fi
   _sc_val="${_sc_val%"${_sc_val##*[!$'\n']}"}"
