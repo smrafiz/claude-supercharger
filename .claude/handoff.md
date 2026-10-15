@@ -4,22 +4,26 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-14, session `3d213381`.*
+*Verified 2026-10-15, session `3d213381` (resumed as `d9c52617`).*
 
-- **Released: v4.3.11** (fp-batch-3, #133). Installed v4.3.11 on Machine A. master = `d06b268` (#134 merged 11:42Z).
-- **In flight:** 4.3.12 = #134 (ask before a command leaves the sandbox, autopilot cannot skip it; ask on a
-  `$schema` URL carrying data; ask on editor settings pointing at a binary). Machine A job
-  `~/.cache/sc-finish-4.3.12.sh` → `.result`.
-- **Open PR:** docs/eng-notes-2026-10-14 (HOOK_AUTHORING notes + this file). Merge after 4.3.12 promotes.
-- **Next candidates:** memory `research-2026-10-14-perf-tokens-guards` (ConfigChange block, dependency-confusion
-  install flags, `if` field on bookkeeping hooks, idle-machine timing re-run).
-- **README:** user decided the existing README stays (#132 closed).
-- **Unverified:** `!` commands in a fresh interactive session.
-- **Release recipe:** one detached finish job + ONE completion notice ("do not monitor"). Merge one at a time;
-  never edit the main checkout while a job runs; the job's `gh pr merge --delete-branch` deletes the PR's
-  worktree, so finish local runs first. PR CI skips Windows.
-- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes/fp-envref + locked
-  agent-aa4f…; drop only on user's say-so.
+- **Released: v4.3.12** (sandbox opt-out confirm; `$schema` data URL; editor binary-path settings, #134).
+  Installed v4.3.12 on Machine A.
+- **In flight:** 4.3.13 = #136, the audit follow-ups: README hook count 156 and token claim scoped to the
+  guards (both tested), git-safety rewrite-shape tests, a scanner stdin timeout recorded in
+  `scope/.unscanned` and shown by `/sc-status`, `docs/CVE-COVERAGE.md`, audits under `docs/audits/`
+  with a checked corrections list. Machine A job `~/.cache/sc-finish-4.3.13.sh` → `.result`.
+- **Open PRs:** #137 (`/sc-status` reads `CLAUDE_PLUGIN_DATA` on plugin installs); this one (#135).
+- **Known, not fixed:** after a resume, path-guard denies the new scratchpad: only SessionStart sees the
+  new session id, tool calls carry the old one. The old scratchpad still works.
+  `git fetch && git push --force origin <feature>` is not de-forced (single-command pushes are); left as
+  policy, not a hole.
+- **Next candidates:** memory `research-2026-10-14-perf-tokens-guards`; parked from the audit:
+  per-guard fire/deny counts, `/sc-trust`, `/sc-health`.
+- **Release recipe:** one detached finish job + ONE completion notice ("do not monitor"). Merge one at a
+  time; never edit the main checkout while a job runs; the job's merge deletes the PR's worktree; after
+  editing `configs/commands/*` run all three `tools/gen-*.sh`. PR CI skips Windows.
+- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes/fp-envref/
+  audit-fu/state-sp + locked agent-aa4f…; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
