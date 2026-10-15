@@ -46,4 +46,10 @@ for c in sc-status sc-why sc-perf; do
 done
 [ "$OK" = 1 ] && pass || fail "a command lost its injection, allow rule, or put \$ARGUMENTS in a ! line"
 
+begin_test "command-context: a plugin install reads its state from CLAUDE_PLUGIN_DATA"
+PD=$(mktemp -d); mkdir -p "$PD/scope"; printf 'lean\n' > "$PD/scope/.economy-tier"
+OUT=$(cd "$PD" && HOME="$(_n "$(mktemp -d)")" CLAUDE_PLUGIN_DATA="$(_n "$PD")" python3 "$(_n "$CTX")" status 2>&1)
+printf '%s' "$OUT" | grep -q '^tier: lean' && pass || fail "plugin state ignored: $(printf '%s' "$OUT" | grep tier:)"
+rm -rf "$PD"
+
 report
