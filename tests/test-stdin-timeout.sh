@@ -116,7 +116,7 @@ _STO_H=$(mktemp -d); _STO_ST="$_STO_H/.claude/supercharger"; mkdir -p "$_STO_ST"
 # Native Windows python cannot open MSYS paths: hand it the mixed form, as
 # tests/test-command-context.sh does.
 _sto_n() { if command -v cygpath >/dev/null 2>&1; then cygpath -m "$1"; else printf '%s' "$1"; fi; }
-_STO_CTX=$(cd "$_STO_H" && HOME="$(_sto_n "$_STO_H")" python3 "$(_sto_n "$REPO_DIR/tools/command-context.py")" status 2>/dev/null | tr -d '\r' | grep unscanned_payloads)
+_STO_CTX=$(cd "$_STO_H" && HOME="$(_sto_n "$_STO_H")" python3 "$(_sto_n "$REPO_DIR/tools/command-context.py")" status 2>/dev/null | tr -d '\r' | grep -a unscanned_payloads)
 grep -q ' output-secrets-scanner$' "$_STO_ST/scope/.unscanned" 2>/dev/null \
   && printf '%s' "$_STO_CTX" | grep -q 'unscanned_payloads: 1 (last: output-secrets-scanner)' \
   && pass || fail "no record: file=$(cat "$_STO_ST/scope/.unscanned" 2>/dev/null) ctx=$_STO_CTX"
