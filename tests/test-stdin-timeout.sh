@@ -107,6 +107,18 @@ begin_test "D: a clean page that arrives is still silent"
 _STO_OUT=$(_sto_payload "$_STO_TD/clean.html" | SUPERCHARGER_STDIN_TIMEOUT_S=1 bash "$GUARD" 2>&1)
 [ -z "$_STO_OUT" ] && pass || fail "false positive on a clean page: ${_STO_OUT:0:80}"
 
+# 2026-10-15 (audit follow-up): the non-blocking reader's stderr lands in a debug
+# log, so a timed-out scan must also leave a record /sc-status can show.
+begin_test "E: a non-blocking scanner that times out records the miss for /sc-status"
+_STO_H=$(mktemp -d); _STO_ST="$_STO_H/.claude/supercharger"; mkdir -p "$_STO_ST"
+{ sleep 2; printf '{}'; } | SUPERCHARGER_STATE="$_STO_ST" SUPERCHARGER_STDIN_TIMEOUT_S=1 bash -c '
+. "'"$LIB"'"; sc_read_input_warn X output-secrets-scanner' >/dev/null 2>&1
+_STO_CTX=$(cd "$_STO_H" && HOME="$_STO_H" python3 "$REPO_DIR/tools/command-context.py" status 2>/dev/null | grep unscanned_payloads)
+grep -q ' output-secrets-scanner$' "$_STO_ST/scope/.unscanned" 2>/dev/null \
+  && printf '%s' "$_STO_CTX" | grep -q 'unscanned_payloads: 1 (last: output-secrets-scanner)' \
+  && pass || fail "no record: file=$(cat "$_STO_ST/scope/.unscanned" 2>/dev/null) ctx=$_STO_CTX"
+rm -rf "$_STO_H"
+
 rm -rf "$_STO_TD"
 
 report

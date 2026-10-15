@@ -96,6 +96,16 @@ def transcript_cost(path):
     return '$%.2f' % t
 
 
+def unscanned_line():
+    """Payloads a non-blocking scanner gave up on (stdin timeout). lib-stdin.sh appends
+    '<epoch> <hook>' per miss; silence from a scanner otherwise reads as a clean scan."""
+    rows = tail(os.path.join(SCOPE, '.unscanned'), 200)
+    if not rows:
+        return 'unscanned_payloads: 0'
+    last = rows[-1].split()
+    return 'unscanned_payloads: %d (last: %s)' % (len(rows), last[1] if len(last) > 1 else NA)
+
+
 def status():
     enc, sid, tr = session()
     cfg = {}
@@ -164,6 +174,7 @@ def status():
         'disabled_hooks: ' + (read(os.path.join(SCOPE, '.disabled-hooks'), 'none').replace('\n', ', ')),
         'last_compact: ' + (ago(restored) if restored and os.path.exists(restored) else 'this session'),
         'audit_events_today: %d' % n_audit,
+        unscanned_line(),
     ] + ['  block: ' + l[:160] for l in tail(os.path.join(SCOPE, '.blocked-commands'), 3)]
     print('\n'.join(out))
 

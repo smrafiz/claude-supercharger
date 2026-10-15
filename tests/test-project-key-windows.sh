@@ -103,6 +103,17 @@ begin_test "bash and python agree on root"
 B=$(bkey '/'); P=$(pkey '/')
 [ "$B" = "$P" ] && pass || fail "channels disagree — bash='$B' python='$P'"
 
+# 2026-10-15 (audit follow-up): the two remaining branches, the 100-char cap and a
+# mixed-separator path, were tested per channel but never compared across them.
+LONGP="/Users/me/$(printf 'a%.0s' $(seq 1 120))/repo"
+begin_test "bash and python agree past the 100-char cap"
+B=$(bkey "$LONGP"); P=$(pkey "$LONGP")
+[ "$B" = "$P" ] && [ ${#B} -eq 100 ] && pass || fail "channels disagree — bash='$B' python='$P'"
+
+begin_test "bash and python agree on a mixed-separator path"
+B=$(bkey 'C:/Users\me/my project'); P=$(pkey 'C:/Users\me/my project')
+[ "$B" = "$P" ] && pass || fail "channels disagree — bash='$B' python='$P'"
+
 # --- the fix: hand python the KEY, not just the path -------------------------
 # Agreeing above only proves the two copies of the algorithm match. It cannot
 # catch the failure that actually happened on Windows, where both copies were

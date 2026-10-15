@@ -263,6 +263,19 @@ else
   fail "expected 0 < deduped ($DEDUP) < raw registrations ($RAW)"
 fi
 
+# --- README install-mode counts match the installer (2026-10-15) --------------
+# The README table said Full = 152 while the installer printed 156: a hand-kept
+# number drifts. Full mode defaults to the developer role.
+begin_test "install: README hook counts match count_installed_hooks"
+SAFE_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks safe false)
+FULL_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks full true)
+if grep -q "^| \*\*Safe\*\* | $SAFE_N |" "$REPO_DIR/README.md" \
+   && grep -q "^| \*\*Full\*\* | $FULL_N |" "$REPO_DIR/README.md"; then
+  pass
+else
+  fail "README install-mode table does not say Safe=$SAFE_N Full=$FULL_N"
+fi
+
 # --- statusLine path portability (v2.26.57) -----------------------------------
 # Measured on a windows-latest runner: lib/hooks.sh built statusline_path with
 # Python's expanduser+join. Under Git Bash python3 is WINDOWS python, so that
