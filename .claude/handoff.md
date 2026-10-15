@@ -6,24 +6,19 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-15, session `3d213381` (resumed as `d9c52617`).*
 
-- **Released: v4.3.12** (sandbox opt-out confirm; `$schema` data URL; editor binary-path settings, #134).
-  Installed v4.3.12 on Machine A.
-- **In flight:** 4.3.13 = #136, the audit follow-ups: README hook count 156 and token claim scoped to the
-  guards (both tested), git-safety rewrite-shape tests, a scanner stdin timeout recorded in
-  `scope/.unscanned` and shown by `/sc-status`, `docs/CVE-COVERAGE.md`, audits under `docs/audits/`
-  with a checked corrections list. Machine A job `~/.cache/sc-finish-4.3.13.sh` → `.result`.
-- **Open PRs:** #137 (`/sc-status` reads `CLAUDE_PLUGIN_DATA` on plugin installs); this one (#135).
-- **Known, not fixed:** after a resume, path-guard denies the new scratchpad: only SessionStart sees the
-  new session id, tool calls carry the old one. The old scratchpad still works.
-  `git fetch && git push --force origin <feature>` is not de-forced (single-command pushes are); left as
-  policy, not a hole.
-- **Next candidates:** memory `research-2026-10-14-perf-tokens-guards`; parked from the audit:
-  per-guard fire/deny counts, `/sc-trust`, `/sc-health`.
+- **Released: v4.3.13** (#136 audit follow-ups, #137, #138). master = `6166890` (#139 and #135 merged).
+  Installed v4.3.13 on Machine A (CLAUDE.md header).
+- **In flight (Machine A):** one finish job per release, chained by `~/.cache/sc-finish-<ver>.result`:
+  4.3.14 = #139 (package-source-guard asks on a custom index), 4.3.15 = #140 (four Bash writes to
+  settings.json past selfmod), 4.3.16 = #141 (statusline: cold prompt cache, recent miss cause),
+  4.3.17 = #142 (echo text is data when its output reaches the terminal). #142 PR CI green on both OSes.
+- **Closed:** hook `if` field (no hook qualifies; see HOOK_AUTHORING "The hook `if` field").
+- **Known, not fixed:** after a resume, path-guard denies the new scratchpad (only SessionStart sees the
+  new session id). A `dropdb` deny on a python heredoc in plinth (2026-10-15 10:23), not investigated.
 - **Release recipe:** one detached finish job + ONE completion notice ("do not monitor"). Merge one at a
-  time; never edit the main checkout while a job runs; the job's merge deletes the PR's worktree; after
-  editing `configs/commands/*` run all three `tools/gen-*.sh`. PR CI skips Windows.
-- **Machine A:** 4 stashes + worktrees cnf/hd3/jgb/pg/pgw/rb/rcps/s5/hd-shellout/eng-notes/fp-envref/
-  audit-fu/state-sp + locked agent-aa4f…; drop only on user's say-so.
+  time; never edit the main checkout while a job runs; the job's merge deletes the PR's worktree; PR CI
+  skips Windows. A release creating its tag mid-suite fails the 3 `release: --dry-run` tests locally.
+- **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET.
 
 ### Per-machine / per-account facts
@@ -52,6 +47,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-15 (deep) — 3d213381
+4.3.13 released; 4.3.14–4.3.17 chained (#139–#142). Hook `if` field closed; statusline shows
+prompt-cache misses; echo-heading FP fixed. Two HOOK_AUTHORING notes.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-15 deep)
+
 #### 2026-10-13 (deep) — 3d213381
 Released 4.3.6, 4.3.7 (GitSpawn/Chaindrop/GhostSplice), 4.3.8 (secret-alert attribution, six FPs);
 4.3.9 (install-by-rename) in flight. 4.3.7 needed a retry: PR CI skips Windows.
@@ -70,9 +70,4 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 de
 #### 2026-10-12 — 3d213381
 4.3.3 (/sc-mcp-audit, gate skip) and 4.3.4 (live `!` context in sc-status/why/perf, Swift
 toolchain hint) released; each via one detached finish job, gate skipped on green master.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
-
-#### 2026-10-11 (deep) — 3d213381
-4.3.1 + 4.3.2 released; #112 release gate skip merged. Found/fixed $11.7M lifetime cost
-over-count (two writers dropping the offset map). /sc-mcp-audit WIP on its branch.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)
