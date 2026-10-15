@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Package Source Guard
-# Event: PreToolUse | Matcher: Write, Edit, MultiEdit
+# Event: PreToolUse | Matcher: Write, Edit, MultiEdit, Bash
 #
 # Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY
 # source — a tarball/wheel URL, a git+/git:// or github:owner/repo shorthand, a
@@ -38,6 +38,10 @@ check_hook_disabled "package-source-guard" 2>/dev/null && exit 0
 case "$_INPUT" in
   *package.json*|*[Pp]yproject.toml*|*[Pp]ipfile*|*[Pp]ipFile*|*requirements*|*[Rr]equirements*|\
   *[Gg]emfile*|*go.mod*|*[Cc]argo.toml*|*[Cc]argo.TOML*) : ;;
+  # 2026-10-15: the Bash channel. The same custom index or registry typed as an
+  # install command passed with no ask (cross-channel parity). A superset of the
+  # python's command patterns below, so the gate can never skip a match.
+  *index-url*|*registry*|*RegistryServer*|*git+*|*-i\ http*|*-ihttp*|*install*http*) : ;;
   *) exit 0 ;;
 esac
 
@@ -59,6 +63,62 @@ except Exception:
     sys.exit(0)
 
 tool = d.get("tool_name") or ""
+
+def ask_once(hits, sources, what):
+    seen_path = os.environ.get("SEEN_FILE", "")
+    seen = set()
+    if seen_path and os.path.exists(seen_path):
+        try:
+            with open(seen_path, "r", errors="replace") as f:
+                seen = set(l.rstrip("\n") for l in f)
+        except Exception:
+            seen = set()
+    fresh_idx = [i for i, k in enumerate(sources) if k not in seen]
+    if not fresh_idx:
+        sys.exit(0)
+    if seen_path:
+        try:
+            os.makedirs(os.path.dirname(seen_path), exist_ok=True)
+            with open(seen_path, "a") as f:
+                for i in fresh_idx:
+                    f.write(sources[i] + "\n")
+        except Exception:
+            pass
+    shown = [hits[i] for i in fresh_idx][:3]
+    print("package-source: %s a NON-REGISTRY source — %s. A tarball/git/file/"
+          "custom-index origin bypasses the registry (dependency-confusion / supply-chain "
+          "risk) and runs before any CVE scan. Confirm the source is trusted."
+          % (what, "; ".join(shown)))
+    sys.exit(0)
+
+# --- Bash channel: an install or registry setting typed as a command ---
+# The default public registries pass; anything else is a source the package manager
+# would trust for every name it resolves (pip's --extra-index-url picks the HIGHEST
+# version across indexes, which is the dependency-confusion mechanism).
+if tool in ("Bash", "Monitor", "PowerShell"):
+    cmd = (d.get("tool_input") or {}).get("command") or ""
+    DEFAULT = re.compile(r'^https?://(pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com)(/|$)', re.I)
+    PIP = re.compile(r'(^|[\s;&|(])(pip3?|uv\s+pip|python3?\s+-m\s+pip)\s+install\b', re.I)
+    NODE = re.compile(r'(^|[\s;&|(])(npm|pnpm|yarn|bun)\b', re.I)
+    hits, sources = [], []
+    for seg in re.split(r'&&|\|\||;|\|', cmd):
+        urls = []
+        if PIP.search(seg):
+            urls += [("custom package index", u) for u in re.findall(r'(?:--(?:extra-)?index-url|(?<!\S)-i)[\s=]*(\S+)', seg)]
+            urls += [("git+/url dependency", u) for u in re.findall(r'(?<!\S)((?:git\+|https?://)\S+)', seg)
+                     if not re.search(r'(?:index-url|-i)[\s=]*$', seg[:seg.find(u)])]
+        if NODE.search(seg):
+            urls += [("custom registry", u) for u in re.findall(r'--registry[\s=]+(\S+)', seg)]
+            urls += [("registry setting", u) for u in re.findall(
+                r'\bconfig\s+set\s+(?:@[\w.-]+:)?(?:registry|npmRegistryServer)[\s=]+(\S+)', seg)]
+        for label, u in urls:
+            u = u.strip('\'"')
+            if u and not DEFAULT.match(u):
+                hits.append("%s: %s" % (label, u[:80])); sources.append(u)
+    if hits:
+        ask_once(hits, sources, "this command uses")
+    sys.exit(0)
+
 if tool not in ("Write", "Edit", "MultiEdit"):
     sys.exit(0)
 
@@ -200,33 +260,7 @@ else:
 if not hits:
     sys.exit(0)
 
-# Ask once per source per session.
-seen_path = os.environ.get("SEEN_FILE", "")
-seen = set()
-if seen_path and os.path.exists(seen_path):
-    try:
-        with open(seen_path, "r", errors="replace") as f:
-            seen = set(l.rstrip("\n") for l in f)
-    except Exception:
-        seen = set()
-
-fresh_idx = [i for i, k in enumerate(sources) if k not in seen]
-if not fresh_idx:
-    sys.exit(0)
-if seen_path:
-    try:
-        os.makedirs(os.path.dirname(seen_path), exist_ok=True)
-        with open(seen_path, "a") as f:
-            for i in fresh_idx:
-                f.write(sources[i] + "\n")
-    except Exception:
-        pass
-
-shown = [hits[i] for i in fresh_idx][:3]
-print("package-source: this %s edit adds/changes a dependency from a NON-REGISTRY "
-      "source — %s. A tarball/git/file/custom-index origin bypasses the registry "
-      "(dependency-confusion / supply-chain risk) and runs before any CVE scan. "
-      "Confirm the source is trusted." % (os.path.basename(fp), "; ".join(shown)))
+ask_once(hits, sources, "this %s edit adds/changes a dependency from" % os.path.basename(fp))
 PYEOF
 REASON=$(cat "$_PSG_OUT" 2>/dev/null)
 rm -f "$_PSG_OUT" 2>/dev/null
