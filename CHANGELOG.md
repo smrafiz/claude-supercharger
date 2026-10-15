@@ -1,3 +1,4 @@
+- [4.3.12] - 2026-10-15 — 4.3.12: asks before a command runs outside the Claude Code sandbox (autopilot cannot skip it), before JSON sets a schema URL that carries data, and before an editor setting points VS Code at a program. CI green on 9f62944.
 - [4.3.11] - 2026-10-14 — 4.3.11: a key name assigned from an environment lookup (os.environ, os.getenv, process.env, ENV) is no longer read as an embedded credential; literal values still deny. CI green on f5703b6.
 - [4.3.10] - 2026-10-14 — 4.3.10: shell rules now check the command a shell-out runs from inside a python, perl, ruby, node or php heredoc (os.system, subprocess, system, execSync); 6 of 7 such cases were allowed before. CI green on 080b31d.
 - [4.3.9] - 2026-10-14 — 4.3.9: updates install hooks, tools and lib by staging and renaming, so a hook firing mid-update never reads a half-written file (was: syntax errors from typecheck.sh during an update). CI green on c61ed4f.
