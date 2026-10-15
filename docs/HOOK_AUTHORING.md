@@ -831,3 +831,35 @@ The Windows job runs on master only. A test that assumes a Unix path in a reason
 that `ln -s` makes a link, passes on the PR and breaks master: on Git Bash the reason
 prints `C:\...` and `ln -s` makes a copy. Match a path by a name you control, and skip a
 symlink case when `[ -L ]` says none was made.
+
+### The slowest hook sets the wait, not the hook count
+
+Claude Code runs every matching hook in parallel. Measured on 19 Bash PreToolUse hooks:
+`git status` cost 126ms as a serial sum and 50ms wall clock. On a loaded machine the
+parallel start gained nothing (222ms serial, 263ms parallel for `npm run build && ls`).
+Make the slowest hook on a common command faster. Do not merge hooks into one
+dispatcher: it would run them one after another. Measure on an idle machine; a load
+average of 30 made `safety.sh` read 450ms one minute and 71ms the next.
+
+### BSD sed reads `[.` as a collating element
+
+`[[.]` is a bracket holding `[` and `.` to GNU sed. BSD sed (macOS) reads `[.` as the
+start of a collating symbol and rejects the expression. Put the dot first: `[.[]`. The
+same trap with `[=` is noted at the credential rule. When a sed rewrite feeds a guard,
+fall back to the unrewritten input on failure (`|| CRED_SCAN="$COMMAND"`), so a sed
+error can only cost a false positive, never a miss.
+
+### An ask that autopilot must not swallow needs a second line
+
+A PreToolUse `ask` becomes a permission prompt, and an open autopilot window approves
+every prompt. A confirm meant to reach the user (leaving the sandbox, `/sc off`,
+trusting an MCP server) must also be declined in `lib-smart-approve.sh` before the
+autopilot loop. Test both halves: the hook asks, and `smart_approve_verdict` says no
+with an autopilot window open (`tests/test-sandbox-optout-confirm.sh`).
+
+### Judge only what the call writes
+
+`editor-config-guard` appends the file on disk to an Edit's fragment, so a key set
+elsewhere in the file is still seen. For a rule about a key the agent ADDS, that merge
+is wrong: editing `editor.tabSize` beside an existing interpreter path would prompt. Keep
+the call's own text (`written`) apart from the merged view and test the rule on it.
