@@ -109,4 +109,36 @@ begin_test "install.sh clears the stale remote-version cache, not just the flag"
 grep -q 'rm -f "\$HOME/.claude/supercharger/.update-cache"' "$REPO_DIR/install.sh" \
   && pass || fail "install.sh leaves a pre-update remote version cached"
 
+# 2026-10-15: prompt_cache (CC 2.1.251+). Distinct session ids so the per-second
+# render cache never serves one case's line to the next.
+_pc() { python3 -c '
+import json,sys,time
+n=time.time(); pc=json.loads(sys.argv[2])
+for k,v in list(pc.items()):
+    if isinstance(v,str) and v.startswith("now"): pc[k]=n+float(v[3:] or 0)
+print(json.dumps({"model":{"display_name":"Opus 5"},"cwd":sys.argv[1],"session_id":sys.argv[3],
+ "transcript_path":"/dev/null","workspace":{"current_dir":sys.argv[1]},
+ "context_window":{"current_usage":{"cache_read_input_tokens":900,"cache_creation_input_tokens":100}},
+ "prompt_cache":pc}))' "$REPO_DIR" "$1" "$2"; }
+_plain() { _render "$1" | sed 's/\x1b\[[0-9;]*m//g'; }
+
+begin_test "prompt_cache: cold cache is shown"
+_plain "$(_pc '{"caching_observed":true,"warm":false}' pc-cold)" | grep -q 'cold' && pass || fail "no cold marker"
+
+begin_test "prompt_cache: recent miss shows its cause"
+O=$(_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":1,"last_miss_at":"now-60","last_miss_cause":{"causes":["tools_changed"]}}' pc-miss)")
+printf '%s' "$O" | grep -q 'miss: tools_changed' && pass || fail "cause missing: $O"
+
+begin_test "prompt_cache: a miss older than 10 minutes is not shown"
+_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":1,"last_miss_at":"now-900","last_miss_cause":{"causes":["tools_changed"]}}' pc-old)" | grep -q 'miss:' && fail "stale miss shown" || pass
+
+begin_test "prompt_cache: expiry within 5 minutes is warned"
+_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now130"}' pc-soon)" | grep -q 'cold in 2m' && pass || fail "no expiry warning"
+
+begin_test "prompt_cache: a warm cache with time left adds nothing"
+_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000"}' pc-warm)" | grep -qE 'cold|miss:' && fail "noise on a warm cache" || pass
+
+begin_test "prompt_cache: caching never observed adds nothing"
+_plain "$(_pc '{"caching_observed":false,"warm":false}' pc-off)" | grep -q 'cold' && fail "cold shown with caching off" || pass
+
 report
