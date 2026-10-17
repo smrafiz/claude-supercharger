@@ -84,5 +84,35 @@ begin_test "malformed json fails open"
 out=$(printf '%s' 'not json {' | bash "$HOOK" 2>/dev/null)
 [ -z "$out" ] && pass || fail "expected fail-open silence"
 
+# --- 2026-10-15: the Bash channel (cross-channel parity) ---------------------
+# The same custom index typed as a command passed with no ask. Default public
+# registries and ordinary installs must stay silent.
+bash_v() { # command -> ASK | allow
+  local st out; st=$(mktemp -d)
+  out=$(C="$1" python3 -c 'import json,os;print(json.dumps({"tool_name":"Bash","tool_input":{"command":os.environ["C"]},"cwd":"/tmp","session_id":"pkgsrc-bash"}))' \
+    | SUPERCHARGER_STATE="$st" bash "$HOOK" 2>/dev/null)
+  rm -rf "$st"
+  printf '%s' "$out" | grep -q '"ask"' && echo ASK || echo allow
+}
+for c in 'pip install --extra-index-url https://pkgs.example.net/simple internal-lib' \
+         'pip install -i https://pkgs.example.net/simple requests' \
+         'uv pip install --index-url=https://pkgs.example.net/simple foo' \
+         'cd app && python3 -m pip install --index-url https://pkgs.example.net/simple foo' \
+         'npm install --registry https://registry.example.net/ left-pad' \
+         'npm config set registry https://registry.example.net/' \
+         'yarn config set npmRegistryServer https://registry.example.net' \
+         'pip install git+https://github.com/someone/pkg.git' \
+         'pip install https://files.example.net/pkg-1.0.tar.gz'; do
+  begin_test "Bash: asks on $c"
+  [ "$(bash_v "$c")" = ASK ] && pass || fail "no ask"
+done
+for c in 'pip install requests' 'npm install left-pad' 'pip install -r requirements.txt' \
+         'pip install --index-url https://pypi.org/simple requests' \
+         'npm config set registry https://registry.npmjs.org/' 'npm config get registry' \
+         'curl -s https://registry.example.net/health' 'git clone https://github.com/x/y.git'; do
+  begin_test "Bash: silent on $c"
+  [ "$(bash_v "$c")" = allow ] && pass || fail "false ask"
+done
+
 rm -rf "$TMP"
 report
