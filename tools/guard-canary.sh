@@ -1,0 +1,106 @@
+#!/usr/bin/env bash
+# Claude Supercharger — Guard Canary
+# Usage: bash tools/guard-canary.sh [--settings PATH] [--quiet]
+#
+# Feeds each core guard a call it must stop, through the command REGISTERED in
+# settings.json, and checks it answers with a deny or an ask. A presence check
+# ("the file exists", "the name is in settings.json") passes while a guard is
+# inert: a matcher that no longer matches the tool, a registration pointing at a
+# moved file, a hook that exits early. This runs the guard the way Claude Code
+# would, so those fail here.
+#
+# State is isolated (SUPERCHARGER_STATE in a temp dir): canary calls must not
+# land in the real block ledger, which feeds [BLOCKS] and the FP corpus.
+# Exit 0 when every canary is stopped, 1 otherwise.
+set -euo pipefail
+: "${PYTHONIOENCODING:=utf-8}"
+: "${PYTHONUTF8:=1}"
+export PYTHONIOENCODING PYTHONUTF8
+
+SETTINGS="$HOME/.claude/settings.json"
+QUIET=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --settings) SETTINGS="$2"; shift 2 ;;
+    --quiet) QUIET=1; shift ;;
+    *) echo "unknown option: $1" >&2; exit 2 ;;
+  esac
+done
+
+ST=$(mktemp -d)
+trap 'rm -rf "$ST"' EXIT
+mkdir -p "$ST/scope" "$ST/proj"
+
+SETTINGS="$SETTINGS" ST="$ST" QUIET="$QUIET" python3 <<'PYEOF'
+import json, os, re, subprocess, sys
+
+settings, st, quiet = os.environ['SETTINGS'], os.environ['ST'], os.environ['QUIET'] == '1'
+proj = os.path.join(st, 'proj')
+home = os.environ.get('HOME') or os.path.expanduser('~')
+
+# guard, tool, tool_input. Each must be denied or asked by that guard alone.
+CANARIES = [
+    ('safety.sh',               'Bash',  {'command': 'rm -rf /'}),
+    ('git-safety.sh',           'Bash',  {'command': 'git push --force origin main'}),
+    ('path-guard.sh',           'Write', {'file_path': os.path.join(home, '.ssh', 'authorized_keys'), 'content': 'x'}),
+    ('harness-tamper-guard.sh', 'Bash',  {'command': 'ls', 'dangerouslyDisableSandbox': True}),
+]
+
+try:
+    with open(settings) as f:
+        hooks = json.load(f).get('hooks', {}).get('PreToolUse', [])
+except (OSError, ValueError) as e:
+    print(f'cannot read {settings}: {e}')
+    sys.exit(1)
+
+def registered(guard, tool):
+    """Commands for `guard` whose matcher selects `tool` (matchers are anchored)."""
+    found, unmatched = [], False
+    for g in hooks:
+        m = g.get('matcher') or ''
+        for h in g.get('hooks', []):
+            c = h.get('command', '')
+            if '/' + guard not in c and not c.startswith(guard):
+                continue
+            try:
+                ok = m == '' or m == '*' or re.fullmatch(m, tool) is not None
+            except re.error:
+                ok = False
+            if ok:
+                found.append(c)
+            else:
+                unmatched = True
+    return found, unmatched
+
+env = dict(os.environ, SUPERCHARGER_STATE=st, CLAUDE_CODE_SESSION_ID='canary')
+env.pop('CLAUDE_PLUGIN_DATA', None)
+bad = 0
+for guard, tool, tin in CANARIES:
+    cmds, unmatched = registered(guard, tool)
+    if not cmds:
+        why = f'registered, but its matcher does not select {tool}' if unmatched else 'not registered for PreToolUse'
+        print(f'  ✗ {guard}: {why}')
+        bad += 1
+        continue
+    payload = json.dumps({'session_id': 'canary', 'cwd': proj, 'hook_event_name': 'PreToolUse',
+                          'tool_name': tool, 'tool_input': tin})
+    verdict = ''
+    for c in cmds:
+        try:
+            r = subprocess.run(['bash', '-c', c], input=payload, capture_output=True,
+                               text=True, cwd=proj, env=env, timeout=30)
+        except subprocess.TimeoutExpired:
+            verdict = 'timed out'
+            continue
+        if r.returncode == 2 or re.search(r'"permissionDecision"\s*:\s*"(deny|ask)"', r.stdout):
+            verdict = 'ok'
+            break
+        verdict = f'let it through (exit {r.returncode})'
+    if verdict == 'ok':
+        if not quiet:
+            print(f'  ✓ {guard}: stopped a {tool} canary')
+    else:
+        print(f'  ✗ {guard}: {verdict}')
+        bad += 1
+sys.exit(1 if bad else 0)
+PYEOF
