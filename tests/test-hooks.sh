@@ -1266,6 +1266,31 @@ begin_test "safety: python pathlib write_text to settings.local.json is blocked 
 run_hook "$SAFETY_HOOK" "python3 -c \"import pathlib;pathlib.Path('.claude/settings.local.json').write_text('{}')\""
 assert_exit_code 2 $? && pass
 
+# 2026-10-15: four forms wrote settings.json past every arm (literal probe).
+begin_test "safety: ruby File.write to settings.json is blocked"
+run_hook "$SAFETY_HOOK" "ruby -e \"File.write('.claude/settings.json','{}')\""
+assert_exit_code 2 $? && pass
+
+begin_test "safety: ruby FileUtils.cp onto settings.json is blocked"
+run_hook "$SAFETY_HOOK" "ruby -e \"require 'fileutils'; FileUtils.cp('/tmp/x', '.claude/settings.json')\""
+assert_exit_code 2 $? && pass
+
+begin_test "safety: dd with of= after if= onto settings.local.json is blocked"
+run_hook "$SAFETY_HOOK" "dd if=/tmp/x.json of=.claude/settings.local.json"
+assert_exit_code 2 $? && pass
+
+begin_test "safety: perl 3-arg open for write on settings.json is blocked"
+run_hook "$SAFETY_HOOK" 'perl -e "open(my \$f, '"'"'>'"'"', '"'"'.claude/settings.json'"'"'); print \$f 1"'
+assert_exit_code 2 $? && pass
+
+begin_test "safety: dd READING settings.json is allowed"
+run_hook "$SAFETY_HOOK" "dd if=.claude/settings.json of=/tmp/backup.json"
+assert_exit_code 0 $? && pass
+
+begin_test "safety: ruby File.read of settings.json is allowed"
+run_hook "$SAFETY_HOOK" "ruby -e \"puts File.read('.claude/settings.json')\""
+assert_exit_code 0 $? && pass
+
 begin_test "safety: python -c READING settings.json is allowed (v4.1.13)"
 run_hook "$SAFETY_HOOK" "python3 -c \"import json;print(json.load(open('.claude/settings.json'))['hooks'].keys())\""
 assert_exit_code 0 $? && pass

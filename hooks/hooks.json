@@ -306,6 +306,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-source-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Bash|Monitor|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/test-integrity-guard.sh",
             "timeout": 15
           }
