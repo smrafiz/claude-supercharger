@@ -39,6 +39,7 @@ Claude Supercharger — Slash Commands
     /sc-stuck          Break a debug loop — fresh eyes, new hypothesis
     /sc-why            Explain the most recent Supercharger hook action
     /sc-perf           Hook timing report with slowdown suggestions
+    /sc-health         Install health; checks the core guards really stop a bad call
     /sc-cache-stats    Typecheck + quality-gate cache state
     /sc-cache-clear    Clear hash caches (forces full re-check on next run)
     /sc-profile        Show or switch performance profile (standard / fast / minimal)
@@ -105,6 +106,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "don't let it touch anything" | `/sc-readonly` | `/sc-strict` — that still allows edits, just confirms each |
 | "confirm every single call" | `/sc-strict` | `/sc-readonly` |
 | "turn it all off", "I want plain Claude" | `/sc off` | `/sc-readonly` if they only want to stop edits |
+| "are the guards actually working", "is it protecting me" | `/sc-health` | `/sc-status` — that lists what is on, this proves it fires |
 | "what's active right now", "what's this costing" | `/sc-status` | `/sc-perf` — that's hook latency, this is session state |
 | "everything feels slow" | `/sc-perf` | `/sc-profile` — check the measurement before switching profile |
 | "make it faster" | `/sc-profile` | `/sc-perf` first |
