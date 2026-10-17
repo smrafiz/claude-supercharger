@@ -31,7 +31,16 @@ ST=$(mktemp -d)
 trap 'rm -rf "$ST"' EXIT
 mkdir -p "$ST/scope" "$ST/proj"
 
-SETTINGS="$SETTINGS" ST="$ST" QUIET="$QUIET" python3 <<'PYEOF'
+# Run guards with the bash running this script, never a bare 'bash': Windows python
+# resolves that through CreateProcess, which searches System32 before PATH and
+# finds the WSL launcher (exit 1 without a distro), so every canary read as "let
+# it through". Native python needs the Windows spelling of the path.
+CANARY_BASH="$BASH"
+if command -v cygpath >/dev/null 2>&1; then
+  CANARY_BASH=$(cygpath -w -- "$BASH" 2>/dev/null) || CANARY_BASH="$BASH"
+fi
+
+SETTINGS="$SETTINGS" ST="$ST" QUIET="$QUIET" CANARY_BASH="$CANARY_BASH" python3 <<'PYEOF'
 import json, os, re, subprocess, sys
 
 settings, st, quiet = os.environ['SETTINGS'], os.environ['ST'], os.environ['QUIET'] == '1'
@@ -87,7 +96,7 @@ for guard, tool, tin in CANARIES:
     verdict = ''
     for c in cmds:
         try:
-            r = subprocess.run(['bash', '-c', c], input=payload, capture_output=True,
+            r = subprocess.run([os.environ.get('CANARY_BASH') or 'bash', '-c', c], input=payload, capture_output=True,
                                text=True, cwd=proj, env=env, timeout=30)
         except subprocess.TimeoutExpired:
             verdict = 'timed out'
