@@ -509,6 +509,23 @@ try:
  else:
      cache_str = f'cache {cache_pct}%'
 
+ # 2026-10-15: CC 2.1.251+ sends prompt_cache with warm/expiry state, and 2.1.260+
+ # the likely cause of the last miss. Show only what the user can act on: the
+ # cache went cold, is about to, or just missed and why. Absent field = no change.
+ pc = data.get('prompt_cache')
+ if isinstance(pc, dict) and pc.get('caching_observed'):
+     _now = time.time()
+     _exp = pc.get('expires_at')
+     if not pc.get('warm'):
+         cache_str += f' {YELLOW}cold{RESET}'
+     elif isinstance(_exp, (int, float)) and 0 < _exp - _now <= 300:
+         cache_str += f' {DIM}cold in {max(1, int((_exp - _now) // 60))}m{RESET}'
+     _lmc = pc.get('last_miss_cause')
+     _causes = _lmc.get('causes') if isinstance(_lmc, dict) else None
+     _at = pc.get('last_miss_at')
+     if _causes and isinstance(_causes, list) and isinstance(_at, (int, float)) and _now - _at <= 600:
+         cache_str += f' {YELLOW}miss: {",".join(str(c) for c in _causes[:2])}{RESET}'
+
  # v2.7.37: per-session token + cost totals for the unified line-3 block. Main
  # tokens from budget-cap's .main-tokens-<session>; sub tokens+cost from
  # .subagent-costs-<session> (deduped by agent_id, new-tokens basis).
