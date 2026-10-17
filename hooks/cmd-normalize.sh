@@ -626,6 +626,21 @@ sc_blank_data_into() {
       ;;
   esac
 
+  # 2026-10-15: an echo whose output goes to the terminal is data. A lone echo was
+  # already exempt (safety.sh fast path), but chained to a grep its quoted text was
+  # scanned: `echo "=== DROP TABLE ===" && grep ...` denied (block log, twice).
+  # Only a quoted argument directly followed by &&, ||, ; or the end is blanked, so
+  # `echo "..." | psql`, `echo "..." > f.sql`, and echo inside $() or backticks
+  # (closed by ) or `) stay scanned. A double-quoted body holding $, a backtick or
+  # a backslash is left alone: the shell still expands "$(rm ...)" inside it.
+  case "$CMD_SCAN" in
+    *echo\ *)
+      CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+        -e "s/((^|[;&]|[[:space:]])echo([[:space:]]+-[neE]+)*[[:space:]]+)'[^']*'([[:space:]]*(&&|\|\||;|$))/\1''\4/g" \
+        -e 's/((^|[;&]|[[:space:]])echo([[:space:]]+-[neE]+)*[[:space:]]+)"[^"$`\\]*"([[:space:]]*(&&|\|\||;|$))/\1""\4/g')
+      ;;
+  esac
+
   # v4.2.0: a `gh search <kind> "<query>"` query is data, and a gh command asking for
   # --help runs nothing. Both were denied by the patterns their text happened to name.
   case "$CMD_SCAN" in
