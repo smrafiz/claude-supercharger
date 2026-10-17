@@ -880,3 +880,20 @@ tool events. Claude Code calls it best-effort: when it cannot tell which command
 input runs, it runs the hook anyway. A rule like `Bash(psql *)` skips `bash -c "psql ..."`
 and any guard keyed on words inside arguments. Use `if` only to save a fork on a hook
 whose verdict cannot depend on the skipped calls. No current hook qualifies (2026-10-15).
+
+### Read the field names from the docs, then check the log
+
+`event-logger.sh` guessed field names for ConfigChange (`key`, `path`, `setting`) and
+SubagentStop (`agent_name`). None exist: the payloads carry `source`/`file_path` and
+`agent_type`/`agent_id`. Every line logged `?` (10/10 and 366/366) and nothing failed,
+because a logger with a `'?'` fallback cannot fail. Take field names from the hooks
+reference, and after shipping count how many live lines still hold the fallback.
+
+### Test a guard by running it, not by finding it
+
+A check that a guard file exists, or that its name appears in `settings.json`, passes
+while the guard is inert: a matcher that selects nothing, a registration that runs
+something else. `tools/guard-canary.sh` runs the command `settings.json` registers, only
+when its matcher selects the tool, on a call that guard must stop. Give such a check
+isolated state (`SUPERCHARGER_STATE` in a temp dir) so its denials stay out of the block
+ledger, and test it with the defects it must catch.
