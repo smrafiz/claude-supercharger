@@ -1457,7 +1457,10 @@ _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
 # v4.1.23: a verb must be a whole word: "installer", "installed" and "install.sh"
 # in an echo line matched `install` (fp-triage on a real ledger, 2026-09-29).
-_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|dd[[:space:]]+of=|(tee|mv|cp|rm|truncate|install|ln|rsync)[[:space:]])[^;&|]*$_SELFMOD_CFG"
+_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|(tee|mv|cp|rm|truncate|install|ln|rsync)[[:space:]])[^;&|]*$_SELFMOD_CFG"
+# 2026-10-15: dd's `of=` can come after `if=`, and the config must be the of= target:
+# `dd if=cfg of=/tmp/b` is a read and stays allowed.
+_SELFMOD_DD="(^|[[:space:];&|])dd[[:space:]]([^;&|]*[[:space:]])?of=[^[:space:];&|]*$_SELFMOD_CFG"
 # (c) in-place editor other than sed — the arm _PROF_INPLACE already had.
 _SELFMOD_INPLACE="(^|[[:space:];&|])(perl|ruby)([[:space:]]+-[^[:space:]|;&]+)*[[:space:]][^|;&]*$_SELFMOD_CFG"
 # (d) interpreter code whose WRITE CALL targets a config file. v4.1.13: the old
@@ -1471,11 +1474,14 @@ _SELFMOD_INPLACE="(^|[[:space:];&|])(perl|ruby)([[:space:]]+-[^[:space:]|;&]+)*[
 # name in the call) is out of reach of any string match — accepted ceiling.
 _SELFMOD_W_OPEN="open\([^)]*${_SELFMOD_CFG}[^)]*,[[:space:]]*(mode=)?['\"][wax]"
 # Qualified names only: a bare `replace(` is also str.replace in a patch script.
-_SELFMOD_W_CALL="((writeFile|appendFile|copyFile)(Sync)?|fs\.(rename|unlink|rm)(Sync)?|os\.(replace|rename|remove|unlink)|shutil\.(copy2?|copyfile|move))\([^)]*${_SELFMOD_CFG}"
+# 2026-10-15: + ruby (File.write, IO.write, FileUtils) and perl's 3-arg open with a
+# '>' / '>>' / '+>' mode; both wrote settings.json past every arm (literal probe).
+_SELFMOD_W_CALL="((writeFile|appendFile|copyFile)(Sync)?|fs\.(rename|unlink|rm)(Sync)?|os\.(replace|rename|remove|unlink)|shutil\.(copy2?|copyfile|move)|(File|IO)\.(write|binwrite)|FileUtils\.(cp|mv|copy|move|install|rm|rm_f|rm_rf|touch|ln_s|ln_sf))\([^)]*${_SELFMOD_CFG}"
+_SELFMOD_W_PERL="open\([^)]*['\"][+]?>>?['\"][[:space:]]*,[^)]*${_SELFMOD_CFG}"
 _SELFMOD_W_PATH="${_SELFMOD_CFG}['\"]?\)\.(write_text|write_bytes|unlink|rename|replace)"
 _SELFMOD_W_VAR="([A-Za-z_][A-Za-z0-9_]*)[[:space:]]*=[[:space:]]*[^;=]*${_SELFMOD_CFG}"
 _selfmod_interp_write() {
-  [[ "$CMD" =~ $_SELFMOD_W_OPEN || "$CMD" =~ $_SELFMOD_W_CALL || "$CMD" =~ $_SELFMOD_W_PATH ]] && return 0
+  [[ "$CMD" =~ $_SELFMOD_W_OPEN || "$CMD" =~ $_SELFMOD_W_CALL || "$CMD" =~ $_SELFMOD_W_PATH || "$CMD" =~ $_SELFMOD_W_PERL ]] && return 0
   [[ "$CMD" =~ $_SELFMOD_W_VAR ]] || return 1
   local v="${BASH_REMATCH[1]}"
   [[ "$CMD" =~ open\(${v}[[:space:]]*,[[:space:]]*(mode=)?[\'\"][wax] \
@@ -1518,7 +1524,7 @@ _selfmod_scan() {
 # that merely names a config file and a verb is prose, not an edit. The
 # interpreter-write arm keeps reading CMD: code inside `python -c` is not blanked.
 if _cat_enabled "selfmod" && _selfmod_scan \
-   && { [[ "$_SM_SCAN" =~ $_SELFMOD_REDIR ]] || [[ "$_SM_SCAN" =~ $_SELFMOD_VERB ]] \
+   && { [[ "$_SM_SCAN" =~ $_SELFMOD_REDIR ]] || [[ "$_SM_SCAN" =~ $_SELFMOD_VERB ]] || [[ "$_SM_SCAN" =~ $_SELFMOD_DD ]] \
         || { [[ "$_SM_SCAN" =~ $_SELFMOD_INPLACE ]] && [[ "$_SM_SCAN" =~ (^|[[:space:]])-[a-zA-Z]*i ]]; } \
         || _selfmod_interp_write; }; then
   block "self-modification — agent should not directly edit its own guardrail config files"
