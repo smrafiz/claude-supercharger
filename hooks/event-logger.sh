@@ -61,21 +61,25 @@ try:
         error = clean(d.get('error') or d.get('message') or '?')
         print(f'tool={tool} error={error}')
     elif ev == 'subagent_stop':
-        name = clean(d.get('agent_name') or d.get('name') or '?', 60)
-        print(f'agent={name}')
+        name = clean(d.get('agent_type') or d.get('agent_name') or '?', 60)
+        aid = clean(d.get('agent_id') or '-', 40)
+        print(f'agent={name} id={aid}')
     elif ev == 'config_change':
-        key = clean(d.get('key') or d.get('path') or d.get('setting') or '?', 60)
-        print(f'key={key}')
+        # Payload is {source, file_path} (hooks docs, ConfigChange input). It read
+        # key/path/setting, which never exist, so every line logged `key=?`.
+        src = clean(d.get('source') or '?', 30)
+        fp = clean(d.get('file_path') or '-', 120)
+        print(f'source={src} file={fp}')
     elif ev == 'instructions_loaded':
         fp = clean(d.get('file_path') or '?', 120)
         reason = clean(d.get('load_reason') or '?', 30)
         mtype = clean(d.get('memory_type') or '?', 30)
         print(f'file={fp} reason={reason} type={mtype}')
     elif ev == 'task_created':
-        name = clean(d.get('task_name') or d.get('name') or d.get('task_id') or '?', 60)
+        name = clean(d.get('task_subject') or d.get('task_name') or d.get('task_id') or '?', 60)
         print(f'task={name}')
     elif ev == 'task_completed':
-        name = clean(d.get('task_name') or d.get('name') or d.get('task_id') or '?', 60)
+        name = clean(d.get('task_subject') or d.get('task_name') or d.get('task_id') or '?', 60)
         status = clean(d.get('status') or d.get('result') or 'done', 30)
         print(f'task={name} status={status}')
     elif ev == 'teammate_idle':
