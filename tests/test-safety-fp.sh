@@ -637,4 +637,25 @@ denies "fp2-rb-backtick" 'ruby <<'"'"'RB'"'"'
 puts `cat /etc/caddy/cloudflare'"$E"'`
 RB'
 
+# 2026-10-15: an echo heading chained to a grep was denied for its own text
+# (block log, twice). Terminal-bound echo text is data; piped, redirected or
+# expanded echo text is still judged.
+begin_test "an echo heading chained to a grep is data"
+allows "echo-chain" 'echo "=== DROP TABLE ===" && grep -rln "DROP TABLE" tests/'
+
+begin_test "a single-quoted echo before ; is data"
+allows "echo-semi" "echo 'DROP TABLE' ; ls"
+
+begin_test "echo piped into psql is still denied"
+denies "echo-pipe" 'echo "DROP TABLE users" | psql'
+
+begin_test "echo redirected into a .sql file is still denied"
+denies "echo-redir" 'echo "DROP TABLE users" > /tmp/x.sql && psql -f /tmp/x.sql'
+
+begin_test "a command substitution inside a double-quoted echo is still judged"
+denies "echo-subst" "echo \"\$(psql -c 'DROP TABLE users')\" && ls"
+
+begin_test "echo inside psql -c \$() is still denied"
+denies "echo-in-subst" 'psql -c "$(echo "DROP TABLE users")"'
+
 report
