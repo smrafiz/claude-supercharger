@@ -650,4 +650,12 @@ denies "echo-subst" "echo \"\$(psql -c 'DROP TABLE users')\" && ls"
 begin_test "echo inside psql -c \$() is still denied"
 denies "echo-in-subst" 'psql -c "$(echo "DROP TABLE users")"'
 
+# An unquoted grep pattern that is a plain word is data; anything that can expand is not.
+allows "grep-bare-word"   'grep -h -i dropdb $f 2>/dev/null | tail -3'
+allows "rg-bare-word"     'rg -n mkfs hooks/'
+denies "grep-bare-then"   'grep -q x log && dropdb prod'
+denies "grep-bare-pipe"   'grep -l x . | xargs dropdb --if-exists'
+denies "grep-subst-pat"   'grep $(dropdb prod) file'
+denies "grep-tick-pat"    'grep `dropdb prod` file'
+
 report
