@@ -863,3 +863,20 @@ with an autopilot window open (`tests/test-sandbox-optout-confirm.sh`).
 elsewhere in the file is still seen. For a rule about a key the agent ADDS, that merge
 is wrong: editing `editor.tabSize` beside an existing interpreter path would prompt. Keep
 the call's own text (`written`) apart from the merged view and test the rule on it.
+
+### Echo text is data only when its output reaches the terminal
+
+`sc_blank_data_into` blanks an echo's quoted text when the echo is followed by `&&`,
+`||`, `;` or the end of the command. Anywhere else the text is input to something:
+`echo "..." | psql`, `echo "..." > x.sql`, or an echo inside `$()`. A double-quoted body
+holding `$`, a backtick or a backslash is also left alone, because the shell expands it:
+`echo "$(psql -c 'DROP TABLE x')" && ls` runs the psql. Test the blocked forms beside the
+allowed ones (`tests/test-safety-fp.sh`, `echo-*`).
+
+### The hook `if` field cannot narrow a guard
+
+`if` takes one permission rule (`Bash(git *)`), no lists or negation, and only on the
+tool events. Claude Code calls it best-effort: when it cannot tell which commands a Bash
+input runs, it runs the hook anyway. A rule like `Bash(psql *)` skips `bash -c "psql ..."`
+and any guard keyed on words inside arguments. Use `if` only to save a fork on a hook
+whose verdict cannot depend on the skipped calls. No current hook qualifies (2026-10-15).

@@ -51,6 +51,18 @@ begin_test "event-logger: log entries include ISO timestamp"
 run_event_logger "config_change" '{"key":"hooks"}'
 if grep -qE '[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z' "$LOG_FILE"; then pass; else fail "no ISO timestamp in log"; fi
 
+begin_test "event-logger: config_change logs the documented source and file_path"
+run_event_logger "config_change" '{"source":"project_settings","file_path":"/p/.claude/settings.json"}'
+if grep -q 'config_change source=project_settings file=/p/.claude/settings.json' "$LOG_FILE"; then pass; else fail "got: $(tail -1 "$LOG_FILE")"; fi
+
+begin_test "event-logger: subagent_stop logs the documented agent_type"
+run_event_logger "subagent_stop" '{"agent_type":"Explore","agent_id":"def456"}'
+if grep -q 'subagent_stop agent=Explore id=def456' "$LOG_FILE"; then pass; else fail "got: $(tail -1 "$LOG_FILE")"; fi
+
+begin_test "event-logger: task events log the documented task_subject"
+run_event_logger "task_created" '{"task_id":"task-001","task_subject":"Add login"}'
+if grep -q 'task_created task=Add login' "$LOG_FILE"; then pass; else fail "got: $(tail -1 "$LOG_FILE")"; fi
+
 begin_test "event-logger: log rotates when over 500 lines"
 # Write 510 lines to the log
 for i in $(seq 1 510); do
