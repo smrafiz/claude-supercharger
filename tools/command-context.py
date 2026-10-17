@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""Live context for /sc-status, /sc-why and /sc-perf, injected with `!` when the
+"""Live context for /sc-status, /sc-why, /sc-perf and /sc-health, injected with `!` when the
 command loads, so the agent formats facts instead of spending a dozen tool calls
 re-reading scope files.
 
-  command-context.py status|why|perf
+  command-context.py status|why|perf|health
 
 Rules for anything a slash command runs through `!` (measured 2026-10-12):
   - a non-zero exit aborts the WHOLE command with no reply -> this always exits 0;
@@ -203,6 +203,15 @@ def why():
         print('No recent hook activity recorded.')
 
 
+def health():
+    try:
+        r = subprocess.run(['bash', os.path.join(SC, 'tools', 'config-health.sh')],
+                           capture_output=True, text=True, timeout=60)
+        print((r.stdout or r.stderr).strip()[:4000] or NA)
+    except Exception as e:
+        print('config-health.sh unavailable: %s' % e)
+
+
 def perf():
     try:
         r = subprocess.run(['bash', os.path.join(SC, 'tools', 'hook-perf.sh'), '--days', '7'],
@@ -214,7 +223,7 @@ def perf():
 
 if __name__ == '__main__':
     try:
-        {'status': status, 'why': why, 'perf': perf}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(NA))()
+        {'status': status, 'why': why, 'perf': perf, 'health': health}.get(sys.argv[1] if len(sys.argv) > 1 else '', lambda: print(NA))()
     except Exception as e:  # never abort the slash command
         print('context unavailable: %s' % e)
     sys.exit(0)

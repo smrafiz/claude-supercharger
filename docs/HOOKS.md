@@ -180,6 +180,7 @@ Run any of these manually:
 | `tools/gen-commands-shipped.sh` | Regenerate configs/commands-shipped.txt: every slash-command file name ever |
 | `tools/gen-plugin-commands.sh` | Claude Supercharger — Plugin commands/ generator |
 | `tools/gen-plugin-hooks.sh` | Claude Supercharger — Plugin hooks.json generator |
+| `tools/guard-canary.sh` | Claude Supercharger — Guard Canary |
 | `tools/hook-concurrency.sh` | Claude Supercharger — Hook concurrency reconstructor |
 | `tools/hook-doctor.sh` | Claude Supercharger — Hook Doctor |
 | `tools/hook-new.sh` | Claude Supercharger — New Hook Scaffolder |

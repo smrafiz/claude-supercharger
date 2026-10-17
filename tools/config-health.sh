@@ -182,14 +182,23 @@ score_security() {
   local pts=0
   local marks=""
 
-  for hook in safety git-safety prompt-injection-scanner smart-approve; do
-    if [ -f "$HOOKS_DIR/${hook}.sh" ]; then
-      pts=$((pts + 5)); marks="${marks}${PASS}"
-    else
-      marks="${marks}${FAIL}"
-      ISSUES+=("${hook}.sh not found in hooks directory")
-    fi
-  done
+  # Behavioural, not presence: a guard file can exist and be registered while its
+  # matcher selects nothing. guard-canary runs each core guard through the command
+  # settings.json registers and expects a deny/ask (5 pts per guard stopped).
+  local canary="$TOOLS_DIR/guard-canary.sh" out line
+  [ -f "$canary" ] || canary="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/guard-canary.sh"
+  if [ -f "$canary" ]; then
+    out=$(bash "$canary" --settings "$SETTINGS" 2>&1 || true)
+    while IFS= read -r line; do
+      case "$line" in
+        *"$PASS"*) pts=$((pts + 5)); marks="${marks}${PASS}" ;;
+        *"$FAIL"*) marks="${marks}${FAIL}"; ISSUES+=("guard canary:${line#*"$FAIL"}") ;;
+      esac
+    done <<< "$out"
+  else
+    marks="${marks}${FAIL}"
+    ISSUES+=("guard-canary.sh not found; core guards not checked")
+  fi
 
   SCORE=$((SCORE + pts))
   printf "  Security:  %2d/20  %s\n" "$pts" "$marks"

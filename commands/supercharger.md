@@ -39,6 +39,7 @@ Claude Supercharger — Slash Commands
     /supercharger:stuck          Break a debug loop — fresh eyes, new hypothesis
     /supercharger:why            Explain the most recent Supercharger hook action
     /supercharger:perf           Hook timing report with slowdown suggestions
+    /supercharger:health         Install health; checks the core guards really stop a bad call
     /supercharger:cache-stats    Typecheck + quality-gate cache state
     /supercharger:cache-clear    Clear hash caches (forces full re-check on next run)
     /supercharger:profile        Show or switch performance profile (standard / fast / minimal)
@@ -105,6 +106,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "don't let it touch anything" | `/supercharger:readonly` | `/supercharger:strict` — that still allows edits, just confirms each |
 | "confirm every single call" | `/supercharger:strict` | `/supercharger:readonly` |
 | "turn it all off", "I want plain Claude" | `/sc off` | `/supercharger:readonly` if they only want to stop edits |
+| "are the guards actually working", "is it protecting me" | `/supercharger:health` | `/supercharger:status` — that lists what is on, this proves it fires |
 | "what's active right now", "what's this costing" | `/supercharger:status` | `/supercharger:perf` — that's hook latency, this is session state |
 | "everything feels slow" | `/supercharger:perf` | `/supercharger:profile` — check the measurement before switching profile |
 | "make it faster" | `/supercharger:profile` | `/supercharger:perf` first |
