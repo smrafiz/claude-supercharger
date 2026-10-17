@@ -617,12 +617,15 @@ sc_blank_data_into() {
   # `grep -E 'blkdiscard|...' hooks/` as a disk wipe - all real commands, all denied.
   # Only a quoted pattern directly after the tool name and its flags (or -e) is
   # blanked; files, pipes and anything chained after stay scanned, and an unquoted
-  # or unterminated pattern is left intact.
+  # or unterminated pattern is left intact. An unquoted pattern is blanked only when
+  # it is a plain word (letters, digits, _ . -): `grep -i dropdb $f` was denied, and a
+  # word with no $, backtick, glob or quote cannot expand into a command.
   case "$CMD_SCAN" in
     *grep*|*rg\ *|*ag\ *|*ack\ *)
       CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
         -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+)'[^']*'/\1\6''/g" \
-        -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g')
+        -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g' \
+        -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)[A-Za-z0-9_.][A-Za-z0-9_.-]*([[:space:];&|)]|$)/\1\6""\8/g')
       ;;
   esac
 

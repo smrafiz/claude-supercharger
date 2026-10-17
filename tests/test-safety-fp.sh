@@ -57,6 +57,14 @@ allows "process-env" "grep -rn \"process${E}\" src/"
 begin_test "a build-tool env property is not file access either"
 allows "meta-env" "rg \"import.meta${E}\" ."
 
+# An unquoted grep pattern that is a plain word is data; anything that can expand is not.
+allows "grep-bare-word"   'grep -h -i dropdb $f 2>/dev/null | tail -3'
+allows "rg-bare-word"     'rg -n mkfs hooks/'
+denies "grep-bare-then"   'grep -q x log && dropdb prod'
+denies "grep-bare-pipe"   'grep -l x . | xargs dropdb --if-exists'
+denies "grep-subst-pat"   'grep $(dropdb prod) file'
+denies "grep-tick-pat"    'grep `dropdb prod` file'
+
 # --- the narrowings must NOT open a gap ----------------------------------------
 begin_test "GAP CHECK: a payload after a message is still denied"
 # The reason only the VALUE is blanked, never the rest of the line.
