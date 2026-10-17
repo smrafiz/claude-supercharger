@@ -897,3 +897,10 @@ something else. `tools/guard-canary.sh` runs the command `settings.json` registe
 when its matcher selects the tool, on a call that guard must stop. Give such a check
 isolated state (`SUPERCHARGER_STATE` in a temp dir) so its denials stay out of the block
 ledger, and test it with the defects it must catch.
+
+Keep the positive case too. The first canary started guards with a bare `bash`; on
+Windows, python resolves that through CreateProcess, which searches System32 before PATH
+and finds the WSL launcher, so every guard "let it through (exit 1)". All four negative
+tests still passed, because a dead tool fails everything. Only "every core guard stops
+its canary when wired correctly" caught it. From python, run the bash that runs your
+script (`$BASH`, through `cygpath -w` on Git Bash), never a bare `bash`.

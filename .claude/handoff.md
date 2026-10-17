@@ -6,18 +6,18 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-17, session `3d213381` (resumed as `deabbc7a`).*
 
-- **Released: v4.3.17.** master = `533cc6d` (#143 merged after it). Installed v4.3.17 on Machine A.
-  4.3.14 #139, 4.3.15 #140, 4.3.16 #141, 4.3.17 #142 shipped today as separate releases.
-- **In flight (Machine A):** ONE combined release, `~/.cache/sc-finish-4.3.18all.sh` → `.result`: merges
-  #145 (plain-word unquoted grep pattern is data), #146 (event-logger logs documented fields),
-  #147 (guard canary + `/sc-health`) one at a time, then one master CI and one release 4.3.18.
-  Then this docs PR. Jobs run under `nohup` now: the old ones died when the session exited.
-- **Closed this session:** research #2 (per-turn context: ~50 tokens, nothing to win), #1 ConfigChange
-  (audit-only; blocking is silent), python-heredoc FP class (one real hit, a genuine shell-out).
-- **Parked:** path-guard scratchpad deny after a resume (cause found, no linking key; memory
-  `pathguard-cwd-boundary-fp`). `/sc-trust` (low value next to /sc-status + /sc-health).
-- **Release recipe:** batch merges into one release when several PRs are ready: each release costs a
-  ~80 min Windows master CI. One detached job + ONE notice; never edit the main checkout while it runs.
+- **Released: v4.3.17.** Installed v4.3.17 on Machine A. master = `4cdfd71`: #143, #145
+  (plain-word grep pattern is data), #146 (event-logger fields), #147 (guard canary + `/sc-health`)
+  are MERGED but UNRELEASED.
+- **4.3.18 held:** master CI on 4cdfd71 failed Windows only, test-guard-canary 4/5: a bare `bash`
+  from python is the WSL launcher on Windows. Fix = #149 (unverified on Windows until its master CI).
+- **In flight (Machine A, nohup):** `~/.cache/sc-finish-4.3.18b.sh` → `.result`: merge #149, master
+  CI, release 4.3.18, promote, update. Then merge this docs PR (#148).
+- **Closed this session:** research #2 (per-turn context ~50 tokens), #1 ConfigChange (audit-only),
+  python-heredoc FP class. **Parked:** path-guard scratchpad deny after resume; `/sc-trust`.
+- **Release recipe:** batch PRs into one release (~80 min Windows master CI each). One detached job,
+  ONE notice; never edit the main checkout while it runs. The job log omits FAIL text: read the
+  `windows-suite-log` artifact.
 - **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
@@ -50,7 +50,8 @@ session on any machine.**
 
 #### 2026-10-17 (deep) — 3d213381
 4.3.14–4.3.17 released after a gist-500 CI flake stalled the chain. Built #145–#147 (grep FP,
-event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items.
+event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items. 4.3.18 held: Windows CI caught the
+canary's bare `bash` (WSL launcher); fix #149 in flight.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-17 deep)
 
 #### 2026-10-15 (deep) — 3d213381
