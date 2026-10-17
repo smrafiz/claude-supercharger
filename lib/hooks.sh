@@ -238,6 +238,7 @@ get_hooks_for_mode() {
     # the dep ORIGIN was unguarded and runs before any CVE scan. Asks once per source
     # per session. Disable: SUPERCHARGER_PACKAGE_SOURCE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/package-source-guard.sh|")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/package-source-guard.sh|")
     # v2.23.4: test-integrity guard — ASK before an edit to a test file removes
     # assertions or adds skip/only markers (it.skip, @pytest.mark.skip, @Ignore,
     # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
