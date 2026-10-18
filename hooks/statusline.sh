@@ -522,6 +522,10 @@ try:
          cache_str += f' {DIM}cold in {max(1, int((_exp - _now) // 60))}m{RESET}'
      _lmc = pc.get('last_miss_cause')
      _causes = _lmc.get('causes') if isinstance(_lmc, dict) else None
+     # A server-side miss (nothing on our side changed) is not something the user
+     # can act on, so it shows nothing; only causes they can fix are listed.
+     if isinstance(_causes, list):
+         _causes = [c for c in _causes if c != 'likely_server_side']
      _at = pc.get('last_miss_at')
      if _causes and isinstance(_causes, list) and isinstance(_at, (int, float)) and _now - _at <= 600:
          cache_str += f' {YELLOW}miss: {",".join(str(c) for c in _causes[:2])}{RESET}'
