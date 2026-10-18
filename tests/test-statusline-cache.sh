@@ -129,6 +129,13 @@ begin_test "prompt_cache: recent miss shows its cause"
 O=$(_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":1,"last_miss_at":"now-60","last_miss_cause":{"causes":["tools_changed"]}}' pc-miss)")
 printf '%s' "$O" | grep -q 'miss: tools_changed' && pass || fail "cause missing: $O"
 
+begin_test "prompt_cache: a server-side miss shows nothing (not actionable)"
+_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":1,"last_miss_at":"now-60","last_miss_cause":{"causes":["likely_server_side"]}}' pc-srv)" | grep -q 'miss:' && fail "server-side miss shown" || pass
+
+begin_test "prompt_cache: a server-side cause is dropped, an actionable one kept"
+O=$(_plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":2,"last_miss_at":"now-60","last_miss_cause":{"causes":["likely_server_side","tools_changed"]}}' pc-mix)")
+printf '%s' "$O" | grep -q 'miss: tools_changed' && ! printf '%s' "$O" | grep -q 'likely_server_side' && pass || fail "mixed causes: $O"
+
 begin_test "prompt_cache: a miss older than 10 minutes is not shown"
 _plain "$(_pc '{"caching_observed":true,"warm":true,"expires_at":"now3000","misses":1,"last_miss_at":"now-900","last_miss_cause":{"causes":["tools_changed"]}}' pc-old)" | grep -q 'miss:' && fail "stale miss shown" || pass
 
