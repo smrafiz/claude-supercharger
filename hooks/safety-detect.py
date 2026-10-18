@@ -89,7 +89,17 @@ def _sc_note_overrun():
             _fh.write("%d %.3f\n" % (int(time.time()), _BUDGET_S))
     except Exception:
         pass
+    # Tell safety.sh the scan was cut short, so a killed scan is not read as a clean
+    # one. It decides what that means: on a credential path it asks.
+    try:
+        sys.stdout.write(_SC_OVERRUN + "\n")
+        sys.stdout.flush()
+    except Exception:
+        pass
     os._exit(0)
+
+
+_SC_OVERRUN = "__SC_DETECT_OVERRUN__"
 
 
 _BUDGET_S = float(os.environ.get("SUPERCHARGER_DETECT_BUDGET_S", "0.5"))
