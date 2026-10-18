@@ -6,13 +6,12 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-17, session `3d213381` (resumed as `deabbc7a`).*
 
-- **Released: v4.3.17.** Installed v4.3.17 on Machine A. master = `4cdfd71`: #143, #145
-  (plain-word grep pattern is data), #146 (event-logger fields), #147 (guard canary + `/sc-health`)
-  are MERGED but UNRELEASED.
-- **4.3.18 held:** master CI on 4cdfd71 failed Windows only, test-guard-canary 4/5: a bare `bash`
-  from python is the WSL launcher on Windows. Fix = #149 (unverified on Windows until its master CI).
-- **In flight (Machine A, nohup):** `~/.cache/sc-finish-4.3.18b.sh` → `.result`: merge #149, master
-  CI, release 4.3.18, promote, update. Then merge this docs PR (#148).
+- **Released: v4.3.18** (2026-10-18): #143, #145, #146, #147, #149. Installed v4.3.18 on Machine A;
+  `/sc-health` 100/100, all four guard canaries stopped.
+- **Windows canary fix verified:** master CI on 2a153fc (#149) passed Windows. Cause was a bare `bash`
+  from python resolving to the WSL launcher.
+- **Release jobs:** the nohup retry died before staging (most likely at session exit; no output left). The
+  release-only rerun under `screen -dmS` finished. Whether screen survives `/exit` is untested.
 - **Closed this session:** research #2 (per-turn context ~50 tokens), #1 ConfigChange (audit-only),
   python-heredoc FP class. **Parked:** path-guard scratchpad deny after resume; `/sc-trust`.
 - **Release recipe:** batch PRs into one release (~80 min Windows master CI each). One detached job,
@@ -51,7 +50,7 @@ session on any machine.**
 #### 2026-10-17 (deep) — 3d213381
 4.3.14–4.3.17 released after a gist-500 CI flake stalled the chain. Built #145–#147 (grep FP,
 event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items. 4.3.18 held: Windows CI caught the
-canary's bare `bash` (WSL launcher); fix #149 in flight.
+canary's bare `bash` (WSL launcher); fixed in #149, released 2026-10-18.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-17 deep)
 
 #### 2026-10-15 (deep) — 3d213381
