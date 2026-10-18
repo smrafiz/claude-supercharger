@@ -185,12 +185,14 @@ if os.path.isfile(cost_file):
             state = json.load(f)
     except Exception:
         state = {}
-# 4.3.2: totals written before the offset-map fix were inflated by re-counted
-# transcripts ($11.7M on one machine). Start over once; keep the old file aside.
-if state and state.get('v') != 2:
+# Totals from an older state version were inflated. Start over once and keep the
+# old file aside; subagent-cost.sh checks the same version.
+# v2 (4.3.2): re-counted transcripts ($11.7M on one machine).
+# v3: one API response priced once per transcript LINE (2.04x on a real transcript).
+if state and state.get('v') != 3:
     try:
-        if not os.path.exists(cost_file + '.pre-4.3.2'):
-            os.replace(cost_file, cost_file + '.pre-4.3.2')
+        if not os.path.exists(cost_file + '.pre-v3'):
+            os.replace(cost_file, cost_file + '.pre-v3')
     except Exception:
         pass
     state = {}
@@ -213,6 +215,14 @@ if not isinstance(offsets, dict):
     if _legacy:
         offsets[transcript] = _legacy
 offset        = int(offsets.get(transcript, 0) or 0)
+# One API response is written as several consecutive lines with the same message
+# id and identical usage; price each id once. The last id is kept per transcript
+# because a read can stop between two lines of the same response.
+last_ids = state.get('main_last_ids')
+if not isinstance(last_ids, dict):
+    last_ids = {}
+last_id = last_ids.get(transcript) if offset else None
+_last_id0 = last_id
 first_updated = state.get('first_updated', '') or now
 
 # v2.7.17: read the transcript in BINARY mode. Text-mode seek() does NOT accept
@@ -260,6 +270,10 @@ try:
             u = msg.get('usage') or {}
             if not u:
                 continue
+            if msg.get('id'):
+                if msg['id'] == last_id:
+                    continue
+                last_id = msg['id']
             model = (msg.get('model') or d.get('model') or '').lower()
             if override in PRICING:
                 tier = override
@@ -283,6 +297,7 @@ try:
 except Exception:
     # On any read error, keep prior state unchanged.
     new_offset = offset
+    last_id = _last_id0
 
 new_main  = prev_main + delta_cost
 new_turns = prev_turns + new_msgs
@@ -290,7 +305,7 @@ new_total = new_main + prev_subagent
 avg = new_total / new_turns if new_turns > 0 else 0.0
 
 result = {
-    'v': 2,
+    'v': 3,
     'total_usd': round(new_total, 8),
     'turn_count': new_turns,
     'avg_per_turn': round(avg, 8),
@@ -313,6 +328,9 @@ if len(offsets) > 40:
     offsets = {k: offsets[k] for k in keep}
     offsets[transcript] = new_offset
 result['main_offsets'] = offsets
+if last_id:
+    last_ids[transcript] = last_id
+result['main_last_ids'] = {k: v for k, v in last_ids.items() if k in offsets}
 # Write atomically (tmp + rename) inside the lock, then release.
 tmp = os.environ.get('COST_TMP') or (cost_file + '.tmp')
 try:

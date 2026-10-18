@@ -77,6 +77,7 @@ PRICES = {'opus': (5.0, 6.25, 0.5, 25.0), 'sonnet': (3.0, 3.75, 0.3, 15.0),
 
 def transcript_cost(path):
     t = 0.0
+    seen = set()  # One API response can be written as several transcript lines with the same id and identical usage (2.04x on a real transcript); count each id once.
     try:
         for ln in open(path, encoding='utf-8', errors='replace'):
             if '"usage"' not in ln:
@@ -88,6 +89,10 @@ def transcript_cost(path):
             if d.get('type') != 'assistant':
                 continue
             m = d.get('message') or {}
+            if m.get('id'):
+                if m['id'] in seen:
+                    continue
+                seen.add(m['id'])
             u = m.get('usage') or {}
             mod = (m.get('model') or '').lower()
             k = 'opus' if 'opus' in mod else 'fable' if ('fable' in mod or 'mythos' in mod) else 'haiku' if 'haiku' in mod else 'sonnet'

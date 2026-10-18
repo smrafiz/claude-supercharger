@@ -79,6 +79,7 @@ files = [l.strip() for l in os.environ.get('SUPERCHARGER_JSONL_FILES', '').split
 def parse_session(path):
     totals = dict(input=0, cache_write=0, cache_read=0, output=0, turns=0)
     ts_start = model = ''
+    seen = set()  # One API response can be written as several transcript lines with the same id and identical usage (2.04x on a real transcript); count each id once.
     try:
         with open(path) as f:
             for line in f:
@@ -89,6 +90,11 @@ def parse_session(path):
                         ts_start = ts
                     if d.get('type') == 'assistant':
                         u = d.get('message', {}).get('usage', {})
+                        mid = d.get('message', {}).get('id')
+                        if mid and mid in seen:
+                            u = None
+                        elif mid:
+                            seen.add(mid)
                         if u:
                             totals['input']       += u.get('input_tokens', 0)
                             totals['cache_write'] += u.get('cache_creation_input_tokens', 0)

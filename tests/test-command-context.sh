@@ -36,6 +36,17 @@ OUT=$(cd "$P" && CLAUDE_CODE_SESSION_ID=mine ctx status 2>&1)
   && printf '%s' "$OUT" | grep -q '^tools_last10: 1 ok / 1 fail$'; } && pass || fail "got: $OUT"
 teardown_test_home
 
+begin_test "command-context: session_cost prices a response written as several lines once"
+setup_test_home
+P="$HOME/proj"; mkdir -p "$P"; P=$(cd "$P" && pwd -P)
+ENC=$(cd "$P" && python3 -c "import os,re; print(re.sub(r'[^A-Za-z0-9-]', '-', os.getcwd()))")
+D="$HOME/.claude/projects/$ENC"; mkdir -p "$D" "$HOME/.claude/supercharger/scope"
+L='{"type":"assistant","message":{"id":"m1","model":"claude-sonnet","usage":{"output_tokens":1000000}}}'
+printf '%s\n%s\n%s\n' "$L" "$L" "$L" > "$D/mine.jsonl"
+OUT=$(cd "$P" && CLAUDE_CODE_SESSION_ID=mine ctx status 2>&1)
+printf '%s' "$OUT" | grep -q '^session_cost: \$15.00' && pass || fail "got: $(printf '%s' "$OUT" | grep session_cost)"
+teardown_test_home
+
 begin_test "command-context: the three commands inject it and allow exactly that call"
 OK=1
 for c in sc-status sc-why sc-perf; do

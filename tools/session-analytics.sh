@@ -114,6 +114,7 @@ def slug_to_name(slug):
 def parse_session(path):
     t = dict(input=0, cache_write=0, cache_read=0, output=0, turns=0)
     ts_start = ''
+    seen = set()  # One API response can be written as several transcript lines with the same id and identical usage (2.04x on a real transcript); count each id once.
     try:
         with open(path) as f:
             for line in f:
@@ -124,6 +125,11 @@ def parse_session(path):
                         ts_start = ts
                     if d.get('type') == 'assistant':
                         u = d.get('message', {}).get('usage', {})
+                        mid = d.get('message', {}).get('id')
+                        if mid and mid in seen:
+                            u = None
+                        elif mid:
+                            seen.add(mid)
                         if u:
                             inp  = u.get('input_tokens', 0)
                             cw   = u.get('cache_creation_input_tokens', 0)
