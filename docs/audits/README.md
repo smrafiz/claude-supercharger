@@ -52,6 +52,14 @@ Where a document disagrees with the code, the code wins:
   `/sc-status` shows the count.
 - `docs/CVE-COVERAGE.md`: CVE to hook map, built from the ids the hooks cite.
 
-## Parked
+## Since then
 
-Per-guard fire and deny counts, a combined `/sc-trust` view, and `/sc-health`.
+- `/sc-health` and `tools/guard-canary.sh` (4.3.18): each core guard is run through its
+  registered command on a call it must stop.
+- `docs/TRUST-BOUNDARIES.md`: what is checked for skills, agents, MCP servers and other
+  hooks, and where it stops (integration report recommendations 3 and 6).
+
+## Not building
+
+- Per-guard fire and deny counts: a write on every hook call, the cost we remove elsewhere.
+- A combined `/sc-trust` view: `/sc-status`, `/sc-health` and `/sc-mcp-audit` cover it.
