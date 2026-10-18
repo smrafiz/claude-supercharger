@@ -65,6 +65,19 @@ if [ -n "$_SR_SID" ]; then
   [ -f "$_SR_FILE" ] || printf '%s\n' "$PROJECT_DIR" > "$_SR_FILE" 2>/dev/null || true
 fi
 
+# On a resume, SessionStart carries the NEW session id (payload and env), while every
+# later tool call carries the OLD one, the id the transcript file is named after. The
+# harness may name the scratchpad after either, and path-guard's scratchpad carve-out
+# keys on the tool call's id, so the Write tool was denied the scratchpad the system
+# prompt named. Record new under old; path-guard accepts the ids listed there.
+_SR_TID=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
+_SR_TID="${_SR_TID##*/}"; _SR_TID="${_SR_TID%.jsonl}"
+_SR_UUID='^[0-9a-f-]{36}$'
+if [[ "$_SR_SID" =~ $_SR_UUID ]] && [[ "$_SR_TID" =~ $_SR_UUID ]] && [ "$_SR_TID" != "$_SR_SID" ]; then
+  _SR_ALIAS="$SUPERCHARGER_STATE/scope/.sid-alias-$_SR_TID"
+  grep -qxF "$_SR_SID" "$_SR_ALIAS" 2>/dev/null || printf '%s\n' "$_SR_SID" >> "$_SR_ALIAS" 2>/dev/null || true
+fi
+
 # Walk up to find .supercharger.json (max 5 levels).
 # v2.6.36: in a linked worktree, start from main repo root.
 CONFIG_FILE=""
