@@ -4,18 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-18, session `c384c109` (4.3.18 release); rest 2026-10-17, `3d213381`.*
+*Verified 2026-10-18, session `3d213381` (resumed as `c384c109`).*
 
-- **Released: v4.3.18** (2026-10-18): #143, #145, #146, #147, #149. Installed v4.3.18 on Machine A;
-  `/sc-health` 100/100, all four guard canaries stopped.
-- **Windows canary fix verified:** master CI on 2a153fc (#149) passed Windows. Cause was a bare `bash`
-  from python resolving to the WSL launcher.
-- **Release jobs:** the nohup retry died before staging (most likely at session exit; no output left). The
-  release-only rerun under `screen -dmS` finished. Whether screen survives `/exit` is untested.
-- **Closed this session:** research #2 (per-turn context ~50 tokens), #1 ConfigChange (audit-only),
-  python-heredoc FP class. **Parked:** path-guard scratchpad deny after resume; `/sc-trust`.
-- **Release recipe:** batch PRs into one release (~80 min Windows master CI each). One detached job,
-  ONE notice; never edit the main checkout while it runs. The job log omits FAIL text: read the
+- **Released: v4.3.20** (master `aa24b9c`). Installed v4.3.20 on Machine A. Today: 4.3.18, 4.3.19, 4.3.20.
+- **In flight (Machine A, `screen -dmS sc4321`):** `~/.cache/sc-finish-4.3.21.sh` → `.result`: merges
+  #155 ($IFS evasion, display redactor `delta`, -qm commits, two detector FPs), #156 (path-guard
+  `scratchpad_dir`), #157 (`hooks/lib_pricing.py`, prices by model + cache TTL), then one release 4.3.21.
+  Then merge this docs PR.
+- **Cost numbers changed twice today:** 4.3.20 counts each response once (was 2.04x) and reset the
+  stored totals once (`.session-cost.pre-v3`); 4.3.21 prices Opus 5.5 / 1h writes correctly (was 1.57x).
+- **Follow-ups:** report tools (token-report, session-analytics, claude-check) still flat Sonnet-4
+  prices; `onFailure:"block"` needs a guard exit-code audit first; per-repo commit types.
+- **Release recipe:** batch PRs; `screen -dmS`; merge without `--delete-branch` (it removes the local
+  worktree); PR gate = run on head SHA + both `Test suite` checks by name. Windows FAIL text is in the
   `windows-suite-log` artifact.
 - **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
@@ -47,6 +48,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-18 (deep) — 3d213381
+Released 4.3.18–4.3.20; 4.3.21 in flight. Found and fixed two cost errors (per-line usage 2.04x,
+family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-18 deep)
+
 #### 2026-10-17 (deep) — 3d213381
 4.3.14–4.3.17 released after a gist-500 CI flake stalled the chain. Built #145–#147 (grep FP,
 event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items. 4.3.18 held: Windows CI caught the
@@ -67,8 +73,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-13 de
 4-track research sweep (coverage, upstream tracker, new attacks, own FP ledger); two agent
 PRs building 4.3.6 security fixes + FP narrowing.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-12 deep)
-
-#### 2026-10-12 (pm) — 3d213381
-4.3.5 released: installer UX from a recorded pty Quick install (9s, 2 questions) + README
-Supercharger app requirements. First finish job died on a cancelled master run (double merge).
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-11 deep)

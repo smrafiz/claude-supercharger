@@ -889,6 +889,12 @@ SubagentStop (`agent_name`). None exist: the payloads carry `source`/`file_path`
 because a logger with a `'?'` fallback cannot fail. Take field names from the hooks
 reference, and after shipping count how many live lines still hold the fallback.
 
+It happened again in a guard. `display-secret-redactor.sh` read `message_text`;
+MessageDisplay sends the text in `delta`. It redacted nothing from the day it shipped,
+and its tests passed because they built payloads with the same wrong name. A test
+fixture written from the code's guess tests the guess. Build fixtures from the
+documented example payload, and keep one check that the old spelling is NOT read.
+
 ### Test a guard by running it, not by finding it
 
 A check that a guard file exists, or that its name appears in `settings.json`, passes
@@ -904,3 +910,31 @@ and finds the WSL launcher, so every guard "let it through (exit 1)". All four n
 tests still passed, because a dead tool fails everything. Only "every core guard stops
 its canary when wired correctly" caught it. From python, run the bash that runs your
 script (`$BASH`, through `cygpath -w` on Git Bash), never a bare `bash`.
+
+### Make fixtures look like the harness's real data
+
+Every cost path summed transcript usage one line at a time. Claude Code writes one API
+response as several lines (one per content block) with the same `message.id` and the
+same `usage`: 8,647 lines for 4,272 responses on one transcript, so every cost read
+2.04x high. No fixture carried an id, so every fixture had one line per response and
+every sum looked right. Before trusting a parser, run it over a real file and compare
+counts (lines vs unique ids, here); then put that shape in a fixture.
+
+### A scan that is cut short must say so
+
+`safety-detect.py` kills itself at its time budget and exited 0 with no output, which
+`safety.sh` reads as a clean scan. Failing open there is deliberate (failing closed
+showed phantom hook errors under load), but it should be a decision, not an accident
+of the exit code. The detector now prints a sentinel on overrun, and `safety.sh` asks
+when the command names a credential file, where the deep scan is the only check, and
+fails open elsewhere. Test it with a stub that always overruns; a real overrun only
+happens under load.
+
+### Prices come from one table, by model
+
+Each cost hook kept its own four-number table per family, so Opus 5.5 was priced as
+Opus 4.x and every cache write at the 5-minute rate: about 1.57x high on an Opus 5.5
+session. `hooks/lib_pricing.py` is the one table, keyed by model id, splitting cache
+writes by `usage.cache_creation` TTL. Re-read the published pricing page when a model
+ships; never add a price table at a call site.
+
