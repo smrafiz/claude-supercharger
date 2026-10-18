@@ -2448,6 +2448,16 @@ begin_test "commit-check: compound valid commit passes"
 run_hook "$COMMIT_CHECK" "echo hi && git commit -m 'feat: add login'"
 assert_exit_code 0 $? && pass
 
+# -m bundled with other short flags was not seen, so the subject was read from
+# the next -m (the body): a valid commit was denied (2026-10-18, real).
+begin_test "commit-check: bundled -qm subject with a -m body passes"
+run_hook "$COMMIT_CHECK" "git commit -qm 'feat(ui): new shelf' -m 'Books: title and cover'"
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: bundled -am with a bad subject is still blocked"
+run_hook "$COMMIT_CHECK" "git commit -am 'fixed stuff'"
+assert_exit_code 2 $? && pass
+
 begin_test "commit-check: opt-out — invalid commit passes when flag absent"
 rm -f "$HOME/.claude/supercharger/.conventional-commits"
 run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'"

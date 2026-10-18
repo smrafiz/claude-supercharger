@@ -467,4 +467,17 @@ for _c in "rm -rf ./build" "rm -rf node_modules" "rm foo~1.txt" "rm -rf /tmp/x~1
   [ "$(verdict "$_c")" = ALLOW ] && pass || fail "over-blocked: $_c"
 done
 
+
+# --- $IFS as whitespace (GuardFall class B) ---------------------------------
+# The shell expands $IFS to a space at run time; no rule saw one. Single-quoted
+# below so the test keeps the literal $IFS.
+for _c in 'rm$IFS-rf$IFS/' 'rm${IFS}-rf${IFS}/' 'rm$IFS$9-rf$IFS$9/' 'rm${IFS:0:1}-rf${IFS:0:1}/'; do
+  begin_test "safety: \$IFS spacing is seen: $_c"
+  [ "$(verdict "$_c")" = BLOCK ] && pass || fail "evaded: $_c"
+done
+begin_test "safety: an IFS assignment for read is allowed"
+[ "$(verdict 'while IFS=: read -r a b; do echo "$a"; done < list.txt')" = ALLOW ] && pass || fail "over-blocked IFS=: read"
+begin_test "safety: printing \$IFS is allowed"
+[ "$(verdict 'printf "%q\\n" "$IFS"')" = ALLOW ] && pass || fail "over-blocked printf IFS"
+
 report

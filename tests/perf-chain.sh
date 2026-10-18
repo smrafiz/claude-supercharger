@@ -106,7 +106,7 @@ base = {"session_id": "perfchain", "cwd": repo, "hook_event_name": event}
 prose = ("Here is a representative assistant reply about refactoring the parser "
          "and updating the tests so the suite stays green. ") * 6
 extra = {
-    "MessageDisplay":      {"message_text": prose},
+    "MessageDisplay":      {"delta": prose, "index": 0, "final": True},
     "UserPromptSubmit":    {"user_prompt": cmd},
     "UserPromptExpansion": {"command_name": "deploy", "expanded_prompt": prose},
     "CwdChanged":          {"previous_cwd": "/tmp"},
