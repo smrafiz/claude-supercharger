@@ -50,8 +50,8 @@ printf '%s\n' "$_INPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN" || exit 0
 TEXT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
-    # MessageDisplay carries the batch's text in `delta` (whole lines; the final
-    # batch may end mid-line). Until 4.3.21 this read `message_text`, a field the
+    # MessageDisplay carries the batch's text in delta (whole lines; the final
+    # batch may end mid-line). Until 4.3.21 this read message_text, a field the
     # event never had, so nothing was ever redacted and the tests, built on the
     # same wrong field, passed.
     print(json.load(sys.stdin).get('delta') or '')
