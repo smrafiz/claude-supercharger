@@ -1534,38 +1534,39 @@ fi
 # Single python3 fork covers 3 categories that previously required 3 separate hooks.
 # Fast-path: skip the fork unless the command contains a trigger keyword.
 _NEED_PY=false
+_CRED_PATH=false   # a credential file or dir: the deep scan is its only Bash-side check
 case "$CMD" in
   *python*\ -c*|*node\ -e*|*node\ --eval*|*node\ -p*|*node\ --print*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
   *npx*\ -c*|*deno\ eval*|*bun\ -e*|*bun\ --eval*) _NEED_PY=true ;;
   # v2.7.14: gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE,
   # else those detector patterns are unreachable. Added .my.cnf/.authinfo/.crt/.cer.
-  *.env*|*.npmrc*|*.pypirc*|*.pgpass*|*.my.cnf*|*.authinfo*|*.netrc*|*.git-credentials*|*id_rsa*|*id_ed25519*|*id_ecdsa*|*id_dsa*|*.pem*|*.key*|*.crt*|*.cer*|*.p12*|*.pfx*|*.ppk*) _NEED_PY=true ;;
+  *.env*|*.npmrc*|*.pypirc*|*.pgpass*|*.my.cnf*|*.authinfo*|*.netrc*|*.git-credentials*|*id_rsa*|*id_ed25519*|*id_ecdsa*|*id_dsa*|*.pem*|*.key*|*.crt*|*.cer*|*.p12*|*.pfx*|*.ppk*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.10.1: terraform var / token-store files (from chuckreynolds secret-guardrails)
-  *.tfvars*|*.tokens.json*) _NEED_PY=true ;;
-  *kubeconfig*|*.kube/config*) _NEED_PY=true ;;
+  *.tfvars*|*.tokens.json*) _CRED_PATH=true; _NEED_PY=true ;;
+  *kubeconfig*|*.kube/config*) _CRED_PATH=true; _NEED_PY=true ;;
   # v4.0.7: secret DIRECTORIES. The globs above are filenames, so a private key
   # called anything but id_rsa never flipped _NEED_PY and check_secret_directory
   # could not run -- the rule was written, tested against the detector, and
   # unreachable through the hook. Same two-gate trap as v2.29.37 and v2.29.23.
   # Trailing-slash-free forms too: `tar czf x.tgz /home/u/.ssh` names the
   # directory itself, which */.ssh/* does not match.
-  */.ssh|*/.ssh/*|*/.gnupg|*/.gnupg/*|*/.aws|*/.aws/*|*/.mcp-auth|*/.mcp-auth/*) _NEED_PY=true ;;
+  */.ssh|*/.ssh/*|*/.gnupg|*/.gnupg/*|*/.aws|*/.aws/*|*/.mcp-auth|*/.mcp-auth/*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: the gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE
   # (see the note above) and it had drifted BELOW it. `.docker/config.json` and
   # `pip.conf` were in the detector and NOT here, so _NEED_PY never flipped and the
   # detector never ran -- rules written, reviewed and shipped that could not fire.
   # Measured: every reader (cat/less/head/grep/tail/od) allowed ~/.docker/config.json.
   # Same two-gate trap that shipped tool-preferences inert in v2.29.23.
-  *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _NEED_PY=true ;;
+  *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
-  *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _NEED_PY=true ;;
+  *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _CRED_PATH=true; _NEED_PY=true ;;
   # v4.2.0: AI-agent token stores (same list as the detector) -- two-gate trap.
-  *.credentials.json*|*oauth_creds*|*github-copilot*) _NEED_PY=true ;;
+  *.credentials.json*|*oauth_creds*|*github-copilot*) _CRED_PATH=true; _NEED_PY=true ;;
   # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).
   # Gate is a superset of the detector's _SENSITIVE_NAME_RE clause; the detector
   # decides. `client_secret` over-admits (it is also an env-var name) but only
   # costs a python run, never a false block.
-  *service-account*|*service_account*|*serviceaccount*|*firebase-adminsdk*|*client_secret*) _NEED_PY=true ;;
+  *service-account*|*service_account*|*serviceaccount*|*firebase-adminsdk*|*client_secret*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: php -r and awk system() are interpreters like the ones above; both
   # execute arbitrary code and neither was in this gate.
   *php*\ -r*|*awk*system*) _NEED_PY=true ;;
@@ -1610,6 +1611,18 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   _CMD_CODE=""
   case "$CMD" in *'<<'*) _CMD_CODE=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _CMD_CODE="" ;; esac
   PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  # The deep scan ran out of time (the detector says so instead of exiting silently).
+  # Everywhere else that fails open to the regex verdict above: failing closed showed
+  # users phantom "hook error" denies under load. A credential path is different:
+  # for a Bash read of ~/.aws/credentials or .docker/config.json the deep scan is
+  # the only check, so an overrun there asks rather than allowing the read unseen.
+  if [ "$PY_REASON" = "__SC_DETECT_OVERRUN__" ]; then
+    PY_REASON=""
+    if [ "$_CRED_PATH" = true ]; then
+      sc_decision ask "the credential check on this command ran out of time (the machine is busy), so it was not checked. It names a credential file or directory." "re-run when the machine is less busy, or confirm the command does not read secrets"
+      exit 0
+    fi
+  fi
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
   fi
