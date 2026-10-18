@@ -4,7 +4,7 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-17, session `3d213381` (resumed as `deabbc7a`).*
+*Verified 2026-10-18, session `c384c109` (4.3.18 release); rest 2026-10-17, `3d213381`.*
 
 - **Released: v4.3.18** (2026-10-18): #143, #145, #146, #147, #149. Installed v4.3.18 on Machine A;
   `/sc-health` 100/100, all four guard canaries stopped.
