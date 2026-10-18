@@ -101,7 +101,7 @@ REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" SC_CFG_ROOT="$CONFIG_
          SC_S1="$HOME/.claude/settings.json" SC_S2="$CONFIG_ROOT/.claude/settings.json" \
          SC_S3="$CONFIG_ROOT/.claude/settings.local.json" \
          SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
-         SID="${CLAUDE_CODE_SESSION_ID:-}" \
+         SID="${CLAUDE_CODE_SESSION_ID:-}" SID_ALIASES="$SUPERCHARGER_STATE/scope/.sid-alias-${CLAUDE_CODE_SESSION_ID:-}" \
          python3 <<'PYEOF'
 import json, os, sys, re
 
@@ -567,7 +567,17 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     # tool was denied for the one directory it is told to use — the same
     # separator fault as the memory store above, with a louder consequence.
     _sid = os.environ.get('SID', '')
-    if _sid and ('/' + _sid + '/scratchpad/') in (_rp_n + '/'):
+    # After a resume, tool calls carry the transcript's OLD id while the harness may
+    # name the scratchpad after the NEW one. project-config.sh records new under old
+    # at SessionStart; accept those ids too, and only those.
+    _sids = [_sid] if _sid else []
+    if _sid:
+        try:
+            with open(os.environ.get('SID_ALIASES', '')) as _af:
+                _sids += [l.strip() for l in _af if re.fullmatch(r'[0-9a-f-]{36}', l.strip())]
+        except OSError:
+            pass
+    if any(('/' + _s + '/scratchpad/') in (_rp_n + '/') for _s in _sids):
         sys.exit(0)
     # Built and compared with FORWARD slashes on both sides.
     #
