@@ -125,12 +125,17 @@ transcript_model = ''
 if not (input_tok or cache_write or cache_read or output_tok):
     tpath = d.get('agent_transcript_path') or d.get('transcript_path') or ''
     if tpath and os.path.isfile(tpath):
+        seen = set()  # One API response can be written as several transcript lines with the same id and identical usage (2.04x on a real transcript); count each id once.
         try:
             with open(tpath) as tf:
                 for line in tf:
                     try:    td = json.loads(line)
                     except Exception: continue
                     msg = td.get('message') or {}
+                    if msg.get('id'):
+                        if msg['id'] in seen:
+                            continue
+                        seen.add(msg['id'])
                     mu = msg.get('usage') or td.get('usage') or {}
                     if not mu:
                         continue
@@ -340,11 +345,13 @@ try:
                 state = json.load(f)
         except Exception:
             state = {}
-    # 4.3.2: pre-fix totals were inflated — reset once (budget-cap does the same).
-    if state and state.get('v') != 2:
+    # Totals from an older state version were inflated — reset once, keeping the old
+    # file aside (budget-cap does the same; the two must agree on SC_COST_V).
+    # v2 (4.3.2): re-counted transcripts. v3: one response priced once per line.
+    if state and state.get('v') != 3:
         try:
-            if not os.path.exists(cost_file + '.pre-4.3.2'):
-                os.replace(cost_file, cost_file + '.pre-4.3.2')
+            if not os.path.exists(cost_file + '.pre-v3'):
+                os.replace(cost_file, cost_file + '.pre-v3')
         except Exception:
             pass
         state = {}
@@ -356,7 +363,7 @@ try:
     new_subagent = prev_subagent + cost_delta
     avg = new_total / prev_turns if prev_turns > 0 else 0.0
     new_state = {
-        'v': 2,
+        'v': 3,
         'total_usd': round(new_total, 8),
         'turn_count': prev_turns,
         'avg_per_turn': round(avg, 8),
@@ -364,17 +371,11 @@ try:
         'last_updated': now,
         'subagent_total': round(new_subagent, 8),
     }
-    # v2.7.15: preserve budget-cap's main-loop tracking fields (it keys off these
-    # to compute its incremental delta — dropping them would double-count main cost).
-    if 'main_total' in state:
-        new_state['main_total'] = state['main_total']
-    if 'main_offset' in state:
-        new_state['main_offset'] = state['main_offset']
-    # 4.3.2: and the per-transcript map that replaced it (v2.7.47). Dropping it on
-    # every subagent stop made budget-cap re-read each main transcript from byte 0
-    # and ADD its whole cost again — one machine's "lifetime" total reached $11.7M.
-    if 'main_offsets' in state:
-        new_state['main_offsets'] = state['main_offsets']
+    # Carry every field this writer does not own. budget-cap keys its incremental
+    # read off main_total / main_offsets / main_last_ids; an allow-list here dropped
+    # main_offsets once (4.3.2: re-counted transcripts, an $11.7M "lifetime" total),
+    # and would drop the next field budget-cap adds the same way.
+    new_state = {**state, **new_state}
     tmp_file = cost_file + f'.{os.getpid()}.tmp'
     try:
         with open(tmp_file, 'w') as f:
