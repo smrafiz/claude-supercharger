@@ -208,6 +208,7 @@ Run any of these manually:
 | `tools/trust-mcp.sh` | Claude Supercharger — Trust an MCP server for Elicitation credential prompts |
 | `tools/update.sh` | Claude Supercharger — Smart Updater |
 | `tools/webhook-setup.sh` | Claude Supercharger — Webhook Setup |
+| `tools/writing-mode.sh` | Claude Supercharger — opt-in writing modes (rules files Claude loads every session) |
 
 ---
 

@@ -51,6 +51,7 @@ Claude Supercharger — Slash Commands
   Meta
     /sc             Activate / deactivate Supercharger (off | on | status) — flip to default Claude
     /supercharger:autopilot   Time-boxed auto-approve — skip permission prompts for a duration (safety hooks stay on)
+    /supercharger:ste         Clear writing mode: Simplified Technical English, about 80% (on/off)
     /supercharger:readonly    Time-boxed read-only — block edits + mutating commands for a duration (look, don't touch)
     /supercharger:strict      Time-boxed strict — auto-approve nothing; confirm every call (overrides autopilot)
     /supercharger:status      Render current Supercharger session state (cost, lessons, disabled hooks)
@@ -107,6 +108,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "confirm every single call" | `/supercharger:strict` | `/supercharger:readonly` |
 | "turn it all off", "I want plain Claude" | `/sc off` | `/supercharger:readonly` if they only want to stop edits |
 | "are the guards actually working", "is it protecting me" | `/supercharger:health` | `/supercharger:status` — that lists what is on, this proves it fires |
+| "your answers are hard to read", "write more clearly", "plain English" | `/supercharger:ste on` | `eco lean` — that changes length, not clarity |
 | "what's active right now", "what's this costing" | `/supercharger:status` | `/supercharger:perf` — that's hook latency, this is session state |
 | "everything feels slow" | `/supercharger:perf` | `/supercharger:profile` — check the measurement before switching profile |
 | "make it faster" | `/supercharger:profile` | `/supercharger:perf` first |

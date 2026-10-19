@@ -490,6 +490,11 @@ deploy_roles "$SCRIPT_DIR"
 # Deploy economy
 deploy_economy "$SCRIPT_DIR" "$SELECTED_TIER" "$ROLES_CSV"
 
+# Opt-in writing modes (configs/rules/*.md): staged for tools/writing-mode.sh, which
+# copies one into ~/.claude/rules only when the user turns it on.
+mkdir -p "$HOME/.claude/supercharger/rules/modes"
+cp "$SCRIPT_DIR/configs/rules/"*.md "$HOME/.claude/supercharger/rules/modes/" 2>/dev/null || true
+
 # Deploy shared assets
 cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"
 success "Anti-patterns library installed (rules/)"
