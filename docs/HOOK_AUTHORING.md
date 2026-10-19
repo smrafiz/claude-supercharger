@@ -955,3 +955,11 @@ unguarded. The core guards carry it (flag `block` in `lib/hooks.sh`), written on
 the local Claude Code is new enough. Before adding the flag to another guard, replay
 real tool calls through it and check that it never exits outside 0 and 2: a guard that
 exits 1 on ordinary input would block real work.
+
+### Test the timeout handler, not the timer
+
+To test what `safety-detect.py` records on an overrun, a test forced one with a 1 ms
+budget and a long command. It passed 5 of 5 on macOS and failed on the Ubuntu runner,
+which finished the scan before the watchdog thread ran. A test that races a timer
+encodes the speed of the machine that wrote it. Run the module with the budget at 0,
+catch `SystemExit`, and call the handler directly.

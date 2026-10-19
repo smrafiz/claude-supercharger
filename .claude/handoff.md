@@ -4,20 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-19, session `3d213381`.*
+*Verified 2026-10-19 12:33Z, session `3d213381`.*
 
-- **Released: v4.3.22** (master `27a0e6a`). Installed v4.3.22 on Machine A; guard canary rc=0.
-  4.3.21: #155 ($IFS evasion, redactor `delta`, -qm commits, 2 detector FPs), #156 (path-guard
-  `scratchpad_dir`), #157 (`hooks/lib_pricing.py`). 4.3.22: #159 (`/sc-ste`, `/sc-handoff --html`,
-  local by default, `--html=publish` to publish), #160 (report tools price by model).
-- **Nothing in flight** after this docs PR (#158).
-- **Cost numbers changed twice:** 4.3.20 counts each response once (was 2.04x, totals reset once,
-  `.session-cost.pre-v3`); 4.3.21 prices by model and cache TTL (was 1.57x).
-- **Follow-ups:** `onFailure:"block"` needs a guard exit-code audit first; per-repo commit types;
-  overrun records lack session id + command hash; `/sc-health` warn on `IS_DEMO`.
-- **Release recipe:** batch PRs; detached job under `launchctl submit` (nohup and screen die at
-  `/exit`), and the job must `launchctl remove` its own label on EXIT or launchd restarts it; merge
-  without `--delete-branch`; PR gate = run on head SHA + both `Test suite` checks by name.
+- **Released: v4.3.23** (master `77b61f9`). Installed v4.3.23 on Machine A; `/sc-health` 100/100.
+  4.3.23 (#161): per-repo commit types via `git config supercharger.commitTypes`; health fails
+  Security on `IS_DEMO` or `disableAllHooks`.
+- **In flight (Machine A, launchd `sc.finish.4324`):** `~/.cache/sc-finish-4.3.24.sh` → `.result`:
+  merge #162 (core guards `onFailure:"block"` on Claude Code >= 2.1.295; 8 guards made executable,
+  plugin users never ran them; overrun records add session id + command hash), release 4.3.24.
+  Then merge this docs PR (rebase: both append to `docs/HOOK_AUTHORING.md`).
+- **Follow-ups:** plugin `hooks.json` support for `onFailure` unverified; extend the flag to other
+  guards only after a full replay of each; star-keeper needs its `commitTypes` set (user).
+- **Release recipe:** batch PRs; detached job under `launchctl submit` with an EXIT trap that
+  `launchctl remove`s its label; merge without `--delete-branch`; PR gate = run on head SHA + both
+  `Test suite` checks by name. A failed job does not retry: fix, push, relaunch.
 - **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
@@ -48,6 +48,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-19 (deep) — 3d213381
+Released 4.3.21–4.3.23; 4.3.24 in flight. Replayed 4,000 real calls through every PreToolUse hook:
+core guards never exit outside 0/2 (so `onFailure:block` is safe), and 8 guards were dead on the plugin
+(committed 644). Per-repo commit types; health catches IS_DEMO.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-19 deep)
+
 #### 2026-10-18 (deep) — 3d213381
 Released 4.3.18–4.3.20; 4.3.21 and 4.3.22 (STE mode, handoff --html) followed on 10-19. Found and fixed two cost errors (per-line usage 2.04x,
 family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
@@ -68,8 +74,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-15 de
 Released 4.3.6, 4.3.7 (GitSpawn/Chaindrop/GhostSplice), 4.3.8 (secret-alert attribution, six FPs);
 4.3.9 (install-by-rename) in flight. 4.3.7 needed a retry: PR CI skips Windows.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-13 deep)
-
-#### 2026-10-12 (deep) — 3d213381
-4-track research sweep (coverage, upstream tracker, new attacks, own FP ledger); two agent
-PRs building 4.3.6 security fixes + FP narrowing.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-12 deep)
