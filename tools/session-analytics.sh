@@ -92,6 +92,7 @@ if [ -z "$FILE_LIST" ] && [ "$SHOW_SUBAGENTS" = false ]; then
 fi
 
 if [ -n "$FILE_LIST" ]; then
+SC_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../hooks" 2>/dev/null && pwd)" \
 SUPERCHARGER_FILE_LIST="$FILE_LIST" SUPERCHARGER_DAYS="$DAYS" python3 << 'PYEOF'
 import os, json, sys, time
 from datetime import datetime
@@ -102,6 +103,24 @@ PRICE = {
     'cache_read':  0.30,
     'output':     15.00,
 }
+
+# Model-aware prices from hooks/lib_pricing.py (the table the cost hooks use). The
+# flat PRICE above is the fallback when the module is missing.
+try:
+    import sys as _sys
+    _sys.path.insert(0, os.environ.get('SC_HOOKS') or '')
+    from lib_pricing import usage_cost as _uc, rates as _rt
+except Exception:
+    _uc = _rt = None
+
+def _price(d, u, t):
+    """Add this response's cost and cache saving to t, priced for its own model."""
+    if _uc is None:
+        return
+    m = (d.get('message') or {}).get('model') or ''
+    t['cost'] = t.get('cost', 0.0) + _uc(m, u)
+    r = _rt(m)
+    t['saved'] = t.get('saved', 0.0) + (u.get('cache_read_input_tokens', 0) or 0) / 1e6 * (r[0] - r[3])
 
 days      = int(os.environ.get('SUPERCHARGER_DAYS', '7'))
 file_raw  = os.environ.get('SUPERCHARGER_FILE_LIST', '')
@@ -141,6 +160,7 @@ def parse_session(path):
                                 t['cache_read']  += cr
                                 t['output']      += out
                                 t['turns']       += 1
+                                _price(d, u, t)
                 except:
                     pass
     except:
@@ -148,12 +168,16 @@ def parse_session(path):
     return t, ts_start
 
 def total_cost(t):
+    if 'cost' in t:
+        return t['cost']
     return (t['input']       / 1e6 * PRICE['input'] +
             t['cache_write'] / 1e6 * PRICE['cache_write'] +
             t['cache_read']  / 1e6 * PRICE['cache_read'] +
             t['output']      / 1e6 * PRICE['output'])
 
 def cache_savings(t):
+    if 'saved' in t:
+        return t['saved']
     return t['cache_read'] / 1e6 * (PRICE['input'] - PRICE['cache_read'])
 
 def cache_pct(t):

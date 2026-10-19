@@ -618,10 +618,29 @@ echo ""
 echo -e "${BLUE}Analytics (7d):${NC}"
 PROJECTS_BASE="$HOME/.claude/projects"
 if [ -d "$PROJECTS_BASE" ]; then
-  ANALYTICS_SUMMARY=$(SUPERCHARGER_PROJECTS_DIR="$PROJECTS_BASE" python3 << 'PYEOF'
+  ANALYTICS_SUMMARY=$(SC_HOOKS="$(cd "$(dirname "${BASH_SOURCE[0]}")/../hooks" 2>/dev/null && pwd)" \
+    SUPERCHARGER_PROJECTS_DIR="$PROJECTS_BASE" python3 << 'PYEOF'
 import os, json, time
 
 PRICE = {'input': 3.00, 'cache_write': 3.75, 'cache_read': 0.30, 'output': 15.00}
+
+# Model-aware prices from hooks/lib_pricing.py (the table the cost hooks use). The
+# flat PRICE above is the fallback when the module is missing.
+try:
+    import sys as _sys
+    _sys.path.insert(0, os.environ.get('SC_HOOKS') or '')
+    from lib_pricing import usage_cost as _uc, rates as _rt
+except Exception:
+    _uc = _rt = None
+
+def _price(d, u, t):
+    """Add this response's cost and cache saving to t, priced for its own model."""
+    if _uc is None:
+        return
+    m = (d.get('message') or {}).get('model') or ''
+    t['cost'] = t.get('cost', 0.0) + _uc(m, u)
+    r = _rt(m)
+    t['saved'] = t.get('saved', 0.0) + (u.get('cache_read_input_tokens', 0) or 0) / 1e6 * (r[0] - r[3])
 projects_dir = os.environ.get('SUPERCHARGER_PROJECTS_DIR', '')
 cutoff = time.time() - 7 * 86400
 
@@ -668,6 +687,7 @@ for proj in os.listdir(projects_dir):
                                         t['cache_read']  += cr
                                         t['output']      += out
                                         turns += 1
+                                        _price(d, u, t)
                         except:
                             pass
             except:
@@ -677,11 +697,11 @@ for proj in os.listdir(projects_dir):
             total['sessions'] += 1
             for k in ('input', 'cache_write', 'cache_read', 'output'):
                 total[k] += t[k]
-            cost = (t['input'] / 1e6 * PRICE['input'] +
+            cost = t['cost'] if 'cost' in t else (t['input'] / 1e6 * PRICE['input'] +
                     t['cache_write'] / 1e6 * PRICE['cache_write'] +
                     t['cache_read']  / 1e6 * PRICE['cache_read'] +
                     t['output']      / 1e6 * PRICE['output'])
-            saved = t['cache_read'] / 1e6 * (PRICE['input'] - PRICE['cache_read'])
+            saved = t['saved'] if 'saved' in t else t['cache_read'] / 1e6 * (PRICE['input'] - PRICE['cache_read'])
             total_cost  += cost
             total_saved += saved
     except OSError:
