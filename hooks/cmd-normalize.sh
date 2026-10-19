@@ -589,6 +589,20 @@ normalize_cmd() {
       fi
       ;;
   esac
+  # $IFS expands to whitespace at run time, so `rm$IFS-rf$IFS/` runs `rm -rf /`
+  # while no rule sees a space (GuardFall class B, 2026-07). APPEND the spelling
+  # with each $IFS / ${IFS...} (and a trailing empty $1-$9, the usual padding) as a
+  # space, like the joins above.
+  case "$_sb_src" in
+    *'$IFS'*|*'${IFS'*)
+      if [ "${#_sb_src}" -le 4096 ]; then
+        local _sc_i
+        _sc_i=$(printf '%s' "$_sb_src" | LC_ALL=C sed -E \
+          -e 's/\$\{IFS[^}]*\}(\$[1-9])?/ /g' -e 's/\$IFS(\$[1-9])?/ /g')
+        [ -n "$_sc_i" ] && [ "$_sc_i" != "$_sb_src" ] && cmd="$cmd ; $_sc_i"
+      fi
+      ;;
+  esac
   printf '%s\n' "$cmd"
 }
 

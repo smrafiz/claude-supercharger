@@ -87,7 +87,8 @@ if heredoc:
     lines = [l.strip() for l in heredoc.group(1).splitlines() if l.strip()]
     print(lines[0] if lines else '')
 else:
-    m = re.search(r\"-m\s+[\\\"'](.+?)[\\\"']\", cmd)
+    # -m may be bundled with other short flags: -qm, -am, -qam (all real).
+    m = re.search(r\"(?:^|\s)-[a-zA-Z]*m\s+[\\\"'](.+?)[\\\"']\", cmd)
     print(m.group(1) if m else '')
 " 2>/dev/null || echo "")
     if [ -n "$MSG" ] && ! printf '%s\n' "$MSG" | grep -qE '^Merge '; then
