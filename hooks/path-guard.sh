@@ -46,6 +46,11 @@ case "$TOOL_NAME" in
 esac
 
 FILE_PATH=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)  # v2.9.3: NotebookEdit uses notebook_path
+# Claude Code 2.1.257+ names the session scratchpad in every payload. jq, not the
+# fast first-match reader: the key must be the TOP-LEVEL one, never a string inside
+# tool_input (file content the model writes). Only when the payload mentions it.
+SCRATCH_DIR=""
+case "$_INPUT" in *'"scratchpad_dir"'*) SCRATCH_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.scratchpad_dir // empty' 2>/dev/null || true) ;; esac
 # v4.0.29: this hook is why the normalisation exists. A non-absolute path is
 # resolved against cwd below, so `~/elsewhere/x` became `<project>/~/elsewhere/x`
 # — inside the boundary — and a write OUTSIDE the project read as one within it,
@@ -101,7 +106,7 @@ REASON=$(FILE_PATH="$FILE_PATH" PROJECT_DIR="$PROJECT_DIR" SC_CFG_ROOT="$CONFIG_
          SC_S1="$HOME/.claude/settings.json" SC_S2="$CONFIG_ROOT/.claude/settings.json" \
          SC_S3="$CONFIG_ROOT/.claude/settings.local.json" \
          SESSION_ROOT="$SESSION_ROOT" CC_DIRS="$CC_DIRS" \
-         SID="${CLAUDE_CODE_SESSION_ID:-}" SID_ALIASES="$SUPERCHARGER_STATE/scope/.sid-alias-${CLAUDE_CODE_SESSION_ID:-}" \
+         SCRATCH_DIR="$SCRATCH_DIR" SID="${CLAUDE_CODE_SESSION_ID:-}" SID_ALIASES="$SUPERCHARGER_STATE/scope/.sid-alias-${CLAUDE_CODE_SESSION_ID:-}" \
          python3 <<'PYEOF'
 import json, os, sys, re
 
@@ -566,6 +571,15 @@ if 'abs-path' not in disabled and os.path.isabs(p) and proj:
     # Claude Code's prompt sends ALL temp files to the scratchpad, so the Write
     # tool was denied for the one directory it is told to use — the same
     # separator fault as the memory store above, with a louder consequence.
+    # The harness's own statement of where the scratchpad is (Claude Code 2.1.257+).
+    # It needs no session-id match, so it also holds after a resume. Refused unless
+    # it is a directory literally named `scratchpad`, so a wrong or forged value can
+    # never open a home or system directory.
+    _sd = os.environ.get('SCRATCH_DIR', '')
+    if _sd:
+        _sd_n = os.path.realpath(_sd).replace(os.sep, '/').rstrip('/')
+        if _sd_n.rsplit('/', 1)[-1] == 'scratchpad' and _rp_n.startswith(_sd_n + '/'):
+            sys.exit(0)
     _sid = os.environ.get('SID', '')
     # After a resume, tool calls carry the transcript's OLD id while the harness may
     # name the scratchpad after the NEW one. project-config.sh records new under old
