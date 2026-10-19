@@ -2458,6 +2458,28 @@ begin_test "commit-check: bundled -am with a bad subject is still blocked"
 run_hook "$COMMIT_CHECK" "git commit -am 'fixed stuff'"
 assert_exit_code 2 $? && pass
 
+# Per-repo types: star-keeper commits as `words: ...`, `notes: ...` (2026-10-19, real).
+_CC_REPO=$(mktemp -d); git -C "$_CC_REPO" init -q
+git -C "$_CC_REPO" config supercharger.commitTypes "words, notes|access"
+begin_test "commit-check: a repo's own commit type passes"
+(cd "$_CC_REPO" && run_hook "$COMMIT_CHECK" "git commit -m 'notes: chapter 3'")
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: a type the repo did not add is still blocked"
+(cd "$_CC_REPO" && run_hook "$COMMIT_CHECK" "git commit -m 'drafts: chapter 3'")
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: a regex in commitTypes is dropped, not obeyed"
+git -C "$_CC_REPO" config supercharger.commitTypes ".*"
+(cd "$_CC_REPO" && run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'")
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: commitTypes off turns the check off for that repo"
+git -C "$_CC_REPO" config supercharger.commitTypes off
+(cd "$_CC_REPO" && run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'")
+assert_exit_code 0 $? && pass
+rm -rf "$_CC_REPO"
+
 begin_test "commit-check: opt-out — invalid commit passes when flag absent"
 rm -f "$HOME/.claude/supercharger/.conventional-commits"
 run_hook "$COMMIT_CHECK" "git commit -m 'fixed stuff'"
