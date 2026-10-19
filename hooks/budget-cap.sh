@@ -109,7 +109,7 @@ if [[ "$MODE" == "accumulate" ]]; then
     SESSION_ID_RAW="${_SID_AFTER%%\"*}"
   fi
   COST_INPUT="$COST_FILE" TRANSCRIPT="$TRANSCRIPT" \
-  PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
+  PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" HOOKS_DIR_PY="${BASH_SOURCE[0]%/*}" \
   SESSION_ID_RAW="$SESSION_ID_RAW" SCOPE_DIR="$SCOPE_DIR" \
   COST_TMP="$COST_TMP" python3 << 'PYEOF' || exit 0
 import json, os, time, datetime, re
@@ -152,6 +152,14 @@ for _t in list(PRICING):
         except ValueError:
             pass
 override = (os.environ.get('PRICING_OVERRIDE') or '').lower()
+# 4.3.21: model-aware prices (Opus 5.5, Sonnet 5.5, 1h cache writes) from one shared
+# table. The family table above stays as the fallback if the module is missing.
+try:
+    import sys as _sys
+    _sys.path.insert(0, os.environ.get('HOOKS_DIR_PY') or '')
+    from lib_pricing import usage_cost as _usage_cost
+except Exception:
+    _usage_cost = None
 
 # v2.7.16: serialize the whole read-modify-write — shared with subagent-cost via
 # fcntl.flock (portable; macOS has no `flock` shell util). Without it concurrent
@@ -285,6 +293,11 @@ try:
                 tier = 'haiku'
             else:
                 tier = 'sonnet'
+            if _usage_cost is not None:
+                delta_cost += _usage_cost(model, u, override)
+                delta_tokens += (_i(u.get('input_tokens')) + _i(u.get('output_tokens')))
+                new_msgs += 1
+                continue
             in_p, cw_p, cr_p, out_p = PRICING[tier]
             delta_cost += (_i(u.get('input_tokens')) * in_p
                            + _i(u.get('cache_creation_input_tokens')) * cw_p

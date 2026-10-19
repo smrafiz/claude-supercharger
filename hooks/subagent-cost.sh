@@ -86,7 +86,7 @@ if [[ "$MODE" == "stop" ]]; then
   [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
   init_hook_suppress "$PROJECT_DIR"
 
-  STOP_OUT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" \
+  STOP_OUT=$(HOOK_INPUT="$_INPUT" SCOPE_DIR="$SCOPE_DIR" HOOKS_DIR_PY="${BASH_SOURCE[0]%/*}" \
              PRICING_OVERRIDE="${SUPERCHARGER_PRICING_MODEL:-}" \
              python3 <<'PYEOF' 2>/dev/null
 import json, os, sys
@@ -111,7 +111,19 @@ def _i(v):
     try:    return int(v or 0)
     except Exception: return 0
 
+# 4.3.21: model-aware prices (Opus 5.5, Sonnet 5.5, 1h cache writes), priced per
+# response as it is read. None = module missing: the family table below prices.
+try:
+    sys.path.insert(0, os.environ.get('HOOKS_DIR_PY') or '')
+    from lib_pricing import usage_cost as _usage_cost
+except Exception:
+    _usage_cost = None
+_force = (os.environ.get('PRICING_OVERRIDE') or '').lower()
+lp_cost = None
+
 u = d.get('usage') or {}
+if u and _usage_cost is not None:
+    lp_cost = _usage_cost(d.get('model') or '', u, _force)
 input_tok   = _i(u.get('input_tokens'))
 cache_write = _i(u.get('cache_creation_input_tokens'))
 cache_read  = _i(u.get('cache_read_input_tokens'))
@@ -144,6 +156,8 @@ if not (input_tok or cache_write or cache_read or output_tok):
                     cache_read  += _i(mu.get('cache_read_input_tokens'))
                     output_tok  += _i(mu.get('output_tokens'))
                     transcript_model = transcript_model or (msg.get('model') or td.get('model') or '')
+                    if _usage_cost is not None:
+                        lp_cost = (lp_cost or 0.0) + _usage_cost(msg.get('model') or td.get('model') or '', mu, _force)
         except Exception:
             pass
 
@@ -208,6 +222,8 @@ else:
     tier = 'sonnet'
 in_p, cw_p, cr_p, out_p = PRICING[tier]
 turn_cost = (input_tok * in_p + cache_write * cw_p + cache_read * cr_p + output_tok * out_p) / 1_000_000
+if lp_cost is not None:
+    turn_cost = lp_cost
 total_tokens = input_tok + cache_write + cache_read + output_tok
 
 # Format

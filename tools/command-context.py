@@ -75,6 +75,13 @@ PRICES = {'opus': (5.0, 6.25, 0.5, 25.0), 'sonnet': (3.0, 3.75, 0.3, 15.0),
           'haiku': (0.8, 1.0, 0.08, 4.0), 'fable': (10.0, 12.5, 1.0, 50.0)}
 
 
+try:  # model-aware prices shared with the cost hooks; hooks/ sits next to tools/
+    sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'hooks'))
+    from lib_pricing import usage_cost as _usage_cost
+except Exception:
+    _usage_cost = None
+
+
 def transcript_cost(path):
     t = 0.0
     seen = set()  # One API response can be written as several transcript lines with the same id and identical usage (2.04x on a real transcript); count each id once.
@@ -94,6 +101,9 @@ def transcript_cost(path):
                     continue
                 seen.add(m['id'])
             u = m.get('usage') or {}
+            if _usage_cost is not None:
+                t += _usage_cost(m.get('model') or '', u)
+                continue
             mod = (m.get('model') or '').lower()
             k = 'opus' if 'opus' in mod else 'fable' if ('fable' in mod or 'mythos' in mod) else 'haiku' if 'haiku' in mod else 'sonnet'
             ip, cw, cr, op = PRICES[k]

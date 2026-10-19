@@ -458,6 +458,28 @@ GOT=$(cost_of "$SCOPE_DIR/.session-cost")
 [ "$GOT" = "0.126" ] && pass || fail "split response priced as $GOT (want 0.126)"
 teardown_test_home
 
+# Prices follow the model: Opus 5.5 is not priced as Opus 4.x, and a 1-hour cache
+# write costs 2x input, not the 5-minute 1.25x (platform docs, read 2026-10-18).
+begin_test "accumulate: Opus 5.5 with 1h cache writes is priced at its own rates"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TM="$SCOPE_DIR/model.jsonl"
+printf '{"type":"assistant","message":{"id":"x1","model":"claude-opus-5-5","usage":{"input_tokens":0,"cache_creation_input_tokens":1000000,"cache_read_input_tokens":1000000,"output_tokens":0,"cache_creation":{"ephemeral_1h_input_tokens":1000000,"ephemeral_5m_input_tokens":0}}}}\n' > "$TM"
+printf '{"tool_name":"Write","session_id":"sM","transcript_path":"%s"}' "$TM" | bash "$HOOK" >/dev/null 2>&1
+GOT=$(cost_of "$SCOPE_DIR/.session-cost")
+[ "$GOT" = "8.2" ] && pass || fail "Opus 5.5 1h write + read priced as $GOT (want 8.2 = 8.00 + 0.20)"
+teardown_test_home
+
+begin_test "accumulate: SUPERCHARGER_PRICE_OPUS still overrides for gateways"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TM="$SCOPE_DIR/gw.jsonl"
+printf '{"type":"assistant","message":{"id":"g1","model":"claude-opus-5-5","usage":{"input_tokens":1000000,"output_tokens":0}}}\n' > "$TM"
+printf '{"tool_name":"Write","session_id":"sG","transcript_path":"%s"}' "$TM" | SUPERCHARGER_PRICE_OPUS="0,0,0,0" bash "$HOOK" >/dev/null 2>&1
+GOT=$(cost_of "$SCOPE_DIR/.session-cost")
+[ "$GOT" = "0.0" ] && pass || fail "override ignored: $GOT"
+teardown_test_home
+
 # 4.3.2: a total written before the offset fix (no "v") is reset once and kept aside.
 begin_test "accumulate: a pre-4.3.2 (inflated) total is reset once and backed up"
 setup_test_home
