@@ -267,7 +267,9 @@ _SENSITIVE_NAME_RE = re.compile(
     # written to permit it looked correct. A template is placeholders by
     # definition and every repo ships one. .envrc is unaffected: the lookahead
     # sits after the optional `rc`, and a .production variant still matches.
-    r"(?<!process)(?<!meta)\.env(?:rc)?"
+    # 4.3.21: and their regex-escaped spellings (process\.env in an rg/sed/perl
+    # pattern), where the backslash sat between the name and the dot.
+    r"(?<!process)(?<!meta)(?<!process\\)(?<!meta\\)\.env(?:rc)?"
     r"(?!\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
     r"(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
@@ -971,9 +973,14 @@ _NETWORK_UPLOADS = [
 # new line). `[\s]` before it matched the WORD `host` in code and commit prose,
 # and `process.env` / the .example template counted as the dotenv payload; both
 # are excluded the way _SENSITIVE_NAME_RE excludes them.
-_DNS_RESOLVER_TOOLS = r"(?:^|[;&|(`\n])\s*(?:dig|nslookup|host|drill)\b"
+# 4.3.21: `(` anywhere and a CLOSING backtick both counted as command position, so a
+# TS signature `(host: string)` or markdown prose naming a `localhost` host in an
+# edit was read as a resolver call (18 real-work denies in two weeks). Command
+# position is now a segment start (optionally opening a subshell), `$(`, or an
+# OPENING backtick (no space between it and the tool).
+_DNS_RESOLVER_TOOLS = r"(?:(?:^|[;&|\n])\s*\(?\s*|\$\(\s*|`)(?:dig|nslookup|host|drill)\b"
 _DNS_EXFIL_PAYLOAD = (r"(?:base64|base32|xxd|openssl\s+enc|\$\((?:cat|printenv|env|whoami|hostname)"
-                      r"|(?<!process)(?<!meta)\.env\b(?!\.(?:example|template|sample|dist)\b)|id_rsa)")
+                      r"|(?<!process)(?<!meta)(?<!process\\)(?<!meta\\)\.env\b(?!\.(?:example|template|sample|dist)\b)|id_rsa)")
 
 
 def check_exfiltration(c: str) -> str | None:

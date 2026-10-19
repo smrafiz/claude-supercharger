@@ -41,16 +41,20 @@ COMBINED_PATTERN=$(IFS='|'; echo "${SECRET_PATTERNS[*]}")
 #
 # Matching the raw JSON rather than the extracted string is safe for this purpose.
 # Every SECRET_PATTERNS shape is alphanumerics with `-`, `_`, `/`, `+`, `.` and `:`,
-# none of which JSON escapes, so a credential in message_text appears verbatim in
+# none of which JSON escapes, so a credential in `delta` appears verbatim in
 # the payload. The cost of the choice is direction-of-error: a token appearing in
 # some other field would also trip the gate, and then the python pass simply finds
-# nothing in message_text and exits — a wasted fork on a rare input, never a miss.
+# nothing in `delta` and exits — a wasted fork on a rare input, never a miss.
 printf '%s\n' "$_INPUT" | LC_ALL=C grep -qE "$COMBINED_PATTERN" || exit 0
 
 TEXT=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
-    print(json.load(sys.stdin).get('message_text') or '')
+    # MessageDisplay carries the batch's text in delta (whole lines; the final
+    # batch may end mid-line). Until 4.3.21 this read message_text, a field the
+    # event never had, so nothing was ever redacted and the tests, built on the
+    # same wrong field, passed.
+    print(json.load(sys.stdin).get('delta') or '')
 except Exception:
     print('')
 " 2>/dev/null || echo "")
