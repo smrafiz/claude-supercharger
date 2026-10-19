@@ -89,6 +89,41 @@ printf '{"session_id":"%s","transcript_path":"/x/projects/p/%s.jsonl","cwd":"%s"
 [ ! -e "$ST/scope/.sid-alias-$THIRD" ] && pass || fail "alias written for a fresh session"
 rm -rf "$ST"
 
+sd_verdict() { # file_path, scratchpad_dir, [extra tool_input json] -> allow | DENY (no session id)
+  local st out
+  st=$(mktemp -d); mkdir -p "$st/scope" "$st/home" "$2"
+  out=$(FP="$1" SD="$2" X="${3:-}" PROJ="$st" python3 -c '
+import json, os
+ti = {"file_path": os.environ["FP"], "content": os.environ["X"] or "x"}
+print(json.dumps({"tool_name": "Write", "tool_input": ti, "cwd": os.environ["PROJ"],
+                  "scratchpad_dir": os.environ["SD"]}))' \
+    | env HOME="$st/home" SUPERCHARGER_STATE="$st" CLAUDE_CODE_SESSION_ID="" \
+      bash "$REPO_DIR/hooks/path-guard.sh" 2>/dev/null)
+  rm -rf "$st"
+  if printf '%s' "$out" | grep -q 'permissionDecision'; then printf 'DENY'; else printf 'allow'; fi
+}
+SDT=$(cd "$(mktemp -d)" && pwd -P)   # resolved: /var is a symlink on macOS, and the
+# symlink rule (correctly) denies writes through one. The real scratchpad is resolved.
+
+begin_test "scratchpad_dir from the payload makes the scratchpad writable (no id match needed)"
+V=$(sd_verdict "$SDT/s1/scratchpad/notes.md" "$SDT/s1/scratchpad")
+[ "$V" = "allow" ] && pass || fail "payload scratchpad denied ($V)"
+
+begin_test "GAP CHECK: a scratchpad_dir not named scratchpad opens nothing"
+V=$(sd_verdict "$SDT/s2/out/x.sh" "$SDT/s2/out")
+[ "$V" = "DENY" ] && pass || fail "non-scratchpad dir allowed ($V)"
+
+begin_test "GAP CHECK: a sibling of the scratchpad is still denied"
+V=$(sd_verdict "$SDT/s3/other/x.sh" "$SDT/s3/scratchpad")
+[ "$V" = "DENY" ] && pass || fail "sibling allowed ($V)"
+
+begin_test "GAP CHECK: a scratchpad_dir key inside the written content is ignored"
+# Only the top-level field counts; file content is written by the model.
+FORGE="{\"scratchpad_dir\": \"$SDT/s4/scratchpad\"}"
+V=$(sd_verdict "$SDT/s4/scratchpad/x.sh" "$SDT/s5/scratchpad" "$FORGE")
+[ "$V" = "DENY" ] && pass || fail "content-supplied scratchpad_dir honoured ($V)"
+rm -rf "$SDT"
+
 begin_test "GAP CHECK: credential dirs are unaffected by the carve-out"
 V=$(verdict "$HOME/.ssh/authorized_keys" "$SID")
 [ "$V" = "DENY" ] && pass || fail "ssh write allowed ($V)"
