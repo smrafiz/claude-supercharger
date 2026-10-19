@@ -1,6 +1,6 @@
 ---
 description: "Write a session handoff brief that auto-loads next session."
-argument-hint: "[--deep] [--html] [context]"
+argument-hint: "[--deep] [--html | --html=publish] [context]"
 disable-model-invocation: true
 ---
 Generate a structured session handoff brief. Context: $ARGUMENTS
@@ -10,8 +10,10 @@ This produces a machine-readable resume that can be pasted into the next session
 **Modes.** Default is the terse brief below. Two flags, independent and stackable,
 in any order (`--deep --html` = `--html --deep`). Exact spellings, no aliases.
 - `--deep` ALSO does Step 4 (extended brief) and Step 5 (memory pass).
-- `--html` ALSO does Step 6: the same brief as a readable page. With `--deep`, the
-  page covers the extended sections too, and Step 6 runs LAST, after Step 5.
+- `--html` ALSO does Step 6: the same brief as a readable page, written to a LOCAL
+  file. `--html=publish` does the same and also publishes the page online. With
+  `--deep`, the page covers the extended sections too, and Step 6 runs LAST,
+  after Step 5. Any combination works: `--deep --html`, `--html=publish --deep`.
 
 Deep mode is for the end of a long or expensive session — one that burned hours,
 changed direction, or produced findings that would cost real money to rediscover.
@@ -150,11 +152,13 @@ session, so the two cannot disagree.
    - Measurements as a table, numbers exactly as in the brief;
    - Resume With in a box that is easy to copy.
 3. Same redaction as the brief: no secrets, tokens or personal data.
-4. Publish it:
-   - If an artifact or page-publishing tool is available, publish the page with
-     it (private by default) and give the user the link.
-   - Otherwise write `.claude/handoff-$CLAUDE_CODE_SESSION_ID.html` next to the
-     brief (one self-contained file, inline CSS, no external scripts) and give
-     the user its path.
-5. In the reply, name both: the brief path and the page link or path.
+4. Write it to `.claude/handoff-$CLAUDE_CODE_SESSION_ID.html` next to the brief:
+   one self-contained file that opens offline. Inline CSS and SVG only; no web
+   fonts, no external scripts, no network requests of any kind. Draw any diagram
+   as inline SVG or HTML, not a library.
+5. Publish ONLY when the flag is exactly `--html=publish`: then also publish the
+   page with an artifact or page-publishing tool if one is available (private by
+   default) and give the link. With plain `--html`, never publish, upload or
+   share the page anywhere, even if a publishing tool is available.
+6. In the reply, name the brief path, the page path, and the link if published.
 

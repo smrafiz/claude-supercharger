@@ -34,6 +34,7 @@ grep -q "never" "$REPO_DIR/configs/rules/ste.md" && grep -qi "80%" "$REPO_DIR/co
 
 begin_test "sc-handoff documents --html and that it stacks with --deep"
 H="$REPO_DIR/configs/commands/sc-handoff.md"
-{ grep -q -- '--deep --html' "$H" && grep -q 'Step 6' "$H" && grep -q 'runs LAST, after Step 5' "$H"; } && pass || fail "handoff flags"
+{ grep -q -- '--deep --html' "$H" && grep -q -- '--html=publish --deep' "$H" && grep -q 'Step 6' "$H" \
+  && grep -q 'runs LAST' "$H" && grep -q 'With plain `--html`, never publish' "$H"; } && pass || fail "handoff flags"
 
 report
