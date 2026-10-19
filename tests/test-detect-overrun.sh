@@ -40,13 +40,20 @@ printf '%s' "$O" | grep -q '__SC_DETECT_OVERRUN__' && fail "sentinel leaked: $O"
 begin_test "GAP CHECK: a regex-level deny still wins over the overrun"
 V=$(decide "rm -rf / ; cat ~/.aws/credentials"); [ "$V" = deny ] && pass || fail "got $V"
 
-# The real detector, forced to overrun: the record carries the session id and a
-# command hash, and never the command itself.
+# The real detector's overrun handler, called directly: a forced overrun is a timing
+# race (it fired 5/5 on macOS and missed on an Ubuntu runner). The record carries the
+# session id and a command hash, and never the command itself.
 begin_test "overrun record: session id + command hash, not the command"
-ST=$(mktemp -d)
-SECRETCMD="echo sk-live-0123456789abcdef && $(python3 -c "print(' && '.join('ls -la /tmp/d%d | grep -v f%d' % (i,i) for i in range(4000)))")"
+ST=$(mktemp -d); SECRETCMD="echo sk-live-0123456789abcdef"
 CMD="$SECRETCMD" CLAUDE_CODE_SESSION_ID=11111111-2222-3333-4444-555555555555 SUPERCHARGER_STATE="$ST" \
-  SUPERCHARGER_DETECT_BUDGET_S=0.001 python3 "$REPO_DIR/hooks/safety-detect.py" >/dev/null 2>&1
+  SUPERCHARGER_DETECT_BUDGET_S=0 DETECT="$REPO_DIR/hooks/safety-detect.py" python3 -c '
+import os
+g = {"__name__": "detect"}
+try:
+    exec(compile(open(os.environ["DETECT"]).read(), "safety-detect.py", "exec"), g)
+except SystemExit:
+    pass
+g["_sc_note_overrun"]()' >/dev/null 2>&1
 L=$(cat "$ST/scope/.detect-overruns" 2>/dev/null)
 H=$(printf '%s' "$SECRETCMD" | python3 -c 'import sys,hashlib;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest()[:12])')
 case "$L" in
