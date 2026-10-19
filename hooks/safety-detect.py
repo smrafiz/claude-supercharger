@@ -85,8 +85,14 @@ def _sc_note_overrun():
         )
         _scope = os.path.join(_root, "scope")
         os.makedirs(_scope, exist_ok=True)
+        # Session id and a command hash (never the command: it may hold a secret)
+        # let a cluster of overruns be traced to one session or one slow input.
+        # hashlib is imported here so the fast path never pays for it.
+        import hashlib
+        _h = hashlib.sha256(os.environ.get("CMD", "").encode("utf-8", "replace")).hexdigest()[:12]
+        _sid = re.sub(r"[^0-9A-Za-z-]", "", os.environ.get("CLAUDE_CODE_SESSION_ID", ""))[:36] or "-"
         with open(os.path.join(_scope, ".detect-overruns"), "a") as _fh:
-            _fh.write("%d %.3f\n" % (int(time.time()), _BUDGET_S))
+            _fh.write("%d %.3f %s %s\n" % (int(time.time()), _BUDGET_S, _sid, _h))
     except Exception:
         pass
     # Tell safety.sh the scan was cut short, so a killed scan is not read as a clean
