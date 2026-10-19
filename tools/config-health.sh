@@ -200,6 +200,19 @@ score_security() {
     ISSUES+=("guard-canary.sh not found; core guards not checked")
   fi
 
+  # The canary runs guards directly, so it stays green when Claude Code itself runs
+  # no hooks: IS_DEMO set (anthropics/claude-code#92911) or disableAllHooks.
+  local demo
+  demo=$(jq -r '.env.IS_DEMO // empty' "$SETTINGS" 2>/dev/null || true)
+  case "${IS_DEMO:-$demo}" in ''|0|false) ;; *)
+    pts=0; marks="${marks}${FAIL}"
+    ISSUES+=("IS_DEMO is set: Claude Code runs no hooks, so no guard is active. Unset it") ;;
+  esac
+  if [ "$(jq -r '.disableAllHooks // false' "$SETTINGS" 2>/dev/null)" = true ]; then
+    pts=0; marks="${marks}${FAIL}"
+    ISSUES+=("disableAllHooks is true in settings.json: no guard is active")
+  fi
+
   SCORE=$((SCORE + pts))
   printf "  Security:  %2d/20  %s\n" "$pts" "$marks"
 }

@@ -91,15 +91,21 @@ else:
     m = re.search(r\"(?:^|\s)-[a-zA-Z]*m\s+[\\\"'](.+?)[\\\"']\", cmd)
     print(m.group(1) if m else '')
 " 2>/dev/null || echo "")
-    if [ -n "$MSG" ] && ! printf '%s\n' "$MSG" | grep -qE '^Merge '; then
-      _CC_TYPES="feat|fix|chore|docs|style|refactor|test|perf|ci|build|revert"
+    # Per-repo: `git config supercharger.commitTypes "words notes"` adds types for
+    # this repo; the value `off` turns the check off for it. Tokens outside
+    # [a-z0-9-] are dropped, so the value can't reshape the regex.
+    _CC_REPO=$(git -C "$PROJECT_DIR" config --get supercharger.commitTypes 2>/dev/null || true)
+    _CC_EXTRA=$(printf '%s\n' "$_CC_REPO" | tr ',|' '  ' | tr ' ' '\n' | grep -xE '[a-z0-9-]+' | grep -vx off | paste -sd'|' -)
+    if [ -n "$MSG" ] && [ "$_CC_REPO" != off ] && ! printf '%s\n' "$MSG" | grep -qE '^Merge '; then
+      _CC_TYPES="feat|fix|chore|docs|style|refactor|test|perf|ci|build|revert${_CC_EXTRA:+|$_CC_EXTRA}"
       if ! printf '%s\n' "$MSG" | grep -qE "^(${_CC_TYPES})(\([^)]+\))?!?: .+"; then
         echo "" >&2
         echo "Supercharger blocked this commit (conventional-commit format)." >&2
         echo "  Command: $CMD" >&2
         _deny "commit message does not follow conventional commit format.
   Expected : type(scope): description  or  type: description  or  type!: description (breaking)
-  Valid types: feat, fix, chore, docs, style, refactor, test, perf, ci, build, revert
+  Valid types: ${_CC_TYPES//|/, }
+  This repo uses other types? git config supercharger.commitTypes \"type1 type2\" (or \"off\")
   Examples  : feat(auth): add OAuth support
               fix: resolve null pointer in parser
               feat!: drop Node 16 support (breaking change)"
