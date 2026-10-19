@@ -4,20 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-18, session `3d213381` (resumed as `c384c109`).*
+*Verified 2026-10-19, session `3d213381`.*
 
-- **Released: v4.3.20** (master `aa24b9c`). Installed v4.3.20 on Machine A. Today: 4.3.18, 4.3.19, 4.3.20.
-- **In flight (Machine A, `screen -dmS sc4321`):** `~/.cache/sc-finish-4.3.21.sh` → `.result`: merges
-  #155 ($IFS evasion, display redactor `delta`, -qm commits, two detector FPs), #156 (path-guard
-  `scratchpad_dir`), #157 (`hooks/lib_pricing.py`, prices by model + cache TTL), then one release 4.3.21.
-  Then merge this docs PR.
-- **Cost numbers changed twice today:** 4.3.20 counts each response once (was 2.04x) and reset the
-  stored totals once (`.session-cost.pre-v3`); 4.3.21 prices Opus 5.5 / 1h writes correctly (was 1.57x).
-- **Follow-ups:** report tools (token-report, session-analytics, claude-check) still flat Sonnet-4
-  prices; `onFailure:"block"` needs a guard exit-code audit first; per-repo commit types.
-- **Release recipe:** batch PRs; `screen -dmS`; merge without `--delete-branch` (it removes the local
-  worktree); PR gate = run on head SHA + both `Test suite` checks by name. Windows FAIL text is in the
-  `windows-suite-log` artifact.
+- **Released: v4.3.22** (master `27a0e6a`). Installed v4.3.22 on Machine A; guard canary rc=0.
+  4.3.21: #155 ($IFS evasion, redactor `delta`, -qm commits, 2 detector FPs), #156 (path-guard
+  `scratchpad_dir`), #157 (`hooks/lib_pricing.py`). 4.3.22: #159 (`/sc-ste`, `/sc-handoff --html`,
+  local by default, `--html=publish` to publish), #160 (report tools price by model).
+- **Nothing in flight** after this docs PR (#158).
+- **Cost numbers changed twice:** 4.3.20 counts each response once (was 2.04x, totals reset once,
+  `.session-cost.pre-v3`); 4.3.21 prices by model and cache TTL (was 1.57x).
+- **Follow-ups:** `onFailure:"block"` needs a guard exit-code audit first; per-repo commit types;
+  overrun records lack session id + command hash; `/sc-health` warn on `IS_DEMO`.
+- **Release recipe:** batch PRs; detached job under `launchctl submit` (nohup and screen die at
+  `/exit`), and the job must `launchctl remove` its own label on EXIT or launchd restarts it; merge
+  without `--delete-branch`; PR gate = run on head SHA + both `Test suite` checks by name.
 - **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
@@ -49,7 +49,7 @@ session on any machine.**
 ## Log
 
 #### 2026-10-18 (deep) — 3d213381
-Released 4.3.18–4.3.20; 4.3.21 in flight. Found and fixed two cost errors (per-line usage 2.04x,
+Released 4.3.18–4.3.20; 4.3.21 and 4.3.22 (STE mode, handoff --html) followed on 10-19. Found and fixed two cost errors (per-line usage 2.04x,
 family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-18 deep)
 
