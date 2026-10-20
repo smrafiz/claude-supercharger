@@ -192,6 +192,7 @@ score_security() {
     while IFS= read -r line; do
       case "$line" in
         *"$PASS"*) pts=$((pts + 5)); marks="${marks}${PASS}" ;;
+        *"$FAIL"*" hook "*) marks="${marks}${FAIL}"; pts=$((pts > 5 ? pts - 5 : 0)); ISSUES+=("guard canary:${line#*"$FAIL"}") ;;
         *"$FAIL"*) marks="${marks}${FAIL}"; ISSUES+=("guard canary:${line#*"$FAIL"}") ;;
       esac
     done <<< "$out"
