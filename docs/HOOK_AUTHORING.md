@@ -682,6 +682,23 @@ Two more traps, both found by one debug run on a branch:
 Guessing at a Windows-only failure cost three master runs. A branch run with the
 Windows step narrowed by `TEST_GLOB` answered it in seven minutes.
 
+Three more, from one hook (`guard-drift-alarm.sh`, 2026-10-20), each a red master run:
+- **A path inside a string is not converted.** MSYS converts path-like argv and env
+  values, not a path inside `"bash /tmp/x.sh"`. Python read the hook command, split
+  out `/tmp/x.sh` and called it missing. Let python list the paths and let bash test
+  them (`-f`, `-x`): bash is the one that will run them.
+- **Every line python prints ends in `\r\n`.** `read` keeps the `\r`, so each path
+  became `x.sh\r` and every live guard read as missing. Strip it on each line read
+  (`path="${path%$'\r'}"`). Test it on macOS with a `python3` shim that pipes through
+  `sed "s/$/\r/"`.
+- **`chmod 644` cannot remove `-x` from a file with a shebang.** Git Bash reports any
+  such file executable. Skip a "not executable" test where `chmod 644` leaves `-x`
+  true, and print the skip.
+
+One unrelated hook failed the same run: a bash `read -d ''` of a 400KB Stop payload
+took longer than the 5s stdin timeout on Git Bash. A hook that never blocks can hand
+stdin straight to python.
+
 ### Test failure messages print literally
 
 `fail()` prints its reason with `printf %s`. An `echo -e` turned a Windows path
