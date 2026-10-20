@@ -20,7 +20,7 @@ session on any machine.**
 - **Next candidates:** Trust Receipts (narrow outward-action ledger; hash-chained logs exist elsewhere).
 - **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
 
-- **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
+- **Machine A:** 4 stashes (drop only on the user's say-so); old worktrees removed 2026-10-20.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
 
