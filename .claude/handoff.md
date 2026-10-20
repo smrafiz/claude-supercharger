@@ -4,20 +4,22 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-19 12:33Z, session `3d213381`.*
+*Verified 2026-10-20, session `3d213381`.*
 
-- **Released: v4.3.23** (master `77b61f9`). Installed v4.3.23 on Machine A; `/sc-health` 100/100.
-  4.3.23 (#161): per-repo commit types via `git config supercharger.commitTypes`; health fails
-  Security on `IS_DEMO` or `disableAllHooks`.
-- **In flight (Machine A, launchd `sc.finish.4324`):** `~/.cache/sc-finish-4.3.24.sh` → `.result`:
-  merge #162 (core guards `onFailure:"block"` on Claude Code >= 2.1.295; 8 guards made executable,
-  plugin users never ran them; overrun records add session id + command hash), release 4.3.24.
-  Then merge this docs PR (rebase: both append to `docs/HOOK_AUTHORING.md`).
-- **Follow-ups:** plugin `hooks.json` support for `onFailure` unverified; extend the flag to other
-  guards only after a full replay of each; star-keeper needs its `commitTypes` set (user).
-- **Release recipe:** batch PRs; detached job under `launchctl submit` with an EXIT trap that
-  `launchctl remove`s its label; merge without `--delete-branch`; PR gate = run on head SHA + both
-  `Test suite` checks by name. A failed job does not retry: fix, push, relaunch.
+- **Released: v4.3.23** (master). Installed v4.3.23 on Machine A.
+- **In flight: one combined 4.3.24** (user asked for a single release). #162 is merged (core guards
+  `onFailure:block`, 8 guards made executable, overrun records). PR from `feat/onfail-plugin-canary` adds:
+  `block` on 32 replayed security guards + the plugin (verified live), canary runs every guard,
+  guard drift alarm (SessionStart), forged gitdir/commondir fix (CVE-2026-40068 class), base64
+  secret scan on WebFetch/MCP (CVE-2026-54316 class), unfinished-work (Stop snapshot of
+  background_tasks/session_crons, named next start), blast-radius guard (asks before rm deletes
+  unsaved files; every ask gets an Effect line), `tools/guard-replay.py`. Then this docs PR.
+- **Release recipe:** detached job under `launchctl submit` with an EXIT trap that removes its label;
+  it does NOT survive a reboot (2026-10-20). Merge without `--delete-branch`; PR gate = run on head
+  SHA + both `Test suite` checks by name. Remove each PR worktree once merged.
+- **Next candidates:** Trust Receipts (narrow outward-action ledger; hash-chained logs exist elsewhere).
+- **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
+
 - **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
