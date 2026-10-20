@@ -129,7 +129,8 @@ for line in hooks_input.strip().split('\n'):
     if if_pattern:
         inner['if'] = if_pattern
     # Static file, so no version gate: `claude plugin validate` accepts an unknown hook
-    # key (checked 2026-10-20), so a Claude Code older than 2.1.295 ignores the field.
+    # key, so a Claude Code older than 2.1.295 ignores the field. Verified live on
+    # 2.1.302 (2026-10-20): a plugin hook exiting 1 with this field blocked the call.
     if 'block' in flag_list:
         inner['onFailure'] = 'block'
 
