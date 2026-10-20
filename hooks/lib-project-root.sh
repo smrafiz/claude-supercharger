@@ -26,6 +26,21 @@ _resolve_project_root() {
     || { printf '%s\n' "$cwd"; return; }
   common=$(printf '%s\n' "$out" | head -1)
   git=$(printf '%s\n' "$out" | tail -1)
+  # Accept the redirect only for a REAL linked worktree, linked the way git links
+  # one: the git dir sits at <common>/worktrees/<name>, and its `gitdir` file points
+  # back at this .git. `.git` and `commondir` are plain files, so a downloaded
+  # archive can forge both and point the root at any directory, whose
+  # .supercharger.json would then be loaded silently (the CVE-2026-40068 class).
+  if [ "$common" != "$git" ] && [ -n "$common" ]; then
+    local c g back
+    c=$(cd "$cwd" 2>/dev/null && cd "$common" 2>/dev/null && pwd -P) || c=""
+    g=$(cd "$cwd" 2>/dev/null && cd "$git" 2>/dev/null && pwd -P) || g=""
+    back=$(head -1 "$g/gitdir" 2>/dev/null || true)
+    back=$(cd "$cwd" 2>/dev/null && cd "$(dirname "$back")" 2>/dev/null && pwd -P)/$(basename "$back")
+    if [ -z "$c" ] || [ "${g%/*}" != "$c/worktrees" ] || [ "$back" != "$(cd "$cwd" && pwd -P)/.git" ]; then
+      printf '%s\n' "$cwd"; return
+    fi
+  fi
   if [ "$common" != "$git" ] && [ -n "$common" ]; then
     (cd "$cwd" && cd "$(dirname "$common")" 2>/dev/null && pwd) \
       || printf '%s\n' "$cwd"

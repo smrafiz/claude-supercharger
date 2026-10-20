@@ -145,7 +145,8 @@ printf '%s' "$GOT" | grep -q 'rc=0' && pass || fail "kill switch ignored: $GOT"
 
 # --- registration + shared list ---
 begin_test "registered on PreToolUse|SendMessage, blocking"
-grep -q 'PreToolUse|SendMessage|.*sendmessage-guard.sh|"' "$REPO_DIR/lib/hooks.sh" \
+# Blocking = no async flag. `block` (onFailure) is allowed: it makes a crash deny.
+grep -qE 'PreToolUse\|SendMessage\|.*sendmessage-guard\.sh\|(block)?"' "$REPO_DIR/lib/hooks.sh" \
   && pass || fail "not registered blocking — it could not deny"
 
 begin_test "secret patterns come from the shared list, not a local copy"

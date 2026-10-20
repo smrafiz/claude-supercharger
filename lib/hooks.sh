@@ -496,6 +496,7 @@ get_hooks_for_mode() {
     # correct event and covers strictly more — a plain cd into any repo, not just a
     # new worktree.
     hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
+    hooks+=("SessionStart||${hooks_dir}/config-weakening-notice.sh|")
     # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
     # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
     # valid set in its own error, and DirectoryAdded is not among them:

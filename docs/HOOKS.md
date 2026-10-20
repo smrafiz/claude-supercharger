@@ -38,7 +38,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `compaction-backup` | PreCompact | (none) | Saves conversation transcript before context compaction. |
 | `confidence-gate` | PreToolUse | Edit,Write,Bash | Computes confidence score from recent tool history + signal flags; |
 | `config-scan` | SessionStart | (none) | Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns. |
-| `config-weakening-notice` | CwdChanged | (none) | Entering a directory whose `.supercharger.json` disables security categories or |
+| `config-weakening-notice` | CwdChanged, SessionStart | (none) | Entering a directory whose `.supercharger.json` disables security categories or |
 | `context-advisor` | UserPromptSubmit | (none) | Injects context warnings and economy suggestions based on context window usage. |
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
 | `critical-infra-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Forces an explicit human confirm before Claude edits a critical-infra file — |

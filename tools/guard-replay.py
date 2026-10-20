@@ -77,8 +77,10 @@ def run(job):
         rc, err, out = p.returncode, p.stderr[-300:], p.stdout.strip()
         if rc == 0 and out.startswith('{'):
             try:
-                json.loads(out)
-            except ValueError:
+                dec = (json.loads(out).get('hookSpecificOutput') or {}).get('permissionDecision')
+                if dec in ('deny', 'ask'):
+                    rc = 'json-' + dec   # a decision, not a failure: tallied, not reported
+            except (ValueError, AttributeError):
                 rc, err = 'BADJSON', out[:300]
     except subprocess.TimeoutExpired:
         rc, err = 'TIMEOUT', ''
@@ -89,13 +91,13 @@ tally, bad = collections.Counter(), []
 with ThreadPoolExecutor(8) as ex:
     for name, tool, rc, err, inp in ex.map(run, jobs):
         tally[(name, str(rc))] += 1
-        if rc not in (0, 2):
+        if rc not in (0, 2, 'json-deny', 'json-ask'):
             bad.append({'hook': name, 'tool': tool, 'rc': rc, 'err': err, 'input': inp})
 
 hooks = sorted({n for n, _ in tally})
 for n in hooks:
     runs = sum(v for (h, _), v in tally.items() if h == n)
-    fails = sum(v for (h, rc), v in tally.items() if h == n and rc not in ('0', '2'))
+    fails = sum(v for (h, rc), v in tally.items() if h == n and rc not in ('0', '2', 'json-deny', 'json-ask'))
     print('%-34s %6d runs  %s' % (n, runs, 'clean' if not fails else '%d FAIL' % fails))
 print('%d calls, %d runs, %d failures' % (len(calls), len(jobs), len(bad)))
 if a.json:

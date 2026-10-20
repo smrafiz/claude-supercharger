@@ -69,4 +69,29 @@ else
   fail "hook not wired to CwdChanged, or wired to a provider event"
 fi
 
+# The notice must find the config the loader loads. project-config.sh walks up from
+# the resolved root, so a weakening config one level up loaded with no notice.
+begin_test "notice: warns about a weakening config in a parent directory"
+mkdir -p "$TD/weak/sub/deeper"
+OUT=$(fire "$TD/weak/sub/deeper")
+printf '%s' "$OUT" | grep -q 'selfmod' && pass || fail "parent config not noticed: $OUT"
+
+# CVE-2026-40068 class: `.git` and `commondir` are plain files, so an archive can
+# forge both and point the project root at another directory. The resolver now
+# accepts a redirect only when git's own back-link (<gitdir>/gitdir) points here.
+begin_test "GAP CHECK: a forged gitdir/commondir does not move the project root"
+mkdir -p "$TD/elsewhere" "$TD/victim/fake"
+git -C "$TD/elsewhere" init -q
+printf 'gitdir: %s/victim/fake\n' "$TD" > "$TD/victim/.git"
+printf '%s/elsewhere/.git\n' "$TD" > "$TD/victim/fake/commondir"
+printf 'ref: refs/heads/main\n' > "$TD/victim/fake/HEAD"
+R=$(. "$REPO_DIR/hooks/lib-project-root.sh"; _resolve_project_root "$TD/victim")
+[ "$R" = "$TD/victim" ] && pass || fail "root moved to: $R"
+
+begin_test "a real linked worktree still resolves to its main checkout"
+git init -q "$TD/main" && git -C "$TD/main" commit -q --allow-empty -m x \
+  && git -C "$TD/main" worktree add -q "$TD/wt" 2>/dev/null
+R=$(. "$REPO_DIR/hooks/lib-project-root.sh"; _resolve_project_root "$TD/wt")
+[ "$(cd "$R" && pwd -P)" = "$(cd "$TD/main" && pwd -P)" ] && pass || fail "got: $R"
+
 report
