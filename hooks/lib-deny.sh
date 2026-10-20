@@ -42,6 +42,14 @@ _sc_json_escape() {
 sc_decision() {
   local decision="$1" reason="$2" remedy="${3:-}" event="${4:-PreToolUse}" msg
   msg="Supercharger: $reason"
+  # On an ASK, say what the command touches (lib-blast.sh). The ask reason is the
+  # one decision text Claude Code shows the user, so this is where it can be read.
+  if [ "$decision" = ask ] && [ -n "${CMD:-}" ] && [ "${SUPERCHARGER_BLAST:-1}" != 0 ]; then
+    BLAST=""
+    # shellcheck source=hooks/lib-blast.sh
+    . "${BASH_SOURCE[0]%/*}/lib-blast.sh" 2>/dev/null && blast_summary "$CMD"
+    [ -n "$BLAST" ] && msg="$msg  Effect: $BLAST."
+  fi
   [ -n "$remedy" ] && msg="$msg  Way through: $remedy"
   _sc_json_escape "$msg"
   printf '{"hookSpecificOutput":{"hookEventName":"%s","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \

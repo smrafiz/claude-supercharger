@@ -27,6 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `auto-compact` | PostToolUse | (none) | Injects /compact reminders during agentic runs when context climbs. |
 | `bash-injection-scanner` | PostToolUse | Bash | Scans Bash command OUTPUT for prompt-injection / instruction-override markers. |
 | `bash-output-compactor` | PostToolUse | Bash | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
+| `blast-radius-guard` | PreToolUse | Bash,Monitor,PowerShell | Asks before a recursive rm that would delete UNSAVED work: files that are neither |
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `bulk-exfil-guard` | PreToolUse | Bash | safety-detect.py's upload arms (_NETWORK_UPLOADS / _CLOUD_UPLOADS) only fire when |
 | `cache-health` | PostToolUse | * | Flags: async | Samples cache hit rate every 5th call. Warns when degraded (<50% for 3 consecutive readings). |
@@ -156,6 +157,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-preferences` | PreToolUse | Bash,Monitor,WebFetch | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
+| `unfinished-work` | Stop (async), SessionStart | (none) | first: on 2026-10-20 a release job died in a reboot and nothing said so. Claude |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
 | `version-floor-check` | SessionStart | (none) | Several hook EVENTS we register did not exist in older Claude Code builds. |
 | `webfetch-egress-guard` | PreToolUse | WebFetch,WebSearch,Monitor | The native WebFetch tool is an un-guarded network-egress channel: an indirect |

