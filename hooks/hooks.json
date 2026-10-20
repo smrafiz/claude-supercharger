@@ -6,7 +6,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/safety.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell|mcp__desktop-commander__.*|mcp__mcp-server-commands__.*|mcp__iterm__.*|mcp__iterm-mcp__.*|mcp__ssh__.*|mcp__shell__.*|mcp__terminal__.*|mcp__windows-cli__.*|mcp__cli-mcp-server__.*"
@@ -16,7 +17,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/env-file-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Read|ReadMcpResourceTool|ReadMcpResourceDirTool|Grep|Glob"
@@ -26,7 +28,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/harness-tamper-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -36,7 +39,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/path-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit"
@@ -46,7 +50,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/critical-infra-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit"
@@ -56,7 +61,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/readonly-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|Monitor|PowerShell"
@@ -66,7 +72,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/memory-write-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -87,7 +94,8 @@
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/code-security-scanner.sh",
             "asyncRewake": true,
-            "timeout": 120
+            "timeout": 120,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit"
@@ -147,6 +155,17 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cloud-cli-destructive-guard.sh",
+            "timeout": 15,
+            "onFailure": "block"
+          }
+        ],
+        "matcher": "Bash|Monitor|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/blast-radius-guard.sh",
             "timeout": 15
           }
         ],
@@ -157,7 +176,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/bulk-exfil-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -167,7 +187,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-config-exec-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -177,7 +198,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/env-exec-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -187,7 +209,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/webfetch-egress-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "WebFetch|WebSearch|Monitor"
@@ -197,7 +220,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/write-secret-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit"
@@ -207,7 +231,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/artifact-publish-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Artifact|ArtifactComments|ArtifactData|ShareOnboardingGuide"
@@ -267,7 +292,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/lockfile-integrity-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit|NotebookEdit"
@@ -277,7 +303,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/install-script-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -287,7 +314,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/pth-persistence-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -297,7 +325,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-source-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -307,7 +336,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-source-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -317,7 +347,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/test-integrity-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Edit|MultiEdit|Write"
@@ -327,7 +358,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/test-mask-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -357,7 +389,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/ansi-escape-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -367,7 +400,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/workflow-pwn-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Write|Edit|MultiEdit"
@@ -387,7 +421,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-egress-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "mcp__.*"
@@ -397,7 +432,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-safety.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -417,7 +453,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/git-remote-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -427,7 +464,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/redirect-clobber-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -467,7 +505,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/skill-poisoning-scanner.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Skill"
@@ -477,7 +516,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/skill-integrity-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Skill"
@@ -487,7 +527,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/agent-poisoning-scanner.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Agent"
@@ -507,7 +548,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/sendmessage-guard.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "SendMessage"
@@ -576,7 +618,8 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/human-approval-gate.sh",
-            "timeout": 15
+            "timeout": 15,
+            "onFailure": "block"
           }
         ],
         "matcher": "Bash|Monitor|PowerShell"
@@ -952,6 +995,15 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/guard-drift-alarm.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/plugin-config-seed.sh",
             "timeout": 15
           }
@@ -1057,6 +1109,24 @@
             "timeout": 15
           }
         ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/config-weakening-notice.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
+            "timeout": 15
+          }
+        ]
       }
     ],
     "Stop": [
@@ -1139,6 +1209,17 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-memory-write.sh",
+            "async": true,
+            "timeout": 120
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
             "async": true,
             "timeout": 120
           }

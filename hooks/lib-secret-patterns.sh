@@ -158,10 +158,14 @@ SECRET_PATTERNS=(
 outbound_secret_gate() {
   local IFS re
   OUTBOUND_SECRET_PATTERNS=""
+  # Open for encoded forms too: percent, backslash and base64 runs (24+) hide the
+  # prefixes the raw patterns key on, so the decoding scan in
+  # lib_outbound_secret.py must still run. A base64-wrapped key passed here unseen.
+  local b64='[A-Za-z0-9+/_-]{24,}'
   case "$1" in
     *%*|*\\*) ;;
     *) IFS='|'; re="${SECRET_PATTERNS[*]}"
-       [[ $1 =~ $re ]] || return 0 ;;
+       [[ $1 =~ $re ]] || [[ $1 =~ $b64 ]] || return 0 ;;
   esac
   IFS=$'\n'; OUTBOUND_SECRET_PATTERNS="${SECRET_PATTERNS[*]}"
 }

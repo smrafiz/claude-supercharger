@@ -27,6 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `auto-compact` | PostToolUse | (none) | Injects /compact reminders during agentic runs when context climbs. |
 | `bash-injection-scanner` | PostToolUse | Bash | Scans Bash command OUTPUT for prompt-injection / instruction-override markers. |
 | `bash-output-compactor` | PostToolUse | Bash | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
+| `blast-radius-guard` | PreToolUse | Bash,Monitor,PowerShell | Asks before a recursive rm that would delete UNSAVED work: files that are neither |
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `bulk-exfil-guard` | PreToolUse | Bash | safety-detect.py's upload arms (_NETWORK_UPLOADS / _CLOUD_UPLOADS) only fire when |
 | `cache-health` | PostToolUse | * | Flags: async | Samples cache hit rate every 5th call. Warns when degraded (<50% for 3 consecutive readings). |
@@ -38,7 +39,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `compaction-backup` | PreCompact | (none) | Saves conversation transcript before context compaction. |
 | `confidence-gate` | PreToolUse | Edit,Write,Bash | Computes confidence score from recent tool history + signal flags; |
 | `config-scan` | SessionStart | (none) | Scans project CLAUDE.md and .claude/*.md files for prompt injection patterns. |
-| `config-weakening-notice` | CwdChanged | (none) | Entering a directory whose `.supercharger.json` disables security categories or |
+| `config-weakening-notice` | CwdChanged, SessionStart | (none) | Entering a directory whose `.supercharger.json` disables security categories or |
 | `context-advisor` | UserPromptSubmit | (none) | Injects context warnings and economy suggestions based on context window usage. |
 | `cost-forecast` | PreToolUse | Agent | Estimates cost before an agent spawns, based on avg_per_turn from .session-cost |
 | `critical-infra-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Forces an explicit human confirm before Claude edits a critical-infra file — |
@@ -70,6 +71,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `git-config-exec-guard` | PreToolUse | Bash | the next ordinary git command into arbitrary shell execution — core.fsmonitor, |
 | `git-remote-guard` | PreToolUse | Bash (git *) | git-safety.sh polices HOW you push (force, --no-verify, protected branch) but |
 | `git-safety` | PreToolUse | Bash (git *) | shellcheck source=hooks/lib-suppress.sh |
+| `guard-drift-alarm` | SessionStart | # Event: SessionStart | A registered guard whose script is missing or not executable never runs: Claude |
 | `guard-registration-check` | SessionStart | (none) | Verifies that Supercharger's hooks are actually REGISTERED, because an install |
 | `harness-tamper-guard` | PreToolUse | Bash | Self-defense on the BASH channel. path-guard protects .claude/settings.json and |
 | `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
@@ -155,6 +157,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-preferences` | PreToolUse | Bash,Monitor,WebFetch | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
+| `unfinished-work` | Stop (async), SessionStart | (none) | first: on 2026-10-20 a release job died in a reboot and nothing said so. Claude |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
 | `version-floor-check` | SessionStart | (none) | Several hook EVENTS we register did not exist in older Claude Code builds. |
 | `webfetch-egress-guard` | PreToolUse | WebFetch,WebSearch,Monitor | The native WebFetch tool is an un-guarded network-egress channel: an indirect |

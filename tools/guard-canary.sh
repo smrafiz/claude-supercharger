@@ -111,5 +111,47 @@ for guard, tool, tin in CANARIES:
     else:
         print(f'  ✗ {guard}: {verdict}')
         bad += 1
-sys.exit(1 if bad else 0)
+
+# Liveness: every other registered PreToolUse command must RUN. The canaries above
+# prove four guards deny; this proves the rest are not dead. A missing file, a
+# script committed without +x (eight guards ran nowhere on the plugin for three
+# months) or a crash is exit 126/127/1, which Claude Code treats as a non-blocking
+# error: the call goes ahead unguarded, with nothing on screen.
+BENIGN = {'command': 'ls', 'file_path': os.path.join(proj, 'canary.txt'), 'content': 'x',
+          'old_string': 'a', 'new_string': 'b', 'url': 'https://example.com',
+          'prompt': 'hi', 'query': 'hi', 'description': 'canary'}
+core = {g for g, _, _ in CANARIES}
+dead, alive = [], 0
+for g in hooks:
+    m = g.get('matcher') or ''
+    tool = re.split(r'[|,]', m)[0].replace('.*', 'x').strip() if m not in ('', '*') else 'Bash'
+    try:
+        if not re.fullmatch(m or '.*', tool):
+            continue
+    except re.error:
+        continue
+    for h in g.get('hooks', []):
+        c = h.get('command', '')
+        name = (re.search(r'([\w-]+\.(?:sh|py))', c) or [None, c[:40]])[1]
+        # Only Supercharger's own hooks: another tool's hook is not ours to score.
+        if h.get('type', 'command') != 'command' or name in core or 'supercharger' not in c:
+            continue
+        payload = json.dumps({'session_id': 'canary', 'cwd': proj, 'hook_event_name': 'PreToolUse',
+                              'tool_name': tool, 'tool_input': BENIGN})
+        try:
+            r = subprocess.run([os.environ.get('CANARY_BASH') or 'bash', '-c', c], input=payload,
+                               capture_output=True, text=True, cwd=proj, env=env, timeout=30)
+            rc = r.returncode
+        except subprocess.TimeoutExpired:
+            rc = 'timeout'
+        if rc in (0, 2):
+            alive += 1
+        else:
+            why = 'not executable' if rc == 126 else 'not found' if rc == 127 else f'exit {rc}'
+            dead.append(f'hook {name} does not run on a {tool} call ({why})')
+for d in dead:
+    print(f'  ✗ {d}')
+if not quiet and not dead:
+    print(f'  all {alive} other PreToolUse hooks run')
+sys.exit(1 if bad or dead else 0)
 PYEOF

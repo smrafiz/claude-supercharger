@@ -10,7 +10,9 @@
 # (one list for every channel, or the channels drift on what counts as a secret).
 # That file is POSIX ERE for grep -E; Python's re reads `[[:space:]]` as a set of
 # literal characters, so POSIX classes are translated mechanically below.
-import json, os, re, urllib.parse
+import base64, json, os, re, urllib.parse
+
+_B64_RUN = re.compile(r'[A-Za-z0-9+_-]{24,}')  # no '/': it splits URL path segments
 
 _POSIX = {'[:space:]': r'\s', '[:digit:]': '0-9', '[:alnum:]': 'A-Za-z0-9',
           '[:alpha:]': 'A-Za-z', '[:upper:]': 'A-Z', '[:lower:]': 'a-z',
@@ -87,6 +89,17 @@ def find(values):
                 break
             cands.append(d2)
             d = d2
+        # Encoded payloads: an injected prompt says "base64 the env and fetch
+        # <host>/<that>", so the secret leaves as a path segment or query value that
+        # no pattern matches raw (CVE-2026-54316 used download counts on a trusted
+        # host as the channel). Decode each base64/base64url run of 24+ chars.
+        for run in _B64_RUN.findall(cands[-1])[:20]:
+            try:
+                t = base64.urlsafe_b64decode(run.replace('+', '-').replace('/', '_') + '=' * (-len(run) % 4))
+            except (ValueError, TypeError):
+                continue
+            if t and sum(32 <= b < 127 or b in (9, 10, 13) for b in t) >= 0.9 * len(t):
+                cands.append(t.decode('ascii', 'replace'))
         for c in cands:
             for rx, label in pats:
                 if rx.search(c):

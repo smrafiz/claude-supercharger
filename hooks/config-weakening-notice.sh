@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Config Weakening Notice
-# Event: CwdChanged | Matcher: (none)
+# Event: CwdChanged, SessionStart | Matcher: (none)
 #
 # Entering a directory whose `.supercharger.json` disables security categories or
 # hooks is a guardrail change nobody reviewed — the config arrives with the branch,
@@ -35,9 +35,20 @@ except Exception:
 " 2>/dev/null || echo "")
 
 [ -n "$CWD" ] || exit 0
-[ -f "$CWD/.supercharger.json" ] || exit 0
+# Find the file the way project-config.sh LOADS it: resolved root, then up to five
+# levels. Checking only $CWD missed a config loaded from a parent or a worktree's
+# main checkout, so a weakening there arrived silently. Also registered at
+# SessionStart: launching Claude inside a downloaded project is no cwd CHANGE.
+# shellcheck source=hooks/lib-project-root.sh
+. "${BASH_SOURCE[0]%/*}/lib-project-root.sh" 2>/dev/null || exit 0
+SEARCH_DIR=$(_resolve_project_root "$CWD"); FOUND=""
+for _ in 1 2 3 4 5; do
+  [ -f "$SEARCH_DIR/.supercharger.json" ] && { FOUND="$SEARCH_DIR"; break; }
+  PARENT=$(dirname "$SEARCH_DIR"); [ "$PARENT" = "$SEARCH_DIR" ] && break; SEARCH_DIR="$PARENT"
+done
+[ -n "$FOUND" ] || exit 0
 
-CWD="$CWD" python3 <<'PY' 2>/dev/null || exit 0
+CWD="$FOUND" python3 <<'PY' 2>/dev/null || exit 0
 import json, os, sys
 
 root = os.environ['CWD']
