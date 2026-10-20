@@ -938,3 +938,20 @@ session. `hooks/lib_pricing.py` is the one table, keyed by model id, splitting c
 writes by `usage.cache_creation` TTL. Re-read the published pricing page when a model
 ships; never add a price table at a call site.
 
+
+### Commit every hook executable
+
+The plugin runs each `hooks/hooks.json` command directly, and the plugin cache keeps
+the mode git stored. Eight guards were committed 644, so on the plugin they never ran:
+Claude Code reported `Permission denied` as a non-blocking error and let the call
+through. The installer hid this by running `chmod` on its own copies. Add new hooks
+with `git add --chmod=+x`; `tests/test-plugin-hook-modes.sh` fails otherwise.
+
+### A guard that fails should block
+
+Since Claude Code 2.1.295 a hook entry can set `"onFailure": "block"`: a crash, an exit
+other than 0 or 2, a timeout or bad JSON denies the call, where before it went ahead
+unguarded. The core guards carry it (flag `block` in `lib/hooks.sh`), written only when
+the local Claude Code is new enough. Before adding the flag to another guard, replay
+real tool calls through it and check that it never exits outside 0 and 2: a guard that
+exits 1 on ordinary input would block real work.

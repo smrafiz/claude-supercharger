@@ -54,7 +54,7 @@ get_hooks_for_mode() {
   # NOT closed here: Monitor's `ws` form opens a WebSocket by URL with no
   # `command` field at all, so these guards see nothing to inspect. That is a
   # separate egress gap, tracked rather than silently implied to be covered.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__|${hooks_dir}/safety.sh|")  # v2.26.78: +ReadMcpResourceTool,ReadMcpResourceDirTool. A bare `Read` carries no
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell,mcp__desktop-commander__,mcp__mcp-server-commands__,mcp__iterm__,mcp__iterm-mcp__,mcp__ssh__,mcp__shell__,mcp__terminal__,mcp__windows-cli__,mcp__cli-mcp-server__|${hooks_dir}/safety.sh|block")  # v2.26.78: +ReadMcpResourceTool,ReadMcpResourceDirTool. A bare `Read` carries no
   # regex metachar, so CC keeps this matcher in EXACT-LIST mode and it never matched
   # the longer MCP resource-read tool names. Spelled out rather than left to a regex,
   # so the coverage is declared instead of incidental.
@@ -64,7 +64,7 @@ get_hooks_for_mode() {
   # remaining gaps — `claude --dangerously-skip-permissions`/bypassPermissions, and
   # rm/mv/chmod-x/truncate/touch of the hook SCRIPTS, install dir, or kill-switch.
   # Disable: SUPERCHARGER_HARNESS_TAMPER_GUARD=0.
-  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/harness-tamper-guard.sh|")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|")
+  hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/harness-tamper-guard.sh|block")  hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/path-guard.sh|block")
   # Critical-infra write gate: forces a confirm before editing CI/CD, container,
   # DB-migration, or auth files (guardrails.md's documented review triggers). Emits
   # permissionDecision "ask" — not a hard block; asks once per file per session.
@@ -306,7 +306,7 @@ get_hooks_for_mode() {
     # Bash call. Anyone restoring it must verify on a LIVE session that the gated
     # hook actually fires -- reading the syntax off the docs is what produced the
     # original bug.
-    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-safety.sh")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/git-safety.sh|block")
     # #436: ExitWorktree remove+discard_changes is the tool-channel twin of the
     # `git worktree remove --force` ASK above; it never reaches Bash.
     hooks+=("PreToolUse|ExitWorktree|${hooks_dir}/exitworktree-guard.sh")    # Git remote exfil guard: git-safety checks HOW you push; this checks WHERE —    # asks before pushing the whole repo to a non-origin host or hijacking origin's
@@ -770,8 +770,17 @@ merge_hooks_into_settings() {
     if [ "${PLATFORM:-}" = "windows" ]; then sync_timeout=60; else sync_timeout=15; fi
   fi
 
+  # onFailure "block" (Claude Code 2.1.295+): a core guard that crashes, times out
+  # or prints bad JSON denies the call instead of letting it through unguarded.
+  # Older builds never saw the field, so it is written only when this machine's
+  # Claude Code is new enough; unknown version means off. Re-checked every update.
+  local onfail=0 ccv
+  ccv=$(claude --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1 || true)
+  if [ -n "$ccv" ] && [ "$(printf '%s\n2.1.295\n' "$ccv" | sort -t. -k1,1n -k2,2n -k3,3n | head -1)" = 2.1.295 ]; then onfail=1; fi
+  [ -n "${SUPERCHARGER_ONFAILURE:-}" ] && onfail="$SUPERCHARGER_ONFAILURE"
+
   SETTINGS_FILE="$settings_file" SUPERCHARGER_TAG="$SUPERCHARGER_TAG" HOOKS_INPUT="$hooks_list" \
-  SYNC_TIMEOUT="$sync_timeout" \
+  SYNC_TIMEOUT="$sync_timeout" ONFAILURE="$onfail" \
   STATUSLINE_PATH="$hooks_dir/statusline.sh" python3 -c "
 import json, os, sys
 
@@ -909,6 +918,8 @@ for line in hooks_input.strip().split('\n'):
     inner['timeout'] = 120 if ('async' in flag_list or 'asyncRewake' in flag_list) else SYNC_TIMEOUT
     if if_pattern:
         inner['if'] = if_pattern
+    if 'block' in flag_list and os.environ.get('ONFAILURE') == '1':
+        inner['onFailure'] = 'block'
 
     hook_entry = {'hooks': [inner]}
     if matcher:
