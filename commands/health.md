@@ -13,11 +13,13 @@ Show the Supercharger health check.
 Present the score table as-is. The Security line is behavioural: each core guard
 (safety, git-safety, path-guard, harness-tamper-guard) was run through the command
 `settings.json` registers, on a call it must stop. A ✗ there means that guard is
-not protecting this install, whatever the other lines say.
+not protecting this install, whatever the other lines say. Every other registered
+Supercharger PreToolUse hook is also run once on a harmless call, to prove it starts.
 
 For each issue listed, give one line on the fix:
 - "matcher does not select …" → the hook is registered for the wrong tools; re-run the installer (`/supercharger:update`).
 - "let it through" → the registered command does not run the guard; re-run the installer.
 - "not registered" → the guard was removed from settings.json or disabled; check `/supercharger:status` for disabled hooks.
+- "hook X does not run … (not executable / not found / exit N)" → that guard is registered but cannot run, so Claude Code lets every call through it. Re-run the installer (`/supercharger:update`); if it persists, report it as a bug.
 
 If everything passes, say so in one line.

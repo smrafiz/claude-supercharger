@@ -46,4 +46,38 @@ LEDGER_HOME="$TMP/home"; mkdir -p "$LEDGER_HOME/.claude/supercharger/scope"
 HOME="$LEDGER_HOME" bash "$REPO_DIR/tools/guard-canary.sh" --settings "$(settings 'Bash' 'Write' "$H/safety.sh")" >/dev/null 2>&1
 [ ! -s "$LEDGER_HOME/.claude/supercharger/scope/.blocked-commands" ] && pass || fail "ledger written: $(cat "$LEDGER_HOME/.claude/supercharger/scope/.blocked-commands")"
 
+# Liveness: a registered hook that cannot run is a non-blocking error in Claude Code,
+# so the call goes ahead unguarded. Eight guards were committed without +x and never
+# ran on the plugin (2026-07-19 to 2026-10-19).
+live() { # extra hook command -> canary output; settings carry the four core guards plus it
+  local f
+  f=$(settings 'Bash' 'Write|Edit' "$H/safety.sh")
+  EXTRA="$1" python3 -c '
+import json, os, sys
+d = json.load(open(sys.argv[1]))
+d["hooks"]["PreToolUse"].append({"matcher": "Bash", "hooks": [{"type": "command", "command": os.environ["EXTRA"]}]})
+json.dump(d, open(sys.argv[1], "w"))' "$f"
+  canary "$f"
+}
+LD="$TMP/supercharger/hooks"; mkdir -p "$LD"
+printf '#!/bin/sh\nexit 0\n' > "$LD/bulk-exfil-guard.sh"  # a stub: liveness is about running, not denying
+
+begin_test "liveness: a runnable extra guard passes"
+chmod 755 "$LD/bulk-exfil-guard.sh"
+OUT=$(live "$LD/bulk-exfil-guard.sh"); RC=$?
+[ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'all 1 other PreToolUse hooks run' && pass || fail "rc=$RC: $OUT"
+
+begin_test "GAP CHECK: liveness fails a guard without +x"
+chmod 644 "$LD/bulk-exfil-guard.sh"
+OUT=$(live "$LD/bulk-exfil-guard.sh"); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'bulk-exfil-guard.sh does not run on a Bash call (not executable)' && pass || fail "rc=$RC: $OUT"
+
+begin_test "GAP CHECK: liveness fails a registered guard whose file is gone"
+OUT=$(live "$LD/gone-guard.sh"); RC=$?
+[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'gone-guard.sh does not run on a Bash call (not found)' && pass || fail "rc=$RC: $OUT"
+
+begin_test "liveness: another tool's broken hook is not scored"
+OUT=$(live "/opt/other-tool/hook.sh"); RC=$?
+[ "$RC" -eq 0 ] && pass || fail "rc=$RC: $OUT"
+
 report
