@@ -89,9 +89,23 @@ R=$(. "$REPO_DIR/hooks/lib-project-root.sh"; _resolve_project_root "$TD/victim")
 [ "$R" = "$TD/victim" ] && pass || fail "root moved to: $R"
 
 begin_test "a real linked worktree still resolves to its main checkout"
-git init -q "$TD/main" && git -C "$TD/main" commit -q --allow-empty -m x \
-  && git -C "$TD/main" worktree add -q "$TD/wt" 2>/dev/null
+# CI runners have no git identity: without one the commit fails, no worktree exists,
+# and the resolver correctly returns its input.
+G="git -c user.email=t@example.com -c user.name=t"
+git init -q "$TD/main" && $G -C "$TD/main" commit -q --allow-empty -m x \
+  && $G -C "$TD/main" worktree add -q "$TD/wt" 2>/dev/null
 R=$(. "$REPO_DIR/hooks/lib-project-root.sh"; _resolve_project_root "$TD/wt")
 [ "$(cd "$R" && pwd -P)" = "$(cd "$TD/main" && pwd -P)" ] && pass || fail "got: $R"
+
+begin_test "a worktree whose back-link git wrote RELATIVE still resolves"
+# worktree.useRelativePaths (git 2.48+) writes <gitdir>/gitdir relative to the git
+# dir, not to the working tree.
+$G -C "$TD/main" -c worktree.useRelativePaths=true worktree add -q "$TD/wt2" 2>/dev/null
+if grep -q '^\.\.' "$TD/main/.git/worktrees/wt2/gitdir" 2>/dev/null; then
+  R=$(. "$REPO_DIR/hooks/lib-project-root.sh"; _resolve_project_root "$TD/wt2")
+  [ "$(cd "$R" && pwd -P)" = "$(cd "$TD/main" && pwd -P)" ] && pass || fail "got: $R"
+else
+  pass  # this git writes absolute links only; the absolute case is covered above
+fi
 
 report

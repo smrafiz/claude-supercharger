@@ -202,8 +202,11 @@ do_version_bump() {
 
   # The install-mode hook counts follow the code, like the badge, so adding a hook
   # never needs a hand edit of the README (tests/test-install.sh checks them).
-  _SAFE_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks safe false 2>/dev/null)
-  _FULL_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks full true 2>/dev/null)
+  _SAFE_N=""; _FULL_N=""
+  if [ -f "$REPO_DIR/lib/hooks.sh" ]; then
+    _SAFE_N=$(. "$REPO_DIR/lib/hooks.sh" && count_installed_hooks safe false 2>/dev/null) || _SAFE_N=""
+    _FULL_N=$(. "$REPO_DIR/lib/hooks.sh" && count_installed_hooks full true 2>/dev/null) || _FULL_N=""
+  fi
   if [ -n "$_SAFE_N" ] && [ -n "$_FULL_N" ]; then
     sed -i.bak -e "s/^| \*\*Safe\*\* | [0-9]* |/| **Safe** | ${_SAFE_N} |/" \
                -e "s/^| \*\*Full\*\* | [0-9]* |/| **Full** | ${_FULL_N} |/" "$REPO_DIR/README.md"

@@ -36,7 +36,8 @@ _resolve_project_root() {
     c=$(cd "$cwd" 2>/dev/null && cd "$common" 2>/dev/null && pwd -P) || c=""
     g=$(cd "$cwd" 2>/dev/null && cd "$git" 2>/dev/null && pwd -P) || g=""
     back=$(head -1 "$g/gitdir" 2>/dev/null || true)
-    back=$(cd "$cwd" 2>/dev/null && cd "$(dirname "$back")" 2>/dev/null && pwd -P)/$(basename "$back")
+    # git may write this link relative to the git dir (worktree.useRelativePaths).
+    back=$(cd "$g" 2>/dev/null && cd "$(dirname "$back")" 2>/dev/null && pwd -P)/$(basename "$back")
     if [ -z "$c" ] || [ "${g%/*}" != "$c/worktrees" ] || [ "$back" != "$(cd "$cwd" && pwd -P)/.git" ]; then
       printf '%s\n' "$cwd"; return
     fi
