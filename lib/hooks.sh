@@ -176,6 +176,8 @@ get_hooks_for_mode() {
   # python3. Missing, the guards degrade silently. Warns once per missing-set,
   # on both channels (a classic install can lose a dependency later too).
   hooks+=("SessionStart||${hooks_dir}/dependency-preflight.sh|")
+  # Every mode: a guard that cannot run lets every call through, silently.
+  hooks+=("SessionStart||${hooks_dir}/guard-drift-alarm.sh|")
   hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   # v2.26.0: writes the three settings.json keys a plugin cannot declare (statusLine,
   # env.ENABLE_PROMPT_CACHING_1H, attribution). A hook can do this because hooks are
