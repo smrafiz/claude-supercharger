@@ -25,8 +25,8 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-paths.sh
 . "$HOOKS_DIR/lib-paths.sh" 2>/dev/null || true
 : "${SUPERCHARGER_STATE:=${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}"
-# shellcheck source=hooks/lib-stdin.sh
-. "$HOOKS_DIR/lib-stdin.sh"; sc_read_input _INPUT
-
-printf '%s\n' "$_INPUT" | SCOPE="$SUPERCHARGER_STATE/scope" python3 "$HOOKS_DIR/unfinished_work.py" 2>/dev/null || exit 0
+# stdin goes straight to python: a bash `read` of a large Stop payload (a long
+# last_assistant_message) ran past the 5s stdin timeout on Git Bash and dropped
+# the snapshot. Nothing here blocks, so no timeout wrapper is needed.
+SCOPE="$SUPERCHARGER_STATE/scope" python3 "$HOOKS_DIR/unfinished_work.py" 2>/dev/null || exit 0
 exit 0
