@@ -24,6 +24,9 @@ canary() { bash "$REPO_DIR/tools/guard-canary.sh" --settings "$1" 2>&1; }
 
 echo "=== Guard Canary Tests ==="
 
+noexec_platform() { # 0 when chmod 644 really removes the exec bit here
+  local f; f=$(mktemp); printf "#!/bin/sh\n" > "$f"; chmod 644 "$f"; [ ! -x "$f" ]; local r=$?; rm -f "$f"; return $r; }
+
 begin_test "every core guard stops its canary when wired correctly"
 OUT=$(canary "$(settings 'Bash|Monitor' 'Write|Edit' "$H/safety.sh #supercharger")"); RC=$?
 [ "$RC" -eq 0 ] && [ "$(printf '%s' "$OUT" | grep -c '✓')" -eq 4 ] && pass || fail "rc=$RC: $OUT"
@@ -67,10 +70,12 @@ chmod 755 "$LD/bulk-exfil-guard.sh"
 OUT=$(live "$LD/bulk-exfil-guard.sh"); RC=$?
 [ "$RC" -eq 0 ] && printf '%s' "$OUT" | grep -q 'all 1 other PreToolUse hooks run' && pass || fail "rc=$RC: $OUT"
 
-begin_test "GAP CHECK: liveness fails a guard without +x"
-chmod 644 "$LD/bulk-exfil-guard.sh"
-OUT=$(live "$LD/bulk-exfil-guard.sh"); RC=$?
-[ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'bulk-exfil-guard.sh does not run on a Bash call (not executable)' && pass || fail "rc=$RC: $OUT"
+if noexec_platform; then
+  begin_test "GAP CHECK: liveness fails a guard without +x"
+  chmod 644 "$LD/bulk-exfil-guard.sh"
+  OUT=$(live "$LD/bulk-exfil-guard.sh"); RC=$?
+  [ "$RC" -eq 1 ] && printf '%s' "$OUT" | grep -q 'bulk-exfil-guard.sh does not run on a Bash call (not executable)' && pass || fail "rc=$RC: $OUT"
+else echo "  SKIP GAP CHECK: liveness fails a guard without +x (chmod 644 leaves files runnable on this platform)"; fi
 
 begin_test "GAP CHECK: liveness fails a registered guard whose file is gone"
 OUT=$(live "$LD/gone-guard.sh"); RC=$?

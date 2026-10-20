@@ -24,14 +24,19 @@ alarm() { SUPERCHARGER_DRIFT_SETTINGS="$1" CLAUDE_PLUGIN_ROOT="${2:-}" bash "$HO
 
 echo "=== Guard Drift Alarm Tests ==="
 
+noexec_platform() { # 0 when chmod 644 really removes the exec bit here
+  local f; f=$(mktemp); printf "#!/bin/sh\n" > "$f"; chmod 644 "$f"; [ ! -x "$f" ]; local r=$?; rm -f "$f"; return $r; }
+
 begin_test "drift: silent when every guard can run"
 OUT=$(alarm "$(settings "$H/ok-guard.sh #supercharger")")
 [ -z "$OUT" ] && pass || fail "expected silence: $OUT"
 
-begin_test "GAP CHECK: names a guard without +x"
-OUT=$(alarm "$(settings "$H/ok-guard.sh #supercharger" "$H/noexec-guard.sh #supercharger")")
-printf '%s' "$OUT" | grep -q 'noexec-guard.sh (not executable)' && ! printf '%s' "$OUT" | grep -q 'ok-guard' \
-  && pass || fail "got: $OUT"
+if noexec_platform; then
+  begin_test "GAP CHECK: names a guard without +x"
+  OUT=$(alarm "$(settings "$H/ok-guard.sh #supercharger" "$H/noexec-guard.sh #supercharger")")
+  printf '%s' "$OUT" | grep -q 'noexec-guard.sh (not executable)' && ! printf '%s' "$OUT" | grep -q 'ok-guard' \
+    && pass || fail "got: $OUT"
+else echo "  SKIP GAP CHECK: names a guard without +x (chmod 644 leaves files runnable on this platform)"; fi
 
 begin_test "GAP CHECK: names a registered guard whose file is gone"
 OUT=$(alarm "$(settings "$H/gone-guard.sh #supercharger")")
@@ -45,11 +50,13 @@ begin_test "drift: another tool's broken hook is not reported"
 OUT=$(alarm "$(settings "/opt/other-tool/hook.sh")")
 [ -z "$OUT" ] && pass || fail "false alarm: $OUT"
 
-begin_test "GAP CHECK: plugin runtime checks the plugin's hooks.json"
-P="$TD/plugin"; mkdir -p "$P/hooks"; cp "$H/noexec-guard.sh" "$P/hooks/"; chmod 644 "$P/hooks/noexec-guard.sh"
-printf '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"\\"${CLAUDE_PLUGIN_ROOT}\\"/hooks/noexec-guard.sh"}]}]}}' > "$P/hooks/hooks.json"
-OUT=$(alarm "$TD/none.json" "$P")
-printf '%s' "$OUT" | grep -q 'noexec-guard.sh (not executable)' && pass || fail "got: $OUT"
+if noexec_platform; then
+  begin_test "GAP CHECK: plugin runtime checks the plugin's hooks.json"
+  P="$TD/plugin"; mkdir -p "$P/hooks"; cp "$H/noexec-guard.sh" "$P/hooks/"; chmod 644 "$P/hooks/noexec-guard.sh"
+  printf '{"hooks":{"PreToolUse":[{"matcher":"Bash","hooks":[{"type":"command","command":"\\"${CLAUDE_PLUGIN_ROOT}\\"/hooks/noexec-guard.sh"}]}]}}' > "$P/hooks/hooks.json"
+  OUT=$(alarm "$TD/none.json" "$P")
+  printf '%s' "$OUT" | grep -q 'noexec-guard.sh (not executable)' && pass || fail "got: $OUT"
+else echo "  SKIP GAP CHECK: plugin runtime checks the plugin's hooks.json (chmod 644 leaves files runnable on this platform)"; fi
 
 begin_test "drift: output is valid hook JSON carrying a systemMessage"
 OUT=$(alarm "$(settings "$H/gone-guard.sh #supercharger")")
