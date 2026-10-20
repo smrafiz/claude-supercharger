@@ -80,4 +80,13 @@ begin_test "drift: SUPERCHARGER_DRIFT_ALARM=0 silences it"
 OUT=$(SUPERCHARGER_DRIFT_ALARM=0 SUPERCHARGER_DRIFT_SETTINGS="$(settings "$H/gone-guard.sh #supercharger")" bash "$HOOK" </dev/null 2>/dev/null)
 [ -z "$OUT" ] && pass || fail "not silenced: $OUT"
 
+# Native Windows python writes \r\n; bash kept the \r on each path, so every guard
+# read as missing (master CI on 75ea9cf). A python3 shim that adds \r reproduces it.
+begin_test "drift: CRLF from python does not make a live guard read as missing"
+SHIM="$TD/shim"; mkdir -p "$SHIM"; PY=$(command -v python3)
+printf '#!/bin/sh\n"%s" "$@" | sed "s/$/\\r/"\n' "$PY" > "$SHIM/python3"; chmod 755 "$SHIM/python3"
+OUT=$(PATH="$SHIM:$PATH" alarm "$(settings "$H/ok-guard.sh #supercharger" "$H/gone-guard.sh #supercharger")")
+printf '%s' "$OUT" | grep -q 'cannot run, so Claude Code lets every call through them: gone-guard.sh (missing)\.' \
+  && ! printf '%s' "$OUT" | grep -q 'ok-guard' && pass || fail "got: $OUT"
+
 report

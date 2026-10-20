@@ -23,6 +23,7 @@ set -uo pipefail
 # Git Bash can run the file (it honours a shebang where NTFS has no exec bit).
 DEAD=""
 while IFS=$'\t' read -r via path; do
+  path="${path%$'\r'}"  # native Windows python ends lines with \r\n
   [ -n "$path" ] || continue
   if [ ! -f "$path" ]; then DEAD="$DEAD${path##*/} (missing)"$'\n'
   elif [ "$via" = 0 ] && [ ! -x "$path" ]; then DEAD="$DEAD${path##*/} (not executable)"$'\n'
