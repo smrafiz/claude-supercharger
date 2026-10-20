@@ -180,9 +180,6 @@ get_hooks_for_mode() {
   hooks+=("SessionStart||${hooks_dir}/dependency-preflight.sh|")
   # Every mode: a guard that cannot run lets every call through, silently.
   hooks+=("SessionStart||${hooks_dir}/guard-drift-alarm.sh|")
-  # Work still running when a session ended (Stop snapshot), named at the next start.
-  hooks+=("Stop|*|${hooks_dir}/unfinished-work.sh|async")
-  hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
   hooks+=("SessionStart||${hooks_dir}/plugin-config-seed.sh|")
   # v2.26.0: writes the three settings.json keys a plugin cannot declare (statusLine,
   # env.ENABLE_PROMPT_CACHING_1H, attribution). A hook can do this because hooks are
@@ -504,6 +501,9 @@ get_hooks_for_mode() {
     # new worktree.
     hooks+=("CwdChanged|*|${hooks_dir}/config-weakening-notice.sh|")
     hooks+=("SessionStart||${hooks_dir}/config-weakening-notice.sh|")
+    # Work still running when a session ended (Stop snapshot), named at the next start.
+    hooks+=("Stop|*|${hooks_dir}/unfinished-work.sh|async")
+    hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
     # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
     # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
     # valid set in its own error, and DirectoryAdded is not among them:

@@ -1004,15 +1004,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
-            "timeout": 15
-          }
-        ]
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/plugin-config-seed.sh",
             "timeout": 15
           }
@@ -1127,20 +1118,18 @@
             "timeout": 15
           }
         ]
-      }
-    ],
-    "Stop": [
+      },
       {
         "hooks": [
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
-            "async": true,
-            "timeout": 120
+            "timeout": 15
           }
-        ],
-        "matcher": "*"
-      },
+        ]
+      }
+    ],
+    "Stop": [
       {
         "hooks": [
           {
@@ -1220,6 +1209,17 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/session-memory-write.sh",
+            "async": true,
+            "timeout": 120
+          }
+        ],
+        "matcher": "*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
             "async": true,
             "timeout": 120
           }

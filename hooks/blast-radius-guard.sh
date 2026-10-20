@@ -20,7 +20,7 @@ set -uo pipefail
 case "$_INPUT" in *'rm '*) ;; *) exit 0 ;; esac
 CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || exit 0
 case "$CMD" in *rm\ -*[rR]*|*rm\ --recursive*) ;; *) exit 0 ;; esac
-CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null)
+CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null)
 [ -n "$CWD" ] && { cd "$CWD" 2>/dev/null || exit 0; }
 
 # shellcheck source=hooks/lib-blast.sh

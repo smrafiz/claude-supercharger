@@ -8,7 +8,7 @@ except ValueError:
     sys.exit(0)
 scope = os.environ['SCOPE']
 sid = re.sub(r'[^0-9A-Za-z-]', '', d.get('session_id') or '')[:64]
-cwd = d.get('cwd') or ''
+cwd = d.get('cwd') or (d.get('workspace') or {}).get('current_dir') or ''
 event = d.get('hook_event_name') or ''
 if not sid:
     sys.exit(0)

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — decision emitter (shared)
 # Sourced by every hook that returns a PreToolUse decision.
+# An ASK also carries an "Effect:" line from lib-blast.sh. Disable: SUPERCHARGER_BLAST=0
 #
 # WHY THIS EXISTS. What a hook prints as `permissionDecisionReason` is the ONLY
 # part of a block the agent receives. The `Supercharger blocked …` banner and the
