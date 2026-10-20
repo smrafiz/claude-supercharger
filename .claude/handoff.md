@@ -4,21 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-19, session `3d213381`.*
+*Verified 2026-10-20, session `3d213381`.*
 
-- **Released: v4.3.22** (master `27a0e6a`). Installed v4.3.22 on Machine A; guard canary rc=0.
-  4.3.21: #155 ($IFS evasion, redactor `delta`, -qm commits, 2 detector FPs), #156 (path-guard
-  `scratchpad_dir`), #157 (`hooks/lib_pricing.py`). 4.3.22: #159 (`/sc-ste`, `/sc-handoff --html`,
-  local by default, `--html=publish` to publish), #160 (report tools price by model).
-- **Nothing in flight** after this docs PR (#158).
-- **Cost numbers changed twice:** 4.3.20 counts each response once (was 2.04x, totals reset once,
-  `.session-cost.pre-v3`); 4.3.21 prices by model and cache TTL (was 1.57x).
-- **Follow-ups:** `onFailure:"block"` needs a guard exit-code audit first; per-repo commit types;
-  overrun records lack session id + command hash; `/sc-health` warn on `IS_DEMO`.
-- **Release recipe:** batch PRs; detached job under `launchctl submit` (nohup and screen die at
-  `/exit`), and the job must `launchctl remove` its own label on EXIT or launchd restarts it; merge
-  without `--delete-branch`; PR gate = run on head SHA + both `Test suite` checks by name.
-- **Machine A:** 4 stashes + many worktrees under `.claude/worktrees/`; drop only on user's say-so.
+- **Released: v4.3.23** (master). Installed v4.3.23 on Machine A.
+- **In flight: one combined 4.3.24** (user asked for a single release). #162 is merged (core guards
+  `onFailure:block`, 8 guards made executable, overrun records). PR from `feat/onfail-plugin-canary` adds:
+  `block` on 32 replayed security guards + the plugin (verified live), canary runs every guard,
+  guard drift alarm (SessionStart), forged gitdir/commondir fix (CVE-2026-40068 class), base64
+  secret scan on WebFetch/MCP (CVE-2026-54316 class), unfinished-work (Stop snapshot of
+  background_tasks/session_crons, named next start), blast-radius guard (asks before rm deletes
+  unsaved files; every ask gets an Effect line), `tools/guard-replay.py`. Then this docs PR.
+- **Release recipe:** detached job under `launchctl submit` with an EXIT trap that removes its label;
+  it does NOT survive a reboot (2026-10-20). Merge without `--delete-branch`; PR gate = run on head
+  SHA + both `Test suite` checks by name. Remove each PR worktree once merged.
+- **Next candidates:** Trust Receipts (narrow outward-action ledger; hash-chained logs exist elsewhere).
+- **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
+
+- **Machine A:** 4 stashes (drop only on the user's say-so); old worktrees removed 2026-10-20.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
 
@@ -48,6 +50,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-19 (deep) — 3d213381
+Released 4.3.21–4.3.23; 4.3.24 in flight. Replayed 4,000 real calls through every PreToolUse hook:
+core guards never exit outside 0/2 (so `onFailure:block` is safe), and 8 guards were dead on the plugin
+(committed 644). Per-repo commit types; health catches IS_DEMO.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-19 deep)
+
 #### 2026-10-18 (deep) — 3d213381
 Released 4.3.18–4.3.20; 4.3.21 and 4.3.22 (STE mode, handoff --html) followed on 10-19. Found and fixed two cost errors (per-line usage 2.04x,
 family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
@@ -68,8 +76,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-15 de
 Released 4.3.6, 4.3.7 (GitSpawn/Chaindrop/GhostSplice), 4.3.8 (secret-alert attribution, six FPs);
 4.3.9 (install-by-rename) in flight. 4.3.7 needed a retry: PR CI skips Windows.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-13 deep)
-
-#### 2026-10-12 (deep) — 3d213381
-4-track research sweep (coverage, upstream tracker, new attacks, own FP ledger); two agent
-PRs building 4.3.6 security fixes + FP narrowing.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-12 deep)
