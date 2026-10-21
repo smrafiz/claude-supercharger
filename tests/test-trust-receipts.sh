@@ -74,7 +74,9 @@ bash_call "docker push reg.example/$KEY:1"
 
 begin_test "receipts: a large tool output after the input still records"
 reset
-post Bash '{"command":"git push origin main"}' "$(python3 -c 'print("x"*400000)')"
+# Built inside python: one 400KB argv string is past Linux's 128KB per-argument limit.
+python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PostToolUse","session_id":sys.argv[1],"cwd":sys.argv[2],
+"tool_name":"Bash","tool_input":{"command":"git push origin main"},"tool_response":"x"*400000},separators=(",",":")))' "$A" "$P" | fire
 [ "$(count)" = 1 ] && pass || fail "big payload dropped"
 
 begin_test "receipts: the next session here gets one count line"

@@ -23,6 +23,6 @@ Show the table as-is. Then one line: anything the user may not expect (a destina
 outside their own repos or services, a send to an unfamiliar domain). Say nothing more
 when every row is expected.
 
-Receipts are local only (`~/.claude/supercharger/receipts/`) and never uploaded. They
+Receipts stay in Supercharger's local state folder (`receipts/`) and are never uploaded. They
 hold a destination and a one-line summary with secrets masked, never a message body.
 Turn recording off with `SUPERCHARGER_RECEIPTS=0`.
