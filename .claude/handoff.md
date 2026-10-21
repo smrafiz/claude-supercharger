@@ -4,22 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-20, session `3d213381`.*
+*Verified 2026-10-21, session `3d213381`.*
 
-- **Released: v4.3.23** (master). Installed v4.3.23 on Machine A.
-- **In flight: 4.3.24**, one combined release. All four PRs merged: #164, #163, #165, #166
-  (master `82b2146`). Release job (Machine A, launchd `sc.finish.4324`) waits on master CI for
-  `82b2146`, then stage, rel CI, promote, update. Result: `~/.cache/sc-finish-4.3.24.result`.
-- **Docs PR `docs/handoff-1020`** (Windows notes, this file): merge after the release.
+- **Released: v4.3.24** (tag `650a392`). Installed v4.3.24 on Machine A.
+- **Merged since:** #167 docs, #168 Trust Receipts (`9a7c018`: `hooks/trust-receipts.sh`,
+  `/sc-receipts`, local ledger under `receipts/`; Windows dispatch run green).
+- **In flight: 4.3.25** = #168 + this PR (`audit-trail.sh` on the shared secret patterns,
+  redacts before the 200-char cut; this file). Release after this PR merges.
 - **Windows rule:** PR CI skips the Windows job. For Windows-touching work, run
-  `gh workflow run ci.yml --ref <branch>` and gate the merge on it (4.3.24 went red on master twice).
-- **Release recipe:** detached `launchctl submit` job that removes its own label on EXIT; does
-  NOT survive a reboot. PR gate = run on head SHA + both `Test suite` checks by name.
-  Remove each PR worktree once merged.
-- **Next candidates:** Trust Receipts (narrow outward-action ledger).
+  `gh workflow run ci.yml --ref <branch>` and gate the merge on it. Test fixtures that pass
+  a POSIX path to native python as argv need `MSYS_NO_PATHCONV=1` (#168 went red on it).
+- **Release recipe:** detached `launchctl submit` job; quote PATH (it has spaces); does
+  NOT survive a reboot. Remove each PR worktree once merged.
 - **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
-
-- **Machine A:** 4 stashes (drop only on the user's say-so); worktree `handoff-1020` only.
+- **Machine A:** 4 stashes (drop only on the user's say-so).
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
 

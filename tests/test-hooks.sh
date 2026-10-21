@@ -1452,6 +1452,24 @@ fi
 export HOME="$HOME_ORIG"
 rm -rf "$AUDIT_DIR"
 
+begin_test "audit: keys only the shared pattern list knows are masked, past 200 chars too"
+AUDIT_DIR=$(mktemp -d)
+HOME_ORIG="$HOME"
+export HOME="$AUDIT_DIR"
+mkdir -p "$HOME/.claude/supercharger/audit"
+_K1="sk-ant-""api03abcdefghijklmnopqrstuv"; _K2="AKIA""ABCDEFGHIJKLMNOP"
+_PAD=$(printf 'x%.0s' $(seq 1 190))
+printf '{"tool_name":"Bash","tool_input":{"command":"git push https://x.example/%s %s %s"}}' "$_K1" "$_PAD" "$_K2" \
+  | bash "$AUDIT_HOOK" 2>/dev/null
+_AF="$HOME/.claude/supercharger/audit/$(date -u +"%Y-%m-%d").jsonl"
+if grep -q 'git push' "$_AF" 2>/dev/null && ! grep -q 'api03abc' "$_AF" && ! grep -q 'AKIAABCD' "$_AF"; then
+  pass
+else
+  fail "leaked or missing: $(cat "$_AF" 2>/dev/null)"
+fi
+export HOME="$HOME_ORIG"
+rm -rf "$AUDIT_DIR"
+
 # --- Statusline Tests ---
 
 echo ""

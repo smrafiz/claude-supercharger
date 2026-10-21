@@ -39,8 +39,21 @@ case "$_INPUT" in
   *) exit 0 ;;
 esac
 
-HOOK_INPUT="$_INPUT" AUDIT_FILE="$AUDIT_FILE" python3 <<'PYEOF' 2>/dev/null || true
+# The shared list (lib-secret-patterns.sh) also masks what the inline list below
+# predates: fine-grained GitHub PATs, Anthropic and Slack keys, and the rest.
+OUTBOUND_SECRET_PATTERNS=""
+# shellcheck source=hooks/lib-secret-patterns.sh
+if . "${BASH_SOURCE[0]%/*}/lib-secret-patterns.sh" 2>/dev/null; then
+  IFS=$'\n'; OUTBOUND_SECRET_PATTERNS="${SECRET_PATTERNS[*]}"; unset IFS
+fi
+HOOK_INPUT="$_INPUT" AUDIT_FILE="$AUDIT_FILE" OUTBOUND_SECRET_PATTERNS="$OUTBOUND_SECRET_PATTERNS" \
+  HOOKS_DIR="${BASH_SOURCE[0]%/*}" python3 <<'PYEOF' 2>/dev/null || true
 import json, os, sys, datetime, re
+sys.path.insert(0, os.environ.get('HOOKS_DIR', ''))
+try:
+    from lib_outbound_secret import _compile
+except Exception:
+    _compile = lambda raw: []
 
 raw = os.environ.get('HOOK_INPUT', '')
 audit_file = os.environ.get('AUDIT_FILE', '')
@@ -55,7 +68,8 @@ tool_input = data.get('tool_input') or {}
 entry = None
 
 if tool == 'Bash':
-    cmd = (tool_input.get('command') or '')[:200]
+    # Redact the whole command, then cut: a cut first can split a key past a pattern.
+    cmd = tool_input.get('command') or ''
     if not cmd:
         sys.exit(0)
     # Redact inline credentials — mirrors safety.sh CRED_PATTERNS
@@ -73,7 +87,9 @@ if tool == 'Bash':
     cmd = re.sub(r'(?i)\bBearer\s+[0-9a-zA-Z\-_.~+/]+=*\b', 'Bearer [REDACTED]', cmd)
     cmd = re.sub(r'\b(\w+_(?:KEY|TOKEN|SECRET|PASSWORD|API_KEY))\s*=\s*\S+', r'\1=[REDACTED]', cmd, flags=re.IGNORECASE)
     cmd = re.sub(r'(?i)\b(api[_-]?key|secret[_-]?key|access[_-]?token|password|db_password|mysql_root_password)\s*=\s*\S+', r'\1=[REDACTED]', cmd)
-    entry = {'tool': 'Bash', 'action': cmd}
+    for pat, _ in _compile(os.environ.get('OUTBOUND_SECRET_PATTERNS', '')):
+        cmd = pat.sub('[REDACTED]', cmd)
+    entry = {'tool': 'Bash', 'action': cmd[:200]}
 elif tool in ('Write', 'Edit'):
     path = tool_input.get('file_path') or ''
     if not path:
