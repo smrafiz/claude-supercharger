@@ -39,6 +39,7 @@ Claude Supercharger — Slash Commands
     /sc-stuck          Break a debug loop — fresh eyes, new hypothesis
     /sc-why            Explain the most recent Supercharger hook action
     /sc-perf           Hook timing report with slowdown suggestions
+    /sc-receipts       What left the machine: pushes, publishes, sends, uploads
     /sc-health         Install health; checks the core guards really stop a bad call
     /sc-cache-stats    Typecheck + quality-gate cache state
     /sc-cache-clear    Clear hash caches (forces full re-check on next run)
@@ -92,6 +93,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "this is hard, don't rush it" | `/sc-think` | |
 | "I've been stuck on this bug for ages", "same error again" | `/sc-stuck` | `/sc-think` — a debug loop needs a new hypothesis, not more reasoning |
 | "why was that blocked", "what fired" | `/sc-why` | |
+| "what did it send", "what got pushed or published" | `/sc-receipts` | `/sc-status` — that is this session's state, this is what left the machine |
 | "before we start", "what's in scope" | `/sc-scope` | `/sc-interview` — that gathers, this gates |
 | "I don't know what I want yet" | `/sc-interview` | `/sc-scope` |
 | "how long will this take" | `/sc-estimate` | |

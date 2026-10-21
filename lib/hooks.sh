@@ -504,6 +504,10 @@ get_hooks_for_mode() {
     # Work still running when a session ended (Stop snapshot), named at the next start.
     hooks+=("Stop|*|${hooks_dir}/unfinished-work.sh|async")
     hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
+    # Trust Receipts: a local record of each push, publish, send and upload that ran
+    # (never blocks; /sc-receipts lists them), and a one-line count at the next start.
+    hooks+=("PostToolUse|Bash,Artifact,ArtifactData,ArtifactComments,mcp__|${hooks_dir}/trust-receipts.sh|async")
+    hooks+=("SessionStart||${hooks_dir}/trust-receipts.sh|")
     # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
     # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
     # valid set in its own error, and DirectoryAdded is not among them:

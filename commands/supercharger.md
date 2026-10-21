@@ -39,6 +39,7 @@ Claude Supercharger — Slash Commands
     /supercharger:stuck          Break a debug loop — fresh eyes, new hypothesis
     /supercharger:why            Explain the most recent Supercharger hook action
     /supercharger:perf           Hook timing report with slowdown suggestions
+    /supercharger:receipts       What left the machine: pushes, publishes, sends, uploads
     /supercharger:health         Install health; checks the core guards really stop a bad call
     /supercharger:cache-stats    Typecheck + quality-gate cache state
     /supercharger:cache-clear    Clear hash caches (forces full re-check on next run)
@@ -92,6 +93,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "this is hard, don't rush it" | `/supercharger:think` | |
 | "I've been stuck on this bug for ages", "same error again" | `/supercharger:stuck` | `/supercharger:think` — a debug loop needs a new hypothesis, not more reasoning |
 | "why was that blocked", "what fired" | `/supercharger:why` | |
+| "what did it send", "what got pushed or published" | `/supercharger:receipts` | `/supercharger:status` — that is this session's state, this is what left the machine |
 | "before we start", "what's in scope" | `/supercharger:scope` | `/supercharger:interview` — that gathers, this gates |
 | "I don't know what I want yet" | `/supercharger:interview` | `/supercharger:scope` |
 | "how long will this take" | `/supercharger:estimate` | |
