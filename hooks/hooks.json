@@ -919,6 +919,17 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/trust-receipts.sh",
+            "async": true,
+            "timeout": 120
+          }
+        ],
+        "matcher": "Bash|Artifact|ArtifactData|ArtifactComments|mcp__.*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh",
             "async": true,
             "timeout": 120
@@ -1124,6 +1135,15 @@
           {
             "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/unfinished-work.sh",
+            "timeout": 15
+          }
+        ]
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/trust-receipts.sh",
             "timeout": 15
           }
         ]

@@ -156,6 +156,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>. |
 | `tool-preferences` | PreToolUse | Bash,Monitor,WebFetch | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
 | `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
+| `trust-receipts` | PostToolUse (async), SessionStart | Bash,Artifact,ArtifactData,ArtifactComments,mcp__ | A local record of every action that left the machine and cannot be taken back: |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `unfinished-work` | Stop (async), SessionStart | (none) | first: on 2026-10-20 a release job died in a reboot and nothing said so. Claude |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |
