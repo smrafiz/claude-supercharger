@@ -699,6 +699,16 @@ One unrelated hook failed the same run: a bash `read -d ''` of a 400KB Stop payl
 took longer than the 5s stdin timeout on Git Bash. A hook that never blocks can hand
 stdin straight to python.
 
+Two more, both from test fixtures for `trust-receipts.sh` (#168, 2026-10-21):
+- **Path-like argv is converted even when it is data.** A fixture passed a fake cwd
+  `/work/proj` to `python3 -c` to build a payload, and Git Bash handed python
+  `C:/Program Files/Git/work/proj`. Put `MSYS_NO_PATHCONV=1` on that one call. Never
+  export it for the whole test: the hook's own `python3 "$HOOKS_DIR/x.py"` needs the
+  conversion.
+- **Linux caps one argv string at 128KB.** macOS has no such cap, so a 400KB payload
+  passed as one argument failed only on Ubuntu. Build large fixtures inside python, or
+  pipe them.
+
 ### Test failure messages print literally
 
 `fail()` prints its reason with `printf %s`. An `echo -e` turned a Windows path
