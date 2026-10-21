@@ -47,6 +47,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-21 (deep) — 3d213381
+4.3.24 released after a reboot killed the first job. #168 Trust Receipts merged (Windows green after an
+argv-conversion fixture fix). #169 audit-trail on shared secret patterns open; 4.3.25 releases both.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-21 deep)
+
 #### 2026-10-20 (deep) — 3d213381
 Merged #164/#163/#165/#166 for one 4.3.24 (32 guards fail closed, drift alarm, CVE-class fixes).
 Master went red twice on Windows (MSYS path inside a string, then CRLF); fixed, branch Windows run
@@ -69,8 +74,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-18 de
 event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items. 4.3.18 held: Windows CI caught the
 canary's bare `bash` (WSL launcher); fixed in #149, released 2026-10-18.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-17 deep)
-
-#### 2026-10-15 (deep) — 3d213381
-4.3.13 released; 4.3.14–4.3.17 chained (#139–#142). Hook `if` field closed; statusline shows
-prompt-cache misses; echo-heading FP fixed. Two HOOK_AUTHORING notes.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-15 deep)
