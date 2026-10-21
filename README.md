@@ -170,7 +170,7 @@ Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 45 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 159 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 160 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
