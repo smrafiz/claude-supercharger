@@ -11,8 +11,9 @@ A=aaaaaaaa-1111-2222-3333-444444444444
 B=bbbbbbbb-1111-2222-3333-444444444444
 P=/work/proj
 fire() { SUPERCHARGER_STATE="$ST" bash "$HOOK" 2>/dev/null; }
+# MSYS_NO_PATHCONV: Git Bash would rewrite the /work/proj argv to C:/Program Files/Git/work/proj.
 post() { # tool tool_input-json [response] -- compact, as Claude Code sends it
-  python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PostToolUse","session_id":sys.argv[1],"cwd":sys.argv[2],
+  MSYS_NO_PATHCONV=1 python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PostToolUse","session_id":sys.argv[1],"cwd":sys.argv[2],
 "tool_name":sys.argv[3],"tool_input":json.loads(sys.argv[4]),"tool_response":sys.argv[5]},separators=(",",":")))' \
     "$A" "$P" "$1" "$2" "${3:-ok}" | fire; }
 bash_call() { post Bash "$(python3 -c 'import json,sys; print(json.dumps({"command":sys.argv[1]}))' "$1")"; }
@@ -75,7 +76,7 @@ bash_call "docker push reg.example/$KEY:1"
 begin_test "receipts: a large tool output after the input still records"
 reset
 # Built inside python: one 400KB argv string is past Linux's 128KB per-argument limit.
-python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PostToolUse","session_id":sys.argv[1],"cwd":sys.argv[2],
+MSYS_NO_PATHCONV=1 python3 -c 'import json,sys; print(json.dumps({"hook_event_name":"PostToolUse","session_id":sys.argv[1],"cwd":sys.argv[2],
 "tool_name":"Bash","tool_input":{"command":"git push origin main"},"tool_response":"x"*400000},separators=(",",":")))' "$A" "$P" | fire
 [ "$(count)" = 1 ] && pass || fail "big payload dropped"
 
