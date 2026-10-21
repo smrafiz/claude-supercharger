@@ -7,20 +7,19 @@ session on any machine.**
 *Verified 2026-10-20, session `3d213381`.*
 
 - **Released: v4.3.23** (master). Installed v4.3.23 on Machine A.
-- **In flight: one combined 4.3.24** (user asked for a single release). #162 is merged (core guards
-  `onFailure:block`, 8 guards made executable, overrun records). PR from `feat/onfail-plugin-canary` adds:
-  `block` on 32 replayed security guards + the plugin (verified live), canary runs every guard,
-  guard drift alarm (SessionStart), forged gitdir/commondir fix (CVE-2026-40068 class), base64
-  secret scan on WebFetch/MCP (CVE-2026-54316 class), unfinished-work (Stop snapshot of
-  background_tasks/session_crons, named next start), blast-radius guard (asks before rm deletes
-  unsaved files; every ask gets an Effect line), `tools/guard-replay.py`. Then this docs PR.
-- **Release recipe:** detached job under `launchctl submit` with an EXIT trap that removes its label;
-  it does NOT survive a reboot (2026-10-20). Merge without `--delete-branch`; PR gate = run on head
-  SHA + both `Test suite` checks by name. Remove each PR worktree once merged.
-- **Next candidates:** Trust Receipts (narrow outward-action ledger; hash-chained logs exist elsewhere).
+- **In flight: 4.3.24**, one combined release. All four PRs merged: #164, #163, #165, #166
+  (master `82b2146`). Release job (Machine A, launchd `sc.finish.4324`) waits on master CI for
+  `82b2146`, then stage, rel CI, promote, update. Result: `~/.cache/sc-finish-4.3.24.result`.
+- **Docs PR `docs/handoff-1020`** (Windows notes, this file): merge after the release.
+- **Windows rule:** PR CI skips the Windows job. For Windows-touching work, run
+  `gh workflow run ci.yml --ref <branch>` and gate the merge on it (4.3.24 went red on master twice).
+- **Release recipe:** detached `launchctl submit` job that removes its own label on EXIT; does
+  NOT survive a reboot. PR gate = run on head SHA + both `Test suite` checks by name.
+  Remove each PR worktree once merged.
+- **Next candidates:** Trust Receipts (narrow outward-action ledger).
 - **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
 
-- **Machine A:** 4 stashes (drop only on the user's say-so); old worktrees removed 2026-10-20.
+- **Machine A:** 4 stashes (drop only on the user's say-so); worktree `handoff-1020` only.
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
   re-enable radius-apps Actions.
 
@@ -50,6 +49,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-20 (deep) — 3d213381
+Merged #164/#163/#165/#166 for one 4.3.24 (32 guards fail closed, drift alarm, CVE-class fixes).
+Master went red twice on Windows (MSYS path inside a string, then CRLF); fixed, branch Windows run
+green. Release job in flight.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-20 deep)
+
 #### 2026-10-19 (deep) — 3d213381
 Released 4.3.21–4.3.23; 4.3.24 in flight. Replayed 4,000 real calls through every PreToolUse hook:
 core guards never exit outside 0/2 (so `onFailure:block` is safe), and 8 guards were dead on the plugin
@@ -71,8 +76,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-17 de
 4.3.13 released; 4.3.14–4.3.17 chained (#139–#142). Hook `if` field closed; statusline shows
 prompt-cache misses; echo-heading FP fixed. Two HOOK_AUTHORING notes.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-15 deep)
-
-#### 2026-10-13 (deep) — 3d213381
-Released 4.3.6, 4.3.7 (GitSpawn/Chaindrop/GhostSplice), 4.3.8 (secret-alert attribution, six FPs);
-4.3.9 (install-by-rename) in flight. 4.3.7 needed a retry: PR CI skips Windows.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-13 deep)
