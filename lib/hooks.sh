@@ -734,10 +734,11 @@ deploy_hook_scripts() {
   stage=$(mktemp -d "$tools_dir/.stage.XXXXXX")
   cp "$source_dir/tools/"*.sh "$stage/"
   chmod 700 "$stage/"*.sh
-  # /sc-mcp-audit runs this from the install (it imports ../hooks/lib_poison_patterns).
-  cp "$source_dir/tools/mcp-audit.py" "$stage/" 2>/dev/null && chmod 700 "$stage/mcp-audit.py"
-  # /sc-status, /sc-why, /sc-perf inject its output with `!` at load.
-  cp "$source_dir/tools/command-context.py" "$stage/" 2>/dev/null && chmod 700 "$stage/command-context.py"
+  # Every python tool and the notifier source: commands run them from the install
+  # (/sc-mcp-audit, /sc-status, /sc-receipts, /sc-notifier). A per-file list here
+  # left /sc-receipts and /sc-notifier pointing at files that were never deployed.
+  cp "$source_dir/tools/"*.py "$stage/" && chmod 700 "$stage/"*.py
+  cp -R "$source_dir/tools/notifier" "$stage/" && chmod 700 "$stage/notifier/build.sh"
   _swap_into "$tools_dir" "$stage"
 
   # Deploy lib dependencies that hooks/tools source at runtime
