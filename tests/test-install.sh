@@ -96,8 +96,11 @@ teardown_test_home
 begin_test "install: idempotent — no duplicate hooks after double install"
 setup_test_home
 
-bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
-bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1; _rc1=$?
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >"$HOME/.reinstall.log" 2>&1; _rc2=$?
+# The exit codes were discarded here, so a reinstall that died partway still passed.
+[ "$_rc1" = 0 ] && [ "$_rc2" = 0 ] && [ -f "$HOME/.claude/supercharger/tools/notifier/build.sh" ] \
+  && _reinst=ok || _reinst="reinstall rc=$_rc1/$_rc2: $(tail -3 "$HOME/.reinstall.log")"
 
 HOOK_COUNT=$(SETTINGS="$HOME/.claude/settings.json" python3 -c "
 import json, os
@@ -112,7 +115,9 @@ print(count)
 # Full mode + developer = 119 hooks total (118 after thinking-budget removal in 2.18.0; +redirect-clobber-guard in 2.20.0) — was previously redundant
 # with native Claude effort levels + adaptive reasoning). commit-* trio consolidated into commit-guard;
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
-if [ "$HOOK_COUNT" -eq 171 ]; then
+if [ "$_reinst" != ok ]; then
+  fail "$_reinst"
+elif [ "$HOOK_COUNT" -eq 171 ]; then
   pass
 else
   fail "expected 171 hooks in full mode, got $HOOK_COUNT"
