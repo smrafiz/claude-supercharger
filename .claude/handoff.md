@@ -6,12 +6,10 @@ session on any machine.**
 ### Current State
 *Verified 2026-10-25, session `3d213381`.*
 
-- **Released: v4.3.25** (#168 Trust Receipts, #169 audit-trail patterns). Installed v4.3.25 on Machine A.
-- **Merged since:** #170 (`f7e5cc6`, installer deploys all python tools + notifier; receipts skip tab
-  tools), #171 (`2818913`, reinstall/update no longer die on a staged directory).
-- **In flight: 4.3.26** = #170 + #171. Machine A launchd `sc.finish.4326b`; result in
-  `~/.cache/sc-finish-4.3.26.result`. Master after #170 alone broke every second install/update.
-- **Docs PR `docs/handoff-1025`**: notes, this file, brief. Merge after 4.3.26.
+- **Released: v4.3.26** (`ba42d22`) = #170 (`f7e5cc6`, installer deploys all python tools + notifier;
+  receipts skip tab tools) + #171 (`2818913`, reinstall/update no longer die on a staged directory).
+  Job result: `OK: ... v4.3.26; gate: 1 skip; receipts.py+notifier: present`. Installed on Machine A.
+- **Docs PR #172** (`docs/handoff-1025`): notes, this file, brief. Merged after 4.3.26.
 - **/sc-update installs master, not a tag.** Check master CI after every merge.
 - **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>`. The
   "update.sh actually deploys" step updates FROM MASTER, so an update-path fix fails it on its own branch.
