@@ -843,6 +843,14 @@ update, and `bash -n` was clean a minute later. A reader looping during six rede
 saw a partial file 151 times in 1194 reads. Copy into a staging directory and `mv` it
 into place (`_swap_into` in `lib/hooks.sh`): a rename swaps the file whole.
 
+A rename cannot replace a directory that already has files in it, and the old `cp -f`
+fallback skipped directories. Once `tools/notifier/` shipped (4.3.26), every reinstall
+and `/sc-update` stopped partway with tools half deployed. `_swap_into` now removes the
+old copy of a staged directory first. A command that runs a tool from
+`~/.claude/supercharger/tools/` needs that tool deployed: `test-install.sh` checks every
+such path in `configs/commands/*.md` after an install, because 4.3.25 shipped
+`/sc-receipts` without `receipts.py`.
+
 ### Say who an async alert is about
 
 An `asyncRewake` hook reaches Claude only through stderr, framed as `Stop hook blocking
@@ -858,6 +866,11 @@ The Windows job runs on master only. A test that assumes a Unix path in a reason
 that `ln -s` makes a link, passes on the PR and breaks master: on Git Bash the reason
 prints `C:\...` and `ln -s` makes a copy. Match a path by a name you control, and skip a
 symlink case when `[ -L ]` says none was made.
+
+The Windows step "update.sh runs on Git Bash and actually deploys" installs the branch,
+then updates by cloning master. A fix to the update path fails that step on its own
+branch run, because it runs master's unfixed installer, and the rest of the Windows
+suite is skipped. Gate such a PR on PR CI, and let master CI gate the release.
 
 ### The slowest hook sets the wait, not the hook count
 
