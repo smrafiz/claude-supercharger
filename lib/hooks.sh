@@ -682,7 +682,12 @@ stamp_hook_shebangs() {
 # file swapped atomically), then drop <stage>. If the rename fails (Windows refuses to
 # replace a file another process holds open), fall back to copying in place.
 _swap_into() {
-  mv -f "$2/"* "$1/" 2>/dev/null || cp -f "$2/"* "$1/"
+  # mv cannot replace a non-empty directory and cp -f skips one, so a staged
+  # directory (tools/notifier/) failed every reinstall and update (4.3.26 master).
+  # Clear the old copy first: it holds build source, never a script that is running.
+  local d
+  for d in "$2/"*/; do [ -d "$d" ] && rm -rf "$1/$(basename "$d")"; done
+  mv -f "$2/"* "$1/" 2>/dev/null || cp -Rf "$2/"* "$1/"
   rm -rf "$2"
 }
 
