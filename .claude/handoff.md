@@ -4,18 +4,16 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-21, session `3d213381`.*
+*Verified 2026-10-25, session `3d213381`.*
 
-- **Released: v4.3.24** (tag `650a392`). Installed v4.3.24 on Machine A.
-- **Merged since:** #167 docs, #168 Trust Receipts (`9a7c018`: `hooks/trust-receipts.sh`,
-  `/sc-receipts`, local ledger under `receipts/`; Windows dispatch run green).
-- **In flight: 4.3.25** = #168 + this PR (`audit-trail.sh` on the shared secret patterns,
-  redacts before the 200-char cut; this file). Release after this PR merges.
-- **Windows rule:** PR CI skips the Windows job. For Windows-touching work, run
-  `gh workflow run ci.yml --ref <branch>` and gate the merge on it. Test fixtures that pass
-  a POSIX path to native python as argv need `MSYS_NO_PATHCONV=1` (#168 went red on it).
-- **Release recipe:** detached `launchctl submit` job; quote PATH (it has spaces); does
-  NOT survive a reboot. Remove each PR worktree once merged.
+- **Released: v4.3.26** (`ba42d22`) = #170 (`f7e5cc6`, installer deploys all python tools + notifier;
+  receipts skip tab tools) + #171 (`2818913`, reinstall/update no longer die on a staged directory).
+  Job result: `OK: ... v4.3.26; gate: 1 skip; receipts.py+notifier: present`. Installed on Machine A.
+- **Docs PR #172** (`docs/handoff-1025`): notes, this file, brief. Merged after 4.3.26.
+- **/sc-update installs master, not a tag.** Check master CI after every merge.
+- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>`. The
+  "update.sh actually deploys" step updates FROM MASTER, so an update-path fix fails it on its own branch.
+- **Release recipe:** detached `launchctl submit` job, quote PATH, dies on reboot. Remove PR worktrees.
 - **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
 - **Machine A:** 4 stashes (drop only on the user's say-so).
 - **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
@@ -47,6 +45,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-25 (deep) — 3d213381
+4.3.25 released. #170 (installer missed receipts.py/notifier) then broke reinstall on master (dir swap);
+#171 fixed it. 4.3.26 job in flight. Three tests that could not fail, fixed.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-25 deep)
+
 #### 2026-10-21 (deep) — 3d213381
 4.3.24 released after a reboot killed the first job. #168 Trust Receipts merged (Windows green after an
 argv-conversion fixture fix). #169 audit-trail on shared secret patterns open; 4.3.25 releases both.
@@ -68,9 +71,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-19 de
 Released 4.3.18–4.3.20; 4.3.21 and 4.3.22 (STE mode, handoff --html) followed on 10-19. Found and fixed two cost errors (per-line usage 2.04x,
 family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-18 deep)
-
-#### 2026-10-17 (deep) — 3d213381
-4.3.14–4.3.17 released after a gist-500 CI flake stalled the chain. Built #145–#147 (grep FP,
-event-logger fields, guard canary + /sc-health); batched them into one 4.3.18. Closed 3 research items. 4.3.18 held: Windows CI caught the
-canary's bare `bash` (WSL launcher); fixed in #149, released 2026-10-18.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-17 deep)
