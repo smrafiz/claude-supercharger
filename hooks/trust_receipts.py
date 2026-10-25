@@ -16,6 +16,8 @@ SEND = {'send', 'post', 'create', 'share', 'upload', 'publish', 'update', 'delet
         'remove', 'edit', 'submit', 'set', 'rename', 'archive', 'forward', 'schedule'}
 READ = {'get', 'list', 'search', 'read', 'fetch', 'query', 'find', 'describe', 'view', 'export',
         'download', 'whoami', 'check', 'preview', 'resolve', 'count', 'lookup'}
+# Objects that live on this machine: claude-in-chrome's tabs_create_mcp opens a tab.
+LOCAL = {'tab', 'tabs'}
 # Argument keys that name where an MCP call went, most specific first.
 DEST_KEYS = ('to', 'recipient', 'recipients', 'emailAddress', 'email', 'channel', 'channel_id',
              'repo', 'repository', 'fileId', 'url', 'parentId', 'title', 'name', 'fileName', 'path')
@@ -143,7 +145,7 @@ def mcp_receipt(tool, ti):
         return None
     server, name = '__'.join(parts[1:-1]), parts[-1]
     words = [w.lower() for w in re.findall(r'[A-Za-z][a-z0-9]*|[A-Z]+(?![a-z])', name)]
-    if not words or words[0] in READ or not SEND & set(words):
+    if not words or words[0] in READ or not SEND & set(words) or LOCAL & set(words):
         return None
     server = re.sub(r'^(claude_ai_|plugin_)', '', server).replace('_', ' ')
     dest = ''

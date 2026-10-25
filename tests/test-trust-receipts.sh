@@ -58,6 +58,7 @@ begin_test "receipts: MCP reads are skipped; a plugin-namespaced send is not"
 reset
 post mcp__claude_ai_Google_Drive__get_file_permissions '{"fileId":"1"}'
 post mcp__context7__supercharger__resolve-library-id '{"libraryName":"x"}'
+post mcp__claude-in-chrome__tabs_create_mcp '{}'
 post mcp__plugin_team_slack__postMessage '{"channel":"C1"}'
 [ "$(count)" = 1 ] && last | grep -q 'postMessage C1' && pass || fail "got: $(cat "$R"/*.jsonl 2>/dev/null)"
 

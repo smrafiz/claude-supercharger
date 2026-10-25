@@ -26,6 +26,16 @@ assert_file_exists "$HOME/.claude/rules/economy.md" &&
 pass ; } || { echo "    install.sh output:"; sed 's/^/      /' "$INSTALL_ERR" | tail -25; }
 teardown_test_home
 
+begin_test "install: every tool a command runs from the install is deployed"
+setup_test_home
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+MISSING=""
+for p in $(grep -ohE 'supercharger/tools/[A-Za-z0-9_./-]+' "$REPO_DIR"/configs/commands/*.md | sort -u); do
+  [ -f "$HOME/.claude/$p" ] || MISSING="$MISSING ${p#supercharger/tools/}"
+done
+[ -z "$MISSING" ] && pass || fail "commands reference tools the install lacks:$MISSING"
+teardown_test_home
+
 # --- Test: Quick install fork applies defaults with minimal prompts ---
 begin_test "install: Quick fork (Enter) applies full/developer/minimal/light/commits-on"
 setup_test_home
