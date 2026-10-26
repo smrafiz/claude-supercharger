@@ -4,20 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-25, session `3d213381`.*
+*Verified 2026-10-26, session `3d213381`.*
 
-- **Released: v4.3.26** (`ba42d22`) = #170 (`f7e5cc6`, installer deploys all python tools + notifier;
-  receipts skip tab tools) + #171 (`2818913`, reinstall/update no longer die on a staged directory).
-  Job result: `OK: ... v4.3.26; gate: 1 skip; receipts.py+notifier: present`. Installed on Machine A.
-- **Docs PR #172** (`docs/handoff-1025`): notes, this file, brief. Merged after 4.3.26.
-- **/sc-update installs master, not a tag.** Check master CI after every merge.
-- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>`. The
-  "update.sh actually deploys" step updates FROM MASTER, so an update-path fix fails it on its own branch.
+- **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
+  release only when the user says so. Merged since 4.3.26: #173-#179 (master `432c049`).
+- **Open PRs for 4.4:** #180 update-check backoff, #181 SkillSpector skill-scan rules, #182 code-injection
+  env vars (ask). A per-agent allowlist PR (`feat/agent-allowlist`) was being built by a subagent at writing.
+- **Master CI on `432c049`:** in progress at writing (Windows takes 60+ min). /sc-update installs master.
+- **Machine A coexists with Caveman** (API proxy + shrink-hook; telemetry/routing/cloud turned OFF
+  2026-10-26), Ponytail 5.3.2 (band hidden), Graphify skill (plinth + radius-bundles graphs built).
+  See memory `caveman-coexistence`: it elides FAIL/deny lines and rewrites Bash commands.
+- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for anything
+  touching cmd-normalize/safety/git-safety.
 - **Release recipe:** detached `launchctl submit` job, quote PATH, dies on reboot. Remove PR worktrees.
-- **Open (user):** star-keeper `git config supercharger.commitTypes "words notes access handoff drafts"`.
-- **Machine A:** 4 stashes (drop only on the user's say-so).
-- **Machine B:** unknown. **Open (user):** radius-apps guard-push wrapper; rotate CRON_SECRET;
-  re-enable radius-apps Actions.
+- **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook (no co-author trailers);
+  4 stashes on Machine A; radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -45,6 +46,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-26 (deep) — 3d213381
+Audit day: ECC re-audit, Karpathy, Ponytail, cc-switch, gstack + open-source prompts, Graphify,
+Caveman, Orca, claude-mem, archify, ruflo, SkillSpector, raptor. Shipped #173-#179 to master, opened
+#180-#182; found rules/*.yml never loads, CC cost already includes subagents, Caveman rewrites commands.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-10-25 (deep) — 3d213381
 4.3.25 released. #170 (installer missed receipts.py/notifier) then broke reinstall on master (dir swap);
 #171 fixed it. 4.3.26 job in flight. Three tests that could not fail, fixed.
@@ -66,8 +73,3 @@ Released 4.3.21–4.3.23; 4.3.24 in flight. Replayed 4,000 real calls through ev
 core guards never exit outside 0/2 (so `onFailure:block` is safe), and 8 guards were dead on the plugin
 (committed 644). Per-repo commit types; health catches IS_DEMO.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-19 deep)
-
-#### 2026-10-18 (deep) — 3d213381
-Released 4.3.18–4.3.20; 4.3.21 and 4.3.22 (STE mode, handoff --html) followed on 10-19. Found and fixed two cost errors (per-line usage 2.04x,
-family pricing 1.57x), an inert screen redactor, a `$IFS` evasion and a credential fail-open under load.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-18 deep)
