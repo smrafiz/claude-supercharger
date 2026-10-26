@@ -299,7 +299,8 @@ fi
 begin_test "install: release.sh will write current hook counts into the README"
 SAFE_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks safe false)
 FULL_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks full true)
-_RM=$(mktemp); cp "$REPO_DIR/README.md" "$_RM"
+_RM=$(mktemp)
+cp "$REPO_DIR/README.md" "$_RM"
 _SED=$(grep -E "^[[:space:]]*(sed -i\.bak -e |-e )\"s/\^\| \\\\\*\\\\\*(Safe|Full)" "$REPO_DIR/tools/release.sh" | wc -l | tr -d ' ')
 sed -i.bak -e "s/^| \*\*Safe\*\* | [0-9]* |/| **Safe** | ${SAFE_N} |/" \
            -e "s/^| \*\*Full\*\* | [0-9]* |/| **Full** | ${FULL_N} |/" "$_RM" && rm -f "$_RM.bak"
