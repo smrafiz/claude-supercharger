@@ -823,14 +823,16 @@ NETWORK_PATTERNS=(
   #   (c) an explicit stdin operand — `… | bash -`, `… | bash /dev/stdin`
   # curl/wget piped to a shell keep their own dedicated patterns above, so the
   # download-and-execute case stays covered twice over.
-  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]*([;&|)]|$)'
-  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)[[:space:]]+-[[:alnum:]]*c([[:space:]]|[;&|)]|$)'
+  # An elevating launcher between the pipe and the shell (sudo -u root bash)
+  # still runs the piped bytes; it hid the shell from all three forms.
+  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]*([;&|)]|$)'
+  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)[[:space:]]+-[[:alnum:]]*c([[:space:]]|[;&|)]|$)'
   # The trailing class MUST accept a command separator, not just space-or-end:
   # `… | bash -; echo done` and `… | bash /dev/stdin; echo done` slipped through
   # while it was `([[:space:]]|$)`, because `;` is neither. The old blanket pattern
   # caught these, so narrowing had silently reopened them — found by the
   # pipe-to-shell bases added to fuzz-safety.sh, which is why they were added.
-  '[^|]\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
+  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
   # v4.2.0: command-position `bash -c` is judged below (_sc_opaque_shell_c), not
   # here: a LITERAL body is appended by normalize_cmd and checked by every rule,
   # so only an opaque body (variable, $( ), backtick, decoded) is still denied.
