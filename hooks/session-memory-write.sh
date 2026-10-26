@@ -95,6 +95,8 @@ if not texts:
 
 # Scan the last 5 assistant messages for decision phrases
 recent = ' '.join(texts[-5:])
+# <private>…</private> (unclosed: to the end) never reaches the memory file.
+recent = re.sub(r'<private>.*?(?:</private>|\Z)', ' ', recent, flags=re.S)
 patterns = [
     r"\b(?:I'?ll|I will|I'?m going to|going with)\s+([^.\n]{10,140}?)\s+(?:because|since|so that|to)\s+([^.\n]{5,120})",
     r"\bdecided to\s+([^.\n]+?)(?:\s+(?:because|since)\s+([^.\n]{5,120})|(?=[.\n]|$))",

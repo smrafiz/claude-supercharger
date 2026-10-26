@@ -68,7 +68,7 @@ _HO_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || 
 [ -z "$_HO_SID" ] && _HO_SID="${CLAUDE_CODE_SESSION_ID:-}"
 HANDOFF_FILE=$(select_handoff_file "$PROJECT_DIR" "$_HO_SID" 604800)
 HANDOFF_BLOCK=""
-[ -n "$HANDOFF_FILE" ] && HANDOFF_BLOCK=$(head -c 2500 "$HANDOFF_FILE" 2>/dev/null || echo "")
+[ -n "$HANDOFF_FILE" ] && HANDOFF_BLOCK=$(handoff_index "$HANDOFF_FILE" | head -c 2500)
 
 # Checkpoint recovery fallback
 if [ ! -f "$MEMORY_FILE" ]; then

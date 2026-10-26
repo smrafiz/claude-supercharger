@@ -25,3 +25,19 @@ prompt_is_harness() {
   esac
   return 1
 }
+
+# sc_strip_private VAR — remove every <private>…</private> span from the variable
+# named VAR, in place, before anything is written to memory or lessons. An unclosed
+# <private> drops the rest: when the end is missing, keeping less is the safe side.
+# Idea from thedotmack/claude-mem (audited 2026-10-26). Fork-free.
+sc_strip_private() {
+  local _v="${!1}"
+  while [[ "$_v" == *"<private>"* ]]; do
+    if [[ "${_v#*<private>}" == *"</private>"* ]]; then
+      _v="${_v%%<private>*}${_v#*</private>}"
+    else
+      _v="${_v%%<private>*}"
+    fi
+  done
+  printf -v "$1" '%s' "$_v"
+}

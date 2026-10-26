@@ -54,6 +54,9 @@ PAIR=$(tail -n 400 "$TRANSCRIPT" 2>/dev/null | jq -rs '
 ' 2>/dev/null || echo "__SC_SEP__")
 LAST_USER="${PAIR%%__SC_SEP__*}"
 LAST_ASSIST="${PAIR#*__SC_SEP__}"
+# <private>…</private> text never becomes a lesson, even when the reply quotes it.
+. "${BASH_SOURCE[0]%/*}/lib-prompt-source.sh" 2>/dev/null \
+  && sc_strip_private LAST_USER && sc_strip_private LAST_ASSIST
 
 [ -z "$LAST_ASSIST" ] && exit 0
 
