@@ -1010,7 +1010,29 @@ def check_exfiltration(c: str) -> str | None:
         for sens in _SENSITIVE_PATHS:
             if re.search(sens, c):
                 return "network upload of sensitive source — possible credential exfiltration"
+        # An upload of ANY file to a paste or anonymous-transfer site. The WebFetch
+        # and MCP guards already refused these hosts; Bash curl/wget did not
+        # (found 2026-10-26 from the MiMo Code prompt). One list, read from
+        # lib-egress-patterns.sh, so the channels cannot drift apart.
+        paste = _paste_re()
+        if paste and paste.search(c.lower()):
+            return "upload to a paste or anonymous file-transfer site — possible data exfiltration"
     return None
+
+
+_PASTE = []
+
+
+def _paste_re():
+    if not _PASTE:
+        try:
+            src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                                    "lib-egress-patterns.sh"), encoding="utf-8").read()
+            m = re.search(r"^EGRESS_PASTE_RE='([^']*)'", src, re.M)
+            _PASTE.append(re.compile(m.group(1)) if m else None)
+        except (OSError, re.error):
+            _PASTE.append(None)
+    return _PASTE[0]
 
 
 # ──────────────────────────────────────────────────────────────────────────

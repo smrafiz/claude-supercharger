@@ -998,6 +998,9 @@ INPUT_INJECT_PATTERNS=(
 POWERSHELL_PATTERNS=(
   'Remove-Item[^;&|]*-(Recurse|Force|r[[:space:]]|fo)'
   'Remove-Item[^;&|]*-(Recurse|Force)'
+  # Remove-Item's aliases (ri, del, erase, rd, rmdir) with a recursive flag:
+  # `ri -r -fo C:\` was allowed while the spelled-out cmdlet was denied (gstack /careful).
+  '(^|[;&|({[:space:]])(ri|del|erase|rd|rmdir)[[:space:]]+[^;&|]*-(r|rec|recurse)([[:space:]]|$)'
   # 4.2.1: the .NET call behind Remove-Item -Recurse (recursive flag = $true)
   '\[(System\.)?IO\.Directory\]::Delete[[:space:]]*\([^)]*,[[:space:]]*\$true'
   '(^|[^A-Za-z])(Invoke-Expression|iex)([[:space:]]|\()'

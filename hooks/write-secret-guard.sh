@@ -31,6 +31,28 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 . "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
 [ -n "$_INPUT" ] || exit 0
 
+# A Write REPLACES the whole file. On an existing .env that drops every key the new
+# content leaves out, and the secret check below never fires because the new
+# content may hold none (found 2026-10-26 from the Bolt prompt). Ask once per file
+# per session. Raw-text gate first: the normal write never gets past the case.
+case "$_INPUT" in
+  *'"tool_name":"Write"'*.env*|*'"tool_name": "Write"'*.env*)
+    _WSG_EF=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.file_path // empty' 2>/dev/null || true)
+    case "${_WSG_EF##*/}" in
+      .env.example|.env.template|.env.sample|.env.dist|.env.*.example) ;;
+      .env|.env.*)
+        if [ -s "$_WSG_EF" ]; then
+          _WSG_EACK="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope/.env-overwrite-ack-$(printf '%s\n' "$_INPUT" | jq -r '.session_id // "nosession"' 2>/dev/null)"
+          if ! grep -qxF "$_WSG_EF" "$_WSG_EACK" 2>/dev/null; then
+            mkdir -p "${_WSG_EACK%/*}" 2>/dev/null; printf '%s\n' "$_WSG_EF" >> "$_WSG_EACK" 2>/dev/null
+            sc_decision ask "this Write replaces the whole of ${_WSG_EF##*/}, an existing env file; any key the new content leaves out is lost. Asked once per file per session." \
+              "use Edit to change single keys; go ahead if a full rewrite is intended"
+            exit 0
+          fi
+        fi ;;
+    esac ;;
+esac
+
 # shellcheck source=hooks/lib-secret-patterns.sh
 . "$HOOKS_DIR/lib-secret-patterns.sh" 2>/dev/null || exit 0
 [ "${#SECRET_PATTERNS[@]}" -gt 0 ] || exit 0

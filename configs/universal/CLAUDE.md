@@ -19,6 +19,7 @@ Before claiming any task is complete:
 
 ## Safety Boundaries
 Destructive commands are blocked at the shell level — you will receive an error if you attempt them.
+- A Supercharger block is final for that action: never get the same effect another way (other tool, script, alias, encoding); tell the user instead. Rewording a call the permission classifier refused is fine
 - Never modify files outside the project directory without asking
 - If a request seems risky, explain the risk and ask for confirmation
 
