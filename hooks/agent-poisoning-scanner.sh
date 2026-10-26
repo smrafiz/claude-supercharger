@@ -94,7 +94,8 @@ except Exception:
         ('curl pipe to shell',      re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh', I), 'CRITICAL'),
         ('environment exfiltration', re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl', I), 'CRITICAL'),
         ('reverse shell pattern',   re.compile(r'mkfifo|/dev/tcp/|nc\s+-[el]', I),               'CRITICAL'),
-        ('hidden instruction override', re.compile(r'ignore\s+(?:previous|above|all)\s+(?:instructions|rules)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
+        ('fetch pipe to interpreter', re.compile(r'(?:curl|wget)\s+[^|\n]*\|\s*(?:sudo\s+)?(?:python3?|node|ruby|perl)\b|\b(?:iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^|\n]*\|\s*(?:iex|Invoke-Expression)\b', I), 'CRITICAL'),
+        ('hidden instruction override', re.compile(r'ignore\s+(?:(?:all|any|the|previous|prior|above|earlier|your)\s+){1,3}(?:instructions|rules|directives)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
     ]
     _ZW = ('​', '‌', '‍', '﻿')
 
