@@ -13,7 +13,7 @@ mkdir -p "$HOME/.claude/supercharger/hooks"
 echo "rules" > "$HOME/.claude/rules/supercharger.md"
 echo "rules" > "$HOME/.claude/rules/guardrails.md"
 echo "rules" > "$HOME/.claude/rules/developer.md"
-echo "rules" > "$HOME/.claude/rules/anti-patterns.yml"
+echo "rules" > "$HOME/.claude/rules/anti-patterns.md"
 echo "role" > "$HOME/.claude/supercharger/roles/developer.md"
 echo "hook" > "$HOME/.claude/supercharger/hooks/safety.sh"
 echo '{}' > "$HOME/.claude/settings.json"
@@ -34,7 +34,7 @@ printf 'y\nn\n' | bash "$REPO_DIR/uninstall.sh" >/dev/null 2>&1 || true
 assert_file_not_exists "$HOME/.claude/rules/supercharger.md" &&
 assert_file_not_exists "$HOME/.claude/rules/guardrails.md" &&
 assert_file_not_exists "$HOME/.claude/rules/developer.md" &&
-assert_file_not_exists "$HOME/.claude/rules/anti-patterns.yml" &&
+assert_file_not_exists "$HOME/.claude/rules/anti-patterns.md" &&
 pass
 teardown_test_home
 

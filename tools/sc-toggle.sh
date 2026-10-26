@@ -113,7 +113,7 @@ RULES_MANIFEST="$STATE_DIR/rules-moved.txt"
 
 _sc_owned_rules() {   # -> one filename per line, only those present on disk
   local f
-  for f in supercharger.md guardrails.md economy.md anti-patterns.yml; do
+  for f in supercharger.md guardrails.md economy.md anti-patterns.md anti-patterns.yml; do
     [ -f "$RULES_DIR/$f" ] && printf '%s\n' "$f"
   done
   # Roles: identified against the installed role sources, so a same-named file
