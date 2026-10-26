@@ -76,3 +76,21 @@ select_handoff_file() {
   [ -n "$best" ] && printf '%s\n' "$best"
   return 0
 }
+
+# handoff_index <file> — the brief as an outline: the title, every `###` heading,
+# its first two lines (each cut at 160 chars), a count of what was left out, and
+# the path to Read for the rest. A plain `head -c 2500` cut the brief mid-line and
+# dropped every section past the budget (Decisions, What Failed). Index first,
+# expand on demand: idea from thedotmack/claude-mem (audited 2026-10-26).
+handoff_index() {
+  [ -f "$1" ] || return 0
+  # Path FIRST: callers cap the block, and the pointer must survive the cut.
+  printf 'Outline of %s (Read the file for the full brief before resuming).\n' "$1"
+  awk '
+    function flush() { if (more > 0) printf "  (+%d more line%s)\n", more, (more == 1 ? "" : "s"); more = 0 }
+    /^### / { flush(); print; n = 0; next }
+    /^[[:space:]]*$/ { next }
+    { if (n < 2) { print (length($0) > 160 ? substr($0, 1, 157) "..." : $0) } else { more++ }; n++ }
+    END { flush() }
+  ' "$1" 2>/dev/null
+}

@@ -24,6 +24,9 @@ fi
 # Stop hook feedback ("wrong, not verified") is not the user correcting Claude.
 # shellcheck source=hooks/lib-prompt-source.sh
 . "${BASH_SOURCE[0]%/*}/lib-prompt-source.sh" 2>/dev/null && prompt_is_harness "$PROMPT" && exit 0
+# <private>…</private> text is never logged as a correction or preference.
+command -v sc_strip_private >/dev/null 2>&1 && sc_strip_private PROMPT
+[[ "$PROMPT" =~ [^[:space:]] ]] || exit 0   # a regex test, not ${//}: linear on a huge prompt
 
 PROMPT_LOWER=$(printf '%s\n' "$PROMPT" | tr '[:upper:]' '[:lower:]')
 # Resolve state/code roots for both installer and plugin runtimes (see lib-paths.sh).
