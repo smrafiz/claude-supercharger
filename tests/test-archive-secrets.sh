@@ -22,9 +22,11 @@ echo "=== archiving secrets ==="
 _hook() {
   local d; d=$(mktemp -d)
   printf '{"session_id":"as","cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"%s"}}' "$1" \
-    | SUPERCHARGER_STATE="$d" SUPERCHARGER_NO_DEDUP=1 bash "$SAFETY" >/dev/null 2>&1
-  local rc=$?; rm -rf "$d"
-  [ "$rc" = 2 ] && echo deny || echo open
+    | SUPERCHARGER_STATE="$d" SUPERCHARGER_NO_DEDUP=1 bash "$SAFETY" >"$d/out" 2>/dev/null
+  local rc=$? out; out=$(cat "$d/out" 2>/dev/null); rm -rf "$d"
+  # "ask" is not "open": a guard that could not read its stdin in time asks; the
+  # failure line should say so instead of reporting the rule as missing.
+  case "$rc:$out" in 2:*|*'"permissionDecision":"deny"'*) echo deny ;; *'"permissionDecision":"ask"'*) echo ask ;; *) echo open ;; esac
 }
 
 while IFS='|' read -r CMD WANT; do
