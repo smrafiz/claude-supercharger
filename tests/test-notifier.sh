@@ -49,8 +49,14 @@ if [ -z "$_F" ] || ! swiftc -O "$REPO_DIR/tools/notifier/main.swift" -o "$_ND/n"
   echo "    (skipped: no frontmost app or no Swift)"; pass
 else
   _E=$("$_ND/n" t b "" "$_F" 2>&1); _RC=$?
-  { [ "$_RC" = 0 ] && [[ "$_E" == "skipped: $_F is frontmost"* ]] \
-    && grep -q 'SUPERCHARGER_NOTIFY_WHEN_FOCUSED' "$REPO_DIR/tools/notifier/main.swift"; } && pass || fail "rc=$_RC out=$_E"
+  # The bare binary has no bundle, so if focus moved off $_F between the probe
+  # and the run it skips the frontmost exit and dies in UNUserNotificationCenter
+  # (rc=134 NSInternalInconsistencyException). That is the user switching apps,
+  # not a notifier bug: re-probe and skip when focus changed.
+  _F2=$("$_ND/f" 2>/dev/null)
+  if [ "$_F2" != "$_F" ]; then echo "    (skipped: focus moved $_F -> $_F2 during the test)"; pass
+  else { [ "$_RC" = 0 ] && [[ "$_E" == "skipped: $_F is frontmost"* ]] \
+    && grep -q 'SUPERCHARGER_NOTIFY_WHEN_FOCUSED' "$REPO_DIR/tools/notifier/main.swift"; } && pass || fail "rc=$_RC out=$_E"; fi
 fi
 rm -rf "$_ND"
 

@@ -42,6 +42,12 @@ export SUPERCHARGER_NO_NOTIFY="${SUPERCHARGER_NO_NOTIFY:-1}"
 # 4.3.0: install.sh compiles the macOS notifier app (seconds per install). Tests
 # install many times; only test-notifier.sh builds it, by unsetting this.
 export SUPERCHARGER_NO_NOTIFIER=1
+# A guard that cannot read its payload within SUPERCHARGER_STDIN_TIMEOUT_S (5s)
+# answers ask. Under full-suite load a guard can start that late, and a deny test
+# reads the ask as a miss (credential matrix, run 18 of 20: 'cat ~/.codex/auth.json'
+# -> ask; safety.sh asks nowhere else). Tests check the decision, not the budget;
+# test-stdin-timeout.sh sets its own.
+export SUPERCHARGER_STDIN_TIMEOUT_S="${SUPERCHARGER_STDIN_TIMEOUT_S:-30}"
 
 # --- bytecode-cache isolation ------------------------------------------------
 # Many tests point HOME at an unwritable path (/nonexistent) to exercise the
