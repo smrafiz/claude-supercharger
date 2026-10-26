@@ -2,6 +2,7 @@
 # Claude Supercharger — Per-Agent Allowlist Guard (opt-in)
 # Event: PreToolUse | Matcher: Bash,Monitor,PowerShell,WebFetch,Write,Edit,MultiEdit,NotebookEdit,Agent,Workflow
 # Opt-in: a subagent whose definition declares supercharger-allow lists is held to them.
+# Disable: SUPERCHARGER_AGENT_ALLOWLIST=0
 #
 # An agent definition (~/.claude/agents/<name>.md or <project>/.claude/agents/
 # <name>.md) may narrow what that agent can do, in its frontmatter:
