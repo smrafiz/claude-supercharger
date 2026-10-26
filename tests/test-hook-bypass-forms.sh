@@ -68,4 +68,12 @@ while IFS= read -r line; do
 done < "$TMP/cases"
 
 rm -rf "$TMP"
+
+# Windows jq hands the command over with CRLF, so a continuation arrives as
+# backslash-CR-LF. This passed on macOS/Linux and failed only on the Windows runner;
+# check the normalizer directly with that spelling so every OS exercises it.
+begin_test "bypass: normalizer joins a backslash-CR-LF continuation"
+NORM=$(source "$REPO_DIR/hooks/cmd-normalize.sh"; normalize_cmd "g\\"$'\r\n'"it push --no-verify")
+case "$NORM" in *"git push --no-verify"*) pass ;; *) fail "not joined: $(printf '%q' "$NORM")" ;; esac
+
 report

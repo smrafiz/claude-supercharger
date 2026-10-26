@@ -387,7 +387,8 @@ normalize_cmd() {
   # The shell deletes backslash-newline before it splits words, so `g\<newline>it`
   # runs git. Guarded by a case: ${v//x/y} is not free on a large command.
   # Windows jq emits CRLF, so the continuation can arrive as backslash-CR-LF.
-  case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\r\n'/}"; cmd="${cmd//\\$'\n'/}" ;; esac
+  # The case must admit that spelling too, or the CR-LF removal never runs.
+  case "$cmd" in *\\$'\n'*|*\\$'\r\n'*) cmd="${cmd//\\$'\r\n'/}"; cmd="${cmd//\\$'\n'/}" ;; esac
   # Pre-prelude text for the substitution scan below. A heredoc body still here is
   # CODE for another language (python, node), where `$(` and backticks are not
   # shell: replaying real commands showed 3 python heredocs newly denied when it
