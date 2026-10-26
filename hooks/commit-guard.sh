@@ -43,6 +43,19 @@ _deny() {  # $1 = reason (plain text) → emit PreToolUse deny + exit 2
   exit 2
 }
 
+# ─── Amend of a commit a remote branch already holds ─────────────────────────
+# Rewriting it forces a force-push and breaks every clone that pulled it (found
+# 2026-10-26 from the OpenCode/MiMo prompts). The git fork runs only on --amend.
+if printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z0-9_-])git[[:space:]]+commit[[:space:]][^;&|]*--amend([[:space:]]|$)' \
+   && ! check_hook_disabled "commit-amend-pushed"; then
+  _CA_REMOTE=$(git -C "$PROJECT_DIR" branch -r --contains HEAD 2>/dev/null | head -1 | tr -d ' ')
+  if [ -n "$_CA_REMOTE" ]; then
+    sc_decision ask "git commit --amend rewrites HEAD, which $_CA_REMOTE already has; pushing it then needs a force-push and breaks clones that pulled it." \
+      "make a new commit instead, or confirm the amend if that remote branch is yours alone"
+    exit 0
+  fi
+fi
+
 # ─── Check 1: co-author guard (opt-in, default OFF) ──────────────────────────
 # Enable per-machine: touch scope/.coauthor-guard ; per-session: SUPERCHARGER_COAUTHOR_GUARD=1 (0 disables).
 if ! check_hook_disabled "commit-coauthor-guard"; then
