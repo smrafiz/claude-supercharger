@@ -199,4 +199,23 @@ case "$_UCU_MSG" in
   *) fail "notice does not point at /sc-update: $_UCU_MSG" ;;
 esac
 
+# Backoff: a failed fetch must not be retried on every session start. A python3
+# shim stands in for the network: it counts calls and prints nothing (= a failure).
+begin_test "update-check: after a failed fetch, the next session does not retry for 6h"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger" "$HOME/shim"
+echo "4.3.26" > "$HOME/.claude/supercharger/.version"
+cat > "$HOME/shim/python3" <<'SH'
+#!/bin/sh
+case "$*" in *api.github.com*) echo x >> "$HOME/fetches" ;; esac
+SH
+chmod +x "$HOME/shim/python3"
+_uc() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; sleep 2; }
+_uc; N1=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
+_uc; N2=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
+SUPERCHARGER_UPDATE_RETRY_S=0 _uc; N3=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
+teardown_test_home
+{ [ "$N1" = 1 ] && [ "$N2" = 1 ] && [ "$N3" = 2 ]; } && pass \
+  || fail "fetches: first=$N1 (want 1), retried-at-once=$N2 (want 1), after-window=$N3 (want 2)"
+
 report

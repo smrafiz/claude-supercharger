@@ -109,6 +109,15 @@ if [ -f "$CACHE_FILE" ]; then
 fi
 
 # Fetch remote version and cache it (background, non-blocking)
+# Backoff: a failed fetch (offline, GitHub down, rate-limited) left no cache, so
+# EVERY session start tried again. After a failure, wait 6 hours.
+FAIL_FILE="$SUPERCHARGER_DIR/.update-check-failed"
+if [ -f "$FAIL_FILE" ]; then
+  FAIL_MTIME=$(stat -c "%Y" "$FAIL_FILE" 2>/dev/null || stat -f "%m" "$FAIL_FILE" 2>/dev/null || echo "")
+  case "$FAIL_MTIME" in ''|*[!0-9]*) FAIL_MTIME=0 ;; esac
+  [ $(( $(date +%s) - FAIL_MTIME )) -lt "${SUPERCHARGER_UPDATE_RETRY_S:-21600}" ] && exit 0
+fi
+
 {
   REMOTE=$(python3 -c "
 import urllib.request, json, base64
@@ -126,7 +135,11 @@ except Exception:
     print('')
 " 2>/dev/null)
 
-  [ -n "$REMOTE" ] && echo "$REMOTE" > "$CACHE_FILE"
+  if [ -n "$REMOTE" ]; then
+    echo "$REMOTE" > "$CACHE_FILE"; rm -f "$FAIL_FILE" 2>/dev/null
+  else
+    touch "$FAIL_FILE" 2>/dev/null
+  fi
 
   # No banner here. This block is backgrounded (`} &`), so its stdout is
   # orphaned and cannot reach the terminal however the hook is registered —
