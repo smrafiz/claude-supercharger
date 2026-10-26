@@ -82,8 +82,10 @@ begin_test "git-safety: push -uf to main is denied"
 gpv 'git push -uf origin main' | grep -q '"deny"' && pass || fail "allowed"
 begin_test "git-safety: push -fu to master is denied"
 gpv 'git push -fu origin master' | grep -q '"deny"' && pass || fail "allowed"
-begin_test "git-safety: push -uf to a feature branch is rewritten to -u"
-gpv 'git push -uf origin feature' | grep -q '"command":"git push -u origin feature"' && pass || fail "not rewritten to -u"
+# 4.4: a non-protected force push asks instead of being rewritten (another hook's
+# updatedInput can override a rewrite); the combined -uf spelling must still count.
+begin_test "git-safety: push -uf to a feature branch asks"
+gpv 'git push -uf origin feature' | grep -q '"ask"' && pass || fail "combined -uf not treated as a force push"
 begin_test "git-safety: push -u to main stays allowed"
 [ -z "$(gpv 'git push -u origin main')" ] && pass || fail "flagged a plain upstream push"
 

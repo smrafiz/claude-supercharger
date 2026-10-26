@@ -88,7 +88,7 @@ LOG_JSON=$(printf '%b' "$LONG_LOG" | jq -Rs '.')
 INPUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git log --all"},"tool_response":{"stdout":%s},"cwd":"/tmp"}' "$LOG_JSON")
 OUT=$(echo "$INPUT" | SUPERCHARGER_STATE="$ST" bash "$HOOK" 2>/dev/null)
 SAVED=$(printf '%s' "$OUT" | jq -r '.hookSpecificOutput.updatedToolOutput' | sed -n 's/.*saved to \([^;]*\);.*/\1/p')
-MODE=$(stat -f '%Lp' "$SAVED" 2>/dev/null || stat -c '%a' "$SAVED" 2>/dev/null)
+MODE=$(stat -c '%a' "$SAVED" 2>/dev/null || stat -f '%Lp' "$SAVED" 2>/dev/null)  # GNU first: Linux 'stat -f' reports the filesystem and succeeds
 { [ -n "$SAVED" ] && grep -q 'abc30 commit 30' "$SAVED" && [ "$MODE" = 600 ]; } \
   && pass || fail "saved='$SAVED' mode='$MODE' out=$OUT"
 rm -rf "$ST"
