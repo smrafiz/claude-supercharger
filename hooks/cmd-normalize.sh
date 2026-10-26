@@ -85,6 +85,7 @@ def shellout_cmds(line, ticks):
 
 # <<- allows a tab-indented terminator; <<< is a herestring and is NOT a heredoc.
 START = re.compile(r'<<(?!<)(-?)\s*(["\']?)([A-Za-z_][A-Za-z0-9_]*)\2')
+SUBST = re.compile(r'\$\(([^()]*)\)|`([^`]*)`')
 
 
 # v4.0.47: wrappers CARRY OPTIONS. The old form stripped only a bare
@@ -150,6 +151,9 @@ while i < len(lines):
     interp_body = keep_body and all(t in INTERP for t in recv)
     out.append(line)
     i += 1
+    # An UNQUOTED delimiter expands the body: its $(...) and backticks RUN even
+    # when the receiver is cat, so keep those commands as lines of their own.
+    expands = not m.group(2)
     # Consume through the terminator either way; only the body's fate differs.
     while i < len(lines):
         candidate = lines[i].strip() if dash else lines[i]
@@ -157,6 +161,8 @@ while i < len(lines):
             out.append(lines[i])
             i += 1
             break
+        if expands and not keep_body:
+            out.extend(a or b for a, b in SUBST.findall(lines[i]))
         if keep_body and (not prose_free or SHELLOUT.search(lines[i])
                           or (ticks and '`' in lines[i])):
             out.append(lines[i])
@@ -271,7 +277,7 @@ _sc_wrapper_prelude_into() {
     /*/?*) [ -n "${_t0##*/}" ] && cmd="${_t0##*/}${cmd#"$_t0"}" ;;
   esac
   # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
-  while [[ "$cmd" =~ ^(sudo|command|builtin|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl)[[:space:]]+ ]]; do
+  while [[ "$cmd" =~ ^(sudo|command|builtin|exec|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
     cmd="${cmd#"${BASH_REMATCH[0]}"}"
     while :; do
@@ -283,7 +289,7 @@ _sc_wrapper_prelude_into() {
           # An option that takes a SEPARATE value: drop the value too, or it reads
           # as the command. `--opt=value` is one token and needs no second drop.
           case "${_w}:${_tok}" in
-            sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
+            exec:-a|sudo:-u|sudo:-g|sudo:-C|sudo:-D|sudo:-h|sudo:-p|sudo:-r|sudo:-t|sudo:-T|sudo:-U|\
             env:-u|env:--unset|env:-C|env:--chdir|env:-P|\
             nice:-n|ionice:-c|ionice:-n|ionice:-p|\
             timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
@@ -378,6 +384,9 @@ normalize_cmd() {
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
   # gets the same answer — one place, no cross-guard drift.
   cmd=$(strip_heredoc_bodies "$cmd")
+  # The shell deletes backslash-newline before it splits words, so `g\<newline>it`
+  # runs git. Guarded by a case: ${v//x/y} is not free on a large command.
+  case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\n'/}" ;; esac
   # Pre-prelude text for the substitution scan below. A heredoc body still here is
   # CODE for another language (python, node), where `$(` and backticks are not
   # shell: replaying real commands showed 3 python heredocs newly denied when it
@@ -505,7 +514,7 @@ normalize_cmd() {
   # the -exec block above does, so every segment rule sees it. The original text
   # stays in place for the rules that match on it.
   case "$cmd" in
-    *sh\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*)
+    *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*)
       local _sc_scan="$cmd" _sc_body
       # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
@@ -519,7 +528,9 @@ normalize_cmd() {
       esac
       local _sc_q="'" _sc_shc
       # v4.2.0: also a Windows spelling: `.exe`, a drive or backslash path, a quoted path.
-      _sc_shc='(^|[[:space:];&|(`])(["'"$_sc_q"']?([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash)(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      # The opening quote sits outside the path group: `'bash' -c` (quoted name,
+      # no path) was not unwrapped and ran its body unchecked.
+      _sc_shc='(^|[[:space:];&|(`])["'"$_sc_q"']?(([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash)(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
       _sc_tails=""
       for _sc_i in 1 2 3 4 5; do
         [[ "$_sc_scan" =~ $_sc_shc ]] || break

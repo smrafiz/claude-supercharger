@@ -23,7 +23,12 @@ case "$_INPUT" in
   *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"branch --delete"*|\
   *"stash drop"*|*"stash clear"*|*switch*|*reflog*|*prune*|*filter-branch*|\
   *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*|\
-  *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*[hH]ooks[pP]ath*) ;;
+  *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*[hH]ooks[pP]ath*|\
+  *[iI][nN][cC][lL][uU][dD][eE][.iI]*|*GIT_CONFIG*) ;;  # include.path / includeIf, not grep --include=
+  # A spliced or continued word (`com''mit`, `g\<newline>it`) hides every verb
+  # above from this raw-text gate; normalize_cmd joins it, so let those through.
+  # Word characters on both sides, so `sed -i ''` keeps the fast path.
+  *[[:alnum:]]"''"[[:alnum:]]*|*[[:alnum:]]'\"\"'[[:alnum:]]*|*'\\\n'*) ;;
   *) exit 0 ;;
 esac
 
@@ -130,15 +135,50 @@ while IFS= read -r seg; do
   # Test flags on a quote-stripped copy so a commit MESSAGE mentioning "-n" or
   # "--no-verify" (e.g. -m "document --no-verify") is not falsely blocked. NOTE:
   # `git push -n` is --dry-run (harmless), so -n is blocked for commit only.
-  seg_flags=$(printf '%s' "$seg" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
+  # A flag in quotes is still a flag to git (`git push '--no-verify'`), so a
+  # quoted word that is only a flag is unquoted first; a message argument is
+  # emptied before that so `-m '-n'` stays prose.
+  seg_flags=$(printf '%s' "$seg" | sed -E \
+    -e 's/((^|[[:space:]])(-[a-zA-Z]*m|--message|-F|--file)([[:space:]]+|=))("[^"]*"|'\''[^'\'']*'\'')/\1/g' \
+    -e 's/(^|[[:space:]])["'\''](-[-a-zA-Z]+)["'\'']([[:space:]]|$)/\1\2\3/g' \
+    -e 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g')
   if [[ "$seg" =~ ^git[[:space:]] ]]; then
     # v4.2.0: normalize_cmd now drops git's global options (so `git -C x reset --hard`
     # reaches the reset rule), which removes `-c` from the segment: read the RAW
     # command for the inline-config checks instead.
+    # Quoted text is prose, except a $(...) or backtick inside double quotes, which
+    # the shell runs (`git commit -m "$(git -c core.hooksPath=/dev/null push)"`).
+    # Append just those bodies, so a message that merely MENTIONS the flag passes.
     seg_lc=$(printf '%s' "$COMMAND" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g' | tr '[:upper:]' '[:lower:]')
-    if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+core\.hookspath[=[:space:]] ]]; then
+    case "$COMMAND" in
+      *'$('*|*'`'*)
+        seg_lc="$seg_lc ; $(printf '%s' "$COMMAND" | grep -oE '\$\([^()]*\)|`[^`]*`' | tr '\n' ' ' | tr '[:upper:]' '[:lower:]')" ;;
+    esac
+    if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?core\.hookspath[=[:space:]] ]]; then
       block "git -c core.hooksPath= disables git hooks — verification bypass"
     fi
+    # An included config file can set core.hooksPath where no rule reads it.
+    if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?include(if\.[^=[:space:]]*)?\.path= ]]; then
+      ask "git -c include.path / includeIf.*.path loads a config file inline, which can turn off git hooks. Confirm what that file sets."
+    fi
+    # `git config core.hooksPath <dir>` re-points hooks for every later command;
+    # reading it (--get, get) or unsetting it stays allowed.
+    if [[ "$seg" =~ ^git[[:space:]]+config[[:space:]] ]] && [[ "$seg_lc" =~ (^|[[:space:]])core\.hookspath[[:space:]]+[^[:space:]] ]] && \
+       ! [[ "$seg_lc" =~ (^|[[:space:]])(--get|--get-all|--get-regexp|get|--unset|--unset-all|unset|-l|--list|list)([[:space:]]|$) ]]; then
+      block "git config core.hooksPath <dir> re-points git hooks away from the repo's own — verification bypass"
+    fi
+  fi
+  # The same override through the environment: GIT_CONFIG_COUNT/KEY_n/VALUE_n or
+  # GIT_CONFIG_PARAMETERS, which git reads exactly like -c.
+  if [[ "$seg" =~ ^git[[:space:]] ]] && [[ "$COMMAND" == *GIT_CONFIG_* ]]; then
+    case "$(printf '%s' "$COMMAND" | tr '[:upper:]' '[:lower:]')" in
+      *git_config_key_*core.hookspath*|*git_config_parameters*core.hookspath*)
+        block "GIT_CONFIG_KEY_n / GIT_CONFIG_PARAMETERS set core.hooksPath — verification bypass" ;;
+      *git_config_key_*include*|*git_config_parameters*include*)
+        ask "GIT_CONFIG_KEY_n / GIT_CONFIG_PARAMETERS load a config file inline, which can turn off git hooks. Confirm what it sets." ;;
+    esac
+  fi
+  if [[ "$seg" =~ ^git[[:space:]] ]]; then
     # An inline alias runs whatever its value says, under a name no rule knows.
     if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?alias\. ]]; then
       ask "git -c alias.<name>=... defines a command inline; its body is not checked by the git rules. Confirm what it runs."
