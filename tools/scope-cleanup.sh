@@ -62,6 +62,7 @@ patterns_max_age=(
   ".subagent-safety-injected-*:$SECS_WEEK"
   ".tool-history-*:$SECS_WEEK"
   ".tool-calls-*:$SECS_DAY"
+  ".full-output-*:$SECS_DAY"
   ".snapshot-*:$SECS_WEEK"
   ".contract-*:$SECS_DAY"
   ".user-corrections-*:$SECS_MONTH"
