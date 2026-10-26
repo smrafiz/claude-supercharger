@@ -680,17 +680,16 @@ try:
  except Exception:
      budget_str = ''
 
- # v2.7.37: unified line 3 — Claude + subagents, tokens AND cost together, with
- # the combined total. `equiv` (plan-equivalent $) is shown once, on the total.
- # CC does not fold subagent spend into its parent cost, so main + sub is a true
- # sum. Main tokens come from budget-cap's per-session accumulator (0 until it
- # runs a turn, then climbs).
- _tcost = cost + _sub_cost
+ # Line 3: tokens AND cost together. `equiv` (plan-equivalent $) is shown once.
+ # CC's cost.total_cost_usd ALREADY includes subagent spend (measured 2026-10-26:
+ # a session with one subagent reported exactly main + subagent tokens), so it is
+ # the total; our own subagent estimate is shown as the share inside it, never
+ # added on top (v2.7.37 added it and every subagent session read ~40% high).
+ # Main tokens come from budget-cap's per-session accumulator (0 until it runs).
  _ttok = _main_tok + _sub_tok
  if _sub_tok > 0 or _sub_cost > 0:
-     line3 = (f'{DIM}{cost_label}{RESET} {DIM}main{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{RESET}'
-              f' {DIM}· sub{RESET} {fmt_tokens(_sub_tok)}{DIM}/{RESET}{YELLOW}${_sub_cost:.2f}{RESET}'
-              f' {DIM}· total{RESET} {fmt_tokens(_ttok)}{DIM}/{RESET}{YELLOW}${_tcost:.2f}{cost_suffix}{RESET}{budget_str}{rl_str}')
+     line3 = (f'{DIM}{cost_label}{RESET} {fmt_tokens(_ttok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}'
+              f' {DIM}(incl. sub {fmt_tokens(_sub_tok)}/~${_sub_cost:.2f}){RESET}{budget_str}{rl_str}')
  else:
      line3 = f'{DIM}{cost_label}{RESET} {fmt_tokens(_main_tok)}{DIM}/{RESET}{YELLOW}${cost:.2f}{cost_suffix}{RESET}{budget_str}{rl_str}'
 
