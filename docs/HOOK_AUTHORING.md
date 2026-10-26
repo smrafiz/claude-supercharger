@@ -1003,3 +1003,17 @@ budget and a long command. It passed 5 of 5 on macOS and failed on the Ubuntu ru
 which finished the scan before the watchdog thread ran. A test that races a timer
 encodes the speed of the machine that wrote it. Run the module with the budget at 0,
 catch `SystemExit`, and call the handler directly.
+
+## Notes from 2026-10-26
+
+- **Only `.md` files load from `rules/`.** `anti-patterns.yml` sat in `~/.claude/rules/` for months and
+  never reached the model. Prove an instruction file loads with a `claude -p` quote test, not by its
+  presence on disk (`tests/test-install.sh` now requires every rules/ file to be `.md`).
+- **`updatedInput` is not ours alone.** Other plugins (Caveman's shrink-hook) rewrite Bash commands too,
+  and the last write wins. A safety rewrite can silently lose; prefer ask or deny for anything that matters.
+- **Claude Code's `cost.total_cost_usd` already includes subagents.** Never add a separate subagent cost.
+- **Windows bytes, tested on every OS.** Windows jq emits CRLF, so a continuation arrives as backslash-CR-LF.
+  Build those bytes in a test so macOS and Linux exercise the Windows path; check every `case` guard admits them.
+- **`stat`: GNU form first** in tests as well as hooks; Linux `stat -f` succeeds and reports the filesystem.
+- **A test that expects ASK must check the reason**, or another rule's ask makes it pass.
+
