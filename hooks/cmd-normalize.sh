@@ -386,7 +386,8 @@ normalize_cmd() {
   cmd=$(strip_heredoc_bodies "$cmd")
   # The shell deletes backslash-newline before it splits words, so `g\<newline>it`
   # runs git. Guarded by a case: ${v//x/y} is not free on a large command.
-  case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\n'/}" ;; esac
+  # Windows jq emits CRLF, so the continuation can arrive as backslash-CR-LF.
+  case "$cmd" in *\\$'\n'*) cmd="${cmd//\\$'\r\n'/}"; cmd="${cmd//\\$'\n'/}" ;; esac
   # Pre-prelude text for the substitution scan below. A heredoc body still here is
   # CODE for another language (python, node), where `$(` and backticks are not
   # shell: replaying real commands showed 3 python heredocs newly denied when it
