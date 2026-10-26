@@ -1633,6 +1633,31 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   fi
 fi
 
+# 4.4: environment variables that make an ordinary program load attacker code
+# (from gadievron/raptor's _dangerous_env_strip.sh, audited 2026-10-26). Every one
+# was allowed. Read from the raw command: normalize_cmd strips leading VAR=value
+# assignments, which is exactly where these sit. ASK, never deny: a profiler or a
+# test harness can set them for a real reason. Plain PYTHONPATH=src and
+# NODE_OPTIONS=--max-old-space-size stay allowed.
+_INJ_PRE='(^|[[:space:];&|(]|export[[:space:]]+|env[[:space:]]+([^[:space:]]+[[:space:]]+)*)'
+# Commit/PR messages are blanked first, so a message that NAMES one of these passes.
+sc_blank_data_into "$COMMAND"; _INJ_SRC="$_SC_SCAN"
+_INJ_ENV=""
+if [[ "$_INJ_SRC" =~ ${_INJ_PRE}(LD_PRELOAD|LD_AUDIT|DYLD_INSERT_LIBRARIES|BASH_ENV|GCONV_PATH|PYTHONSTARTUP|SSLKEYLOGFILE)= ]]; then
+  _INJ_ENV="${BASH_REMATCH[3]}"
+elif [[ "$_INJ_SRC" =~ ${_INJ_PRE}NODE_OPTIONS=[\"\']?[^[:space:]\"\']*([[:space:]][^\"\'\;\&\|]*)?(--require|-r[[:space:]]|--import|--loader|--experimental-loader) ]]; then
+  _INJ_ENV="NODE_OPTIONS (preload)"
+elif [[ "$_INJ_SRC" =~ ${_INJ_PRE}(JAVA_TOOL_OPTIONS|_JAVA_OPTIONS)=[^\;\&\|]*-(javaagent|agentpath): ]]; then
+  _INJ_ENV="${BASH_REMATCH[3]} (agent)"
+elif [[ "$_INJ_SRC" =~ ${_INJ_PRE}(PYTHONPATH|NODE_PATH|PERL5LIB|RUBYLIB)=[\"\']?(/tmp|/var/tmp|/dev/shm|/private/tmp)(/|[[:space:]]|[\"\']|$) ]]; then
+  _INJ_ENV="${BASH_REMATCH[3]} (temp dir)"
+fi
+if [ -n "$_INJ_ENV" ] && [ -z "${_RM_VAR_ASK:-}" ]; then
+  echo "[Supercharger] safety: ASK — code-injection environment variable $_INJ_ENV" >&2
+  sc_decision ask "$_INJ_ENV makes the program load extra code (a library, a startup script or an agent) before it runs, so the command does more than it shows. Confirm what it loads and why." "confirm the loaded file is yours and expected"
+  exit 0
+fi
+
 # Variable-rooted rm (recorded above). Emitted LAST so any deny in the same command
 # wins; an ask only when nothing denied.
 if [ -n "${_RM_VAR_ASK:-}" ]; then
