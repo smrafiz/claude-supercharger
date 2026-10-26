@@ -2,7 +2,7 @@
 # Claude Supercharger — Prompt Validator Hook
 # Event: UserPromptSubmit | Matcher: (none)
 # Deterministic enforcement: catches obvious anti-patterns via regex.
-# For soft guidance (why patterns are bad, what to ask instead), see rules/anti-patterns.yml.
+# For soft guidance (why patterns are bad, what to ask instead), see rules/anti-patterns.md.
 
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"

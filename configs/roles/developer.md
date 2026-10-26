@@ -28,5 +28,6 @@ paths:
 
 ## Regression Prevention
 - Before fixing a bug, check if the same file had recent fixes
+- Reproduce first: a failing test or command that shows the bug, then fix until it passes
 - After fixing, note what was changed and why — one line at terse tiers
 - Never reintroduce a pattern that was explicitly removed

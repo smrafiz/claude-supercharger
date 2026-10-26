@@ -82,7 +82,7 @@ parts = [
     read(os.path.join(univ, 'supercharger.md')),
     *role_blocks,
     fill(economy),
-    read(os.path.join(univ, 'anti-patterns.yml')),
+    read(os.path.join(univ, 'anti-patterns.md')),
 ]
 blocks = [p.strip() for p in parts if p.strip()]
 if not blocks:

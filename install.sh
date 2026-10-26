@@ -496,7 +496,11 @@ mkdir -p "$HOME/.claude/supercharger/rules/modes"
 cp "$SCRIPT_DIR/configs/rules/"*.md "$HOME/.claude/supercharger/rules/modes/" 2>/dev/null || true
 
 # Deploy shared assets
-cp "$SCRIPT_DIR/configs/universal/anti-patterns.yml" "$HOME/.claude/rules/anti-patterns.yml"
+# .md, not .yml: Claude Code loads only markdown from rules/, so the .yml name
+# (shipped until 4.4) never reached the model. Its paths: frontmatter scopes it
+# to code files. Remove the old copy so an update does not leave it behind.
+cp "$SCRIPT_DIR/configs/universal/anti-patterns.md" "$HOME/.claude/rules/anti-patterns.md"
+rm -f "$HOME/.claude/rules/anti-patterns.yml"
 success "Anti-patterns library installed (rules/)"
 
 # Deploy agents

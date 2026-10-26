@@ -103,7 +103,7 @@ fi
 # Shared assets
 echo ""
 echo -e "${BLUE}Shared Assets:${NC}"
-check_file "$HOME/.claude/rules/anti-patterns.yml" "rules/anti-patterns.yml"
+check_file "$HOME/.claude/rules/anti-patterns.md" "rules/anti-patterns.md"
 
 # Hooks
 echo ""

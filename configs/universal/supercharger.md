@@ -70,6 +70,7 @@ Levels 1-3 always; if level 4 cannot be verified, state what the user should tes
 - If you write 200 lines and it could be 50, rewrite it before shipping
 - Ask before modifying files outside the explicit scope, even if in-project
 - If you notice something worth improving, mention it without fixing
+- If a simpler approach than the one asked for would do, say so before building it
 - One task at a time, completed fully before starting the next
 - **Never shorten these, whatever the line count says:** input validation at trust
   boundaries, error handling that prevents data loss, security checks,
@@ -80,7 +81,7 @@ Levels 1-3 always; if level 4 cannot be verified, state what the user should tes
   whole flow the change touches before choosing the shortest form.
 
 ## Clarification Mode
-Default: scan every prompt for vague verbs, missing scope, no success criteria, multiple tasks. Max 3 questions, then proceed. See anti-patterns.yml for the full pattern library.
+Default: scan every prompt for vague verbs, missing scope, no success criteria, multiple tasks. Max 3 questions, then proceed, stating in one line the assumption or reading you chose so a wrong guess shows before the work. Pattern library: rules/anti-patterns.md (loads with code files).
 
 **Deep Interview** (say "deep interview"): Score scope/success/constraints/context 0-3, ask about the lowest dimension first.
 

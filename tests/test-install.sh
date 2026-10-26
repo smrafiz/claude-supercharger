@@ -18,12 +18,22 @@ bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --sett
 assert_file_exists "$HOME/.claude/rules/supercharger.md" &&
 assert_file_exists "$HOME/.claude/rules/guardrails.md" &&
 assert_file_exists "$HOME/.claude/rules/developer.md" &&
-assert_file_exists "$HOME/.claude/rules/anti-patterns.yml" &&
+assert_file_exists "$HOME/.claude/rules/anti-patterns.md" &&
 assert_file_not_exists "$HOME/.claude/rules/writer.md" &&
 assert_file_exists "$HOME/.claude/supercharger/roles/writer.md" &&
 assert_file_exists "$HOME/.claude/settings.json" &&
 assert_file_exists "$HOME/.claude/rules/economy.md" &&
 pass ; } || { echo "    install.sh output:"; sed 's/^/      /' "$INSTALL_ERR" | tail -25; }
+teardown_test_home
+
+begin_test "install: every rules/ file is markdown, and an update removes the old anti-patterns.yml"
+# Claude Code loads only .md from rules/; anti-patterns.yml shipped for months and
+# never reached the model (verified with claude -p, 2026-10-26).
+setup_test_home
+mkdir -p "$HOME/.claude/rules" && echo stale > "$HOME/.claude/rules/anti-patterns.yml"
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+NOT_MD=$(find "$HOME/.claude/rules" -type f ! -name '*.md' | sed "s#$HOME/##")
+[ -z "$NOT_MD" ] && pass || fail "non-markdown rules: $NOT_MD"
 teardown_test_home
 
 begin_test "install: every tool a command runs from the install is deployed"
