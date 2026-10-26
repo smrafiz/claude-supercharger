@@ -48,6 +48,19 @@ PATTERNS = [
     ('hidden instruction override',   re.compile(r'ignore\s+(?:(?:all|any|the|previous|prior|above|earlier|your)\s+){1,3}(?:instructions|rules|directives)|disregard.*instructions|you\s+are\s+now', I), 'HIGH'),
     ('obfuscated variable expansion', re.compile(r'\$\{[A-Z_]*:.*:.*\}.*\$\{', I),                                    'HIGH'),
     ('credential file access',        re.compile(r'/etc/shadow|\.ssh/id_|\.aws/credentials|\.netrc|keychain', I),     'HIGH'),
+    # 4.4, from NVIDIA SkillSpector's static rules (audited 2026-10-26). Each was
+    # run over 596 real skill/agent/command files on the author's machine: 0 hits.
+    # A download piped into an interpreter is the same capability as curl|sh.
+    ('fetch pipe to interpreter',     re.compile(r'(?:curl|wget)\s+[^|\n]*\|\s*(?:sudo\s+)?(?:python3?|node|ruby|perl)\b|\b(?:iwr|irm|Invoke-WebRequest|Invoke-RestMethod)\b[^|\n]*\|\s*(?:iex|Invoke-Expression)\b', I), 'CRITICAL'),
+    ('instruction hidden in HTML comment', re.compile(r'<!--(?:(?!-->).){0,400}?(?:ignore|instructions?|transmit|\bsystem\b|\bsend\b)(?:(?!-->).){0,400}?-->', I | re.S), 'HIGH'),
+    ('covert send',                   re.compile(r'(?:silently|quietly|secretly|covertly)\s+(?:send|transmit|upload|post)', I), 'HIGH'),
+    ('system prompt extraction',      re.compile(r'(?:reveal|output|print|dump|repeat|leak)\s+(?:your\s+)?(?:full\s+|entire\s+)?system\s+prompt', I), 'HIGH'),
+    ('safety bypass instruction',     re.compile(r'(?:bypass|override|disable)\s+(?:all\s+)?(?:safety|security)\s+(?:restrictions?|checks?|rules?|guardrails?|constraints?)', I), 'HIGH'),
+    ('cross-session memory poisoning', re.compile(r'remember\s+(?:this|the\s+following)\s+(?:for|in)\s+(?:(?:all|every)\s+)?(?:(?:future|subsequent)\s+)?(?:sessions?|conversations?)|henceforth\s*,?\s*you\s+must', I), 'HIGH'),
+    ('anti-refusal instruction',      re.compile(r'\byou\s+(?:must|should)\s+never\s+refuse\b|\bnever\s+refuse\s+(?:a|any)\s+request', I), 'HIGH'),
+    ('scheduled persistence',         re.compile(r'\|\s*crontab\s+-\s*(?:$|[;)\n])|launchctl\s+(?:load|bootstrap)', I | re.M), 'HIGH'),
+    ('MCP config key harvesting',     re.compile(r'mcp(?:_config)?\.json.{0,80}?(?:api_?key|token|secret)', I), 'HIGH'),
+    ('hidden base64 data URI',        re.compile(r'data:text/plain;base64,[A-Za-z0-9+/=]{50,}'), 'HIGH'),
     ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process', I),    'MEDIUM'),
     ('file write outside project',    re.compile(r"open\(.*'/tmp|open\(.*'/var|>/etc/", I),                            'MEDIUM'),
 ]
@@ -62,6 +75,50 @@ ZERO_WIDTH = ('​', '‌', '‍', '﻿')
 # non-raw string so \U resolves to the codepoint range. Near-zero FP.
 _TAG_BLOCK = re.compile('[\U000e0000-\U000e007f]')
 
+# 4.4: bidi embedding/isolate controls (Trojan Source, CVE-2021-42574) reorder what a
+# human reads without changing what the model reads. prompt-injection-scanner.sh
+# already flagged them on Read; the skill/agent load point did not.
+_BIDI = re.compile('[\u202a-\u202e\u2066-\u2069]')
+
+# 4.4: a skill that names a one-request exfil endpoint (webhook.site, a Discord or
+# Slack webhook, a Telegram bot). The list is read from lib-egress-patterns.sh, the
+# one the WebFetch, MCP and Bash guards use, so the channels cannot drift.
+_COLLECTOR = []
+
+
+def _collector_re():
+    if not _COLLECTOR:
+        try:
+            import os as _os
+            src = open(_os.path.join(_os.path.dirname(_os.path.abspath(__file__)),
+                                     'lib-egress-patterns.sh'), encoding='utf-8').read()
+            m = re.search(r"^EGRESS_WEBHOOK_RE='([^']*)'", src, re.M)
+            _COLLECTOR.append(re.compile(m.group(1), I) if m else None)
+        except (OSError, re.error):
+            _COLLECTOR.append(None)
+    return _COLLECTOR[0]
+
+
+# 4.4: a CRITICAL match QUOTED in backticks right after a reviewing verb ("flag any
+# `curl ... | bash`", "never run `base64 -d | sh`") is a security skill describing the
+# attack, not one performing it: that one match is reported HIGH instead of denying
+# the whole skill (found running SkillSpector's benign samples). The same command
+# anywhere else, or unquoted, still denies.
+_REVIEW_CTX = re.compile(r'\b(?:flag|detect|block|reject|refuse|catch|warn\s+(?:about|on)|look\s+for|'
+                         r'avoid|never\s+(?:run|use|execute)|do\s+not\s+(?:run|use|execute)|'
+                         r"don't\s+(?:run|use|execute)|disallow|deny)\b", I)
+
+
+def _quoted_in_review(text, m):
+    """True when this match sits inside an inline `code` span on a line whose
+    earlier text has a reviewing verb. Both conditions, never one alone."""
+    line_start = text.rfind('\n', 0, m.start()) + 1
+    line_end = text.find('\n', m.end())
+    line_end = len(text) if line_end == -1 else line_end
+    before, after = text[line_start:m.start()], text[m.end():line_end]
+    inside_code = before.count('`') % 2 == 1 and '`' in after
+    return inside_code and bool(_REVIEW_CTX.search(before))
+
 
 def scan_text(text, fname):
     """Return (findings, critical_count) for one instruction file's text.
@@ -72,17 +129,33 @@ def scan_text(text, fname):
     findings = []
     critical = 0
     for label, regex, sev in PATTERNS:
+        if sev == 'CRITICAL':
+            hits = list(regex.finditer(text))
+            reviewed = sum(1 for m in hits if _quoted_in_review(text, m))
+            live = len(hits) - reviewed
+            if live:
+                findings.append('%s: %s (%dx in %s)' % (sev, label, live, fname))
+                critical += 1
+            if reviewed:
+                findings.append('HIGH: %s quoted in a review/detection context (%dx in %s)' % (label, reviewed, fname))
+            continue
         n = len(regex.findall(text))
         if n:
             findings.append('%s: %s (%dx in %s)' % (sev, label, n, fname))
-            if sev == 'CRITICAL':
-                critical += 1
     stego = sum(text.count(c) for c in ZERO_WIDTH)
     if stego:
         findings.append('HIGH: steganographic whitespace (%dx in %s)' % (stego, fname))
     tags = len(_TAG_BLOCK.findall(text))
     if tags:
         findings.append('HIGH: unicode tag-block ASCII smuggling (%dx in %s)' % (tags, fname))
+    bidi = len(_BIDI.findall(text))
+    if bidi:
+        findings.append('HIGH: bidirectional text controls (%dx in %s)' % (bidi, fname))
+    col = _collector_re()
+    if col:
+        n = len(col.findall(text))
+        if n:
+            findings.append('HIGH: exfiltration endpoint named (webhook/bot collector) (%dx in %s)' % (n, fname))
     return findings, critical
 
 
