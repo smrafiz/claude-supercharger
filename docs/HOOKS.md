@@ -16,6 +16,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | Hook | Event | Matcher | Purpose |
 |------|-------|---------|---------|
 | `adaptive-economy` | UserPromptSubmit | (none) | Auto-switches economy tier based on context window usage. |
+| `agent-allowlist-guard` | PreToolUse | Bash,Monitor,PowerShell,WebFetch,Write,Edit,MultiEdit,NotebookEdit,Agent,Workflow | Opt-in: a subagent whose definition declares supercharger-allow lists is held to them. |
 | `agent-gate` | PreToolUse | Agent | Reads the stored agent classification. Warns on mismatch but allows |
 | `agent-handoff-gate` | SubagentStop | (none) | Validates sub-agent output quality before the result flows back to the parent. |
 | `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |

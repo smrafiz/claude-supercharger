@@ -41,6 +41,37 @@ tool call those instructions lead to. Turn the integrity check off with
 - Supercharger's hooks fire inside subagents too: their tool calls are checked like the
   main session's. This was measured, not assumed (a subagent's `.env` read was denied).
   The subagent sees the deny reason without Supercharger's usual remediation text.
+- Per-agent allowlists (opt-in, `agent-allowlist-guard`, full mode). An agent definition
+  can narrow what that subagent may do with the tools it has:
+
+  ```yaml
+  ---
+  name: reviewer
+  supercharger-allow:
+    bash: ["git status", "git diff*", "npm test"]   # command prefix, or a glob with * ? [
+    webfetch: ["docs.python.org", "*.github.com"]   # host and its subdomains, or a glob
+    write: ["src/**", "tests/**"]                   # relative to the project root
+  ---
+  ```
+
+  Inside that subagent a call outside a declared list is denied, with the agent and the
+  list named in the reason. A tool with no list, an agent with no `supercharger-allow`,
+  and the main session (including `--agent`) are unaffected. An empty list (`bash: []`)
+  allows nothing. Details:
+  - The agent is matched by its frontmatter `name` (what Claude Code reports as
+    `agent_type`), project definitions first, then `~/.claude/agents`. Plugin agents
+    (`plugin:name`) are not resolved.
+  - `bash` also covers `Monitor` and `PowerShell`. Every segment of `a && b`, `a | b` and
+    multi-line commands must match, after wrappers and `VAR=x` prefixes are stripped.
+    Command substitution, process substitution and output redirects are denied (fd
+    duplication such as `2>&1` and `>/dev/null` are fine).
+  - `write` covers Write, Edit, MultiEdit and NotebookEdit. Paths are resolved (`~`,
+    `..`, symlinks) before matching. A bare entry like `src` means `src` and everything
+    under it; absolute entries are allowed.
+  - While any list is declared the agent may not edit its own definition, and may not
+    spawn nested agents or workflows, which would run without the list.
+  - A list that cannot be parsed is ignored with a stderr note: it never blocks work.
+    Disable the guard with `SUPERCHARGER_AGENT_ALLOWLIST=0`.
 
 ## MCP servers
 
