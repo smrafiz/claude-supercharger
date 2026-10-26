@@ -7,10 +7,11 @@ session on any machine.**
 *Verified 2026-10-26, session `3d213381`.*
 
 - **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
-  release only when the user says so. Merged since 4.3.26: #173-#179 (master `432c049`).
-- **Open PRs for 4.4:** #180 update-check backoff, #181 SkillSpector skill-scan rules, #182 code-injection
-  env vars (ask). A per-agent allowlist PR (`feat/agent-allowlist`) was being built by a subagent at writing.
-- **Master CI on `432c049`:** in progress at writing (Windows takes 60+ min). /sc-update installs master.
+  release only when the user says so. Merged since 4.3.26: #173-#183 (master `67d2211`).
+- **Open PRs for 4.4:** #184 Windows mode check in the full-output test (master Windows CI is red on that
+  one case until it merges), #186 README-count test checks release.sh's rewrite, #185 per-agent
+  allowlists (rebase onto master after #186; its only red check was the README count).
+- **Master CI on `67d2211`:** not checked at writing. /sc-update installs master.
 - **Machine A coexists with Caveman** (API proxy + shrink-hook; telemetry/routing/cloud turned OFF
   2026-10-26), Ponytail 5.3.2 (band hidden), Graphify skill (plinth + radius-bundles graphs built).
   See memory `caveman-coexistence`: it elides FAIL/deny lines and rewrites Bash commands.
@@ -50,6 +51,8 @@ session on any machine.**
 Audit day: ECC re-audit, Karpathy, Ponytail, cc-switch, gstack + open-source prompts, Graphify,
 Caveman, Orca, claude-mem, archify, ruflo, SkillSpector, raptor. Shipped #173-#179 to master, opened
 #180-#182; found rules/*.yml never loads, CC cost already includes subagents, Caveman rewrites commands.
+Later: merged #180-#183; #184 (Windows has no POSIX modes), #185 allowlists (its build agent routed
+around a refusal), #186 README-count test.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-10-25 (deep) — 3d213381
