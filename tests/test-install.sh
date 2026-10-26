@@ -288,18 +288,28 @@ else
   fail "expected 0 < deduped ($DEDUP) < raw registrations ($RAW)"
 fi
 
-# --- README install-mode counts match the installer (2026-10-15) --------------
+# --- README install-mode counts: the release keeps them true (2026-10-26) -----
 # The README table said Full = 152 while the installer printed 156: a hand-kept
-# number drifts. Full mode defaults to the developer role.
-begin_test "install: README hook counts match count_installed_hooks"
+# number drifts. tools/release.sh rewrites both rows from count_installed_hooks, and
+# the README is never hand-edited (user rule), so a PR that adds a hook cannot match
+# the README until release. Check what the release WILL write instead: apply
+# release.sh's own rewrite to a copy and require both rows to come out current. This
+# fails if the rows change shape (the sed would silently match nothing) or release.sh
+# stops updating them; it no longer fails every hook-adding PR.
+begin_test "install: release.sh will write current hook counts into the README"
 SAFE_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks safe false)
 FULL_N=$(. "$REPO_DIR/lib/hooks.sh"; count_installed_hooks full true)
-if grep -q "^| \*\*Safe\*\* | $SAFE_N |" "$REPO_DIR/README.md" \
-   && grep -q "^| \*\*Full\*\* | $FULL_N |" "$REPO_DIR/README.md"; then
+_RM=$(mktemp)
+cp "$REPO_DIR/README.md" "$_RM"
+_SED=$(grep -E "^[[:space:]]*(sed -i\.bak -e |-e )\"s/\^\| \\\\\*\\\\\*(Safe|Full)" "$REPO_DIR/tools/release.sh" | wc -l | tr -d ' ')
+sed -i.bak -e "s/^| \*\*Safe\*\* | [0-9]* |/| **Safe** | ${SAFE_N} |/" \
+           -e "s/^| \*\*Full\*\* | [0-9]* |/| **Full** | ${FULL_N} |/" "$_RM" && rm -f "$_RM.bak"
+if [ "$_SED" = 2 ] && grep -q "^| \*\*Safe\*\* | $SAFE_N |" "$_RM" && grep -q "^| \*\*Full\*\* | $FULL_N |" "$_RM"; then
   pass
 else
-  fail "README install-mode table does not say Safe=$SAFE_N Full=$FULL_N"
+  fail "release.sh rewrite rules found: $_SED (want 2), or the README rows no longer match their shape (Safe=$SAFE_N Full=$FULL_N)"
 fi
+rm -f "$_RM"
 
 # --- statusLine path portability (v2.26.57) -----------------------------------
 # Measured on a windows-latest runner: lib/hooks.sh built statusline_path with
