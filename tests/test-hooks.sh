@@ -1034,17 +1034,16 @@ begin_test "git: git push origin feature --force is allowed (non-protected)"
 run_hook "$GIT_HOOK" "git push origin feature --force"
 assert_exit_code 0 $? && pass
 
-# v2.7.55: the --force strip rewrite must emit a WELL-FORMED hookSpecificOutput —
-# missing hookEventName gets the whole output dropped by CC, silently letting the
-# original --force push run. Assert both the stripped command and hookEventName.
-begin_test "git-safety: --force strip rewrite includes hookEventName (not dropped)"
+# A non-protected force push asks (well-formed, with hookEventName) and no longer
+# rewrites: updatedInput is last-write-wins and another hook can override it.
+begin_test "git-safety: non-protected --force push asks with a well-formed decision"
 OUT=$(printf '%s' '{"tool_name":"Bash","tool_input":{"command":"git push --force origin feature-branch"}}' | bash "$GIT_HOOK" 2>/dev/null)
 if printf '%s' "$OUT" | grep -q '"hookEventName":"PreToolUse"' \
-   && printf '%s' "$OUT" | grep -q '"updatedInput"' \
-   && ! printf '%s' "$OUT" | grep -q -- '--force'; then
+   && printf '%s' "$OUT" | grep -q '"permissionDecision":"ask"' \
+   && ! printf '%s' "$OUT" | grep -q '"updatedInput"'; then
   pass
 else
-  fail "rewrite emit malformed or still has --force: $OUT"
+  fail "expected a well-formed ask: $OUT"
 fi
 
 begin_test "git: git push origin main is allowed (no force)"

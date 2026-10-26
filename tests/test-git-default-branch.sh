@@ -34,12 +34,12 @@ git init -q "$T/nodefault"
 ( cd "$T/nodefault" && git remote add origin "$T/origin.git" \
   && git commit -q --allow-empty -m init ) >/dev/null 2>&1
 
-verdict() { # command  cwd  ->  BLOCK | rewrite | allow
+verdict() { # command  cwd  ->  BLOCK | ask | allow
   local js out rc
   js=$(CMD="$1" CWD="$2" python3 -c 'import json,os;print(json.dumps({"tool_name":"Bash","cwd":os.environ["CWD"],"tool_input":{"command":os.environ["CMD"]}}))')
   out=$(printf '%s' "$js" | bash "$HOOK" 2>/dev/null); rc=$?
   if [ "$rc" = 2 ]; then echo BLOCK
-  elif printf '%s' "$out" | grep -q updatedInput; then echo rewrite
+  elif printf '%s' "$out" | grep -q '"permissionDecision":"ask"'; then echo ask
   else echo allow; fi
 }
 
@@ -52,7 +52,7 @@ begin_test "native +refspec force-push to develop is blocked"
 [ "$(verdict 'git push origin +develop' "$W")" = BLOCK ] && pass || fail "+develop not protected"
 
 begin_test "force-push to a feature branch is still allowed (stripped)"
-[ "$(verdict 'git push --force origin feature-x' "$W")" = rewrite ] && pass || fail "feature-x wrongly blocked"
+[ "$(verdict 'git push --force origin feature-x' "$W")" = ask ] && pass || fail "feature-x wrongly blocked"
 
 begin_test "hardcoded main is still protected in a develop-default repo"
 [ "$(verdict 'git push --force origin main' "$W")" = BLOCK ] && pass || fail "main protection regressed"
@@ -60,7 +60,7 @@ begin_test "hardcoded main is still protected in a develop-default repo"
 # The no-fail-closed contract: a repo with no recorded default must NOT start
 # blocking ordinary feature-branch force-pushes.
 begin_test "no recorded default: feature-branch force-push still allowed"
-[ "$(verdict 'git push --force origin feature-y' "$ND")" = rewrite ] && pass || fail "fail-closed regression: feature-y blocked"
+[ "$(verdict 'git push --force origin feature-y' "$ND")" = ask ] && pass || fail "fail-closed regression: feature-y blocked"
 
 begin_test "no recorded default: hardcoded main still protected"
 [ "$(verdict 'git push --force origin main' "$ND")" = BLOCK ] && pass || fail "main protection lost without a default"

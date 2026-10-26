@@ -98,35 +98,6 @@ ask() {
   return 0
 }
 
-# INVARIANT: this is the only hook in the codebase that emits
-# `hookSpecificOutput.updatedInput`. Per CC architecture chapter 05 §7,
-# `updatedInput` is LAST-WRITE-WINS across hooks on the same event — if
-# another hook on PreToolUse:Bash later emits updatedInput, this rewrite
-# is silently discarded with no error. Before adding a second updatedInput
-# emitter, verify the registration order in lib/hooks.sh and either: (a)
-# coordinate the rewrites, or (b) move git-safety.sh to be registered last
-# so its rewrite is the surviving one.
-rewrite() {
-  local safe_cmd="$1" reason="$2"
-  echo "[Supercharger] git-safety: rewrote unsafe command — ${reason}" >&2
-  local cmd_json
-  cmd_json=$(printf '%s' "$safe_cmd" | jq -Rs '.' 2>/dev/null || \
-             printf '%s' "$safe_cmd" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null)
-  if [ -z "$cmd_json" ]; then
-    # Last-resort fallback: deny instead of emitting malformed JSON.
-    # v4.1.10: $reason used to be interpolated into the JSON RAW here — a quote
-    # or backslash in it produced exactly the malformed JSON this branch exists
-    # to avoid, and the harness reads malformed output as no decision at all.
-    sc_decision deny "$reason (safe-rewrite unavailable)" "run the command yourself once you have checked it"
-    exit 2
-  fi
-  # v2.7.55: include hookEventName — a hookSpecificOutput without it is dropped by
-  # CC (verified class, v2.7.30), which would silently discard this rewrite and let
-  # the original unsafe command run. The deny/fallback paths above already carry it.
-  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","updatedInput":{"command":%s}}}\n' "$cmd_json"
-  exit 0
-}
-
 # 2026-09-13 (from AhmadShayan/claude-code-guardrails): protect force-push and
 # remote-deletion of the repo's ACTUAL default branch, not only the hardcoded
 # names — a repo that deploys from `develop`/`trunk`/`staging` was unprotected.
@@ -230,13 +201,14 @@ while IFS= read -r seg; do
     if $has_force && $has_protected; then
       block "force push to protected branch"
     elif $has_force; then
-      # Non-protected branch — strip force flag, push safely.
-      # Only rewrite when the whole command is the single git push (no compound).
-      if [ "$CMD" = "$seg" ]; then
-        # Then drop just the `f` from a combined flag, so `-uf` keeps its `-u`.
-        safe=$(printf '%s\n' "$CMD" | sed -E 's/(^|[[:space:]])(--force-with-lease|--force-if-includes|--force|-f)([[:space:]]|$)/ /g' \
-          | sed -E 's/(^|[[:space:]])-([a-zA-Z]*)f([a-zA-Z]*)([[:space:]]|$)/\1-\2\3\4/g' | tr -s ' ' | sed 's/[[:space:]]*$//')
-        rewrite "$safe" "stripped --force from non-protected branch push"
+      # Non-protected branch: ASK. This used to rewrite the command without the
+      # force flag (updatedInput), but updatedInput is last-write-wins across hooks
+      # and Caveman's shrink-hook also rewrites every Bash command (verified
+      # 2026-10-26), so the de-forced version could silently lose. An ask cannot be
+      # overridden that way, and a de-forced push usually failed non-fast-forward.
+      # --force-with-lease alone is the safe spelling the reason recommends: allowed.
+      if [[ "$seg" =~ (^|[[:space:]])(--force|--force-if-includes|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+        ask "force push to non-protected branch: it replaces the remote branch's history. Confirm the branch is yours alone, or use --force-with-lease."
       fi
     fi
   fi

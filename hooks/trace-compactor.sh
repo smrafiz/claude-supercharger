@@ -32,8 +32,10 @@ fi
 # Skip python startup cost for short outputs
 [ "${#OUTPUT}" -lt 2000 ] && exit 0
 
-TC_OUTPUT="$OUTPUT" TC_SUPPRESS="$HOOK_SUPPRESS" TC_GENERIC="${SUPERCHARGER_TRACE_COMPACT_GENERIC:-}" python3 <<'PYEOF'
-import os, json, re
+SC_HOOKS_DIR="$HOOKS_DIR" TC_OUTPUT="$OUTPUT" TC_SUPPRESS="$HOOK_SUPPRESS" TC_GENERIC="${SUPERCHARGER_TRACE_COMPACT_GENERIC:-}" python3 <<'PYEOF'
+import os, json, re, sys
+sys.path.insert(0, os.environ.get('SC_HOOKS_DIR', ''))
+from lib_fulloutput import save as _save_full
 
 output = os.environ.get('TC_OUTPUT', '')
 original_len = len(output)
@@ -111,6 +113,7 @@ else:
         summary = None
 
 if summary is not None:
+    summary += _save_full(output)
     new_len = len(summary)
     # v2.6.2: replace Claude's view of the tool output with the compacted summary
     # via hookSpecificOutput.updatedToolOutput. Previously this hook emitted a

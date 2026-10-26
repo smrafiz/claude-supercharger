@@ -157,6 +157,8 @@ PYEOF
 )
 
 [ -z "$COMPACTED" ] && exit 0
+# Keep the full output recoverable: the summary is all the model sees.
+COMPACTED="$COMPACTED$(printf '%s' "$OUTPUT" | SC_HOOKS_DIR="$HOOKS_DIR" python3 -c 'import os,sys; sys.path.insert(0, os.environ["SC_HOOKS_DIR"]); from lib_fulloutput import save; sys.stdout.write(save(sys.stdin.read()))' 2>/dev/null)"
 
 OUT_JSON=$(printf '%s' "$COMPACTED" | jq -Rs '.' 2>/dev/null || true)
 [ -z "$OUT_JSON" ] && exit 0

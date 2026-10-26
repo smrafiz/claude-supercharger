@@ -28,8 +28,10 @@ init_hook_suppress "$PROJECT_DIR"
 # v2.6.37: one python3 fork replaces 2 jq (output, tool_name) + 1 python3
 # fallback + 1 python3 main. Now: parse stdin once, extract output + tool_name,
 # length-check, build summary, emit JSON.
-MCP_INPUT="$_INPUT" MCP_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
+SC_HOOKS_DIR="$HOOKS_DIR" MCP_INPUT="$_INPUT" MCP_SUPPRESS="$HOOK_SUPPRESS" python3 <<'PYEOF' 2>/dev/null
 import os, json, sys
+sys.path.insert(0, os.environ.get('SC_HOOKS_DIR', ''))
+from lib_fulloutput import save as _save_full
 
 raw = os.environ.get('MCP_INPUT', '')
 try:
@@ -88,6 +90,7 @@ if summary is None:
     omitted = original_len - MAX_TOTAL
     summary = head + f'\n[... {omitted} chars truncated ...]\n' + tail
 
+summary += _save_full(output)
 sys.stderr.write(f'[Supercharger] mcp-output-truncator: {tool} {original_len} → {len(summary)} chars\n')
 
 # v2.6.2: updatedToolOutput replaces what Claude sees, vs systemMessage which

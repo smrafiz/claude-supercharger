@@ -29,17 +29,20 @@ begin_test "git-safety: '+main' refspec still blocked"
 # ---- 2026-10-15 audit follow-up: compound +refspec, and the rewrite's exact shape ----
 begin_test "git-safety: 'git fetch && git push origin +main' is blocked, not rewritten"
 [ "$(gs_verdict "git fetch && git push origin +main")" = BLOCK ] && pass || fail "compound +main evaded"
-# A rewrite is only enforcement if Claude Code accepts it: hookEventName is required,
-# updatedInput replaces the whole tool input, and the force spelling must be gone.
-begin_test "git-safety: a feature-branch force push is rewritten in the exact shape CC accepts"
+# A feature-branch force push ASKS (it used to be rewritten via updatedInput, which
+# another hook's rewrite can override); --force-with-lease alone is allowed.
+begin_test "git-safety: a feature-branch force push asks, and emits no updatedInput"
 OUT=$(bash "$GS" <<<"$(mkjson "git push --force origin feature-x")" 2>/dev/null)
 printf '%s' "$OUT" | python3 -c '
 import json, sys
 h = json.load(sys.stdin)["hookSpecificOutput"]
 assert h["hookEventName"] == "PreToolUse", h
-assert h["updatedInput"] == {"command": "git push origin feature-x"}, h
-assert "permissionDecision" not in h, h
-' 2>/dev/null && pass || fail "rewrite shape wrong: $OUT"
+assert h["permissionDecision"] == "ask", h
+assert "updatedInput" not in h, h
+' 2>/dev/null && pass || fail "expected an ask without updatedInput: $OUT"
+begin_test "git-safety: --force-with-lease to a feature branch is allowed"
+OUT=$(bash "$GS" <<<"$(mkjson "git push --force-with-lease origin feature-x")" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "lease push was not allowed: $OUT"
 
 # ---- Finding 7: inline insteadOf transport redirect ----
 begin_test "git-remote-guard: '-c url.<evil>.insteadOf=<github>' push is asked"
