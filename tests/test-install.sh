@@ -127,10 +127,10 @@ print(count)
 # plugin-inject/seed are plugin-only self-noop under the installer but still registered; commit-check opt-in, not counted)
 if [ "$_reinst" != ok ]; then
   fail "$_reinst"
-elif [ "$HOOK_COUNT" -eq 171 ]; then
+elif [ "$HOOK_COUNT" -eq 172 ]; then
   pass
 else
-  fail "expected 171 hooks in full mode, got $HOOK_COUNT"
+  fail "expected 172 hooks in full mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
@@ -250,10 +250,10 @@ count = sum(1 for event in hooks.values() for entry in event
 print(count)
 ")
 # standard maps to full = 119 hooks (thinking-budget removed 2.18.0; +redirect-clobber-guard 2.20.0; with developer, commit-check opt-in)
-if [ "$HOOK_COUNT" -eq 171 ]; then
+if [ "$HOOK_COUNT" -eq 172 ]; then
   pass
 else
-  fail "expected 171 hooks (standard→full), got $HOOK_COUNT"
+  fail "expected 172 hooks (standard→full), got $HOOK_COUNT"
 fi
 teardown_test_home
 

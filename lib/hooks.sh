@@ -379,6 +379,12 @@ get_hooks_for_mode() {
     # scanner since v2.7.x; ~/.claude/agents/*.md had none, though it is the same
     # thing — instructions Claude follows, loaded by name, persistent on disk.
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-poisoning-scanner.sh|block")
+    # Opt-in per-agent allowlists: a definition's `supercharger-allow:` frontmatter
+    # narrows that subagent's Bash/WebFetch/Write calls. Exits on the first case
+    # test for every main-session call (no agent_id), and before python when no
+    # definition declares a list. Agent/Workflow: a listed agent may not spawn an
+    # unlisted one. Disable: SUPERCHARGER_AGENT_ALLOWLIST=0.
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell,WebFetch,Write,Edit,MultiEdit,NotebookEdit,Agent,Workflow|${hooks_dir}/agent-allowlist-guard.sh|")
     # v2.26.76: Workflow runs a script that spawns subagents — the Agent channel's
     # capability without the Agent channel's three guards. Blocking, not async: it
     # must decide before the fan-out starts.
