@@ -79,6 +79,9 @@ grep -rqs --include='*.md' 'supercharger-allow' "${_AA_DIRS[@]}" 2>/dev/null || 
 # agent's and whether the call is inside it. Its stderr (fail-open notes) passes
 # through. A crash yields no verdict, which is an allow plus a note.
 _AA_OUT=$(printf '%s' "$_INPUT" | PWD_DIR="$PWD" python3 "$HOOKS_DIR/agent-allowlist-detect.py") || _AA_OUT=""
+# Native Windows python writes each newline inside a field as CRLF, so every list entry
+# but the last arrived as `git status<CR>` and matched nothing (Windows CI, 8 of 47).
+case "$_AA_OUT" in *$'\r'*) _AA_OUT="${_AA_OUT//$'\r'/}" ;; esac
 _AA_US=$'\x1f'
 _AA_VERDICT="${_AA_OUT%%"$_AA_US"*}"
 
