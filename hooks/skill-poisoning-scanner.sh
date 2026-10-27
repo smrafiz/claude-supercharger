@@ -112,7 +112,10 @@ except Exception:
 # evaded every check. This matches the three sibling scanners' case-insensitive behavior.
 I = re.IGNORECASE
 patterns = [
-    ('base64 decode execution',       re.compile(r'base64\s+(?:-d|--decode)|atob\(|b64decode', I),                    'CRITICAL'),
+    # 2026-10-27: CRITICAL only when the decoded text is RUN on the same line; a decode
+    # to a file or the terminal (`gh api ... | base64 -d > f`) is ordinary and warns HIGH.
+    ('base64 decode execution',       re.compile(r'(?:base64\s+(?:-d|--decode)|atob\(|b64decode)[^\n]*(?:\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b|\|\s*(?:python3?|node|perl|ruby)\b|\beval\b|\bexec\b)|(?:\beval\b|\bexec\b|\b(?:ba)?sh\s+-c\b)[^\n]*(?:base64\s+(?:-d|--decode)|atob\(|b64decode)', I),                    'CRITICAL'),
+    ('base64 decode', re.compile(r'(?:base64\s+(?:-d|--decode)|atob\(|b64decode)', I), 'HIGH'),
     ('hidden eval/exec',              re.compile(r'\beval\b.*\$|exec\s*\(', I),                                       'CRITICAL'),
     ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh', I),                    'CRITICAL'),
     ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl', I), 'CRITICAL'),

@@ -38,7 +38,10 @@ I = re.IGNORECASE
 # All patterns are IGNORECASE: they were case-sensitive until v2.7.14, so
 # "IGNORE PREVIOUS INSTRUCTIONS" / "CURL ... | SH" evaded every check.
 PATTERNS = [
-    ('base64 decode execution',       re.compile(r'base64\s+(?:-d|--decode)|atob\(|b64decode', I),                    'CRITICAL'),
+    # 2026-10-27: CRITICAL only when the decoded text is RUN on the same line; a decode
+    # to a file or the terminal (`gh api ... | base64 -d > f`) is ordinary and warns HIGH.
+    ('base64 decode execution',       re.compile(r'(?:base64\s+(?:-d|--decode)|atob\(|b64decode)[^\n]*(?:\|\s*(?:sudo\s+)?(?:ba|z|da|k)?sh\b|\|\s*(?:python3?|node|perl|ruby)\b|\beval\b|\bexec\b)|(?:\beval\b|\bexec\b|\b(?:ba)?sh\s+-c\b)[^\n]*(?:base64\s+(?:-d|--decode)|atob\(|b64decode)', I),                    'CRITICAL'),
+    ('base64 decode', re.compile(r'(?:base64\s+(?:-d|--decode)|atob\(|b64decode)', I), 'HIGH'),
     ('hidden eval/exec',              re.compile(r'\beval\b.*\$|exec\s*\(', I),                                       'CRITICAL'),
     ('curl pipe to shell',            re.compile(r'curl.*\|\s*(?:ba)?sh|wget.*\|\s*(?:ba)?sh', I),                    'CRITICAL'),
     ('environment exfiltration',      re.compile(r'env\b.*curl|printenv.*\||(?:API_KEY|SECRET|TOKEN|PASSWORD).*curl', I), 'CRITICAL'),
@@ -106,18 +109,22 @@ def _collector_re():
 # anywhere else, or unquoted, still denies.
 _REVIEW_CTX = re.compile(r'\b(?:flag|detect|block|reject|refuse|catch|warn\s+(?:about|on)|look\s+for|'
                          r'avoid|never\s+(?:run|use|execute)|do\s+not\s+(?:run|use|execute)|'
-                         r"don't\s+(?:run|use|execute)|disallow|deny)\b", I)
+                         r"don't\s+(?:run|use|execute)|disallow|deny|denied|blocked|blocks|stops?|stopped)\b", I)
 
 
 def _quoted_in_review(text, m):
-    """True when this match sits inside an inline `code` span on a line whose
-    earlier text has a reviewing verb. Both conditions, never one alone."""
+    """True when this match sits inside an inline `code` span on a line that has a
+    reviewing verb, or is a markdown table row. Code span always required."""
     line_start = text.rfind('\n', 0, m.start()) + 1
     line_end = text.find('\n', m.end())
     line_end = len(text) if line_end == -1 else line_end
     before, after = text[line_start:m.start()], text[m.end():line_end]
     inside_code = before.count('`') % 2 == 1 and '`' in after
-    return inside_code and bool(_REVIEW_CTX.search(before))
+    # 2026-10-27: the verb may follow ("`curl|bash` ... stay blocked"), and a markdown
+    # table row quoting sinks in code is a reference table (sc-security's sink table).
+    # Both were our own commands, denied on the Skill tool.
+    table_row = before.lstrip().startswith('|')
+    return inside_code and (table_row or bool(_REVIEW_CTX.search(before + ' ' + after)))
 
 
 def scan_text(text, fname):
