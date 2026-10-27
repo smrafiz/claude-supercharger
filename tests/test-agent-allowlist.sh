@@ -192,6 +192,14 @@ R=$(printf '{"agent_id":"a","agent_type":"plain","cwd":"/nonexistent","tool_name
   | HOME="$H2" PATH="$T/shim:$PATH" bash "$HOOK" 2>&1); RC=$?
 [ "$RC" -eq 0 ] && [ -z "$R" ] && pass || fail "rc=$RC out=$R"
 
+# Native Windows python writes newlines as CRLF: every list entry but the last came
+# back as `git status<CR>` and nothing matched (Windows CI, 8 of 47 failed). Build those
+# bytes here with a python3 shim, so macOS and Linux exercise the Windows path.
+begin_test "CRLF detector output (native Windows python): allowed entry still allowed"
+REALPY=$(command -v python3); mkdir -p "$T/crlf"
+printf '#!/bin/sh\n"%s" "$@" | sed "s/$/\\r/"\n' "$REALPY" > "$T/crlf/python3"; chmod +x "$T/crlf/python3"
+OLDPATH="$PATH"; PATH="$T/crlf:$PATH"
+run narrow Bash "$(cmd 'git status')"; PATH="$OLDPATH"; allowed
 begin_test "registered in lib/hooks.sh and hooks.json"
 grep -q 'agent-allowlist-guard.sh' "$REPO_DIR/lib/hooks.sh" && grep -q 'agent-allowlist-guard' "$REPO_DIR/hooks/hooks.json" \
   && pass || fail "not registered"
