@@ -667,7 +667,7 @@ DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
   # v4.2.0: dd denied only when it WRITES a disk device; `dd if=/dev/zero of=disk.img`
   # and `of=/dev/null` benchmarks are routine.
-  'mkfs\.' '(^|[^[:alnum:]_.-])mkfs[[:space:]][^;&|]*/dev/' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
+  'mkfs\.' '(^|[;&|(\`])[[:space:]]*((sudo|doas)[[:space:]]+)?mkfs[[:space:]][^;&|]*/dev/' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
   # v4.2.0 (sweep 5, dcg corpus): macOS and Windows disk and backup destruction.
   '(^|[^[:alnum:]_.-])diskutil[[:space:]]+(erase[[:alnum:]]*|zeroDisk|secureErase|reformat|partitionDisk|apfs[[:space:]]+delete[[:alnum:]]*)([[:space:]]|$)'
   '(^|[^[:alnum:]_.-])tmutil[[:space:]]+(delete|deletelocalsnapshots)([[:space:]]|$)'

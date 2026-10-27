@@ -567,9 +567,10 @@ normalize_cmd() {
       _sc_tails=""
       for _sc_i in 1 2 3 4 5 6; do
         # 2026-10-27: `>(cmd)` runs cmd too, and `$( (cmd) )` wraps it in a subshell
-        # whose parens the [^()] body refused (cc-safety-net corpus).
-        if [[ "$_sb_scan" =~ (\$|<|>)\([[:space:]]*\(?([^()]*)\)?[[:space:]]*\) ]]; then
-          _sb_body="${BASH_REMATCH[2]}"
+        # whose parens the [^()] body refused (cc-safety-net corpus). The space after
+        # `$(` is required: `$((...))` is arithmetic, and its backticks are found below.
+        if [[ "$_sb_scan" =~ (\$|<|>)\(([[:space:]]+\()?([^()]*)\)?[[:space:]]*\) ]]; then
+          _sb_body="${BASH_REMATCH[3]}"
         elif [[ "$_sb_scan" =~ \`([^\`]*)\` ]]; then
           _sb_body="${BASH_REMATCH[1]}"
         else
