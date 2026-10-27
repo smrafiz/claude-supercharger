@@ -146,10 +146,12 @@ _WRAPPER_DESTRUCT = [
     r":\(\)\s*\{\s*:\s*\|\s*:\s*&\s*\}\s*;\s*:",
 ]
 _INTERPRETERS = [
-    (r"(?:^|[\s;&|])python[23]?(?:\.\d+)?\s+-c\s+", "python -c"),
-    (r"(?:^|[\s;&|])(?:perl|ruby)\s+-e\s+", "perl/ruby -e"),
+    # 2026-10-27: clustered flags (`python -vc`, `perl -we`, `node -pe`) passed the
+    # bare-flag forms (cc-safety-net corpus).
+    (r"(?:^|[\s;&|])python[23]?(?:\.\d+)?\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c\s+", "python -c"),
+    (r"(?:^|[\s;&|])(?:perl|ruby)\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[eE]\s+", "perl/ruby -e"),
     # v2.7.3: cover node's print/eval long forms, not just -e.
-    (r"(?:^|[\s;&|])node\s+(?:-e|--eval|-p|--print)\s+", "node -e/--eval"),
+    (r"(?:^|[\s;&|])node\s+(?:-[a-zA-Z]*[ep]|--eval|--print)\s+", "node -e/--eval"),
     (r"(?:^|[\s;&|])(?:dash|ksh|fish)\s+-c\s+", "dash/ksh/fish -c"),
     # v2.7.3: CVE-2026-40933 / -30625 class — an allowed interpreter accepts a
     # flag that turns it into an arbitrary-command launcher. npx -c, deno eval,
@@ -293,7 +295,7 @@ _SENSITIVE_NAME_RE = re.compile(
     # secret is the LOCATION, so that is what the pattern requires.
     r"|\.config/gh/hosts\.yml|\.claude\.json|\.codex/auth\.json|\.cursor/config\.json"
     # v4.2.0: AI-agent token stores -- same list as env-file-guard.sh.
-    r"|\.claude/\.credentials\.json|\.gemini/oauth_creds\.json|github-copilot/(?:apps|hosts)\.json|opencode/auth\.json"
+    r"|\.claude/\.credentials\.json|\.gemini/oauth_creds\.json|github-copilot/(?:apps|hosts)\.json|opencode/(?:auth|opencode)\.jsonc?|opencode/auth\.json"
     # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
     r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
@@ -637,6 +639,16 @@ def check_secret_directory(c: str) -> str | None:
             continue
         return (f"secret directory access: {path} — files under "
                 f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
+    # 2026-10-27: `cd ~/.aws && cat credentials` names the file relative to the
+    # directory, so the path above never appears (cc-safety-net corpus).
+    m = re.search(r"(?:^|[;&|(]\s*)cd\s+[\"']?([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth))/?[\"']?\s*(?:&&|;|\|\|)(.*)", c, re.S)
+    if m:
+        for seg in re.split(r"&&|\|\||[;|\n]", m.group(2)):
+            for w in seg.split()[1:]:
+                w = w.strip("'\"")
+                if w and not w.startswith("-") and "/" not in w and not _SECRET_DIR_PUBLIC.search(w):
+                    return (f"secret directory access: {m.group(1)}/{w} — files under "
+                            f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
     return None
 
 

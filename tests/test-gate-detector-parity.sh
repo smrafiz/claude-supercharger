@@ -105,6 +105,7 @@ secrets.yaml
 credentials.json
 .gemini/oauth_creds.json
 opencode/auth.json
+opencode/opencode.json
 NAMES
 
 begin_test "gate is a superset: every name the detector flags reaches it through safety.sh"
@@ -120,7 +121,7 @@ begin_test "the name list has not fallen behind the detector"
 #
 # It does NOT hash the pattern: the source carries long explanatory comments, and
 # a canary that fires on every comment edit gets pinned to whatever silences it.
-PINNED=33
+PINNED=34
 ACTUAL=$(python3 -c "
 import re, sys
 src = open(sys.argv[1]).read()

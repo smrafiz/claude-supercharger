@@ -180,7 +180,8 @@ while IFS= read -r seg; do
   fi
   if [[ "$seg" =~ ^git[[:space:]] ]]; then
     # An inline alias runs whatever its value says, under a name no rule knows.
-    if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?alias\. ]]; then
+    # 2026-10-27: `-calias.x=...` glued is the same option (cc-safety-net corpus).
+    if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]*[\"\']?alias\. ]]; then
       ask "git -c alias.<name>=... defines a command inline; its body is not checked by the git rules. Confirm what it runs."
     fi
   fi
@@ -340,10 +341,15 @@ while IFS= read -r seg; do
   # reach the same outcome by another spelling.
   # ---------------------------------------------------------------------------
 
+  # 2026-10-27: --pathspec-from-file with no ref restores the listed paths from the
+  # index, the same discard as `git checkout -- <path>` (cc-safety-net corpus).
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+(-[^[:space:]]+[[:space:]]+)*--pathspec-from-f ]]; then
+    block "git checkout --pathspec-from-file discards unstaged changes to every listed path" "to keep the edits, git stash push -- <paths> first"
+  fi
   # Force checkout/switch — identical effect to `git checkout -- .` (blocked
   # above), reached with a flag instead of a pathspec.
   if [[ "$seg" =~ ^git\ (checkout|switch)[[:space:]] ]] \
-     && [[ "$seg" =~ (^|[[:space:]])(--force|--discard-changes|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+     && [[ "$seg" =~ (^|[[:space:]])(--f(o(r(c(e)?)?)?)?|--di[a-z-]*|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
     block "git checkout/switch --force overwrites the working tree, discarding all uncommitted changes"
   fi
 
@@ -367,7 +373,10 @@ while IFS= read -r seg; do
   # branch and tag absent locally is DELETED, without --force appearing anywhere, so
   # the force-push rules above never saw it. One command, every colleague's branches.
   # From kenryu42/cc-safety-net's git.push-mirror rule.
-  if [[ "$seg" =~ ^git\ push ]] && [[ "$seg" =~ (^|[[:space:]])--mirror([[:space:]]|$) ]]; then
+  # 2026-10-27: git takes any unambiguous prefix of a long option, so `--mir` is
+  # --mirror and `--de` is --delete (cc-safety-net corpus; `--fo`, `--forc` are
+  # ambiguous and git refuses them).
+  if [[ "$seg" =~ ^git\ push ]] && [[ "$seg" =~ (^|[[:space:]])--m(i(r(r(o(r)?)?)?)?)?([[:space:]]|$) ]]; then
     block "git push --mirror force-updates the remote to match local exactly — every remote branch and tag you do not have locally is DELETED"
   fi
 
@@ -378,7 +387,7 @@ while IFS= read -r seg; do
 
   # Remote branch deletion — affects everyone else on the repo, not just here.
   if [[ "$seg" =~ ^git\ push[[:space:]] ]]; then
-    if [[ "$seg" =~ (^|[[:space:]])(--delete|-d)([[:space:]]|$) ]]; then
+    if [[ "$seg" =~ (^|[[:space:]])(--de(l(e(t(e)?)?)?)?|-d)([[:space:]]|$) ]]; then
       ask "git push --delete removes that branch on the remote, for everyone."
     elif [[ "$seg" =~ [[:space:]]:[^[:space:]]+ ]]; then
       # `git push origin :branch` is the older spelling of --delete. Anchored on a

@@ -428,7 +428,11 @@ normalize_cmd() {
   # `FOO=bar rm -rf /` and the first token check saw `FOO=bar` instead of `rm`,
   # so the rm-deny rules never fired. Same applies to bare `PATH=/usr/bin rm`
   # without `env`. Loop until no leading assignment remains.
-  while [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*[[:space:]]+ ]]; do
+  # 2026-10-27: a quoted value is one word. `[^[:space:]]*` cut `W='rm -rf ~'; $W`
+  # at its first space, leaving a dangling quote that hid the rest from the splitter.
+  local _as_q="'" _as_rx
+  _as_rx='^[A-Za-z_][A-Za-z0-9_]*=('"$_as_q"'[^'"$_as_q"']*'"$_as_q"'|"[^"]*"|[^[:space:];&|'"$_as_q"'"])*[[:space:]]+'
+  while [[ "$cmd" =~ $_as_rx ]]; do
     cmd="${cmd#"${BASH_REMATCH[0]}"}"
   done
   # Collapse runs of spaces to one (matches `tr -s ' '` — spaces only, not tabs).
@@ -516,7 +520,7 @@ normalize_cmd() {
   # the -exec block above does, so every segment rule sees it. The original text
   # stays in place for the rules that match on it.
   case "$cmd" in
-    *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*)
+    *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*|*SHELL*-*c*)
       local _sc_scan="$cmd" _sc_body
       # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
@@ -532,7 +536,7 @@ normalize_cmd() {
       # v4.2.0: also a Windows spelling: `.exe`, a drive or backslash path, a quoted path.
       # The opening quote sits outside the path group: `'bash' -c` (quoted name,
       # no path) was not unwrapped and ran its body unchecked.
-      _sc_shc='(^|[[:space:];&|(`])["'"$_sc_q"']?(([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash)(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      _sc_shc='(^|[[:space:];&|(`])["'"$_sc_q"']?(([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash|\$SHELL|\$\{SHELL\})(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
       _sc_tails=""
       for _sc_i in 1 2 3 4 5; do
         [[ "$_sc_scan" =~ $_sc_shc ]] || break
@@ -554,7 +558,7 @@ normalize_cmd() {
   # text is inert and is blanked before looking. Fork-free; entered only when
   # one of these forms is present.
   case "$_sb_src" in
-    *'$('*|*'`'*|*'<('*|*'<<<'*)
+    *'$('*|*'`'*|*'<('*|*'>('*|*'<<<'*)
       local _sb_scan="$_sb_src" _sb_body _sb_q="'"
       # A placeholder, not a space: `cut -d'"'` blanked to `cut -d ` read as curl's -d.
       while [[ "$_sb_scan" =~ ${_sb_q}[^${_sb_q}]*${_sb_q} ]]; do
@@ -562,8 +566,11 @@ normalize_cmd() {
       done
       _sc_tails=""
       for _sc_i in 1 2 3 4 5 6; do
-        if [[ "$_sb_scan" =~ (\$|<)\(([^()]*)\) ]]; then
-          _sb_body="${BASH_REMATCH[2]}"
+        # 2026-10-27: `>(cmd)` runs cmd too, and `$( (cmd) )` wraps it in a subshell
+        # whose parens the [^()] body refused (cc-safety-net corpus). The space after
+        # `$(` is required: `$((...))` is arithmetic, and its backticks are found below.
+        if [[ "$_sb_scan" =~ (\$|<|>)\(([[:space:]]+\()?([^()]*)\)?[[:space:]]*\) ]]; then
+          _sb_body="${BASH_REMATCH[3]}"
         elif [[ "$_sb_scan" =~ \`([^\`]*)\` ]]; then
           _sb_body="${BASH_REMATCH[1]}"
         else
@@ -588,18 +595,103 @@ normalize_cmd() {
   # when a quote or backslash touches a word character; one sed fork, size-capped.
   # Shell text only: a heredoc body is another language's code (_sb_src stops there).
   case "$_sb_src" in
-    *[[:alnum:]_][\'\"\\]*)
+    *[[:alnum:]_/=][\'\"\\]*)
       if [ "${#_sb_src}" -le 4096 ]; then
         local _sc_j
         _sc_j=$(printf '%s' "$_sb_src" | LC_ALL=C sed -E \
           -e "s/([[:alnum:]_])''([[:alnum:]_])/\\1\\2/g" -e 's/([[:alnum:]_])""([[:alnum:]_])/\1\2/g' \
           -e 's/([[:alnum:]_])\\([[:alnum:]_])/\1\2/g' \
-          -e "s/([[:alnum:]_])'([[:alnum:]_./-]*)'/\\1\\2/g" \
-          -e 's/([[:alnum:]_])"([[:alnum:]_./-]*)"/\1\2/g' \
+          -e "s/([[:alnum:]_/=])'([[:alnum:]_./-]*)'/\\1\\2/g" \
+          -e 's/([[:alnum:]_/=])"([[:alnum:]_./-]*)"/\1\2/g' \
           -e "s/(^|[[:space:];&|])'([[:alnum:]_./-]+)'([[:alnum:]_])/\\1\\2\\3/g" \
           -e 's/(^|[[:space:];&|])"([[:alnum:]_./-]+)"([[:alnum:]_])/\1\2\3/g')
         [ -n "$_sc_j" ] && [ "$_sc_j" != "$_sb_src" ] && cmd="$cmd ; $_sc_j"
       fi
+      ;;
+  esac
+  # 2026-10-27, from kenryu42/cc-safety-net's verdict corpus (6983 commands, each
+  # passed every guard here): three more spellings the shell resolves before it runs.
+  # APPEND the resolved form, as above. Entered only when the form is present.
+  #
+  # A command word in another case or with .exe: macOS file names ignore case, so
+  # `RM -rf /` runs rm, and Git Bash runs `git.exe`. Only known command words are
+  # lowercased, and only at command position, so arguments keep their case.
+  case "$_sb_src" in
+    *[[:upper:]]*|*.[eE][xX][eE]*)
+      if [ "${#_sb_src}" -le 16384 ]; then
+        local _cf_scan=";$_sb_src" _cf_out=";$_sb_src" _cf_w _cf_l _cf_hit="" _cf_rep
+        local _cf_rx='[;&|(`{][[:space:]]*([[:alpha:]][[:alnum:]_-]*)(\.[eE][xX][eE])?([[:space:]]|$)'
+        for _sc_i in 1 2 3 4 5 6 7 8; do
+          [[ "$_cf_scan" =~ $_cf_rx ]] || break
+          _cf_scan="${_cf_scan#*"${BASH_REMATCH[0]}"}"
+          _cf_w="${BASH_REMATCH[1]}${BASH_REMATCH[2]}"; _cf_l="${BASH_REMATCH[1]}"
+          case "$_cf_l" in *[[:upper:]]*) _cf_l=$(printf '%s' "$_cf_l" | tr '[:upper:]' '[:lower:]') ;; esac
+          [ "$_cf_l" = "$_cf_w" ] && continue
+          case "$_cf_l" in
+            rm|git|dd|find|xargs|shred|truncate|chmod|chown|mv|cp|curl|wget|bash|sh|zsh|dash|ksh|\
+python|python3|perl|ruby|node|sudo|doas|env|kill|pkill|killall|docker|kubectl|psql|mysql|mkfs|\
+wipefs|fdisk|diskutil|crontab|launchctl|rsync|scp|ssh|tar|gh|npm|npx) ;;
+            *) continue ;;
+          esac
+          _cf_rep="${BASH_REMATCH[0]/"$_cf_w"/$_cf_l}"
+          _cf_out="${_cf_out/"${BASH_REMATCH[0]}"/$_cf_rep}"; _cf_hit=1
+        done
+        [ -n "$_cf_hit" ] && cmd="$cmd ; ${_cf_out#;}"
+      fi
+      ;;
+  esac
+  # `env -S 'cmd args'` splits its string into the command it runs.
+  case "$_sb_src" in
+    *env*-S*|*env*--split-string*)
+      local _es_q="'" _es_rx _es_b
+      _es_rx='(^|[[:space:];&|(`])env[[:space:]]+(-[^[:space:]S]*[[:space:]]+)*(-S|--split-string=?)[[:space:]]*('"$_es_q"'[^'"$_es_q"']*'"$_es_q"'|"[^"]*"|[^[:space:];&|]+)([^;&|]*)'
+      if [[ "$_sb_src" =~ $_es_rx ]]; then
+        _es_b="${BASH_REMATCH[4]}"
+        case "$_es_b" in "'"*"'"|'"'*'"') _es_b="${_es_b:1:${#_es_b}-2}" ;; esac
+        [ -n "$_es_b" ] && cmd="$cmd ; $_es_b${BASH_REMATCH[5]}"
+      fi
+      ;;
+  esac
+  # ANSI-C quoting: `$'\x72\x6d' -rf /` is rm. Decoded with the printf builtin.
+  case "$_sb_src" in
+    *"\$'"*\\*)
+      local _ac_q="'" _ac_scan="$_sb_src" _ac_out="$_sb_src" _ac_rx _ac_d _ac_hit=""
+      _ac_rx='\$'"$_ac_q"'([^'"$_ac_q"']*\\[^'"$_ac_q"']*)'"$_ac_q"
+      for _sc_i in 1 2 3 4; do
+        [[ "$_ac_scan" =~ $_ac_rx ]] || break
+        _ac_scan="${_ac_scan#*"${BASH_REMATCH[0]}"}"
+        printf -v _ac_d '%b' "${BASH_REMATCH[1]}" 2>/dev/null || continue
+        _ac_out="${_ac_out/"${BASH_REMATCH[0]}"/$_ac_d}"; _ac_hit=1
+      done
+      [ -n "$_ac_hit" ] && cmd="$cmd ; $_ac_out"
+      ;;
+  esac
+  # `${NAME:-default}` runs as its default when NAME is unset: `cat ${CODEX_HOME:-~/.codex}/auth.json`.
+  case "$_sb_src" in
+    *'${'*[-=]*'}'*)
+      local _pd_scan="$_sb_src" _pd_out="$_sb_src" _pd_hit=""
+      local _pd_rx='\$\{[A-Za-z_][A-Za-z0-9_]*:?[-=]([^{}$]*)\}'
+      for _sc_i in 1 2 3 4; do
+        [[ "$_pd_scan" =~ $_pd_rx ]] || break
+        _pd_scan="${_pd_scan#*"${BASH_REMATCH[0]}"}"
+        _pd_out="${_pd_out/"${BASH_REMATCH[0]}"/${BASH_REMATCH[1]}}"; _pd_hit=1
+      done
+      [ -n "$_pd_hit" ] && cmd="$cmd ; $_pd_out"
+      ;;
+  esac
+  # A command held in a variable: `W='rm -rf ~'; $W` runs the quoted text.
+  case "$_sb_src" in
+    *=[\'\"]*\$*)
+      local _va_q="'" _va_scan="$_sb_src" _va_rx _va_use _va_n _va_v
+      _va_rx='(^|[[:space:];&|(])([A-Za-z_][A-Za-z0-9_]*)=('"$_va_q"'[^'"$_va_q"']*'"$_va_q"'|"[^"]*")'
+      for _sc_i in 1 2 3 4; do
+        [[ "$_va_scan" =~ $_va_rx ]] || break
+        _va_n="${BASH_REMATCH[2]}"; _va_v="${BASH_REMATCH[3]}"
+        _va_scan="${_va_scan#*"${BASH_REMATCH[0]}"}"
+        _va_v="${_va_v:1:${#_va_v}-2}"
+        _va_use='(^|[;&|({`][[:space:]]*)\$(\{'"$_va_n"'\}|'"$_va_n"')([^[:alnum:]_]|$)'
+        [ -n "$_va_v" ] && [[ "$_sb_src" =~ $_va_use ]] && cmd="$cmd ; $_va_v"
+      done
       ;;
   esac
   # $IFS expands to whitespace at run time, so `rm$IFS-rf$IFS/` runs `rm -rf /`

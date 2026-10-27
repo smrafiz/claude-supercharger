@@ -328,7 +328,7 @@ if _cat_enabled "filesystem"; then
         # space/end/slash after it, so `/etc` and `/tmp/x` are untouched. The python
         # block below is the real check — this stays correct because it is the only
         # guard left if python3 is missing (`|| true` fails open).
-        if [[ "$args" =~ (^|[[:space:]])(\/|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
+        if [[ "$args" =~ (^|[[:space:]])(\/|\/\*|\/\*\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
           block "recursive force rm on dangerous target"
         fi
         # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
@@ -667,7 +667,7 @@ DESTRUCT_PATTERNS=(
   'chmod[[:space:]]+([2467][0-7]{3}([[:space:]]|$)|[ugoa]*\+s([[:space:]]|$))'
   # v4.2.0: dd denied only when it WRITES a disk device; `dd if=/dev/zero of=disk.img`
   # and `of=/dev/null` benchmarks are routine.
-  'mkfs\.' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
+  'mkfs\.' '(^|[;&|(\`])[[:space:]]*((sudo|doas)[[:space:]]+)?mkfs[[:space:]][^;&|]*/dev/' 'dd[[:space:]][^;&|]*of=/dev/(r?disk|sd|hd|nvme|mmcblk|vd|xvd|loop|md|dm-|mapper|sg|nbd)'
   # v4.2.0 (sweep 5, dcg corpus): macOS and Windows disk and backup destruction.
   '(^|[^[:alnum:]_.-])diskutil[[:space:]]+(erase[[:alnum:]]*|zeroDisk|secureErase|reformat|partitionDisk|apfs[[:space:]]+delete[[:alnum:]]*)([[:space:]]|$)'
   '(^|[^[:alnum:]_.-])tmutil[[:space:]]+(delete|deletelocalsnapshots)([[:space:]]|$)'
@@ -729,8 +729,8 @@ DESTRUCT_PATTERNS=(
   # v4.2.0: only where the search ROOT is the danger: an absolute path, home, a
   # parent, or `.` with nothing narrowing it. `find . -name '*.pyc' -delete` and
   # `find dist -type f -delete` are routine cleanup (dcg/flowrail allow corpora).
-  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.)[^;&|]*[[:space:]]-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
-  'find([[:space:]]+\./?)?[[:space:]]+-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
+  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.)[^;&|]*[[:space:]]-(delete|exec(dir)?[[:space:]]+((env|sudo|doas|command|busybox|nice|nohup|exec)[[:space:]]+)*rm)([[:space:]]|$)'
+  'find([[:space:]]+\./?)?[[:space:]]+-(delete|exec(dir)?[[:space:]]+((env|sudo|doas|command|busybox|nice|nohup|exec)[[:space:]]+)*rm)([[:space:]]|$)'
   # ...and anywhere when the match is the repository's own .git metadata.
   'find[[:space:]][^;&|]*-(i?name|path)[[:space:]]+["'"'"']?[^[:space:]]*\.git["'"'"']?[[:space:]][^;&|]*-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
   # v2.9.9: Docker data destruction — `docker volume rm/prune` and `system prune
@@ -1541,7 +1541,7 @@ fi
 _NEED_PY=false
 _CRED_PATH=false   # a credential file or dir: the deep scan is its only Bash-side check
 case "$CMD" in
-  *python*\ -c*|*node\ -e*|*node\ --eval*|*node\ -p*|*node\ --print*|*perl\ -e*|*ruby\ -e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
+  *python*\ -*c*|*node\ -*e*|*node\ --eval*|*node\ -*p*|*node\ --print*|*perl\ -*e*|*ruby\ -*e*|*dash\ -c*|*ksh\ -c*|*fish\ -c*) _NEED_PY=true ;;
   *npx*\ -c*|*deno\ eval*|*bun\ -e*|*bun\ --eval*) _NEED_PY=true ;;
   # v2.7.14: gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE,
   # else those detector patterns are unreachable. Added .my.cnf/.authinfo/.crt/.cer.
@@ -1564,7 +1564,7 @@ case "$CMD" in
   # Same two-gate trap that shipped tool-preferences inert in v2.29.23.
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
-  *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*.cursor/*) _CRED_PATH=true; _NEED_PY=true ;;
+  *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*opencode/opencode.json*|*.cursor/*) _CRED_PATH=true; _NEED_PY=true ;;
   # v4.2.0: AI-agent token stores (same list as the detector) -- two-gate trap.
   *.credentials.json*|*oauth_creds*|*github-copilot*) _CRED_PATH=true; _NEED_PY=true ;;
   # 2026-09-13: cloud service-account / OAuth key files (from AhmadShayan audit).

@@ -287,7 +287,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     # Sept 2026). .credentials.json missed the basename arm by its leading dot.
     # #436: ~/.mcp-auth/ is mcp-remote's OAuth token cache (whole directory).
     */.claude/.credentials.json|*/.gemini/oauth_creds.json|*/.config/github-copilot/apps.json|\
-    */.config/github-copilot/hosts.json|*/opencode/auth.json|*/.mcp-auth/*)
+    */.config/github-copilot/hosts.json|*/opencode/auth.json|*/opencode/opencode.json|*/opencode/opencode.jsonc|*/.mcp-auth/*)
       block "Read of AI-agent token store blocked" "$FILE_PATH" ;;
     # MCP configs hold server commands AND often API keys in env blocks: ask.
     */.cursor/mcp.json|*/.codeium/windsurf/mcp_config.json|*/claude_desktop_config.json)

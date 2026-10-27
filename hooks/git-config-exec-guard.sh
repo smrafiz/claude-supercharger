@@ -37,7 +37,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # away from the project's own repo). Superset.
 case "$_INPUT" in *git*) : ;; *) exit 0 ;; esac
 _GCE_SET=0
-case "$_INPUT" in *config*|*"-c "*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*) _GCE_SET=1 ;; esac
+case "$_INPUT" in *config*|*CONFIG_KEY*|*"-c "*|*" -c"[a-z]*"."*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*) _GCE_SET=1 ;; esac
 
 # GitSpawn: a repo OUTSIDE the project (or nested in it with its own .git) can ship
 # a .git/config whose core.fsmonitor / hooksPath / sshCommand / pager / filter driver
@@ -131,8 +131,13 @@ def keyclass(key, val):
     if k == "core.hookspath":
         return ("ASK", "core.hooksPath (redirects git hooks)")
     # sshCommand: command-shaped value is an exec gadget → DENY.
+    # 2026-10-27: a value whose program is not ssh (`./x`, `/tmp/helper`) runs that
+    # program on the next fetch/push: ASK. `ssh -i key -o ...` stays allowed.
     if k == "core.sshcommand":
-        return (("DENY" if cmdshaped else None), "core.sshCommand") if cmdshaped else None
+        if cmdshaped:
+            return ("DENY", "core.sshCommand")
+        prog = (val.strip().strip("'\"").split() or [""])[0]
+        return None if re.sub(r'\.exe$', '', os.path.basename(prog).lower()) in ("ssh", "plink", "tortoiseplink") else ("ASK", "core.sshCommand (runs " + prog + ")")
     # Aliases exec a shell only when '!'-prefixed.
     if k.startswith("alias."):
         return ("ASK", key) if val.lstrip().startswith("!") else None
@@ -169,8 +174,14 @@ for m in re.finditer(r'git\s+config\s+((?:--\S+\s+)*)([\w][\w.-]*)\s+(.+)', cmd)
     emit(keyclass(key, val))
 
 # Form 2: git -c <key>=<value>
-for m in re.finditer(r'git\s+(?:[^|;&]*\s)?-c\s+([\w][\w.-]*)=(\S+)', cmd):
+# 2026-10-27: `-ckey=val` glued is the same option (cc-safety-net corpus).
+for m in re.finditer(r'git\s+(?:[^|;&]*\s)?-c\s*([\w][\w.-]*)=(\S+)', cmd):
     emit(keyclass(m.group(1), m.group(2)))
+
+# Form 3: GIT_CONFIG_COUNT=n GIT_CONFIG_KEY_i=<key> GIT_CONFIG_VALUE_i=<value>
+for m in re.finditer(r'GIT_CONFIG_KEY_(\d+)=(\S+)', cmd):
+    v = re.search(r'GIT_CONFIG_VALUE_' + m.group(1) + r'=(\S+)', cmd)
+    emit(keyclass(m.group(2).strip("'\""), v.group(1).strip("'\"") if v else ""))
 
 # --- GitSpawn: which repo does each git invocation land in? If it is not the
 # project's own (by common git dir, so a linked worktree of the project counts as
