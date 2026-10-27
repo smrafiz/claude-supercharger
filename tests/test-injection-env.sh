@@ -8,7 +8,8 @@ echo "=== code-injection environment variables ==="
 
 _v() {
   local p st out rc
-  p=$(CMD="$1" python3 -c 'import json,os;print(json.dumps({"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":os.environ["CMD"]}}))')
+  # stdin, not an env var: Git Bash rewrites /tmp/... in env values handed to Windows python
+  p=$(printf '%s' "$1" | python3 -c 'import json,sys;print(json.dumps({"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":sys.stdin.read()}}))')
   st=$(mktemp -d)
   out=$(printf '%s' "$p" | SUPERCHARGER_STATE="$st" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/safety.sh" 2>/dev/null); rc=$?
   rm -rf "$st"
