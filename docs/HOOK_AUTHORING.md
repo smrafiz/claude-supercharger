@@ -1016,4 +1016,8 @@ catch `SystemExit`, and call the handler directly.
   Build those bytes in a test so macOS and Linux exercise the Windows path; check every `case` guard admits them.
 - **`stat`: GNU form first** in tests as well as hooks; Linux `stat -f` succeeds and reports the filesystem.
 - **A test that expects ASK must check the reason**, or another rule's ask makes it pass.
+- **No POSIX modes on Windows.** Git Bash `stat` reports 644 for every file; gate mode assertions on
+  `$OSTYPE` (msys*/cygwin*) and still require the file to exist.
+- **Count checks against release-maintained files** should run the release's own rewrite on a copy, not
+  compare the committed file, or every PR that adds a hook fails until release.
 
