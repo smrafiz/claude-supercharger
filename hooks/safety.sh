@@ -692,15 +692,28 @@ DESTRUCT_PATTERNS=(
   '(^|[^[:alnum:]_.-])(mke2fs|mkntfs|mkdosfs|mkexfatfs|mkudffs|newfs([._][[:alnum:]]+)*)([^[:alnum:]_.-]|$)'
   # Raw-device wipers that leave the partition table and destroy everything in it:
   '(^|[^[:alnum:]_.-])blkdiscard([^[:alnum:]_.-]|$)'
-  '(^|[^[:alnum:]_.-])nvme[[:space:]]+(format|sanitize|delete-ns|create-ns|write|security-send)([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])nvme[[:space:]]+(format|sanitize|delete-ns|create-ns|write|write-zeroes|write-uncor|security-send)([^[:alnum:]_.-]|$)'
   '(^|[^[:alnum:]_.-])hdparm[[:space:]][^;&|]*(--security-erase(-enhanced)?|--trim-sector-ranges|--make-bad-sector|--write-sector|--dco-restore)'
-  '(^|[^[:alnum:]_.-])badblocks[[:space:]][^;&|]*(^|[[:space:]])-[[:alnum:]]*w'
+  # 2026-10-27: the old form needed a second space before the flag, so
+  # `badblocks -w /dev/sda` (flag first) passed (heinzel test corpus).
+  '(^|[^[:alnum:]_.-])badblocks([[:space:]][^;&|]*)?[[:space:]]-[[:alnum:]]*w'
   # shred targeting a raw disk device (NOT a file — file shred is ordinary work):
   '(^|[^[:alnum:]_.-])shred[[:space:]][^;&|]*/dev/(sd|vd|xvd|hd|nvme|mmcblk|nbd|loop|da|ada|nda|disk[0-9])'
+  # 2026-10-27, heinzel test corpus: a disk written by a redirect, tee, cp or a
+  # download's output file, not by dd. `> /dev/null` and other non-disk nodes pass.
+  # Every tee operand is written; cp writes its LAST operand (a disk read with
+  # `cp /dev/sda x.img` stays allowed).
+  '(>[[:space:]]*|(^|[[:space:];&|])tee([[:space:]]+[^;&|<>]*)?[[:space:]]+|[[:space:]](-o|-O|--output)[[:space:]]*)["'"'"']?/dev/(sd[a-z]|hd[a-z]|vd[a-z]|xvd[a-z]|nvme[0-9]|mmcblk[0-9]|r?disk[0-9]|da[0-9]|ada[0-9]|nda[0-9])'
+  '(^|[[:space:];&|])cp[[:space:]][^;&|<>]*[[:space:]]["'"'"']?/dev/(sd[a-z]|hd[a-z]|vd[a-z]|xvd[a-z]|nvme[0-9]|mmcblk[0-9]|r?disk[0-9]|da[0-9]|ada[0-9]|nda[0-9])[^[:space:];&|]*[[:space:]]*($|[;&|])'
+  # ...and opened for writing from an interpreter one-liner.
+  '(open|writeFileSync|appendFileSync|createWriteStream|File\.(write|open))[[:space:]]*\([^)]*/dev/(sd[a-z]|hd[a-z]|vd[a-z]|xvd[a-z]|nvme[0-9]|mmcblk[0-9]|r?disk[0-9])'
   # Partition-table editors (cfdisk has no read-only mode; sgdisk/gpart matched
   # only on their write subcommands/flags):
   '(^|[^[:alnum:]_.-])cfdisk([^[:alnum:]_.-]|$)'
-  '(^|[^[:alnum:]_.-])sgdisk[[:space:]][^;&|]*(-Z([[:space:]]|$)|--zap(-all)?|-o([[:space:]]|$)|--clear|-d[[:space:]]|--delete|-n[[:space:]]|--new)'
+  '(^|[^[:alnum:]_.-])sgdisk[[:space:]][^;&|]*(-Z([[:space:]]|$)|--zap(-all)?|-o([[:space:]]|$)|--clear|-d[[:space:]]|--delete|-n[[:space:]]|--new|-[eGsU]([[:space:]]|$)|--replicate|--sort|--randomize-guids|--disk-guid)'
+  # 2026-10-27, heinzel test corpus: the BSD/macOS `gpt` editor and growpart.
+  '(^|[^[:alnum:]_.-])gpt[[:space:]]+(-[^[:space:]]+[[:space:]]+)*(create|destroy|add|remove|resize|migrate|recover)([^[:alnum:]_.-]|$)'
+  '(^|[^[:alnum:]_.-])growpart[[:space:]]+/dev/'
   '(^|[^[:alnum:]_.-])gpart[[:space:]]+(create|add|delete|destroy|modify|resize|bootcode|recover|set|undo|commit)([^[:alnum:]_.-]|$)'
   # echo b|o > /proc/sysrq-trigger cuts power / resets instantly without syncing;
   # nothing reads this file, so any mention is a write to it:
@@ -751,7 +764,10 @@ DESTRUCT_PATTERNS=(
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
-  '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?(shutdown|reboot|poweroff|halt)([[:space:]]|$)'
+  # 2026-10-27: `shutdown -c` CANCELS a pending shutdown, so it is left alone; and
+  # systemctl/telinit spellings of the same power-off (heinzel test corpus).
+  '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?((reboot|poweroff|halt)([[:space:]]|$)|shutdown([[:space:]]*$|[[:space:]]+([^-[:space:]]|-[^c[:space:]])))'
+  '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?(systemctl[[:space:]]+(poweroff|halt|reboot|kexec)|telinit[[:space:]]+[06])([[:space:]]|$)'
   '(^|[;&|])[[:space:]]*(sudo[[:space:]]+)?init[[:space:]]+[06]([[:space:]]|$)'
   # v2.9.13: partition/disk-destruction — same irreversible class as mkfs/dd
   # (covered above), but the partition-editor family was missing. Read-only forms
@@ -760,8 +776,8 @@ DESTRUCT_PATTERNS=(
   # (from wintermeyer/heinzel guard-taboos.sh)
   'wipefs[[:space:]]([^;&|]*[[:space:]])?(-a|--all)([[:space:]]|$)'
   '(^|[[:space:]])(fdisk|gdisk)[[:space:]]+/dev/'
-  '(^|[[:space:]])sfdisk[[:space:]]+/dev/'
-  'parted[[:space:]][^;&|]*(mklabel|mkpart|resizepart|[[:space:]]rm[[:space:]])'
+  '(^|[[:space:]])sfdisk[[:space:]]+(/dev/|--delete|--wipe([[:space:]]|$))'
+  'parted[[:space:]][^;&|]*(mklabel|mkpart|resizepart|[[:space:]](rm|move|name|toggle|set)[[:space:]])'
 )
 NETWORK_PATTERNS=(
   # v2.28.2: these four were substring matches — curl anywhere, then any bytes,
@@ -897,8 +913,9 @@ CLOUD_PATTERNS=(
 # NOTE ssh-config StrictHostKeyChecking=no / ProxyCommand deliberately NOT
 # blocked — too common in legit CI/jump-host automation (would cry-wolf).
 PERSIST_PATTERNS=(
-  # /etc/sudoers write, visudo, NOPASSWD grant
-  '((>>?|tee|sed[[:space:]]+-i|cp|mv)[^;&|]*/etc/sudoers|(^|[[:space:]])visudo([[:space:]]|$)|NOPASSWD:)'
+  # /etc/sudoers write, visudo, NOPASSWD grant. 2026-10-27: `visudo -c` only checks
+  # the syntax and writes nothing, so a first -c flag is left alone.
+  '((>>?|tee|sed[[:space:]]+-i|cp|mv)[^;&|]*/etc/sudoers|(^|[[:space:]])visudo([[:space:]]*$|[[:space:]]+([^-[:space:]]|-[^c[:space:]]))|NOPASSWD:)'
   # append/copy into an authorized_keys file (backdoor SSH access)
   '((>>?|tee|cp|mv|sed[[:space:]]+-i)[^;&|]*authorized_keys|(^|[[:space:]])ssh-copy-id([[:space:]]|$))'
   # scheduled-task persistence: launchd/systemd/cron writes, launchctl load, schtasks /create
