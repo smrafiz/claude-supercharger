@@ -117,6 +117,8 @@ fi
 mkdir -p "$_AL_STATE/scope" 2>/dev/null || true
 [ -n "$_AL_FILE" ] && printf '%s\n' "$_AL_FILE" >> "$_AL_ACK" 2>/dev/null || true
 
+# Record the ask so an open autopilot window does not approve it (lib-deny.sh).
+. "${BASH_SOURCE[0]%/*}/lib-deny.sh" 2>/dev/null && sc_mark_guard_ask
 printf '%s' "$_AL_REASON" | python3 -c '
 import json, sys
 r = sys.stdin.read().strip()

@@ -1675,6 +1675,21 @@ if [ -n "$_INJ_ENV" ] && [ -z "${_RM_VAR_ASK:-}" ]; then
   exit 0
 fi
 
+# 2026-10-28: a kill chosen by NAME or PATTERN reaches processes other sessions own
+# (dev servers, test runs, other agents) - randommonicle/claude-skills kill-guard, and
+# this user's own rule: stop only processes you started, by PID. ASK, not deny: about
+# 30 real `pkill -f next-server` calls were the user's own (the self-kill rule above
+# still denies). The deny cases above win; this is reached only when nothing denied.
+if _cat_enabled "destructive" && [ -z "${_RM_VAR_ASK:-}" ]; then
+  _KP_NAME="${_SK_SEG}(pkill|killall)[[:space:]]"
+  _KP_PIPE='pgrep[^;&]*\|[[:space:]]*(sudo[[:space:]]+)?xargs([[:space:]]+-[^[:space:]]+)*[[:space:]]+(sudo[[:space:]]+)?kill([[:space:]]|$)'
+  _KP_SUBST='(^|[^[:alnum:]_-])kill[[:space:]][^;&|]*(\$\(|`)[[:space:]]*(pgrep|pidof)[[:space:]]'
+  if [[ "$CMD_SCAN" =~ $_KP_NAME ]] || [[ "$CMD_SCAN" =~ $_KP_PIPE ]] || [[ "$CMD_SCAN" =~ $_KP_SUBST ]]; then
+    sc_decision ask "this kills processes by name or pattern, which can reach processes other sessions own (a dev server, another agent's test run)." "kill the PID of a process you started (kill <pid>), or confirm every match is yours"
+    exit 0
+  fi
+fi
+
 # Variable-rooted rm (recorded above). Emitted LAST so any deny in the same command
 # wins; an ask only when nothing denied.
 if [ -n "${_RM_VAR_ASK:-}" ]; then
