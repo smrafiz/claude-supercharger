@@ -40,6 +40,26 @@ _sc_json_escape() {
 }
 
 # sc_decision <deny|ask|allow> <reason> [remedy] [event]
+# A guard's ASK reaches Claude Code's permission prompt, and the PermissionRequest
+# hook (smart-approve) answers that prompt. Under /sc-autopilot it approved every one,
+# so a guard's confirm reached nobody (2026-10-28, randommonicle/claude-skills audit).
+# Record this exact call; smart-approve declines a recorded call before autopilot runs.
+# Key: session, tool and tool input, so the same call asked again is declined again.
+sc_guard_ask_key() {  # $1 = hook input JSON; prints a checksum or nothing
+  printf '%s' "$1" | jq -c -S '[.session_id // "", .tool_name // "", .tool_input // {}]' 2>/dev/null | cksum | cut -d' ' -f1
+}
+sc_mark_guard_ask() {
+  [ -n "${_INPUT:-}" ] || return 0
+  local k f
+  k=$(sc_guard_ask_key "$_INPUT") && [ -n "$k" ] || return 0
+  f="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope/.guard-asks"
+  mkdir -p "${f%/*}" 2>/dev/null && printf '%s\n' "$k" >> "$f" 2>/dev/null || true
+  # Asks are rare; keep the newest 500 once the file passes 1000 lines.
+  if [ "$(wc -l < "$f" 2>/dev/null || echo 0)" -gt 1000 ]; then
+    tail -n 500 "$f" > "$f.tmp.$$" 2>/dev/null && mv -f "$f.tmp.$$" "$f" 2>/dev/null || rm -f "$f.tmp.$$"
+  fi
+}
+
 sc_decision() {
   local decision="$1" reason="$2" remedy="${3:-}" event="${4:-PreToolUse}" msg
   msg="Supercharger: $reason"
@@ -52,6 +72,7 @@ sc_decision() {
     [ -n "$BLAST" ] && msg="$msg  Effect: $BLAST."
   fi
   [ -n "$remedy" ] && msg="$msg  Way through: $remedy"
+  [ "$decision" = ask ] && sc_mark_guard_ask
   _sc_json_escape "$msg"
   printf '{"hookSpecificOutput":{"hookEventName":"%s","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \
     "$event" "$decision" "$_SC_JSON"

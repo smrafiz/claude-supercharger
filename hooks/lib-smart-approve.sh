@@ -166,6 +166,14 @@ smart_approve_verdict() {
   _md_sid=$(printf '%s\n' "$input" | jq -r '.session_id // empty' 2>/dev/null || true)
   _md_now=""   # P2: computed lazily on the first existing mode file — avoids a
                # `date` fork on every permission request in the common no-mode path.
+  # 2026-10-28: a call a Supercharger guard ASKED about is never auto-approved, by
+  # autopilot or any allow-list below: the confirm is the guard's whole point. The
+  # guard records the call (lib-deny.sh sc_mark_guard_ask); no file, no fork.
+  if [ -s "$_md_state/scope/.guard-asks" ]; then
+    . "${BASH_SOURCE[0]%/*}/lib-deny.sh" 2>/dev/null
+    local _ga_k; _ga_k=$(sc_guard_ask_key "$input")
+    [ -n "$_ga_k" ] && grep -qxF "$_ga_k" "$_md_state/scope/.guard-asks" 2>/dev/null && return 1
+  fi
   # Strict first — must override autopilot.
   for _md_f in "$_md_state/scope/.strict-until" ${_md_sid:+"$_md_state/scope/.strict-until-$_md_sid"}; do
     [ -f "$_md_f" ] || continue
