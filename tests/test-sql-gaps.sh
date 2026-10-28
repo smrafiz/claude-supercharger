@@ -32,6 +32,9 @@ cases = [
     ("psql --file= absolute", "psql --file=" + cwd + "/wipe.sql", "ASK"),
     ("mysql < file", "mysql app < zero.sql", "ASK"),
     ("sqlite3 .read", "sqlite3 app.db \".read wipe.sql\"", "ASK"),
+    # the file check must not end the hook early: a later rule still fires
+    ("missing file, then a key read", "psql -f nope.sql; cat ~/.s" + "sh/id_" + "rsa", "DENY"),
+    ("clean file, then a key read", "psql -f routine.sql && cat ~/.s" + "sh/id_" + "rsa", "DENY"),
     # still allowed
     ("DELETE with a real WHERE", "psql -c \"DELETE FROM users WHERE id = 1\"", "ALLOW"),
     ("DELETE WHERE id = 1 is not 1", "psql -c 'DELETE FROM t WHERE id = 1;'", "ALLOW"),
