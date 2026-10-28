@@ -11,7 +11,9 @@ python3 - "$TMP/cases" <<'PY'
 import json, sys
 PK, KA = 'pk' + 'ill', 'kill' + 'all'
 cases = [
-    ("pkill -f pattern", PK + " -f pytest", "ASK"),
+    # On Linux the older self-kill rule already denies `pkill -f` (it matches the
+    # agent's own shell there); elsewhere it asks.
+    ("pkill -f pattern", PK + " -f pytest", "DENY" if sys.platform.startswith("linux") else "ASK"),
     ("pkill by name", PK + " vite", "ASK"),
     ("killall by name", KA + " Python", "ASK"),
     ("pgrep piped to xargs kill", "pgrep -f vite | xargs kill", "ASK"),
