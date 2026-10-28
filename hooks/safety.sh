@@ -597,6 +597,18 @@ DB_PATTERNS=(
 )
 DELETE_NOWHERE='DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]([a-zA-Z0-9_"`.]*[a-zA-Z0-9_"`])?[[:space:]]*(;|"|'\''|`|\||&|\)|$)'
 DB_PATTERNS+=("$DELETE_NOWHERE")
+# 4.4: the same wipe spelled so the anchors above miss it (randommonicle/claude-skills
+# audit). A WHERE that keeps every row (1=1, true, 1), and UPDATE with no WHERE at all.
+# The UPDATE arm is positive-shape: the whole SET list must be simple assignments
+# followed directly by a terminator, so `... SET a = 1 WHERE id = 2` never matches.
+# Neither arm ends on `$`: grep is line-based, and a heredoc that puts WHERE on the
+# next line would otherwise read as unfiltered.
+_SQL_ID='["`a-zA-Z_][a-zA-Z0-9_"`.]*'
+_SQL_SET="${_SQL_ID}[[:space:]]*=[[:space:]]*(-?[0-9][0-9.]*|'[^']*'|[a-zA-Z_][a-zA-Z0-9_.]*(\(\))?)"
+DB_PATTERNS+=(
+  '(DELETE([[:space:]]|/\*[^/]*\*/)+FROM|(^|[^[:alnum:]_.])UPDATE)[[:space:]][^;]*[[:space:]]WHERE[[:space:]]+(1[[:space:]]*=[[:space:]]*1|TRUE|1)[[:space:]]*(;|"|'\''|`|\))'
+  "(^|[^[:alnum:]_.])UPDATE[[:space:]]+${_SQL_ID}[[:space:]]+SET[[:space:]]+${_SQL_SET}([[:space:]]*,[[:space:]]*${_SQL_SET})*[[:space:]]*(;|\"|'|\`|\))"
+)
 
 # v4.0.46: SQL as a FILE and EXEC channel, not only a destructive-DDL one.
 # Everything above guards the destructive axis — DROP, TRUNCATE, DELETE, ORM
@@ -1136,6 +1148,32 @@ if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
       fi
     done
   fi
+fi
+
+# 4.4: SQL run from a file (`psql -f`, `mysql < f`, sqlite3 `.read`, psql `\i`). The
+# command line shows only a filename, so the database rules above never saw the
+# statements. Read the file and run them over its text: line comments dropped, lines
+# joined so a WHERE on the next line still counts. ASK, not deny: the file may be a
+# reviewed migration. A missing or large (>1MB) file is skipped.
+if _cat_enabled "database" && [[ "$CMD_SCAN" =~ (^|[[:space:]\;\&\|\(/])(psql|mysql|mariadb|sqlite3)([[:space:]]|$) ]]; then
+  _DB_JOINED=$(IFS='|'; echo "${DB_PATTERNS[*]}")
+  while IFS= read -r _sf; do
+    _sf="${_sf#--file}"; _sf="${_sf#-f}"; _sf="${_sf#<}"; _sf="${_sf#.read}"; _sf="${_sf#\\i}"
+    _sf="${_sf#=}"; _sf="${_sf#"${_sf%%[![:space:]]*}"}"
+    case "$_sf" in /*|[A-Za-z]:[\\/]*) ;; *) _sf="$PROJECT_DIR/$_sf" ;; esac
+    [ -f "$_sf" ] && [ -r "$_sf" ] || continue
+    [ "$(wc -c < "$_sf" 2>/dev/null || echo 9999999)" -le 1048576 ] || continue
+    if sed 's/--.*$//' "$_sf" | tr '\n' ' ' | LC_ALL=C grep -qaiE "$_DB_JOINED"; then
+      sc_decision ask "the SQL file ${_sf##*/} contains a statement that drops data or changes every row." "read the file and confirm it is meant to run against this database"
+      exit 0
+    fi
+  done < <(printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -oE '(-f[[:space:]]*|--file=?[[:space:]]*|<[[:space:]]*|\.read[[:space:]]+|\\i[[:space:]]+)[^][:space:];&|"'\''<>()]+' 2>/dev/null)
+fi
+# Opt-in: ask before any DELETE, even a filtered one.
+if [ "${SUPERCHARGER_ASK_SQL_DELETE:-0}" = 1 ] && _cat_enabled "database" \
+   && printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE 'DELETE([[:space:]]|/\*[^/]*\*/)+FROM([[:space:]]|/\*[^/]*\*/)+["`a-zA-Z_]'; then
+  sc_decision ask "this command deletes rows (SUPERCHARGER_ASK_SQL_DELETE=1)." "check the WHERE clause matches only the rows you mean"
+  exit 0
 fi
 
 # fp-batch-2: a download piped into node/deno/bun runs it as code, UNLESS the
