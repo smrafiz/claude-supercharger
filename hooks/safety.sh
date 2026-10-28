@@ -1606,6 +1606,13 @@ case "$CMD" in
   # early-exits. Superset of the detector's trigger [[two-gate-trap]].
   *docker*|*podman*) case "$CMD" in *-v\ *|*-v=*|*--volume*|*--mount*) _NEED_PY=true ;; esac ;;
 esac
+# 2026-10-27: ONE word starting with a dot and holding a glob (`.en?`, `.e*`, `.[e]nv`,
+# a bare `.*`) can expand to the dotenv file; safety-detect.py decides whether it does.
+# A case glob here matched any dot-name anywhere plus any `*` later, sent 47 of 979
+# real commands to the detector and got them denied by unrelated rules.
+if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.([[:alnum:]_.-]*[?*[]|\[) ]]; then
+  _CRED_PATH=true; _NEED_PY=true
+fi
 
 # `command -v python3` without the $( ) — the command substitution forked a
 # subshell on the hottest hook in the product to learn something the builtin

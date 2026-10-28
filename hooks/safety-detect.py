@@ -7,6 +7,7 @@ Empty output = clean.
 """
 from __future__ import annotations
 
+import fnmatch
 import os
 import re
 import shlex
@@ -904,6 +905,27 @@ def check_env_file(c: str) -> str | None:
     # A search PATTERN is not a path -- see _strip_pattern_operands. The dotenv
     # file as a search TARGET is untouched: only the first non-flag operand goes.
     c = _strip_pattern_operands(c)
+
+    # 2026-10-27: a shell glob that expands to the dotenv file reads it too (`.en?`,
+    # `.e*`, `.[e]nv`; agent-guard's path-matching audit). Append the command with
+    # each such glob written as the name it expands to, as cmd-normalize.sh does.
+    # Only a whole, unquoted word: `.*` inside `grep "static .* Lunge"` is a regex,
+    # and expanding it denied 46 of 979 real commands.
+    def _glob_word(m):
+        before = m.string[:m.start()]
+        quoted = before.count('"') % 2 or before.count("'") % 2
+        return ".env" if not quoted and fnmatch.fnmatchcase(".env", m.group(0)) else m.group(0)
+    # Per segment, and not for commands that only list names (`ls .env*`).
+    added = []
+    for seg in re.split(r"\s*(?:&&|\|\||;|\n)\s*", c):
+        if seg.split()[:1] and seg.split()[0] in ("ls", "find", "stat", "test", "[", "du", "file"):
+            continue
+        # Not after `=`: an option's value (`--exclude=<glob>`) is a filter, not a path.
+        new = re.sub(r"(?<![^\s/])\.[\w.-]*[?*\[][\w.?*\[\]-]*(?=$|[\s;&|)])", _glob_word, seg)
+        if new != seg:
+            added.append(new)
+    if added:
+        c += " ; " + " ; ".join(added)
 
     # v4.2.0: cp FROM a template creates a dotenv; it reads only the template.
     # Same rule as hooks/env-file-detect.py -- keep the two in sync.
