@@ -23,7 +23,7 @@ case "$_INPUT" in
   *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"branch --delete"*|\
   *"stash drop"*|*"stash clear"*|*switch*|*reflog*|*prune*|*filter-branch*|\
   *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*|\
-  *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*[hH]ooks[pP]ath*|\
+  *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*send-pack*|*" -B "*|*"pr merge"*|*/merge*|*[hH]ooks[pP]ath*|\
   *[iI][nN][cC][lL][uU][dD][eE][.iI]*|*GIT_CONFIG*) ;;  # include.path / includeIf, not grep --include=
   # A spliced or continued word (`com''mit`, `g\<newline>it`) hides every verb
   # above from this raw-text gate; normalize_cmd joins it, so let those through.
@@ -127,6 +127,9 @@ esac
 
 while IFS= read -r seg; do
   [ -z "$seg" ] && continue
+  # 2026-10-28: send-pack is push's plumbing, with the same --force and +refspec;
+  # judge it as push (randommonicle/claude-skills push-gate).
+  case "$seg" in "git send-pack "*) seg="git push ${seg#git send-pack }" ;; esac
 
   # v2.9.6: block git hook-bypass — an agent must not skip the repo's
   # pre-commit/pre-push verification (lint/test/format). Two vectors:
@@ -184,6 +187,12 @@ while IFS= read -r seg; do
     if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]*[\"\']?alias\. ]]; then
       ask "git -c alias.<name>=... defines a command inline; its body is not checked by the git rules. Confirm what it runs."
     fi
+    # 2026-10-28: a SAVED alias whose body pushes, resets, cleans, checks out or runs
+    # a shell is checked by no rule when it is later run by its new name (claude-skills
+    # push-gate). Read-only aliases (`alias.lg log`) stay allowed.
+    if [[ "$seg" =~ ^git\ config[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])alias\.[^[:space:]]+[[:space:]]+[\"\']?(!|[^\"\']*(push|reset|clean|checkout|restore|branch[[:space:]]+-[dDf]|update-ref|filter-)) ]]; then
+      ask "git config alias.<name> saves a command that later runs under a name no git rule recognises. Confirm what it does."
+    fi
   fi
   if [[ "$seg" =~ ^git\ commit([[:space:]]|$) ]] && \
      { [[ "$seg_flags" =~ (^|[[:space:]])--no-verify([[:space:]]|$) ]] || \
@@ -235,7 +244,8 @@ while IFS= read -r seg; do
     # origin HEAD:main` put `main` after a colon, so the space-anchored check
     # missed it and the (single-command-only) de-force rewrite let the compound
     # `git fetch && git push --force origin HEAD:main` through unmodified.
-    if [[ "$seg" =~ (^|[[:space:]]|:)(${_PROT_ALT})([[:space:]]|$) ]]; then
+    # 2026-10-28: also the full ref spelling, `HEAD:refs/heads/main`.
+    if [[ "$seg" =~ (^|[[:space:]]|:)(refs/heads/)?(${_PROT_ALT})([[:space:]]|$) ]]; then
       has_protected=true
     fi
 
@@ -276,6 +286,15 @@ while IFS= read -r seg; do
   # branch ops (`checkout -b`, `checkout <branch>`). From kenryu42/cc-safety-net.
   if [[ "$seg" =~ ^git\ checkout[[:space:]]+--[[:space:]]+[^[:space:]] ]]; then
     block "git checkout -- <path> discards uncommitted changes to those files" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
+  fi
+
+  # 2026-10-28: when the ref IS the current commit (HEAD, @), "grab a file from a
+  # ref" is just a discard of local edits, same as `checkout -- <path>` (claude-skills
+  # lesson 10). Other refs stay allowed.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+(HEAD|@)[[:space:]]+--[[:space:]]+[^[:space:]] ]] \
+     || { [[ "$seg" =~ ^git\ restore[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--source[=[:space:]]|-s[[:space:]]*)(HEAD|@)([[:space:]]|$) ]] \
+          && ! [[ "$seg" =~ (^|[[:space:]])--staged([[:space:]]|$) ]]; }; then
+    block "restoring a file from HEAD discards its uncommitted changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
   fi
 
   # git restore --source=<ref> .   → overwrites the WHOLE working tree from <ref>
@@ -325,6 +344,14 @@ while IFS= read -r seg; do
   if [[ "$seg" =~ ^git\ branch[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(-f|--force)([[:space:]]|$) ]] \
      && [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
     block "git branch -f moves a protected branch (main/master) to another commit"
+  fi
+  # 2026-10-28: `checkout -B main <start>` / `switch -C main <start>` reset main the
+  # same way, and so does `update-ref refs/heads/main <commit>`.
+  if [[ "$seg" =~ ^git\ (checkout|switch)[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(-B|-C|--force-create)[[:space:]]+(refs/heads/)?(main|master)([[:space:]]|$) ]]; then
+    block "git checkout -B / switch -C moves a protected branch (main/master) to another commit"
+  fi
+  if [[ "$seg" =~ ^git\ update-ref[[:space:]]+(-m[[:space:]]+[^[:space:]]+[[:space:]]+)?refs/heads/(main|master)[[:space:]]+[^[:space:]] ]]; then
+    block "git update-ref moves a protected branch (main/master) to another commit"
   fi
   if [[ "$seg" =~ ^git\ read-tree[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])--reset([[:space:]]|$) ]]; then
     block "git read-tree --reset overwrites the index (and with -u the working tree), discarding changes"
@@ -383,6 +410,22 @@ while IFS= read -r seg; do
   # Deleting a ref by hand bypasses every branch-deletion check above.
   if [[ "$seg" =~ ^git\ update-ref[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])-d([[:space:]]|$) ]]; then
     block "git update-ref -d deletes a ref directly, bypassing branch-deletion safety"
+  fi
+
+  # 2026-10-28, randommonicle/claude-skills push-gate and lesson 40:
+  # merging a PR publishes it to the default branch for everyone;
+  if [[ "$seg" =~ ^gh[[:space:]]+(pr[[:space:]]+merge([[:space:]]|$)|alias[[:space:]]+set[[:space:]][^;&|]*pr[[:space:]]+merge) ]] \
+     || { [[ "$seg" =~ ^gh[[:space:]]+api[[:space:]] ]] && [[ "$seg" =~ (-X|--method)[[:space:]=]*PUT ]] && [[ "$seg" =~ /pulls/[0-9]+/merge ]]; }; then
+    ask "this merges a pull request into its base branch, publishing it for everyone on the repo."
+  fi
+  # a worktree in a temp folder is lost when the folder is cleaned, uncommitted work with it;
+  if [[ "$seg" =~ ^git\ worktree[[:space:]]+add[[:space:]]+(-[^[:space:]]+[[:space:]]+([^-/$][^[:space:]]*[[:space:]]+)?)*[\"\']?(/tmp/|/private/tmp/|/var/folders/|\$TMPDIR|\$\{TMPDIR) ]]; then
+    ask "this creates a git worktree inside a temp folder, which the system or a cleanup can empty, taking uncommitted work with it. Prefer a folder inside the project (e.g. .claude/worktrees/)."
+  fi
+  # and, opt-in (SUPERCHARGER_ASK_EVERY_PUSH=1), any push at all.
+  if [ "${SUPERCHARGER_ASK_EVERY_PUSH:-0}" = 1 ] && [[ "$seg" =~ ^git\ push([[:space:]]|$) ]] \
+     && ! [[ "$seg" =~ (^|[[:space:]])(-n|--dry-run)([[:space:]]|$) ]]; then
+    ask "this pushes to a remote (SUPERCHARGER_ASK_EVERY_PUSH is on)."
   fi
 
   # Remote branch deletion — affects everyone else on the repo, not just here.
