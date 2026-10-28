@@ -20,10 +20,16 @@ _on() { # <command>
 begin_test "coauthor-guard: hook exists and is executable"
 [ -x "$HOOK" ] && pass || fail "hook missing or not executable"
 
-begin_test "coauthor-guard: OFF by default (no env, no flag) — commit with trailer allowed"
+# 4.4: ON by default for an AI co-author (user rule); a human co-author passes.
+begin_test "coauthor-guard: ON by default for an AI trailer (no env, no flag)"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x Co-Authored-By: Claude <a@b>"}}' \
   | HOME="$(mktemp -d)" SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null)
-[ -z "$OUT" ] && pass || fail "expected silent when disabled, got: $OUT"
+echo "$OUT" | grep -q 'permissionDecision.*deny' && pass || fail "expected an AI trailer denied by default, got: $OUT"
+
+begin_test "coauthor-guard: default lets a HUMAN co-author through"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"git commit -m x Co-Authored-By: Jane Doe <jane@example.com>"}}' \
+  | HOME="$(mktemp -d)" SUPERCHARGER_DEFAULT_BRANCH_GUARD=0 bash "$HOOK" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "expected a human co-author allowed by default, got: $OUT"
 
 begin_test "coauthor-guard: ON — commit with Co-Authored-By is blocked"
 OUT=$(_on "git commit -m msg Co-Authored-By: Claude <noreply@anthropic.com>")

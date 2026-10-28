@@ -56,20 +56,34 @@ if printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z0-9_-])git[[:space:]]+commit[[:sp
   fi
 fi
 
-# ─── Check 1: co-author guard (opt-in, default OFF) ──────────────────────────
-# Enable per-machine: touch scope/.coauthor-guard ; per-session: SUPERCHARGER_COAUTHOR_GUARD=1 (0 disables).
+# ─── Check 1: AI co-author guard (default ON since 4.4) ──────────────────────
+# A Co-Authored-By trailer naming an AI tool is denied; a human co-author is not.
+# The message is read from the command (-m, a heredoc) and from a -F/--file file.
+# Opt out: SUPERCHARGER_COAUTHOR_GUARD=0 or touch scope/.coauthor-guard-off.
+# SUPERCHARGER_COAUTHOR_GUARD=1 (or scope/.coauthor-guard) also denies a HUMAN one,
+# which was this check's only behaviour before 4.4.
 if ! check_hook_disabled "commit-coauthor-guard"; then
-  _ca_on=false
+  _ca_mode=ai
   case "${SUPERCHARGER_COAUTHOR_GUARD:-}" in
-    0) _ca_on=false ;;
-    1) _ca_on=true ;;
-    *) [ -f "$SUPERCHARGER_STATE/scope/.coauthor-guard" ] && _ca_on=true ;;
+    0) _ca_mode=off ;;
+    1) _ca_mode=all ;;
+    *) if [ -f "$SUPERCHARGER_STATE/scope/.coauthor-guard-off" ]; then _ca_mode=off
+       elif [ -f "$SUPERCHARGER_STATE/scope/.coauthor-guard" ]; then _ca_mode=all; fi ;;
   esac
-  if $_ca_on; then
+  if [ "$_ca_mode" != off ]; then
     case "$CMD" in *"git commit --help"*|*"git commit -h"*) ;; *)
-      if printf '%s\n' "$CMD" | grep -qiE 'co-authored-by:'; then
+      _ca_msg="$CMD"
+      # -F <file> / --file=<file>: the message lives in the file.
+      if [[ "$CMD" =~ (^|[[:space:]])(-F|--file)[=[:space:]]+[\"\']?([^\"\'[:space:];&|]+) ]]; then
+        _ca_f="${BASH_REMATCH[3]}"
+        case "$_ca_f" in /*) ;; *) _ca_f="$PROJECT_DIR/$_ca_f" ;; esac
+        [ -f "$_ca_f" ] && _ca_msg="$_ca_msg"$'\n'"$(head -c 65536 "$_ca_f" 2>/dev/null)"
+      fi
+      _ca_ai='co-authored-by:[^[:cntrl:]]*(claude|anthropic|openai|chatgpt|gpt-?[0-9]|copilot|cursor|codeium|windsurf|gemini|codex|devin|aider|sourcegraph|cody|tabnine|codewhisperer|amazon q|jules|kiro|\[bot\]|noreply@(anthropic|openai)\.com)'
+      if { [ "$_ca_mode" = all ] && printf '%s\n' "$_ca_msg" | grep -qiE 'co-authored-by:'; } \
+         || printf '%s\n' "$_ca_msg" | grep -qiE "$_ca_ai"; then
         echo "[Supercharger] commit-coauthor-guard: blocked AI attribution trailer" >&2
-        _deny 'This commit message contains a "Co-Authored-By:" trailer (AI attribution). The coauthor guard is enabled, which forbids AI attribution in commit history. Remove the Co-Authored-By line from the commit message and commit again. (Disable: SUPERCHARGER_COAUTHOR_GUARD=0, or rm ~/.claude/supercharger/scope/.coauthor-guard)'
+        _deny 'This commit message contains a "Co-Authored-By:" trailer naming an AI tool. Commits here carry no AI attribution. Remove that line from the commit message and commit again. (Opt out: SUPERCHARGER_COAUTHOR_GUARD=0)'
       fi
     ;; esac
   fi
