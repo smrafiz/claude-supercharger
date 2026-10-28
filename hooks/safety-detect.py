@@ -920,7 +920,8 @@ def check_env_file(c: str) -> str | None:
     for seg in re.split(r"\s*(?:&&|\|\||;|\n)\s*", c):
         if seg.split()[:1] and seg.split()[0] in ("ls", "find", "stat", "test", "[", "du", "file"):
             continue
-        new = re.sub(r"(?<![^\s/=])\.[\w.-]*[?*\[][\w.?*\[\]-]*(?=$|[\s;&|)])", _glob_word, seg)
+        # Not after `=`: an option's value (`--exclude=<glob>`) is a filter, not a path.
+        new = re.sub(r"(?<![^\s/])\.[\w.-]*[?*\[][\w.?*\[\]-]*(?=$|[\s;&|)])", _glob_word, seg)
         if new != seg:
             added.append(new)
     if added:
