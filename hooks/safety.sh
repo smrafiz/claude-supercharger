@@ -1160,7 +1160,7 @@ if _cat_enabled "database" && [[ "$CMD_SCAN" =~ (^|[[:space:]\;\&\|\(/])(psql|my
   while IFS= read -r _sf; do
     _sf="${_sf#--file}"; _sf="${_sf#-f}"; _sf="${_sf#<}"; _sf="${_sf#.read}"; _sf="${_sf#\\i}"
     _sf="${_sf#=}"; _sf="${_sf#"${_sf%%[![:space:]]*}"}"
-    case "$_sf" in /*) ;; *) _sf="$PROJECT_DIR/$_sf" ;; esac
+    case "$_sf" in /*|[A-Za-z]:[\\/]*) ;; *) _sf="$PROJECT_DIR/$_sf" ;; esac
     [ -f "$_sf" ] && [ -r "$_sf" ] || continue
     [ "$(wc -c < "$_sf" 2>/dev/null || echo 9999999)" -le 1048576 ] || continue
     if sed 's/--.*$//' "$_sf" | tr '\n' ' ' | LC_ALL=C grep -qaiE "$_DB_JOINED"; then
