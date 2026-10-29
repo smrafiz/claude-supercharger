@@ -95,4 +95,17 @@ SUPERCHARGER_STATE="$D" smart_approve_verdict '{"session_id":"sX","tool_name":"E
   && fail "auto-approved a critical file whose name was upper-cased" || pass
 rm -rf "$D"
 
+# ---- Windows backslash paths reach the same globs ----
+for p in 'C:\repo\.github\workflows\ci.yml' 'C:\repo\db\migrate\002.rb' 'C:\repo\src\auth\login.ts' \
+         '.circleci\config.yml' 'C:\repo\Dockerfile'; do
+  begin_test "matcher: backslash path '$p' is critical-infra"
+  is_critical_infra_path "$p" >/dev/null && pass || fail "expected match"
+done
+begin_test "guard: backslash workflow path → permissionDecision ask"
+D=$(new_state)
+guard_out "$D" 'C:\repo\.github\workflows\ci.yml' | grep -q '"permissionDecision":"ask"' && pass || fail "no ask emitted"
+rm -rf "$D"
+begin_test "matcher: backslash 'C:\\repo\\src\\author.js' is NOT critical-infra"
+is_critical_infra_path 'C:\repo\src\author.js' >/dev/null && fail "false positive" || pass
+
 report

@@ -184,6 +184,9 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     esac
   fi
   [ -z "$FILE_PATH" ] && exit 0
+  # Windows tools pass C:\Users\me\.ssh\id_rsa: basename and the */dir/* globs
+  # below see no separator in it. Git Bash accepts C:/ for the -L test too.
+  FILE_PATH="${FILE_PATH//\\//}"
   # 4.3.1: a symlink reads its target, so judge the target — a harmless-looking
   # link to a dotenv file passed every name rule below. One fork, symlinks only.
   if [ -L "$FILE_PATH" ]; then

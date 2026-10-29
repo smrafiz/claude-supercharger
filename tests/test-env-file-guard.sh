@@ -317,5 +317,23 @@ begin_test "env-guard: a project file merely named mcp-auth is allowed"
 run_input '{"tool_name":"Read","tool_input":{"file_path":"/repo/src/mcp-auth/index.ts"}}'
 [ "$?" = "0" ] && pass || fail "mcp-auth project file blocked"
 
+# Windows: the tools hand over backslash paths, which no */segment/* glob or
+# basename saw as separators.
+begin_test "env-guard: Read of a backslash dotenv path blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\dev\\site\\.env"}}'
+[ "$?" = "2" ] && pass || fail "backslash .env Read not blocked"
+begin_test "env-guard: Read of a backslash ssh key path blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\dev\\.ssh\\id_ed25519"}}'
+[ "$?" = "2" ] && pass || fail "backslash key Read not blocked"
+begin_test "env-guard: Grep of a backslash credential directory blocked"
+run_input '{"tool_name":"Grep","tool_input":{"pattern":"aws_secret","path":"C:\\Users\\dev\\.aws"}}'
+[ "$?" = "2" ] && pass || fail "backslash .aws Grep not blocked"
+begin_test "env-guard: Read of a backslash ordinary file allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\dev\\site\\README.md"}}'
+[ "$?" = "0" ] && pass || fail "backslash README blocked"
+begin_test "env-guard: Read of a backslash dotenv template allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\dev\\site\\.env.example"}}'
+[ "$?" = "0" ] && pass || fail "backslash .env.example blocked"
+
 
 report

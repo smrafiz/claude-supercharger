@@ -19,6 +19,8 @@ is_critical_infra_path() {
   # Normalize: basename for filename tests, lowercased whole path for dir-segment tests.
   local p="$1"
   [ -z "$p" ] && return 1
+  # Windows tools pass C:\repo\.github\workflows\ci.yml; no */segment/* glob sees a backslash.
+  p="${p//\\//}"
   local base="${p##*/}"
   local lower
   lower=$(printf '%s' "$p" | tr '[:upper:]' '[:lower:]')
