@@ -198,5 +198,31 @@ begin_test "unreadable: a genuinely absent file is still silent (ENOENT means ne
 J=$(mk ur3 Write "$TMP/does-not-exist.test.js" '' 'it("t", () => { expect(1).toBe(1); });')
 [ -z "$(bash "$HOOK" < "$J" 2>/dev/null)" ] && pass || fail "fired on brand-new authoring"
 
+# Weakened assertions: the count stays the same, the check gets weaker.
+begin_test "asks when toBe(5) becomes toBeTruthy()"
+J=$(mk w1 Edit /x/sum.test.js 'expect(sum(2,3)).toBe(5);' 'expect(sum(2,3)).toBeTruthy();')
+asks "$J" && pass || fail "expected ask on loosened matcher"
+begin_test "asks when assert a == 1 becomes assert True"
+J=$(mk w2 Edit /x/test_sum.py 'assert total == 5' 'assert True')
+asks "$J" && pass || fail "expected ask on tautology"
+begin_test "asks when assertEqual becomes assertTrue(True)"
+J=$(mk w3 Edit /x/test_sum.py 'self.assertEqual(total, 5)' 'self.assertTrue(True)')
+asks "$J" && pass || fail "expected ask on unittest tautology"
+begin_test "asks when toEqual becomes expect(true).toBe(true)"
+J=$(mk w4 Edit /x/sum.spec.ts 'expect(out).toEqual(want);' 'expect(true).toBe(true);')
+asks "$J" && pass || fail "expected ask on jest tautology"
+begin_test "silent when a new test with toBeDefined is added beside the old one"
+J=$(mk w5 Edit /x/sum.test.js 'it("a", () => { expect(a).toBe(1); });' 'it("a", () => { expect(a).toBe(1); });\nit("b", () => { expect(b).toBeDefined(); });')
+asks "$J" && fail "fired on an added test" || pass
+begin_test "silent when toBeTruthy() is tightened to toBe(true)"
+J=$(mk w6 Edit /x/sum.test.js 'expect(ok).toBeTruthy();' 'expect(ok).toBe(true);')
+asks "$J" && fail "fired on a stronger matcher" || pass
+begin_test "silent when an assertion's expected value changes"
+J=$(mk w7 Edit /x/test_sum.py 'assert total == 5' 'assert total == 6')
+asks "$J" && fail "fired on a value change" || pass
+begin_test "silent when an edit adds fixtures that quote assert True"
+J=$(mk w8 Edit /x/guard.test.js 'expect(a).toBe(1);' "expect(a).toBe(1);\nconst cases = ['assert total == 5', 'assert True'];")
+asks "$J" && fail "fired on quoted fixture data" || pass
+
 rm -rf "$TMP"
 report
