@@ -419,7 +419,7 @@ def _expand_sensitive_bindings(c: str) -> str:
         lambda m: bindings.get(m.group(1) or m.group(2), m.group(0)), c)
 
 
-_PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk"}
+_PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk", "findstr"}
 
 
 def _drop_first_operand(args: str) -> str:
@@ -448,7 +448,7 @@ def _drop_first_operand(args: str) -> str:
 # siblings). Keep in sync with hooks/env-file-detect.py, which carries the same
 # pair for the fork-free Bash path.
 _PATTERN_READER_INVOCATION_RE = re.compile(
-    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
+    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk|findstr)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
 )
 
 
@@ -516,7 +516,7 @@ def check_sensitive_read(c: str) -> str | None:
     # gap class this repo keeps finding. Measured: `base64 <key>` and
     # `gzip -c <key>` were both silent while `xxd <key>` and `od -c <key>` denied.
     # `strings` is the same act again (measured silent beside a denying xxd).
-    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|strings|base64|uuencode|gzip|bzip2|xz|zstd)\b"
+    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|strings|base64|uuencode|gzip|bzip2|xz|zstd|findstr|type|gc|sls|(?i:get-content|select-string))\b"
     # Tools that read a secret only in SOME subcommands. `dotenv run` and
     # `openssl x509 -in cert.pem` consume a sensitive-named file without printing
     # a secret (the same reason `docker --env-file` is allowed), so they cannot
@@ -1069,6 +1069,89 @@ def _paste_re():
     return _PASTE[0]
 
 
+# 4.4 (randommonicle/claude-skills audit): PowerShell prints environment secrets with
+# no `env`/`printenv`/`echo` in sight. 34 of 35 of that repo's PowerShell cases passed
+# every Bash rule. A secret name is judged by its underscore-separated parts, the same
+# test safety.sh uses for `echo $NAME` (KEY, TOKEN, SECRET, PASSWORD, ...).
+_PS_SECRET_PARTS = {"KEY", "TOKEN", "SECRET", "PASSWORD", "PASSWD", "CREDENTIAL", "CREDENTIALS", "PAT"}
+
+
+_PS_NOT_SECRET = {"PUBLIC", "PUBLISHABLE", "PATTERN", "PATTERNS", "FILE", "PATH", "DIR", "NAME", "NAMES",
+                  "REGEX", "RE", "LIST", "ID", "COUNT", "LEN", "URL"}
+_PS_SECRET_KEYS = re.compile(r"(?:^|_)(?:API|ACCESS|PRIVATE|SECRET|SERVICE_ROLE|MASTER|SIGNING|ENCRYPTION|LICENSE)_KEY(?:_|$)|APIKEY")
+
+
+def _ps_secret_name(name: str) -> bool:
+    """Same test as safety.sh _sc_secret_name: KEY counts only as an API/access-style key."""
+    n = name.upper().replace("*", "")
+    parts = set(n.split("_"))
+    if parts & _PS_NOT_SECRET:
+        return False
+    return bool(parts & (_PS_SECRET_PARTS - {"KEY"})) or bool(_PS_SECRET_KEYS.search(n))
+
+
+def _ps_scan(c: str):
+    """(text with single-quoted strings blanked, set of positions inside "..." or @"..."@).
+    Single quotes do not expand in PowerShell, so '$env:X' prints the literal."""
+    out, dq, i, n, state = [], set(), 0, len(c), None
+    while i < n:
+        ch = c[i]
+        if state is None:
+            if c.startswith('@"', i): state = 'H'; out.append('@"'); i += 2; continue
+            if c.startswith("@'", i):
+                j = c.find("'@", i + 2); j = n if j < 0 else j + 2
+                out.append(' ' * (j - i)); i = j; continue
+            if ch == '"': state = 'D'
+            elif ch == "'":
+                j = i + 1
+                while j < n and not (c[j] == "'" and not c.startswith("''", j)): j += 2 if c.startswith("''", j) else 1
+                out.append(' ' * (min(j, n - 1) - i + 1)); i = j + 1; continue
+            out.append(ch); i += 1; continue
+        # inside a double-quoted or here-string: everything expands
+        dq.add(len(out))
+        if ch == '`' and i + 1 < n: out.append(c[i:i + 2]); dq.add(len(out) - 1); i += 2; continue
+        if state == 'D' and ch == '"': state = None
+        elif state == 'H' and c.startswith('"@', i): state = None; out.append('"@'); i += 2; continue
+        out.append(ch); i += 1
+    return ''.join(out), dq
+
+
+_PS_ENV_REF = re.compile(r"\$\{?env:([A-Za-z_][A-Za-z0-9_]*)\}?", re.I)
+_PS_TEST_BEFORE = re.compile(r"(?i)(?:\bif|\belseif|\bwhile|IsNullOr(?:Empty|WhiteSpace)|Test-Path)\s*\(\s*(?:-not\s+|!\s*)?$")
+_PS_ENV_LIST = re.compile(r"(?i)(?:^|[\s;|({])(?:Get-ChildItem|gci|dir|ls|Get-Item|gi)\s+(?:-(?:Literal)?Path\s+)?Env:(?:[\\/]|[A-Za-z0-9_]*\*[A-Za-z0-9_*]*)?(?=$|[\s;|)}])")
+_PS_NAMES_ONLY = re.compile(r"(?i)^[^;]*\|\s*(?:Select-Object|select)\s+(?:-ExpandProperty\s+)?Name\b(?![^;|]*Value)[^;|]*(?:$|[;|])")
+_PS_ONE_READ = re.compile(r"(?i)(?:(?:Get-Item|gi|Get-Content|gc)\s+(?:-(?:Literal)?Path\s+)?Env:[\\/]?|GetEnvironmentVariable\s*\(\s*[\"']|Get-Variable\s+(?:-Name\s+)?)([A-Za-z_][A-Za-z0-9_]*)")
+
+
+def check_powershell_secrets(c: str) -> str | None:
+    """PowerShell forms that print an environment secret into the transcript."""
+    if re.search(r"(?i)\[(?:System\.)?Environment\]::GetEnvironmentVariables\s*\(", c):
+        return "environment dump — [Environment]::GetEnvironmentVariables() prints every secret in the session"
+    t, dq = _ps_scan(c)
+    for m in _PS_ENV_LIST.finditer(t):
+        if not _PS_NAMES_ONLY.match(t[m.end():]):
+            return "environment dump — listing Env: prints every value; select only the names (| Select-Object Name)"
+    for m in _PS_ONE_READ.finditer(c):  # the original: the name is often quoted
+        if _ps_secret_name(m.group(1)) and not (m.group(0).lower().startswith("get-variable") and "-valueonly" not in c[m.end():].lower().split(";")[0]):
+            return f"prints the secret {m.group(1)} into the transcript; test it with [string]::IsNullOrEmpty or its .Length instead"
+    for m in _PS_ENV_REF.finditer(t):
+        name = m.group(1)
+        if not _ps_secret_name(name):
+            continue
+        after = t[m.end():]
+        if re.match(r"\s*\.(?:Length|Count)\b", after):
+            continue
+        if m.start() not in dq:
+            if re.match(r"\s*=(?!=)", after):
+                continue
+            if _PS_TEST_BEFORE.search(t[:m.start()]):
+                continue
+            if re.match(r"[^;]*\|\s*Measure-Object\b", after, re.I):
+                continue
+        return f"prints the secret {name} into the transcript; test it with [string]::IsNullOrEmpty or its .Length instead"
+    return None
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Main: run checks in order, first match wins. Categories may be disabled
 # via $DISABLED_CATS (newline-separated, from
@@ -1085,6 +1168,12 @@ cmd = _expand_sensitive_bindings(cmd)
 
 if "shell_wrapper" not in disabled:
     r = check_shell_wrapper(cmd)
+    if r:
+        _say(r)
+        sys.exit(0)
+
+if "powershell_secrets" not in disabled:
+    r = check_powershell_secrets(cmd)
     if r:
         _say(r)
         sys.exit(0)

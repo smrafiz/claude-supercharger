@@ -61,7 +61,8 @@ case "$COMMAND" in
   # any shell metacharacter → could chain / redirect / subshell / exec → full scan
   *'|'*|*';'*|*'&'*|*'<'*|*'>'*|*'$'*|*'`'*|*'('*|*')'*|*'{'*|*'}'*|*$'\n'*) : ;;
   # content-inert verbs (list names / print / repo status — never cat a secret) → skip
-  ls|ls\ *|pwd|echo\ *|printf\ *|which|which\ *|type|type\ *|\
+  # 4.4: not `type`: in PowerShell and cmd it prints a file (`type C:\app\.env`).
+  ls|ls\ *|pwd|echo\ *|printf\ *|which|which\ *|\
   git\ status*|git\ log*|git\ diff*|git\ show*)
     exit 0 ;;
 esac
@@ -1005,6 +1006,14 @@ CRED_CMD_PATTERNS=(
   '(^|[[:space:]])gpg([[:space:]]+--?[^[:space:]]+)*[[:space:]]+--export-secret'
   # `git credential fill` and any helper's `get` print `password=` in plaintext.
   '(^|[^[:alnum:]_-])(git([[:space:]]+-[^[:space:]]+)*[[:space:]]+credential(-[[:alnum:]_-]+)?|git-credential-[[:alnum:]_-]+)[[:space:]]+(fill|get)([[:space:]]|$)'
+  # 4.4: secret stores and platform CLIs that print a value (claude-skills audit).
+  # Each is anchored on the reading subcommand; set/list-of-names forms still pass.
+  '(^|[[:space:]])az([[:space:]]+--?[^[:space:]]+)*[[:space:]]+keyvault[[:space:]]+secret[[:space:]]+(show|download)([[:space:]]|$)'
+  '(^|[[:space:]])heroku[[:space:]]+config(:get)?([[:space:]]|$)'
+  '(^|[[:space:]])netlify[[:space:]]+env:(get|list[^;&|]*--plain)([[:space:]]|$)'
+  '(^|[[:space:]])infisical[[:space:]]+(export|secrets[[:space:]]+get)([[:space:]]|$)'
+  '(^|[[:space:]])bw[[:space:]]+get[[:space:]]+(password|item|totp|notes)([[:space:]]|$)'
+  '(^|[[:space:]])(pass|lpass)[[:space:]]+show([[:space:]]|$)'
 )
 # v2.24.13: synthetic input injection (category: clipboard — same "drive the user's
 # desktop" surface). `osascript -e 'tell app "System Events" to keystroke ...'` types
@@ -1321,9 +1330,13 @@ fi
 # `env | grep X`, `env FOO=1 cmd` (env as a wrapper) and `set -e` stay allowed.
 # Command position only (segment start), so prose naming these words is ignored.
 _ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*'
-_ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee)([[:space:]]|$))'
+# 4.4: a grep that keeps every line but one (`-v`) or keeps the secret-named lines is
+# still a dump. Residual: a QUOTED grep word is blanked by the re-check below.
+_ENV_GREP='\|[[:space:]]*[ef]?grep[[:space:]]+([^|;&]*[[:space:]])?(-[[:alpha:]]*v|[^|;&]*([Kk][Ee][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss]|[Aa][Uu][Tt][Hh]|[Cc][Rr][Ee][Dd]))'
+_ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee)([[:space:]]|$)|'"${_ENV_GREP}"')'
 if _cat_enabled "credentials"; then
-  _ENV_DUMP="${_ENV_SEG}"'(env|printenv|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
+  # 4.4: dump flags. `env -0`/`-u NAME` with no command after them still print the rest.
+  _ENV_DUMP="${_ENV_SEG}"'(env([[:space:]]+(-0|--null|-u[[:space:]]*[^-[:space:];&|][^[:space:];&|]*|--unset=?[^[:space:];&|]+))*|printenv([[:space:]]+(-0|--null))?|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
   _ENV_PROC='/proc/[^[:space:]]*/environ'
   # The cheap match runs first; only on a hit is the text re-checked with heredoc
   # bodies removed and quoted strings blanked. Interpreter heredocs are kept in
@@ -1332,8 +1345,11 @@ if _cat_enabled "credentials"; then
   # times in a replay of real history. `sh -c` bodies are unaffected: the
   # normalizer already appends them as their own unquoted segments.
   _env_hit=""
-  if [[ "$CMD_SCAN" =~ $_ENV_DUMP ]]; then
-    _ENV_SRC=$(printf '%s\n' "$CMD_SCAN" | awk '
+  # 4.4: the raw command too. normalize_cmd unwraps `env` as a wrapper, so `env -0`
+  # and `env -u NAME` (no command after them) reached CMD_SCAN as an empty string.
+  for _env_in in "$CMD_SCAN" "$COMMAND"; do
+  if [ -z "$_env_hit" ] && [[ "$_env_in" =~ $_ENV_DUMP ]]; then
+    _ENV_SRC=$(printf '%s\n' "$_env_in" | awk '
       skip { t = $0; sub(/^\t+/, "", t); if (t == term) skip = 0; next }
       { print }
       match($0, /<<-?[ \t]*[^ \t<A-Za-z0-9_]?[A-Za-z_][A-Za-z0-9_]*/) && index($0, "<<<") == 0 {
@@ -1341,8 +1357,55 @@ if _cat_enabled "credentials"; then
       | tr '\n' '\036' | LC_ALL=C sed -E -e "s/'[^']*'/''/g" -e 's/"[^"]*"/""/g' | tr '\036' '\n')
     [[ "$_ENV_SRC" =~ $_ENV_DUMP ]] && _env_hit=1
   fi
+  done
   if [ -n "$_env_hit" ] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
     block "environment dump — prints every secret in the session into the transcript; read one variable instead (printenv NAME)"
+  fi
+fi
+
+# --- One secret printed (category: credentials) ---
+# 4.4 (claude-skills audit): a secret-named variable echoed or printenv'd, or sent by
+# curl -v / under set -x, whose output carries the expanded value into the
+# transcript. A name counts as secret by its underscore-separated parts (KEY, TOKEN,
+# SECRET, PASSWORD, ...), so MONKEY or KEYBOARD never match; PUBLIC/PUBLISHABLE keys
+# are exempt. `${#NAME}` and `[ -n "$NAME" ]` print nothing and pass.
+_sc_secret_name() {
+  # Names that hold a path, a pattern or a count, not the secret (SECRET_PATTERNS,
+  # TOKEN_FILE), and generic keys (CACHE_KEY, SC_PROJECT_KEY), never count.
+  case "_${1}_" in *_PUBLIC_*|*_PUBLISHABLE_*|*_PATTERN_*|*_PATTERNS_*|*_FILE_*|*_PATH_*|*_DIR_*|*_NAME_*|*_NAMES_*|*_REGEX_*|*_RE_*|*_LIST_*|*_ID_*|*_COUNT_*|*_LEN_*|*_URL_*) return 1 ;; esac
+  case "_${1}_" in *_TOKEN_*|*_SECRET_*|*_PASSWORD_*|*_PASSWD_*|*_CREDENTIAL_*|*_CREDENTIALS_*|*_PAT_*|*APIKEY_*|*_API_KEY_*|*_ACCESS_KEY_*|*_PRIVATE_KEY_*|*_SERVICE_ROLE_KEY_*|*_MASTER_KEY_*|*_SIGNING_KEY_*|*_ENCRYPTION_KEY_*|*_LICENSE_KEY_*) return 0 ;; esac
+  return 1
+}
+_sc_secret_refs() { printf '%s\n' "$1" | LC_ALL=C grep -oE '\$\{?[A-Z][A-Z0-9_]*' | tr -d '${' || true; }
+if _cat_enabled "credentials"; then
+  _sp_hit=""
+  # Heredoc bodies are code or data for another program, not shell output; drop them.
+  # _SP_BLANK also blanks quoted strings, for flags that must sit outside quotes.
+  _SP_SRC=$(printf '%s\n' "$CMD_SCAN" | awk '
+    skip { t = $0; sub(/^\t+/, "", t); if (t == term) skip = 0; next }
+    { print }
+    match($0, /<<-?[ \t]*[^ \t<A-Za-z0-9_]?[A-Za-z_][A-Za-z0-9_]*/) && index($0, "<<<") == 0 {
+      term = substr($0, RSTART, RLENGTH); sub(/^<<-?[ \t]*[^ \t<A-Za-z0-9_]?/, "", term); skip = 1 }' || true)
+  _SP_BLANK=$(printf '%s\n' "$_SP_SRC" | tr '\n' '\036' | LC_ALL=C sed -E -e "s/'[^']*'/''/g" -e 's/"[^"]*"/""/g' | tr '\036' '\n' || true)
+  case "$CMD_SCAN" in *'|'*wc*) ;; *)
+    while IFS= read -r _sp_seg; do
+      if ! [[ "$_sp_seg" =~ ^[[:space:]]*(echo|printf|printenv)[[:space:]]+(.*)$ ]]; then continue; fi
+      if [ "${BASH_REMATCH[1]}" = printenv ]; then _sp_names=$(printf '%s\n' "${BASH_REMATCH[2]}" | tr -s ' \t' '\n\n')
+      else _sp_names=$(_sc_secret_refs "${BASH_REMATCH[2]}"); fi
+      while IFS= read -r _sp_n; do if _sc_secret_name "$_sp_n"; then _sp_hit="$_sp_n"; break 2; fi; done <<< "$_sp_names"
+    done < <(printf '%s\n' "$_SP_SRC" | tr ';&|' '\n\n\n')
+  ;; esac
+  [ -z "$_sp_hit" ] || block "prints the secret-named variable $_sp_hit into the transcript; check it is set with [ -n \"\$$_sp_hit\" ] or its length with \${#$_sp_hit}"
+  # curl in verbose or trace mode echoes every request header, Authorization included.
+  if [[ "$_SP_BLANK" =~ (^|[^[:alnum:]_])curl([[:space:]][^\;\&\|]*)?([[:space:]]-[[:alpha:]]*v[[:alpha:]]*|[[:space:]]--(verbose|trace(-ascii)?))([[:space:]=]|$) ]] \
+     && [[ "$_SP_SRC" =~ (^|[^[:alnum:]_])curl([[:space:]][^\;\&\|]*)?([Aa]uthorization|[[:space:]]-u[[:space:]]|--user[[:space:]=]|[Bb]earer|[Xx]-[Aa]pi-[Kk]ey) ]]; then
+    block "curl in verbose mode prints the request's Authorization header into the transcript; drop -v/--trace or send the request without it"
+  fi
+  # set -x / bash -x prints each command after expansion, so every secret it uses.
+  if [[ "$_SP_BLANK" =~ (^|[\;\&\|\(]|&&)[[:space:]]*(set|bash|sh|zsh)[[:space:]]+-[[:alpha:]]*x ]]; then
+    while IFS= read -r _sp_n; do
+      if _sc_secret_name "$_sp_n"; then block "set -x prints commands after expansion, so the value of $_sp_n lands in the transcript; run without -x"; fi
+    done < <(_sc_secret_refs "$_SP_SRC")
   fi
 fi
 
@@ -1639,6 +1702,9 @@ case "$CMD" in
   *dig\ *|*nslookup*|*drill\ *|host\ *|*[[:space:]\;\&\|\(\`]host\ *) _NEED_PY=true ;;
   *xargs*|*find*\ -name*|*find*\ -iname*|*find*\ -regex*|*find*\ -exec*) _NEED_PY=true ;;
   *secret*|*credential*|*wallet*) _NEED_PY=true ;;
+  # 4.4: PowerShell environment reads; safety-detect.py check_powershell_secrets decides.
+  # The detector is the only check for these, so a timeout asks (_CRED_PATH).
+  *'$env:'*|*'${env:'*|*[Ee][Nn][Vv]:*|*Environment]::*|*Get-Variable*) _CRED_PATH=true; _NEED_PY=true ;;
   # 2026-09-13: check_container_mount needs docker/podman with a bind mount to
   # run. Gated on the tool AND a mount flag so a plain `docker run nginx` still
   # early-exits. Superset of the detector's trigger [[two-gate-trap]].
