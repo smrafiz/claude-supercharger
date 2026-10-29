@@ -698,7 +698,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -708,7 +708,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -881,7 +881,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -892,7 +892,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -903,7 +903,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [
@@ -913,7 +913,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|Read"
+        "matcher": "Bash|PowerShell|Read"
       },
       {
         "hooks": [
@@ -934,7 +934,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Bash|Artifact|ArtifactData|ArtifactComments|mcp__.*"
+        "matcher": "Bash|PowerShell|Artifact|ArtifactData|ArtifactComments|mcp__.*"
       },
       {
         "hooks": [
@@ -955,7 +955,7 @@
             "timeout": 120
           }
         ],
-        "matcher": "Write|Edit|Bash"
+        "matcher": "Write|Edit|Bash|PowerShell"
       },
       {
         "hooks": [

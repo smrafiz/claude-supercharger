@@ -85,8 +85,8 @@ get_hooks_for_mode() {
   hooks+=("PreToolUse|NotebookEdit|${hooks_dir}/notebook-exec-guard.sh|")
   hooks+=("PermissionRequest||${hooks_dir}/smart-approve.sh|")
   hooks+=("PostToolUse|Bash,PowerShell,Write,Edit,NotebookEdit|${hooks_dir}/audit-trail.sh|async")
-  hooks+=("PostToolUse|Bash|${hooks_dir}/trace-compactor.sh|async")
-  hooks+=("PostToolUse|Bash|${hooks_dir}/bash-output-compactor.sh|")
+  hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/trace-compactor.sh|async")
+  hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/bash-output-compactor.sh|")
   hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-output-truncator.sh|async")
   # v2.6.84: per-server MCP write gates. Real CVEs / incidents:
   # github write-gate → Invariant Labs May 2025 cross-repo exfil;
@@ -360,13 +360,13 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/session-memory-inject.sh|")
     hooks+=("PostToolUse||${hooks_dir}/auto-compact.sh|async")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
-    hooks+=("PostToolUse|Bash|${hooks_dir}/failure-tracker.sh|async")
-    hooks+=("PostToolUse|Bash|${hooks_dir}/dep-vuln-scanner.sh|async")
+    hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/failure-tracker.sh|async")
+    hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/dep-vuln-scanner.sh|async")
     # async, and beside dep-vuln-scanner deliberately: both need a network
     # round-trip after an install, and neither belongs on the PreToolUse path
     # where the cost would land on every command.
-    hooks+=("PostToolUse|Bash|${hooks_dir}/package-credibility-guard.sh|async")
-    hooks+=("PostToolUse|Bash,Read|${hooks_dir}/repetition-detector.sh|")
+    hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/package-credibility-guard.sh|async")
+    hooks+=("PostToolUse|Bash,PowerShell,Read|${hooks_dir}/repetition-detector.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|block")
     # Change detection, not classification: the scanner asks whether a skill
@@ -512,7 +512,7 @@ get_hooks_for_mode() {
     hooks+=("SessionStart||${hooks_dir}/unfinished-work.sh|")
     # Trust Receipts: a local record of each push, publish, send and upload that ran
     # (never blocks; /sc-receipts lists them), and a one-line count at the next start.
-    hooks+=("PostToolUse|Bash,Artifact,ArtifactData,ArtifactComments,mcp__|${hooks_dir}/trust-receipts.sh|async")
+    hooks+=("PostToolUse|Bash,PowerShell,Artifact,ArtifactData,ArtifactComments,mcp__|${hooks_dir}/trust-receipts.sh|async")
     hooks+=("SessionStart||${hooks_dir}/trust-receipts.sh|")
     # v2.26.43 registered dir-added-record.sh on `DirectoryAdded` to honour
     # Claude Code's own `/add-dir`. THERE IS NO SUCH EVENT. Claude Code names the
@@ -578,7 +578,7 @@ get_hooks_for_mode() {
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
-    hooks+=("PostToolUse|Write,Edit,Bash|${hooks_dir}/session-checkpoint.sh|async")
+    hooks+=("PostToolUse|Write,Edit,Bash,PowerShell|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
     # v4.2.0: PreModelSwitch is wired in CC 2.1.289 (hook input carries from_model and
     # to_model). The docs listed it earlier; a research pass misread the binary as having

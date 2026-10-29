@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Trust Receipts
-# Event: PostToolUse (async), SessionStart | Matcher: Bash,Artifact,ArtifactData,ArtifactComments,mcp__
+# Event: PostToolUse (async), SessionStart | Matcher: Bash,PowerShell,Artifact,ArtifactData,ArtifactComments,mcp__
 #
 # A local record of every action that left the machine and cannot be taken back:
 # git/docker push, package publish, gh pr/issue/release writes, Artifact publish and

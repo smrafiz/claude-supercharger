@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Repetition Detector
-# Event: PostToolUse | Matcher: Bash,Read
+# Event: PostToolUse | Matcher: Bash,PowerShell,Read
 # Merged from loop-detector.sh + reread-detector.sh
 # Detects repeated tool calls (loops) and unchanged file re-reads.
 # Saves 10-50K tokens per caught loop; prevents redundant context reads.
@@ -73,7 +73,7 @@ LOOP_FILE="$SCOPE_DIR/.loop-history-${SID}"
 
 FINGERPRINT=""
 case "$TOOL_NAME" in
-  Bash)
+  Bash|PowerShell)
     [ -z "$F_CMD" ] && FINGERPRINT="" || FINGERPRINT="Bash:${F_CMD}"
     ;;
   Read)

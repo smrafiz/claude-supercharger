@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Package Credibility Guard
-# Event: PostToolUse | Matcher: Bash
+# Event: PostToolUse | Matcher: Bash,PowerShell
 #
 # Slopsquatting. An LLM asked for a package name that does not exist, someone
 # registered it, and the install command found it waiting. Roughly a fifth of

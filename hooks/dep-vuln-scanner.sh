@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Dependency Vulnerability Scanner
-# Event: PostToolUse | Matcher: Bash
+# Event: PostToolUse | Matcher: Bash,PowerShell
 # Runs audit after package installs and reports critical/high vulnerabilities.
 
 set -euo pipefail

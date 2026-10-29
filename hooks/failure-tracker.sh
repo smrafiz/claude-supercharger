@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Repeated Failure Tracker
-# Event: PostToolUse | Matcher: Bash
+# Event: PostToolUse | Matcher: Bash,PowerShell
 # Detects when the same command fails repeatedly and logs the pattern.
 
 set -euo pipefail
@@ -21,7 +21,7 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # stdout. The markers are unambiguous failures (command not found, Traceback,
 # fatal:, …) so benign tools that merely write progress/warnings to stderr (git,
 # npm) don't trip a false "repeated failure" nudge.
-FAIL_MARKERS='command not found|: not found|No such file or directory|Permission denied|fatal:|Traceback \(most recent call|Segmentation fault|core dumped|Cannot find module|ModuleNotFoundError|ImportError|ENOENT|EACCES|exited with (code )?[1-9]|exit code [1-9]|panic:|undefined reference|[a-zA-Z]*Error:|FAILED|assertion failed|cannot access|unknown command|No such command'
+FAIL_MARKERS='command not found|: not found|No such file or directory|Permission denied|fatal:|Traceback \(most recent call|Segmentation fault|core dumped|Cannot find module|ModuleNotFoundError|ImportError|ENOENT|EACCES|exited with (code )?[1-9]|exit code [1-9]|panic:|undefined reference|[a-zA-Z]*Error:|FAILED|assertion failed|cannot access|unknown command|No such command|is not recognized as (the name of a cmdlet|an internal or external command)|CommandNotFoundException|FullyQualifiedErrorId'
 
 # v2.7.42 perf: most Bash commands SUCCEED — no failure signal in the payload.
 # One cheap grep over the raw payload (markers OR interrupted:true) short-circuits
