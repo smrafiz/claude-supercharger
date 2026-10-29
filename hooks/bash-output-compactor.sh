@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Bash Output Compactor
-# Event: PostToolUse | Matcher: Bash
+# Event: PostToolUse | Matcher: Bash,PowerShell
 # Compresses verbose Bash output (git log, pytest/vitest/jest, npm install)
 # before it enters Claude's context. Uses updatedToolOutput (v2.1.121 schema)
 # to replace what Claude sees with a structured summary.
@@ -67,7 +67,7 @@ init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "bash-output-compactor" && exit 0
 hook_profile_skip "bash-output-compactor" && exit 0
 
-[ "$TOOL_NAME" != "Bash" ] && exit 0
+case "$TOOL_NAME" in Bash|PowerShell) ;; *) exit 0 ;; esac
 
 [ -z "$CMD" ] && exit 0
 

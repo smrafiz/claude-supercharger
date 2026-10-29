@@ -27,7 +27,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `audit-trail` | PostToolUse | Bash,Write,Edit | Logs write operations to a JSONL audit file. |
 | `auto-compact` | PostToolUse | (none) | Injects /compact reminders during agentic runs when context climbs. |
 | `bash-injection-scanner` | PostToolUse | Bash | Scans Bash command OUTPUT for prompt-injection / instruction-override markers. |
-| `bash-output-compactor` | PostToolUse | Bash | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
+| `bash-output-compactor` | PostToolUse | Bash,PowerShell | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
 | `blast-radius-guard` | PreToolUse | Bash,Monitor,PowerShell | Asks before a recursive rm that would delete UNSAVED work: files that are neither |
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `bulk-exfil-guard` | PreToolUse | Bash | safety-detect.py's upload arms (_NETWORK_UPLOADS / _CLOUD_UPLOADS) only fire when |
@@ -47,7 +47,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `cron-discovery` | PreToolUse | CronCreate, CronDelete, CronList | CronCreate/CronDelete/CronList are scheduled-task tool types Claude Code |
 | `cron-guard` | PreToolUse | CronCreate, ScheduleWakeup | CronCreate and ScheduleWakeup store a PROMPT that runs later, unattended. With |
 | `cwd-changed` | CwdChanged | (none) | Re-runs stack detection when working directory changes, injects updated context. |
-| `dep-vuln-scanner` | PostToolUse | Bash | Runs audit after package installs and reports critical/high vulnerabilities. |
+| `dep-vuln-scanner` | PostToolUse | Bash,PowerShell | Runs audit after package installs and reports critical/high vulnerabilities. |
 | `dependency-preflight` | SessionStart | — | install.sh refuses to proceed without `jq` and `python3` (install.sh:8, :25). A |
 | `design-context` | PreToolUse | Write,Edit | When editing a CSS/style file, injects DESIGN.md into context if present in project root. |
 | `designsync-upload-guard` | PreToolUse | DesignSync | DesignSync had no guards — found by the coverage-diff sweep that also produced |
@@ -65,7 +65,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
 | `exitworktree-guard` | PreToolUse | ExitWorktree | Asks before ExitWorktree deletes a worktree together with its uncommitted work. |
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
-| `failure-tracker` | PostToolUse | Bash | Detects when the same command fails repeatedly and logs the pattern. |
+| `failure-tracker` | PostToolUse | Bash,PowerShell | Detects when the same command fails repeatedly and logs the pattern. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
 | `file-watcher` | FileChanged | .env .envrc package.json settings*.json .mcp.json .supercharger.json CLAUDE.md .vscode/tasks.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `generated-file-guard` | PreToolUse | Write, Edit, MultiEdit | Editing a GENERATED/derived file instead of its source is wasted work — the edit |
@@ -98,7 +98,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
-| `package-credibility-guard` | PostToolUse | Bash | Slopsquatting. An LLM asked for a package name that does not exist, someone |
+| `package-credibility-guard` | PostToolUse | Bash,PowerShell | Slopsquatting. An LLM asked for a package name that does not exist, someone |
 | `package-source-guard` | PreToolUse | Write, Edit, MultiEdit, Bash | Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
 | `peer-message-scanner` | UserPromptSubmit | (none) | Text from ANOTHER session, machine or agent (SendMessage, Remote Control, subagent |
@@ -121,12 +121,12 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `redirect-clobber-guard` | PreToolUse | Bash | The Write/Edit review path is guarded (path-guard, confidence-gate, scope-guard), |
 | `reentry-detector` | UserPromptSubmit | (none) | Detects when system output (hook messages, [MEM], [CTX]) gets pasted back |
 | `remote-trigger-guard` | PreToolUse | RemoteTrigger | RemoteTrigger had NO guards at all — found by the coverage-diff sweep that also |
-| `repetition-detector` | PostToolUse | Bash,Read | Merged from loop-detector.sh + reread-detector.sh |
+| `repetition-detector` | PostToolUse | Bash,PowerShell,Read | Merged from loop-detector.sh + reread-detector.sh |
 | `safety` | PreToolUse | Bash, PowerShell | Per-category toggles: disable specific security categories via |
 | `sc-toggle-notice` | UserPromptSubmit | (none) | Announces a /sc off or /sc on that happened MID-SESSION, once. |
 | `scope-guard` | PostToolUse (check) | Write,Edit (check) | Modes: |
 | `sendmessage-guard` | PreToolUse | SendMessage | SendMessage had NO guards at all — found by the coverage diff on 2026-08-09, |
-| `session-checkpoint` | PostToolUse | Write,Edit,Bash | Flags: async | Writes a lightweight checkpoint for crash recovery after every file change. |
+| `session-checkpoint` | PostToolUse | Write,Edit,Bash,PowerShell | Flags: async | Writes a lightweight checkpoint for crash recovery after every file change. |
 | `session-complete` | Stop | (none) | Logs session metadata on exit. Sends webhook if configured. |
 | `session-end` | SessionEnd | (none) | Logs session stats and cleans up transient scope files. |
 | `session-memory-inject` | SessionStart | * | Injects .claude/supercharger-memory.md into context if present. |
@@ -156,8 +156,8 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-failure-advisor` | PostToolUseFailure | (none) | Injects failure context + tool-specific hints back to Claude when any tool errors. |
 | `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>. |
 | `tool-preferences` | PreToolUse | Bash,Monitor,WebFetch | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
-| `trace-compactor` | PostToolUse | Bash | Compresses large Python/Node tracebacks before Claude processes them. |
-| `trust-receipts` | PostToolUse (async), SessionStart | Bash,Artifact,ArtifactData,ArtifactComments,mcp__ | A local record of every action that left the machine and cannot be taken back: |
+| `trace-compactor` | PostToolUse | Bash,PowerShell | Compresses large Python/Node tracebacks before Claude processes them. |
+| `trust-receipts` | PostToolUse (async), SessionStart | Bash,PowerShell,Artifact,ArtifactData,ArtifactComments,mcp__ | A local record of every action that left the machine and cannot be taken back: |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `unfinished-work` | Stop (async), SessionStart | (none) | first: on 2026-10-20 a release job died in a reboot and nothing said so. Claude |
 | `update-check` | SessionStart | (none) | Checks for updates once per day and prints a banner if one is available. |

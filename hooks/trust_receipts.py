@@ -189,7 +189,7 @@ def main():
 
     if event == 'PostToolUse':
         tool, ti, resp = d.get('tool_name') or '', d.get('tool_input') or {}, d.get('tool_response')
-        if tool == 'Bash':
+        if tool in ('Bash', 'PowerShell'):
             recs = bash_receipts(ti.get('command') or '', cwd)
         elif tool.startswith('mcp__'):
             recs = [r for r in [mcp_receipt(tool, ti)] if r]

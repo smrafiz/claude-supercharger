@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Session Checkpoint
-# Event: PostToolUse | Matcher: Write,Edit,Bash | Flags: async
+# Event: PostToolUse | Matcher: Write,Edit,Bash,PowerShell | Flags: async
 # Writes a lightweight checkpoint for crash recovery after every file change.
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"

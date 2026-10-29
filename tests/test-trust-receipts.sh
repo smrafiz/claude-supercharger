@@ -28,6 +28,10 @@ begin_test "receipts: git push is recorded with its destination"
 bash_call "git push origin master"
 last | grep -q '"kind": "push"' && last | grep -q '"dest": "origin master"' && pass || fail "got: $(last)"
 
+begin_test "receipts: git push from the PowerShell tool is recorded too"
+reset; post PowerShell '{"command":"git push origin master"}'
+last | grep -q '"kind": "push"' && pass || fail "got: $(last)"
+
 begin_test "receipts: a push inside a commit message is not a push"
 reset; bash_call 'git commit -m "fix; git push later"'
 [ "$(count)" = 0 ] && pass || fail "false receipt: $(last)"

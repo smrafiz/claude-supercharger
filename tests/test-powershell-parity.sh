@@ -119,5 +119,37 @@ allowed = {"env-exec-guard", "redirect-clobber-guard"}
 sys.exit(0 if missing <= allowed else 1)
 PY
 
+begin_test "ps-parity: every PostToolUse hook on Bash also runs on PowerShell"
+python3 - "$REPO_DIR" <<'PY' && pass || fail "PostToolUse hooks missing PowerShell"
+import json, re, sys, pathlib, collections
+d = json.loads((pathlib.Path(sys.argv[1]) / "hooks/hooks.json").read_text())["hooks"]
+cov = collections.defaultdict(set)
+for g in d.get("PostToolUse", []):
+    toks = [t.strip() for t in re.split(r"[|,]", g.get("matcher", "")) if t.strip()]
+    for h in g.get("hooks", []):
+        m = re.search(r"([a-z0-9-]+)\.sh", h.get("command", ""))
+        if m:
+            for t in ("Bash", "PowerShell"):
+                if t in toks:
+                    cov[t].add(m.group(1))
+missing = cov["Bash"] - cov["PowerShell"]
+if missing:
+    print("    missing:", sorted(missing))
+sys.exit(1 if missing else 0)
+PY
+
+# The compactor gated on tool_name too, so the matcher alone would not reach it.
+begin_test "ps-parity: bash-output-compactor compacts a PowerShell git log"
+_LOG=$(for i in $(seq 1 60); do printf 'abc%s commit %s\n' "$i" "$i"; done | jq -Rs .)
+_OUT=$(printf '{"tool_name":"PowerShell","tool_input":{"command":"git log --all"},"tool_response":{"stdout":%s},"cwd":"/tmp"}' "$_LOG" \
+  | SUPERCHARGER_NO_DEDUP=1 SUPERCHARGER_STATE="$TMP/boc" bash "$REPO_DIR/hooks/bash-output-compactor.sh" 2>/dev/null)
+printf '%s' "$_OUT" | grep -q 'commits omitted' && pass || fail "not compacted: $_OUT"
+
+begin_test "ps-parity: failure-tracker records a PowerShell 'not recognized' error"
+_FT="$TMP/ft"; mkdir -p "$_FT/home"
+printf '%s' '{"tool_name":"PowerShell","tool_input":{"command":"deploy-site"},"tool_response":{"stderr":"deploy-site : The term '"'"'deploy-site'"'"' is not recognized as the name of a cmdlet, function, script file, or operable program.","stdout":"","interrupted":false},"cwd":"'"$_FT"'","hook_event_name":"PostToolUse"}' \
+  | HOME="$_FT/home" SUPERCHARGER_STATE="$_FT" bash "$REPO_DIR/hooks/failure-tracker.sh" >/dev/null 2>&1
+grep -qs 'deploy-site' "$_FT"/scope/.failed-commands-* && pass || fail "no ledger row"
+
 
 report

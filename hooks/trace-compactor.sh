@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Trace Compactor Hook
-# Event: PostToolUse | Matcher: Bash
+# Event: PostToolUse | Matcher: Bash,PowerShell
 # Compresses large Python/Node tracebacks before Claude processes them.
 
 set -euo pipefail
