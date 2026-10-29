@@ -138,6 +138,31 @@ def counts(text):
         return (0, 0)
     return (len(ASSERT_RE.findall(text)), len(SKIP_RE.findall(text)))
 
+# Weakening that keeps the assertion count: a check that cannot fail, or an exact
+# matcher swapped for a loose one (toBe(5) -> toBeTruthy()). Both are ordinary in
+# new tests and in fixtures that quote them, so they count only against exact
+# checks removed by the same edit.
+TAUT_RE = re.compile(
+    r"\bassert\s+(?:True|1)\s*(?:$|[#;\n])|\bassert(?:True|_)?\s*\(\s*(?:True|true|1)\s*\)"
+    r"|\bexpect\s*\(\s*(?:true|1)\s*\)\s*\.\s*(?:toBe\s*\(\s*(?:true|1)\s*\)|toBeTruthy\s*\(\s*\))"
+    r"|\bassert\.ok\s*\(\s*true\s*\)|\bXCTAssertTrue\s*\(\s*true\s*\)"
+)
+LOOSE_RE = re.compile(
+    r"\.(?:toBeTruthy|toBeDefined|toBeFalsy)\s*\(\s*\)|\.not\.(?:toBeNull|toBeUndefined)\s*\(\s*\)"
+    r"|\bassertIsNotNone\s*\("
+)
+EXACT_RE = re.compile(
+    r"\.(?:toBe|toEqual|toStrictEqual)\s*\((?!\s*\))|\bassert(?:Equal|Equals|_equal|_eq!?)\w*\s*\("
+    r"|\bassert\s[^\n]*?(?:==|!=)"
+)
+
+def weak(text):
+    if not text:
+        return (0, 0, 0)
+    t = len(TAUT_RE.findall(text))
+    # expect(true).toBe(true) also matches EXACT_RE; it is not an exact check.
+    return (t, len(LOOSE_RE.findall(text)), max(0, len(EXACT_RE.findall(text)) - t))
+
 # ── Lint-config signals ───────────────────────────────────────────────────────
 # Deliberately count-DELTAS, like the test arm above, not "this file was touched".
 # Their equivalent hook denies every edit to an existing lint config; editing an
@@ -252,6 +277,7 @@ if not is_test:
 
 asserts_removed = 0
 skips_added = 0
+weakened = 0
 for old, new in pairs:
     oa, osk = counts(old)
     na, nsk = counts(new)
@@ -259,8 +285,11 @@ for old, new in pairs:
         asserts_removed += (oa - na)
     if nsk > osk:
         skips_added += (nsk - osk)
+    ot, ol, oe = weak(old)
+    nt, nl, ne = weak(new)
+    weakened += min(max(0, nt - ot) + max(0, nl - ol), max(0, oe - ne))
 
-if not asserts_removed and not skips_added:
+if not asserts_removed and not skips_added and not weakened:
     sys.exit(0)
 
 bits = []
@@ -268,6 +297,8 @@ if skips_added:
     bits.append("adds %d skip/only marker(s)" % skips_added)
 if asserts_removed:
     bits.append("removes %d assertion(s)" % asserts_removed)
+if weakened:
+    bits.append("weakens %d assertion(s) to one that cannot fail or checks less" % weakened)
 print(
     "Test-integrity: this edit to %s %s. "
     "Editing the test to pass (skipping it or deleting assertions) defeats the "
