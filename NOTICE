@@ -18,6 +18,9 @@ This product includes software adapted from third-party sources:
   Each is MIT-licensed; copyright remains with the respective authors.
   The commit-attribution-gate concept was reimplemented from
   domengabrovsek/claude (idea only; no code copied).
+  The Issues List reply format (BROKEN / RISK / NOT DONE / UNKNOWN, "I caused
+  this") was adapted from trycompai/crm's AGENTS.md (MIT, Copyright (c) 2026
+  Comp AI; idea and tag names only).
 
 - configs/commands/sc-de-ai.md adapts the editing rules and self-check from
   petergyang/no-ai-slop — https://github.com/petergyang/no-ai-slop

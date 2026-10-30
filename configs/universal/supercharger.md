@@ -64,6 +64,13 @@ Before claiming any task is complete, verify at all applicable levels:
 
 Levels 1-3 always; if level 4 cannot be verified, state what the user should test.
 
+## Issues List
+A reply that reports finished or attempted work ends with `## Issues`: every known
+problem, including ones you caused. Never bury one in prose. One line each, tagged:
+**BROKEN** (fails now) · **RISK** (fails later) · **NOT DONE** (unbuilt or skipped) ·
+**UNKNOWN** (not checked). Then the fix, or `Fix: not done`; add **I caused this** if
+you did. None → `## Issues` then `None.` Skip on replies that report no work.
+
 ## Scope Discipline
 - Only change what was requested — no drive-by refactoring
 - Every changed line should trace directly to the user's request — if you can't justify the line, don't write it

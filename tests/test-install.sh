@@ -26,6 +26,19 @@ assert_file_exists "$HOME/.claude/rules/economy.md" &&
 pass ; } || { echo "    install.sh output:"; sed 's/^/      /' "$INSTALL_ERR" | tail -25; }
 teardown_test_home
 
+begin_test "install: the resident rules carry the Issues List and all four tags"
+# Problems buried in prose go unread; the tagged list is the contract. Checked on the
+# INSTALLED copy so a template or copy step that drops the section fails here too.
+setup_test_home
+bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
+R="$HOME/.claude/rules/supercharger.md"
+MISS=""
+for t in '## Issues List' '**BROKEN**' '**RISK**' '**NOT DONE**' '**UNKNOWN**' '**I caused this**'; do
+  grep -qF -- "$t" "$R" 2>/dev/null || MISS="$MISS [$t]"
+done
+[ -z "$MISS" ] && pass || fail "installed supercharger.md lacks:$MISS"
+teardown_test_home
+
 begin_test "install: every rules/ file is markdown, and an update removes the old anti-patterns.yml"
 # Claude Code loads only .md from rules/; anti-patterns.yml shipped for months and
 # never reached the model (verified with claude -p, 2026-10-26).
