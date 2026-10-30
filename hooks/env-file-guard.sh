@@ -293,7 +293,9 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     */.config/github-copilot/hosts.json|*/opencode/auth.json|*/opencode/opencode.json|*/opencode/opencode.jsonc|*/.mcp-auth/*)
       block "Read of AI-agent token store blocked" "$FILE_PATH" ;;
     # MCP configs hold server commands AND often API keys in env blocks: ask.
-    */.cursor/mcp.json|*/.codeium/windsurf/mcp_config.json|*/claude_desktop_config.json)
+    # mcp_settings.json is Roo Code's; Cline's is cline_mcp_settings.json.
+    */.cursor/mcp.json|*/.codeium/windsurf/mcp_config.json|*/claude_desktop_config.json|\
+    */cline_mcp_settings.json|*/mcp_settings.json)
       ask_read "Read of $base — MCP server config, which often carries API keys in env entries. Confirm if you need it." ;;
     */.composer/auth.json|*/.config/composer/auth.json|*/.bundle/config|\
     */pypoetry/auth.toml)
