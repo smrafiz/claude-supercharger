@@ -1811,6 +1811,17 @@ if _cat_enabled "destructive" && [ -z "${_RM_VAR_ASK:-}" ]; then
   fi
 fi
 
+# MCP server configs hold API keys in env entries. The Read tool asks for these
+# (env-file-guard.sh); a Bash reader of the same file asked nothing. ~/.claude.json
+# is denied by the detector above. mcp_settings.json covers Cline's cline_ prefix.
+if [ -z "${_RM_VAR_ASK:-}" ]; then
+  _MCP_READ='(^|[[:space:];&|(])(cat|less|more|head|tail|bat|grep|egrep|rg|sed|awk|jq|xxd|od|strings|base64|cp|scp)[[:space:]][^;&|]*(\.cursor/mcp\.json|windsurf/mcp_config\.json|claude_desktop_config\.json|mcp_settings\.json)'
+  if [[ "$CMD_SCAN" =~ $_MCP_READ ]]; then
+    sc_decision ask "this reads ${BASH_REMATCH[3]}, an MCP server config, which often carries API keys in env entries." "confirm you need its contents"
+    exit 0
+  fi
+fi
+
 # Variable-rooted rm (recorded above). Emitted LAST so any deny in the same command
 # wins; an ask only when nothing denied.
 if [ -n "${_RM_VAR_ASK:-}" ]; then
