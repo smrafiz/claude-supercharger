@@ -62,7 +62,9 @@ PATTERNS = [
     ('cross-session memory poisoning', re.compile(r'remember\s+(?:this|the\s+following)\s+(?:for|in)\s+(?:(?:all|every)\s+)?(?:(?:future|subsequent)\s+)?(?:sessions?|conversations?)|henceforth\s*,?\s*you\s+must', I), 'HIGH'),
     ('anti-refusal instruction',      re.compile(r'\byou\s+(?:must|should)\s+never\s+refuse\b|\bnever\s+refuse\s+(?:a|any)\s+request', I), 'HIGH'),
     ('scheduled persistence',         re.compile(r'\|\s*crontab\s+-\s*(?:$|[;)\n])|launchctl\s+(?:load|bootstrap)', I | re.M), 'HIGH'),
-    ('MCP config key harvesting',     re.compile(r'mcp(?:_config)?\.json.{0,80}?(?:api_?key|token|secret)', I), 'HIGH'),
+    # Names per SkillSpector AS2 (3ae98afc): Cursor/VS Code/.mcp.json, Windsurf, Roo and
+    # Cline (mcp_settings), Claude Desktop, and Claude Code's own ~/.claude.json.
+    ('MCP config key harvesting',     re.compile(r'(?:mcp(?:_config|_settings)?|claude_desktop_config|\.claude)\.json.{0,80}?(?:api_?key|token|secret)', I), 'HIGH'),
     ('hidden base64 data URI',        re.compile(r'data:text/plain;base64,[A-Za-z0-9+/=]{50,}'), 'HIGH'),
     ('subprocess spawn',              re.compile(r'os\.system\(|subprocess\.(?:run|call|Popen)|child_process', I),    'MEDIUM'),
     ('file write outside project',    re.compile(r"open\(.*'/tmp|open\(.*'/var|>/etc/", I),                            'MEDIUM'),

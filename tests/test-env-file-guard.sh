@@ -196,6 +196,17 @@ for _f in "/home/u/.m2/settings.xml" "/home/u/.gradle/gradle.properties"; do
     || fail "expected an ask, got: ${OUT:0:120}"
 done
 
+# MCP client configs carry API keys in env entries: ask, same as the Cursor and
+# Windsurf ones already listed. Roo and Cline were missing (SkillSpector AS2).
+for _f in "/home/u/Library/Application Support/Code/User/globalStorage/saoudrizwan.claude-dev/settings/cline_mcp_settings.json" \
+          "/home/u/.config/Code/User/globalStorage/rooveterinaryinc.roo-cline/settings/mcp_settings.json" \
+          "/home/u/Library/Application Support/Claude/claude_desktop_config.json"; do
+  begin_test "env-guard: Read ASKS for MCP config $(basename "$_f")"
+  OUT=$(printf '%s' "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}" | bash "$HOOK" 2>&1)
+  printf '%s' "$OUT" | grep -q '"permissionDecision":"ask"' && pass \
+    || fail "expected an ask, got: ${OUT:0:120}"
+done
+
 # Control for the block above: a build file NOT in the credential list stays
 # readable, so the two assertions above cannot both be satisfied by a guard that
 # simply answers 'ask' to everything.
