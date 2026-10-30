@@ -414,6 +414,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-scope [task]` | Pre-flight check — files to touch, risks, blast radius |
 | `/sc-estimate [task]` | Time + complexity report. Halts before code starts |
 | `/sc-interview [topic]` | Structured requirements gathering, one question at a time |
+| `/sc-de-ai [is this slop?] <text\|file>` | Strip AI-slop patterns from a draft without flattening its voice, or flag them without rewriting |
 | `/sc-multi-review [quick\|standard\|deep] [target]` | Parallel specialist reviewers, then a separate pass that tries to refute each finding |
 | `/sc-security [scope]` | OWASP-anchored review with severity-ranked findings |
 | `/sc-audit [scope]` | Consistency sweep across naming, patterns, docs, interfaces |

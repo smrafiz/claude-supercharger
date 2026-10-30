@@ -75,6 +75,26 @@ begin_test "agents: debugger has evidence threshold rule"
 grep -q "Evidence threshold\|evidence threshold" "$AGENTS_DIR/debugger.md" && pass || fail "debugger missing evidence threshold"
 
 echo ""
+echo "=== Writer De-slop Wiring Tests ==="
+
+# The writer's self-edit runs sc-de-ai through the Skill tool. Without Skill in its
+# tools, or with a name that resolves to no command, the step silently does nothing.
+begin_test "agents: writer has the Skill tool"
+grep -qE '^tools:.*\bSkill\b' "$AGENTS_DIR/writer.md" && pass || fail "writer cannot invoke sc-de-ai without Skill"
+
+begin_test "agents: writer's de-slop command names resolve (install and plugin)"
+MISSING=""
+grep -q '`sc-de-ai`' "$AGENTS_DIR/writer.md" || MISSING="$MISSING writer-does-not-name-sc-de-ai"
+grep -q '`supercharger:de-ai`' "$AGENTS_DIR/writer.md" || MISSING="$MISSING writer-does-not-name-supercharger:de-ai"
+[ -f "$REPO_DIR/configs/commands/sc-de-ai.md" ] || MISSING="$MISSING configs/commands/sc-de-ai.md"
+[ -f "$REPO_DIR/commands/de-ai.md" ] || MISSING="$MISSING commands/de-ai.md"
+[ -z "$MISSING" ] && pass || fail "unresolved:$MISSING"
+
+begin_test "commands: sc-de-ai credits its MIT source in NOTICE"
+grep -q 'petergyang/no-ai-slop' "$REPO_DIR/NOTICE" && grep -q 'Copyright (c) 2026 Peter Yang' "$REPO_DIR/NOTICE" \
+  && pass || fail "NOTICE lacks the no-ai-slop copyright + licence"
+
+echo ""
 echo "=== Command File Tests ==="
 
 COMMANDS_DIR="$REPO_DIR/configs/commands"

@@ -29,6 +29,7 @@ Claude Supercharger — Slash Commands
     /sc-handoff        Session resume brief — decisions, files changed, next steps
     /sc-devlog         Update living architecture journal with what changed and why
     /sc-interview      Structured requirements gathering, one question at a time
+    /sc-de-ai          Strip AI-slop patterns from a draft, keeping the writer's voice (or just flag them)
 
   Design
     /sc-design         Write DESIGN.md — brand tokens read from the project's own theme
@@ -110,6 +111,7 @@ fits, say so plainly and suggest the closest thing — do not invent a command.
 | "confirm every single call" | `/sc-strict` | `/sc-readonly` |
 | "turn it all off", "I want plain Claude" | `/sc off` | `/sc-readonly` if they only want to stop edits |
 | "are the guards actually working", "is it protecting me" | `/sc-health` | `/sc-status` — that lists what is on, this proves it fires |
+| "does this sound like AI", "de-slop this draft", "is this slop?" | `/sc-de-ai` | `/sc-ste` — that changes how Claude answers you, this edits a draft |
 | "your answers are hard to read", "write more clearly", "plain English" | `/sc-ste on` | `eco lean` — that changes length, not clarity |
 | "what's active right now", "what's this costing" | `/sc-status` | `/sc-perf` — that's hook latency, this is session state |
 | "everything feels slow" | `/sc-perf` | `/sc-profile` — check the measurement before switching profile |
