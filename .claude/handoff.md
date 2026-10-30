@@ -4,28 +4,26 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-28, session `3d213381`.*
+*Verified 2026-10-30, session `d1f49e55`.*
 
 - **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
-  release only when the user says so. Merged since 4.3.26: #173-#196 (master `2eb4a4d8`).
-- **Master CI on `2eb4a4d8`:** green incl. Windows (run 40644488301). /sc-update installs master.
-- **Open for 4.4:** merged #197 SQL gaps, #198 secret printing, #199 Windows backslash paths,
-  #200 PostToolUse PowerShell parity (master `e2651166`; its first Windows run failed test-perf-chain
-  once, rerun 308/308 clean), #201 weakened assertions (master `9641bb5c`, Windows 308/308).
-  #202 DNS lookup built from a substitution asks on a detector overrun (pre-existing fail-open
-  found under load; worktree `dnsover`). After #202: 4.4.0 release waits on the user.
-  FP loosening DROPPED (user agreed): count reads (grep -c/-q, wc -l) already allow; names-only
-  reads 0 real in 39,552 commands; output-to-file stays blocked.
-- **Machine A coexists with Caveman** (API proxy + shrink-hook; telemetry/routing/cloud turned OFF
-  2026-10-26), Ponytail 5.3.2 (band hidden), Graphify skill (plinth + radius-bundles graphs built).
-  See memory `caveman-coexistence`: it elides FAIL/deny lines and rewrites Bash commands.
+  release only when the user says so (`tools/release.sh stage minor` → `promote 4.4.0`).
+- **master `51792935`.** Merged since 4.3.26: #173-#202, then `/sc-de-ai` (`0e6e1e10`) and the
+  Issues List rule (`51792935`) committed straight to master. **No open PRs.**
+- **Master CI on `51792935`** (run 41042447466): in progress at writing. Windows has not yet COMPLETED
+  on #202/sc-de-ai/Issues List — the earlier master runs were cancelled by newer pushes.
+- **Open, small:** widen `lib_poison_patterns.py:65` MCP-config names per SkillSpector AS2
+  (`mcp_settings.json`, `claude_desktop_config.json`, `.claude.json`); `cline_mcp_settings.json` is not in
+  `env-file-guard.sh`. Unverified: a subagent invoking a slash command via `Skill` (writer → sc-de-ai).
 - **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for anything
-  touching cmd-normalize/safety/git-safety.
-- **Release recipe:** detached `launchctl submit` job, quote PATH, dies on reboot. Remove PR worktrees.
+  touching cmd-normalize/safety/git-safety. Merge pinned with the FULL sha in `--match-head-commit`.
+- **Merging is user-run:** the auto-mode classifier denies `gh pr merge` from Claude.
 - **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook (no co-author trailers);
-  4 stashes on Machine A; radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
+  radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
+- **This session's machine (2026-10-30):** 0 stashes, no extra worktrees, Caveman active (it elides
+  tool output lines). The "4 stashes on Machine A" earlier note was not seen here.
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
   Sept usage: Windows 10,678 min, macOS 1,977, Linux 3,652, **all netting $0.00**.
   Windows is trending hard: Jul 166 → Aug 7,744 → Sep 10,678.
@@ -51,6 +49,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-30 — d1f49e55
+Merged #202 (Windows dispatched, green). Added `/sc-de-ai` (from petergyang/no-ai-slop, MIT) wired into
+the writer agent, and the Issues List reply rule (from trycompai/crm). Audited video-use (nothing) and
+re-checked SkillSpector (one static-scan gap, not acted on).
+Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
+
 #### 2026-10-28 (deep) — 3d213381
 Taking all of randommonicle/claude-skills into 4.4. Merged #184-#196; #197 SQL gaps waiting on Windows;
 secret-printing + PowerShell secrets built, uncommitted. A replay caught two errexit fail-opens the new
@@ -74,10 +78,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-25 de
 4.3.24 released after a reboot killed the first job. #168 Trust Receipts merged (Windows green after an
 argv-conversion fixture fix). #169 audit-trail on shared secret patterns open; 4.3.25 releases both.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-21 deep)
-
-#### 2026-10-20 (deep) — 3d213381
-Merged #164/#163/#165/#166 for one 4.3.24 (32 guards fail closed, drift alarm, CVE-class fixes).
-Master went red twice on Windows (MSYS path inside a string, then CRLF); fixed, branch Windows run
-green. Release job in flight.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-20 deep)
-
