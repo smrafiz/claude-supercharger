@@ -29,9 +29,12 @@
   write to MEMORY.md/CLAUDE.md — we guard that at runtime (`memory-write-guard.sh`). Not acted on.
 
 ### In Flight
-- Master CI on `51792935` (run 41042447466) was in progress at writing. No Windows run has COMPLETED
-  on #202 / sc-de-ai / Issues List yet: the two earlier master runs were cancelled by newer pushes
-  (`cancel-in-progress: true`). This run covers all three.
+- **#203 merged** (`ec372afc`): `lib_poison_patterns.py` MCP-config names widened per SkillSpector AS2;
+  `env-file-guard.sh` asks on Cline/Roo MCP settings. Windows run 41047321478 8/8 green; user merged.
+- **PR #204 open** (`038a12b2`): `safety.sh` asks on a Bash reader of `.cursor/mcp.json`,
+  `windsurf/mcp_config.json`, `claude_desktop_config.json`, `*mcp_settings.json`. 6 tests in
+  `test-safety-bash-evasions.sh`, 5 shown red without the fix. Suite 7263/0. Windows run 41098777970.
+- Master CI on `b24cd407` (run 41043497740) 8/8 green incl. Windows.
 
 ### Decisions Made
 - Separate feature commits stay out of fix PRs (sc-de-ai was not added to #202).
@@ -40,8 +43,8 @@
 - The tests badge is a gist endpoint now; there is no README number to bump.
 
 ### Next
-- Confirm run 41042447466 green (Windows included).
-- Decide on the AS2 widening (one regex + test cases) and whether `cline_mcp_settings.json` belongs
-  in `env-file-guard.sh`.
+- Merge #204 once run 41098777970 is green (user-run, full SHA).
+- Not acted on: scanner reverse word order (upstream has the same limit); `cat <mcp cfg> | curl -d @-`
+  only asks.
 - Unverified: whether a subagent can invoke a slash command through the `Skill` tool. Proving it needs
   an install and a real writer-agent run.
