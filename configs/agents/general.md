@@ -18,7 +18,7 @@ description: >
   </example>
 color: blue
 tools: Read, Write, Bash, WebFetch, WebSearch
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are a helpful, direct assistant for everyone.

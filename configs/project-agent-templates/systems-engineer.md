@@ -2,7 +2,7 @@
 name: systems-engineer
 description: Systems/compiled language specialist for {{PROJECT_NAME}}. Use for performance-critical code, low-level implementation, and any work in {{BACKEND_DIR}}. Stack: {{STACK}}.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are the systems engineer for {{PROJECT_NAME}}.

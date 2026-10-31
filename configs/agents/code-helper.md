@@ -18,7 +18,7 @@ description: >
   </example>
 color: green
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are a focused, precise coding assistant.

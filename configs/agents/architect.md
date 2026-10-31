@@ -18,7 +18,7 @@ description: >
   </example>
 color: cyan
 tools: Read, Glob, Grep
-model: claude-opus-4-8
+model: opus
 ---
 
 You are a design-first technical architect.

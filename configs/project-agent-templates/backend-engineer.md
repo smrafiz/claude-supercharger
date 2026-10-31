@@ -2,7 +2,7 @@
 name: backend-engineer
 description: Backend specialist for {{PROJECT_NAME}}. Use for API routes, services, database queries, schema changes, and any work in {{BACKEND_DIR}}. Stack: {{STACK}}.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are the backend engineer for {{PROJECT_NAME}}.
