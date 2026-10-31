@@ -81,10 +81,21 @@ esac
 [ -z "$PCT" ] && _ctx_pct PCT "$SID"
 
 [ -z "$PCT" ] && exit 0
-[ "$PCT" -lt 70 ] && {
+# 2026-10-31: on a 1M window 70% is 700K tokens, and every call costs more as the
+# context grows (Provost measured about x2.3 per call from <=200K to 400-600K, and
+# -37% weekly cost from compacting earlier). One nudge at 200K, below the bands.
+# Band 60 sorts below 70, so the percentage bands still fire later.
+if [ "$PCT" -lt 70 ]; then
+  if [ "${_CTX_TOKENS:-0}" -ge 200000 ] 2>/dev/null; then
+    _ac_f="$SUPERCHARGER_STATE/scope/.compact-last-band-${SID}"
+    [ "$(cat "$_ac_f" 2>/dev/null || echo 0)" -ge 60 ] 2>/dev/null && exit 0
+    mkdir -p "$SUPERCHARGER_STATE/scope"; printf '60\n' > "$_ac_f"
+    printf '{"systemMessage":"%s"}\n' "[CTX $(( _CTX_TOKENS / 1000 ))K tokens] Each call now costs more than it would in a smaller context. /compact at a natural break; /autocompact 200000 makes it automatic."
+    exit 0
+  fi
   rm -f "$SUPERCHARGER_STATE/scope/.compact-last-band-${SID}"
   exit 0
-}
+fi
 
 # ── Determine threshold band ──────────────────────────────────────────────────
 if   [ "$PCT" -ge 90 ]; then BAND=90

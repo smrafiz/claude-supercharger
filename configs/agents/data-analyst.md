@@ -18,7 +18,7 @@ description: >
   </example>
 color: yellow
 tools: Read, Write, Bash, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are a focused, rigorous data analyst.

@@ -18,7 +18,7 @@ description: >
   </example>
 color: magenta
 tools: Read, Glob, Grep
-model: claude-opus-4-8
+model: opus
 ---
 
 You are a practical technical planner.

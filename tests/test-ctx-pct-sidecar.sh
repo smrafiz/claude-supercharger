@@ -46,6 +46,17 @@ GOT=$(cut -d' ' -f2 "$SCOPE_DIR/.ctx-pct-$SID" 2>/dev/null || echo "")
 if [ "$GOT" = "85" ]; then pass; else fail "expected sidecar pct 85, got '$GOT'"; fi
 teardown_test_home
 
+begin_test "statusline writes the tokens in context as the sidecar's third field"
+setup_test_home
+SCOPE_DIR="$HOME/.claude/supercharger/scope"
+mkdir -p "$SCOPE_DIR"
+printf '{"session_id":"%s","cwd":"%s","model":{"display_name":"Opus 5"},"context_window":{"used_percentage":25,"context_window_size":1000000,"current_usage":{"input_tokens":1000,"cache_read_input_tokens":240000,"cache_creation_input_tokens":9000}}}' "$SID" "$HOME" \
+  | SUPERCHARGER_STATE="$HOME/.claude/supercharger" SUPERCHARGER_HOME="$REPO_DIR" \
+    bash "$REPO_DIR/hooks/statusline.sh" >/dev/null 2>&1
+GOT=$(cut -d' ' -f3 "$SCOPE_DIR/.ctx-pct-$SID" 2>/dev/null || echo "")
+if [ "$GOT" = "250000" ]; then pass; else fail "expected 250000 tokens, got '$GOT'"; fi
+teardown_test_home
+
 # used_percentage is null before the first API response and again right after
 # /compact. Publishing 0 there would read as "context empty", not "unknown".
 begin_test "statusline writes no sidecar when used_percentage is null"
