@@ -1,3 +1,33 @@
+## Handoff — claude-supercharger — 2026-10-31
+
+### Done (all merged by the user, squash, pinned to the full tested SHA)
+- **#204** (`8e70a308`): a Bash read of an MCP server config asks.
+- **#205** (`cf313559`): `block-workaround-check.sh` (hook 173) warns once when a later call names a file
+  a guard denied this session. Denies record the basename via `sc_record_blocked_file` in `lib-deny.sh`.
+  Idea from yerinsabraham/trackline (Apache-2.0, idea only, NOTICE).
+- **#206** (`a488da20`): download piped into python/perl/ruby denied (inline `-c`/`-e` with no eval/exec
+  allowed); `/etc/shadow`/`gshadow` reads; reader verbs (grep/tar/cp/base64...) on `.ssh`/`.aws`/
+  `.gnupg`/`.mcp-auth` dirs. Gaps 1-3 from benchmarking against deepu105/pi-automode-classifier's sets.
+- **#207** (`72e6be07`): statusline sidecar carries token count; `auto-compact.sh` nudges once at ≥200K
+  tokens under 70%; agents use aliases (`opus`/`sonnet`/`haiku`), Navigator on Haiku. From Provost.
+- Master straight commits: perf floor 2.0 on Windows (`219e347a`); roadmap (`492a7825`); atomic-deploy
+  test tells torn from missing (`a98a5f29`); claude-check fallback chain + compress default → 5.5 IDs
+  (`b5670d98`).
+
+### Findings
+- **Windows replace is not atomic** (confirmed): #206's old-test run logged `typecheck.sh: No such file
+  or directory`, 1 of 1389 reads. Torn reads: never. Next run with the new test: 0 absent of ~2k.
+- Benchmark (344 labelled cases, 21 Bash hooks): gaps 4-7 deferred to `docs/ROADMAP.md` items 2-4.
+- Repos evaluated, nothing more to take: phone-harness, Mi-5555 Bounded-Autonomy, Agensi (ignore email).
+  Provost's skill-flood warning rejected (Skill tool result ~51 chars; 0 messages >60K in 80 sessions).
+
+### Next
+- Master CI on `a488da20` must be green incl. Windows, then on the user's word:
+  `tools/release.sh stage minor` → `promote 4.4.0` (promote needs confirmation).
+- After 4.4.0: `docs/ROADMAP.md` "After v4.4.0" items 1-6. Item 5 is a decision for the user.
+
+---
+
 ## Handoff — claude-supercharger — 2026-10-30
 
 ### Done

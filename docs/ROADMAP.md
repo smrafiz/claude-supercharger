@@ -1,6 +1,6 @@
 # Roadmap — Claude Supercharger
 
-**Current: v4.3.26.** Next: **v4.4.0**, staged once its last three PRs merge. 173 registered
+**Current: v4.3.26.** Next: **v4.4.0**, all PRs merged; staged on the maintainer's word. 173 registered
 hooks, about 7,270 tests, CI on macOS, Linux and Windows.
 
 Per-release detail lives in [`../CHANGELOG.md`](../CHANGELOG.md) (2.10+) and
@@ -51,7 +51,7 @@ Scope is frozen. On master since v4.3.26 (38 commits):
 - The Issues List reply rule (BROKEN / RISK / NOT DONE / UNKNOWN)
 - Windows: the statusline cache-speedup floor is 2.0 there, where a spawn alone is ~45 ms
 
-Waiting to merge, then the release is staged:
+Merged 2026-10-31:
 
 | PR | What |
 |---|---|
