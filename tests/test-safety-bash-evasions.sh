@@ -480,4 +480,18 @@ begin_test "safety: an IFS assignment for read is allowed"
 begin_test "safety: printing \$IFS is allowed"
 [ "$(verdict 'printf "%q\\n" "$IFS"')" = ALLOW ] && pass || fail "over-blocked printf IFS"
 
+# --- MCP server configs: a Bash read asks, like the Read tool ---------------
+decision() {
+  local j; j=$(printf '{"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":%s}}' "$(printf '%s' "$1" | python3 -c 'import json,sys; print(json.dumps(sys.stdin.read()))')")
+  bash "$H" <<<"$j" 2>/dev/null | grep -o '"permissionDecision":"[a-z]*"' | head -1 | cut -d'"' -f4
+}
+for _c in 'cat ~/Library/Application\ Support/Claude/claude_desktop_config.json' \
+          'jq .mcpServers ~/.codeium/windsurf/mcp_config.json' \
+          'head x/cline_mcp_settings.json' 'grep -i key x/mcp_settings.json' 'cat ~/.cursor/mcp.json'; do
+  begin_test "safety: a Bash read of an MCP config asks: $_c"
+  [ "$(decision "$_c")" = ask ] && pass || fail "not asked: $_c"
+done
+begin_test "safety: a commit message naming an MCP config is allowed"
+[ "$(decision 'git commit -m "fix: claude_desktop_config.json read"')" = "" ] && pass || fail "over-asked commit message"
+
 report
