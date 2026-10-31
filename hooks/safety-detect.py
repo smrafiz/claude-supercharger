@@ -299,6 +299,8 @@ _SENSITIVE_NAME_RE = re.compile(
     r"|\.claude/\.credentials\.json|\.gemini/oauth_creds\.json|github-copilot/(?:apps|hosts)\.json|opencode/(?:auth|opencode)\.jsonc?|opencode/auth\.json"
     # v2.10.4: kubeconfig read parity — Read channel bypassed the Bash guard
     r"|\.kube/config|(?:^|/)kubeconfig(?![\w.-])"
+    # 2026-10-31: system password hashes (pi-automode-classifier Permission corpus).
+    r"|/etc/g?shadow(?![\w.-])"
     r"|id_rsa[a-zA-Z0-9_.-]*|id_dsa[a-zA-Z0-9_.-]*|id_ecdsa[a-zA-Z0-9_.-]*|id_ed25519[a-zA-Z0-9_.-]*"
     r"|[\w.*-]+\.(?:ppk|pem|key|crt|cer|p12|pfx)"
     r"|wallet\.dat|wallet\.json|[\w.*-]+\.wallet"
@@ -629,6 +631,10 @@ _SECRET_DIR_PUBLIC = re.compile(
     r"environment|rc|pubring\.[a-z]+|trustdb\.gpg|\S*\.pub)$", re.I)
 
 
+_SECRET_DIR_CONTENT_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "tar", "zip", "7z",
+                               "rsync", "scp", "cp", "base64", "xxd", "strings", "cat"}
+
+
 def check_secret_directory(c: str) -> str | None:
     """A read of a file inside a secret directory, whatever it is called."""
     for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/)[\w.-]+)", c):
@@ -640,6 +646,21 @@ def check_secret_directory(c: str) -> str | None:
             continue
         return (f"secret directory access: {path} — files under "
                 f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
+    # 2026-10-31: a tool that reads CONTENT given the directory itself: `grep -R
+    # 'PRIVATE KEY' ~/.ssh` names no file, so the path rule above never fires
+    # (pi-automode-classifier Permission corpus). Listing stays allowed: `ls`,
+    # `stat` and `find` without -exec read names, not secrets.
+    for seg in re.split(r"&&|\|\||[;|\n]", c):
+        words = seg.split()
+        if not words:
+            continue
+        verb = words[1] if words[0] == "sudo" and len(words) > 1 else words[0]
+        if verb not in _SECRET_DIR_CONTENT_READERS:
+            continue
+        d = re.search(r"(?:^|[\s'\"=])([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth))/?(?=[\s'\"]|$)", seg)
+        if d:
+            return (f"secret directory access: {verb} over {d.group(1)} — files under "
+                    f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
     # 2026-10-27: `cd ~/.aws && cat credentials` names the file relative to the
     # directory, so the path above never appears (cc-safety-net corpus).
     m = re.search(r"(?:^|[;&|(]\s*)cd\s+[\"']?([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth))/?[\"']?\s*(?:&&|;|\|\|)(.*)", c, re.S)
