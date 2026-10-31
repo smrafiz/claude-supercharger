@@ -21,6 +21,9 @@ This product includes software adapted from third-party sources:
   The Issues List reply format (BROKEN / RISK / NOT DONE / UNKNOWN, "I caused
   this") was adapted from trycompai/crm's AGENTS.md (MIT, Copyright (c) 2026
   Comp AI; idea and tag names only).
+  The block-workaround check (hooks/block-workaround-check.sh) was
+  reimplemented from yerinsabraham/trackline's "workaround" check
+  (Apache-2.0; idea only, no code copied).
 
 - configs/commands/sc-de-ai.md adapts the editing rules and self-check from
   petergyang/no-ai-slop — https://github.com/petergyang/no-ai-slop

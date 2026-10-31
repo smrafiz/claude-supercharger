@@ -26,6 +26,7 @@
 
 # _ctx_pct <outvar> <session_id> [max_age_s]
 #
+# Also sets _CTX_TOKENS to the tokens in context, or "" when the sidecar has none.
 # Sets <outvar> to an integer 0-100, or to "" when unavailable for ANY reason
 # (no sidecar, unreadable, malformed, stale, unsafe session id). Always returns 0.
 #
@@ -40,8 +41,9 @@
 # See memory a-second-fork-on-a-hot-hook-costs-a-full-spawn.
 _ctx_pct() {
   local __out="$1" __sid="${2:-}" __max="${3:-300}"
-  local __f __ts __p __now
+  local __f __ts __p __t __now
   printf -v "$__out" '%s' ''
+  _CTX_TOKENS=""
 
   # Session id lands in a file path — allow only path-safe characters.
   case "$__sid" in ''|*[!A-Za-z0-9._-]*) return 0 ;; esac
@@ -50,8 +52,8 @@ _ctx_pct() {
   [ -r "$__f" ] || return 0
 
   # Format is a single line: "<epoch> <pct>". `read < file` is a builtin.
-  __ts=""; __p=""
-  IFS=' ' read -r __ts __p _ < "$__f" 2>/dev/null || return 0
+  __ts=""; __p=""; __t=""
+  IFS=' ' read -r __ts __p __t _ < "$__f" 2>/dev/null || return 0
   case "$__ts" in ''|*[!0-9]*) return 0 ;; esac
   case "$__p"  in ''|*[!0-9]*) return 0 ;; esac
   [ "$__p" -le 100 ] || return 0
@@ -65,5 +67,8 @@ _ctx_pct() {
   fi
 
   printf -v "$__out" '%s' "$__p"
+  # Third field (2026-10-31): tokens in context. Absent in sidecars written by
+  # older statuslines, so it stays "" there.
+  case "$__t" in ''|*[!0-9]*) ;; *) _CTX_TOKENS="$__t" ;; esac
   return 0
 }

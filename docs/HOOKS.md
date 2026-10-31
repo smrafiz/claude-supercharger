@@ -29,6 +29,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `bash-injection-scanner` | PostToolUse | Bash | Scans Bash command OUTPUT for prompt-injection / instruction-override markers. |
 | `bash-output-compactor` | PostToolUse | Bash,PowerShell | Compresses verbose Bash output (git log, pytest/vitest/jest, npm install) |
 | `blast-radius-guard` | PreToolUse | Bash,Monitor,PowerShell | Asks before a recursive rm that would delete UNSAVED work: files that are neither |
+| `block-workaround-check` | PreToolUse | Bash,Monitor,PowerShell,Write,Edit,MultiEdit,NotebookEdit | After a guard denies a file (lib-deny.sh records its name for the session), a |
 | `budget-cap` | PostToolUse (accumulator) | (none) | Modes: |
 | `bulk-exfil-guard` | PreToolUse | Bash | safety-detect.py's upload arms (_NETWORK_UPLOADS / _CLOUD_UPLOADS) only fire when |
 | `cache-health` | PostToolUse | * | Flags: async | Samples cache hit rate every 5th call. Warns when degraded (<50% for 3 consecutive readings). |

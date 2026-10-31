@@ -18,7 +18,7 @@ description: >
   </example>
 color: cyan
 tools: Read, Bash, Glob, Grep, WebFetch, WebSearch
-model: claude-opus-4-8
+model: opus
 ---
 
 You are a precise researcher and explainer.

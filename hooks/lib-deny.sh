@@ -60,6 +60,24 @@ sc_mark_guard_ask() {
   fi
 }
 
+# A deny on a file-path tool (Read/Write/Edit...) records the file's name for the
+# session. block-workaround-check.sh then warns when a later call names it again:
+# a script, a redirect or a build step reaches the file past the guard that only
+# saw the path (trackline's "workaround" check, yerinsabraham/trackline, Apache-2.0).
+# Denies are rare, so the jq fork here is off the hot path.
+sc_record_blocked_file() {
+  [ -n "${_INPUT:-}" ] || return 0
+  local sid fp f
+  sid=$(printf '%s' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-') || return 0
+  fp=$(printf '%s' "$_INPUT" | jq -r '.tool_input | .file_path // .notebook_path // .path // empty' 2>/dev/null) || return 0
+  [ -n "$sid" ] && [ -n "$fp" ] || return 0
+  fp="${fp%/}"; fp="${fp##*/}"; fp="${fp##*\\}"
+  [ -n "$fp" ] || return 0
+  f="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope/.blocked-files-$sid"
+  mkdir -p "${f%/*}" 2>/dev/null || return 0
+  grep -qxF -- "$fp" "$f" 2>/dev/null || printf '%s\n' "$fp" >> "$f" 2>/dev/null || true
+}
+
 sc_decision() {
   local decision="$1" reason="$2" remedy="${3:-}" event="${4:-PreToolUse}" msg
   msg="Supercharger: $reason"
@@ -73,6 +91,7 @@ sc_decision() {
   fi
   [ -n "$remedy" ] && msg="$msg  Way through: $remedy"
   [ "$decision" = ask ] && sc_mark_guard_ask
+  [ "$decision" = deny ] && sc_record_blocked_file
   _sc_json_escape "$msg"
   printf '{"hookSpecificOutput":{"hookEventName":"%s","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' \
     "$event" "$decision" "$_SC_JSON"

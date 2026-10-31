@@ -105,4 +105,38 @@ OUT=$(input_pct 75 | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
 echo "$OUT" | python3 -c "import sys,json; json.load(sys.stdin)" 2>/dev/null && pass || fail "output not valid JSON: $OUT"
 teardown_scope
 
+# ── absolute-token nudge (2026-10-31): 70% of a 1M window is 700K tokens ───────
+# Driven by the statusline sidecar, as in real use: "<epoch> <pct> <tokens>".
+sidecar() {  # sidecar <pct> [tokens]
+  printf '%s %s %s\n' "$(date +%s)" "$1" "${2:-}" > "$SCOPE_DIR/.claude/supercharger/scope/.ctx-pct-tok1"
+}
+tok_in() { printf '{"session_id":"tok1","tool_name":"Bash","tool_input":{"command":"ls"}}'; }
+
+begin_test "auto-compact: 25% of a 1M window at 250K tokens nudges once"
+setup_scope; sidecar 25 250000
+OUT=$(tok_in | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -q '250K tokens' && pass || fail "expected token nudge; got: $OUT"
+
+begin_test "auto-compact: the token nudge does not repeat"
+OUT=$(tok_in | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "repeated: $OUT"
+
+begin_test "auto-compact: the 70% band still fires after the token nudge"
+sidecar 72 720000
+OUT=$(tok_in | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
+echo "$OUT" | grep -q 'CTX 72%' && pass || fail "70 band suppressed: $OUT"
+teardown_scope
+
+begin_test "auto-compact: under 200K tokens and 70% stays silent"
+setup_scope; sidecar 15 150000
+OUT=$(tok_in | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "nudged early: $OUT"
+teardown_scope
+
+begin_test "auto-compact: an old two-field sidecar still works (no token nudge)"
+setup_scope; printf '%s 30\n' "$(date +%s)" > "$SCOPE_DIR/.claude/supercharger/scope/.ctx-pct-tok1"
+OUT=$(tok_in | HOME="$SCOPE_DIR" bash "$HOOK" 2>/dev/null)
+[ -z "$OUT" ] && pass || fail "unexpected: $OUT"
+teardown_scope
+
 report

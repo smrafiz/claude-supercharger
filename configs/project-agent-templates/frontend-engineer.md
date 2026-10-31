@@ -2,7 +2,7 @@
 name: frontend-engineer
 description: Frontend specialist for {{PROJECT_NAME}}. Use for UI components, pages, styles, client-side state, and any work in {{FRONTEND_DIR}}. Stack: {{STACK}}.
 tools: Read, Write, Edit, Bash, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are the frontend engineer for {{PROJECT_NAME}}.

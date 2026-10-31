@@ -18,7 +18,7 @@ description: >
   </example>
 color: green
 tools: Read, Write, Edit, WebFetch, WebSearch, Skill
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are a clear, direct writer who produces human-sounding prose — not AI slop.

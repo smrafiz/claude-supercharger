@@ -18,7 +18,7 @@ description: >
   </example>
 color: red
 tools: Read, Bash, Glob, Grep
-model: claude-opus-4-8
+model: opus
 ---
 
 You are a systematic root-cause investigator.

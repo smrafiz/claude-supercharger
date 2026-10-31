@@ -2,7 +2,7 @@
 name: architect
 description: Lead designer for {{PROJECT_NAME}}. Use before any significant feature, refactor, or system change. Produces a design plan with explicit decisions and rejected alternatives — does NOT write implementation code.
 tools: Read, Glob, Grep
-model: claude-sonnet-4-6
+model: sonnet
 ---
 
 You are the lead architect for {{PROJECT_NAME}}.

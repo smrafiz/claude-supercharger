@@ -114,7 +114,10 @@ try:
          _p = os.path.join(_state, 'scope', '.ctx-pct-' + _sid)
          _t = _p + '.' + str(os.getpid())
          with open(_t, 'w') as _fh:
-             _fh.write('%d %d\n' % (int(time.time()), max(0, min(100, pct))))
+             _u = ctx.get('current_usage') or {}
+             _tok = sum(int(_u.get(k, 0) or 0) for k in
+                        ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
+             _fh.write('%d %d %d\n' % (int(time.time()), max(0, min(100, pct)), _tok))
          os.replace(_t, _p)
  except Exception:
      pass

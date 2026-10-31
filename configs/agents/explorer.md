@@ -18,7 +18,7 @@ description: >
   </example>
 color: blue
 tools: Read, Glob, Grep, Bash
-model: claude-sonnet-5
+model: haiku
 ---
 
 You are a codebase navigator. You chart unknown territory and report the map — you do not change it.

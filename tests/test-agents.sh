@@ -51,13 +51,25 @@ echo "=== Agent Model Assignment Tests ==="
 # original reviewer=Opus intent consistently to the other reasoning agents.
 for agent in architect debugger planner researcher reviewer; do
   begin_test "agents: $agent (reasoning) uses opus model"
-  grep -q "^model: claude-opus" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use opus (reasoning-critical)"
+  grep -qx "model: opus" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use opus (reasoning-critical)"
 done
 
-for agent in general code-helper writer data-analyst explorer; do
+for agent in general code-helper writer data-analyst; do
   begin_test "agents: $agent (execution) uses sonnet model"
-  grep -q "^model: claude-sonnet" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use sonnet (throughput)"
+  grep -qx "model: sonnet" "$AGENTS_DIR/$agent.md" && pass || fail "$agent should use sonnet (throughput)"
 done
+
+# 2026-10-31: read-only search is the cheapest work there is (Provost runs it on
+# Haiku). Aliases, not pinned IDs: the pins had drifted to legacy models.
+begin_test "agents: explorer (read-only search) uses haiku model"
+grep -qx "model: haiku" "$AGENTS_DIR/explorer.md" && pass || fail "explorer should use haiku"
+
+begin_test "agents: no agent pins a dated model ID (aliases track the current model)"
+! grep -l "^model: claude-" "$AGENTS_DIR"/*.md >/dev/null 2>&1 && pass || fail "pinned: $(grep -l '^model: claude-' "$AGENTS_DIR"/*.md)"
+
+begin_test "agents: no project agent template pins a dated model ID"
+_tpl="$REPO_DIR/configs/project-agent-templates"
+! grep -l "^model: claude-" "$_tpl"/*.md >/dev/null 2>&1 && pass || fail "pinned: $(grep -l '^model: claude-' "$_tpl"/*.md)"
 
 echo ""
 echo "=== Reviewer Severity Model Tests ==="
