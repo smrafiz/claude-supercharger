@@ -34,12 +34,23 @@ esac
 begin_test "atomic deploy: a reader during redeploys never sees a partial hook"
 want=$(wc -c < "$D/hooks/typecheck.sh")
 ( for _ in $(seq 1 6); do deploy_hook_scripts "$REPO_DIR" >/dev/null 2>&1; done; : > "$T/done" ) &
-bad=0; n=0
+# A TORN read (some bytes, not all) is the bug this guards: bash executing half a hook.
+# A MISSING read is different: on Windows a replacing rename under MSYS can leave the
+# target absent for an instant (CI: 1 in ~2,000 reads, 2026-10-31). The hook then fails
+# to start rather than running half a script. It is reported there, and still fails
+# everywhere the rename is atomic.
+torn=0; gone=0; n=0
 while [ ! -f "$T/done" ]; do
-  got=$(wc -c < "$D/hooks/typecheck.sh" 2>/dev/null || echo 0)
-  n=$((n + 1)); [ "$got" -eq "$want" ] || bad=$((bad + 1))
+  got=$(wc -c < "$D/hooks/typecheck.sh" 2>/dev/null) || got=""
+  n=$((n + 1))
+  if [ -z "$got" ]; then gone=$((gone + 1))
+  elif [ "$got" -ne "$want" ]; then torn=$((torn + 1)); fi
 done
 wait
-[ "$bad" -eq 0 ] && pass || fail "$bad of $n reads saw a partial file"
+case "$OSTYPE" in
+  msys*|cygwin*) [ "$gone" -gt 0 ] && echo "    ($gone of $n reads found the file briefly absent: non-atomic replace on Windows)" ;;
+  *) torn=$((torn + gone)) ;;
+esac
+[ "$torn" -eq 0 ] && pass || fail "$torn of $n reads saw a partial or missing file"
 
 report

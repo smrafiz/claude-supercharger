@@ -66,8 +66,10 @@ Release: `tools/release.sh stage minor`, CI green on every job including Windows
 
 ## After v4.4.0, in order
 
-1. **Windows atomic-deploy flake.** `test-atomic-deploy.sh` saw 1 partial read in 1,951 on
-   Windows. It can turn any PR red, so it goes first.
+1. **Windows replace is not atomic.** `test-atomic-deploy.sh` now reports, rather than
+   fails on, a hook briefly missing during a Windows redeploy (a torn read still fails
+   everywhere). If the count stays above zero, stage the deploy with a rename that
+   replaces atomically on NTFS.
 2. **Bash-guard gaps from labelled benchmarks** (the three sets bundled with
    deepu105/pi-automode-classifier). One PR each:
    - archive, then upload the archive, as two chained commands
