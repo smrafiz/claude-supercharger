@@ -271,6 +271,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/block-workaround-check.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Bash|Monitor|PowerShell|Write|Edit|MultiEdit|NotebookEdit"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/file-lease.sh",
             "timeout": 15
           }

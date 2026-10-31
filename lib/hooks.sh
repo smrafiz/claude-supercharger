@@ -214,6 +214,8 @@ get_hooks_for_mode() {
     # tests and never forks, so projects without one pay nothing.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/ai-lock-guard.sh|")
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/task-poll-guard.sh|")  # Efficiency, not safety: polling a harness task file on a clock
+    # Warn-only: a later call naming a file a guard denied this session (trackline idea).
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell,Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/block-workaround-check.sh|")
     # v2.9.4: advisory concurrent-session write guard — warns (never denies) when a
     # peer live session holds a fresh lease on the same file. Fail-open, TTL-expiring.
     hooks+=("PreToolUse|Write,Edit,MultiEdit,NotebookEdit|${hooks_dir}/file-lease.sh|")
