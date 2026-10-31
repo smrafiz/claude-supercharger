@@ -483,7 +483,7 @@ print(f\"{1 if fb else 0}|{1 if (in_settings or in_shell) else 0}|{1 if eff else
   HAS_AUTOCOMPACT=$(printf '%s' "$SETTINGS_CHECK" | cut -d'|' -f4)
   if [ "$HAS_FALLBACK" = "0" ]; then
     echo -e "  ${YELLOW}→${NC} fallbackModel chain not set — Opus overloads drop the call instead of routing to Sonnet/Haiku"
-    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"fallbackModel\": [\"claude-sonnet-4-6\", \"claude-haiku-4-5\"]"
+    echo -e "    Add to ${BOLD}~/.claude/settings.json${NC}: \"fallbackModel\": [\"claude-sonnet-5-5\", \"claude-haiku-5-5\"]"
     UNUSED=$((UNUSED + 1))
   fi
   if [ "$HAS_CACHE_1H" = "0" ]; then
