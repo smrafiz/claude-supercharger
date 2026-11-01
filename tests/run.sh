@@ -133,6 +133,11 @@ esac
 if [ "$_SHARD_I" -ge "$_SHARD_N" ]; then
   echo "TEST_SHARD $TEST_SHARD: i must be 1..n" >&2; exit 2
 fi
+# Read once, then dropped: a test that runs tests/run.sh itself (test-run-shard,
+# test-suite-count-invariance) would otherwise inherit this machine's shard and run
+# a quarter of its own fixture. Found on the first sharded Windows run.
+_SHARDED=${TEST_SHARD:+1}
+unset TEST_SHARD
 _in_shard() { [ $(( $1 % _SHARD_N )) -eq "$_SHARD_I" ]; }
 
 running=0
@@ -208,7 +213,7 @@ TOTAL_RUN=$((TOTAL_PASSED + TOTAL_FAILED))
 # v2.26.83: a SUBSET run must not judge the badge — it counts a fraction of the
 # suite, so it would always report drift and, worse, `BADGE_DRIFT=1` would fail
 # the Windows job for a number that is correct.
-if [ "$TEST_GLOB" != 'test-*.sh' ] || [ -n "${TEST_SHARD:-}" ]; then
+if [ "$TEST_GLOB" != 'test-*.sh' ] || [ -n "$_SHARDED" ]; then
   BADGE=""
 fi
 if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_RUN" ]; then

@@ -6,6 +6,9 @@ source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 echo "=== Test Shard Tests ==="
 
+# This file can itself run inside a sharded or subset run: never inherit that.
+unset TEST_SHARD TEST_GLOB TEST_SKIP
+
 # A throwaway tests/ dir: run.sh, its helpers, and 7 trivial test files.
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
 mkdir -p "$T/tests"
@@ -19,7 +22,9 @@ ALL=$(_files env | sort)
 SHARDS=$(for i in 1 2 3 4; do _files env TEST_SHARD="$i/4"; done | sort)
 
 begin_test "the 4 shards together run every file"
-[ "$SHARDS" = "$ALL" ] && pass || fail "all: $(echo $ALL) shards: $(echo $SHARDS)"
+# 7 first, or two empty lists would compare equal and pass.
+[ "$(printf '%s\n' "$ALL" | grep -c .)" = 7 ] && [ "$SHARDS" = "$ALL" ] && pass \
+  || fail "all: $(echo $ALL) shards: $(echo $SHARDS)"
 
 begin_test "no file runs in two shards"
 [ -z "$(printf '%s\n' "$SHARDS" | uniq -d)" ] && pass || fail "duplicates: $(printf '%s\n' "$SHARDS" | uniq -d)"
