@@ -157,7 +157,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `tool-failure-advisor` | PostToolUseFailure | (none) | Injects failure context + tool-specific hints back to Claude when any tool errors. |
 | `tool-history-tracker` | PostToolUse | (none, runs on every tool) | Appends a JSONL entry per tool call to ~/.claude/supercharger/scope/.tool-history-<session_id>. |
 | `tool-preferences` | PreToolUse | Bash,Monitor,WebFetch | Reads .supercharger.json `toolPreferences` map. When Claude tries to run a |
-| `trace-compactor` | PostToolUse | Bash,PowerShell | Compresses large Python/Node tracebacks before Claude processes them. |
+| `trace-compactor` | PostToolUse | Bash,PowerShell | Collapses stack frames in large Python/Node output, keeping every other line. |
 | `trust-receipts` | PostToolUse (async), SessionStart | Bash,PowerShell,Artifact,ArtifactData,ArtifactComments,mcp__ | A local record of every action that left the machine and cannot be taken back: |
 | `typecheck` | PostToolUse | Write,Edit | Runs tsc --noEmit after editing .ts/.tsx files. Injects errors into context. |
 | `unfinished-work` | Stop (async), SessionStart | (none) | first: on 2026-10-20 a release job died in a reboot and nothing said so. Claude |
