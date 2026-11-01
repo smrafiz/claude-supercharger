@@ -4,19 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-10-31, session `d1f49e55`.*
+*Verified 2026-11-01, session `3d213381`.*
 
-- **Released: v4.3.26.** **4.4.0 scope frozen and fully merged**; stage only on the user's word
-  (`tools/release.sh stage minor` → `promote 4.4.0`). Plan in `docs/ROADMAP.md`.
-- **master `a488da20`.** Since 4.3.26: #173-#207 plus straight commits (sc-de-ai, Issues List rule,
-  Windows perf floor, roadmap, atomic-deploy test, 5.5 model IDs in tools). 173 hooks, suite ~7,297.
-- **No open PRs.** Master CI on `a488da20` was running at handoff; last full Windows pass 7297/0
-  (#206 dispatch run 41217727987).
+- **Released: v4.4.0** (2026-11-01 03:43 UTC, installed on Machine A). **4.4.1 merged, not released**;
+  release only on the user's word (`tools/release.sh stage patch` → `promote 4.4.1`).
+- **master `eeca2f73`.** Since 4.4.0: #208 README fixes, #209 statusline Weekly shows without a
+  5-hour window (this account no longer has one), #210 `/sc-update` installs newer code on the same
+  release for non-git installs, #211 Windows suite on 4 machines (~40 min instead of ~100), #212
+  rate-limit-advisor warns on the weekly limit at 90%/95%. Master CI on `eeca2f73` started at writing.
+- **No open PRs, no PR worktrees.** 5 unmerged local branches kept (closed PRs / debug): user to decide.
+- **Windows jobs:** `Windows (Git Bash) shard N/4` run the suite; `Windows (Git Bash)` is the gate and
+  reads all four logs. `tests/run.sh TEST_SHARD=i/n` (dropped from the env after reading).
 - **Windows replace is not atomic:** ~1 read in 1.4-2.5k finds a hook missing during redeploy (never
   torn). Test now reports it on Windows instead of failing. Roadmap item 1, after 4.4.0.
 - **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for guard
   changes. Branches cut before `a98a5f29` can still flake on atomic-deploy: `gh pr update-branch`.
-- **Merging is user-run:** the auto-mode classifier denies `gh pr merge` from Claude. Pin the full SHA.
+- **Merging:** `gh pr merge --match-head-commit <full sha>` was allowed from Claude on 2026-11-01
+  (#208-#212); it had been denied earlier. Always pin the head SHA.
 - **Open decision (user):** roadmap item 5, should recursive delete of an absolute path outside the
   project, or of home, ask?
 - **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook; radius-apps guard-push
