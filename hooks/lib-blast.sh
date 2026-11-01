@@ -16,16 +16,21 @@ blast_summary() {
   case "$cmd" in
     *"git push"*)
       git rev-parse --git-dir >/dev/null 2>&1 || return 0
+      # `git commit … && git push`: the count runs before the command, so the commit
+      # it makes is not in it yet. --amend replaces HEAD rather than adding to it.
+      local made=0
+      case "${cmd%%git push*}" in *"git commit"*) case "${cmd%%git push*}" in *--amend*) ;; *) made=1 ;; esac ;; esac
       if up=$(git rev-parse --abbrev-ref --symbolic-full-name '@{u}' 2>/dev/null); then
         n=$(git rev-list --count "$up..HEAD" 2>/dev/null) || return 0
         dropped=$(git rev-list --count "HEAD..$up" 2>/dev/null || echo 0)
         ci=$(git diff --name-only "$up...HEAD" 2>/dev/null | grep -c '^\.github/workflows/' || true)
-        BLAST="pushes $n commit(s) to $up"
+        n=$((n + made)); BLAST="pushes $n commit(s) to $up"
       else
         n=$(git rev-list --count HEAD --not --remotes 2>/dev/null) || return 0
         dropped=0; ci=0
-        BLAST="pushes $n commit(s) on a branch with no upstream yet"
+        n=$((n + made)); BLAST="pushes $n commit(s) on a branch with no upstream yet"
       fi
+      [ "$made" -eq 1 ] && BLAST="$BLAST, counting the one this command commits first"
       [ "${ci:-0}" -gt 0 ] && BLAST="$BLAST, touching $ci CI workflow file(s)"
       case "$cmd" in *--force*|*" -f"*|*--force-with-lease*)
         [ "${dropped:-0}" -gt 0 ] && BLAST="$BLAST; a force push DROPS $dropped commit(s) now on $up" ;;
