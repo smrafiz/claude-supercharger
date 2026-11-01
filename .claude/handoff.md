@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-01, session `e51274e4`.*
+*Verified 2026-11-02, session `e51274e4`.*
 
 - **Released: v4.4.2** (`fcdd5535`, 2026-11-01). Ships #213-#216.
-- **master `cb27cc7f`**, 3 commits past v4.4.2: `4ed9d209` release.sh `--yes` fix, `fb0f76a3` blast
-  push-count fix, `cb27cc7f` README highlights + problems table. CI green on `fb0f76a` (all jobs).
-- **No open PRs.** Local branches: master, rel/4.2.0. One old stash (feat/block-workaround-warn).
-- **Windows jobs:** 4 shards + `Windows (Git Bash)` gate. PR CI skips Windows; dispatch
-  `gh workflow run ci.yml --ref <branch>` for guard changes. rel/* pushes skip Windows too; promote
-  accepts Windows green on master at the base commit.
+- **master `d821aff8`+**, past v4.4.2: `4ed9d209` release.sh `--yes`, `fb0f76a3` blast push count,
+  `cb27cc7f` README highlights/problems table, `d821aff8` CI per-commit concurrency on master, plus docs.
+- **Open PR #217** (`fix/gh-api-search-query`): gh api search query treated as data. Dispatched full CI
+  41336436428 running at writing; merge pinned to head on green.
+- **CI badge:** fixed going forward (`d821aff8`); red until a post-fix master run finishes green.
+- **No compound auto-approve** — upstream covers it; see `docs/COMMUNITY-WANTS-2026-09-17.md` § Update 2026-11-01.
+- **Windows jobs:** 4 shards + gate. PR and rel/* pushes skip Windows; dispatch
+  `gh workflow run ci.yml --ref <branch>` for guard changes. Promote accepts Windows green on master base.
 - **Merging:** `gh pr merge --match-head-commit <full sha>`, always pinned.
-- **CI badge** turns red after back-to-back master pushes (cancelled runs read as failing). Open (user):
-  A stop cancelling on master, or B leave it.
-- **Next planned:** compound-command auto-approve (#28240/#16561) — plan first, safety rule.
+- **Next (user):** cut 4.4.3 after #217? Distribution: replies on top complaint threads are public posts.
 - **Open decision (user):** roadmap item 5, recursive delete outside project / of home: ask?
 - **Open (user):** star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper,
   rotate CRON_SECRET, re-enable Actions.
@@ -50,9 +50,10 @@ session on any machine.**
 
 ## Log
 
-#### 2026-11-01 — e51274e4
-Merged #216 (Windows dispatched, green); released v4.4.2. Fixed release.sh `--yes` silent exit and the
-blast push count for commit-then-push. README gained Highlights + an issue-linked problems table.
+#### 2026-11-02 (deep) — e51274e4
+Merged #216, released v4.4.2. Fixed release.sh `--yes`, blast push count, CI badge (per-commit master
+concurrency). README Highlights + problems table. Gaps re-checked: all fixed upstream; no compound
+auto-approve. PR #217 (gh api search query as data) awaiting CI.
 Detail: `.claude/handoff-e51274e4-04a0-4dad-935e-5066df4f92a2.md`
 
 #### 2026-10-31 — d1f49e55

@@ -248,6 +248,33 @@ was citation only and this specific citation turned out to be false.
 
 ---
 
+## Update 2026-11-01 — re-check, and most remaining gaps were closed upstream
+
+Re-ran the reaction-sorted sweep (`gh api search/issues … sort=reactions`) and mapped
+each complaint to a hook that already answers it; that mapping is now the README's
+"Problems it solves" table (`cb27cc7f`). Then checked every gap left over against the
+Claude Code changelog (raw `CHANGELOG.md`, 9,800 lines, at CLI 2.1.316) before
+planning any work. Every one was already fixed there or is not hook-shaped:
+
+| Gap | Upstream | Fixed in |
+|---|---|---|
+| Compound-command prompts, `cd x && cmd` (#28240 210👍, #16561 176👍) | `cd <project-dir> &&` no longer prompts; Always Allow saves per-subcommand rules | 2.1.x (changelog lines 6728, 7466) |
+| `nul` file on Windows from `2>nul` (#4928 234👍) | fixed | 2.1.69 |
+| Continue at usage limit (#13354 218👍) | "Continue automatically at usage limit" | ≤ 2.1.314 |
+| Subagents skip project CLAUDE.md (#29423) | loaded by default; `omitClaudeMd` to opt out | 2.1.271 |
+| Sessions deleted despite `cleanupPeriodDays` (#41458) | fixed | 2.1.310 |
+
+**Decision:** no compound-command auto-approve in `lib-smart-approve.sh`. Its blanket
+compound refusal (line ~365) stays: upstream already passes the safe compounds, and a
+regex splitter reopens the bypass class this file has fixed four times (v2.21,
+v4.0.47, v4.1.1, v4.1.31).
+
+**Reading:** the convenience gaps keep closing upstream; what stays unique to
+Supercharger is enforcement (destructive, git, test-integrity, claim/evidence) and
+cost visibility. Check the upstream changelog before building any "missing feature".
+
+---
+
 ## Sources
 
 - `anthropics/claude-code` issue tracker, queried 2026-09-17 via `gh issue list`
