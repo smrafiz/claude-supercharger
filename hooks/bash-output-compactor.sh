@@ -107,11 +107,15 @@ if pattern == 'git-log':
     print(summary)
 
 elif pattern == 'test':
-    # Extract pass/fail counts
-    pass_match = re.search(r'(\d+)\s+passed', output, re.IGNORECASE)
-    fail_match = re.search(r'(\d+)\s+failed', output, re.IGNORECASE)
-    skip_match = re.search(r'(\d+)\s+skipped', output, re.IGNORECASE)
-    err_match  = re.search(r'(\d+)\s+errors?', output, re.IGNORECASE)
+    # Extract pass/fail counts. The LAST match: runners print the totals last, and
+    # the first match was often a test name ("test_0 PASSED" read as "0 passed").
+    def _last(rx):
+        ms = list(re.finditer(rx, output, re.IGNORECASE))
+        return ms[-1] if ms else None
+    pass_match = _last(r'\b(\d+)\s+passed')
+    fail_match = _last(r'\b(\d+)\s+failed')
+    skip_match = _last(r'\b(\d+)\s+skipped')
+    err_match  = _last(r'\b(\d+)\s+errors?\b')
     duration   = re.search(r'(?:in|took|finished in)\s+([\d.]+\s*[ms]+)', output, re.IGNORECASE)
 
     parts = []
@@ -131,7 +135,32 @@ elif pattern == 'test':
         if end - start > 30:
             end = start + 30
         excerpt = '\n'.join(lines[start:end])
-        print(f'[Test summary] {summary_line}\n[Failure excerpt — {end-start} lines]\n{excerpt}')
+        # 4.4.2 (ideas from headroomlabs-ai/headroom log_compressor.rs): the excerpt
+        # is one window from the FIRST failure, so later failures and pytest's
+        # "short test summary info" fell outside it. Every per-test failure line is
+        # now kept (pytest FAILED/ERROR, go --- FAIL, jest ✕/●, vitest FAIL), and the
+        # omitted marker names the exception types the excerpt does not show, so
+        # Claude can tell whether the saved full output is worth opening.
+        ids, seen_ids = [], set(excerpt.split('\n'))
+        for l in lines:
+            s = l.strip()
+            if re.match(r'(FAILED|ERROR) \S|--- FAIL: |FAIL \S|[✕×] |● ', s) and s not in seen_ids:
+                seen_ids.add(s); ids.append(s)
+        shown = ids[:50]
+        more = f'\n  +{len(ids) - 50} more failing tests' if len(ids) > 50 else ''
+        all_failures = (f'\n[All failing tests — {len(ids)}]\n' + '\n'.join(shown) + more) if ids else ''
+        kept = set(excerpt.split('\n')) | set(shown)
+        types = []
+        for l in lines:
+            if l in kept:
+                continue
+            for t in re.findall(r'\b([A-Z]\w*(?:Error|Exception))\b', l):
+                if t not in types and t not in excerpt:
+                    types.append(t)
+        omitted = line_count - (end - start)
+        detail = f'; other exception types: {", ".join(types[:5])}' if types else ''
+        print(f'[Test summary] {summary_line}\n[Failure excerpt — {end-start} lines]\n{excerpt}'
+              f'{all_failures}\n[{omitted} lines omitted{detail}]')
     else:
         print(f'[Test summary] {summary_line}\n[All passed — {line_count} lines suppressed]')
 
@@ -145,11 +174,15 @@ elif pattern == 'install':
 
     # Show only warnings/errors from output
     relevant = [l for l in lines if re.search(r'\b(warn|error|failed|deprecated|peer dep)', l, re.IGNORECASE)]
+    total = len(relevant)
     relevant = relevant[:15]
 
     base = '[Install summary] ' + (', '.join(summary_line) if summary_line else f'{line_count} lines')
     if relevant:
-        base += '\n[Warnings/errors (' + str(len(relevant)) + ')]\n' + '\n'.join(relevant)
+        # Say what the cap dropped, so 15 shown out of 200 does not read as "all of them".
+        errs = sum(1 for l in relevant if re.search(r'\berr', l, re.IGNORECASE))
+        more = f'\n[+{total - 15} more warning/error lines omitted]' if total > 15 else ''
+        base += f'\n[Warnings/errors ({total}, {errs} of the shown are errors)]\n' + '\n'.join(relevant) + more
     else:
         base += '\n[No warnings or errors]'
     print(base)

@@ -96,4 +96,44 @@ case "${OSTYPE:-}" in msys*|cygwin*) [ -f "$SAVED" ] && MODE=600 ;; esac
   && pass || fail "saved='$SAVED' mode='$MODE' out=$OUT"
 rm -rf "$ST"
 
+# 4.4.2: the excerpt is one 30-line window from the FIRST failure; later failures
+# and pytest's short summary fell outside it.
+_cview() { jq -r '.hookSpecificOutput.updatedToolOutput // empty'; }
+PYT=$(python3 - <<'PY'
+o = "============ test session starts ============\n"
+o += "tests/test_a.py::test_one FAILED\n"
+o += "    def test_one():\n>       assert get() == 5\nE       AssertionError: assert 4 == 5\n"
+o += "".join("tests/test_m.py::test_%d PASSED\n" % i for i in range(80))
+o += "    def test_late():\n>       load()\nE       KeyError: 'cfg'\n"
+o += "========= short test summary info =========\n"
+o += "FAILED tests/test_a.py::test_one - AssertionError: assert 4 == 5\n"
+o += "FAILED tests/test_z.py::test_late - KeyError: 'cfg'\n"
+o += "ERROR tests/test_z.py::test_setup - OSError: no db\n"
+o += "======= 2 failed, 80 passed, 1 error in 3.2s =======\n"
+print(o)
+PY
+)
+V=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":"pytest -q"},"tool_response":{"stdout":sys.stdin.read()},"cwd":"/tmp"}))' <<<"$PYT" \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$HOOK" 2>/dev/null | _cview)
+
+begin_test "bash-output-compactor: every failing test is listed, not just the first"
+_lost=""
+for want in 'FAILED tests/test_a.py::test_one' 'FAILED tests/test_z.py::test_late' 'ERROR tests/test_z.py::test_setup'; do
+  printf '%s' "$V" | grep -qF "$want" || _lost="$_lost '$want'"
+done
+[ -z "$_lost" ] && pass || fail "lost:$_lost — got: $(printf '%s' "$V" | head -12)"
+
+begin_test "bash-output-compactor: the totals come from the summary line, not a test name"
+printf '%s' "$V" | grep -qF '[Test summary] 80 passed, 2 failed' && pass || fail "got: $(printf '%s' "$V" | head -1)"
+
+begin_test "bash-output-compactor: omitted marker counts the lines and names the hidden exception types"
+printf '%s' "$V" | grep -qE '^\[[0-9]+ lines omitted' && pass || fail "no omitted marker: $(printf '%s' "$V" | tail -4)"
+
+begin_test "bash-output-compactor: install output says how many warning lines the cap dropped"
+INST=$(python3 -c "print('\n'.join(['npm warn deprecated pkg%d@1.0.0' % i for i in range(60)] + ['added 900 packages in 12s']))")
+V=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":"npm install"},"tool_response":{"stdout":sys.stdin.read()},"cwd":"/tmp"}))' <<<"$INST" \
+  | SUPERCHARGER_STATE="$(mktemp -d)" bash "$HOOK" 2>/dev/null | _cview)
+printf '%s' "$V" | grep -qF '+45 more warning/error lines omitted' && printf '%s' "$V" | grep -qF 'Warnings/errors (60' \
+  && pass || fail "got: $(printf '%s' "$V" | head -3)"
+
 report
