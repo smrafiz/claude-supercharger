@@ -55,9 +55,21 @@ begin_test "an install with no commit stamp is treated as unknown, not as curren
 grep -q '\[ -n "\$OLD_COMMIT" \]' "$U" && pass \
   || fail "an unstamped install would be assumed up to date"
 
-begin_test "--check compares commits when the release number matches"
-grep -q 'UPSTREAM_SHA=\$(fetch_remote_commit)' "$U" && pass \
-  || fail "--check is version-only, so /sc-update stops before the commit check runs"
+begin_test "--check and the apply path both compare commits when the release number matches"
+# The apply path (installs that are not a git checkout) compared versions only, so
+# it answered "already up to date" to the update --check had just announced.
+[ "$(grep -c 'if sc_newer_code; then' "$U")" -ge 2 ] && pass \
+  || fail "only $(grep -c 'if sc_newer_code; then' "$U") path(s) call sc_newer_code"
+
+# The helper itself, with the two SHA sources stubbed.
+_SNC=$(sed -n '/^sc_sha7()/p; /^sc_newer_code()/,/^}/p' "$U")
+_snc() { ( _L=$1 _R=$2; local_commit() { printf '%s' "$_L"; }; fetch_remote_commit() { printf '%s' "$_R"; }; eval "$_SNC"; sc_newer_code ) ; }
+begin_test "sc_newer_code: different commits on the same release is newer code"
+_snc 622173ec0 527a81f00 && pass || fail "missed newer code"
+begin_test "sc_newer_code: an 8-char stamp equals the 7-char remote of the same commit"
+_snc 527a81f0 527a81f && fail "same commit reported as newer" || pass
+begin_test "sc_newer_code: an unknown side never invents an update"
+{ _snc "" 527a81f || _snc 622173e ""; } && fail "invented an update" || pass
 
 begin_test "an unreachable GitHub falls back to the version-only answer"
 # Both SHAs must be non-empty before an update is announced, or a failed curl
