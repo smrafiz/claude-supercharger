@@ -36,7 +36,7 @@ Prefer Claude Code's native plugin system? See [Install as a plugin](#install-as
 
 Updates never install it unless you said yes. Check it with `/sc-notifier status`, remove it with `/sc-notifier remove`.
 
-**Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. For one release the old names still work and point you to the new one. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
+**Upgrading from 4.2 or earlier:** every command is now `/sc-<name>` (`/security` → `/sc-security`, `/pr` → `/sc-pr`); `/sc` and `/supercharger` are unchanged. The old names no longer work. Only unmodified copies are replaced: a command you edited, or one that isn't ours, is never touched.
 
 ---
 
@@ -123,6 +123,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **Prompt injection defense** — scans MCP and web tool output for injection patterns
 - **Rules & memory poisoning guard** — write-time protection on `CLAUDE.md`, `.cursorrules`, `.cursor/rules/*.mdc`, `AGENTS.md`, persistent-memory files, and editor auto-run configs (`.vscode/tasks.json` `folderOpen`, `mcp.json`, `.gemini/settings.json`)
 - **Elicitation credential guard** — an MCP server can solicit input via a form; a malicious one uses that to phish an "API token" in a routine-looking dialog. This **declines** any elicitation whose schema asks for a credential-style field (`password`, `token`, `api_key`, `secret`, `private_key`) or whose prompt text asks for one in prose — unless the server is trusted via `trustedElicitationServers` or `/sc-trust-mcp <server>`. Since an elicitation carries no in-session message, a declined form raises a desktop notification so the block isn't silent
+- **Test-integrity guard** — asks when an edit to a test file adds a skip or `.only`, removes assertions, or weakens one (`toBe(5)` → `toBeTruthy()`, `assert x == 5` → `assert True`), and when a lint config is loosened. Making the suite pass by editing the test is not a fix
 - **Smart auto-approve** — read-only tools (`Read`, `Glob`, `Grep`, `git status`, test runners) skip confirmation automatically
 
 ### Cost & context control
@@ -153,7 +154,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **10 agent types** — every prompt classified automatically; Claude gets a routing hint without you picking
 - **Tool preferences** — a `toolPreferences` map redirects `npm` → `pnpm`, `jest` → `vitest`, `pip` → `uv pip`. Suggests rather than blanket-denying, and catches `npx`/`bunx` wrappers. `preferGhCli: true` opt-in redirects GitHub curl/wget/WebFetch to the matching `gh` subcommand — real auth token, not just style
 - **Per-subagent cost breakdown** — `/sc-status` shows which agent burned the budget
-- **Time-boxed modes** — auto-expiring session controls (per-session by default, `global` opt-in, 2h cap, statusline indicator, no daemon). One governing rule: **tighten beats loosen**
+- **Time-boxed modes** — auto-expiring session controls (per-session by default, `global` opt-in, an 8h cap for autopilot and 2h for the others, statusline indicator, no daemon). One governing rule: **tighten beats loosen**
   - **`/sc-autopilot 30m`** *loosens* — stops the yes/no prompts. Keeps the safety floor (`rm -rf`, force-push, credential leaks still blocked); it only drops the approval friction
   - **`/sc-readonly 20m`** *tightens* — blocks all file edits **and** mutating shell commands while allowing reads, searches, and planning. "Look, don't touch"
   - **`/sc-strict 30m`** *tightens* — auto-approves nothing; you confirm every call. Overrides autopilot while active
@@ -370,7 +371,7 @@ chmod +x .claude/verify.sh
 <summary><strong>Show what each field means</strong></summary>
 
 ```
-[claude-sonnet-4-6] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +158/-23
+[claude-sonnet-5-5] myproject | main | TypeScript | Eco: Lean | Agent: Debugger | MCP: context7 | +158/-23
 ████████████░░░░░░░░ Context: 60% (120.5K/200K) | 115.2K in / 5.3K out | cache 92% (~103.7K saved)
 Cost: $2.45 | Time: 8m 12s | Session: 24% (resets: 3h 42m) · Weekly: 15%
 ```
@@ -404,6 +405,8 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-mcp-audit [--accept] [--server NAME]` | Scan every MCP server's tool descriptions for hidden instructions (tool poisoning) and report tools whose description changed since you accepted it (rug pull). Hooks never see descriptions, so this is the only check on them |
 | `/sc-notifier [install\|status\|remove]` | macOS: install, check or remove the optional notifier app (notifications as "Claude Supercharger" instead of Script Editor) |
 | `/sc-doctor` | Diagnose the install — registration, deployed-code integrity, state permissions, update status. Ends with one pasteable line to send when asking for help |
+| `/sc-health` | Check that the install is healthy and the core guards actually stop a known-bad call |
+| `/sc-ste on\|off\|status` | Clear writing mode: Simplified Technical English, about 80% |
 
 **Workflow:**
 
@@ -437,6 +440,7 @@ Commands that change state or settings (`/sc`, the time-boxed modes, `/sc-update
 | `/sc-learn <rule>` | Record an explicit project rule. Shown on every prompt in this project |
 | `/sc-memory-prune` | Archive resolved memory entries so they stop loading into context |
 | `/sc-perf [--slow]` | Hook timing report |
+| `/sc-receipts` | List what left the machine: pushes, publishes, sends and uploads |
 | `/sc-cache-stats` · `/sc-cache-clear` | Typecheck / quality-gate cache state, or clear the hash caches |
 | `/sc-trust-mcp <server>` | Trust an MCP server to request credential-style fields (elicitation) and to receive credentials as tool arguments |
 | `/sc-reflect` | Evidence-based retrospective; keeps only grounded, checkable lessons in `.claude/session-observations.md` |
@@ -543,7 +547,7 @@ Full guide: [`docs/HOOK_AUTHORING.md`](docs/HOOK_AUTHORING.md)
 **Windows?**
 Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash** — Claude Code auto-selects Git Bash as its hook interpreter on Windows, so the hooks run as-is. Git Bash is a **requirement, not a preference**: Claude Code falls back to PowerShell when it is absent, and every hook here is a bash script, so all of them silently fail to run.
 
-Every CI run exercises a `windows-latest` job under Git Bash. It verifies that hooks execute, `rm -rf /` is still blocked, the hashing used for per-project state works, the platform is detected for notifications, and `.sh` files check out with LF endings rather than CRLF. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
+Every push to master and every release runs the full test suite on `windows-latest` under Git Bash, and any failure blocks the release. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
 
 Two things are **not** verified, and it would be dishonest to imply otherwise: nobody has watched a desktop notification actually render on Windows (the CI job proves the correct backend is selected, not that a toast appears), and no human has run a full install on a Windows desktop — only the scripted CI path. If you try it, [open an issue](https://github.com/smrafiz/claude-supercharger/issues) either way; that is the gap.
 
