@@ -131,13 +131,54 @@ jobs:
           set -euo pipefail
           bash tests/perf-chain.sh --target all --iterations 3 | tee -a "$GITHUB_STEP_SUMMARY"
 
+  # The full suite on Git Bash, split across 4 machines: one machine took ~95 min
+  # (a bash start costs ~45 ms there, against ~2 ms on macOS). Each shard runs every
+  # 4th file (tests/run.sh TEST_SHARD) and uploads its log; the gate in
+  # windows-smoke below reads all four. Shard names keep "Windows (Git Bash)" so
+  # release.sh's skip-on-rel/** exemption still covers them.
+  windows-suite:
+    name: Windows (Git Bash) shard ${{ matrix.shard }}/4
+    runs-on: windows-latest
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install jq if the runner lacks it
+        run: |
+          if ! command -v jq >/dev/null 2>&1; then
+            choco install jq -y --no-progress || echo "choco install failed; jq-dependent tests will show it"
+          fi
+      # Workspace-relative log, not /tmp: see the gate job's note on MSYS paths.
+      # Never fails the job itself: the gate decides, from all four logs.
+      - name: Suite shard ${{ matrix.shard }}/4
+        continue-on-error: true
+        run: |
+          TEST_SHARD=${{ matrix.shard }}/4 TEST_JOBS=4 bash tests/run.sh > win-suite-${{ matrix.shard }}.log 2>&1 || true
+          grep -E '^Total:' win-suite-${{ matrix.shard }}.log | tail -1
+          echo "  tracked files modified : $(git status --porcelain | wc -l)"
+      - name: Upload the shard log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-suite-log-${{ matrix.shard }}
+          path: win-suite-${{ matrix.shard }}.log
+          retention-days: 7
+
   windows-smoke:
     name: Windows (Git Bash)
     runs-on: windows-latest
-    # ~75 min, so master pushes only: not on every PR, not again on rel/**.
-    # release.sh promote gates on this job for the release's base commit.
+    # Master pushes only: not on every PR, not again on rel/**.
+    # release.sh promote gates on this job for the release's base commit, and this
+    # job gates on all four suite shards, so it must run even when one failed.
     # Also on a manual workflow_dispatch, for testing a Windows fix on a branch.
-    if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
+    needs: windows-suite
+    if: always() && ((github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch')
     # Git Bash is the interpreter Claude Code auto-selects on Windows, so this is
     # the real target — not a POSIX approximation.
     defaults:
@@ -545,6 +586,14 @@ jobs:
       # this asks the runner instead of guessing a third time. The git identity
       # error in that block is real but UNPROVEN as the cause — the fixture now
       # passes an identity explicitly, which removes it as a confound either way.
+      # The suite itself runs in the windows-suite shards; collect their logs.
+      - name: Download the suite shard logs
+        uses: actions/download-artifact@v4
+        with:
+          pattern: windows-suite-log-*
+          path: shard-logs
+          merge-multiple: true
+
       - name: RECON — full suite on Git Bash (report-only)
         continue-on-error: true
         shell: bash
@@ -555,8 +604,12 @@ jobs:
           # it: grep read the file, python raised FileNotFoundError on the same path
           # and upload-artifact found nothing. Same class as the product bugs this
           # job exists to find.
-          TEST_JOBS=4 bash tests/run.sh > win-suite.log 2>&1 || true
-          echo "=== totals ==="
+          # One log from the four shards, in shard order. A missing shard is caught
+          # by the gate below (it counts them), never passed over.
+          cat shard-logs/win-suite-1.log shard-logs/win-suite-2.log \
+              shard-logs/win-suite-3.log shard-logs/win-suite-4.log > win-suite.log 2>/dev/null || true
+          echo "=== totals (per shard) ==="
+          grep -hE '^Total:' shard-logs/win-suite-*.log || true
           grep -E '^Total:' win-suite.log | tail -1
           # Group with python, not awk: the awk form printed NOTHING on Git Bash
           # (the FAIL lines carry ANSI colour), and grouping is the whole point of
@@ -575,13 +628,6 @@ jobs:
           for f,c in sorted(fails.items(), key=lambda x:-x[1]):
               print(f"  {c:4d}/{tot.get(f,0):<4d}  {f}")
           PY
-          # Second half of the try.sh sampling: if the CR appears only here, the
-          # suite itself wrote it, and the culprit is a parallel test mutating a
-          # TRACKED file rather than anything about Windows line endings.
-          echo "=== AFTER the suite ==="
-          echo "  try.sh CR bytes        : $(python3 -c "print(open('assets/demo/try.sh','rb').read().count(b'\r'))" 2>&1 || echo ERR)"
-          echo "  tracked files modified : $(git status --porcelain | wc -l)"
-          git status --porcelain | head -20
 
       # v2.27.46: THE GATE. This is what the recon was always for — its own comment
       # said "once the failure list is triaged this becomes a curated subset,
@@ -610,6 +656,16 @@ jobs:
           # instead of a check at the exact moment it had nothing left to exempt.
           # Add a name here only with a runner result to justify it.
           KNOWN = set()
+          import os
+          # Every shard must have reported: a shard that died before its upload would
+          # otherwise drop a quarter of the suite out of the gate without a word.
+          missing = [i for i in (1, 2, 3, 4)
+                     if not os.path.isfile('shard-logs/win-suite-%d.log' % i)
+                     or 'Total:' not in open('shard-logs/win-suite-%d.log' % i,
+                                             encoding='utf-8', errors='replace').read()]
+          if missing:
+              print('suite shard(s) %s produced no complete log - refusing to pass' % missing)
+              sys.exit(1)
           try:
               raw = open('win-suite.log', encoding='utf-8', errors='replace').read()
           except OSError as e:

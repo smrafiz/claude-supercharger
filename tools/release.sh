@@ -635,7 +635,9 @@ print('%s %s' % (runs[0].get('status'), runs[0].get('databaseId')) if runs else 
   if [ "$WIN_STATE" = "completed" ]; then
     WIN_STATE=$(gh run view "${WIN_RUN#* }" --json jobs 2>/dev/null | python3 -c "
 import sys, json
-win = [j for j in json.load(sys.stdin).get('jobs', []) if 'Windows (Git Bash)' in j.get('name', '')]
+# Exact name: the suite shards are 'Windows (Git Bash) shard N/4', and the gate job
+# that reads all four is the one that decides.
+win = [j for j in json.load(sys.stdin).get('jobs', []) if j.get('name', '') == 'Windows (Git Bash)']
 print('missing' if not win else ('success' if win[0].get('conclusion') == 'success' else 'failed'))
 " 2>/dev/null || echo "missing")
   fi
