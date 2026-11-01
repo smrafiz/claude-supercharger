@@ -256,6 +256,7 @@ SUPERCHARGER_PROFILE=fast claude
 | Path guard | `SUPERCHARGER_PATH_GUARD=0` |
 | Tool preferences | `SUPERCHARGER_TOOL_PREFS=0` |
 | Bash output compactor | `SUPERCHARGER_BASH_COMPACTOR=0` |
+| Generic compaction of other large output (repeated lines, minified blobs) | `SUPERCHARGER_COMPACT_GENERIC=0` |
 | All advisory hooks | `SUPERCHARGER_ADVISORY_HOOKS=0` |
 | Memory injection | `SUPERCHARGER_NO_MEMORY=1` |
 | Daily update check (network) | `SUPERCHARGER_NO_UPDATE_CHECK=1` |

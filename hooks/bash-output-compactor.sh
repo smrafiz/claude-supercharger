@@ -33,7 +33,9 @@ case "$_INPUT" in
   # test (npm install, pnpm install, yarn install, pytest, cargo test).
   *'git log'*|*'npm test'*|*'yarn test'*|*vitest*|*jest*|*mocha*|*ava*|\
   *pytest*|*'go test'*|*'yarn install'*|*'pnpm add'*|*'npm i'*) ;;
-  *) exit 0 ;;
+  # 4.4.2: any other command gets the generic pass, but only for big output (the
+  # payload length is a cheap upper bound; python re-checks the output itself) and unless SUPERCHARGER_COMPACT_GENERIC=0.
+  *) { [ "${#_INPUT}" -ge 8000 ] && [ "${SUPERCHARGER_COMPACT_GENERIC:-1}" != 0 ]; } || exit 0 ;;
 esac
 
 # Single jq fork extracts all four fields at once — replaces the previous
@@ -80,7 +82,7 @@ case "$CMD" in
   *git\ log*) PATTERN="git-log" ;;
   *npm\ test*|*yarn\ test*|*vitest*|*jest*|*mocha*|*ava*|*pytest*|*go\ test*) PATTERN="test" ;;
   *yarn\ install*|*pnpm\ add*|*npm\ i*) PATTERN="install" ;;
-  *) exit 0 ;;
+  *) [ "${SUPERCHARGER_COMPACT_GENERIC:-1}" != 0 ] || exit 0; PATTERN="generic" ;;
 esac
 
 # Get tool output (stdout). Bash hook payloads include it under tool_response.stdout.
@@ -88,7 +90,8 @@ OUTPUT=$(printf '%s\n' "$_INPUT" | jq -r '.tool_response.stdout // .tool_respons
 [ -z "$OUTPUT" ] && exit 0
 
 LINE_COUNT=$(printf '%s\n' "$OUTPUT" | wc -l | tr -d ' ')
-[ "$LINE_COUNT" -lt 50 ] && exit 0
+# The generic pass judges by size in python: a few minified lines can be 100 KB.
+[ "$LINE_COUNT" -lt 50 ] && [ "$PATTERN" != generic ] && exit 0
 
 COMPACTED=$(PATTERN="$PATTERN" OUTPUT="$OUTPUT" LINE_COUNT="$LINE_COUNT" python3 <<'PYEOF'
 import os, re
@@ -175,17 +178,61 @@ elif pattern == 'install':
     # Show only warnings/errors from output
     relevant = [l for l in lines if re.search(r'\b(warn|error|failed|deprecated|peer dep)', l, re.IGNORECASE)]
     total = len(relevant)
+    # 4.4.2 (headroom log_compressor.rs): fold lines that differ only in numbers,
+    # hex or paths AFTER their first ':' or '=', so distinct packages stay distinct
+    # and the same message repeated for many versions shows once with a count. A
+    # line with neither is kept as is: normalising all of it would merge packages.
+    groups, order = {}, []
+    for l in relevant:
+        m = re.match(r'([^:=]*[:=])(.*)', l)
+        key = m.group(1) + re.sub(r'0x[0-9a-fA-F]+|\d+(?:\.\d+)*|/\S+', '#', m.group(2)) if m else l
+        if key not in groups:
+            groups[key] = [l, 0]; order.append(key)
+        groups[key][1] += 1
+    relevant = [groups[k][0] + (f'  [x{groups[k][1]} similar]' if groups[k][1] > 1 else '') for k in order]
+    shown_total = len(relevant)
     relevant = relevant[:15]
 
     base = '[Install summary] ' + (', '.join(summary_line) if summary_line else f'{line_count} lines')
     if relevant:
         # Say what the cap dropped, so 15 shown out of 200 does not read as "all of them".
         errs = sum(1 for l in relevant if re.search(r'\berr', l, re.IGNORECASE))
-        more = f'\n[+{total - 15} more warning/error lines omitted]' if total > 15 else ''
+        more = f'\n[+{shown_total - 15} more warning/error lines omitted]' if shown_total > 15 else ''
         base += f'\n[Warnings/errors ({total}, {errs} of the shown are errors)]\n' + '\n'.join(relevant) + more
     else:
         base += '\n[No warnings or errors]'
     print(base)
+
+elif pattern == 'generic':
+    # 4.4.2 (ideas from headroom lossless_compaction.py and dense_line_elider.py):
+    # for any other command, only steps that keep the meaning: colour codes go,
+    # a run of 3+ identical lines becomes one line and a count, and lines that are
+    # long and nearly space-free (minified JS, base64) keep their head and tail
+    # when such lines add up to 2000+ chars, so a lone token or URL is spared.
+    # Rewritten only when that saves at least 1000 chars and a fifth of the output.
+    # 8000+ chars only: replaying 1421 real outputs, 4000 cost ~120 ms on 5x more
+    # calls for 13% more saving.
+    if len(output) < 8000:
+        raise SystemExit(0)
+    text = re.sub(r'\x1b\[[0-9;?]*[A-Za-z]', '', output)
+    ls, out, i = text.split('\n'), [], 0
+    while i < len(ls):
+        j = i
+        while j + 1 < len(ls) and ls[j + 1] == ls[i]:
+            j += 1
+        if j - i >= 2 and ls[i].strip():
+            out += [ls[i], f'[... previous line repeated {j - i} more times]']
+        else:
+            out += ls[i:j + 1]
+        i = j + 1
+    dense = [k for k, l in enumerate(out) if len(l) >= 300 and l.count(' ') <= 0.06 * len(l)]
+    if sum(len(out[k]) for k in dense) >= 2000:
+        for k in dense:
+            l = out[k]
+            out[k] = l[:160] + f'[... {len(l) - 240} chars elided]' + l[-80:]
+    new = '\n'.join(out)
+    if len(output) - len(new) >= max(1000, len(output) // 5):
+        print(new)
 PYEOF
 )
 

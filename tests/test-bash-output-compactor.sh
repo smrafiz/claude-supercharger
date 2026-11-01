@@ -136,4 +136,37 @@ V=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_inpu
 printf '%s' "$V" | grep -qF '+45 more warning/error lines omitted' && printf '%s' "$V" | grep -qF 'Warnings/errors (60' \
   && pass || fail "got: $(printf '%s' "$V" | head -3)"
 
+# 4.4.2 generic pass (ideas from headroom lossless_compaction / dense_line_elider).
+_gen() { # command, output -> the rewritten view (empty when untouched)
+  python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","tool_input":{"command":sys.argv[1]},"tool_response":{"stdout":sys.stdin.read()},"cwd":"/tmp"}))' "$1" \
+    | SUPERCHARGER_STATE="$(mktemp -d)" ${3:+env $3} bash "$HOOK" 2>/dev/null | jq -r '.hookSpecificOutput.updatedToolOutput // empty'
+}
+REP=$(python3 -c "print('starting build'); print('\n'.join(['waiting for lock on /var/cache/apt'] * 400)); print('build done')")
+
+begin_test "generic: a long run of identical lines collapses to one line and a count"
+V=$(_gen "./build.sh" <<<"$REP")
+printf '%s' "$V" | grep -qF 'previous line repeated 399 more times' && printf '%s' "$V" | grep -qF 'build done' \
+  && printf '%s' "$V" | grep -qF 'starting build' && pass || fail "got: $(printf '%s' "$V" | head -4)"
+
+begin_test "generic: dense minified lines keep head and tail"
+DENSE=$(python3 -c "import random; random.seed(1); print('<script>'); [print(''.join(random.choice('abcdef0123456789{}();=') for _ in range(4000))) for _ in range(5)]; print('</script>')")
+V=$(_gen "curl -s https://example.com/app.js" <<<"$DENSE")
+printf '%s' "$V" | grep -q 'chars elided' && printf '%s' "$V" | grep -qF '</script>' && pass || fail "got: ${V:0:120}"
+
+begin_test "generic: a large output of distinct lines is left alone"
+DIST=$(python3 -c "print('\n'.join('row %d: value %d status ok' % (i, i*7) for i in range(600)))")
+V=$(_gen "./report.sh" <<<"$DIST")
+[ -z "$V" ] && pass || fail "rewrote distinct lines: ${V:0:80}"
+
+begin_test "generic: SUPERCHARGER_COMPACT_GENERIC=0 turns it off"
+V=$(_gen "./build.sh" "" SUPERCHARGER_COMPACT_GENERIC=0 <<<"$REP")
+[ -z "$V" ] && pass || fail "still rewrote: ${V:0:80}"
+
+begin_test "install: warnings differing only in versions are grouped with a count"
+# Only the part after the first ':' is normalised, so distinct packages
+# (glob@7 vs rimraf@3) stay distinct while one message repeated per version folds.
+INST=$(python3 -c "print('\n'.join(['npm warn ERESOLVE overriding peer dependency: react@18.%d.0' % i for i in range(30)] + ['npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported'] + ['resolving %d' % i for i in range(30)] + ['added 900 packages in 12s']))")
+V=$(_gen "npm install" <<<"$INST")
+printf '%s' "$V" | grep -qF 'x30 similar]' && printf '%s' "$V" | grep -qF 'rimraf@3.0.2' && pass || fail "got: $(printf '%s' "$V" | head -5)"
+
 report
