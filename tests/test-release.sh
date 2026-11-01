@@ -99,4 +99,17 @@ EXIT=0
 OUTPUT=$(bash "$TOOL" 1.2 --message "test" --dry-run 2>&1) || EXIT=$?
 [ "$EXIT" -ne 0 ] && pass || fail "accepted a malformed version: $OUTPUT"
 
+# No --message and no stdin: the CHANGELOG prompt's bare `read` hit EOF and set -e
+# ended the release silently, even under --yes.
+begin_test "release: --yes with no --message auto-generates the entry instead of exiting"
+EXIT=0
+OUTPUT=$(bash "$TOOL" patch --dry-run --yes </dev/null 2>&1) || EXIT=$?
+[ "$EXIT" -eq 0 ] && echo "$OUTPUT" | grep -q "auto-generated from commits" && pass \
+  || fail "exit=$EXIT output: $OUTPUT"
+
+begin_test "release: an empty stdin at the CHANGELOG prompt falls back, not exits"
+EXIT=0
+OUTPUT=$(bash "$TOOL" patch --dry-run </dev/null 2>&1) || EXIT=$?
+[ "$EXIT" -eq 0 ] && echo "$OUTPUT" | grep -qi "dry.run" && pass || fail "exit=$EXIT output: $OUTPUT"
+
 report

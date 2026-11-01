@@ -129,8 +129,14 @@ collect_message() {
     git -C "$REPO_DIR" log "${_tag_base}..HEAD" \
       --oneline --no-decorate 2>/dev/null | head -20 || true
     echo ""
-    echo -n "CHANGELOG entry (one line, leave blank to auto-generate from commits): "
-    read -r MESSAGE
+    # --yes skips this prompt as it skips the y/N ones; with no stdin, the bare
+    # `read` hit EOF and set -e ended the release silently. Blank → auto-generate.
+    if $ASSUME_YES; then
+      echo -e "CHANGELOG entry: ${YELLOW}[--yes]${NC} auto-generated from commits"
+    else
+      echo -n "CHANGELOG entry (one line, leave blank to auto-generate from commits): "
+      read -r MESSAGE || true
+    fi
   fi
   if [ -z "$MESSAGE" ]; then
     MESSAGE=$(git -C "$REPO_DIR" log "${_tag_base}..HEAD" \
