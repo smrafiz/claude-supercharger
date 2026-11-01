@@ -19,8 +19,11 @@ on:
 # A newer push to the same branch/PR cancels the older run. Mostly for master,
 # where each push runs the ~80 min Windows job: back-to-back merges queued three.
 # The newest run covers everything the cancelled ones would have (it is a superset).
+# Except master: a cancelled run is the latest finished one, so the README CI badge
+# read "failing" until the next run ended. Each master commit gets its own group,
+# so nothing there is cancelled or queued behind another (Actions are unmetered).
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.ref == 'refs/heads/master' && github.sha || github.ref }}
   cancel-in-progress: true
 
 jobs:
