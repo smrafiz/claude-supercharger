@@ -29,69 +29,98 @@ try:
 except Exception:
     data = {}
 
-# Read rate_limits.five_hour.used_percentage
 rate_limits = data.get('rate_limits') or {}
-five_hour = rate_limits.get('five_hour') or {}
-used_pct = five_hour.get('used_percentage', 0) or 0
-
-if not used_pct or float(used_pct) <= 0:
-    sys.exit(0)
-
-used_pct = float(used_pct)
-
-# Read session start time from .session-cost
 scope = os.environ.get('SCOPE_DIR', os.path.join((os.environ.get('HOME') or os.path.expanduser('~')), '.claude', 'supercharger', 'scope'))
-cost_file = os.path.join(scope, '.session-cost')
-
-if not os.path.isfile(cost_file):
-    sys.exit(0)
-
-try:
-    with open(cost_file) as f:
-        sc = json.load(f)
-    start_str = sc.get('first_updated', '') or sc.get('last_updated', '')
-    if not start_str:
-        sys.exit(0)
-    import calendar
-    st = calendar.timegm(time.strptime(start_str, '%Y-%m-%dT%H:%M:%SZ'))
-    elapsed_min = (time.time() - st) / 60
-except Exception:
-    sys.exit(0)
-
-if elapsed_min < 5:
-    sys.exit(0)
-
-burn_rate = used_pct / elapsed_min
-if burn_rate <= 0:
-    sys.exit(0)
-
-time_to_exhaust = (100 - used_pct) / burn_rate
-
-if time_to_exhaust >= 30:
-    sys.exit(0)
-
-# Dedup by 10-minute band — session-scoped so one session's warn doesn't
-# suppress another's within the same band (2.21.13).
 _sid = ''.join(c for c in (data.get('session_id') or 'default') if c.isalnum() or c in '_-')[:64] or 'default'
-warn_file = os.path.join(scope, '.rate-limit-last-warn-' + _sid)
-band = int(time.time()) // 600
-try:
-    if os.path.isfile(warn_file):
+
+
+def _pct(window):
+    try:
+        return float((rate_limits.get(window) or {}).get('used_percentage') or 0)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def five_hour_warning():
+    """Pace projection on the 5-hour window: warn when it runs out within 30 minutes."""
+    used_pct = _pct('five_hour')
+    if used_pct <= 0:
+        return None
+    cost_file = os.path.join(scope, '.session-cost')
+    if not os.path.isfile(cost_file):
+        return None
+    try:
+        with open(cost_file) as f:
+            sc = json.load(f)
+        start_str = sc.get('first_updated', '') or sc.get('last_updated', '')
+        if not start_str:
+            return None
+        import calendar
+        st = calendar.timegm(time.strptime(start_str, '%Y-%m-%dT%H:%M:%SZ'))
+        elapsed_min = (time.time() - st) / 60
+    except Exception:
+        return None
+    if elapsed_min < 5:
+        return None
+    burn_rate = used_pct / elapsed_min
+    if burn_rate <= 0:
+        return None
+    time_to_exhaust = (100 - used_pct) / burn_rate
+    if time_to_exhaust >= 30:
+        return None
+    # Dedup by 10-minute band — session-scoped so one session's warn doesn't
+    # suppress another's within the same band (2.21.13).
+    warn_file = os.path.join(scope, '.rate-limit-last-warn-' + _sid)
+    band = int(time.time()) // 600
+    try:
+        if os.path.isfile(warn_file):
+            with open(warn_file) as f:
+                if int(f.read().strip()) == band:
+                    return None
+    except Exception:
+        pass
+    try:
+        with open(warn_file, 'w') as f:
+            f.write(str(band))
+    except Exception:
+        pass
+    return (f'[RATE] At current pace, session exhausts in ~{int(time_to_exhaust)}m. '
+            'Consider: eco minimal, fewer subagents, or pause for rate reset.')
+
+
+def weekly_warning():
+    """Weekly window: a pace projection would be wrong (usage builds up across days
+    and sessions), so plain thresholds. Each level shows once per weekly window,
+    across sessions: the window is keyed by its reset time."""
+    used_pct = _pct('seven_day')
+    level = 95 if used_pct >= 95 else 90 if used_pct >= 90 else 0
+    if not level:
+        return None
+    window = str((rate_limits.get('seven_day') or {}).get('resets_at') or 'unknown')
+    warn_file = os.path.join(scope, '.rate-limit-weekly-warned')
+    try:
         with open(warn_file) as f:
-            last_band = int(f.read().strip())
-        if last_band == band:
-            sys.exit(0)
-except Exception:
-    pass
+            last_window, last_level = f.read().strip().split(' ', 1)
+        if last_window == window and int(last_level) >= level:
+            return None
+    except Exception:
+        pass
+    try:
+        with open(warn_file, 'w') as f:
+            f.write(f'{window} {level}')
+    except Exception:
+        pass
+    if level == 95:
+        return (f'[RATE] Weekly limit {used_pct:.0f}% used: work may stop before the weekly reset. '
+                'Finish or hand off the current task, and keep the rest for after the reset.')
+    return (f'[RATE] Weekly limit {used_pct:.0f}% used. '
+            'Consider: eco minimal, fewer subagents, and saving large tasks for after the weekly reset.')
 
-try:
-    with open(warn_file, 'w') as f:
-        f.write(str(band))
-except Exception:
-    pass
 
-ttx = int(time_to_exhaust)
-msg = f'[RATE] At current pace, session exhausts in ~{ttx}m. Consider: eco minimal, fewer subagents, or pause for rate reset.'
+msgs = [m for m in (five_hour_warning(), weekly_warning()) if m]
+if not msgs:
+    sys.exit(0)
+msg = ' '.join(msgs)
 if suppress:
     print(json.dumps({'hookSpecificOutput': {'hookEventName': 'UserPromptSubmit', 'additionalContext': msg}}))
 else:
