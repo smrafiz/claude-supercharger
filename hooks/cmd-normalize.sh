@@ -765,11 +765,18 @@ sc_blank_data_into() {
 
   # v4.2.0: a `gh search <kind> "<query>"` query is data, and a gh command asking for
   # --help runs nothing. Both were denied by the patterns their text happened to name.
+  # 4.4.3: the same query sent as `gh api …search/… -f q='…'` is data too. Only the q
+  # field of a search endpoint, and a double-quoted one only with no $, backtick or
+  # backslash (the shell would still expand those).
   case "$CMD_SCAN" in
     *gh\ *)
       CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
         -e "s/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)'[^']*'/\1''/g" \
         -e 's/(gh[[:space:]]+search[[:space:]]+[a-z]+[[:space:]]+)"[^"]*"/\1""/g' \
+        -e "s/(gh[[:space:]]+api[[:space:]][^;&|]*search\/[^;&|]*(-f|-F|--field|--raw-field)[[:space:]]+)q='[^']*'/\1q=''/g" \
+        -e "s/(gh[[:space:]]+api[[:space:]][^;&|]*search\/[^;&|]*(-f|-F|--field|--raw-field)[[:space:]]+)'q=[^']*'/\1''/g" \
+        -e 's/(gh[[:space:]]+api[[:space:]][^;&|]*search\/[^;&|]*(-f|-F|--field|--raw-field)[[:space:]]+)q="[^"$`\\]*"/\1q=""/g' \
+        -e 's/(gh[[:space:]]+api[[:space:]][^;&|]*search\/[^;&|]*(-f|-F|--field|--raw-field)[[:space:]]+)"q=[^"$`\\]*"/\1""/g' \
         -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?$/\1gh help/' \
         -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
       ;;
