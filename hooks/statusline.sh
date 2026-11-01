@@ -573,9 +573,9 @@ try:
  # Rate limits (isolated — must not crash line 2)
  rl_str = ''
  try:
-     # Shown whenever Claude Code sends the window, 0% included: Weekly used to be
-     # nested under `5h used > 0`, so a fresh 5-hour window hid both.
-     if isinstance(five_hour, dict) and five_hour.get('used_percentage') is not None:
+     # Session only when the 5-hour window is in use; Weekly on its own below. Weekly
+     # used to be nested under this check, so accounts without a 5-hour limit saw neither.
+     if rl_5h_pct and float(rl_5h_pct) > 0:
          rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
          reset_label = ''
          if rl_5h_reset and float(rl_5h_reset) > 0:

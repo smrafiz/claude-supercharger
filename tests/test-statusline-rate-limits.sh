@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Statusline rate limits: Session and Weekly render whenever Claude Code sends them.
+# Statusline rate limits: Session when the 5-hour window is above 0%, Weekly whenever sent.
 # Weekly used to sit inside a `5h used > 0` check, so a fresh 5-hour window hid it.
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
@@ -27,8 +27,8 @@ begin_test "fresh 5-hour window: Weekly still shown"
 L=$(_line3 '{"five_hour":{"used_percentage":0},"seven_day":{"used_percentage":40}}')
 case "$L" in *"Weekly: 40%"*) pass ;; *) fail "got: $L" ;; esac
 
-begin_test "fresh 5-hour window: Session shows 0% rather than vanishing"
-case "$L" in *"Session: 0%"*) pass ;; *) fail "got: $L" ;; esac
+begin_test "fresh 5-hour window: Session hidden at 0%, Weekly alone"
+case "$L" in *Session*) fail "Session shown at 0%: $L" ;; *"| Weekly: 40%"*) pass ;; *) fail "got: $L" ;; esac
 
 begin_test "only the weekly window sent: Weekly shown alone"
 L=$(_line3 '{"seven_day":{"used_percentage":7}}')
