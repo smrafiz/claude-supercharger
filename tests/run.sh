@@ -121,10 +121,31 @@ _skip_this() {
   return 1
 }
 
+# TEST_SHARD=i/n runs the i-th of every n files (1-based), so CI can split the suite
+# across n machines. Counted after TEST_SKIP, in glob order, identically in the run
+# and replay loops below. Unset runs everything.
+_SHARD_I=0; _SHARD_N=1
+case "${TEST_SHARD:-}" in
+  '') ;;
+  [1-9]*/[1-9]*) _SHARD_I=$(( ${TEST_SHARD%/*} - 1 )); _SHARD_N=${TEST_SHARD#*/} ;;
+  *) echo "TEST_SHARD must be i/n, e.g. 2/4 (got '$TEST_SHARD')" >&2; exit 2 ;;
+esac
+if [ "$_SHARD_I" -ge "$_SHARD_N" ]; then
+  echo "TEST_SHARD $TEST_SHARD: i must be 1..n" >&2; exit 2
+fi
+# Read once, then dropped: a test that runs tests/run.sh itself (test-run-shard,
+# test-suite-count-invariance) would otherwise inherit this machine's shard and run
+# a quarter of its own fixture. Found on the first sharded Windows run.
+_SHARDED=${TEST_SHARD:+1}
+unset TEST_SHARD
+_in_shard() { [ $(( $1 % _SHARD_N )) -eq "$_SHARD_I" ]; }
+
 running=0
+_idx=0
 for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   [ -f "$test_file" ] || continue
   _skip_this "$(basename "$test_file" .sh)" && continue
+  _idx=$((_idx + 1)); _in_shard "$((_idx - 1))" || continue
   run_one "$test_file" &
   running=$((running + 1))
   if [ "$running" -ge "$TEST_JOBS" ]; then
@@ -142,6 +163,7 @@ for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   test_name=$(basename "$test_file" .sh)
   # Same exclusion as the run loop, or the replay reports files that never ran.
   _skip_this "$test_name" && continue
+  _ridx=$((${_ridx:-0} + 1)); _in_shard "$((_ridx - 1))" || continue
   echo "--- $test_name ---"
 
   output=$(cat "$RESULT_DIR/$test_name.out" 2>/dev/null || true)
@@ -191,7 +213,7 @@ TOTAL_RUN=$((TOTAL_PASSED + TOTAL_FAILED))
 # v2.26.83: a SUBSET run must not judge the badge — it counts a fraction of the
 # suite, so it would always report drift and, worse, `BADGE_DRIFT=1` would fail
 # the Windows job for a number that is correct.
-if [ "$TEST_GLOB" != 'test-*.sh' ]; then
+if [ "$TEST_GLOB" != 'test-*.sh' ] || [ -n "$_SHARDED" ]; then
   BADGE=""
 fi
 if [ -n "$BADGE" ] && [ "$BADGE" != "$TOTAL_RUN" ]; then
