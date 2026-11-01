@@ -92,4 +92,42 @@ grep -q 'SCOPE_DIR="\${SUPERCHARGER_STATE' "$HOOK" && pass || fail "SCOPE_DIR no
 begin_test "rate-limit-advisor: warn-dedup file is session-scoped"
 grep -q "rate-limit-last-warn-' + _sid" "$HOOK" && pass || fail "warn file not session-scoped (cross-session dedup leak)"
 
+# Weekly window: accounts without a 5-hour limit get only seven_day, which the
+# advisor never read. Thresholds 90 and 95, each once per weekly window.
+_wk() { # pct [resets_at] [session] -> hook output, in the current test HOME
+  printf '{"session_id":"%s","rate_limits":{"seven_day":{"used_percentage":%s,"resets_at":%s}}}' \
+    "${3:-wk1}" "$1" "${2:-1900000000}" \
+    | SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" 2>/dev/null
+}
+
+begin_test "weekly: no warning below 90%"
+setup_test_home; mkdir -p "$HOME/.claude/supercharger/scope"
+OUT=$(_wk 88); teardown_test_home
+[ -z "$OUT" ] && pass || fail "warned at 88%: $OUT"
+
+begin_test "weekly: warns at 90%"
+setup_test_home; mkdir -p "$HOME/.claude/supercharger/scope"
+OUT=$(_wk 91)
+case "$OUT" in *"Weekly limit 91% used"*) pass ;; *) fail "got: $OUT" ;; esac
+
+begin_test "weekly: 90% warning shows once, even from another session"
+OUT=$(_wk 92 1900000000 wk2)
+[ -z "$OUT" ] && pass || fail "repeated: $OUT"
+
+begin_test "weekly: 95% gives a second, firmer warning"
+OUT=$(_wk 96)
+case "$OUT" in *"Weekly limit 96% used: work may stop"*) pass ;; *) fail "got: $OUT" ;; esac
+
+begin_test "weekly: a new weekly window warns again"
+OUT=$(_wk 91 1900600000); teardown_test_home
+case "$OUT" in *"Weekly limit 91% used"*) pass ;; *) fail "got: $OUT" ;; esac
+
+begin_test "both windows: 5-hour pace warning and weekly warning together"
+setup_test_home; SCOPE_DIR="$HOME/.claude/supercharger/scope"; mkdir -p "$SCOPE_DIR"
+TEN_MIN_AGO=$(python3 -c "import time; print(time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime(time.time()-600)))")
+echo "{\"first_updated\":\"$TEN_MIN_AGO\"}" > "$SCOPE_DIR/.session-cost"
+OUT=$(printf '%s' '{"session_id":"wk3","rate_limits":{"five_hour":{"used_percentage":60},"seven_day":{"used_percentage":93,"resets_at":1900000000}}}' \
+  | SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" 2>/dev/null); teardown_test_home
+case "$OUT" in *"session exhausts"*"Weekly limit 93% used"*) pass ;; *) fail "got: $OUT" ;; esac
+
 report

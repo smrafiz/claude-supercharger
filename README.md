@@ -131,7 +131,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 - **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
 - **Budget cap** — `"budget": 5.00` caps this session's spend; warns at 80%, blocks non-read tools at 100%
 - **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
-- **Rate-limit burn projection** — `~52m left at this pace`
+- **Rate-limit warnings** — the 5-hour window by pace (`~52m left at this pace`), the weekly window once at 90% and again at 95%. Accounts with only a weekly limit get the weekly warnings
 - **Bash output compactor** — verbose `git log`, `pytest`, `npm install` output (>50 lines) is compressed to a structured summary before it enters context. Failures keep their excerpt; passes show counts. Cuts the most common source of mid-session context exhaustion
 - **Cache health monitoring** — warns when cache hit rate drops below 50% (silent re-billing), and names which of the three known causes applies
 - **`fallbackModel` advisory** — flags when the v2.1.166+ fallback chain isn't configured, so overloaded Opus calls route to Sonnet/Haiku instead of dropping
