@@ -143,6 +143,18 @@ fetch_remote_commit() {
 # update forever. Compare a fixed-width prefix of both, never the raw strings.
 sc_sha7() { printf '%.7s' "${1:-}"; }
 
+# Same release number is not the same code: master moves between releases. True
+# (and sets INSTALLED_SHA / UPSTREAM_SHA) only when both commits are known and
+# differ; an unknown side falls back to the version-only answer. Shared by --check
+# and the apply path, which used to compare versions only and so answered "already
+# up to date" to the very update --check had just announced.
+sc_newer_code() {
+  INSTALLED_SHA=$(local_commit)
+  UPSTREAM_SHA=$(fetch_remote_commit || true)
+  [ -n "$INSTALLED_SHA" ] && [ -n "$UPSTREAM_SHA" ] \
+    && [ "$(sc_sha7 "$INSTALLED_SHA")" != "$(sc_sha7 "$UPSTREAM_SHA")" ]
+}
+
 # Read local installed version
 local_version() {
   if [ -f "$INSTALLED_VERSION_FILE" ]; then
@@ -206,14 +218,8 @@ if [[ "${1:-}" == "--check" ]]; then
     # lags after a release). Neither is an update; saying so kept users chasing a
     # notice that pointed backwards.
     if [ "$LOCAL" = "$REMOTE" ]; then
-      # Same release number is not the same code: master moves between releases.
-      # Only claim "up to date" once the commits agree too. If either SHA is
-      # unknown (no stamp from an older install, or GitHub unreachable) fall back
-      # to the version-only answer rather than inventing an update.
-      INSTALLED_SHA=$(local_commit)
-      UPSTREAM_SHA=$(fetch_remote_commit)
-      if [ -n "$INSTALLED_SHA" ] && [ -n "$UPSTREAM_SHA" ] \
-         && [ "$(sc_sha7 "$INSTALLED_SHA")" != "$(sc_sha7 "$UPSTREAM_SHA")" ]; then
+      # Only claim "up to date" once the commits agree too (sc_newer_code).
+      if sc_newer_code; then
         echo -e "${YELLOW}update available: v${LOCAL} ($(sc_sha7 "$INSTALLED_SHA") → $(sc_sha7 "$UPSTREAM_SHA"))${NC}"
         echo ""
         echo -e "  Same release, newer code — master has moved since v${LOCAL} was tagged."
@@ -272,9 +278,14 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
     echo -e "${YELLOW}could not reach GitHub${NC}"
     exit 1
   fi
+  _SAME_VER_NEW_CODE=false
   if [ "$LOCAL" = "$REMOTE" ]; then
-    echo -e "${GREEN}already up to date (v${LOCAL})${NC}"
-    exit 0
+    if sc_newer_code; then
+      _SAME_VER_NEW_CODE=true
+    else
+      echo -e "${GREEN}already up to date (v${LOCAL})${NC}"
+      exit 0
+    fi
   fi
   # REFUSE to move backwards. This used to be `if equal then stop` and otherwise
   # proceed, so a remote OLDER than the install counted as an update and was
@@ -282,14 +293,16 @@ if ! git -C "$REPO_DIR" rev-parse --git-dir >/dev/null 2>&1; then
   # comes from the GitHub contents API, which is CDN-cached and does lag: it
   # served 2.27.14 while master was already ahead. Anyone updating inside that
   # window, or running a build ahead of master, would have been rolled back.
-  if ! sc_version_newer "$REMOTE" "$LOCAL"; then
+  if [ "$_SAME_VER_NEW_CODE" = true ]; then
+    echo -e "${YELLOW}v${LOCAL} ($(sc_sha7 "$INSTALLED_SHA") → $(sc_sha7 "$UPSTREAM_SHA")): same release, newer code${NC}"
+  elif ! sc_version_newer "$REMOTE" "$LOCAL"; then
     echo -e "${YELLOW}installed v${LOCAL} is newer than the published v${REMOTE} — not downgrading.${NC}"
     echo -e "  This is normal right after a release (the GitHub API lags) or on a development build."
     echo -e "  To install the published version deliberately, check it out and run its installer:"
     echo -e "    git -C <your-clone> checkout v${REMOTE} && bash <your-clone>/install.sh"
     exit 0
   fi
-  echo -e "${YELLOW}v${LOCAL} → v${REMOTE}${NC}"
+  [ "$_SAME_VER_NEW_CODE" = true ] || echo -e "${YELLOW}v${LOCAL} → v${REMOTE}${NC}"
   echo ""
   echo -e "  Detected configuration:"
   echo -e "    Mode:    ${BOLD}${DETECTED_MODE}${NC}"
