@@ -2,7 +2,7 @@
 
 Safety hooks for Claude Code that run **outside Claude's process** — before commands execute, invisible to the model. The guards cost no context tokens: they live in your shell, not in your prompt.
 
-![Version](https://img.shields.io/badge/version-4.3.26-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml)
+![Version](https://img.shields.io/badge/version-4.4.0-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml)
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
@@ -170,7 +170,7 @@ Recent changes are in [`CHANGELOG.md`](CHANGELOG.md).
 | Mode | Hooks | Use when |
 |--|--|--|
 | **Safe** | 45 | Security blocks + smart auto-approve + audit trail. Minimal footprint. |
-| **Full** | 160 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
+| **Full** | 162 | Everything: cost tracking, memory, learning loop, statusline, confidence gate. Recommended. |
 
 ```bash
 ./install.sh                                    # interactive
