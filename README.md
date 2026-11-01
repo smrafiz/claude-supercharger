@@ -6,6 +6,37 @@ Safety hooks for Claude Code that run **outside Claude's process** — before co
 
 ![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
 
+## Highlights
+
+- **Dangerous commands never run.** `rm -rf`, force-push to main, `DROP TABLE`, `curl | bash`, a secret about to be committed or echoed: blocked before execution, by a process Claude can't see or argue with.
+- **Fewer prompts, not more.** Read-only tools auto-approve. `/sc-autopilot 2h` drops the yes/no prompts entirely while every guard keeps running.
+- **Long output stops eating your context.** Verbose test, build, install and log output is compacted before Claude reads it; every failing test is kept.
+- **You know what a session costs.** Live cost on the statusline, a per-session budget cap, and warnings before you hit the 5-hour or weekly limit.
+- **Claims get checked.** A turn that says "tests pass" right after a failing run is stopped, not handed to you.
+- **Tests can't be gamed.** Weakening an assertion, adding a skip or `.only` to make a test pass asks you first.
+- **Lessons survive the session.** Root causes, decisions and corrections are saved and brought back next time, and put back after `/compact`.
+- **Off in one command.** `/sc off` returns you to stock Claude Code; `/sc on` brings it back. Nothing is uninstalled.
+
+Full list: [What you get](#what-you-get).
+
+## Problems it solves
+
+Taken from the most-upvoted reports on [anthropics/claude-code](https://github.com/anthropics/claude-code/issues). 👍 counts as of November 2026.
+
+| You've hit this | What Supercharger does |
+|---|---|
+| Usage limits gone in an hour or two ([#16157](https://github.com/anthropics/claude-code/issues/16157) 727 👍, [#38335](https://github.com/anthropics/claude-code/issues/38335) 546 👍) | Live 5-hour and weekly usage on the statusline, warnings at 90% and 95%, a per-session budget cap, and long tool output compacted before it costs tokens |
+| Cost quietly inflated by a cache regression ([#46829](https://github.com/anthropics/claude-code/issues/46829) 341 👍) | Warns when the cache hit rate drops below 50%, and names the likely cause |
+| "You're absolutely right!", stock phrases, comment spam ([#3382](https://github.com/anthropics/claude-code/issues/3382) 1373 👍, [#77136](https://github.com/anthropics/claude-code/issues/77136) 578 👍, [#65961](https://github.com/anthropics/claude-code/issues/65961) 252 👍) | Economy tiers (45% median length cut with `/output-style concise`) and `/sc-de-ai` to strip slop from a draft |
+| CLAUDE.md rules ignored, especially after compaction ([#2544](https://github.com/anthropics/claude-code/issues/2544), [#19471](https://github.com/anthropics/claude-code/issues/19471)) | The rules that matter are hooks, which Claude can't skip; session constraints are re-injected after `/compact` |
+| Context lost at compaction ([#17428](https://github.com/anthropics/claude-code/issues/17428) 117 👍, [#27242](https://github.com/anthropics/claude-code/issues/27242) 91 👍) | Lessons, decisions and a transcript backup are saved before compaction and restored after |
+| `rm -rf` run without asking ([#6608](https://github.com/anthropics/claude-code/issues/6608), [#15711](https://github.com/anthropics/claude-code/issues/15711)) | Blocked before it runs; the prompt says how many files, and how many have no undo |
+| `git reset --hard` wiped uncommitted work ([#34327](https://github.com/anthropics/claude-code/issues/34327), [#7232](https://github.com/anthropics/claude-code/issues/7232)) | Blocked or asked about before it runs |
+| Fell back to `--force` when `--force-with-lease` failed ([#70378](https://github.com/anthropics/claude-code/issues/70378)) | Force-push to main is blocked, `--force-with-lease` included |
+| Tests rewritten until they pass ([#319](https://github.com/anthropics/claude-code/issues/319)) | Asks when an edit weakens or deletes assertions |
+| "All tests pass" when they didn't ([#46940](https://github.com/anthropics/claude-code/issues/46940)) | Stops the turn when the claim contradicts the last test run; flags `pytest \|\| true` |
+| Files overwritten, hours of work lost ([#32654](https://github.com/anthropics/claude-code/issues/32654), [#98967](https://github.com/anthropics/claude-code/issues/98967)) | Asks before `cp`/`mv` clobbers a tracked file; blocks editing a file Claude hasn't read |
+
 ---
 
 ## Install
@@ -42,7 +73,7 @@ Updates never install it unless you said yes. Check it with `/sc-notifier status
 
 ## Your first five minutes
 
-Everything else is optional. These five are what you'll actually use day to day.
+Everything else is optional. These five are what you'll use day to day.
 
 | Do this | What happens |
 |---|---|
@@ -71,7 +102,7 @@ Prompts are suggestions, and Claude is good at finding reasons to ignore suggest
 
 Every Claude Code user has a version of the same story: you ask to fix a typo and Claude rewrites the component. You ask a quick question and get an essay. You come back to find files overwritten, commands run, work undone — with no warning.
 
-The fix isn't better prompts. It's moving enforcement somewhere the model can't reach.
+The fix is to move enforcement somewhere the model can't reach.
 
 ```
 You ──▶ Claude ──▶ Tool call ──▶ [Hook] ──▶ exit 0 or exit 2
@@ -91,11 +122,9 @@ Supercharger has two layers, and they come with different guarantees:
 | Advisory or enforced | Advisory | Advisory | Enforced |
 | **Cost in context tokens** | **~5–20K per session** | a few hundred | **0** for the guards |
 
-That last row is the part people underestimate. Rules written as prompt text are re-read every session and shrink the window available for actual work. Supercharger's enforcement lives in the shell, so it costs nothing. The optional extras (economy hints, memory, advisories) add a few tokens per prompt.
+Rules written as prompt text are re-read every session and shrink the window available for actual work. Supercharger's enforcement lives in the shell, so it costs nothing. The optional extras (economy hints, memory, advisories) add a few tokens per prompt.
 
 ### What this does and doesn't guarantee
-
-Worth being precise, because the distinction matters:
 
 - **The mechanism is not bypassable by the model.** A hook is a separate process. Claude cannot see it, disable it, or argue with its exit code. This is a hard guarantee.
 - **The patterns are best-effort.** The guards match commands and file writes against known-dangerous shapes. `cmd-normalize.sh` unwraps common obfuscation, but string matching has limits — a determined adversary with shell access can construct evasions.
@@ -128,7 +157,7 @@ The threat model this is built for is a capable agent making mistakes, plus oppo
 
 ### Cost & context control
 
-- **Real-time cost tracking** — every tool call rolls up. No end-of-month surprises
+- **Real-time cost tracking** — every tool call rolls up into the session total
 - **Budget cap** — `"budget": 5.00` caps this session's spend; warns at 80%, blocks non-read tools at 100%
 - **Pre-spawn cost forecast** — `[COST] Est. ~$1.90` before subagents run
 - **Rate-limit warnings** — the 5-hour window by pace (`~52m left at this pace`), the weekly window once at 90% and again at 95%. Accounts with only a weekly limit get the weekly warnings
@@ -327,7 +356,7 @@ This is the supported way to customise enforcement. Editing the installed hooks 
 
 ### Speed & tokens
 
-Measured, not estimated: **Claude Code runs same-event hooks concurrently** (observed ~11 at a time), so a tool call's *felt* cost is the slowest wave, not the sum of every hook.
+**Claude Code runs same-event hooks concurrently** (measured: about 11 at a time), so a tool call's *felt* cost is the slowest wave, not the sum of every hook.
 
 | machine | felt / tool call | chain sum (CPU) | statusline (cold / warm) |
 |---|---:|---:|---:|
@@ -550,7 +579,7 @@ Use [WSL](https://learn.microsoft.com/en-us/windows/wsl/install) or **Git Bash**
 
 Every push to master and every release runs the full test suite on `windows-latest` under Git Bash, and any failure blocks the release. Install prerequisites: **Git for Windows**, Python (the `py` launcher is fine), and `jq` — `winget install jqlang.jq` or `choco install jq`, then reopen Git Bash.
 
-Two things are **not** verified, and it would be dishonest to imply otherwise: nobody has watched a desktop notification actually render on Windows (the CI job proves the correct backend is selected, not that a toast appears), and no human has run a full install on a Windows desktop — only the scripted CI path. If you try it, [open an issue](https://github.com/smrafiz/claude-supercharger/issues) either way; that is the gap.
+Two things are **not** verified: nobody has watched a desktop notification actually render on Windows (the CI job proves the correct backend is selected, not that a toast appears), and no human has run a full install on a Windows desktop — only the scripted CI path. If you try it, [open an issue](https://github.com/smrafiz/claude-supercharger/issues) either way; that is the gap.
 
 Alpine Linux is **not supported** (it ships `ash`, not `bash`) — run inside a Debian/Ubuntu/Fedora container, or install GNU bash first.
 
