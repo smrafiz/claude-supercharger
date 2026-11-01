@@ -155,7 +155,10 @@ while IFS= read -r seg; do
     seg_lc=$(printf '%s' "$COMMAND" | sed -E 's/"[^"]*"//g; s/'\''[^'\'']*'\''//g' | tr '[:upper:]' '[:lower:]')
     case "$COMMAND" in
       *'$('*|*'`'*)
-        seg_lc="$seg_lc ; $(printf '%s' "$COMMAND" | grep -oE '\$\([^()]*\)|`[^`]*`' | tr '\n' ' ' | tr '[:upper:]' '[:lower:]')" ;;
+        # `|| true`: no match (an arithmetic $((n+1)) has no $(...) body) exits grep 1,
+        # which pipefail + set -e turned into a crash, and onFailure:block into a
+        # silent deny of any push command holding a counter loop.
+        seg_lc="$seg_lc ; $(printf '%s' "$COMMAND" | { grep -oE '\$\([^()]*\)|`[^`]*`' || true; } | tr '\n' ' ' | tr '[:upper:]' '[:lower:]')" ;;
     esac
     if [[ "$seg_lc" =~ (^|[[:space:]])-c[[:space:]]+[\"\']?core\.hookspath[=[:space:]] ]]; then
       block "git -c core.hooksPath= disables git hooks — verification bypass"

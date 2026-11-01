@@ -41,6 +41,9 @@ cases = [
     ("heredoc commit message", "git commit -m \"$(cat <<'EOF'\nfix: x\n\nmentions " + NV + "\nEOF\n)\"", "ALLOW"),
     ("message naming the hooksPath flag beside a $", 'git commit -m "costs $5: never run git -c ' + HP + '=x"', "ALLOW"),
     ("sed -i '' keeps working", "sed -i '' 's/a/b/' f.txt && git push", "ALLOW"),
+    # 4.4.2: an arithmetic $((n+1)) gave grep no $(...) body to extract; grep exit 1
+    # + pipefail + set -e crashed git-safety, and onFailure:block denied the push.
+    ("push then a counter loop", "git push --force-with-lease; n=0; until ! gh pr checks 1 | grep -q pending; do n=$((n+1)); [ $n -gt 40 ] && break; sleep 30; done", "ALLOW"),
 ]
 with open(sys.argv[1], "w") as f:
     for name, cmd, want in cases:
@@ -52,7 +55,9 @@ _one() {  # hook, payload-file -> DENY | ASK | ALLOW
   local st out rc; st=$(mktemp -d)
   out=$(SUPERCHARGER_STATE="$st" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/$1" < "$2" 2>/dev/null); rc=$?
   rm -rf "$st"
-  case "$rc:$out" in 2:*|*'"permissionDecision":"deny"'*) echo DENY ;; *'"permissionDecision":"ask"'*) echo ASK ;; *) echo ALLOW ;; esac
+  # Any exit other than 0 or 2 is a crash: live, onFailure:block turns it into a
+  # silent deny, so it must never be read as ALLOW here.
+  case "$rc:$out" in 2:*|*'"permissionDecision":"deny"'*) echo DENY ;; 0:*'"permissionDecision":"ask"'*) echo ASK ;; 0:*) echo ALLOW ;; *) echo "CRASH(rc=$rc)" ;; esac
 }
 
 i=0
@@ -62,7 +67,7 @@ while IFS= read -r line; do
   want=$(printf '%s' "$line" | python3 -c 'import json,sys;print(json.load(sys.stdin)["want"])')
   printf '%s' "$line" | python3 -c 'import json,sys;print(json.dumps(json.load(sys.stdin)["payload"]))' > "$TMP/p$i.json"
   a=$(_one safety.sh "$TMP/p$i.json"); b=$(_one git-safety.sh "$TMP/p$i.json")
-  case "$a $b" in *DENY*) got=DENY ;; *ASK*) got=ASK ;; *) got=ALLOW ;; esac
+  case "$a $b" in *CRASH*) got="CRASH" ;; *DENY*) got=DENY ;; *ASK*) got=ASK ;; *) got=ALLOW ;; esac
   begin_test "bypass: $name -> $want"
   [ "$got" = "$want" ] && pass || fail "got $got (safety=$a git-safety=$b)"
 done < "$TMP/cases"
