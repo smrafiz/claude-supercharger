@@ -4,27 +4,22 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-01, session `3d213381`.*
+*Verified 2026-11-01, session `e51274e4`.*
 
-- **Released: v4.4.0** (2026-11-01 03:43 UTC, installed on Machine A). **4.4.1 merged, not released**;
-  release only on the user's word (`tools/release.sh stage patch` → `promote 4.4.1`).
-- **master `eeca2f73`.** Since 4.4.0: #208 README fixes, #209 statusline Weekly shows without a
-  5-hour window (this account no longer has one), #210 `/sc-update` installs newer code on the same
-  release for non-git installs, #211 Windows suite on 4 machines (~40 min instead of ~100), #212
-  rate-limit-advisor warns on the weekly limit at 90%/95%. Master CI on `eeca2f73` started at writing.
-- **No open PRs, no PR worktrees.** 5 unmerged local branches kept (closed PRs / debug): user to decide.
-- **Windows jobs:** `Windows (Git Bash) shard N/4` run the suite; `Windows (Git Bash)` is the gate and
-  reads all four logs. `tests/run.sh TEST_SHARD=i/n` (dropped from the env after reading).
-- **Windows replace is not atomic:** ~1 read in 1.4-2.5k finds a hook missing during redeploy (never
-  torn). Test now reports it on Windows instead of failing. Roadmap item 1, after 4.4.0.
-- **Windows rule:** PR CI skips Windows; dispatch `gh workflow run ci.yml --ref <branch>` for guard
-  changes. Branches cut before `a98a5f29` can still flake on atomic-deploy: `gh pr update-branch`.
-- **Merging:** `gh pr merge --match-head-commit <full sha>` was allowed from Claude on 2026-11-01
-  (#208-#212); it had been denied earlier. Always pin the head SHA.
-- **Open decision (user):** roadmap item 5, should recursive delete of an absolute path outside the
-  project, or of home, ask?
-- **Open (user):** star-keeper commitTypes config; Machine B commit-msg hook; radius-apps guard-push
-  wrapper, rotate CRON_SECRET, re-enable Actions.
+- **Released: v4.4.2** (`fcdd5535`, 2026-11-01). Ships #213-#216.
+- **master `cb27cc7f`**, 3 commits past v4.4.2: `4ed9d209` release.sh `--yes` fix, `fb0f76a3` blast
+  push-count fix, `cb27cc7f` README highlights + problems table. CI green on `fb0f76a` (all jobs).
+- **No open PRs.** Local branches: master, rel/4.2.0. One old stash (feat/block-workaround-warn).
+- **Windows jobs:** 4 shards + `Windows (Git Bash)` gate. PR CI skips Windows; dispatch
+  `gh workflow run ci.yml --ref <branch>` for guard changes. rel/* pushes skip Windows too; promote
+  accepts Windows green on master at the base commit.
+- **Merging:** `gh pr merge --match-head-commit <full sha>`, always pinned.
+- **CI badge** turns red after back-to-back master pushes (cancelled runs read as failing). Open (user):
+  A stop cancelling on master, or B leave it.
+- **Next planned:** compound-command auto-approve (#28240/#16561) — plan first, safety rule.
+- **Open decision (user):** roadmap item 5, recursive delete outside project / of home: ask?
+- **Open (user):** star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper,
+  rotate CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
 - **This session's machine (2026-10-30):** 0 stashes, no extra worktrees, Caveman active (it elides
@@ -39,6 +34,7 @@ session on any machine.**
 - `radiustheme/radius-bundles` is an ORG repo, billed separately, already tuned.
 
 ### Decisions parked, not blocked
+- **Default-branch prompt stays on** for this repo (user, 2026-11-01): no `allowDefaultBranchCommits`.
 - **Install the tag rather than master?** Merging to master currently IS
   shipping. Against: users lose immediate fixes. Mitigating: PRs run all 8 jobs.
 - **Never seize the output-style slot.** One global field; `force-for-plugin`
@@ -53,6 +49,11 @@ session on any machine.**
 ---
 
 ## Log
+
+#### 2026-11-01 — e51274e4
+Merged #216 (Windows dispatched, green); released v4.4.2. Fixed release.sh `--yes` silent exit and the
+blast push count for commit-then-push. README gained Highlights + an issue-linked problems table.
+Detail: `.claude/handoff-e51274e4-04a0-4dad-935e-5066df4f92a2.md`
 
 #### 2026-10-31 — d1f49e55
 Merged #204-#207 (MCP-config Bash read, workaround check from trackline, benchmark gaps 1-3, 200K
@@ -79,8 +80,3 @@ Caveman, Orca, claude-mem, archify, ruflo, SkillSpector, raptor. Shipped #173-#1
 Later: merged #180-#183; #184 (Windows has no POSIX modes), #185 allowlists (its build agent routed
 around a refusal), #186 README-count test.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-10-25 (deep) — 3d213381
-4.3.25 released. #170 (installer missed receipts.py/notifier) then broke reinstall on master (dir swap);
-#171 fixed it. 4.3.26 job in flight. Three tests that could not fail, fixed.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md` (2026-10-25 deep)
