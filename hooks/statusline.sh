@@ -573,7 +573,9 @@ try:
  # Rate limits (isolated — must not crash line 2)
  rl_str = ''
  try:
-     if rl_5h_pct and float(rl_5h_pct) > 0:
+     # Shown whenever Claude Code sends the window, 0% included: Weekly used to be
+     # nested under `5h used > 0`, so a fresh 5-hour window hid both.
+     if isinstance(five_hour, dict) and five_hour.get('used_percentage') is not None:
          rl_color = RED if rl_5h_pct >= 80 else YELLOW if rl_5h_pct >= 50 else DIM
          reset_label = ''
          if rl_5h_reset and float(rl_5h_reset) > 0:
@@ -602,8 +604,9 @@ try:
          except Exception:
              burn_proj = ''
          rl_str = f' {DIM}|{RESET} {rl_color}Session: {float(rl_5h_pct):.0f}%{reset_label}{burn_proj}{RESET}'
-         if rl_7d_pct and float(rl_7d_pct) > 0:
-             rl_str += f' {DIM}· Weekly: {float(rl_7d_pct):.0f}%{RESET}'
+     if isinstance(seven_day, dict) and seven_day.get('used_percentage') is not None:
+         _wc = RED if float(rl_7d_pct) >= 80 else YELLOW if float(rl_7d_pct) >= 50 else DIM
+         rl_str += f' {DIM}{"·" if rl_str else "|"}{RESET} {_wc}Weekly: {float(rl_7d_pct):.0f}%{RESET}'
  except Exception:
      rl_str = ''
  # v4.2.0: rate_limits.spend_limit (CC 2.1.251+): a spend cap set by an org or a
