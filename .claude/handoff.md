@@ -4,24 +4,24 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-02, session `3d213381`.*
+*Verified 2026-11-02 (end of day), session `3d213381`.*
 
-- **Released: v4.4.2** (2026-11-01). Machine A runs 4.4.2 (updated 2026-11-02). Release only on the
-  user's word; commit the carry file BEFORE `release.sh stage`.
-- **master `28dab38e`**, unreleased since 4.4.2: #217 gh api search query as data, #218 README vote
-  counts removed, #219 scripted demo refresh, #220 compactor excerpt starts at the failure detail.
-- **Open PRs:** #221 README top image = real Claude Code session (worktree `demo2`); #222 session
-  memory no longer leaks across projects (worktree `ckpt`). Suites were pending; merge pinned on green.
-- **Next (agreed order):** issue 2 plain-language block reasons in safety.sh (keep the raw
-  `dangerous pattern:` text in the block log, learn-from-blocks parses it); issue 4 economy hooks
-  `TIER=$(grep …)` `|| true`; then statusline token source on plugin installs, `resets_at` stability,
-  compactor rewrite order. Then 4.4.3 on the user's word.
-- **Windows jobs:** 4 shards + gate `Windows (Git Bash)`; PR CI skips Windows, dispatch for guard changes.
-- **Merging:** `gh pr merge --match-head-commit <full sha>`, always pinned.
-- **Open decision (user):** roadmap item 5 (recursive delete outside project / of home: ask?);
-  5 unmerged local branches to keep or delete.
-- **Open (user):** star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper,
-  rotate CRON_SECRET, re-enable Actions.
+- **Released: v4.4.2.** Machine A runs 4.4.2. **4.4.3 is ON HOLD by the user** — release only on
+  their word; commit the carry file BEFORE `release.sh stage`.
+- **master `34471034`**, unreleased: #217-#226, #228, #229, #231 (memory leak + Windows checkpoint
+  fix, MCP lineup + keyed servers kept + right env names, profiles, economy crash, issue_comment pwn
+  guard, inline-suppression ask, real 4-scene demo GIF).
+- **Open PRs (worktrees in `.claude/worktrees/`):** #227 spend-guard (Windows: config-scan shows no
+  wallet warning, diagnostic pushed), #230 citation-gate (needs install count 175 after #227), #232
+  /sc-handoff stale worktrees, #233 base64/here-string pipe-to-shell FP fix + opaque here-string deny.
+  Merge order #227 -> #230 -> #232 -> #233, pinned.
+- **Next:** issue 2 plain-language block reasons (keep raw `dangerous pattern:` text in the block log);
+  data-vs-command FP (pattern text inside a quoted printf arg is denied).
+- **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` for any hook change
+  BEFORE merge (#222 turned master Windows red for 5 merges).
+- **Merging:** `gh pr merge --match-head-commit <full sha>`; remove the worktree after.
+- **Open (user):** roadmap item 5 (recursive delete outside project: ask?); star-keeper commitTypes;
+  Machine B commit-msg hook; radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
 - **This session's machine (2026-10-30):** 0 stashes, no extra worktrees, Caveman active (it elides
@@ -52,6 +52,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-02 (deep, end of day) — 3d213381
+Merged #221-#226, #228, #229, #231 (memory leak + Windows fix, MCP lineup, real demo GIF, profiles,
+economy, pwn issue_comment, suppression ask). Open: #227 spend-guard, #230 citation-gate, #232, #233.
+4.4.3 held by the user.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-11-02 (deep) — 3d213381
 Updated Machine A to 4.4.2. Merged #217-#220. README top image is now a real Claude Code session
 (#221, open); found and fixed a cross-project session-memory leak (#222, open). Issue 3 (UPDATE) is
@@ -75,9 +81,3 @@ Merged #202 (Windows dispatched, green). Added `/sc-de-ai` (from petergyang/no-a
 the writer agent, and the Issues List reply rule (from trycompai/crm). Audited video-use (nothing) and
 re-checked SkillSpector; its MCP-config gap fixed in #203 (merged) and the Bash-read side in PR #204.
 Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
-
-#### 2026-10-28 (deep) — 3d213381
-Taking all of randommonicle/claude-skills into 4.4. Merged #184-#196; #197 SQL gaps waiting on Windows;
-secret-printing + PowerShell secrets built, uncommitted. A replay caught two errexit fail-opens the new
-tests missed (memory `errexit-in-guard-is-fail-open`).
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
