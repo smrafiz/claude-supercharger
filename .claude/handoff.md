@@ -8,11 +8,13 @@ session on any machine.**
 
 - **Released: v4.4.2.** **4.4.3 is ON HOLD by the user** — release only on their word; commit the
   carry file BEFORE `release.sh stage`.
-- **master `aef1ee20`**, unreleased: #217-#229, #231, #227 (spend-guard).
-- **Open PRs, all PR-CI green:** #230 citation-gate (`7dcb3533`, Windows rerun of 41490843987 pending
-  after a suspected flake in test-stdin-timeout D), #232 /sc-handoff worktrees (`c5153b3a`, Windows
-  green), #233 pipe-shell FP (`17b8fa31`, Windows green). Merge order #230 -> #232 -> #233, pinned.
-  A background merge chain was running in session 111c7837; check `gh pr list` before acting.
+- **master `b4fe7193`**, unreleased: #217-#229, #231, #227 (spend-guard), test-stdin-timeout fix.
+- **Open PRs, all PR-CI green:** #230 citation-gate (`bb1c54b4`, Windows run 41501558568 queued),
+  #232 /sc-handoff worktrees (`c5153b3a`, Windows green), #233 pipe-shell FP (`17b8fa31`, Windows
+  green). Merge order #230 -> #232 -> #233, pinned. A background merge chain (session 111c7837)
+  waits on 41501558568; check `gh pr list` before acting.
+- **Not a flake:** test-stdin-timeout D failed twice on #230 (1s read timeout on Windows); fixed on
+  master `b4fe7193` (A and D get 10s). Why only #230 tripped it is unexplained.
 - **Next:** issue 2 plain-language block reasons; data-vs-command FP (quoted printf arg denied);
   KNOWN-ISSUES #8 (manifest generator drops hashes on a fresh clone).
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
@@ -56,7 +58,8 @@ session on any machine.**
 #### 2026-11-03 (deep) — 111c7837
 Merged #227 (Windows failure was the test: MSYS cwd in JSON). Fixed #232 manifest (+1 hash; generator
 would have dropped 26 — KNOWN-ISSUES #8) and #230 install count 175. #230 Windows hit a suspected
-flake (test-stdin-timeout D); rerun + merge chain #230->#232->#233 left running.
+failure in test-stdin-timeout D, twice: not a flake, a 1s read timeout. Fixed on master `b4fe7193`,
+merged into #230 (`bb1c54b4`), Windows 41501558568 + merge chain left running.
 Detail: `.claude/handoff-111c7837-ccb3-4199-a4d8-57243e3a9fdd.md`
 
 #### 2026-11-02 (deep, end of day) — 3d213381
