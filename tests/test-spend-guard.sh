@@ -66,7 +66,7 @@ printf '{"mcpServers":{"payer":{"command":"npx","args":["-y","x"],"env":{"EVM_PR
 out=$(printf '{"session_id":"sg","cwd":"%s"}' "$P" | HOME="$TEST_HOME" CLAUDE_PROJECT_DIR="$P" bash "$REPO_DIR/hooks/config-scan.sh" 2>/dev/null)
 case "$out" in
   *"'payer'"*"wallet key (EVM_PRIVATE_KEY)"*) case "$out" in *"'svc'"*"wallet key"*) fail "service account key flagged" ;; *) pass ;; esac ;;
-  *) fail "no wallet warning in: ${out:0:300}" ;;
+  *) fail "no wallet warning in: $out" ;;
 esac
 
 begin_test "registration: mcp-spend-guard registered on mcp__ (lib + plugin)"
