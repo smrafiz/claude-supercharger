@@ -4,20 +4,22 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-02, session `e51274e4`.*
+*Verified 2026-11-02, session `3d213381`.*
 
-- **Released: v4.4.2** (`fcdd5535`, 2026-11-01). Ships #213-#216.
-- **master `d821aff8`+**, past v4.4.2: `4ed9d209` release.sh `--yes`, `fb0f76a3` blast push count,
-  `cb27cc7f` README highlights/problems table, `d821aff8` CI per-commit concurrency on master, plus docs.
-- **Open PR #217** (`fix/gh-api-search-query`): gh api search query treated as data. Dispatched full CI
-  41336436428 running at writing; merge pinned to head on green.
-- **CI badge:** fixed going forward (`d821aff8`); red until a post-fix master run finishes green.
-- **No compound auto-approve** — upstream covers it; see `docs/COMMUNITY-WANTS-2026-09-17.md` § Update 2026-11-01.
-- **Windows jobs:** 4 shards + gate. PR and rel/* pushes skip Windows; dispatch
-  `gh workflow run ci.yml --ref <branch>` for guard changes. Promote accepts Windows green on master base.
+- **Released: v4.4.2** (2026-11-01). Machine A runs 4.4.2 (updated 2026-11-02). Release only on the
+  user's word; commit the carry file BEFORE `release.sh stage`.
+- **master `28dab38e`**, unreleased since 4.4.2: #217 gh api search query as data, #218 README vote
+  counts removed, #219 scripted demo refresh, #220 compactor excerpt starts at the failure detail.
+- **Open PRs:** #221 README top image = real Claude Code session (worktree `demo2`); #222 session
+  memory no longer leaks across projects (worktree `ckpt`). Suites were pending; merge pinned on green.
+- **Next (agreed order):** issue 2 plain-language block reasons in safety.sh (keep the raw
+  `dangerous pattern:` text in the block log, learn-from-blocks parses it); issue 4 economy hooks
+  `TIER=$(grep …)` `|| true`; then statusline token source on plugin installs, `resets_at` stability,
+  compactor rewrite order. Then 4.4.3 on the user's word.
+- **Windows jobs:** 4 shards + gate `Windows (Git Bash)`; PR CI skips Windows, dispatch for guard changes.
 - **Merging:** `gh pr merge --match-head-commit <full sha>`, always pinned.
-- **Next (user):** cut 4.4.3 after #217? Distribution: replies on top complaint threads are public posts.
-- **Open decision (user):** roadmap item 5, recursive delete outside project / of home: ask?
+- **Open decision (user):** roadmap item 5 (recursive delete outside project / of home: ask?);
+  5 unmerged local branches to keep or delete.
 - **Open (user):** star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper,
   rotate CRON_SECRET, re-enable Actions.
 
@@ -50,6 +52,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-02 (deep) — 3d213381
+Updated Machine A to 4.4.2. Merged #217-#220. README top image is now a real Claude Code session
+(#221, open); found and fixed a cross-project session-memory leak (#222, open). Issue 3 (UPDATE) is
+intended. Next: plain-language block reasons, economy hooks.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-11-02 (deep) — e51274e4
 Merged #216, released v4.4.2. Fixed release.sh `--yes`, blast push count, CI badge (per-commit master
 concurrency). README Highlights + problems table. Gaps re-checked: all fixed upstream; no compound
@@ -72,12 +80,4 @@ Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
 Taking all of randommonicle/claude-skills into 4.4. Merged #184-#196; #197 SQL gaps waiting on Windows;
 secret-printing + PowerShell secrets built, uncommitted. A replay caught two errexit fail-opens the new
 tests missed (memory `errexit-in-guard-is-fail-open`).
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-10-26 (deep) — 3d213381
-Audit day: ECC re-audit, Karpathy, Ponytail, cc-switch, gstack + open-source prompts, Graphify,
-Caveman, Orca, claude-mem, archify, ruflo, SkillSpector, raptor. Shipped #173-#179 to master, opened
-#180-#182; found rules/*.yml never loads, CC cost already includes subagents, Caveman rewrites commands.
-Later: merged #180-#183; #184 (Windows has no POSIX modes), #185 allowlists (its build agent routed
-around a refusal), #186 README-count test.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
