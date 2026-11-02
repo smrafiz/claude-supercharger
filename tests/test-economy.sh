@@ -230,4 +230,19 @@ else
 fi
 teardown_test_home
 
+# An economy.md with no "### Active Tier:" line made the tier grep match nothing;
+# under set -euo pipefail that exited economy-reinforce and agent-router with 1.
+begin_test "economy hooks: economy.md without a tier line does not crash the hook"
+setup_test_home
+mkdir -p "$HOME/.claude/rules"
+echo "# economy, no tier line" > "$HOME/.claude/rules/economy.md"
+RCS=""
+for h in adaptive-economy economy-reinforce agent-router; do
+  printf '{"session_id":"t","prompt":"refactor the auth module please","cwd":"/tmp","tool_name":"Agent","tool_input":{"prompt":"x","subagent_type":"Explore"}}' \
+    | bash "$REPO_DIR/hooks/$h.sh" >/dev/null 2>&1
+  RCS="$RCS$h=$? "
+done
+[ "$RCS" = "adaptive-economy=0 economy-reinforce=0 agent-router=0 " ] && pass || fail "exit codes: $RCS"
+teardown_test_home
+
 report

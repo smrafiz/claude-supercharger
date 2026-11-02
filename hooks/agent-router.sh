@@ -194,7 +194,7 @@ fi
 if [ -z "$TIER" ]; then
   ECONOMY_MD="$HOME/.claude/rules/economy.md"
   if [ -f "$ECONOMY_MD" ]; then
-    TIER=$(grep -m1 '^### Active Tier:' "$ECONOMY_MD" 2>/dev/null | sed 's/^### Active Tier:[[:space:]]*//' | sed 's/[[:space:]].*//' | tr -d '[:space:]')
+    TIER=$(grep -m1 '^### Active Tier:' "$ECONOMY_MD" 2>/dev/null | sed 's/^### Active Tier:[[:space:]]*//' | sed 's/[[:space:]].*//' | tr -d '[:space:]' || true)
   fi
 fi
 [ -z "$TIER" ] && TIER="lean"
