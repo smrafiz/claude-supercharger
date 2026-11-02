@@ -30,6 +30,12 @@ check "allow-unsafe-pr-checkout true" "$WF" $'on: pull_request_target\njobs:\n  
 check "pr_target + head.sha checkout" "$WF" $'on: pull_request_target\njobs:\n  t:\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: ${{ github.event.pull_request.head.sha }}\n      - run: npm ci && npm test\n' ASK
 check "workflow_run + refs/pull merge" "$WF" $'on:\n  workflow_run:\n    workflows: [ci]\njobs:\n  t:\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: refs/pull/42/merge\n' ASK
 
+# 4.4.3: a comment bot (issue_comment runs with the base repo's secrets) that checks out
+# the PR it was called on, with the PR number from an expression (crypto-org-chain/cronos).
+check "issue_comment + refs/pull/\${{ issue.number }}/head" "$WF" $'on:\n  issue_comment:\n    types: [created]\njobs:\n  review:\n    steps:\n      - uses: actions/checkout@v7\n        with:\n          ref: refs/pull/${{ github.event.issue.number }}/head\n' ASK
+check "pr_target + refs/pull/\${{ number }}/merge" "$WF" $'on: pull_request_target\njobs:\n  t:\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          ref: refs/pull/${{ github.event.number }}/merge\n' ASK
+check "issue_comment bot with no PR checkout" "$WF" $'on: issue_comment\njobs:\n  greet:\n    steps:\n      - uses: actions/github-script@v7\n' ALLOW
+
 # --- ALLOW: safe / non-matching ---
 check "plain push workflow"        "$WF" $'on: push\njobs:\n  t:\n    steps:\n      - uses: actions/checkout@v4\n      - run: npm test\n' ALLOW
 check "pr_target labeler (no head checkout)" "$WF" $'on: pull_request_target\njobs:\n  label:\n    steps:\n      - uses: actions/labeler@v5\n' ALLOW
