@@ -133,6 +133,19 @@ elif pattern == 'test':
     fail_indices = [i for i, l in enumerate(lines) if re.search(r'(FAIL|✗|❌|Error:|AssertionError|expect)', l)]
     if fail_indices:
         start = max(0, fail_indices[0] - 5)
+        # 4.4.3: start where the failure DETAIL is. `pytest -v` prints a progress line
+        # per test ("tests/x.py::test_a FAILED"), so the first match was usually that
+        # line and the 30-line window filled with PASSED neighbours, never reaching
+        # the assertion. Prefer pytest's FAILURES/ERRORS section; else the first
+        # match that is not a one-line progress entry.
+        detail = [i for i, l in enumerate(lines) if re.match(r'=+ (FAILURES|ERRORS) =+\s*$', l.strip())]
+        progress = re.compile(r'::\S+\s+(PASSED|FAILED|ERROR|SKIPPED|XFAIL|XPASS)\b')
+        if detail:
+            start = detail[0]
+        else:
+            real = [i for i in fail_indices if not progress.search(lines[i])]
+            if real:
+                start = max(0, real[0] - 5)
         end = min(len(lines), fail_indices[-1] + 20)
         # Cap excerpt at 30 lines
         if end - start > 30:
