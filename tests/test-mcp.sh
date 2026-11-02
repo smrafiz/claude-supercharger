@@ -283,6 +283,21 @@ GOT="$(mcp_entry notion | grep -o NOTION_TOKEN)$(mcp_entry sentry | grep -o SENT
 [ "$GOT" = "NOTION_TOKENSENTRY_ACCESS_TOKENFIGMA_API_KEYSLACK_MCP_XOXB_TOKEN" ] && pass || fail "got: $GOT"
 teardown_test_home
 
+# --- Test 10e: dev and full add Playwright and Magic UI for any role (menu promise) ---
+begin_test "mcp: dev and full profiles add playwright and magic-ui for a writer; full adds deepwiki"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"
+merge_mcp_into_settings "writer" "dev"
+DEV="$(has_mcp_server playwright)$(has_mcp_server magic-ui)$(has_mcp_server deepwiki)"
+merge_mcp_into_settings "writer" "full"
+FULL="$(has_mcp_server playwright)$(has_mcp_server magic-ui)$(has_mcp_server deepwiki)"
+if [ "$DEV" = "yesyesno" ] && [ "$FULL" = "yesyesyes" ]; then
+  pass
+else
+  fail "expected dev=yesyesno full=yesyesyes, got dev=$DEV full=$FULL"
+fi
+teardown_test_home
+
 # --- Test 11: Light profile excludes memory and sequential-thinking ---
 begin_test "mcp: light profile excludes memory and sequential-thinking"
 setup_test_home
