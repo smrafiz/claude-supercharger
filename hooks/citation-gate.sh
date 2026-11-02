@@ -15,6 +15,9 @@
 # and the full scan only json-parses lines that contain one of the candidates.
 # Fail-open. Disable: SUPERCHARGER_CITATION_GATE=0
 set -uo pipefail
+# lib-timing carries the /sc off kill-switch every hook must honour.
+# shellcheck source=hooks/lib-timing.sh
+. "${BASH_SOURCE[0]%/*}/lib-timing.sh" 2>/dev/null || true
 [ "${SUPERCHARGER_CITATION_GATE:-1}" = "0" ] && exit 0
 
 . "${BASH_SOURCE[0]%/*}/lib-stdin.sh" 2>/dev/null || true
