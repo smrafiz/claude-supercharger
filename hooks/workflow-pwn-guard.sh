@@ -2,7 +2,7 @@
 # Claude Supercharger — GitHub Actions "pwn request" Guard
 # Event: PreToolUse | Matcher: Write, Edit, MultiEdit
 #
-# A privileged workflow trigger (`pull_request_target` / `workflow_run`) runs with the
+# A privileged workflow trigger (`pull_request_target` / `workflow_run` / `issue_comment`) runs with the
 # BASE repo's GITHUB_TOKEN + secrets. If such a workflow then checks out the UNTRUSTED
 # fork-PR head (`github.event.pull_request.head.sha`, `refs/pull/N/merge`, …) and runs
 # it (npm ci, build, test), attacker PR code executes with those secrets — the classic
@@ -33,7 +33,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # (an Edit may add only the checkout, with the trigger already on-disk — python then
 # combines the two). Superset; precise judgement happens in python, workflow-path-gated.
 case "$_INPUT" in
-  *pull_request_target*|*workflow_run*|*allow-unsafe-pr-checkout*) : ;;
+  *pull_request_target*|*workflow_run*|*issue_comment*|*allow-unsafe-pr-checkout*) : ;;
   *head.sha*|*head.ref*|*pull_request.head*|*refs/pull*) : ;;
   # v4.2.0 shapes, only for workflow files (the path must be in the payload).
   *.github/workflows/*)
@@ -87,9 +87,11 @@ if re.search(r'allow-unsafe-pr-checkout\s*:\s*true', add, re.I):
     sys.exit(0)
 
 # ASK: privileged trigger AND a checkout of the untrusted PR head co-occur.
-trigger = re.search(r'\b(pull_request_target|workflow_run)\b', combined)
+# 4.4.3: issue_comment also runs with the base repo's token and secrets; a comment
+# bot that checks out the PR it was called on is the same vector.
+trigger = re.search(r'\b(pull_request_target|workflow_run|issue_comment)\b', combined)
 pr_head = re.search(
-    r'github\.event\.pull_request\.head|refs/pull/\d+/(?:head|merge)|\.head\.(?:sha|ref)\b',
+    r'github\.event\.pull_request\.head|refs/pull/(?:\d+|\$\{\{[^}]*\}\})/(?:head|merge)|\.head\.(?:sha|ref)\b',
     combined)
 if trigger and pr_head:
     print("ASK|%s + checkout of the untrusted PR head" % trigger.group(1))
@@ -131,7 +133,7 @@ if [ "$_VERDICT" = "WHY" ]; then
   exit 0
 fi
 
-_MSG="This workflow combines a privileged trigger (${_LABEL}). A pull_request_target/workflow_run job runs with the base repo's GITHUB_TOKEN + secrets, and checking out the untrusted fork-PR head then running it (npm ci/build/test) executes attacker code with those secrets — the 'pwn request' supply-chain vector. Confirm this is intended and the job does NOT expose secrets to PR-controlled code (or check out a trusted ref instead). (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"
+_MSG="This workflow combines a privileged trigger (${_LABEL}). A pull_request_target/workflow_run/issue_comment job runs with the base repo's GITHUB_TOKEN + secrets, and checking out the untrusted fork-PR head then running it (npm ci/build/test) executes attacker code with those secrets — the 'pwn request' supply-chain vector. Confirm this is intended and the job does NOT expose secrets to PR-controlled code (or check out a trusted ref instead). For a comment bot, check the commenter's repo permission before the checkout. (Disable: SUPERCHARGER_WORKFLOW_PWN_GUARD=0)"
 sc_decision ask "$_MSG"
 echo "[Supercharger] workflow-pwn-guard: ASK pwn-request workflow (${_LABEL})" >&2
 exit 0

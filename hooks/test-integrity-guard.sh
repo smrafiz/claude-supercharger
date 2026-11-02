@@ -9,6 +9,8 @@
 # the user to confirm when an edit to a test file removes assertions or introduces
 # skip/only markers. The closest existing hooks (lazy-refactor-check,
 # comment-replacement-check) inspect param/comment churn, not test semantics.
+# 4.4.3: in any other code file, asks when an edit ADDS a comment that silences a
+# checker (@ts-ignore, # noqa, //nolint ...); SUPERCHARGER_SUPPRESSION_GUARD=0.
 # Advisory + fail-open; disable with SUPERCHARGER_TEST_INTEGRITY_GUARD=0.
 #
 # v4.0.25 adds the sibling arm: weakening the LINTER instead of fixing the code.
@@ -48,6 +50,11 @@ case "$_INPUT" in
   *eslintrc*|*eslint.config*|*prettierrc*|*prettier.config*|*biome.json*|*ruff.toml*|\
   *.flake8*|*stylelintrc*|*stylelint.config*|*markdownlint*|*tsconfig*|*golangci*|\
   *.rubocop.yml*|*.pylintrc*|*setup.cfg*|*.shellcheckrc*) _TIG_HIT=1 ;;
+  # 4.4.3 source arm: a comment that silences a checker, in any code file.
+  *ts-ignore*|*ts-expect-error*|*ts-nocheck*|*eslint-disable*|*type:*ignore*|*noqa*|\
+  *pylint:*disable*|*pyright:*ignore*|*nolint*|*SuppressWarnings*|*allow\(*|\
+  *rubocop:disable*|*phpcs:*|*phpstan-ignore*|*psalm-suppress*|*biome-ignore*|\
+  *swiftlint:disable*|*NOSONAR*) _TIG_HIT=1 ;;
   *) _TIG_HIT=0 ;;
 esac
 eval "$_TIG_NOCASE" 2>/dev/null || true
@@ -107,7 +114,14 @@ is_lint = bool(
     or re.search(r"^\.golangci\.(yml|yaml|toml|json)$", low)
 )
 
-if not is_test and not is_lint:
+# 4.4.3: any other code file is checked for one thing only: added comments that
+# silence a type checker or linter (the error is hidden, not fixed).
+CODE_EXT = (".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".py", ".go", ".rs", ".java",
+            ".kt", ".rb", ".php", ".swift", ".cs", ".scala", ".vue", ".svelte")
+is_src = (not is_test and not is_lint and low.endswith(CODE_EXT)
+          and os.environ.get("SUPERCHARGER_SUPPRESSION_GUARD", "1") != "0")
+
+if not is_test and not is_lint and not is_src:
     sys.exit(0)
 
 # ── Signal regexes ────────────────────────────────────────────────────────────
@@ -272,6 +286,30 @@ if is_lint and os.environ.get("SUPERCHARGER_LINT_CONFIG_GUARD", "1") != "0":
         )
     sys.exit(0)
 
+SUPPRESS_RE = re.compile(
+    r"@ts-(?:ignore|expect-error|nocheck)\b"
+    r"|\beslint-disable(?:-next-line|-line)?\b"
+    r"|#\s*type:\s*ignore\b|#\s*noqa\b|#\s*pylint:\s*disable\b|#\s*pyright:\s*ignore\b"
+    r"|//\s*nolint\b|@SuppressWarnings\b|#!?\[allow\("
+    r"|rubocop:disable\b|phpcs:(?:ignore|disable)\b|@phpstan-ignore|@psalm-suppress\b"
+    r"|\bbiome-ignore\b|swiftlint:disable\b|\bNOSONAR\b"
+)
+
+if is_src:
+    added = 0
+    for old, new in pairs:
+        d = len(SUPPRESS_RE.findall(new)) - len(SUPPRESS_RE.findall(old))
+        if d > 0:
+            added += d
+    if added:
+        print(
+            "Suppression: this edit to %s adds %d comment(s) that silence a type checker "
+            "or linter. That hides the error instead of fixing it, the sibling of editing "
+            "a test to pass. Fix the cause, or confirm the suppression is deliberate. "
+            "Silence: SUPERCHARGER_SUPPRESSION_GUARD=0" % (name, added)
+        )
+    sys.exit(0)
+
 if not is_test:
     sys.exit(0)
 
@@ -313,6 +351,7 @@ print(
 sc_decision ask "$REASON"
 case "$REASON" in
   Lint-config:*) echo "[Supercharger] test-integrity-guard: ASK on lint-config edit" >&2 ;;
+  Suppression:*) echo "[Supercharger] test-integrity-guard: ASK on an added suppression" >&2 ;;
   *)             echo "[Supercharger] test-integrity-guard: ASK on test edit" >&2 ;;
 esac
 exit 0

@@ -87,8 +87,11 @@ if [ ! -f "$MEMORY_FILE" ]; then
     case "$_MT" in ''|*[!0-9]*) _MT=0 ;; esac
     if [ "$_MT" -gt 0 ] && [ $((_NOW_TS - _MT)) -lt 86400 ]; then
       _CK_PROJ=""; IFS= read -r _CK_PROJ < "$f" 2>/dev/null || true
-      [ "$_CK_PROJ" = "proj:$_CK_ROOT" ] || continue
-      CKPT=$(sed -n '2p' "$f" 2>/dev/null)
+      _CK_PROJ="${_CK_PROJ%$'\r'}"; _CK_PROJ="${_CK_PROJ#proj:}"
+      # One directory, several spellings on Windows (C:/x vs /c/x, 8.3 short names):
+      # -ef compares the directory itself when the strings differ.
+      { [ -n "$_CK_PROJ" ] && { [ "$_CK_PROJ" = "$_CK_ROOT" ] || [ "$_CK_PROJ" -ef "$_CK_ROOT" ]; }; } || continue
+      CKPT=$(sed -n '2p' "$f" 2>/dev/null | tr -d '\r')
       break
     else
       rm -f "$f" 2>/dev/null
