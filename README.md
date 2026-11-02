@@ -4,7 +4,7 @@ Safety hooks for Claude Code that run **outside Claude's process** — before co
 
 ![Version](https://img.shields.io/badge/version-4.4.2-blue) ![License](https://img.shields.io/badge/license-MIT-green) ![Platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey) [![CI](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml/badge.svg)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml) [![Tests](https://img.shields.io/endpoint?url=https://gist.githubusercontent.com/smrafiz/b57e04622039cbdf04f2a2ed338d36e7/raw/supercharger-tests.json)](https://github.com/smrafiz/claude-supercharger/actions/workflows/ci.yml)
 
-![Supercharger hooks denying destructive commands before they run](assets/demo/demo.gif)
+![A real Claude Code session: Supercharger asks before an rm -rf that would lose uncommitted files, then blocks a force push to main](assets/demo/claude.gif)
 
 ## Highlights
 
