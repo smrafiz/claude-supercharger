@@ -38,19 +38,23 @@ SUPERCHARGER_MCP_RETIRED="sequential-thinking memory"
 # Role-specific servers (zero-config only)
 get_role_servers() {
   local roles="$1"
+  local profile="${2:-light}"
   local servers=""
+  # The dev and full profiles promise Playwright, GitHub and Magic UI for any role.
+  local dev=""
+  case "$profile" in dev|full) dev=1 ;; esac
 
   # Heavy/specialty MCPs are opt-in via SUPERCHARGER_MCP_EXTRAS env var.
   # Examples: SUPERCHARGER_MCP_EXTRAS="playwright,github,sequential-thinking,memory"
   # Default install is lean — these are loaded only when explicitly requested.
   local extras="${SUPERCHARGER_MCP_EXTRAS:-}"
 
-  if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "github" && command -v gh &>/dev/null; then
+  if { [ -n "$dev" ] || { echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "github"; }; } && command -v gh &>/dev/null; then
     servers="${servers}
 github|gh|extension exec github-mcp-server stdio"
   fi
 
-  if echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "playwright"; then
+  if [ -n "$dev" ] || { echo "$roles" | grep -q "developer" && echo "$extras" | grep -q "playwright"; }; then
     servers="${servers}
 playwright|npx|-y @playwright/mcp --headless"
   fi
@@ -66,7 +70,7 @@ sequential-thinking|npx|-y @modelcontextprotocol/server-sequential-thinking"
 memory|npx|-y @modelcontextprotocol/server-memory"
   fi
 
-  if echo "$roles" | grep -qE "(developer|designer)"; then
+  if [ -n "$dev" ] || echo "$roles" | grep -qE "(developer|designer)"; then
     servers="${servers}
 magic-ui|npx|-y @magicuidesign/mcp@latest"
   fi
@@ -75,7 +79,7 @@ magic-ui|npx|-y @magicuidesign/mcp@latest"
 }
 
 # Build server list for a given profile and role set
-# Profiles: light | dev | research | full
+# Profiles: light | dev | research | full (dev = light + Playwright, GitHub, Magic UI)
 build_server_list() {
   local roles="$1"
   local profile="${2:-light}"
@@ -86,7 +90,7 @@ build_server_list() {
         get_research_servers
         ;;
     esac
-    get_role_servers "$roles"
+    get_role_servers "$roles" "$profile"
   } | sort -t'|' -k1,1 -u | grep -v '^$'
 }
 

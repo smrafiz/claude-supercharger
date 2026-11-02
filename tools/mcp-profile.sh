@@ -48,14 +48,9 @@ if [ -f "$ROLES_STAMP" ]; then
 fi
 
 # Map profile to internal args
-# 'dev' forces developer role to ensure playwright/magic-ui are included
+# lib/mcp.sh gives dev and full their Playwright, GitHub and Magic UI for any role.
 ROLES="$INSTALLED_ROLES"
 INTERNAL_PROFILE="$PROFILE"
-
-if [ "$PROFILE" = "dev" ]; then
-  INTERNAL_PROFILE="light"
-  echo "$ROLES" | grep -q "developer" || ROLES="developer,${ROLES}"
-fi
 
 echo "Switching to MCP profile: $PROFILE..."
 
