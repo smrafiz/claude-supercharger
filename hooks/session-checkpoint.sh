@@ -139,7 +139,8 @@ ckpt_file = os.path.join(scope_dir, '.checkpoint-' + session_id)
 # and cost. It now restores only a checkpoint written for its own project root.
 proj = _g('git', '-C', cwd, 'rev-parse', '--show-toplevel') or cwd
 try:
-    with open(ckpt_file, 'w') as f:
+    # newline='\n': Windows python would write CRLF, and the bash reader compares line 1 exactly.
+    with open(ckpt_file, 'w', newline='\n') as f:
         f.write('proj:' + proj + '\n' + line + '\n')
 except Exception:
     pass
