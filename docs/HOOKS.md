@@ -165,7 +165,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `version-floor-check` | SessionStart | (none) | Several hook EVENTS we register did not exist in older Claude Code builds. |
 | `webfetch-egress-guard` | PreToolUse | WebFetch,WebSearch,Monitor | The native WebFetch tool is an un-guarded network-egress channel: an indirect |
 | `workflow-guard` | PreToolUse | Workflow | The Agent channel has three guards (agent-gate, agent-poisoning-scanner, |
-| `workflow-pwn-guard` | PreToolUse | Write, Edit, MultiEdit | A privileged workflow trigger (`pull_request_target` / `workflow_run`) runs with the |
+| `workflow-pwn-guard` | PreToolUse | Write, Edit, MultiEdit | A privileged workflow trigger (`pull_request_target` / `workflow_run` / `issue_comment`) runs with the |
 | `write-secret-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Asks before WRITING a credential into a file. The secret patterns were already |
 
 ## Standalone tools
