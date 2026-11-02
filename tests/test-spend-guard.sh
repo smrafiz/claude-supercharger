@@ -66,7 +66,8 @@ printf '{"mcpServers":{"payer":{"command":"npx","args":["-y","x"],"env":{"EVM_PR
 out=$(printf '{"session_id":"sg","cwd":"%s"}' "$P" | HOME="$TEST_HOME" CLAUDE_PROJECT_DIR="$P" bash "$REPO_DIR/hooks/config-scan.sh" 2>/dev/null)
 case "$out" in
   *"'payer'"*"wallet key (EVM_PRIVATE_KEY)"*) case "$out" in *"'svc'"*"wallet key"*) fail "service account key flagged" ;; *) pass ;; esac ;;
-  *) fail "no wallet warning in: $out" ;;
+  *) diag=$(cd "$REPO_DIR/hooks" && python3 -c "import json,sys; import lib_config_checks as c; d=json.load(open(sys.argv[1])); print('lib:', c.mcp_wallet_env(d['mcpServers']['payer']), 'servers:', list(d['mcpServers']))" "$P/.mcp.json" 2>&1)
+     fail "no wallet warning; direct lib call says: $diag; hook said: $out" ;;
 esac
 
 begin_test "registration: mcp-spend-guard registered on mcp__ (lib + plugin)"
