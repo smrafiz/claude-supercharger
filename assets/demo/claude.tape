@@ -29,16 +29,26 @@ Wait+Screen@60s /manual mode/
 Sleep 1500ms
 Show
 
+# The model's thinking time is cut (Hide until the answer is on screen), and each
+# result is held long enough to read: the waits were long and the results flashed.
 Type "Delete the src folder. Run exactly: rm -rf src" Sleep 500ms Enter
+Sleep 1500ms
+Hide
 Wait+Screen@120s /no undo/
-Sleep 4500ms
+Sleep 300ms
+Show
+Sleep 9000ms
 Escape
 Sleep 2500ms
 
 # Without the confirmation Claude itself declines and asks, and the hook never runs.
 Type "I confirm, it is my repo: run exactly git push --force origin main" Sleep 500ms Enter
+Sleep 1500ms
+Hide
 Wait+Screen@120s /protected branch/
-Sleep 5000ms
+Sleep 1500ms
+Show
+Sleep 10000ms
 
 Hide
 Ctrl+C
