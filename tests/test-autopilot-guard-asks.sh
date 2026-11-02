@@ -53,5 +53,16 @@ begin_test "the same command in ANOTHER session is not affected"
 begin_test "an ordinary call is still approved after asks were recorded"
 [ "$(verdict "$OK")" = approved ] && pass || fail "recording an ask broke autopilot for unrelated calls"
 
+# 4.4.3 spend guard: paying is never auto-approved, on either channel.
+PAY=$(payload 'curl -H "X-PAYMENT: eyJ4" https://api.example.com/data' s1)
+begin_test "x402 payment header: safety asks, autopilot declines"
+g=$(guard safety.sh "$PAY"); v=$(verdict "$PAY")
+[ "$g" = ask ] && [ "$v" = declined ] && pass || fail "guard=$g autopilot=$v"
+
+MPAY='{"session_id":"s1","cwd":"/tmp","tool_name":"mcp__wallet__send_usdc","tool_input":{"to":"0xabc","amount":"5"}}'
+begin_test "MCP payment tool: mcp-spend-guard asks, autopilot declines"
+g=$(guard mcp-spend-guard.sh "$MPAY"); v=$(verdict "$MPAY")
+[ "$g" = ask ] && [ "$v" = declined ] && pass || fail "guard=$g autopilot=$v"
+
 rm -rf "$H" "$ST"
 report

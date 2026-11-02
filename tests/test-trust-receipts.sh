@@ -66,6 +66,12 @@ post mcp__claude-in-chrome__tabs_create_mcp '{}'
 post mcp__plugin_team_slack__postMessage '{"channel":"C1"}'
 [ "$(count)" = 1 ] && last | grep -q 'postMessage C1' && pass || fail "got: $(cat "$R"/*.jsonl 2>/dev/null)"
 
+begin_test "receipts: an MCP payment is recorded, a balance read is not"
+reset
+post mcp__wallet__get_balance '{}'
+post mcp__wallet__pay '{"to":"0xabc"}'
+[ "$(count)" = 1 ] && last | grep -q 'pay' && pass || fail "got: $(cat "$R"/*.jsonl 2>/dev/null)"
+
 begin_test "receipts: Artifact publish is recorded, read is not"
 reset
 post Artifact '{"action":"read","url":"https://claude.ai/artifact/x"}'

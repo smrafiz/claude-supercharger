@@ -253,6 +253,28 @@ if mcp_json.is_file():
                     f"Verify this server is intentional before trusting this folder."
                 )
 
+# --- An MCP server that holds a wallet key lets the agent spend money with no
+# prompt (x402 pay-per-call servers sign payments on their own). Project and user
+# servers both; names only. mcp-spend-guard asks on tools that pay by name.
+_wallet_env = _cc.mcp_wallet_env if _cc and hasattr(_cc, 'mcp_wallet_env') else (lambda s: [])
+_user_servers = {}
+try:
+    with (Path.home() / '.claude.json').open() as f:
+        _user_servers = (json.load(f) or {}).get('mcpServers') or {}
+except Exception:
+    pass
+for _where, _set in (('.mcp.json', servers), ('~/.claude.json', _user_servers)):
+    if not isinstance(_set, dict):
+        continue
+    for name, server in _set.items():
+        keys = _wallet_env(server)
+        if keys:
+            warnings.append(
+                f"[SECURITY] MCP server '{name}' in {_where} holds a wallet key ({', '.join(keys[:3])}). "
+                f"An agent using it can spend money without asking. Fund that wallet with only "
+                f"what you are willing to lose, or set a spending limit in the server."
+            )
+
 # --- MCP server baseline. The risk check above stays quiet for npx/uvx/docker
 # launchers, and a `git pull` can swap any server's command between sessions with
 # nothing noticing. Record each stdio server's command+args per project; warn when
