@@ -169,4 +169,22 @@ INST=$(python3 -c "print('\n'.join(['npm warn ERESOLVE overriding peer dependenc
 V=$(_gen "npm install" <<<"$INST")
 printf '%s' "$V" | grep -qF 'x30 similar]' && printf '%s' "$V" | grep -qF 'rimraf@3.0.2' && pass || fail "got: $(printf '%s' "$V" | head -5)"
 
+# 4.4.3: with `pytest -v` the first FAILED line is a one-line progress entry, so
+# the excerpt window filled with PASSED neighbours and never showed the assertion.
+VERB=$(python3 - <<'PY'
+o = "".join("tests/t.py::test_%d PASSED\n" % i for i in range(40))
+o += "tests/t.py::test_login FAILED\n" + "".join("tests/u.py::test_%d PASSED\n" % i for i in range(40))
+o += "=================================== FAILURES ===================================\n"
+o += ">       assert login().status == 200\nE       AssertionError: assert 401 == 200\n"
+o += "=========================== short test summary info ============================\n"
+o += "FAILED tests/t.py::test_login - AssertionError: assert 401 == 200\n"
+o += "========== 1 failed, 80 passed in 2.0s ==========\n"
+print(o)
+PY
+)
+begin_test "bash-output-compactor: a -v run's excerpt shows the assertion, not PASSED neighbours"
+V=$(_gen "pytest -v" <<<"$VERB")
+printf '%s' "$V" | grep -qF 'E       AssertionError: assert 401 == 200' && [ "$(printf '%s' "$V" | grep -c 'PASSED')" -lt 5 ] \
+  && pass || fail "got: $(printf '%s' "$V" | head -8)"
+
 report
