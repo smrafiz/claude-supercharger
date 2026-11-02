@@ -14,7 +14,7 @@ mkdir -p "$PROJ/.claude"
 (cd "$PROJ" && git init -q && git commit --allow-empty -m "init" -q)
 SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"
 mkdir -p "$SCOPE_DIR"
-echo "branch:main files:src/app.ts" > "$SCOPE_DIR/.checkpoint-test-session-1"
+printf 'proj:%s\nbranch:main files:src/app.ts\n' "$(git -C "$PROJ" rev-parse --show-toplevel)" > "$SCOPE_DIR/.checkpoint-test-session-1"
 INPUT="{\"cwd\":\"$PROJ\"}"
 OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
 if echo "$OUTPUT" | grep -q "RECOVERY"; then
@@ -22,7 +22,17 @@ if echo "$OUTPUT" | grep -q "RECOVERY"; then
 else
   fail "expected 'RECOVERY' in output, got: $OUTPUT"
 fi
-rm -rf "$PROJ" "$FAKE_HOME"
+
+# 4.4.3: a checkpoint from ANOTHER project (or an old one with no project line) is
+# never restored. A new project used to be told another project's branch and files.
+begin_test "session-memory-inject: never restores another project's checkpoint"
+OTHER=$(mktemp -d); (cd "$OTHER" && git init -q && git commit --allow-empty -m "init" -q)
+rm -f "$SCOPE_DIR"/.checkpoint-*
+printf 'proj:%s\nbranch:secret-feature files:src/x.ts\n' "$(git -C "$OTHER" rev-parse --show-toplevel)" > "$SCOPE_DIR/.checkpoint-other-1"
+echo "branch:old-format-leak files:src/y.ts" > "$SCOPE_DIR/.checkpoint-legacy-1"
+OUTPUT=$(export HOME="$FAKE_HOME"; printf '%s' "$INPUT" | bash "$HOOK" 2>/dev/null)
+case "$OUTPUT" in *secret-feature*|*old-format-leak*) fail "leaked: $OUTPUT" ;; *) pass ;; esac
+rm -rf "$PROJ" "$FAKE_HOME" "$OTHER"
 
 # Test 2: prefers memory file over checkpoint
 begin_test "session-memory-inject: prefers memory file over checkpoint"

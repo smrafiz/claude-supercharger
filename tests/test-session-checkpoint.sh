@@ -78,7 +78,8 @@ INPUT="{\"session_id\":\"ckpt-cap\",\"tool_name\":\"Bash\",\"tool_input\":{\"com
 SCOPE_DIR="$FAKE_HOME/.claude/supercharger/scope"
 CKPT_FILE="$SCOPE_DIR/.checkpoint-ckpt-cap"
 if [ -f "$CKPT_FILE" ]; then
-  FILE_SIZE=$(wc -c < "$CKPT_FILE" | tr -d ' ')
+  # Line 1 names the project (4.4.3); the 500-char cap applies to the summary line.
+  FILE_SIZE=$(sed -n '2p' "$CKPT_FILE" | wc -c | tr -d ' ')
   # +1 for the trailing newline added by printf '%s\n'
   if [ "$FILE_SIZE" -le 501 ]; then
     pass
