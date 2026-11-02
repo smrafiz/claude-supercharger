@@ -23,6 +23,12 @@ reads is worse than a short one somebody does.
 **Step 1 — Gather state**
 Read git status, recent commits, modified files, and any .claude/supercharger-memory.md.
 
+Also list worktrees (`git worktree list`). For each one other than the main checkout,
+note whether it is **stale**: its branch is merged (`git branch --merged <default
+branch>`, or `gh pr list --head <branch> --state merged` for a squash merge), or its
+directory is gone (`git worktree prune --dry-run`). Report them; never remove one here,
+and say so if a stale worktree still has uncommitted changes (`git -C <path> status --short`).
+
 **Step 2 — Compile brief**
 Fill in every field. Leave nothing blank — write "none" if empty.
 
@@ -57,6 +63,11 @@ Output format:
 
 ### Blockers
 - [blocker]: [what's needed to unblock]
+
+### Worktrees
+- [path] ([branch]): active | stale, merged in #N | stale, has uncommitted changes
+  ("none" when only the main checkout exists. Remove a clean stale one with
+  `git worktree remove <path>` and delete its branch.)
 
 ### Files Touched
 - [file path]: [what changed and why]
