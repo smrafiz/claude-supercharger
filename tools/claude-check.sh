@@ -281,7 +281,7 @@ else:
 if user:
     for k in sorted(user):
         print(f'  \033[0;34m●\033[0m {k} (user-configured)')
-core = ['context7', 'sequential-thinking', 'memory']
+core = ['context7']
 missing = [c for c in core if not any(c in k for k in sc)]
 if missing:
     print(f'  \033[0;31m✗\033[0m Missing core: {\", \".join(missing)}')

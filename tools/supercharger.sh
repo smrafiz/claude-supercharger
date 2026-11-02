@@ -208,7 +208,7 @@ export-preset.sh:Export current config as a .supercharger file for sharing
 hook-new.sh:Scaffold a new hook with standard boilerplate
 hook-toggle.sh:Enable or disable individual hooks without reinstalling
 import-preset.sh:Apply a teammate's .supercharger preset file
-mcp-setup.sh:Install and configure MCP servers (context7, sequential, etc.)
+mcp-setup.sh:Install and configure MCP servers (Brave, Notion, Sentry, Figma, Slack)
 profile-switch.sh:Switch active persona profile
 resume.sh:Restore session from a saved summary
 supercharger.sh:This screen — capability overview
