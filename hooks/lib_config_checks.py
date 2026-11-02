@@ -137,6 +137,21 @@ def mcp_server_risk(server, project_dir):
                 break
     return reasons or None
 
+_WALLET_NAME = re.compile(r'^(PRIVATE_KEY|MNEMONIC|SEED_PHRASE)$|'
+                          r'(WALLET|EVM|ETH|SOLANA|SOL|CDP|X402|CRYPTO|BASE).*(PRIVATE_KEY|SECRET|MNEMONIC|SEED)')
+_WALLET_VALUE = re.compile(r'^0x[0-9a-fA-F]{64}$')
+
+
+def mcp_wallet_env(server):
+    """Env names in an MCP server entry that hold a wallet key (an agent using that
+    server can spend money with no prompt). Names only, never values."""
+    env = server.get('env') if isinstance(server, dict) else None
+    if not isinstance(env, dict):
+        return []
+    return [k for k, v in env.items() if isinstance(k, str) and
+            (_WALLET_NAME.search(k.upper()) or (isinstance(v, str) and _WALLET_VALUE.match(v.strip())))]
+
+
 def settings_hook_commands(settings):
     """'<event>: <command>' for every hook a settings dict defines that is not ours."""
     out = []

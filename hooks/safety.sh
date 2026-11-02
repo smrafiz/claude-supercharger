@@ -1862,6 +1862,15 @@ if [[ "$CMD" =~ (^|[[:space:]\;\&\|\(])(gh|glab)[[:space:]]+api[[:space:]] ]] \
   exit 0
 fi
 
+# 4.4.3: a request carrying an x402 payment (v1 X-PAYMENT, v2 PAYMENT-SIGNATURE) or
+# an L402 Lightning payment spends money. Agents pay per call with no prompt; ASK.
+# X-PAYMENT-RESPONSE is the server's receipt header, so `-RESPONSE` never matches.
+if [[ "$CMD" =~ [\"\'[:space:]]([Xx]-[Pp][Aa][Yy][Mm][Ee][Nn][Tt]|[Pp][Aa][Yy][Mm][Ee][Nn][Tt]-[Ss][Ii][Gg][Nn][Aa][Tt][Uu][Rr][Ee])[\"\']?[[:space:]]*[:,=] ]] \
+   || [[ "$CMD" =~ [Aa]uthorization[\"\']?[[:space:]]*[:,=][[:space:]]*[\"\']?L402[[:space:]] ]]; then
+  sc_decision ask "this request carries a payment (an x402 or L402 payment header), so running it spends money from a wallet." "confirm the amount and the recipient first"
+  exit 0
+fi
+
 # v4.2.0: installing a plugin, adding a marketplace or a skill pulls in code that runs
 # with your privileges (plugin hooks, MCP servers, scripts). A self-hosted marketplace
 # auto-updates under the trust given at install, with no re-consent (claude-code

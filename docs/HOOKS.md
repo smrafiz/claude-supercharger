@@ -92,6 +92,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `mcp-output-truncator` | PostToolUse | mcp__ | Truncates large MCP tool responses to prevent context window flooding. |
 | `mcp-playwright-guard` | PreToolUse | mcp__playwright__*,mcp__puppeteer__* | Blocks browser-MCP shapes that exfiltrate or RCE. Real CVEs: |
 | `mcp-provenance` | PostToolUse | mcp__ | Complements prompt-injection-scanner (which catches "ignore instructions"-style |
+| `mcp-spend-guard` | PreToolUse | mcp__ | Pay-per-call MCP servers (x402, L402) and wallet servers let an agent spend money |
 | `mcp-sql-guard` | PreToolUse | mcp__postgres__*,mcp__supabase__* | Blocks destructive SQL via the Postgres / Supabase MCP servers. Real incident: |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
 | `memory-write-guard` | PreToolUse | Write,Edit | Blocks writes to AUTO-LOADED files (persistent memory AND agent-instruction files) |

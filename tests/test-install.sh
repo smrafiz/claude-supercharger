@@ -230,10 +230,10 @@ print(count)
 # Safe mode = safety + smart-approve + audit-trail + trace-compactor + injection-scanner
 # + per-MCP guards + memory-guard + mcp-provenance + elicitation-guard + prompt-layer-inject
 # + plugin-config-seed + readonly-guard + critical-infra-guard + webfetch-egress-guard = 30
-if [ "$HOOK_COUNT" -eq 45 ]; then
+if [ "$HOOK_COUNT" -eq 46 ]; then
   pass
 else
-  fail "expected 45 hooks in safe mode, got $HOOK_COUNT"
+  fail "expected 46 hooks in safe mode, got $HOOK_COUNT"
 fi
 teardown_test_home
 
