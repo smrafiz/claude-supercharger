@@ -4,7 +4,7 @@
 # Profiles:
 #   light    — context7 only (~300 tokens)
 #   dev      — light + playwright + github + magic-ui
-#   research — light + memory + sequential-thinking (~1,500 tokens)
+#   research — light + deepwiki (remote, no key)
 #   full     — everything (~3,500 tokens)
 
 set -euo pipefail
@@ -22,7 +22,7 @@ if [ -z "$PROFILE" ]; then
   echo ""
   echo "  light    — context7 only (~300 tokens of tool schemas)"
   echo "  dev      — light + playwright + github + magic-ui"
-  echo "  research — light + memory + sequential-thinking"
+  echo "  research — light + deepwiki (ask about any public GitHub repo)"
   echo "  full     — everything"
   echo ""
   _CUR=""

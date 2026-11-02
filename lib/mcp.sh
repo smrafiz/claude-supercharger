@@ -18,13 +18,22 @@ context7|npx|-y @upstash/context7-mcp
 SERVERS
 }
 
-# Research/heavy-thinking servers — loaded in 'research' and 'full' profiles
+# Research servers — loaded in 'research' and 'full' profiles. `http` as the
+# command means a remote server: the third field is its URL.
+# sequential-thinking and memory left this list in 4.4.3: Claude's built-in thinking
+# and memory do their job. Both stay available via SUPERCHARGER_MCP_EXTRAS.
 get_research_servers() {
   cat <<'SERVERS'
-sequential-thinking|npx|-y @modelcontextprotocol/server-sequential-thinking
-memory|npx|-y @modelcontextprotocol/server-memory
+deepwiki|http|https://mcp.deepwiki.com/mcp
 SERVERS
 }
+
+# Servers tools/mcp-setup.sh adds with the user's own key or sign-in. No profile
+# builds them, so a reinstall or profile switch must carry them over, never wipe them.
+SUPERCHARGER_MCP_KEYED="brave-search notion sentry figma slack"
+# Servers older research/full profiles installed. Kept on reinstall within research or
+# full so an update never removes them silently; switching to light still drops them.
+SUPERCHARGER_MCP_RETIRED="sequential-thinking memory"
 
 # Role-specific servers (zero-config only)
 get_role_servers() {
@@ -111,7 +120,8 @@ _write_mcp_to_file() {
   local profile="${4:-light}"
 
   SETTINGS_FILE="$settings_file" MCP_TAG="$tag" SERVERS_INPUT="$server_list" \
-  MCP_PROFILE="$profile" MCP_CUSTOM_FILE="$SUPERCHARGER_MCP_CUSTOM" python3 -c "
+  MCP_PROFILE="$profile" MCP_CUSTOM_FILE="$SUPERCHARGER_MCP_CUSTOM" \
+  MCP_KEYED="$SUPERCHARGER_MCP_KEYED" MCP_RETIRED="$SUPERCHARGER_MCP_RETIRED" python3 -c "
 import json, os, sys
 
 settings_file = os.environ['SETTINGS_FILE']
@@ -131,11 +141,27 @@ else:
 if 'mcpServers' not in settings:
     settings['mcpServers'] = {}
 
-# Remove existing supercharger MCP entries
+# Remove existing supercharger MCP entries, except the user's keyed servers and,
+# within research/full, the retired research servers (see lib/mcp.sh).
+profile = os.environ.get('MCP_PROFILE', 'light')
+keep = set(os.environ.get('MCP_KEYED', '').split())
+if profile in ('research', 'full'):
+    keep |= set(os.environ.get('MCP_RETIRED', '').split())
 settings['mcpServers'] = {
     k: v for k, v in settings['mcpServers'].items()
-    if tag not in k
+    if tag not in k or k.replace(' ' + tag, '') in keep
 }
+
+# Before 4.4.3 mcp-setup stored these keys under names their packages never read.
+renames = {'NOTION_API_KEY': 'NOTION_TOKEN', 'SENTRY_AUTH_TOKEN': 'SENTRY_ACCESS_TOKEN',
+           'FIGMA_ACCESS_TOKEN': 'FIGMA_API_KEY', 'SLACK_BOT_TOKEN': 'SLACK_MCP_XOXB_TOKEN'}
+for k, v in settings['mcpServers'].items():
+    env = v.get('env') if tag in k and isinstance(v, dict) else None
+    if isinstance(env, dict):
+        for old, new in renames.items():
+            if old in env:
+                val = env.pop(old)
+                env.setdefault(new, val)
 
 # Add new entries
 for line in servers_input.strip().split('\n'):
@@ -148,6 +174,9 @@ for line in servers_input.strip().split('\n'):
     env_str = parts[3].strip() if len(parts) > 3 else ''
 
     key = name + ' ' + tag
+    if command == 'http':
+        settings['mcpServers'][key] = {'type': 'http', 'url': args_str}
+        continue
     entry = {'command': command, 'args': args_str.split()}
     if env_str:
         try:
@@ -161,7 +190,6 @@ for line in servers_input.strip().split('\n'):
 # is the source of truth, so a server excluded by the current profile is dropped from
 # the config but never lost — switching back restores it.
 custom_file = os.environ.get('MCP_CUSTOM_FILE', '')
-profile = os.environ.get('MCP_PROFILE', 'light')
 if custom_file and os.path.exists(custom_file):
     try:
         with open(custom_file) as f:

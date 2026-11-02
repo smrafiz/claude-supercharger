@@ -284,7 +284,7 @@ elif [[ "$NON_INTERACTIVE" == "false" ]]; then
   echo ""
   echo -e "  ${BOLD}1)${NC} Light    — context7 docs lookup only (~300 tokens) [recommended]"
   echo -e "  ${BOLD}2)${NC} Dev      — + Playwright, GitHub, Magic UI (~1,200 tokens)"
-  echo -e "  ${BOLD}3)${NC} Research — + memory + sequential thinking (~1,500 tokens)"
+  echo -e "  ${BOLD}3)${NC} Research — + DeepWiki (ask about any public repo)"
   echo -e "  ${BOLD}4)${NC} Full     — everything: dev + research (~3,500 tokens)"
   echo ""
   echo "  Heavy/specialty MCPs are opt-in post-install via env var:"
@@ -720,7 +720,7 @@ _sc_mcp_has() { grep -q "\"$1 #supercharger\"" "$HOME/.claude.json" 2>/dev/null;
 if [[ "$SETTINGS_ACTION" != "skip" ]] && _sc_mcp_has context7; then
   echo -e "${CYAN}  MCP Quick Tips:${NC}"
   echo -e "  Try: ${BOLD}\"Look up React useEffect docs\"${NC} → Context7"
-  if _sc_mcp_has sequential-thinking; then echo -e "  Try: ${BOLD}\"Think through this step by step\"${NC} → Sequential Thinking"; fi
+  if _sc_mcp_has deepwiki; then echo -e "  Try: ${BOLD}\"How does routing work in vercel/next.js?\"${NC} → DeepWiki"; fi
   if _sc_mcp_has playwright; then echo -e "  Try: ${BOLD}\"Test the login page in a browser\"${NC} → Playwright"; fi
   if _sc_mcp_has magic-ui; then echo -e "  Try: ${BOLD}\"Add an animated marquee of logos\"${NC} → Magic UI"; fi
   echo ""
