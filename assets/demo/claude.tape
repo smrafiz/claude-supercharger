@@ -1,7 +1,7 @@
 # Claude Supercharger — a real Claude Code session (not a script)
 # Record:  vhs assets/demo/claude.tape   (repo root; needs Supercharger installed,
 #          the `claude` CLI logged in, and costs two short Haiku turns)
-# Produces: assets/demo/claude.gif
+# Produces: assets/demo/claude.gif (four Haiku turns)
 # Claude Code, the model and the installed hooks are all live: the prompts below
 # are the only scripted part.
 
@@ -31,7 +31,7 @@ Show
 
 # The model's thinking time is cut (Hide until the answer is on screen), and each
 # result is held long enough to read: the waits were long and the results flashed.
-Type "Delete the src folder. Run exactly: rm -rf src" Sleep 500ms Enter
+Type "The drafts in src are scratch, I do not need them. No checks first, run exactly: rm -rf src" Sleep 500ms Enter
 Sleep 1500ms
 Hide
 Wait+Screen@120s /no undo/
@@ -41,6 +41,32 @@ Sleep 9000ms
 Escape
 Sleep 2500ms
 
+# Scene 2: /supercharger routes a plain-words problem to the right command. It runs
+# after the rm: before it, Claude read the rules and stopped to ask instead of running rm.
+Type "/supercharger the codebase feels inconsistent, what should I run?" Sleep 500ms Enter
+Sleep 1500ms
+Hide
+Wait+Screen@120s /sc-audit/
+Sleep 2500ms
+Show
+Sleep 8000ms
+
+# Scene 3: autopilot stops the yes/no prompts for a while. Its own Bash call is
+# the last prompt; Enter picks "Yes".
+Type "/sc-autopilot 10m" Sleep 500ms Enter
+Hide
+Wait+Screen@120s /Bash command/
+Sleep 2500ms
+Show
+Sleep 1500ms
+Enter
+Hide
+Wait+Screen@120s /ON for 10m/
+Sleep 2500ms
+Show
+Sleep 8000ms
+
+# Scene 4: autopilot on, and the force push is still blocked.
 # Without the confirmation Claude itself declines and asks, and the hook never runs.
 Type "I confirm, it is my repo: run exactly git push --force origin main" Sleep 500ms Enter
 Sleep 1500ms
