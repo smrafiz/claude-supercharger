@@ -76,6 +76,9 @@ begin_test "…and that enumeration actually examined the blockers"
 
 # --- behavioural, through a real gate ----------------------------------------
 # A short timeout keeps the suite fast; the code path is identical.
+# A and D test a payload that ARRIVES, so they get 10s: at 1s a loaded Windows
+# runner timed out before bash read the pipe and D failed with the timeout ask
+# (run 41490843987, twice). B and C need the short timeout; A and D do not.
 _STO_TD=$(mktemp -d)
 _STO_KEY="sk-ant-api03-$(printf 'D%.0s' $(seq 95))"
 printf '<html>%s</html>' "$_STO_KEY" > "$_STO_TD/secret.html"
@@ -87,7 +90,7 @@ _sto_payload() {
 begin_test "A: a payload that arrives is still denied (baseline)"
 # Without this the three below prove nothing — silence could mean no bug or no
 # fixture. [[measurement-fixture-defects]]
-_STO_RC=$(_sto_payload "$_STO_TD/secret.html" | SUPERCHARGER_STDIN_TIMEOUT_S=1 bash "$GUARD" >/dev/null 2>&1; echo $?)
+_STO_RC=$(_sto_payload "$_STO_TD/secret.html" | SUPERCHARGER_STDIN_TIMEOUT_S=10 bash "$GUARD" >/dev/null 2>&1; echo $?)
 [ "$_STO_RC" = "2" ] && pass || fail "baseline is not a deny, rc=$_STO_RC — the rest of this block is meaningless"
 
 begin_test "B: a payload slower than the timeout asks instead of allowing"
@@ -104,7 +107,7 @@ _STO_OUT=$(printf '' | SUPERCHARGER_STDIN_TIMEOUT_S=1 bash "$GUARD" 2>&1)
 [ -z "$_STO_OUT" ] && pass || fail "nags on empty stdin: ${_STO_OUT:0:80}"
 
 begin_test "D: a clean page that arrives is still silent"
-_STO_OUT=$(_sto_payload "$_STO_TD/clean.html" | SUPERCHARGER_STDIN_TIMEOUT_S=1 bash "$GUARD" 2>&1)
+_STO_OUT=$(_sto_payload "$_STO_TD/clean.html" | SUPERCHARGER_STDIN_TIMEOUT_S=10 bash "$GUARD" 2>&1)
 [ -z "$_STO_OUT" ] && pass || fail "false positive on a clean page: ${_STO_OUT:0:80}"
 
 # 2026-10-15 (audit follow-up): the non-blocking reader's stderr lands in a debug

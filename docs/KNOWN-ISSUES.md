@@ -1,6 +1,6 @@
 # Known Issues
 
-Status: **2 open (#5 and #6 both narrowed v4.0.31), 1 informational (#7, not ours to fix)** · Last updated: 2026-09-18 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions. #7 opened 2026-09-18, confirmed upstream Claude Code behavior — Supercharger itself is unaffected.
+Status: **3 open (#5 and #6 narrowed v4.0.31; #8 opened 2026-11-03), 1 informational (#7, not ours to fix)** · Last updated: 2026-11-03 · The original four (opened against v2.29.22) are all fixed: #1 v2.29.24, #4 v2.29.25, #2 v2.29.26, #3 v2.29.27. #5 and #6 opened 2026-08-27; both are LIMITS, not regressions. #7 opened 2026-09-18, confirmed upstream Claude Code behavior — Supercharger itself is unaffected.
 
 Defects that are diagnosed but not fixed. Each entry carries a reproduction and the
 evidence behind the diagnosis, so the next session can act without re-deriving it.
@@ -16,6 +16,7 @@ for what is currently broken.
 | 5 | a sensitive path bound to a variable is not tracked (narrowed v4.0.31) | low | credential-read coverage |
 | 6 | injected instructions in fetched content are only caught in blunt forms | low | prompt-injection defence |
 | 7 | nested `CLAUDE.md` stops loading under Auto Mode's Bash-first directive (upstream, informational) | n/a | user awareness only |
+| 8 | `tools/gen-commands-shipped.sh` output depends on the machine's git refs | medium | safe command upgrades |
 | ~~1~~ | ~~`test-e2e-integration.sh` fails on a clean working tree~~ | ~~high~~ | **fixed v2.29.24** |
 | ~~2~~ | ~~`release.sh` gates on a dirty tree~~ | ~~high~~ | **fixed v2.29.26** |
 | ~~3~~ | ~~`claim-evidence-gate` matches substrings, not verdicts~~ | ~~medium~~ | **fixed v2.29.27** |
@@ -362,3 +363,23 @@ or Claude Code's load path. A hook that notices Auto Mode is active and a nested
 Supercharger's reach — not built and not queued: no report yet of a Supercharger
 user actually hitting this, and principle 1 in `ROADMAP.md` (work without code) says
 don't build it speculatively. Revisit if that changes.
+
+---
+
+## 8 — `tools/gen-commands-shipped.sh` output depends on the machine's git refs
+
+**Opened 2026-11-03.** The generator walks `git log --all -- configs/commands`, so it sees
+only the commits reachable from refs on the machine that runs it. On a second machine
+(fresh clone, no old local branches) it produced `1 insertion, 26 deletions` against the
+committed `configs/commands-shipped.txt`: it dropped 26 hashes of command versions that
+did ship. Committed as-is, the installer would read those old files as user-written and
+never replace or remove them.
+
+**Workaround (used for #232).** Keep every committed line and add only the new ones:
+`git show HEAD:configs/commands-shipped.txt | cat - <regenerated> | sort -u`.
+
+**Fix: not done.** Make the generator a union with the committed file, so it can only add.
+
+**Reproduce.** On a clone without the old branches: `bash tools/gen-commands-shipped.sh &&
+git diff --numstat configs/commands-shipped.txt`.
+
