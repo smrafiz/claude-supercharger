@@ -55,7 +55,7 @@ else:
 echo ""
 
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
-echo -e "${CYAN}  Advanced MCP Servers (API key required)  ${NC}"
+echo -e "${CYAN}  Advanced MCP Servers (key or sign-in)    ${NC}"
 echo -e "${CYAN}═══════════════════════════════════════════${NC}"
 echo ""
 
@@ -63,13 +63,16 @@ echo ""
 SERVER_NAMES=("brave-search" "notion" "sentry" "figma" "slack")
 SERVER_LABELS=(
   "Brave Search (API Key — free: 2K/mo)"
-  "Notion (API Key)"
-  "Sentry (Auth Token)"
-  "Figma (Access Token)"
+  "Notion (Integration Token, or browser sign-in)"
+  "Sentry (browser sign-in, or Access Token)"
+  "Figma (browser sign-in, or Personal Access Token)"
   "Slack (Bot Token — no admin approval needed)"
 )
+# Brave, Notion and Sentry are the vendors' own packages; figma-developer-mcp and
+# slack-mcp-server are community ones (no official local package). Each variable
+# name is the one its package reads: a wrong name gives a server that starts and fails.
 SERVER_CMDS=(
-  "-y brave-search-mcp"
+  "-y @brave/brave-search-mcp-server"
   "-y @notionhq/notion-mcp-server"
   "-y @sentry/mcp-server"
   "-y figma-developer-mcp"
@@ -77,10 +80,19 @@ SERVER_CMDS=(
 )
 SERVER_ENV_KEYS=(
   "BRAVE_API_KEY"
-  "NOTION_API_KEY"
-  "SENTRY_AUTH_TOKEN"
-  "FIGMA_ACCESS_TOKEN"
-  "SLACK_BOT_TOKEN"
+  "NOTION_TOKEN"
+  "SENTRY_ACCESS_TOKEN"
+  "FIGMA_API_KEY"
+  "SLACK_MCP_XOXB_TOKEN"
+)
+# The vendor's own remote server: pressing Enter at the key prompt adds this and
+# Claude Code signs in through the browser on first use. Empty = key only.
+SERVER_REMOTE=(
+  ""
+  "https://mcp.notion.com/mcp"
+  "https://mcp.sentry.dev/mcp"
+  "https://mcp.figma.com/mcp"
+  ""
 )
 
 # Note: GitHub MCP is now Docker-based (ghcr.io/github/github-mcp-server)
@@ -112,10 +124,11 @@ _add_server_to_file() {
   local name="$2"
   local args="$3"
   local env_json="${4:-}"
+  local url="${5:-}"
 
   [ -f "$settings_file" ] || return 0
 
-  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" SETTINGS_FILE="$settings_file" \
+  MCP_NAME="$name" MCP_TAG="$TAG" MCP_ARGS="$args" MCP_ENV="$env_json" MCP_URL="$url" SETTINGS_FILE="$settings_file" \
   python3 -c "
 import json, os
 
@@ -124,6 +137,7 @@ name = os.environ['MCP_NAME']
 tag = os.environ['MCP_TAG']
 args = os.environ['MCP_ARGS'].split()
 env_str = os.environ.get('MCP_ENV', '')
+url = os.environ.get('MCP_URL', '')
 
 with open(settings_file, 'r') as f:
     settings = json.load(f)
@@ -132,8 +146,8 @@ if 'mcpServers' not in settings:
     settings['mcpServers'] = {}
 
 key = name + ' ' + tag
-entry = {'command': 'npx', 'args': args}
-if env_str:
+entry = {'type': 'http', 'url': url} if url else {'command': 'npx', 'args': args}
+if env_str and not url:
     entry['env'] = json.loads(env_str)
 
 settings['mcpServers'][key] = entry
@@ -147,8 +161,9 @@ add_server() {
   local name="$1"
   local args="$2"
   local env_json="${3:-}"
-  _add_server_to_file "$SETTINGS_FILE" "$name" "$args" "$env_json"
-  _add_server_to_file "$SETTINGS_FILE_LEGACY" "$name" "$args" "$env_json"
+  local url="${4:-}"
+  _add_server_to_file "$SETTINGS_FILE" "$name" "$args" "$env_json" "$url"
+  _add_server_to_file "$SETTINGS_FILE_LEGACY" "$name" "$args" "$env_json" "$url"
 }
 
 for idx in "${SELECTED[@]}"; do
@@ -156,10 +171,18 @@ for idx in "${SELECTED[@]}"; do
   args="${SERVER_CMDS[$idx]}"
   env_key="${SERVER_ENV_KEYS[$idx]}"
   label="${SERVER_LABELS[$idx]}"
+  remote="${SERVER_REMOTE[$idx]}"
 
   if [ -n "$env_key" ]; then
     secret=""
-    read -rsp "  Enter ${label%% (*} key (or Enter to skip): " secret
+    if [ -n "$remote" ]; then
+      # A Notion integration token reaches only the pages shared with it; signing
+      # in grants the server everything the account can see.
+      [ "$server" = "notion" ] && echo -e "  ${YELLOW}Note:${NC} browser sign-in lets Notion's server see every page your account can; a token sees only pages you share with it."
+      read -rsp "  Enter ${label%% (*} token (or Enter to sign in through your browser): " secret
+    else
+      read -rsp "  Enter ${label%% (*} key (or Enter to skip): " secret
+    fi
     echo
     if [ -n "$secret" ]; then
       env_json=$(MCP_USER_SECRET="$secret" MCP_ENV_KEY="$env_key" python3 -c "
@@ -168,6 +191,9 @@ print(json.dumps({os.environ['MCP_ENV_KEY']: os.environ['MCP_USER_SECRET']}))
 " 2>/dev/null)
       add_server "$server" "$args" "$env_json"
       echo -e "  ${GREEN}✓${NC} $server configured"
+    elif [ -n "$remote" ]; then
+      add_server "$server" "" "" "$remote"
+      echo -e "  ${GREEN}✓${NC} $server configured (signs in through your browser on first use)"
     else
       echo -e "  ${YELLOW}○${NC} $server skipped"
     fi

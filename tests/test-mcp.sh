@@ -191,33 +191,96 @@ else
 fi
 teardown_test_home
 
-# --- Test 9: Research profile includes memory and sequential-thinking ---
-begin_test "mcp: research profile includes memory and sequential-thinking"
+# Helper: print one tagged server's entry as JSON
+mcp_entry() {
+  SETTINGS_PATH="$HOME/.claude.json" MCP_NAME="$1" python3 -c "
+import json, os
+s = json.load(open(os.environ['SETTINGS_PATH']))
+print(json.dumps(s.get('mcpServers', {}).get(os.environ['MCP_NAME'] + ' #supercharger'), sort_keys=True))
+" 2>/dev/null
+}
+
+# --- Test 9: Research profile adds DeepWiki as a remote server, not the retired pair ---
+begin_test "mcp: research profile adds deepwiki (remote), not sequential-thinking or memory"
 setup_test_home
 echo '{}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer" "research"
+DW=$(mcp_entry deepwiki)
 SEQ=$(has_mcp_server "sequential-thinking")
 MEM=$(has_mcp_server "memory")
-CTX=$(has_mcp_server "context7")
-if [ "$SEQ" = "yes" ] && [ "$MEM" = "yes" ] && [ "$CTX" = "yes" ]; then
+if [ "$DW" = '{"type": "http", "url": "https://mcp.deepwiki.com/mcp"}' ] && [ "$SEQ" = "no" ] && [ "$MEM" = "no" ]; then
   pass
 else
-  fail "research profile: expected seq=yes mem=yes ctx=yes, got seq=$SEQ mem=$MEM ctx=$CTX"
+  fail "research: expected deepwiki http entry, seq=no mem=no; got dw=$DW seq=$SEQ mem=$MEM"
 fi
 teardown_test_home
 
-# --- Test 10: Full profile includes research servers ---
-begin_test "mcp: full profile includes research servers"
+# --- Test 10: an update keeps the retired pair a research user already has ---
+begin_test "mcp: reinstall in research keeps existing sequential-thinking/memory; light drops them"
 setup_test_home
-echo '{}' > "$HOME/.claude.json"
+echo '{"mcpServers":{"sequential-thinking #supercharger":{"command":"npx","args":["-y","@modelcontextprotocol/server-sequential-thinking"]},"memory #supercharger":{"command":"npx","args":["-y","@modelcontextprotocol/server-memory"]}}}' > "$HOME/.claude.json"
 merge_mcp_into_settings "developer" "full"
-SEQ=$(has_mcp_server "sequential-thinking")
-MEM=$(has_mcp_server "memory")
-if [ "$SEQ" = "yes" ] && [ "$MEM" = "yes" ]; then
+KEPT="$(has_mcp_server sequential-thinking)$(has_mcp_server memory)"
+merge_mcp_into_settings "developer" "light"
+GONE="$(has_mcp_server sequential-thinking)$(has_mcp_server memory)"
+if [ "$KEPT" = "yesyes" ] && [ "$GONE" = "nono" ]; then
   pass
 else
-  fail "full profile: expected seq=yes mem=yes, got seq=$SEQ mem=$MEM"
+  fail "expected kept=yesyes then gone=nono, got kept=$KEPT gone=$GONE"
 fi
+teardown_test_home
+
+# --- Test 10b: keyed servers from mcp-setup survive a reinstall and a profile switch ---
+# Before 4.4.3 every reinstall (so every /sc-update) wiped them: they carry the tag.
+begin_test "mcp: reinstall and profile switch keep the user's keyed servers"
+setup_test_home
+echo '{"mcpServers":{"notion #supercharger":{"command":"npx","args":["-y","@notionhq/notion-mcp-server"],"env":{"NOTION_TOKEN":"fixture-not-a-secret"}},"figma #supercharger":{"type":"http","url":"https://mcp.figma.com/mcp"}}}' > "$HOME/.claude.json"
+merge_mcp_into_settings "developer" "light"
+merge_mcp_into_settings "developer" "research"
+NO=$(mcp_entry notion); FG=$(mcp_entry figma)
+case "$NO|$FG" in
+  *fixture-not-a-secret*'|{"type": "http", "url": "https://mcp.figma.com/mcp"}') pass ;;
+  *) fail "keyed servers lost: notion=$NO figma=$FG" ;;
+esac
+teardown_test_home
+
+# --- Test 10b2: a reinstall renames the variables pre-4.4.3 setups stored wrongly ---
+begin_test "mcp: reinstall renames old wrong key variables to the ones packages read"
+setup_test_home
+echo '{"mcpServers":{"notion #supercharger":{"command":"npx","args":["-y","@notionhq/notion-mcp-server"],"env":{"NOTION_API_KEY":"k1"}},"sentry #supercharger":{"command":"npx","args":["-y","@sentry/mcp-server"],"env":{"SENTRY_AUTH_TOKEN":"k2"}},"figma #supercharger":{"command":"npx","args":["-y","figma-developer-mcp"],"env":{"FIGMA_ACCESS_TOKEN":"k3"}},"slack #supercharger":{"command":"npx","args":["-y","slack-mcp-server"],"env":{"SLACK_BOT_TOKEN":"k4"}},"mine":{"command":"x","env":{"SLACK_BOT_TOKEN":"user"}}}}' > "$HOME/.claude.json"
+merge_mcp_into_settings "developer" "light"
+GOT="$(mcp_entry notion)$(mcp_entry sentry)$(mcp_entry figma)$(mcp_entry slack)"
+MINE=$(SETTINGS_PATH="$HOME/.claude.json" python3 -c "import json,os;print(json.dumps(json.load(open(os.environ['SETTINGS_PATH']))['mcpServers']['mine']['env']))")
+if [ "$GOT" = '{"args": ["-y", "@notionhq/notion-mcp-server"], "command": "npx", "env": {"NOTION_TOKEN": "k1"}}{"args": ["-y", "@sentry/mcp-server"], "command": "npx", "env": {"SENTRY_ACCESS_TOKEN": "k2"}}{"args": ["-y", "figma-developer-mcp"], "command": "npx", "env": {"FIGMA_API_KEY": "k3"}}{"args": ["-y", "slack-mcp-server"], "command": "npx", "env": {"SLACK_MCP_XOXB_TOKEN": "k4"}}' ] \
+   && [ "$MINE" = '{"SLACK_BOT_TOKEN": "user"}' ]; then
+  pass
+else
+  fail "got: $GOT | user server env: $MINE"
+fi
+teardown_test_home
+
+# --- Test 10c: mcp-setup writes official packages, the env names they read, and remote sign-in ---
+begin_test "mcp-setup: brave key, notion browser sign-in, correct variable names"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"; echo '{}' > "$HOME/.claude/settings.json"
+# y brave, y notion, n sentry, n figma, n slack; brave key; Enter for notion = sign-in
+printf 'y\ny\nn\nn\nn\nfixture-brave\n\n' | bash "$REPO_DIR/tools/mcp-setup.sh" >/dev/null 2>&1
+BR=$(mcp_entry brave-search); NO=$(mcp_entry notion)
+if [ "$BR" = '{"args": ["-y", "@brave/brave-search-mcp-server"], "command": "npx", "env": {"BRAVE_API_KEY": "fixture-brave"}}' ] \
+   && [ "$NO" = '{"type": "http", "url": "https://mcp.notion.com/mcp"}' ]; then
+  pass
+else
+  fail "brave=$BR notion=$NO"
+fi
+teardown_test_home
+
+# --- Test 10d: the token path writes the variable each package actually reads ---
+begin_test "mcp-setup: sentry, figma and slack tokens use the names their packages read"
+setup_test_home
+echo '{}' > "$HOME/.claude.json"; echo '{}' > "$HOME/.claude/settings.json"
+printf 'n\ny\ny\ny\ny\nt1\nt2\nt3\nt4\n' | bash "$REPO_DIR/tools/mcp-setup.sh" >/dev/null 2>&1
+GOT="$(mcp_entry notion | grep -o NOTION_TOKEN)$(mcp_entry sentry | grep -o SENTRY_ACCESS_TOKEN)$(mcp_entry figma | grep -o FIGMA_API_KEY)$(mcp_entry slack | grep -o SLACK_MCP_XOXB_TOKEN)"
+[ "$GOT" = "NOTION_TOKENSENTRY_ACCESS_TOKENFIGMA_API_KEYSLACK_MCP_XOXB_TOKEN" ] && pass || fail "got: $GOT"
 teardown_test_home
 
 # --- Test 11: Light profile excludes memory and sequential-thinking ---
