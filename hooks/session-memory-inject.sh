@@ -75,14 +75,20 @@ if [ ! -f "$MEMORY_FILE" ]; then
   # Check for crash checkpoint
   CKPT=""
   _NOW_TS=$(date +%s)
+  # 4.4.3: only THIS project's checkpoint. Line 1 is "proj:<git root>"; a file
+  # without it (written before 4.4.3) is skipped, never restored into a stranger.
+  _CK_ROOT=$(git -C "$PROJECT_DIR" rev-parse --show-toplevel 2>/dev/null || printf '%s' "$PROJECT_DIR")
   for f in "$SUPERCHARGER_STATE/scope"/.checkpoint-*; do
     [ -f "$f" ] || continue
+    case "$f" in */.checkpoint-walk-*) continue ;; esac
     # Only use if < 24h old. v2.7.8: bash stat replaces a python3 fork per file
     # (GNU-first, BSD fallback, numeric guard — identical <86400s logic).
     _MT=$(stat -c '%Y' "$f" 2>/dev/null || stat -f '%m' "$f" 2>/dev/null || echo 0)
     case "$_MT" in ''|*[!0-9]*) _MT=0 ;; esac
     if [ "$_MT" -gt 0 ] && [ $((_NOW_TS - _MT)) -lt 86400 ]; then
-      CKPT=$(cat "$f" 2>/dev/null)
+      _CK_PROJ=""; IFS= read -r _CK_PROJ < "$f" 2>/dev/null || true
+      [ "$_CK_PROJ" = "proj:$_CK_ROOT" ] || continue
+      CKPT=$(sed -n '2p' "$f" 2>/dev/null)
       break
     else
       rm -f "$f" 2>/dev/null

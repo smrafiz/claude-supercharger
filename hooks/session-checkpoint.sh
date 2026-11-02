@@ -134,9 +134,13 @@ if cost:     parts.append('cost:' + cost)
 line = ' '.join(parts)[:500]
 
 ckpt_file = os.path.join(scope_dir, '.checkpoint-' + session_id)
+# 4.4.3: line 1 names the project. The reader (session-memory-inject) used to take
+# ANY recent checkpoint, so a new project was told another project's branch, files
+# and cost. It now restores only a checkpoint written for its own project root.
+proj = _g('git', '-C', cwd, 'rev-parse', '--show-toplevel') or cwd
 try:
     with open(ckpt_file, 'w') as f:
-        f.write(line + '\n')
+        f.write('proj:' + proj + '\n' + line + '\n')
 except Exception:
     pass
 PYEOF
