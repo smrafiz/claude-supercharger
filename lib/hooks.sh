@@ -483,6 +483,8 @@ get_hooks_for_mode() {
     # Synchronous, and registered before stop-verify: it can block the stop, and a
     # hook registered `async` cannot.
     hooks+=("Stop|*|${hooks_dir}/claim-evidence-gate.sh|")
+    # 4.4.3: a URL in the reply seen nowhere else in the session may be invented; warn.
+    hooks+=("Stop|*|${hooks_dir}/citation-gate.sh|")
     hooks+=("Stop|*|${hooks_dir}/stop-verify.sh|")
     hooks+=("Stop|*|${hooks_dir}/scope-guard.sh clear|async")
     hooks+=("Stop|*|${hooks_dir}/session-complete.sh|async")
