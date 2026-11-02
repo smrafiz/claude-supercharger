@@ -3,7 +3,8 @@
 # edited, 3 never committed) and print its path, so `rm -rf src` has real files
 # for the blast-radius prompt to count. Nothing in it is ever deleted by the demo.
 set -euo pipefail
-d=$(mktemp -d)/my-app
+# DEMO_DIR picks a fixed, short path (it shows in Claude Code's header); it must not exist yet.
+d=${DEMO_DIR:-$(mktemp -d)/my-app}
 mkdir -p "$d/src"
 for i in $(seq 1 12); do echo "export const v$i = $i" > "$d/src/mod$i.ts"; done
 git -C "$d" init -q -b main
