@@ -154,6 +154,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/mcp-spend-guard.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "mcp__.*"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/cloud-cli-destructive-guard.sh",
             "timeout": 15,
             "onFailure": "block"

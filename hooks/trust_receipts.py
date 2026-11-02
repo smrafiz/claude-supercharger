@@ -13,7 +13,9 @@ except Exception:
 # `get_file_permissions` and `list_shared_drives` never count.
 SEND = {'send', 'post', 'create', 'share', 'upload', 'publish', 'update', 'delete', 'trash',
         'reply', 'comment', 'write', 'push', 'merge', 'invite', 'move', 'copy', 'put', 'add',
-        'remove', 'edit', 'submit', 'set', 'rename', 'archive', 'forward', 'schedule'}
+        'remove', 'edit', 'submit', 'set', 'rename', 'archive', 'forward', 'schedule',
+        # 4.4.3: money leaving (x402/L402 pay-per-call, wallet servers)
+        'pay', 'purchase', 'buy', 'checkout', 'withdraw', 'swap', 'tip', 'transfer'}
 READ = {'get', 'list', 'search', 'read', 'fetch', 'query', 'find', 'describe', 'view', 'export',
         'download', 'whoami', 'check', 'preview', 'resolve', 'count', 'lookup'}
 # Objects that live on this machine: claude-in-chrome's tabs_create_mcp opens a tab.
