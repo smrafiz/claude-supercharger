@@ -181,4 +181,15 @@ b=$([ -f "$D/scope/.autopilot-full" ] && echo kept || echo gone)
 [ "$a$b" = gonegone ] && pass || fail "plain=$a off=$b"
 rm -rf "$D"
 
+begin_test "statusline: shows (full) only while a full window is live"
+D=$(new_state); mkdir -p "$D/.claude/supercharger/scope"; SD="$D/.claude/supercharger/scope"
+n=$(( $(date +%s) + 600 ))
+for s in a1 b2; do echo "$n" > "$SD/.autopilot-until-$s"; done
+echo "$n" > "$SD/.autopilot-full-b2"; echo $(( n - 1200 )) > "$SD/.autopilot-full-a1"
+sl() { printf '{"session_id":"%s","model":{"display_name":"x"},"workspace":{"current_dir":"/tmp"},"cwd":"/tmp"}' "$1" \
+  | HOME="$D" SUPERCHARGER_STATE="$D/.claude/supercharger" bash "$REPO_DIR/hooks/statusline.sh" 2>/dev/null | grep -o 'Autopilot[^:]*:'; }
+a=$(sl a1); b=$(sl b2)
+[ "$a" = "Autopilot:" ] && [ "$b" = "Autopilot (full):" ] && pass || fail "expired-full=[$a] full=[$b]"
+rm -rf "$D"
+
 report
