@@ -5,6 +5,7 @@
 # from files the user wrote or edited (never touched). CR is stripped before
 # hashing so a CRLF checkout hashes the same as LF.
 # Usage: bash tools/gen-commands-shipped.sh   (run after changing a command)
+# Only ever adds lines: the committed file is part of the input.
 set -euo pipefail
 : "${PYTHONIOENCODING:=utf-8}"; : "${PYTHONUTF8:=1}"; export PYTHONIOENCODING PYTHONUTF8
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
@@ -18,5 +19,9 @@ git log --all --format=%H -- configs/commands \
       h=$(git cat-file blob "$blob" | tr -d '\r' | python3 -c 'import hashlib,sys;print(hashlib.sha256(sys.stdin.buffer.read()).hexdigest())')
       printf '%s %s\n' "$(basename "$path" .md)" "$h"
     done \
-  | sort -u > configs/commands-shipped.txt
+  | { cat; cat configs/commands-shipped.txt 2>/dev/null || true; } \
+  | sort -u > configs/commands-shipped.txt.tmp
+# Union with the committed list: git log --all sees only this machine's refs, so a fresh
+# clone dropped 26 hashes that did ship (KNOWN-ISSUES #8). A version that shipped stays.
+mv -f configs/commands-shipped.txt.tmp configs/commands-shipped.txt
 echo "configs/commands-shipped.txt: $(wc -l < configs/commands-shipped.txt | tr -d ' ') entries, $(cut -d' ' -f1 configs/commands-shipped.txt | sort -u | wc -l | tr -d ' ') names"

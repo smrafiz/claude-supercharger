@@ -378,7 +378,8 @@ never replace or remove them.
 **Workaround (used for #232).** Keep every committed line and add only the new ones:
 `git show HEAD:configs/commands-shipped.txt | cat - <regenerated> | sort -u`.
 
-**Fix: not done.** Make the generator a union with the committed file, so it can only add.
+**Fixed 2026-11-03.** The generator now unions with the committed file, so it can only add
+lines (`tests/test-gen-commands-shipped.sh`). On a fresh clone: old generator -26 lines, new 0.
 
 **Reproduce.** On a clone without the old branches: `bash tools/gen-commands-shipped.sh &&
 git diff --numstat configs/commands-shipped.txt`.
