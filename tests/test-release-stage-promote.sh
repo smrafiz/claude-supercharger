@@ -190,6 +190,13 @@ printf '%s' "$OUT" | grep -q 'Smoke gate\|Fix failing' && pass \
 # Version must not have been bumped
 grep -q 'VERSION="1.2.3"' "$FIX/lib/utils.sh" && true \
   || fail "version was bumped despite test failure"
+
+begin_test "a smoke-gate abort shows WHICH check failed, not just the file"
+# 4.4.3 stage try 1 aborted on test-perf-chain.sh "1 failed" and the gate had
+# discarded the file's output, so the failing check was never known; 40 loaded
+# re-runs could not reproduce it. The FAIL line is the only evidence a flake leaves.
+printf '%s' "$OUT" | grep -q 'FAIL bad' && pass \
+  || fail "gate output omits the failing check: $(printf '%s' "$OUT" | tail -5)"
 rm -rf "$FIX"
 
 begin_test "stage aborts when a test file has failures — version not bumped"

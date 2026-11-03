@@ -336,13 +336,17 @@ run_per_file_gate() {
     # A file that exits non-zero WITHOUT a "M failed" report line has crashed
     # before reporting (harness died, syntax error, killed). Counting it as 0/0
     # would make a broken file invisible to the gate — flag it as one failure.
+    # Keep the evidence: a load flake rarely reproduces, so the FAIL lines (with
+    # the diagnostic lines that follow them) or a crash's tail are all there is.
     if [ "$f_failed" -eq 0 ] && [ "$rc" -ne 0 ]; then
       f_failed=1
       failed_files="${failed_files}
-  $(basename "$f") (crashed, rc=${rc}, no report line)"
+  $(basename "$f") (crashed, rc=${rc}, no report line)
+$(printf '%s\n' "$out" | tail -10 | sed 's/^/      /')"
     elif [ "$f_failed" -gt 0 ]; then
       failed_files="${failed_files}
-  $(basename "$f") (${f_failed} failed)"
+  $(basename "$f") (${f_failed} failed)
+$(printf '%s\n' "$out" | grep -A6 'FAIL' | head -40 | sed 's/^/      /')"
     fi
 
     total_passed=$((total_passed + f_passed))
