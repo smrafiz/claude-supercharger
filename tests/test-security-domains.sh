@@ -65,6 +65,12 @@ grep -q '^NEEDS VALIDATION (no severity' "$CMD" \
   && grep -q '`needs_validation` with that fact named' "$CMD" && pass \
   || fail "needs_validation verdict or its report section is missing"
 
+begin_test "deep keeps ONE saved report per repository, so vulnerability details do not pile up"
+# A dated name per run accumulated a file of findings every run, never deleted.
+grep -q 'audit/security/<repo>\.md' "$CMD" \
+  && ! grep -qE 'audit/security/<repo>-' "$CMD" && pass \
+  || fail "the deep report path is not a single per-repo file"
+
 begin_test "installer deploys the domain files and their licence"
 setup_test_home
 # shellcheck source=lib/hooks.sh
