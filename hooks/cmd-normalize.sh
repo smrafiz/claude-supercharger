@@ -745,6 +745,18 @@ sc_blank_data_into() {
         -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'\"]+)*[[:space:]]+)'[^']*'/\1\6''/g" \
         -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)"[^"]*"/\1\6""/g' \
         -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+-[^[:space:]'"'"'"]+)*[[:space:]]+)[A-Za-z0-9_.][A-Za-z0-9_.-]*([[:space:];&|)]|$)/\1\6""\8/g')
+      # 4.4.3: with several -e patterns only the first was blanked, so the next one was
+      # scanned as a command (block log 2026-11-02, a grep for SQL text). Repeat for a
+      # quoted pattern right after -e/--regexp, stepping over flags and patterns already
+      # blanked, until nothing changes (at most 8). File operands stay scanned.
+      local _gp_prev="" _gp_n=0
+      case "$CMD_SCAN" in *" -e "*|*" --regexp "*) : ;; *) _gp_n=8 ;; esac
+      while [ "$_gp_prev" != "$CMD_SCAN" ] && [ "$_gp_n" -lt 8 ]; do
+        _gp_prev="$CMD_SCAN"; _gp_n=$((_gp_n + 1))
+        CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+          -e "s/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+(-[^[:space:]'\"]+|''|\"\"))*[[:space:]]+(-e|--regexp)[[:space:]]+)'[^']+'/\1\6''/g" \
+          -e 's/((^|[;&|(]|[[:space:]])(e|f)?grep|(^|[;&|(]|[[:space:]])(rg|ag|ack))(([[:space:]]+(-[^[:space:]'"'"'"]+|'"''"'|""))*[[:space:]]+(-e|--regexp)[[:space:]]+)"[^"]+"/\1\6""/g')
+      done
       ;;
   esac
 

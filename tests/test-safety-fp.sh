@@ -64,6 +64,12 @@ denies "grep-bare-then"   'grep -q x log && dropdb prod'
 denies "grep-bare-pipe"   'grep -l x . | xargs dropdb --if-exists'
 denies "grep-subst-pat"   'grep $(dropdb prod) file'
 denies "grep-tick-pat"    'grep `dropdb prod` file'
+# 4.4.3: every -e pattern is data, not only the first; what follows the grep is not.
+allows "grep-multi-e"     "grep -rn -e 'deleteEntry(' -e 'DELETE FROM entries;' src"
+allows "grep-multi-e-dq"  'grep -e x -e "dropdb prod" -e "mkfs.ext4 /dev/sda" hooks/'
+allows "grep-regexp-long" "grep --regexp x --regexp 'DROP TABLE users' docs/"
+denies "grep-multi-then"  "grep -e a -e 'b' log && dropdb prod"
+denies "grep-multi-subst" 'grep -e a -e "$(dropdb prod)" file'
 
 # --- the narrowings must NOT open a gap ----------------------------------------
 begin_test "GAP CHECK: a payload after a message is still denied"
