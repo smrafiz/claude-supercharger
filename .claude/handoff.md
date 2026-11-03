@@ -4,20 +4,22 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-03, session `e323355d`.*
+*Verified 2026-11-04, session `e323355d`.*
 
 - **Released: v4.4.3** (2026-11-03, tag on `41ace1bc`). Installed 4.4.3 on the session's machine (per-machine).
-- **master `860bf44e`**: two release.sh fixes on top of 4.4.3 — smoke-gate abort prints the failing
-  checks; promote reports a failed checkout/pull instead of exiting silently.
-- **Open PR #239** `sc-security-domains` (worktree `.claude/worktrees/secdom`, per-machine): Cloudflare
-  security-audit-skill domain files + needs_validation + coverage ledger; DoS deep-only (user's call).
-  Windows dispatched: run 41689191588. Merge after all 8 jobs + Windows green.
+- **master `32e3c2f6`**: on top of 4.4.3, two release.sh fixes (smoke-gate abort prints failing checks;
+  promote reports a failed checkout/pull) and this carry file.
+- **Open PR #239** `sc-security-domains`, head `a46e47b1`: Cloudflare security-audit-skill domain files,
+  needs_validation, coverage ledger, critic waves, one deep report per repo; DoS deep-only (user's call).
+  **User: merge when CI is green.** Windows dispatch run 41693026699. Then `update.sh --yes` and try
+  `/sc-security deep repo` on a small project (never run on a real repo yet).
+- **Worktrees (per-machine):** `secdom` = PR #239; `hwt` (merged #232) and `cite` (#230) stale, clean.
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`. In auto mode a
-  force-push is denied: merge master into a PR branch, don't rebase it. Auto mode also denies
-  `release.sh promote` (public surface) and running cloned external code: the user runs those.
-- **Flake:** test-perf-chain.sh failed once under the stage smoke gate; 40/40 loaded re-runs green.
-  The gate now prints the failing check, so the next one is diagnosable.
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`. Auto mode denies
+  force-push, `release.sh promote` (public surface) and running cloned external code: the user runs those.
+- **macOS runners:** capacity cancels happen; `gh run rerun <id> --failed`, never bypass the gate.
+- **Flake:** test-perf-chain.sh failed once in the stage smoke gate; 40/40 loaded re-runs green; the
+  gate now prints the failing check.
 - **Open (user):** roadmap item 5 (recursive delete outside project: ask?); SpecLock coexistence test;
   star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper, rotate
   CRON_SECRET, re-enable Actions.
@@ -54,6 +56,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-04 (deep) — e323355d
+Released v4.4.3 (promote run by the user; auto mode denies it). release.sh: gate prints failing
+checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill ported into
+/sc-security (domain files, needs_validation, coverage ledger, DoS deep-only), awaiting CI.
+Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
+
 #### 2026-11-03 — 3d213381
 Merged #230, #232-#238: autopilot `full`, plain block reasons, grep -e FP, manifest generator,
 lock-aware sed -i / perl -pi. Releasing 4.4.3 on the user's word.
@@ -77,10 +85,3 @@ Updated Machine A to 4.4.2. Merged #217-#220. README top image is now a real Cla
 (#221, open); found and fixed a cross-project session-memory leak (#222, open). Issue 3 (UPDATE) is
 intended. Next: plain-language block reasons, economy hooks.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-11-02 (deep) — e51274e4
-Merged #216, released v4.4.2. Fixed release.sh `--yes`, blast push count, CI badge (per-commit master
-concurrency). README Highlights + problems table. Gaps re-checked: all fixed upstream; no compound
-auto-approve. PR #217 (gh api search query as data) awaiting CI.
-Detail: `.claude/handoff-e51274e4-04a0-4dad-935e-5066df4f92a2.md`
-
