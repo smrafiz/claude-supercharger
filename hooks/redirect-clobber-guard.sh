@@ -28,7 +28,7 @@ _SC_STATE="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharge
 # Fast-path: bail with ZERO forks unless the payload could contain a clobber op.
 # Superset match on the raw stdin — precise parsing happens only past this gate.
 case "$_INPUT" in
-  *'>'*|*'sed '*|*'sed\t'*|*'tee '*|*'dd '*|*'truncate '*|*'cp '*|*'mv '*) ;;
+  *'>'*|*'sed '*|*'sed\t'*|*'tee '*|*'dd '*|*'truncate '*|*'cp '*|*'mv '*|*'perl '*) ;;
   # PowerShell cmdlets: gated on the tool name so a Bash command that merely says
   # "content" does not pay the parse. Substring, not a compact-JSON literal.
   *PowerShell*)
@@ -50,6 +50,30 @@ TOOL_NAME=$(printf '%s\n' "$_INPUT" | jq -r '.tool_name // empty' 2>/dev/null ||
 case "$TOOL_NAME" in Bash|PowerShell) ;; *) exit 0 ;; esac
 CMD=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
 [ -z "$CMD" ] && exit 0
+
+# 4.4.3: an in-place edit (sed -i, perl -pi) reaching a file a human locked asks with the
+# lock's reason, as ai-lock-guard does for Edit/Write. Only when a lock manifest exists
+# above the working directory (builtin walk, same as ai-lock-guard); no manifest, no fork.
+case "$CMD" in
+  *sed*|*perl*)
+    if [ "${SUPERCHARGER_AI_LOCK_GUARD:-1}" != 0 ]; then
+      _AL_M=""; _AL_D="$PROJECT_DIR"; _AL_N=0
+      while [ -n "$_AL_D" ] && [ "$_AL_N" -lt 24 ]; do
+        if [ -f "$_AL_D/.ai-locks" ]; then _AL_M="$_AL_D/.ai-locks"; break; fi
+        if [ -f "$_AL_D/.vibetags-locks" ]; then _AL_M="$_AL_D/.vibetags-locks"; break; fi
+        [ "$_AL_D" = "/" ] && break
+        _AL_D="${_AL_D%/*}"; [ -z "$_AL_D" ] && _AL_D="/"; _AL_N=$((_AL_N + 1))
+      done
+      if [ -n "$_AL_M" ]; then
+        command -v cygpath >/dev/null 2>&1 && _AL_M=$(cygpath -w -- "$_AL_M" 2>/dev/null || printf '%s' "$_AL_M")
+        _AL_R=$(printf '%s' "$_INPUT" | AI_LOCK_MANIFEST="$_AL_M" python3 "$HOOKS_DIR/ai-lock-detect.py" 2>/dev/null) || _AL_R=""
+        if [ -n "$_AL_R" ]; then
+          sc_decision ask "LOCKED FILE: $_AL_R" "confirm only if this change to locked code is intended; Edit/Write shows the exact lines"
+          exit 0
+        fi
+      fi
+    fi ;;
+esac
 
 # Parse clobber targets and return the FIRST that is git-tracked (empty = nothing to
 # ask). The parser lives in a sibling .py (deployed alongside — see lib/hooks.sh) to

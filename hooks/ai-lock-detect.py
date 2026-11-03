@@ -171,6 +171,42 @@ def _dbg(*a):
         print("[ai-lock]", *a, file=sys.stderr)
 
 
+# 4.4.3: an in-place shell edit (sed -i, perl -pi, also via find -exec or xargs). vibetags'
+# own eval: "rename amountCents across src/ with a single sed" broke an @AILocked class
+# 10 of 10 times, because the agent never opens the file. Lines are unknown here, so a
+# lock matches by FILE: the command names the locked file, or a folder holding it.
+_INPLACE = re.compile(
+    r"(^|[\s;&|(`])g?sed\s(?:[^;&|]*?\s)?(-[a-zA-Z]*i|--in-place)"
+    r"|(^|[\s;&|(`])perl\s(?:[^;&|]*?\s)?-[lnpaw0-9]*i")
+
+
+def _shell_hits(cmd, cwd, locks):
+    if not _INPLACE.search(cmd):
+        return []
+    import shlex
+    try:
+        toks = shlex.split(cmd, posix=True)
+    except Exception:
+        toks = cmd.split()
+    cwd = _msys_path(cwd)
+    hits = []
+    for t in toks:
+        t = t.strip("()$`'\";|&")
+        if not t or t.startswith("-"):
+            continue
+        t = re.split(r"[*?\[{]", t, maxsplit=1)[0] or "."  # a glob's folder part
+        p = os.path.realpath(os.path.join(cwd, _msys_path(t)))
+        for lk in locks:
+            f = os.path.realpath(_msys_path(lk["file"]))
+            if os.name == "nt":
+                f, q = f.lower(), p.lower()
+            else:
+                q = p
+            if (f == q or f.startswith(q.rstrip(os.sep) + os.sep)) and lk not in hits:
+                hits.append(lk)
+    return hits
+
+
 def main():
     manifest = os.environ.get("AI_LOCK_MANIFEST", "")
     manifest = _msys_path(manifest)
@@ -183,6 +219,18 @@ def main():
     tool = payload.get("tool_name") or ""
     tool_input = payload.get("tool_input") or {}
     if not isinstance(tool_input, dict):
+        return
+    if tool in ("Bash", "PowerShell", "Monitor"):
+        cmd = tool_input.get("command") or ""
+        repo_root = os.path.dirname(os.path.abspath(manifest))
+        hits = _shell_hits(cmd, payload.get("cwd") or os.getcwd(), _locks(manifest, repo_root))
+        if hits:
+            lk = hits[0]
+            what = lk["element"] or os.path.basename(lk["file"])
+            extra = "" if len(hits) == 1 else " (+%d more locked)" % (len(hits) - 1)
+            print("this in-place shell edit can reach %s (%s), locked in %s — %s%s" % (
+                what, os.path.basename(lk["file"]), os.path.basename(manifest),
+                lk["reason"] or "no reason recorded in the manifest", extra))
         return
     # AI_LOCK_TARGET is the wrapper's cygpath-converted spelling; it exists only
     # where cygpath does. Prefer it, because bash asked the component that owns
