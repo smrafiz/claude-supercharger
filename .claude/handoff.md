@@ -4,24 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-03, session `111c7837`.*
+*Verified 2026-11-03, session `3d213381`.*
 
-- **Released: v4.4.2.** **4.4.3 is ON HOLD by the user** — release only on their word; commit the
-  carry file BEFORE `release.sh stage`.
-- **master `b4fe7193`**, unreleased: #217-#229, #231, #227 (spend-guard), test-stdin-timeout fix.
-- **Open PRs, all PR-CI green:** #230 citation-gate (`bb1c54b4`, Windows run 41501558568 queued),
-  #232 /sc-handoff worktrees (`c5153b3a`, Windows green), #233 pipe-shell FP (`17b8fa31`, Windows
-  green). Merge order #230 -> #232 -> #233, pinned. A background merge chain (session 111c7837)
-  waits on 41501558568; check `gh pr list` before acting.
-- **Not a flake:** test-stdin-timeout D failed twice on #230 (1s read timeout on Windows); fixed on
-  master `b4fe7193` (A and D get 10s). Why only #230 tripped it is unexplained.
-- **Next:** issue 2 plain-language block reasons; data-vs-command FP (quoted printf arg denied);
-  KNOWN-ISSUES #8 (manifest generator drops hashes on a fresh clone).
+- **Released: v4.4.2; 4.4.3 releasing now** (user's word, 2026-11-03) from master `e84897c8`.
+  If `gh release list` lacks 4.4.3, finish: stage, promote, `update.sh --yes`.
+- **master `e84897c8`**: #230 and #232-#238 merged today. No open PRs.
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`. In auto mode a
   force-push is denied: merge master into a PR branch, don't rebase it.
-- **Open (user):** roadmap item 5 (recursive delete outside project: ask?); star-keeper commitTypes;
-  Machine B commit-msg hook; radius-apps guard-push wrapper, rotate CRON_SECRET, re-enable Actions.
+- **Flake:** test-detect-fp-2026-10 dig/dotenv case fails under full-suite load only; the guards deny it.
+- **Open (user):** roadmap item 5 (recursive delete outside project: ask?); SpecLock coexistence test;
+  star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper, rotate
+  CRON_SECRET, re-enable Actions.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -55,6 +49,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-03 — 3d213381
+Merged #230, #232-#238: autopilot `full`, plain block reasons, grep -e FP, manifest generator,
+lock-aware sed -i / perl -pi. Releasing 4.4.3 on the user's word.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-11-03 (deep) — 111c7837
 Merged #227 (Windows failure was the test: MSYS cwd in JSON). Fixed #232 manifest (+1 hash; generator
 would have dropped 26 — KNOWN-ISSUES #8) and #230 install count 175. #230 Windows hit a suspected
@@ -80,8 +79,3 @@ concurrency). README Highlights + problems table. Gaps re-checked: all fixed ups
 auto-approve. PR #217 (gh api search query as data) awaiting CI.
 Detail: `.claude/handoff-e51274e4-04a0-4dad-935e-5066df4f92a2.md`
 
-#### 2026-10-31 — d1f49e55
-Merged #204-#207 (MCP-config Bash read, workaround check from trackline, benchmark gaps 1-3, 200K
-compact nudge + model aliases from Provost). Roadmap written. Windows atomic-deploy flake diagnosed as a
-non-atomic replace (file briefly missing, never torn). 4.4.0 ready to stage.
-Detail: `.claude/handoff-d1f49e55-4f46-4a63-81cd-501bede3fbfd.md`
