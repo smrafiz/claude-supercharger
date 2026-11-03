@@ -201,4 +201,45 @@ sys.exit(0 if d["permissionDecision"]=="ask" and d["permissionDecisionReason"] e
   && pass || fail "output is not a valid ask decision"
 rm -rf "$P"
 
+# 4.4.3: an in-place SHELL edit reaching a locked file asks too (redirect-clobber-guard
+# carries the arm). vibetags' eval: a bulk sed rename broke a lock 10/10 without this.
+RCG="$REPO_DIR/hooks/redirect-clobber-guard.sh"
+_sh_verdict() {  # $1 = project, $2 = command, [$3 = env assignment]
+  local out
+  out=$(jq -nc --arg c "$2" --arg d "$1" '{session_id:"sh1",tool_name:"Bash",cwd:$d,tool_input:{command:$c}}' \
+    | (cd "$1" && env PWD="$1" HOME="$1" ${3:+"$3"} bash "$RCG" 2>/dev/null))
+  case "$out" in *'"ask"'*'LOCKED FILE'*) printf 'ask' ;; '') printf 'allow' ;; *) printf 'other' ;; esac
+}
+P=$(_mkproj .vibetags-locks); printf 'b\n' > "$P/src/b.py"
+while IFS='|' read -r want cmd; do
+  [ -n "$cmd" ] || continue
+  begin_test "ai-lock shell: $want — $cmd"
+  got=$(_sh_verdict "$P" "$cmd")
+  [ "$got" = "$want" ] && pass || fail "got $got"
+done <<'CASES'
+ask|sed -i 's/line12/X/' src/a.py
+ask|sed -i '' -e 's/line12/X/' src/a.py
+ask|find src -name '*.py' -exec sed -i 's/line/X/' {} +
+ask|grep -rl line . | xargs sed -i 's/line/X/'
+ask|perl -pi -e 's/line/X/' src/*.py
+allow|sed -i 's/b/c/' src/b.py
+allow|sed 's/line12/X/' src/a.py
+allow|cat src/a.py | head -3
+allow|perl -ne 'print' src/a.py
+allow|perl -MList::Util=sum -e 'print 1' src/a.py
+allow|sed -n '10,12p' src/a.py
+ask|sed --in-place 's/x/y/' src/a.py
+CASES
+begin_test "ai-lock shell: the ask quotes the lock's reason"
+out=$(jq -nc --arg d "$P" '{session_id:"sh1",tool_name:"Bash",cwd:$d,tool_input:{command:"sed -i s/a/b/ src/a.py"}}' \
+  | (cd "$P" && PWD="$P" HOME="$P" bash "$RCG" 2>/dev/null))
+case "$out" in *"Step order is load-bearing"*) pass ;; *) fail "no reason: ${out:0:120}" ;; esac
+begin_test "ai-lock shell: SUPERCHARGER_AI_LOCK_GUARD=0 turns the arm off"
+[ "$(_sh_verdict "$P" "sed -i 's/x/y/' src/a.py" SUPERCHARGER_AI_LOCK_GUARD=0)" = allow ] && pass || fail "still asked"
+rm -rf "$P"
+begin_test "ai-lock shell: no manifest, no ask"
+P=$(mktemp -d); mkdir -p "$P/src"; printf 'x\n' > "$P/src/a.py"
+[ "$(_sh_verdict "$P" "sed -i 's/x/y/' src/a.py")" = allow ] && pass || fail "asked without a manifest"
+rm -rf "$P"
+
 report
