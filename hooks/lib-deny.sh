@@ -53,11 +53,15 @@ sc_mark_guard_ask() {
   local k f
   k=$(sc_guard_ask_key "$_INPUT") && [ -n "$k" ] || return 0
   f="${SUPERCHARGER_STATE:-${CLAUDE_PLUGIN_DATA:-$HOME/.claude/supercharger}}/scope/.guard-asks"
-  mkdir -p "${f%/*}" 2>/dev/null && printf '%s\n' "$k" >> "$f" 2>/dev/null || true
-  # Asks are rare; keep the newest 500 once the file passes 1000 lines.
-  if [ "$(wc -l < "$f" 2>/dev/null || echo 0)" -gt 1000 ]; then
-    tail -n 500 "$f" > "$f.tmp.$$" 2>/dev/null && mv -f "$f.tmp.$$" "$f" 2>/dev/null || rm -f "$f.tmp.$$"
-  fi
+  # SC_ASK_KEEP=1: an ask even `/sc-autopilot full` must not approve (money, turning
+  # a guard off, autopilot renewing itself). Those also go to .guard-asks-keep.
+  for f in "$f" ${SC_ASK_KEEP:+"$f-keep"}; do
+    mkdir -p "${f%/*}" 2>/dev/null && printf '%s\n' "$k" >> "$f" 2>/dev/null || true
+    # Asks are rare; keep the newest 500 once the file passes 1000 lines.
+    if [ "$(wc -l < "$f" 2>/dev/null || echo 0)" -gt 1000 ]; then
+      tail -n 500 "$f" > "$f.tmp.$$" 2>/dev/null && mv -f "$f.tmp.$$" "$f" 2>/dev/null || rm -f "$f.tmp.$$"
+    fi
+  done
 }
 
 # A deny on a file-path tool (Read/Write/Edit...) records the file's name for the

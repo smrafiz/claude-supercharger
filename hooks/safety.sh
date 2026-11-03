@@ -1608,7 +1608,7 @@ fi
 #
 # Suffixed forms (.autopilot-until-<session>, .allow-patterns-<projectkey>) need
 # no extra alternative: these patterns are matched as substrings, not anchored.
-_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.readonly-until|\.strict-until)'
+_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.autopilot-full|\.readonly-until|\.strict-until)'
 # (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
@@ -1880,7 +1880,7 @@ fi
 # X-PAYMENT-RESPONSE is the server's receipt header, so `-RESPONSE` never matches.
 if [[ "$CMD" =~ [\"\'[:space:]]([Xx]-[Pp][Aa][Yy][Mm][Ee][Nn][Tt]|[Pp][Aa][Yy][Mm][Ee][Nn][Tt]-[Ss][Ii][Gg][Nn][Aa][Tt][Uu][Rr][Ee])[\"\']?[[:space:]]*[:,=] ]] \
    || [[ "$CMD" =~ [Aa]uthorization[\"\']?[[:space:]]*[:,=][[:space:]]*[\"\']?L402[[:space:]] ]]; then
-  sc_decision ask "this request carries a payment (an x402 or L402 payment header), so running it spends money from a wallet." "confirm the amount and the recipient first"
+  SC_ASK_KEEP=1 sc_decision ask "this request carries a payment (an x402 or L402 payment header), so running it spends money from a wallet." "confirm the amount and the recipient first"
   exit 0
 fi
 
