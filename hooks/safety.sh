@@ -868,7 +868,11 @@ NETWORK_PATTERNS=(
   # The blanket form denied `bash -c 'until grep -q x f; do sleep 1; done'` (FP audit).
   '(^|;|&|&&|\|\|)[[:space:]]*eval[[:space:]]+'
   '(^|;|&|&&|\|\|)[[:space:]]*source[[:space:]]+/dev/(tcp|udp)/'
-  'base64.*\|.*(bash|sh|zsh)([[:space:]]|$)' '<<<.*\|.*(bash|sh|zsh)([[:space:]]|$)'
+  # 4.4.3: the shell must be the command a pipe feeds. `.*(bash|sh|zsh)` let the
+  # name land anywhere later: `| base64 -d | head; git push` (puSH) and
+  # `...; ./build.sh` were denied, and so was a quoted command, whose unquoted copy
+  # normalize_cmd appends after " ; " for the .* to reach into.
+  'base64.*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)' '<<<.*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|$)'
   # v2.7.5: `ps` env-dump piped to an encoder/exfil channel. Real incident:
   # "Comment and Control" (CVSS 9.4, Apr 2026) — PR-title injection ran
   # `ps auxeww | base64` to read every process's environment (ANTHROPIC_API_KEY,
@@ -1145,6 +1149,15 @@ if _cat_enabled "destructive"; then
     if [ "$_shc_opaque" = 1 ]; then
       block "dangerous pattern: shell -c with a body that cannot be checked (variable, command substitution or decoded text)"
     fi
+  fi
+  # 4.4.3: the same opaque body fed as a here-string (`bash <<< "$(... | base64 -d)"`)
+  # ran unchecked: the -c rule needs -c and the pipe rules need a pipe.
+  _shh_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*(/[^[:space:]]*/)?(bash|sh|zsh|dash)[[:space:]]*<<<(.*)$'
+  if [[ "$COMMAND" =~ $_shh_rx ]]; then
+    case "${BASH_REMATCH[4]}" in
+      *'$('*|*'`'*|*base64*|*eval*|*'$'[A-Za-z_{]*)
+        block "dangerous pattern: shell reading a here-string it cannot check (variable, command substitution or decoded text)" ;;
+    esac
   fi
 fi
 
