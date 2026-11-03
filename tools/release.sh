@@ -667,10 +667,18 @@ print('missing' if not win else ('success' if win[0].get('conclusion') == 'succe
   local CUR_BRANCH
   CUR_BRANCH=$(git -C "$REPO_DIR" rev-parse --abbrev-ref HEAD)
   if [ "$CUR_BRANCH" != "master" ]; then
-    git -C "$REPO_DIR" checkout master >/dev/null 2>&1
+    git -C "$REPO_DIR" checkout -q master || { echo -e "${RED}Error:${NC} could not check out master."; exit 1; }
   fi
-  # Sync local master from origin before the FF check.
-  git -C "$REPO_DIR" pull --ff-only origin master >/dev/null 2>&1
+  # Sync local master from origin before the FF check. Output is kept for the
+  # failure case: silenced under set -e, a failed pull ended 4.4.3's first promote
+  # with no message at all.
+  local _pull_out
+  _pull_out=$(git -C "$REPO_DIR" pull --ff-only origin master 2>&1) || {
+    echo -e "${RED}Error:${NC} git pull --ff-only origin master failed:"
+    printf '%s\n' "$_pull_out" | sed 's/^/  /'
+    echo "Nothing was merged, tagged or pushed. Fix the above and re-run promote."
+    exit 1
+  }
 
   local MASTER_SHA REL_TIP
   MASTER_SHA=$(git -C "$REPO_DIR" rev-parse master)

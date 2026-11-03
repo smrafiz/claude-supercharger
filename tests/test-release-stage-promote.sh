@@ -277,6 +277,29 @@ make_promote_fixture() {
   printf '%s' "$local_dir"
 }
 
+begin_test "promote says why when its git pull fails, instead of exiting silently"
+# 4.4.3's first promote stopped right after the CI check with no message: the pull
+# was silenced and set -e ended the script. Local master diverged from origin makes
+# pull --ff-only fail deterministically.
+FIX=$(make_promote_fixture)
+OTHER=$(mktemp -d)
+# -b master and an explicit identity: the bare origin's HEAD follows the machine's
+# init.defaultBranch, and a CI runner has no global user.email.
+git clone -q -b master "$(git -C "$FIX" remote get-url origin)" "$OTHER/c" >/dev/null 2>&1
+printf 'origin-only\n' >> "$OTHER/c/README.md"
+git -C "$OTHER/c" -c user.email=t@t.t -c user.name=t commit -qam "origin-only commit" >/dev/null 2>&1
+git -C "$OTHER/c" push -q origin master >/dev/null 2>&1
+printf 'local-only\n' >> "$FIX/CHANGELOG.md"
+git -C "$FIX" commit -qam "local-only commit" >/dev/null 2>&1
+MOCK_DIR=$(mktemp -d)
+make_gh_mock "$MOCK_DIR" "completed" "success" "success" \
+  "$(git -C "$FIX" rev-parse "origin/rel/1.2.4")" "$(git -C "$FIX" rev-parse "origin/rel/1.2.4^")"
+OUT=$(PATH="$MOCK_DIR:$PATH" bash "$FIX/tools/release.sh" promote 1.2.4 --yes 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'git pull --ff-only origin master failed' \
+  && ! git -C "$FIX" rev-parse -q --verify refs/tags/v1.2.4 >/dev/null && pass \
+  || fail "no pull-failure message (or a tag was made): $(printf '%s' "$OUT" | tail -5)"
+rm -rf "$FIX" "$MOCK_DIR" "$OTHER"
+
 begin_test "declining the commit in stage leaves master at pre-stage HEAD"
 # If user says y to Proceed but n to Commit, rollback+cleanup must restore master.
 FIX=$(make_fixture)
