@@ -780,6 +780,17 @@ deploy_hook_scripts() {
     cp "$source_dir/rules/stacks/"*.md "$rules_dir/" 2>/dev/null || true
     chmod 600 "$rules_dir/"*.md 2>/dev/null || true
   fi
+
+  # /sc-security reads its domain attack-class files from here (Cloudflare MIT
+  # text, licence alongside). Staged and swapped like tools/ above.
+  if [ -d "$source_dir/configs/security" ]; then
+    local sec_dir="$HOME/.claude/supercharger/security"
+    mkdir -p "$sec_dir"
+    stage=$(mktemp -d "$sec_dir/.stage.XXXXXX")
+    cp "$source_dir/configs/security/"* "$stage/"
+    chmod 600 "$stage/"*
+    _swap_into "$sec_dir" "$stage"
+  fi
 }
 
 merge_hooks_into_settings() {

@@ -57,6 +57,9 @@ subs = [
     (r'(?:~|\$HOME)/\.claude/supercharger/audit', '${CLAUDE_PLUGIN_DATA}/audit'),
     (r'(?:~|\$HOME)/\.claude/supercharger/tools', '${CLAUDE_PLUGIN_ROOT}/tools'),
     (r'(?:~|\$HOME)/\.claude/supercharger/lib',   '${CLAUDE_PLUGIN_ROOT}/lib'),
+    # /sc-security domain files: installed flat from configs/security/; the
+    # plugin root is the repo, so they sit at their source path there.
+    (r'(?:~|\$HOME)/\.claude/supercharger/security', '${CLAUDE_PLUGIN_ROOT}/configs/security'),
 ]
 for pat, repl in subs:
     text = re.sub(pat, repl, text)
