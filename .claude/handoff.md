@@ -4,15 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-03, session `3d213381`.*
+*Verified 2026-11-03, session `e323355d`.*
 
-- **Released: v4.4.2; 4.4.3 releasing now** (user's word, 2026-11-03) from master `e84897c8`.
-  If `gh release list` lacks 4.4.3, finish: stage, promote, `update.sh --yes`.
-- **master `e84897c8`**: #230 and #232-#238 merged today. No open PRs.
+- **Released: v4.4.3** (2026-11-03, tag on `41ace1bc`). Installed 4.4.3 on the session's machine (per-machine).
+- **master `860bf44e`**: two release.sh fixes on top of 4.4.3 — smoke-gate abort prints the failing
+  checks; promote reports a failed checkout/pull instead of exiting silently.
+- **Open PR #239** `sc-security-domains` (worktree `.claude/worktrees/secdom`, per-machine): Cloudflare
+  security-audit-skill domain files + needs_validation + coverage ledger; DoS deep-only (user's call).
+  Windows dispatched: run 41689191588. Merge after all 8 jobs + Windows green.
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`. In auto mode a
-  force-push is denied: merge master into a PR branch, don't rebase it.
-- **Flake:** test-detect-fp-2026-10 dig/dotenv case fails under full-suite load only; the guards deny it.
+  force-push is denied: merge master into a PR branch, don't rebase it. Auto mode also denies
+  `release.sh promote` (public surface) and running cloned external code: the user runs those.
+- **Flake:** test-perf-chain.sh failed once under the stage smoke gate; 40/40 loaded re-runs green.
+  The gate now prints the failing check, so the next one is diagnosable.
 - **Open (user):** roadmap item 5 (recursive delete outside project: ask?); SpecLock coexistence test;
   star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper, rotate
   CRON_SECRET, re-enable Actions.
