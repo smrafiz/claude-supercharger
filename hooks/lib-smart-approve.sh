@@ -169,10 +169,19 @@ smart_approve_verdict() {
   # 2026-10-28: a call a Supercharger guard ASKED about is never auto-approved, by
   # autopilot or any allow-list below: the confirm is the guard's whole point. The
   # guard records the call (lib-deny.sh sc_mark_guard_ask); no file, no fork.
-  if [ -s "$_md_state/scope/.guard-asks" ]; then
+  # `/sc-autopilot <d> full` (.autopilot-full[-<sid>]) approves those asks too, except
+  # the ones a guard marked keep (SC_ASK_KEEP): money, guards off, autopilot itself.
+  local _ap_full="" _ga_f=".guard-asks"
+  for _md_f in "$_md_state/scope/.autopilot-full" ${_md_sid:+"$_md_state/scope/.autopilot-full-$_md_sid"}; do
+    [ -f "$_md_f" ] || continue
+    [ -z "$_md_now" ] && _md_now=$(date +%s 2>/dev/null || echo 0)
+    _md_until=$(cat "$_md_f" 2>/dev/null || echo 0)
+    printf '%s' "$_md_until" | grep -qE '^[0-9]+$' && [ "$_md_until" -gt "$_md_now" ] && _ap_full=1 && _ga_f=".guard-asks-keep"
+  done
+  if [ -s "$_md_state/scope/$_ga_f" ]; then
     . "${BASH_SOURCE[0]%/*}/lib-deny.sh" 2>/dev/null
     local _ga_k; _ga_k=$(sc_guard_ask_key "$input")
-    [ -n "$_ga_k" ] && grep -qxF "$_ga_k" "$_md_state/scope/.guard-asks" 2>/dev/null && return 1
+    [ -n "$_ga_k" ] && grep -qxF "$_ga_k" "$_md_state/scope/$_ga_f" 2>/dev/null && return 1
   fi
   # Strict first — must override autopilot.
   for _md_f in "$_md_state/scope/.strict-until" ${_md_sid:+"$_md_state/scope/.strict-until-$_md_sid"}; do
@@ -242,7 +251,7 @@ smart_approve_verdict() {
     Write|Edit|MultiEdit|NotebookEdit)
       _ci_path=$(printf '%s\n' "$input" | jq -r '.tool_input.file_path // .tool_input.notebook_path // empty' 2>/dev/null || true)
       . "${BASH_SOURCE[0]%/*}/lib-toolpath.sh"; sc_norm_path _ci_path
-      if [ -n "$_ci_path" ]; then
+      if [ -n "$_ci_path" ] && [ -z "$_ap_full" ]; then
         # Both critical-infra AND lockfile edits carry a mandatory PreToolUse "ask".
         # The in-project Write allow-list below returns 0 for any project path, and
         # autopilot returns 0 for everything — so without these two declines the ask
@@ -269,7 +278,7 @@ smart_approve_verdict() {
       # auto-approves `git push` anyway, so THIS is the only place autopilot could
       # swallow it. Fork git only when autopilot is active AND the command looks like
       # a push/set-url (the common case pays nothing extra).
-      if [ "$_ci_tool" = "Bash" ]; then
+      if [ "$_ci_tool" = "Bash" ] && [ -z "$_ap_full" ]; then
         local _ap_cmd _ap_pdir
         _ap_cmd=$(printf '%s\n' "$input" | jq -r '.tool_input.command // empty' 2>/dev/null || true)
         case "$_ap_cmd" in

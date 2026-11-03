@@ -406,7 +406,16 @@ try:
          if _u - _ap_now > _ap_best:
              _ap_best = _u - _ap_now
      if _ap_best > 0:
-         auto = f' {DIM}|{RESET} \033[33m⚡ Autopilot: {_ap_best // 60}m left{RESET}'
+         # `/sc-autopilot <d> full` also approves guard confirms; say so where it is seen.
+         _ap_full = ''
+         for _apf in [p.replace('.autopilot-until', '.autopilot-full') for p in _ap_files]:
+             try:
+                 with open(_apf) as f:
+                     if int((f.read().strip() or '0')) > _ap_now:
+                         _ap_full = ' (full)'
+             except Exception:
+                 continue
+         auto = f' {DIM}|{RESET} \033[33m⚡ Autopilot{_ap_full}: {_ap_best // 60}m left{RESET}'
  except Exception:
      pass
 

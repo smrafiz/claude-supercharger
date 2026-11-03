@@ -26,6 +26,10 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # strip reproduces $(cat)'s newline handling so this is byte-identical.
 . "${BASH_SOURCE[0]%/*}/lib-stdin.sh"
 . "${BASH_SOURCE[0]%/*}/lib-deny.sh"; sc_read_input _INPUT
+# Every ask here guards the guards (sandbox, /sc off, autopilot itself): /sc-autopilot
+# full still stops for them.
+# shellcheck disable=SC2034  # read by sc_mark_guard_ask (lib-deny.sh)
+SC_ASK_KEEP=1
 
 # Fast-path: only the commands that could plausibly tamper carry one of these
 # tokens. Everything else exits before the (cheap) parse. Fail-safe: the tokens

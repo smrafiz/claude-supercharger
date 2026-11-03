@@ -64,5 +64,28 @@ begin_test "MCP payment tool: mcp-spend-guard asks, autopilot declines"
 g=$(guard mcp-spend-guard.sh "$MPAY"); v=$(verdict "$MPAY")
 [ "$g" = ask ] && [ "$v" = declined ] && pass || fail "guard=$g autopilot=$v"
 
+# 2026-11-03: `/sc-autopilot <d> full` approves guard asks, except money, guards off
+# and autopilot itself (asks a guard marks SC_ASK_KEEP).
+CI='{"session_id":"s1","cwd":"/tmp/p","tool_name":"Write","tool_input":{"file_path":"/tmp/p/.github/workflows/ci.yml","content":"x"}}'
+OFF=$(payload "bash ~/.claude/supercharger/tools/sc-toggle.sh off" s1)
+REN=$(payload "bash ~/.claude/supercharger/tools/autopilot.sh 8h full" s1)
+begin_test "control: without full a CI workflow write is declined"
+[ "$(verdict "$CI")" = declined ] && pass || fail "plain autopilot approved a critical-infra write"
+g_off=$(guard harness-tamper-guard.sh "$OFF"); g_ren=$(guard harness-tamper-guard.sh "$REN")
+
+echo $(( $(date +%s) + 3600 )) > "$ST/scope/.autopilot-full"
+begin_test "full approves the asked force push, LD_PRELOAD and a CI workflow write"
+a=$(verdict "$FP"); b=$(verdict "$LP"); c=$(verdict "$CI")
+[ "$a$b$c" = approvedapprovedapproved ] && pass || fail "push=$a preload=$b ci=$c"
+begin_test "full still declines both payment asks"
+a=$(verdict "$PAY"); b=$(verdict "$MPAY")
+[ "$a$b" = declineddeclined ] && pass || fail "x402=$a mcp=$b"
+begin_test "full still declines /sc off and autopilot renewing itself"
+a=$(verdict "$OFF"); b=$(verdict "$REN")
+[ "$g_off$g_ren" = askask ] && [ "$a$b" = declineddeclined ] && pass || fail "guard off=$g_off renew=$g_ren; autopilot off=$a renew=$b"
+begin_test "an expired full window approves nothing extra"
+echo $(( $(date +%s) - 1 )) > "$ST/scope/.autopilot-full"
+[ "$(verdict "$FP")" = declined ] && pass || fail "expired full still approved the force push"
+
 rm -rf "$H" "$ST"
 report

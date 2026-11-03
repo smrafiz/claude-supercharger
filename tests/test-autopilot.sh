@@ -166,4 +166,30 @@ CLAUDE_PLUGIN_DATA="$_SR" bash "$TOOL" status >/dev/null 2>&1; _on=$?
 rm -rf "$_SR"
 { [ "$_off" = 0 ] && [ "$_on" = 0 ]; } && pass || fail "status rc OFF=$_off ON=$_on (both must be 0)"
 
+# 2026-11-03: full writes a second flag with the same expiry, in either arg order; `--full` still works.
+begin_test "autopilot: 30m full writes .autopilot-full-<sid> next to the window"
+D=$(new_state)
+CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" 30m full >/dev/null 2>&1
+[ -f "$D/scope/.autopilot-full-sessA" ] && [ "$(cat "$D/scope/.autopilot-full-sessA")" = "$(cat "$D/scope/.autopilot-until-sessA")" ] \
+  && CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" status | grep -q 'ON (full)' && pass || fail "no full flag or status"
+begin_test "autopilot: a plain window afterwards drops full; off clears it"
+CLAUDE_PLUGIN_DATA="$D" CLAUDE_CODE_SESSION_ID=sessA bash "$TOOL" 30m >/dev/null 2>&1
+a=$([ -f "$D/scope/.autopilot-full-sessA" ] && echo kept || echo gone)
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" 30m global --full >/dev/null 2>&1
+CLAUDE_PLUGIN_DATA="$D" bash "$TOOL" off >/dev/null 2>&1
+b=$([ -f "$D/scope/.autopilot-full" ] && echo kept || echo gone)
+[ "$a$b" = gonegone ] && pass || fail "plain=$a off=$b"
+rm -rf "$D"
+
+begin_test "statusline: shows (full) only while a full window is live"
+D=$(new_state); mkdir -p "$D/.claude/supercharger/scope"; SD="$D/.claude/supercharger/scope"
+n=$(( $(date +%s) + 600 ))
+for s in a1 b2; do echo "$n" > "$SD/.autopilot-until-$s"; done
+echo "$n" > "$SD/.autopilot-full-b2"; echo $(( n - 1200 )) > "$SD/.autopilot-full-a1"
+sl() { printf '{"session_id":"%s","model":{"display_name":"x"},"workspace":{"current_dir":"/tmp"},"cwd":"/tmp"}' "$1" \
+  | HOME="$D" SUPERCHARGER_STATE="$D/.claude/supercharger" bash "$REPO_DIR/hooks/statusline.sh" 2>/dev/null | grep -o 'Autopilot[^:]*:'; }
+a=$(sl a1); b=$(sl b2)
+[ "$a" = "Autopilot:" ] && [ "$b" = "Autopilot (full):" ] && pass || fail "expired-full=[$a] full=[$b]"
+rm -rf "$D"
+
 report

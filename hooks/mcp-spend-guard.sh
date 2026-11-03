@@ -42,6 +42,6 @@ if [ -z "$SPEND" ]; then
 fi
 [ -n "$SPEND" ] || exit 0
 
-sc_decision ask "the MCP tool '$NAME' looks like it spends money (a payment, purchase, transfer or order). Pay-per-call and wallet MCP servers pay without asking, and the shell guards never see this call." "confirm the amount and the recipient first"
+SC_ASK_KEEP=1 sc_decision ask "the MCP tool '$NAME' looks like it spends money (a payment, purchase, transfer or order). Pay-per-call and wallet MCP servers pay without asking, and the shell guards never see this call." "confirm the amount and the recipient first"
 echo "[Supercharger] mcp-spend-guard: ASK on $TOOL" >&2
 exit 0

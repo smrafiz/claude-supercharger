@@ -14,7 +14,11 @@
 #   global — every session on the machine auto-approves.
 #     flag: scope/.autopilot-until
 #
-# Usage: autopilot.sh <duration> [session|global]   e.g. 30m, 2h, 90s, 45 (bare = min)
+# full (2026-11-03): also approve the asks our guards raise (force push to a branch,
+#   .env overwrite, CI/lockfile edits...). Never: money, turning a guard or /sc off,
+#   autopilot renewing itself, leaving the sandbox. Flag: scope/.autopilot-full[-<sid>].
+#
+# Usage: autopilot.sh <duration> [session|global] [full]   e.g. 30m, 2h, 90s, 45 (bare = min)
 #        autopilot.sh off | status
 set -uo pipefail
 
@@ -35,6 +39,8 @@ SID="${CLAUDE_CODE_SESSION_ID:-}"
 GLOBAL_BASE=".autopilot-until"
 SESS_BASE=""
 [ -n "$SID" ] && SESS_BASE=".autopilot-until-$SID"
+FULL_G=".autopilot-full"; FULL_S=""
+[ -n "$SID" ] && FULL_S=".autopilot-full-$SID"
 
 # Portable epoch -> HH:MM (BSD/macOS `date -r`, GNU/Linux `date -d @`).
 fmt_time() { date -r "$1" +%H:%M 2>/dev/null || date -d "@$1" +%H:%M 2>/dev/null || echo '?'; }
@@ -68,8 +74,8 @@ status() {
   local g s any=""
   g=$(remaining_of "$GLOBAL_BASE")
   s=$(remaining_of "$SESS_BASE")
-  if [ -n "$s" ]; then echo "Autopilot (this session): ON — $(fmt_dur "$s") remaining"; any=1; fi
-  if [ -n "$g" ]; then echo "Autopilot (global, all sessions): ON — $(fmt_dur "$g") remaining"; any=1; fi
+  if [ -n "$s" ]; then echo "Autopilot (this session): ON$([ -n "$(remaining_of "$FULL_S")" ] && echo ' (full)') — $(fmt_dur "$s") remaining"; any=1; fi
+  if [ -n "$g" ]; then echo "Autopilot (global, all sessions): ON$([ -n "$(remaining_of "$FULL_G")" ] && echo ' (full)') — $(fmt_dur "$g") remaining"; any=1; fi
   # v2.24.4: `[ -z "$any" ] && …` as the LAST statement made status() return 1 whenever
   # autopilot was ON (the test is false), so `autopilot.sh status; echo $?` reported
   # failure for a perfectly healthy window. Explicit return keeps 0 = "query answered".
@@ -78,14 +84,18 @@ status() {
 }
 
 ARG="${1:-status}"
-MODE="${2:-session}"   # default scope: this session only
+MODE="session"   # default scope: this session only
+FULL=""
+for _a in "${@:2}"; do
+  case "$_a" in full|--full) FULL=1 ;; *) MODE="$_a" ;; esac
+done
 
 case "$ARG" in
   status|"") status ;;
   off)
     # Turn off decisively — clear both this session's window and the global one.
-    _rm_all "$GLOBAL_BASE"
-    [ -n "$SESS_BASE" ] && _rm_all "$SESS_BASE"
+    _rm_all "$GLOBAL_BASE"; _rm_all "$FULL_G"
+    [ -n "$SESS_BASE" ] && _rm_all "$SESS_BASE" && _rm_all "$FULL_S"
     echo "Autopilot: OFF — normal permission prompts restored."
     ;;
   *)
@@ -102,13 +112,13 @@ case "$ARG" in
 
     # Resolve scope.
     local_scope_desc="this session only"
-    TARGET_BASE="$SESS_BASE"
+    TARGET_BASE="$SESS_BASE"; FULL_BASE="$FULL_S"
     case "$MODE" in
-      global|all|machine) TARGET_BASE="$GLOBAL_BASE"; local_scope_desc="ALL sessions on this machine" ;;
+      global|all|machine) TARGET_BASE="$GLOBAL_BASE"; FULL_BASE="$FULL_G"; local_scope_desc="ALL sessions on this machine" ;;
       session|"")
         if [ -z "$SID" ]; then
           # No session id available (e.g. older Claude Code) — fall back to global.
-          TARGET_BASE="$GLOBAL_BASE"; local_scope_desc="ALL sessions (no session id available for per-session)"
+          TARGET_BASE="$GLOBAL_BASE"; FULL_BASE="$FULL_G"; local_scope_desc="ALL sessions (no session id available for per-session)"
         fi
         ;;
       *) echo "Autopilot: unknown scope '$MODE'. Use 'session' (default) or 'global'." >&2; exit 1 ;;
@@ -122,8 +132,14 @@ case "$ARG" in
     fi
     UNTIL=$(( $(date +%s) + REQ ))
     _write_all "$TARGET_BASE" "$UNTIL"
-    echo "Autopilot: ON for $(fmt_dur "$REQ")${CAPPED} — auto-approving all prompts for ${local_scope_desc} until $(fmt_time "$UNTIL")."
+    # A plain window replaces an earlier full one: the flag never outlives what was asked.
+    if [ -n "$FULL" ]; then _write_all "$FULL_BASE" "$UNTIL"; else _rm_all "$FULL_BASE"; fi
+    echo "Autopilot: ON${FULL:+ (full)} for $(fmt_dur "$REQ")${CAPPED} — auto-approving all prompts for ${local_scope_desc} until $(fmt_time "$UNTIL")."
     echo "Safety hooks stay active: rm -rf, force-push, credential leaks, curl|bash and the like are still blocked."
+    if [ -n "$FULL" ]; then
+      echo "Full: the confirms our guards raise are approved too (force push to a feature branch, .env overwrite, CI and lockfile edits, kill by name, push to another host)."
+      echo "Still asks: payments, turning Supercharger or a guard off, autopilot renewing itself, leaving the sandbox."
+    fi
     echo "Your own permissions.deny / permissions.ask rules are honoured too - autopilot never auto-approves a call they cover."
     echo "Turn off early: /sc-autopilot off"
     ;;
