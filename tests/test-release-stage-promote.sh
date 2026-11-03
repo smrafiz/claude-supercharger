@@ -190,6 +190,13 @@ printf '%s' "$OUT" | grep -q 'Smoke gate\|Fix failing' && pass \
 # Version must not have been bumped
 grep -q 'VERSION="1.2.3"' "$FIX/lib/utils.sh" && true \
   || fail "version was bumped despite test failure"
+
+begin_test "a smoke-gate abort shows WHICH check failed, not just the file"
+# 4.4.3 stage try 1 aborted on test-perf-chain.sh "1 failed" and the gate had
+# discarded the file's output, so the failing check was never known; 40 loaded
+# re-runs could not reproduce it. The FAIL line is the only evidence a flake leaves.
+printf '%s' "$OUT" | grep -q 'FAIL bad' && pass \
+  || fail "gate output omits the failing check: $(printf '%s' "$OUT" | tail -5)"
 rm -rf "$FIX"
 
 begin_test "stage aborts when a test file has failures — version not bumped"
@@ -269,6 +276,29 @@ make_promote_fixture() {
   git -C "$local_dir" checkout master -q >/dev/null 2>&1
   printf '%s' "$local_dir"
 }
+
+begin_test "promote says why when its git pull fails, instead of exiting silently"
+# 4.4.3's first promote stopped right after the CI check with no message: the pull
+# was silenced and set -e ended the script. Local master diverged from origin makes
+# pull --ff-only fail deterministically.
+FIX=$(make_promote_fixture)
+OTHER=$(mktemp -d)
+# -b master and an explicit identity: the bare origin's HEAD follows the machine's
+# init.defaultBranch, and a CI runner has no global user.email.
+git clone -q -b master "$(git -C "$FIX" remote get-url origin)" "$OTHER/c" >/dev/null 2>&1
+printf 'origin-only\n' >> "$OTHER/c/README.md"
+git -C "$OTHER/c" -c user.email=t@t.t -c user.name=t commit -qam "origin-only commit" >/dev/null 2>&1
+git -C "$OTHER/c" push -q origin master >/dev/null 2>&1
+printf 'local-only\n' >> "$FIX/CHANGELOG.md"
+git -C "$FIX" commit -qam "local-only commit" >/dev/null 2>&1
+MOCK_DIR=$(mktemp -d)
+make_gh_mock "$MOCK_DIR" "completed" "success" "success" \
+  "$(git -C "$FIX" rev-parse "origin/rel/1.2.4")" "$(git -C "$FIX" rev-parse "origin/rel/1.2.4^")"
+OUT=$(PATH="$MOCK_DIR:$PATH" bash "$FIX/tools/release.sh" promote 1.2.4 --yes 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'git pull --ff-only origin master failed' \
+  && ! git -C "$FIX" rev-parse -q --verify refs/tags/v1.2.4 >/dev/null && pass \
+  || fail "no pull-failure message (or a tag was made): $(printf '%s' "$OUT" | tail -5)"
+rm -rf "$FIX" "$MOCK_DIR" "$OTHER"
 
 begin_test "declining the commit in stage leaves master at pre-stage HEAD"
 # If user says y to Proceed but n to Commit, rollback+cleanup must restore master.
