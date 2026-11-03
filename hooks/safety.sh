@@ -181,7 +181,7 @@ block() {
   fi
   echo "" >&2
   echo "Supercharger blocked this command." >&2
-  echo "  Reason : $1" >&2
+  if [ -n "${2:-}" ]; then echo "  Reason : blocked because $2" >&2; echo "  Rule   : $1" >&2; else echo "  Reason : $1" >&2; fi
   echo "  Command: $COMMAND" >&2
   echo "  Override: run it in your terminal directly, OR add the relevant category to" >&2
   echo "            \"disableSecurityCategories\" in .supercharger.json (project) — categories:" >&2
@@ -242,7 +242,7 @@ block() {
   if [ "$(wc -l < "$blocks_log" 2>/dev/null || echo 0)" -gt 600 ]; then
     tail -n 500 "$blocks_log" > "$blocks_log.tmp" 2>/dev/null && mv "$blocks_log.tmp" "$blocks_log" 2>/dev/null || true
   fi
-  sc_decision deny "$1"
+  if [ -n "${2:-}" ]; then sc_decision deny "blocked because $2. (rule: $1)"; else sc_decision deny "$1"; fi
   exit 2
 }
 
@@ -1083,19 +1083,22 @@ WIN_NETWORK_PATTERNS=(
   '(^|[^[:alnum:]_])Start-BitsTransfer([[:space:]]|$)'
 )
 
-DANGEROUS_PATTERNS=()
-_cat_enabled "database" && DANGEROUS_PATTERNS+=("${DB_PATTERNS[@]}")
-if _cat_enabled "destructive" || _cat_enabled "network"; then DANGEROUS_PATTERNS+=("${POWERSHELL_PATTERNS[@]}"); fi
-_cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${DESTRUCT_PATTERNS[@]}")
-_cat_enabled "destructive" && DANGEROUS_PATTERNS+=("${WIN_DESTRUCT_PATTERNS[@]}")
-_cat_enabled "network" && DANGEROUS_PATTERNS+=("${WIN_NETWORK_PATTERNS[@]}")
-_cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${WIN_PERSIST_PATTERNS[@]}")
-_cat_enabled "network" && DANGEROUS_PATTERNS+=("${NETWORK_PATTERNS[@]}")
-_cat_enabled "network" && DANGEROUS_PATTERNS+=("${EXFIL_PATTERNS[@]}")
-_cat_enabled "cloud" && DANGEROUS_PATTERNS+=("${CLOUD_PATTERNS[@]}")
-_cat_enabled "persistence" && DANGEROUS_PATTERNS+=("${PERSIST_PATTERNS[@]}")
-_cat_enabled "credentials" && DANGEROUS_PATTERNS+=("${CRED_CMD_PATTERNS[@]}")
-_cat_enabled "clipboard" && DANGEROUS_PATTERNS+=("${INPUT_INJECT_PATTERNS[@]}")
+# 4.4.3: each rule carries a plain sentence the user and the agent read; the raw regex
+# stays in the block log (learn-from-blocks parses `dangerous pattern: <regex>`).
+DANGEROUS_PATTERNS=(); DANGEROUS_WHY=()
+_add_pats() { local why="$1" p; shift; for p in "$@"; do DANGEROUS_PATTERNS+=("$p"); DANGEROUS_WHY+=("$why"); done; }
+_cat_enabled "database" && _add_pats "it would wipe or rewrite database data (a drop, truncate, reset, or a delete/update with no WHERE), which cannot be undone" "${DB_PATTERNS[@]}"
+if _cat_enabled "destructive" || _cat_enabled "network"; then _add_pats "this PowerShell command could delete files for good or download and run code" "${POWERSHELL_PATTERNS[@]}"; fi
+_cat_enabled "destructive" && _add_pats "it could do damage that is hard to undo: erase files, disks or git history, open up permissions or ownership, shut the machine down, or switch off a system protection (firewall, SELinux, Defender)" "${DESTRUCT_PATTERNS[@]}"
+_cat_enabled "destructive" && _add_pats "it could wipe a drive, your user folder, a system folder or the backups Windows keeps, which cannot be undone" "${WIN_DESTRUCT_PATTERNS[@]}"
+_cat_enabled "network" && _add_pats "it downloads a file with a Windows tool that malware often uses to fetch itself" "${WIN_NETWORK_PATTERNS[@]}"
+_cat_enabled "persistence" && _add_pats "it adds a program that starts with Windows, which keeps it running after this session" "${WIN_PERSIST_PATTERNS[@]}"
+_cat_enabled "network" && _add_pats "it feeds downloaded or decoded text straight into a shell, so code nobody has read would run" "${NETWORK_PATTERNS[@]}"
+_cat_enabled "network" && _add_pats "it could open a way for data to leave the machine (a live browser session, a reverse tunnel, or a fetched script run straight away)" "${EXFIL_PATTERNS[@]}"
+_cat_enabled "cloud" && _add_pats "it could take cloud credentials or let a container reach the host machine" "${CLOUD_PATTERNS[@]}"
+_cat_enabled "persistence" && _add_pats "it sets up access that outlasts this session (sudo rights, an SSH key, a scheduled task, or a redirected domain)" "${PERSIST_PATTERNS[@]}"
+_cat_enabled "credentials" && _add_pats "it would read stored passwords or keys, or make their storage less safe" "${CRED_CMD_PATTERNS[@]}"
+_cat_enabled "clipboard" && _add_pats "it would type or click in other apps on your desktop, outside what the agent is allowed to touch" "${INPUT_INJECT_PATTERNS[@]}"
 
 # v2.26.65: blank the VALUE of -m/--message before pattern matching. These patterns
 # match the raw command with no awareness of shell quoting, so prose inside a commit
@@ -1164,9 +1167,10 @@ fi
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
   if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
-    for pattern in "${DANGEROUS_PATTERNS[@]}"; do
+    for _dp_i in "${!DANGEROUS_PATTERNS[@]}"; do
+      pattern="${DANGEROUS_PATTERNS[$_dp_i]}"
       if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$pattern"; then
-        block "dangerous pattern: $pattern"
+        block "dangerous pattern: $pattern" "${DANGEROUS_WHY[$_dp_i]}"
       fi
     done
   fi
