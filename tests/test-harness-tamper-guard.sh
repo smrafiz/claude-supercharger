@@ -64,6 +64,13 @@ check "update.sh runs"                 "bash ~/.claude/supercharger/tools/update
 check "sc-toggle off asks for confirmation" "bash ~/.claude/supercharger/tools/sc-toggle.sh off" ASK
 check "sc-toggle on runs"              "bash ~/.claude/supercharger/tools/sc-toggle.sh on"    SILENT
 check "repo-relative dev chmod"        "chmod +x hooks/foo.sh"                                SILENT
+# 2026-11-04 (radius-bundles): adding the execute bit enables a hook, it cannot disable one.
+check "chmod +x a project hook"        "chmod +x .claude/hooks/writer-gate.sh"                SILENT
+check "chmod u+x two project hooks"    "chmod u+x .claude/hooks/a.sh .claude/hooks/b.sh"      SILENT
+check "chmod 755 a project hook"       "chmod 755 .claude/hooks/writer-gate.sh"               SILENT
+check "chmod 644 a project hook"       "chmod 644 .claude/hooks/writer-gate.sh"               DENY
+check "chmod -x a project hook"        "chmod -x .claude/hooks/writer-gate.sh"                DENY
+check "chmod +x then rm a hook"        "chmod +x .claude/hooks/a.sh && rm .claude/hooks/b.sh" DENY
 check "listing the hooks dir"          "ls ~/.claude/supercharger/hooks/"                     SILENT
 check "reading a hook"                 "cat ~/.claude/supercharger/hooks/safety.sh"           SILENT
 check "ordinary command"               "git status"                                           SILENT
