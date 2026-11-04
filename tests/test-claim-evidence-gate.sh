@@ -395,19 +395,24 @@ mkw ph_fastpath "$TD/fastpath.py" "$STUB" "Fully implemented."
 # --- stale: the code changed after the last green run ------------------------
 # From chipfighter/coding-discipline's verify-before-done: only evidence gathered
 # AFTER the last relevant change counts. A green run followed by a code edit says
-# nothing about the code as it now is. Advisory, like zero-test: the edit may not
-# touch what the tests cover, so this must never hold a session open.
+# nothing about the code as it now is. Blocks once: the continuation carries
+# stop_hook_active and the gate exits, so it can never hold a session open.
 st() { # transcript name -> ADVISORY | SILENT | BLOCK
   local rc msg
   msg=$(msg_for "$1"); rc=$(rc_for "$1")
   if [ "$rc" = "2" ]; then echo BLOCK
-  elif printf '%s' "$msg" | grep -q 'edited after the last test run'; then echo ADVISORY
+  elif printf '%s' "$msg" | grep -q 'edited after the last test run'; then echo ADVISORY-ONLY
   else echo SILENT; fi
 }
 
 mk st_after 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("src/app.py") + asst(text="All tests pass.")'
 begin_test "a code edit after the last green run makes the pass claim stale"
-[ "$(st st_after)" = "ADVISORY" ] && pass || fail "got $(st st_after)"
+[ "$(st st_after)" = "BLOCK" ] && pass || fail "got $(st st_after)"
+begin_test "the stale block names the edited file"
+msg_for st_after | grep -q 'Edited    : src/app.py' && pass || fail "$(msg_for st_after)"
+begin_test "a Stop continuation (stop_hook_active) is never blocked again"
+rc=$(printf '{"transcript_path":"%s","stop_hook_active":true}' "$TD/st_after.jsonl" | bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$rc" = "0" ] && pass || fail "rc=$rc"
 
 mk st_before 'ed("src/app.py") + asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + asst(text="All tests pass.")'
 begin_test "an edit BEFORE the green run is covered by it"

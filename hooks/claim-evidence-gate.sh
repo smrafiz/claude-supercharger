@@ -380,7 +380,8 @@ if not is_error and not is_failure(out):
 
 # From chipfighter/coding-discipline's verify-before-done: evidence counts only
 # if gathered after the last relevant change. Advisory: the edit may not touch
-# what the suite covers. A FAILED run still falls through to the block below.
+# what the suite covers; it blocks once (see the shell arm). A FAILED run still
+# falls through to the contradicted block below.
 if not is_error and not is_failure(out) and edited_after:
     print(json.dumps({"verdict": "stale", "claim": last_claim,
                       "cmd": cmd[:120], "evidence": edited_after[:160]}))
@@ -462,6 +463,12 @@ if [ "$KIND" = "stale" ]; then
     echo "  Edited    : ${EV}"
     echo "  That run tested the code before this edit. Re-run it, or say the result predates the change."
   } >&2
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] pass claimed after a code edit newer than the last test run — stop blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  # Blocks once: a Stop continuation carries stop_hook_active and exits at the top.
+  # Exit 0 stderr reaches neither the agent nor a -p user (verified live, CC 2.1.318).
+  exit 2
 fi
 
 if [ "$KIND" = "unevidenced" ]; then
