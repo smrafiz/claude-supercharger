@@ -106,6 +106,15 @@ check "tf-state-rm"               "terraform state rm aws_db_instance.prod"     
 check "tf-state-mv"               "terraform state mv a.b a.c"                       ASK
 check "tf-force-unlock"           "terraform force-unlock -force 1234"               ASK
 check "tf-taint"                  "terraform taint aws_instance.web"                 ASK
+check "tf-apply-auto-approve"     "terraform apply -auto-approve"                    ASK
+check "tofu-apply-auto-approve"   "tofu apply --auto-approve -var x=1"               ASK
+check "tf-chdir-apply-auto"       "terraform -chdir=infra apply -auto-approve"       ASK
+check "tg-run-all-apply-auto"     "terragrunt run-all apply -auto-approve"           ASK
+check "tf-apply-saved-plan"       "terraform apply plan.out"                         SILENT
+check "tf-plan"                   "terraform plan -out plan.out"                     SILENT
+check "gh-secret-set"             "gh secret set FOO --body x"                       ASK
+check "gh-variable-set"           "gh variable set ENV --body prod"                  ASK
+check "gh-secret-list"            "gh secret list"                                   SILENT
 check "kubectl-drain"             "kubectl drain node-1"                              ASK
 
 # --- the precision half: these must NOT fire -----------------------------------
