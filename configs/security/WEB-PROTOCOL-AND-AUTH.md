@@ -74,6 +74,15 @@ Adding an IdP, passkey, email, phone, device, or external account to an existing
 **Password reset and broader recovery**
 Recovery tokens, support/admin recovery, backup codes, device migration, and email or phone change often become the weakest authentication path. Verify token randomness, user/action binding, expiry, one-time state, rate/accounting controls, delivery URL trust, and invalidation of prior tokens and sessions. Different responses that only reveal public account existence are not automatically security findings.
 
+**Single-use links consumed on GET**
+A magic-login, verification, reset or approval link performs its action on a plain GET, so a mail scanner or link preview that prefetches it burns or completes it before the user clicks. Confirm the action needs a POST or a second step bound to the session that clicks.
+
+**One-time code without an attempt cap**
+An OTP, recovery or verification code is checked with no per-account or per-code attempt limit, or the limit resets when a new code is issued, so a short code can be brute-forced. Count attempts across code reissue.
+
+**Identity resolved by pattern or substring**
+A user, tenant or invite is looked up with `LIKE`, substring, case-folding or a JSON-path helper whose matching differs between database engines, so one identity can match another's record.
+
 ## API-key and mTLS attack classes (subagent_type: `general`)
 
 **API-key scope and resource binding**

@@ -71,6 +71,9 @@ A function or worker trusts event body fields as source identity without validat
 **Edge/runtime boundary mismatch**
 An edge or serverless runtime assumes a secret, API, filesystem, isolation, or tenant policy that differs from the origin runtime, and fallback to origin changes authority or cache behavior. Confirm which configuration selects each path.
 
+**Subdomain takeover through a dangling record**
+A DNS CNAME or alias still points at a deleted platform resource (bucket, app, CDN, PaaS hostname) that anyone can claim, so an attacker serves content or receives cookies on the organization's subdomain. Mark `needs_validation` unless DNS records and the platform's claim rules are in the repository.
+
 ## Universal moves (apply across the above)
 
 - Render every maintained environment and make a matrix of external port, workload identity, network peers, mounted secrets, and cloud resources. Differences require an owner or policy explanation.
