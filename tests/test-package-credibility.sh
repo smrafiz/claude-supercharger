@@ -141,7 +141,8 @@ sys.exit(0 if ok else 1)
 begin_test "credibility: a flagged package ASKS before the install runs (PreToolUse)"
 # The install script is the payload, so a warning after the install is too late.
 # Copy the hook with a stub companion that reports one flagged package.
-SB=$(mktemp -d); cp "$REPO_DIR"/hooks/package-credibility-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$SB/"
+SB=$(mktemp -d)
+cp "$REPO_DIR"/hooks/package-credibility-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$SB/"
 printf '#!/usr/bin/env python3\nprint("evilpkg: first published 2 days ago, 3 downloads last week")\n' > "$SB/package-credibility.py"
 OUT=$(printf '{"cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"npm install evilpkg"}}' \
   | HOME="$SB" SUPERCHARGER_STATE="$SB" bash "$SB/package-credibility-guard.sh" 2>/dev/null)

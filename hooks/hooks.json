@@ -518,7 +518,7 @@
             "timeout": 15
           }
         ],
-        "matcher": "Bash|PowerShell"
+        "matcher": "Bash|Monitor|PowerShell"
       },
       {
         "hooks": [

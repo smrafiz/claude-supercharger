@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Package Credibility Guard
-# Event: PreToolUse | Matcher: Bash,PowerShell
+# Event: PreToolUse | Matcher: Bash,Monitor,PowerShell
 #
 # Slopsquatting. An LLM asked for a package name that does not exist, someone
 # registered it, and the install command found it waiting. 5-22% of
@@ -65,7 +65,8 @@ init_hook_suppress "$PROJECT_DIR" 2>/dev/null || HOOK_SUPPRESS=false
 COMMAND=$(printf '%s\n' "$_INPUT" | python3 -c "
 import sys, json
 try:
-    print(json.load(sys.stdin).get('tool_input', {}).get('command', ''))
+    ti = json.load(sys.stdin).get('tool_input', {})
+    print(ti.get('command') or ti.get('script') or '')
 except Exception:
     print('')
 " 2>/dev/null || echo "")

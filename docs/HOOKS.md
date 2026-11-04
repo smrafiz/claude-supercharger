@@ -101,7 +101,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
-| `package-credibility-guard` | PreToolUse | Bash,PowerShell | Slopsquatting. An LLM asked for a package name that does not exist, someone |
+| `package-credibility-guard` | PreToolUse | Bash,Monitor,PowerShell | Slopsquatting. An LLM asked for a package name that does not exist, someone |
 | `package-source-guard` | PreToolUse | Write, Edit, MultiEdit, Bash | Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY |
 | `path-guard` | PreToolUse | Write,Edit | Hardens Write/Edit against path-based attacks: |
 | `peer-message-scanner` | UserPromptSubmit | (none) | Text from ANOTHER session, machine or agent (SendMessage, Remote Control, subagent |
