@@ -1805,6 +1805,19 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
       sc_decision ask "the DNS exfiltration check on this command ran out of time (the machine is busy), so it was not checked. It looks up a hostname built from a command's output." "re-run when the machine is less busy, or confirm the lookup sends no data"
       exit 0
     fi
+    # 2026-11-04: the paste-site upload rule is detector-only too; under suite load an
+    # upload to a paste host was allowed (reproduced at a 1us budget, which rule won
+    # was a race). A sender naming a known paste host asks. Runs only on overrun.
+    # shellcheck source=hooks/lib-egress-patterns.sh
+    if [[ "$CMD" =~ (^|[^[:alnum:]_-])(curl|wget|nc|ncat|http|https|xh)[[:space:]] ]] \
+       && . "${BASH_SOURCE[0]%/*}/lib-egress-patterns.sh" 2>/dev/null && [ -n "${EGRESS_PASTE_RE:-}" ]; then
+      _PASTE_RE="${EGRESS_PASTE_RE//\\b/}"   # \b is a no-op in macOS ERE
+      _CMD_LC=$(printf '%s' "$CMD" | tr '[:upper:]' '[:lower:]')
+      if [[ "$_CMD_LC" =~ $_PASTE_RE ]]; then
+        sc_decision ask "the exfiltration check on this command ran out of time (the machine is busy), so it was not checked. It sends to a paste or anonymous file-transfer site." "re-run when the machine is less busy, or confirm nothing private is uploaded"
+        exit 0
+      fi
+    fi
   fi
   if [ -n "$PY_REASON" ]; then
     block "$PY_REASON"
