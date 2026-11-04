@@ -32,6 +32,7 @@ Trace untrusted input from entry point to dangerous sink. What counts as a "dang
 - Libraries: any function that processes caller-supplied data without validation — buffer operations, parsers, format strings
 - CLI tools: shell command construction, file path handling, environment variable interpolation
 - Services: query construction, message serialization, log injection, LDAP/XPATH queries
+- Mail and messaging: CR/LF in a header value (subject, reply-to, display name) that adds recipients or headers, and recipient addresses taken from the request rather than the account
 - Client-side (browser/JS): DOM XSS, prototype pollution, `postMessage`/origin trust, and other browser-side classes — covered by the [CLIENT-SIDE.md](CLIENT-SIDE.md) companion blocks when selected
 
 Do not stop at the obvious direct paths. Look for indirect injection: data stored safely, then retrieved and used in a dangerous context by different code. Look for injection through field names, keys, headers, and metadata — not just values. Look for injection into secondary systems (logs, caches, search indexes, analytics).

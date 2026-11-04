@@ -227,7 +227,9 @@ if [ -z "$REASON" ]; then
             sub(/[[:space:]]+$/, "", dst)
             n = split(dst, a, /[[:space:]]+/)
             if (n > 0 && a[n] ~ t) { hit = 1 }
-          } else if (seg ~ v && seg ~ t) {
+          } else if ((sv = seg) && gsub(/(^|[[:space:];&|(])chmod([[:space:]]+-[RfvchHLP]+)*[[:space:]]+([ugoa]*[+][rwxXst]*x[rwxXst]*|0?[1357][0-7][0-7])[[:space:]].*/, " ", sv) >= 0 && sv ~ v && seg ~ t) {
+            # 2026-11-04: chmod that only ADDS the execute bit enables a hook, it
+            # cannot disable one (radius-bundles: `chmod +x .claude/hooks/writer-gate.sh`).
             # v4.0.37: a REDIRECT only counts when the protected path is the
             # redirect TARGET. Same principle the copy-family above already uses
             # ("only the DESTINATION counts"), applied to > and >>.
@@ -257,7 +259,7 @@ if [ -z "$REASON" ]; then
         }
         END { print hit }')
   if [ "$_HT_HIT" = "1" ]; then
-    REASON="removes, disables, or overwrites Supercharger hook scripts / install dir / kill-switch — this tears down the guardrail layer. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
+    REASON="removes, disables, or overwrites a hook script (Supercharger's, or this project's .claude/hooks) / the install dir / the kill-switch — this tears down a guardrail. Use the documented controls (/sc off, hook-toggle.sh, SUPERCHARGER_* env) instead of editing the harness from the shell."
   fi
 fi
 
