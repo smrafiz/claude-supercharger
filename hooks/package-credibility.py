@@ -19,12 +19,16 @@ import os
 import re
 import subprocess
 import sys
+import time
 from datetime import datetime, timezone
 
 MIN_AGE_DAYS = int(os.environ.get("SC_MIN_AGE_DAYS") or 90)
 MIN_DOWNLOADS = int(os.environ.get("SC_MIN_DOWNLOADS") or 1000)
 TIMEOUT = 4          # per request; the whole hook must not outlast a human's patience
 MAX_PACKAGES = 5     # a 40-package install is a manifest restore, not an invented name
+# PreToolUse since 4.4.4: the install waits on this, so all lookups share one budget.
+BUDGET_S = float(os.environ.get("SC_PKG_BUDGET_S") or 6)
+_T0 = time.monotonic()
 
 # v4.1.9: anchored at a SEGMENT start. `cd app && npm i evil` matched neither
 # regex, so a compound install -- which is how an agent always writes one --
@@ -51,10 +55,14 @@ def tokens(tail):
 
 
 def get(url):
+    left = BUDGET_S - (time.monotonic() - _T0)
+    if left < 0.5:
+        return None                                   # budget spent: say nothing, never stall
+    t = min(TIMEOUT, left)
     try:
         r = subprocess.run(
-            ["curl", "-sSL", "--max-time", str(TIMEOUT), "-H", "Accept: application/json", url],
-            capture_output=True, text=True, timeout=TIMEOUT + 2)
+            ["curl", "-sSL", "--max-time", "%.1f" % t, "-H", "Accept: application/json", url],
+            capture_output=True, text=True, timeout=t + 1)
         if r.returncode != 0 or not r.stdout.strip():
             return None
         return json.loads(r.stdout)
