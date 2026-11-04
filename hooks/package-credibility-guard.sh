@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Package Credibility Guard
-# Event: PostToolUse | Matcher: Bash,PowerShell
+# Event: PreToolUse | Matcher: Bash,PowerShell
 #
 # Slopsquatting. An LLM asked for a package name that does not exist, someone
-# registered it, and the install command found it waiting. Roughly a fifth of
+# registered it, and the install command found it waiting. 5-22% of
 # LLM-suggested package names are not real, and a large share of those RECUR
 # across identical prompts — that reproducibility is what makes registering them
 # worth an attacker's time. The agent is the delivery mechanism, which is why
@@ -16,7 +16,11 @@
 # name, comes from the REAL registry, and has no CVE because nobody has looked
 # at it yet. Every one of those hooks passes it.
 #
-# PostToolUse, not PreToolUse. This needs a registry round-trip, and that cost is
+# 4.4.4: moved to PreToolUse and ASKS. The reasoning below held for the cost but
+# missed the payload: a slopsquat ships its attack in an install script, which had
+# already run by the time a PostToolUse warning spoke. The round-trip is paid only
+# on install verbs and capped at 6s in total (package-credibility.py BUDGET_S).
+# Original reasoning, kept for the record: PostToolUse, not PreToolUse. This needs a registry round-trip, and that cost is
 # unacceptable BEFORE every install — the PreToolUse chain is 63-129ms today and
 # a network timeout would dwarf it. dep-vuln-scanner already established this
 # position: it runs `npm audit` after installs, behind the same install-verb
@@ -76,9 +80,7 @@ REPORT=$(CMD="$COMMAND" \
 
 [ -z "$REPORT" ] && exit 0
 
-echo "[Supercharger] package-credibility: $REPORT" >&2
-MSG="[SUPPLY CHAIN] ${REPORT} A package that is very new or barely downloaded may be a slopsquat — a name an LLM invented that someone registered. Check the repository link and the publish date before depending on it."
-MSG_JSON=$(printf '%s' "$MSG" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null) || exit 0
-printf '{"systemMessage":%s,"suppressOutput":%s}\n' "$MSG_JSON" "${HOOK_SUPPRESS:-false}"
-
+. "$HOOKS_DIR/lib-deny.sh" 2>/dev/null || exit 0
+CMD="$COMMAND"
+sc_decision ask "package-credibility: ${REPORT}. A package that is very new or barely downloaded may be a slopsquat: a name an LLM invented that someone registered, with its attack in an install script that runs now." "check the repository link and publish date; if it is right, approve, or install with --ignore-scripts first."
 exit 0

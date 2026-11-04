@@ -48,6 +48,7 @@ check "pyreq url dep"     /p/requirements.txt 'requests==2.0'   'lib @ https://e
 check "pyreq git+"        /p/requirements.txt 'requests==2.0'   'lib @ git+https://e.tld/lib.git'           ASK
 check "pyreq index-url"   /p/requirements.txt 'requests==2.0'   '--extra-index-url https://evil.tld/simple' ASK
 check "cargo git source"  /p/Cargo.toml 'serde = "1.0"'         'serde = { git = "https://gh/x/serde" }'    ASK
+check "npm inflated ver"  /p/package.json '"a": "^1.0.0"'       '"@corp/auth": "^99.1.0"'                   ASK
 check "cargo path source" /p/Cargo.toml 'serde = "1.0"'         'serde = { path = "../vendor/serde" }'      ASK
 check "gemfile git"       /p/Gemfile 'gem "rails"'              'gem "rails", git: "https://e/rails"'       ASK
 check "gemfile github"    /p/Gemfile 'gem "rails"'              'gem "rails", github: "evil/rails"'         ASK
@@ -102,14 +103,18 @@ for c in 'pip install --extra-index-url https://pkgs.example.net/simple internal
          'npm config set registry https://registry.example.net/' \
          'yarn config set npmRegistryServer https://registry.example.net' \
          'pip install git+https://github.com/someone/pkg.git' \
-         'pip install https://files.example.net/pkg-1.0.tar.gz'; do
+         'pip install https://files.example.net/pkg-1.0.tar.gz' \
+         'npm install @acme/utils@99.0.0' 'cd app && npm i internal-lib@19999.1.0' \
+         'pip install corp-auth==99.9'; do
   begin_test "Bash: asks on $c"
   [ "$(bash_v "$c")" = ASK ] && pass || fail "no ask"
 done
 for c in 'pip install requests' 'npm install left-pad' 'pip install -r requirements.txt' \
          'pip install --index-url https://pypi.org/simple requests' \
          'npm config set registry https://registry.npmjs.org/' 'npm config get registry' \
-         'curl -s https://registry.example.net/health' 'git clone https://github.com/x/y.git'; do
+         'curl -s https://registry.example.net/health' 'git clone https://github.com/x/y.git' \
+         'npm i react@18.3.1' 'pip install certifi==2024.8.30' 'npm i @types/node@22' \
+         'git commit -m "bump to 199"'; do
   begin_test "Bash: silent on $c"
   [ "$(bash_v "$c")" = allow ] && pass || fail "false ask"
 done

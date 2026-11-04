@@ -42,6 +42,8 @@ case "$_INPUT" in
   # install command passed with no ask (cross-channel parity). A superset of the
   # python's command patterns below, so the gate can never skip a match.
   *index-url*|*registry*|*RegistryServer*|*git+*|*-i\ http*|*-ihttp*|*install*http*) : ;;
+  # Widened WITH inflated(): a 3+ digit or 99 major after @ or ==.
+  *@99*|*==99*|*@[1-9][0-9][0-9]*|*==[1-9][0-9][0-9]*) : ;;
   *) exit 0 ;;
 esac
 
@@ -85,6 +87,12 @@ def ask_once(hits, sources, what):
         except Exception:
             pass
     shown = [hits[i] for i in fresh_idx][:3]
+    if all(h.startswith("implausible version") for h in shown):
+        print("package-source: %s %s. Real packages rarely reach version 99 or 19999; "
+              "dependency-confusion packages publish there so a resolver prefers them over "
+              "an internal package of the same name. Confirm the name and version are yours."
+              % (re.sub(r"\s+from$", ":", what), "; ".join(shown)))
+        sys.exit(0)
     print("package-source: %s a NON-REGISTRY source — %s. A tarball/git/file/"
           "custom-index origin bypasses the registry (dependency-confusion / supply-chain "
           "risk) and runs before any CVE scan. Confirm the source is trusted."
@@ -95,6 +103,13 @@ def ask_once(hits, sources, what):
 # The default public registries pass; anything else is a source the package manager
 # would trust for every name it resolves (pip's --extra-index-url picks the HIGHEST
 # version across indexes, which is the dependency-confusion mechanism).
+# Dependency confusion's other tell: a public package published at an absurd
+# version (99.x, 19999.x) so resolvers prefer it over the internal one (GHSA
+# waves 2026-09..10). Calendar versions (2024.x) are real and pass.
+def inflated(spec):
+    m = re.match(r'^\s*[\^~>=v]*\s*(\d+)(?:\.|$)', spec or "")
+    return bool(m) and int(m.group(1)) >= 99 and not 2000 <= int(m.group(1)) <= 2099
+
 if tool in ("Bash", "Monitor", "PowerShell"):
     cmd = (d.get("tool_input") or {}).get("command") or ""
     DEFAULT = re.compile(r'^https?://(pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com)(/|$)', re.I)
@@ -111,6 +126,11 @@ if tool in ("Bash", "Monitor", "PowerShell"):
             urls += [("custom registry", u) for u in re.findall(r'--registry[\s=]+(\S+)', seg)]
             urls += [("registry setting", u) for u in re.findall(
                 r'\bconfig\s+set\s+(?:@[\w.-]+:)?(?:registry|npmRegistryServer)[\s=]+(\S+)', seg)]
+        if NODE.search(seg) or PIP.search(seg):
+            for tok in seg.split():
+                name, sep, ver = tok.strip('\'"').rpartition("==") if "==" in tok else tok.strip('\'"').rpartition("@")
+                if sep and name and name != "@" and inflated(ver):
+                    hits.append("implausible version: %s" % tok[:80]); sources.append(tok)
         for label, u in urls:
             u = u.strip('\'"')
             if u and not DEFAULT.match(u):
@@ -197,6 +217,9 @@ if KIND == "npm":
             if (name not in om or om[name] != spec) and NONREG.match(spec):
                 short = name.split("/", 1)[1]
                 add("%s -> %s" % (short, spec[:80]), spec.strip())
+            elif (name not in om or om[name] != spec) and inflated(spec):
+                short = name.split("/", 1)[1]
+                add("implausible version: %s@%s" % (short, spec[:40]), short + "@" + spec.strip())
     else:
         # Edit fragment isn't valid JSON — scan added lines for a name:source pair.
         oldset = set(old.splitlines())
@@ -206,6 +229,8 @@ if KIND == "npm":
             m = re.search(r'"[\w@./-]+"\s*:\s*"([^"]+)"', line)
             if m and NONREG.match(m.group(1)):
                 add(m.group(1)[:80], m.group(1).strip())
+            elif m and inflated(m.group(1)):
+                add("implausible version: %s" % m.group(1)[:40], m.group(1).strip())
 else:
     # Line-scan added lines with per-ecosystem source markers.
     PATTERNS = {
