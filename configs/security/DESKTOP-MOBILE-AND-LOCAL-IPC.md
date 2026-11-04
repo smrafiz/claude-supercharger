@@ -52,6 +52,9 @@ A mobile component or local automation endpoint is externally invokable and perf
 **IPC lifecycle and correlation confusion**
 Predictable request IDs, reused handles, stale channels, inherited descriptors, world-writable socket paths, or restart behavior lets one peer answer, cancel, or reuse another peer's operation. Review creation permissions and cleanup of socket files, locks, ports, and shared mappings.
 
+**Development-server endpoints reachable from a web page**
+A dev server, framework devtool or local MCP endpoint listens on localhost and accepts requests or `postMessage` traffic without an origin or token check, so any page the developer visits can drive it. Mark `needs_validation` when only the published package shows the listener.
+
 ## Privileged-helper and local-file attack classes (subagent_type: `general`)
 
 **Privileged helper as confused deputy**

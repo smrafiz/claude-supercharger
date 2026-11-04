@@ -59,6 +59,12 @@ Calls or results are routed by attacker-influenceable server names, tool names, 
 **MCP metadata and schema as policy**
 Tool descriptions, resource metadata, prompts, completion hints, or schemas supplied by an MCP peer are trusted as policy or authorization. These fields can guide the model but cannot grant capability. Find the deterministic allowlist, server identity check, and handler authorization that remain authoritative when metadata conflicts.
 
+**Tool definition changed after approval**
+An MCP or plugin tool's description, schema or behavior is approved once and can change later (a server update or a self-modifying server) with no re-approval, so the approved tool and the one being called differ. Check whether definitions are pinned or hashed at approval.
+
+**MCP transport and session defects**
+A server shared across clients mixes responses by request id or task id across sessions, accepts bearer tokens without checking their audience, or re-sends credential headers when following a cross-origin redirect. Follow one request id and one token from client to handler.
+
 ## Output and disclosure attack classes (subagent_type: `general`)
 
 **Insecure output rendering**
