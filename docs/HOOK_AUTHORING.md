@@ -1021,3 +1021,20 @@ catch `SystemExit`, and call the handler directly.
 - **Count checks against release-maintained files** should run the release's own rewrite on a copy, not
   compare the committed file, or every PR that adds a hook fails until release.
 
+
+## Notes from 2026-11-03
+
+- **Every grep pattern is data, not the first one.** `cmd-normalize.sh` blanked the first quoted
+  pattern and left `-e B` live, so `grep -e x -e 'DROP TABLE'` was denied as SQL. A data-blanking
+  rule has to cover every repeat of its flag; blanking file operands instead (the first try) broke
+  path checks.
+- **A regex for a flag must not match a module name.** `perl -[a-zA-Z]*i` matched `-MList::Util`.
+  Name the letters that can share a cluster with `-i` (`-[lnpaw0-9]*i`), and test a near miss.
+- **Put a new check inside a hook that already runs.** The lock check for `sed -i` lives in
+  `redirect-clobber-guard.sh` behind a cheap manifest walk, so a Bash call with no lock manifest
+  pays no new process. A python fork costs about 20 ms.
+- **A block reason is for the person reading it.** Each dangerous pattern group carries a plain
+  "why"; the raw rule follows it, and the block log keeps the rule so counts don't break.
+- **Load-only test failures.** `test-perf-chain.sh` and the dig/dotenv case in
+  `test-detect-fp-2026-10.sh` failed only under parallel load and passed alone. Rerun the file alone
+  and probe the guard directly before calling a change broken.
