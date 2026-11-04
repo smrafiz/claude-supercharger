@@ -15,7 +15,7 @@ begin_test "every domain file the command names ships in configs/security/"
 # Count first: with no names and no folder, both loops below run zero times and pass.
 NAMED=$(grep -oE '`[A-Z][A-Z-]+\.md`' "$CMD" | sort -u | wc -l | tr -d ' ')
 MISSING=""
-[ "$NAMED" -ge 11 ] || MISSING=" (only $NAMED named, expected all 11)"
+[ "$NAMED" -ge 12 ] || MISSING=" (only $NAMED named, expected all 12)"
 for f in $(grep -oE '`[A-Z][A-Z-]+\.md`' "$CMD" | tr -d '`' | sort -u); do
   [ -f "$SEC/$f" ] || MISSING="$MISSING $f"
 done
@@ -24,7 +24,7 @@ done
 begin_test "every shipped domain file is named by the command (no orphan never read)"
 SHIPPED=$(ls "$SEC"/*.md 2>/dev/null | wc -l | tr -d ' ')
 ORPHAN=""
-[ "$SHIPPED" -ge 11 ] || ORPHAN=" (only $SHIPPED shipped, expected 11)"
+[ "$SHIPPED" -ge 12 ] || ORPHAN=" (only $SHIPPED shipped, expected 12)"
 for p in "$SEC"/*.md; do
   f=$(basename "$p")
   grep -q "\`$f\`" "$CMD" || ORPHAN="$ORPHAN $f"

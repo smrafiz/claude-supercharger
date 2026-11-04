@@ -36,6 +36,8 @@ def ed(path, tid="e1"):
     return json.dumps({"type": "assistant", "message": {"content": [
         {"type": "tool_use", "id": tid, "name": "Edit",
          "input": {"file_path": path, "old_string": "a", "new_string": "b"}}]}}) + "\n" + res(tid, "ok")
+def usr(text):
+    return json.dumps({"type": "user", "message": {"content": text}}) + "\n"
 def res(tid, text, err=False):
     return json.dumps({"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": tid, "is_error": err,
@@ -253,23 +255,23 @@ zt() { # transcript name -> ADVISORY | SILENT | BLOCK
 
 mk zt_collect_only 'asst(cmd="pytest --collect-only", tid="t1") + res("t1", "collected 42 items\n\n42 tests collected in 0.12s") + asst(text="All tests pass.")'
 begin_test "pytest --collect-only is not evidence of a passing suite"
-[ "$(zt zt_collect_only)" = "ADVISORY" ] && pass || fail "got $(zt zt_collect_only)"
+[ "$(zt zt_collect_only)" = "BLOCK" ] && pass || fail "got $(zt zt_collect_only)"
 
 mk zt_deselected 'asst(cmd="pytest -k nosuchtest", tid="t1") + res("t1", "collected 42 items / 42 deselected\n\n42 deselected in 0.10s") + asst(text="All tests pass.")'
 begin_test "a run where everything was deselected is not evidence"
-[ "$(zt zt_deselected)" = "ADVISORY" ] && pass || fail "got $(zt zt_deselected)"
+[ "$(zt zt_deselected)" = "BLOCK" ] && pass || fail "got $(zt zt_deselected)"
 
 mk zt_go_norun 'asst(cmd="go test -run XXXNoSuchTest ./...", tid="t1") + res("t1", "ok  \tgithub.com/x/y\t0.002s [no tests to run]") + asst(text="All tests pass.")'
 begin_test "go test matching no tests is not evidence"
-[ "$(zt zt_go_norun)" = "ADVISORY" ] && pass || fail "got $(zt zt_go_norun)"
+[ "$(zt zt_go_norun)" = "BLOCK" ] && pass || fail "got $(zt zt_go_norun)"
 
 mk zt_passwithnotests 'asst(cmd="npm test -- --passWithNoTests", tid="t1") + res("t1", "No tests found, exiting with code 0") + asst(text="All tests pass.")'
 begin_test "--passWithNoTests is not evidence"
-[ "$(zt zt_passwithnotests)" = "ADVISORY" ] && pass || fail "got $(zt zt_passwithnotests)"
+[ "$(zt zt_passwithnotests)" = "BLOCK" ] && pass || fail "got $(zt zt_passwithnotests)"
 
 mk zt_zero_total 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 0 passed, 0 failed") + asst(text="All tests pass.")'
 begin_test "a suite reporting 0 passed 0 failed is not evidence"
-[ "$(zt zt_zero_total)" = "ADVISORY" ] && pass || fail "got $(zt zt_zero_total)"
+[ "$(zt zt_zero_total)" = "BLOCK" ] && pass || fail "got $(zt zt_zero_total)"
 
 # --- precision: real runs, however small, must stay silent ---------------------
 mk zt_one_passed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 1 passed, 0 failed") + asst(text="All tests pass.")'
@@ -429,6 +431,23 @@ begin_test "re-running after the edit clears it"
 mk st_failed 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + ed("src/app.py") + asst(text="All tests pass.")'
 begin_test "a FAILED last run still blocks, edit or not"
 [ "$(st st_failed)" = "BLOCK" ] && pass || fail "got $(st st_failed)"
+
+# --- 2026-11-04 follow-up: what counts as THIS turn's claim -------------------
+mk prev_turn 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + asst(text="All tests pass.") + usr("whats next?") + asst(text="Next is the docs PR.")'
+begin_test "a claim from an EARLIER turn is not re-judged at this turn's stop"
+[ "$(rc_for prev_turn)" = "0" ] && pass || fail "rc=$(rc_for prev_turn)"
+
+mk quoted_example 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + asst(text="Today this gets through: the agent edits a file, then says \"tests pass\".")'
+begin_test "a quoted example of a claim is not a claim"
+[ "$(rc_for quoted_example)" = "0" ] && pass || fail "rc=$(rc_for quoted_example): $(msg_for quoted_example)"
+
+begin_test "a spaced stop_hook_active (\"stop_hook_active\": true) still never re-blocks"
+rc=$(printf '{"transcript_path": "%s", "stop_hook_active": true}' "$TD/contradicted.jsonl" | bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$rc" = "0" ] && pass || fail "rc=$rc"
+
+mk unev_sys 'asst(text="All tests pass.")'
+begin_test "the no-test-ran note is a systemMessage the user can see, not only stderr"
+printf '{"transcript_path":"%s","stop_hook_active":false}' "$TD/unev_sys.jsonl" | bash "$GATE" 2>/dev/null | grep -q '"systemMessage"' && pass || fail "no systemMessage on stdout"
 
 rm -rf "$TD"
 report

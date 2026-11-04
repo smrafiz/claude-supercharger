@@ -68,7 +68,7 @@ fi
 
 # Never re-enter. Without this, blocking the stop and the model answering again
 # with the same wording would loop forever.
-case "$_INPUT" in *'"stop_hook_active":true'*) exit 0 ;; esac
+case "$_INPUT" in *'"stop_hook_active":true'*|*'"stop_hook_active": true'*) exit 0 ;; esac
 
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 [ -z "$TRANSCRIPT" ] && exit 0
@@ -291,6 +291,8 @@ for ln in lines:
         for b in blocks(e):
             if b.get("type") == "text":
                 txt = b.get("text") or ""
+                # A quoted span is an example or a quote, not this turn's claim.
+                txt = re.sub(r'"[^"\n]{0,200}"|“[^”\n]{0,200}”|`[^`\n]{0,200}`', '""', txt)
                 for sent in re.split(r"(?<=[.!?\n])\s+", txt):
                     hedged = HEDGE.search(sent) or DISCLAIM.search(sent)
                     if CLAIM.search(sent) and not hedged:
@@ -311,6 +313,7 @@ for ln in lines:
         if is_turn_start(e):
             writes = []
             done_claim = None
+            last_claim = None   # each turn's Stop judges that turn's claims only
             continue
         for b in blocks(e):
             if b.get("type") != "tool_result":
@@ -452,6 +455,10 @@ if [ "$KIND" = "zerotest" ]; then
     echo "  It said   : ${EV}"
     echo "  A run that collected, deselected or found nothing is not evidence. Run the real suite before restating this."
   } >&2
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] pass claimed on a run that executed no tests — stop blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  exit 2   # once: the continuation carries stop_hook_active
 fi
 
 if [ "$KIND" = "stale" ]; then
@@ -472,7 +479,11 @@ if [ "$KIND" = "stale" ]; then
 fi
 
 if [ "$KIND" = "unevidenced" ]; then
-  echo "[Supercharger] claim-evidence-gate: a passing test result was stated, but no test command ran in this session. If the result is from earlier or from CI, say so; otherwise run it." >&2
+  # Advisory: the claim may be about CI or an earlier session. Exit-0 stderr reaches
+  # nobody (verified on CC 2.1.318), so it also goes out as a systemMessage.
+  _UE="[Supercharger] claim-evidence-gate: a passing test result was stated, but no test command ran in this session. If the result is from earlier or from CI, say so; otherwise run it."
+  echo "$_UE" >&2
+  printf '{"systemMessage":%s}\n' "$(printf '%s' "$_UE" | python3 -c 'import sys,json;print(json.dumps(sys.stdin.read()))' 2>/dev/null || echo '""')"
 fi
 
 exit 0
