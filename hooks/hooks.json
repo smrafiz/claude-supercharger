@@ -639,6 +639,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/agent-handoff-gate.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "SubagentHandback"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/budget-cap.sh check",
             "timeout": 15
           }

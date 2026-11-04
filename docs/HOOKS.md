@@ -18,7 +18,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `adaptive-economy` | UserPromptSubmit | (none) | Auto-switches economy tier based on context window usage. |
 | `agent-allowlist-guard` | PreToolUse | Bash,Monitor,PowerShell,WebFetch,Write,Edit,MultiEdit,NotebookEdit,Agent,Workflow | Opt-in: a subagent whose definition declares supercharger-allow lists is held to them. |
 | `agent-gate` | PreToolUse | Agent | Reads the stored agent classification. Warns on mismatch but allows |
-| `agent-handoff-gate` | SubagentStop | (none) | Validates sub-agent output quality before the result flows back to the parent. |
+| `agent-handoff-gate` | PreToolUse | SubagentHandback  (also SubagentStop, older Claude Code) | Validates sub-agent output quality before the result flows back to the parent. |
 | `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
 | `ai-lock-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Asks before editing a line range a human deliberately locked, and quotes the |

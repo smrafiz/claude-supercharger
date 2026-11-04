@@ -2844,6 +2844,22 @@ if [ -n "$OUT1" ] && [ -z "$OUT2" ]; then pass
 else fail "expected emit-once (fire1 non-empty, fire2 empty); got fire1='$OUT1' fire2='$OUT2'"; fi
 rm -rf "$HG_HOME"
 
+# 2026-11-04: subagents end through a SubagentHandback tool call; a PreToolUse deny
+# there is the one channel that reaches the subagent (SubagentStop notes reach nobody).
+begin_test "agent-handoff-gate: flagged SubagentHandback is refused once, then allowed"
+HG_HOME=$(mktemp -d); mkdir -p "$HG_HOME/.claude/supercharger/scope"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hghb','hook_event_name':'PreToolUse','tool_name':'SubagentHandback','agent_id':'hb1','tool_input':{'message':'Added a TODO stub for the parser; not implemented yet.'},'cwd':'/tmp'}))")
+OUT1=$(printf '%s' "$INPUT" | HOME="$HG_HOME" bash "$HANDOFF_GATE" 2>/dev/null); RC1=$?
+OUT2=$(printf '%s' "$INPUT" | HOME="$HG_HOME" bash "$HANDOFF_GATE" 2>/dev/null); RC2=$?
+if [ "$RC1" -eq 2 ] && printf '%s' "$OUT1" | grep -q '"permissionDecision":"deny"' && [ "$RC2" -eq 0 ] && [ -z "$OUT2" ]; then pass
+else fail "expected deny once then allow; got rc1=$RC1 out1='$OUT1' rc2=$RC2 out2='$OUT2'"; fi
+rm -rf "$HG_HOME"
+
+begin_test "agent-handoff-gate: clean SubagentHandback passes"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hghb2','hook_event_name':'PreToolUse','tool_name':'SubagentHandback','agent_id':'hb2','tool_input':{'message':'Done. All 12 tests pass.'},'cwd':'/tmp'}))")
+OUT=$(printf '%s' "$INPUT" | HOME=$(mktemp -d) bash "$HANDOFF_GATE" 2>/dev/null); RC=$?
+[ "$RC" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected silent allow; rc=$RC out='$OUT'"
+
 echo ""
 echo "=== Compaction Backup Tests ==="
 

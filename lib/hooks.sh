@@ -584,6 +584,7 @@ get_hooks_for_mode() {
     hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md,tasks.json,.vscode/tasks.json|${hooks_dir}/file-watcher.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
+    hooks+=("PreToolUse|SubagentHandback|${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash,PowerShell|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
