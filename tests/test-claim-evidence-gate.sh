@@ -32,6 +32,12 @@ def asst(text=None, cmd=None, tid=None):
     if text is not None: c.append({"type": "text", "text": text})
     if cmd: c.append({"type": "tool_use", "id": tid, "name": "Bash", "input": {"command": cmd}})
     return json.dumps({"type": "assistant", "message": {"content": c}}) + "\n"
+def ed(path, tid="e1"):
+    return json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": tid, "name": "Edit",
+         "input": {"file_path": path, "old_string": "a", "new_string": "b"}}]}}) + "\n" + res(tid, "ok")
+def usr(text):
+    return json.dumps({"type": "user", "message": {"content": text}}) + "\n"
 def res(tid, text, err=False):
     return json.dumps({"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": tid, "is_error": err,
@@ -249,23 +255,23 @@ zt() { # transcript name -> ADVISORY | SILENT | BLOCK
 
 mk zt_collect_only 'asst(cmd="pytest --collect-only", tid="t1") + res("t1", "collected 42 items\n\n42 tests collected in 0.12s") + asst(text="All tests pass.")'
 begin_test "pytest --collect-only is not evidence of a passing suite"
-[ "$(zt zt_collect_only)" = "ADVISORY" ] && pass || fail "got $(zt zt_collect_only)"
+[ "$(zt zt_collect_only)" = "BLOCK" ] && pass || fail "got $(zt zt_collect_only)"
 
 mk zt_deselected 'asst(cmd="pytest -k nosuchtest", tid="t1") + res("t1", "collected 42 items / 42 deselected\n\n42 deselected in 0.10s") + asst(text="All tests pass.")'
 begin_test "a run where everything was deselected is not evidence"
-[ "$(zt zt_deselected)" = "ADVISORY" ] && pass || fail "got $(zt zt_deselected)"
+[ "$(zt zt_deselected)" = "BLOCK" ] && pass || fail "got $(zt zt_deselected)"
 
 mk zt_go_norun 'asst(cmd="go test -run XXXNoSuchTest ./...", tid="t1") + res("t1", "ok  \tgithub.com/x/y\t0.002s [no tests to run]") + asst(text="All tests pass.")'
 begin_test "go test matching no tests is not evidence"
-[ "$(zt zt_go_norun)" = "ADVISORY" ] && pass || fail "got $(zt zt_go_norun)"
+[ "$(zt zt_go_norun)" = "BLOCK" ] && pass || fail "got $(zt zt_go_norun)"
 
 mk zt_passwithnotests 'asst(cmd="npm test -- --passWithNoTests", tid="t1") + res("t1", "No tests found, exiting with code 0") + asst(text="All tests pass.")'
 begin_test "--passWithNoTests is not evidence"
-[ "$(zt zt_passwithnotests)" = "ADVISORY" ] && pass || fail "got $(zt zt_passwithnotests)"
+[ "$(zt zt_passwithnotests)" = "BLOCK" ] && pass || fail "got $(zt zt_passwithnotests)"
 
 mk zt_zero_total 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 0 passed, 0 failed") + asst(text="All tests pass.")'
 begin_test "a suite reporting 0 passed 0 failed is not evidence"
-[ "$(zt zt_zero_total)" = "ADVISORY" ] && pass || fail "got $(zt zt_zero_total)"
+[ "$(zt zt_zero_total)" = "BLOCK" ] && pass || fail "got $(zt zt_zero_total)"
 
 # --- precision: real runs, however small, must stay silent ---------------------
 mk zt_one_passed 'asst(cmd="bash tests/run.sh", tid="t1") + res("t1", "Total: 1 passed, 0 failed") + asst(text="All tests pass.")'
@@ -387,6 +393,61 @@ printf '%s' "$STUB" > "$TD/fastpath.py"
 mkw ph_fastpath "$TD/fastpath.py" "$STUB" "Fully implemented."
 [ "$(rc_for ph_fastpath)" = "2" ] && pass \
   || fail "the completion claim never got past the tail grep"
+
+# --- stale: the code changed after the last green run ------------------------
+# From chipfighter/coding-discipline's verify-before-done: only evidence gathered
+# AFTER the last relevant change counts. A green run followed by a code edit says
+# nothing about the code as it now is. Blocks once: the continuation carries
+# stop_hook_active and the gate exits, so it can never hold a session open.
+st() { # transcript name -> ADVISORY | SILENT | BLOCK
+  local rc msg
+  msg=$(msg_for "$1"); rc=$(rc_for "$1")
+  if [ "$rc" = "2" ]; then echo BLOCK
+  elif printf '%s' "$msg" | grep -q 'edited after the last test run'; then echo ADVISORY-ONLY
+  else echo SILENT; fi
+}
+
+mk st_after 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("src/app.py") + asst(text="All tests pass.")'
+begin_test "a code edit after the last green run makes the pass claim stale"
+[ "$(st st_after)" = "BLOCK" ] && pass || fail "got $(st st_after)"
+begin_test "the stale block names the edited file"
+msg_for st_after | grep -q 'Edited    : src/app.py' && pass || fail "$(msg_for st_after)"
+begin_test "a Stop continuation (stop_hook_active) is never blocked again"
+rc=$(printf '{"transcript_path":"%s","stop_hook_active":true}' "$TD/st_after.jsonl" | bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$rc" = "0" ] && pass || fail "rc=$rc"
+
+mk st_before 'ed("src/app.py") + asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "an edit BEFORE the green run is covered by it"
+[ "$(st st_before)" = "SILENT" ] && pass || fail "got $(st st_before)"
+
+mk st_prose 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("docs/README.md") + asst(text="All tests pass.")'
+begin_test "a docs-only edit after the run does not make the claim stale"
+[ "$(st st_prose)" = "SILENT" ] && pass || fail "got $(st st_prose)"
+
+mk st_rerun 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("src/app.py") + asst(cmd="pytest -q", tid="t2") + res("t2", "87 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "re-running after the edit clears it"
+[ "$(st st_rerun)" = "SILENT" ] && pass || fail "got $(st st_rerun)"
+
+mk st_failed 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + ed("src/app.py") + asst(text="All tests pass.")'
+begin_test "a FAILED last run still blocks, edit or not"
+[ "$(st st_failed)" = "BLOCK" ] && pass || fail "got $(st st_failed)"
+
+# --- 2026-11-04 follow-up: what counts as THIS turn's claim -------------------
+mk prev_turn 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + asst(text="All tests pass.") + usr("whats next?") + asst(text="Next is the docs PR.")'
+begin_test "a claim from an EARLIER turn is not re-judged at this turn's stop"
+[ "$(rc_for prev_turn)" = "0" ] && pass || fail "rc=$(rc_for prev_turn)"
+
+mk quoted_example 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + asst(text="Today this gets through: the agent edits a file, then says \"tests pass\".")'
+begin_test "a quoted example of a claim is not a claim"
+[ "$(rc_for quoted_example)" = "0" ] && pass || fail "rc=$(rc_for quoted_example): $(msg_for quoted_example)"
+
+begin_test "a spaced stop_hook_active (\"stop_hook_active\": true) still never re-blocks"
+rc=$(printf '{"transcript_path": "%s", "stop_hook_active": true}' "$TD/contradicted.jsonl" | bash "$GATE" >/dev/null 2>&1; echo $?)
+[ "$rc" = "0" ] && pass || fail "rc=$rc"
+
+mk unev_sys 'asst(text="All tests pass.")'
+begin_test "the no-test-ran note is a systemMessage the user can see, not only stderr"
+printf '{"transcript_path":"%s","stop_hook_active":false}' "$TD/unev_sys.jsonl" | bash "$GATE" 2>/dev/null | grep -q '"systemMessage"' && pass || fail "no systemMessage on stdout"
 
 rm -rf "$TD"
 report

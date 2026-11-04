@@ -129,14 +129,25 @@ case "$OUT" in *suspicious*|*malicious*|*dangerous*) fail "editorialised: $OUT" 
 
 echo "=== registration ==="
 
-begin_test "credibility: registered on PostToolUse:Bash in the generated artifact"
+begin_test "credibility: registered on PreToolUse:Bash in the generated artifact"
 python3 -c "
 import json, sys
 d = json.load(open(sys.argv[1]))
 ok = any('package-credibility-guard' in h.get('command','')
-         for e in d['hooks'].get('PostToolUse', []) for h in e.get('hooks', []))
+         for e in d['hooks'].get('PreToolUse', []) for h in e.get('hooks', []))
 sys.exit(0 if ok else 1)
 " "$REPO_DIR/hooks/hooks.json" && pass || fail "not registered in hooks.json"
+
+begin_test "credibility: a flagged package ASKS before the install runs (PreToolUse)"
+# The install script is the payload, so a warning after the install is too late.
+# Copy the hook with a stub companion that reports one flagged package.
+SB=$(mktemp -d)
+cp "$REPO_DIR"/hooks/package-credibility-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$SB/"
+printf '#!/usr/bin/env python3\nprint("evilpkg: first published 2 days ago, 3 downloads last week")\n' > "$SB/package-credibility.py"
+OUT=$(printf '{"cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"npm install evilpkg"}}' \
+  | HOME="$SB" SUPERCHARGER_STATE="$SB" bash "$SB/package-credibility-guard.sh" 2>/dev/null)
+case "$OUT" in *'"permissionDecision":"ask"'*evilpkg*'2 days ago'*) pass ;; *) fail "no ask: $OUT" ;; esac
+rm -rf "$SB"
 
 begin_test "credibility: the python companion ships beside the shell hook"
 # The shell hook calls it by path. A deploy that copies only *.sh leaves the
