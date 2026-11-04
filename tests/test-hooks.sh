@@ -2855,6 +2855,15 @@ if [ "$RC1" -eq 2 ] && printf '%s' "$OUT1" | grep -q '"permissionDecision":"deny
 else fail "expected deny once then allow; got rc1=$RC1 out1='$OUT1' rc2=$RC2 out2='$OUT2'"; fi
 rm -rf "$HG_HOME"
 
+begin_test "agent-handoff-gate: refusal holds past the 600s dedup window"
+HG_HOME=$(mktemp -d); mkdir -p "$HG_HOME/.claude/supercharger/scope"
+INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hghb3','tool_name':'SubagentHandback','agent_id':'hb3','tool_input':{'message':'I stopped before the migration step.'},'cwd':'/tmp'}))")
+printf '%s' "$INPUT" | HOME="$HG_HOME" bash "$HANDOFF_GATE" >/dev/null 2>&1; RC1=$?
+touch -t 202001010000 "$HG_HOME"/.claude/supercharger/scope/.handback-refused-* 2>/dev/null
+printf '%s' "$INPUT" | HOME="$HG_HOME" SUPERCHARGER_NO_DEDUP=1 bash "$HANDOFF_GATE" >/dev/null 2>&1; RC2=$?
+[ "$RC1" -eq 2 ] && [ "$RC2" -eq 0 ] && pass || fail "expected refuse then allow regardless of age; rc1=$RC1 rc2=$RC2"
+rm -rf "$HG_HOME"
+
 begin_test "agent-handoff-gate: clean SubagentHandback passes"
 INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hghb2','hook_event_name':'PreToolUse','tool_name':'SubagentHandback','agent_id':'hb2','tool_input':{'message':'Done. All 12 tests pass.'},'cwd':'/tmp'}))")
 OUT=$(printf '%s' "$INPUT" | HOME=$(mktemp -d) bash "$HANDOFF_GATE" 2>/dev/null); RC=$?

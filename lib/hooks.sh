@@ -443,7 +443,6 @@ get_hooks_for_mode() {
     hooks+=("PreCompact||${hooks_dir}/precompact-priorities.sh|")
     hooks+=("PostToolUse||${hooks_dir}/slow-tool-detector.sh|async")
     hooks+=("Stop|*|${hooks_dir}/stop-keep-going.sh|")
-    hooks+=("SubagentStop|*|${hooks_dir}/subagent-stop-check.sh|")
     # v2.7.1: auto-recover subagent reports when the agent ignores the
     # report-pin instruction from subagent-safety.sh. async — pure scrape.
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-report-fallback.sh|async")

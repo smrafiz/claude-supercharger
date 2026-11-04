@@ -1526,16 +1526,6 @@
         "hooks": [
           {
             "type": "command",
-            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/subagent-stop-check.sh",
-            "timeout": 15
-          }
-        ],
-        "matcher": "*"
-      },
-      {
-        "hooks": [
-          {
-            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/subagent-report-fallback.sh",
             "async": true,
             "timeout": 120

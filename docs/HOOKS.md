@@ -151,7 +151,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `subagent-report-fallback` | SubagentStop | * | async | Companion to subagent-safety.sh's report-pin instruction (v2.6.82). |
 | `subagent-report-notify` | SubagentStop | (none)  [BLOCKING — must inject into parent] | Closes the last gap in the report-recovery story. When a subagent's final |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
-| `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |
 | `task-poll-guard` | PreToolUse | Bash | Deny a command that both SLEEPS and names a harness task output file. That is |
 | `test-integrity-guard` | PreToolUse | Edit, MultiEdit, Write | Defends the Verification Gate ("run tests, confirm they pass"): the one way an |
 | `test-mask-guard` | PreToolUse | Bash | Defends the flagship Verification Gate ("run the check, confirm it passes") at |
