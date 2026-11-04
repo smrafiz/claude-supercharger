@@ -138,6 +138,10 @@ outlives it. For each durable lesson from this session:
 5. **Link related entries** so the next recall pulls the whole cluster.
 6. **Add one index line per new entry.** An entry the index does not point at is
    an entry that never loads.
+7. **A decision the user confirmed must not stay only in the chat or this brief.**
+   If it changes the goal, a hard constraint or what counts as done, write it back
+   to where the project keeps that (its spec, `CLAUDE.md`, an ADR): edit the line
+   it replaces, don't append beside it. Ask first if that file is not yours to edit.
 
 State plainly in your reply which memory files you created or updated, and which
 lessons you deliberately did NOT save and why. Do not claim to have recorded

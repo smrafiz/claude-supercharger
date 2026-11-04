@@ -263,6 +263,7 @@ def placeholder_hit(writes):
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
+edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
 
@@ -301,7 +302,11 @@ for ln in lines:
                 if TEST_CMD.search(cmd):
                     test_calls[b.get("id")] = cmd
             elif b.get("type") == "tool_use":
-                writes.extend(edits_of(b.get("name") or "", b.get("input") or {}))
+                _ed = edits_of(b.get("name") or "", b.get("input") or {})
+                writes.extend(_ed)
+                for _p, _a, _r in _ed:
+                    if _p and os.path.splitext(_p)[1].lower() not in PROSE_EXT:
+                        edited_after = _p
     elif t == "user":
         if is_turn_start(e):
             writes = []
@@ -319,6 +324,7 @@ for ln in lines:
             else:
                 text = str(content or "")
             last_result = (test_calls[tid], bool(b.get("is_error")), text[-4000:])
+            edited_after = None
 
 # Evaluated BEFORE the test-claim exits below, not after. Placed after them it
 # would be unreachable on any turn that made no test claim -- which is most turns
@@ -371,6 +377,14 @@ if not is_error and not is_failure(out):
         print(json.dumps({"verdict": "zerotest", "claim": last_claim,
                           "cmd": cmd[:120], "evidence": _zt}))
         sys.exit(0)
+
+# From chipfighter/coding-discipline's verify-before-done: evidence counts only
+# if gathered after the last relevant change. Advisory: the edit may not touch
+# what the suite covers. A FAILED run still falls through to the block below.
+if not is_error and not is_failure(out) and edited_after:
+    print(json.dumps({"verdict": "stale", "claim": last_claim,
+                      "cmd": cmd[:120], "evidence": edited_after[:160]}))
+    sys.exit(0)
 
 if is_error or is_failure(out):
     excerpt = ""
@@ -436,6 +450,17 @@ if [ "$KIND" = "zerotest" ]; then
     echo "  Last ran  : ${CMD}"
     echo "  It said   : ${EV}"
     echo "  A run that collected, deselected or found nothing is not evidence. Run the real suite before restating this."
+  } >&2
+fi
+
+if [ "$KIND" = "stale" ]; then
+  CLAIM=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('claim',''))" 2>/dev/null || true)
+  EV=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('evidence',''))" 2>/dev/null || true)
+  {
+    echo "[Supercharger] claim-evidence-gate: you stated a passing result, but code was edited after the last test run."
+    echo "  You wrote : ${CLAIM}"
+    echo "  Edited    : ${EV}"
+    echo "  That run tested the code before this edit. Re-run it, or say the result predates the change."
   } >&2
 fi
 

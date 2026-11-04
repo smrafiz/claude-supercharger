@@ -32,6 +32,10 @@ def asst(text=None, cmd=None, tid=None):
     if text is not None: c.append({"type": "text", "text": text})
     if cmd: c.append({"type": "tool_use", "id": tid, "name": "Bash", "input": {"command": cmd}})
     return json.dumps({"type": "assistant", "message": {"content": c}}) + "\n"
+def ed(path, tid="e1"):
+    return json.dumps({"type": "assistant", "message": {"content": [
+        {"type": "tool_use", "id": tid, "name": "Edit",
+         "input": {"file_path": path, "old_string": "a", "new_string": "b"}}]}}) + "\n" + res(tid, "ok")
 def res(tid, text, err=False):
     return json.dumps({"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": tid, "is_error": err,
@@ -387,6 +391,39 @@ printf '%s' "$STUB" > "$TD/fastpath.py"
 mkw ph_fastpath "$TD/fastpath.py" "$STUB" "Fully implemented."
 [ "$(rc_for ph_fastpath)" = "2" ] && pass \
   || fail "the completion claim never got past the tail grep"
+
+# --- stale: the code changed after the last green run ------------------------
+# From chipfighter/coding-discipline's verify-before-done: only evidence gathered
+# AFTER the last relevant change counts. A green run followed by a code edit says
+# nothing about the code as it now is. Advisory, like zero-test: the edit may not
+# touch what the tests cover, so this must never hold a session open.
+st() { # transcript name -> ADVISORY | SILENT | BLOCK
+  local rc msg
+  msg=$(msg_for "$1"); rc=$(rc_for "$1")
+  if [ "$rc" = "2" ]; then echo BLOCK
+  elif printf '%s' "$msg" | grep -q 'edited after the last test run'; then echo ADVISORY
+  else echo SILENT; fi
+}
+
+mk st_after 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("src/app.py") + asst(text="All tests pass.")'
+begin_test "a code edit after the last green run makes the pass claim stale"
+[ "$(st st_after)" = "ADVISORY" ] && pass || fail "got $(st st_after)"
+
+mk st_before 'ed("src/app.py") + asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "an edit BEFORE the green run is covered by it"
+[ "$(st st_before)" = "SILENT" ] && pass || fail "got $(st st_before)"
+
+mk st_prose 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("docs/README.md") + asst(text="All tests pass.")'
+begin_test "a docs-only edit after the run does not make the claim stale"
+[ "$(st st_prose)" = "SILENT" ] && pass || fail "got $(st st_prose)"
+
+mk st_rerun 'asst(cmd="pytest -q", tid="t1") + res("t1", "87 passed, 0 failed") + ed("src/app.py") + asst(cmd="pytest -q", tid="t2") + res("t2", "87 passed, 0 failed") + asst(text="All tests pass.")'
+begin_test "re-running after the edit clears it"
+[ "$(st st_rerun)" = "SILENT" ] && pass || fail "got $(st st_rerun)"
+
+mk st_failed 'asst(cmd="pytest -q", tid="t1") + res("t1", "1 failed, 86 passed") + ed("src/app.py") + asst(text="All tests pass.")'
+begin_test "a FAILED last run still blocks, edit or not"
+[ "$(st st_failed)" = "BLOCK" ] && pass || fail "got $(st st_failed)"
 
 rm -rf "$TD"
 report
