@@ -63,6 +63,9 @@ Before claiming any task is complete, verify at all applicable levels:
 4. **Functional** — works when invoked (tests pass, build succeeds)
 
 Levels 1-3 always; if level 4 cannot be verified, state what the user should test.
+- Evidence counts only if gathered after the last change it covers; edited since the run → run it again.
+- A check that could not run (missing tool, timeout, broken env) FAILED, it was not skipped: say what blocked it.
+- A regression test proves itself only if it fails with the fix taken out.
 
 ## Issues List
 A reply that reports finished or attempted work ends with `## Issues`: every known

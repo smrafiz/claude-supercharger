@@ -159,6 +159,30 @@ if project_settings_data is not None:
             f'{sample}{suffix}. Review before running — this file could execute arbitrary commands (CVE-2025-59536).'
         )
 
+# --- A hook ADDED to the user's own ~/.claude/settings.json since last session ---
+# A malicious npm install script writes there from a child process no PreToolUse hook
+# sees (GHSA-4g45-28rv-vq9q, 2026-10). Trust on first use: the first scan records the
+# non-supercharger hooks silently; later scans name only ones not seen before.
+try:
+    _uhome = os.environ.get('HOME') or str(Path.home())
+    _ustate = os.environ.get('SUPERCHARGER_STATE') or os.path.join(_uhome, '.claude', 'supercharger')
+    _ubase = os.path.join(_ustate, 'scope', '.user-hooks-seen')
+    _uset = Path(_uhome) / '.claude' / 'settings.json'
+    _ucur = set(_cc.settings_hook_commands(json.loads(_uset.read_text())) if _cc and _uset.is_file() else [])
+    _useen = set(Path(_ubase).read_text().splitlines()) if os.path.exists(_ubase) else None
+    if _useen is not None:
+        _unew = sorted(_ucur - _useen)
+        if _unew:
+            sys.stderr.write('[Supercharger] config-scan: new hook(s) in ~/.claude/settings.json since last session\n')
+            warnings.append(
+                f"[SECURITY] {len(_unew)} hook(s) were added to your user ~/.claude/settings.json since the last "
+                f"session: {', '.join(c[:120] for c in _unew[:3])}. A package install script can write there unseen. "
+                f"If you did not add it, remove it before trusting this session.")
+    os.makedirs(os.path.dirname(_ubase), exist_ok=True)
+    Path(_ubase).write_text('\n'.join(sorted(_ucur | (_useen or set()))))
+except Exception:
+    pass
+
 # --- CVE-2026-21852: ANTHROPIC_* in project files ---
 # v2.26.62: proxy keys added. The CVE's mechanism is "API traffic, including the
 # full authorization header, redirected to an attacker-controlled server" before
