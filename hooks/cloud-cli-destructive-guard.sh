@@ -48,7 +48,7 @@ case "$_INPUT" in
   # their arms below (infra audit: 21 of 65 destructive commands were allowed).
   # Exact verbs only: `npm install`, `docker ps`, `gh pr` must not pay the greps below.
   *vercel*|*netlify*|*railway*|*'render '*|*wrangler*|*'stack rm'*|*'docker rm'*|*'docker container rm'*) : ;;
-  *'release delete'*|*'secret delete'*|*'variable delete'*|*unpublish*|*'npm deprecate'*|*'cargo yank'*|*'twine upload'*) : ;;
+  *'release delete'*|*'secret delete'*|*'variable delete'*|*'secret set'*|*'variable set'*|*unpublish*|*'npm deprecate'*|*'cargo yank'*|*'twine upload'*) : ;;
   # v4.2.0 (sweep 5): widened WITH the arms added below.
   *gist*|*'repo create'*|*'repo edit'*|*publish*|*s3api*|*'gh api'*|*'glab api'*) : ;;
   *xargs*) : ;;
@@ -92,6 +92,7 @@ elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])pulumi[[:space:]]+stack
 elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]delete[^;&|]*[[:space:]](-f|-k|--filename|--kustomize)([[:space:]=]|$)'; then op="kubectl delete -f/-k (everything in the manifest)"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]+(-[a-zA-Z]*f|--force)'; then op="docker rm --force"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+(release|secret|variable)[[:space:]]+delete([[:space:]]|$)'; then op="gh release/secret/variable delete"
+elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])gh[[:space:]]+(secret|variable)[[:space:]]+set([[:space:]]|$)'; then op="gh secret/variable set (overwrites the value CI and deploys use, with no way to read the old one back)"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(npm[[:space:]]+(unpublish|deprecate)|cargo[[:space:]]+yank|twine[[:space:]]+upload)([[:space:]]|$)'; then op="package registry publish/unpublish (affects every dependent)"
 # v4.2.0 (sweep 5): version purges, publishing, public exposure, API ref edits.
 elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*storage[[:space:]]+rm[^;&|]*(--all-versions|[[:space:]]-a([[:space:]]|$))'; then op="gcloud storage rm of all object versions"
@@ -130,6 +131,8 @@ elif printf '%s' "$CMD" | grep -Eq -- 'aws[^;&|]*ecr[[:space:]]+batch-delete-ima
 elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[[:space:]]+state[[:space:]]+(rm|mv)'; then op="terraform state rm/mv (orphans or destroys real resources)"
 elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[[:space:]]+force-unlock';             then op="terraform force-unlock (causes the corruption locking prevents)"
 elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[[:space:]]+(taint|untaint)';          then op="terraform taint/untaint (forces replacement on next apply)"
+# -auto-approve skips the one prompt that shows the plan; a saved plan file was reviewed, so plain `apply plan.out` passes.
+elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[^;&|]*[[:space:]]apply[^;&|]*[[:space:]]--?auto-approve'; then op="terraform apply -auto-approve (changes live infrastructure with no plan review)"
 # drain only, NOT cordon: cordon just marks a node unschedulable and uncordon
 # reverses it. drain EVICTS running pods -- without a PodDisruptionBudget that
 # can take every replica down at once.
