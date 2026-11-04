@@ -43,7 +43,7 @@ import json, re, sys
 # flaky check that breaks on every Claude Code release.
 KNOWN = {
     'Bash', 'Read', 'Write', 'Edit', 'NotebookEdit', 'Glob', 'Grep',
-    'WebFetch', 'WebSearch', 'Agent', 'Skill', 'Artifact', 'AskUserQuestion',
+    'WebFetch', 'WebSearch', 'Agent', 'SubagentHandback', 'Skill', 'Artifact', 'AskUserQuestion',
     'ToolSearch', 'Workflow', 'ScheduleWakeup', 'ReportFindings', 'TodoWrite',
     'BashOutput', 'KillShell', 'Monitor', 'EndConversation',
     'TaskCreate', 'TaskGet', 'TaskList', 'TaskOutput', 'TaskStop', 'TaskUpdate',
