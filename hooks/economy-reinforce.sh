@@ -52,6 +52,8 @@ if [ -n "$PROMPT" ]; then
     eco[\ :_-]standard|eco[\ :_-]lean|eco[\ :_-]minimal)
       SWITCHED="${_ECO_P#eco?}"
       printf '%s\n' "$SWITCHED" > "$ECONOMY_TIER_FILE"
+      # shellcheck source=hooks/lib-output-style.sh
+      . "$HOOKS_DIR/lib-output-style.sh" 2>/dev/null && sync_output_style "$SWITCHED"
       echo "[Supercharger] economy-reinforce: tier switched to ${SWITCHED}" >&2
       ;;
   esac

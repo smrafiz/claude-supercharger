@@ -34,5 +34,6 @@ If a selected tier falls outside the active role's range, it auto-corrects to th
 
 ## Length
 The output style changes the system prompt, so it controls reply length more
-strongly than this file. If replies run longer than the tier promises, run
-`/output-style concise` (saved per project and per machine). Measured: docs/ECONOMY-OUTPUT-STYLE.md.
+strongly than this file. Choosing the minimal tier sets the Concise style in
+~/.claude/settings.json when no style is set, and switching to another tier removes it again.
+Otherwise run `/output-style concise` (saved per project and per machine). Measured: docs/ECONOMY-OUTPUT-STYLE.md.

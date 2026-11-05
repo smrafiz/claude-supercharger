@@ -53,6 +53,8 @@ echo -e "${BLUE}Removing Supercharger...${NC}"
 # Remove hooks from settings.json (uses lib/hooks.sh)
 if [ -f "$HOME/.claude/settings.json" ]; then
   remove_supercharger_hooks 2>/dev/null && echo -e "  ${GREEN}✓${NC} Hooks removed from settings.json"
+  # Drop the Concise output style only if the minimal tier set it.
+  source "$SCRIPT_DIR/hooks/lib-output-style.sh" 2>/dev/null && sync_output_style standard
 fi
 
 # Remove MCP servers from both config files (uses lib/mcp.sh)
