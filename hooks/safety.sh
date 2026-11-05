@@ -364,6 +364,13 @@ SYS_ROOTS = ('/etc','/usr','/bin','/sbin','/lib','/lib64','/boot','/sys','/dev',
 # /var/folders/... -> /private/var/...) live there and are legit to rm.
 HOME_SENS = ('.ssh','.aws','.gnupg','.config','.kube','.docker','.gcloud','.azure',
              '.password-store','.gpg','.netrc')
+root = cwd
+while root != '/' and not os.path.exists(os.path.join(root, '.git')):
+    root = os.path.dirname(root)
+if root == '/': root = cwd
+temps = {os.path.realpath(t) for t in ('/tmp', '/var/folders', '/private/var/folders',
+         os.environ.get('TMPDIR') or '/tmp')}
+out = None
 try:
     tokens = shlex.split(args, posix=True)
 except ValueError:
@@ -394,11 +401,18 @@ for tok in tokens:
     if target.startswith(home + os.sep):
         if target[len(home):].lstrip('/').split('/')[0] in HOME_SENS:
             print(target); sys.exit(0)
+    # 4. outside the project (its git root) and outside temp dirs: ASK, not deny.
+    if out is None and not any(target == t or target.startswith(t + os.sep) for t in temps) \
+       and not (target == root or target.startswith(root + os.sep)):
+        out = target
+if out:
+    print('OUT:' + out)
 PYEOF
 )
-        if [ -n "$BAD" ]; then
-          block "recursive force rm on protected path ($BAD)"
-        fi
+        case "$BAD" in
+          OUT:*) _RM_OUT_ASK="${BAD#OUT:}" ;;
+          ?*) block "recursive force rm on protected path ($BAD)" ;;
+        esac
 
         # v2.26.83: the python resolver above is INERT ON WINDOWS, and everything it
         # is the only guard for therefore failed OPEN. Proven on a windows-latest
@@ -1880,6 +1894,13 @@ fi
 if [ -n "${_RM_VAR_ASK:-}" ]; then
   echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
   sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+# Recursive force rm outside the project and temp dirs (recorded above). Last, so a
+# deny in the same command wins.
+if [ -n "${_RM_OUT_ASK:-}" ]; then
+  sc_decision ask "this recursively deletes $_RM_OUT_ASK, which is outside this project." "confirm that directory is meant to go"
   exit 0
 fi
 

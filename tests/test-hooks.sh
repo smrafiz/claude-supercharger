@@ -78,6 +78,19 @@ begin_test "safety: rm -rf on absolute home dotdir ~/.ssh is blocked (was bypass
 _blk "$SAFETY_HOOK" "$(printf '{"tool_name":"Bash","tool_input":{"command":"rm -rf %s/.ssh"},"cwd":"/tmp"}' "$HOME")" && pass || fail "rm -rf abs \$HOME/.ssh not blocked"
 begin_test "safety: rm -rf /tmp/build (legit) still allowed"
 _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/build"},"cwd":"/tmp"}' && pass || fail "legit rm -rf /tmp/build wrongly blocked"
+# Roadmap item 5 (2026-11-05): a recursive force rm outside the project and temp
+# dirs asks; it used to pass. A deny in the same command still wins.
+_RMP=$(mktemp -d); mkdir -p "$_RMP/proj/.git"
+_rmv(){ printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$1" "$_RMP/proj" | bash "$SAFETY_HOOK" 2>/dev/null; }
+begin_test "safety: rm -rf on an absolute path outside the project asks"
+_rmv "rm -rf /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"
+begin_test "safety: rm -rf inside the project stays allowed"
+[ -z "$(_rmv "rm -rf $_RMP/proj/build")" ] && pass || fail "expected allow"
+begin_test "safety: rm -rf in /tmp stays allowed"
+[ -z "$(_rmv "rm -rf /tmp/scratch-xyz")" ] && pass || fail "expected allow"
+begin_test "safety: an outside-project rm next to /etc is still denied"
+_rmv "rm -rf /opt/app/data /etc" | grep -q '"permissionDecision":"deny"' && pass || fail "expected deny"
+rm -rf "$_RMP"
 begin_test "safety: find . -delete is blocked (was bypass)"
 _blk "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"find . -delete"},"cwd":"/tmp"}' && pass || fail "find -delete not blocked"
 
@@ -2474,6 +2487,24 @@ assert_exit_code 0 $? && pass
 begin_test "commit-check: bundled -am with a bad subject is still blocked"
 run_hook "$COMMIT_CHECK" "git commit -am 'fixed stuff'"
 assert_exit_code 2 $? && pass
+
+# A multi-line -m message was cut at its first newline by the segment iterator, so
+# MSG came back empty and the check was skipped (2026-11-04, real).
+begin_test "commit-check: multi-line -m with a bad subject is blocked"
+run_hook "$COMMIT_CHECK" "git commit -q -m \"fixed stuff
+
+the body explains it\""
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: multi-line -m with a valid subject passes"
+run_hook "$COMMIT_CHECK" "git commit -q -m \"fix: real subject
+
+body with it's and a -m inside\""
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: an earlier -m in another command is not read as the subject"
+run_hook "$COMMIT_CHECK" "grep -m 1 'x' f && git commit -m 'fix: real'"
+assert_exit_code 0 $? && pass
 
 # Per-repo types: star-keeper commits as `words: ...`, `notes: ...` (2026-10-19, real).
 _CC_REPO=$(mktemp -d); git -C "$_CC_REPO" init -q
