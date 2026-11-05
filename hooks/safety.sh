@@ -320,34 +320,8 @@ if _cat_enabled "filesystem"; then
          [[ "$args" =~ (^|[[:space:]])(\/|\/\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/)([[:space:]]|$) ]]; then
         block "recursive rm on root or home directory"
       fi
-      if $has_recursive && $has_force; then
-        # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
-        # tightened to catch `~/` and `$HOME/` (with trailing slash) since
-        # `rm -rf ~/` and `rm -rf $HOME/` are equally destructive.
-        # v2.26.25: the root arm was `\/[[:space:]]*$` — root ONLY as the last token,
-        # so `rm / -rf` slipped by. Now a bare `\/`; the trailing group still requires
-        # space/end/slash after it, so `/etc` and `/tmp/x` are untouched. The python
-        # block below is the real check — this stays correct because it is the only
-        # guard left if python3 is missing (`|| true` fails open).
-        if [[ "$args" =~ (^|[[:space:]])(\/|\/\*|\/\*\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
-          block "recursive force rm on dangerous target"
-        fi
-        # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
-        # (claude-code#29023 vector: ghost-CWD cascade after directory deletion).
-        if [[ "$args" =~ (^|[[:space:]])(\.|\.\/|\.\/\*|\*)([[:space:]]|$) ]]; then
-          block "recursive force rm on current directory (deletes CWD contents)"
-        fi
-        # Catch CWD-equivalent refs: $PWD, ${PWD}, $(pwd), `pwd`, "$PWD" — these
-        # resolve to the CWD at shell-eval time, so they wipe whichever directory
-        # the shell happens to be in (including from a prior `cd X &&` in the
-        # same compound). The python check above can't see this because it
-        # tokenizes pre-expansion and python's expandvars uses the hook process
-        # PWD, not the shell's. Match on the literal substring.
-        case "$args" in
-          *'$PWD'*|*'${PWD}'*|*'$(pwd)'*|*'`pwd`'*)
-            block "recursive force rm on CWD via \$PWD/\$(pwd) (deletes whatever dir the shell is in)"
-            ;;
-        esac
+      BAD=""
+      if $has_recursive; then
         # Catch rm targets that resolve to PROJECT_DIR/ancestor (project-dir wipe),
         # OR to a protected absolute system dir (/etc, /usr, ...), OR to home /
         # a sensitive home dotdir (~/.ssh, ...) / another user's home. v2.7.41:
@@ -364,6 +338,17 @@ SYS_ROOTS = ('/etc','/usr','/bin','/sbin','/lib','/lib64','/boot','/sys','/dev',
 # /var/folders/... -> /private/var/...) live there and are legit to rm.
 HOME_SENS = ('.ssh','.aws','.gnupg','.config','.kube','.docker','.gcloud','.azure',
              '.password-store','.gpg','.netrc')
+# Walk up to the git root. Stop when dirname() stops changing: on Windows the top is
+# a drive root (D:), never '/', and a `!= '/'` test looped forever (every rm -r hung in CI).
+root = cwd
+while not os.path.exists(os.path.join(root, '.git')):
+    parent = os.path.dirname(root)
+    if parent == root:
+        root = cwd; break
+    root = parent
+temps = {os.path.realpath(t) for t in ('/tmp', '/var/folders', '/private/var/folders',
+         os.environ.get('TMPDIR') or '/tmp')}
+out = None
 try:
     tokens = shlex.split(args, posix=True)
 except ValueError:
@@ -394,11 +379,55 @@ for tok in tokens:
     if target.startswith(home + os.sep):
         if target[len(home):].lstrip('/').split('/')[0] in HOME_SENS:
             print(target); sys.exit(0)
+    # 4. outside the project (its git root) and outside temp dirs: ASK, not deny.
+    # Not on native Windows python: paths there do not resolve to the POSIX forms
+    # the temp list uses (see the Windows text-match block below).
+    if out is None and os.name != 'nt' and not any(target == t or target.startswith(t + os.sep) for t in temps) \
+       and not (target == root or target.startswith(root + os.sep)):
+        out = target
+if out:
+    print('OUT:' + out)
 PYEOF
 )
-        if [ -n "$BAD" ]; then
-          block "recursive force rm on protected path ($BAD)"
+      fi
+      # Without a tty, rm -r deletes writable files without asking, so any target the
+      # resolver flags asks (the -rf branch below denies protected ones).
+      if $has_recursive && ! $has_force && [ -n "$BAD" ]; then
+        _RM_OUT_ASK="${BAD#OUT:}"
+        case "$BAD" in OUT:*) ;; *) _RM_OUT_WHY="a protected path (a system directory, a home directory or a credential folder)" ;; esac
+      fi
+      if $has_recursive && $has_force; then
+        # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
+        # tightened to catch `~/` and `$HOME/` (with trailing slash) since
+        # `rm -rf ~/` and `rm -rf $HOME/` are equally destructive.
+        # v2.26.25: the root arm was `\/[[:space:]]*$` — root ONLY as the last token,
+        # so `rm / -rf` slipped by. Now a bare `\/`; the trailing group still requires
+        # space/end/slash after it, so `/etc` and `/tmp/x` are untouched. The python
+        # block below is the real check — this stays correct because it is the only
+        # guard left if python3 is missing (`|| true` fails open).
+        if [[ "$args" =~ (^|[[:space:]])(\/|\/\*|\/\*\*|~|~\/|\$HOME|\$HOME\/|\$\{HOME\}|\$\{HOME\}\/|\.\.)([[:space:]]|$|\/) ]]; then
+          block "recursive force rm on dangerous target"
         fi
+        # Catch `rm -rf .`, `./`, `./*`, `*` — deletes CWD contents wholesale
+        # (claude-code#29023 vector: ghost-CWD cascade after directory deletion).
+        if [[ "$args" =~ (^|[[:space:]])(\.|\.\/|\.\/\*|\*)([[:space:]]|$) ]]; then
+          block "recursive force rm on current directory (deletes CWD contents)"
+        fi
+        # Catch CWD-equivalent refs: $PWD, ${PWD}, $(pwd), `pwd`, "$PWD" — these
+        # resolve to the CWD at shell-eval time, so they wipe whichever directory
+        # the shell happens to be in (including from a prior `cd X &&` in the
+        # same compound). The python check above can't see this because it
+        # tokenizes pre-expansion and python's expandvars uses the hook process
+        # PWD, not the shell's. Match on the literal substring.
+        case "$args" in
+          *'$PWD'*|*'${PWD}'*|*'$(pwd)'*|*'`pwd`'*)
+            block "recursive force rm on CWD via \$PWD/\$(pwd) (deletes whatever dir the shell is in)"
+            ;;
+        esac
+        case "$BAD" in
+          OUT:*) _RM_OUT_ASK="${BAD#OUT:}" ;;
+          ?*) block "recursive force rm on protected path ($BAD)" ;;
+        esac
 
         # v2.26.83: the python resolver above is INERT ON WINDOWS, and everything it
         # is the only guard for therefore failed OPEN. Proven on a windows-latest
@@ -1880,6 +1909,13 @@ fi
 if [ -n "${_RM_VAR_ASK:-}" ]; then
   echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
   sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+# Recursive force rm outside the project and temp dirs (recorded above). Last, so a
+# deny in the same command wins.
+if [ -n "${_RM_OUT_ASK:-}" ]; then
+  sc_decision ask "this recursively deletes $_RM_OUT_ASK, ${_RM_OUT_WHY:-which is outside this project}." "confirm that directory is meant to go"
   exit 0
 fi
 

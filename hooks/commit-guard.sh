@@ -8,7 +8,7 @@
 # Behavior is identical — each check keeps its own opt-in/disable flag and its own
 # block reason; any check can deny. Order: cheap → expensive (coauthor grep,
 # conventional-format parse, then the staged-diff secret scan which forks git).
-# Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
+# Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_FOCUSED_TEST_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
 #          SUPERCHARGER_DEFAULT_BRANCH_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -104,19 +104,23 @@ if [ -f "$SUPERCHARGER_STATE/.conventional-commits" ] && ! check_hook_disabled "
 
   # Only validate when we found a real commit segment that isn't --amend.
   if [ -n "$_CC_SEG" ] && ! printf '%s\n' "$_CC_SEG" | grep -qE '(^|[[:space:]])--amend([[:space:]]|$)'; then
-    # Heredoc segments are truncated by the line-based iterator — fall back to the full command.
-    if printf '%s\n' "$_CC_SEG" | grep -qE '<<-?'"'"'?EOF'"'"'?'; then _CC_TARGET="$CMD"; else _CC_TARGET="$_CC_SEG"; fi
-    MSG=$(COMMIT_CMD="$_CC_TARGET" python3 -c "
+    # The line-based iterator cuts a heredoc or a multi-line -m message at its first
+    # newline, which left MSG empty and skipped the check. Parse the full command from
+    # its first `git commit` on.
+    MSG=$(COMMIT_CMD="$CMD" python3 -c "
 import os, re
 cmd = os.environ['COMMIT_CMD']
+g = re.search(r'\bgit\s+commit\b', cmd)
+cmd = cmd[g.start():] if g else cmd
 heredoc = re.search(r\"<<'?EOF'?\s*\n(.+?)\nEOF\b\", cmd, re.DOTALL)
 if heredoc:
     lines = [l.strip() for l in heredoc.group(1).splitlines() if l.strip()]
     print(lines[0] if lines else '')
 else:
     # -m may be bundled with other short flags: -qm, -am, -qam (all real).
-    m = re.search(r\"(?:^|\s)-[a-zA-Z]*m\s+[\\\"'](.+?)[\\\"']\", cmd)
-    print(m.group(1) if m else '')
+    m = re.search(r\"(?:^|\s)-[a-zA-Z]*m\s+([\\\"'])(.+?)\\1\", cmd, re.DOTALL)
+    first = [l.strip() for l in (m.group(2) if m else '').splitlines() if l.strip()]
+    print(first[0] if first else '')
 " 2>/dev/null || echo "")
     # Per-repo: `git config supercharger.commitTypes "words notes"` adds types for
     # this repo; the value `off` turns the check off for it. Tokens outside
@@ -142,7 +146,7 @@ else:
 fi
 
 # ─── Check 3: secret in the staged diff (default ON) ─────────────────────────
-if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ] || [ "${SUPERCHARGER_FOCUSED_TEST_GUARD:-1}" != "0" ]; then
   ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
     git rev-parse --git-dir >/dev/null 2>&1 || exit 0
     DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
@@ -158,8 +162,15 @@ if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
     # command substitution above swallows it. Neither verdict is honest:
     # say the scan did not happen. (write-secret-guard takes `|| exit 0` on
     # the same lib and fails OPEN — noted, tracked separately.)
-    [ -n "$_CP" ] || exit 43
-    printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+      [ -n "$_CP" ] || exit 43
+      printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    fi
+    [ "${SUPERCHARGER_FOCUSED_TEST_GUARD:-1}" = "0" ] && exit 0
+    # A focused test (it.only, describe.only, fit, fdescribe) left in a JS/TS test file
+    # makes the runner skip every other test, and CI still goes green.
+    printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{f=($2 ~ /(test|spec)[^\/]*\.(js|jsx|ts|tsx|mjs|cjs|mts|cts)$/ || $2 ~ /__tests__\//); next} f && /^\+/' \
+      | LC_ALL=C grep -qE '(^|[^A-Za-z0-9_.$])((describe|it|test|context|suite)(\.describe)?\.only|f(it|describe))[[:space:]]*\(' && exit 44
     exit 0 )
   _CG_RC=$?
   if [ "$_CG_RC" -eq 43 ]; then
@@ -168,6 +179,10 @@ if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
 
 Committing is not reversible once pushed. Confirm the diff carries no credentials, or re-run once the installation is repaired."
     sc_decision ask "$_CG_R"
+    exit 0
+  fi
+  if [ "$_CG_RC" -eq 44 ]; then
+    sc_decision ask "the staged changes add a focused test (.only, fit or fdescribe). The runner then skips every other test and CI still passes." "remove the .only (or the f prefix) before committing, or confirm if it is deliberate."
     exit 0
   fi
   if [ "$_CG_RC" -eq 42 ]; then
