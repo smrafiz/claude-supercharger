@@ -120,5 +120,10 @@ SCOPE_DIR="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope"
 mkdir -p "$SCOPE_DIR" 2>/dev/null || true
 printf '%s\n' "$VALIDATED_TIER" > "$SCOPE_DIR/.economy-tier"
 
+# Minimal also sets the Concise output style when none is set; leaving minimal
+# removes it only if Supercharger set it. hooks/lib-output-style.sh.
+source "$REPO_DIR/hooks/lib-output-style.sh"
+sync_output_style "$VALIDATED_TIER"
+
 success "Economy tier switched to $(capitalize "$VALIDATED_TIER")"
 info "Active now for hooks; the rules text in economy.md applies next session."

@@ -659,6 +659,12 @@ done
 unset _sc_secure_dir
 echo "$MCP_PROFILE" > "$HOME/.claude/supercharger/scope/.mcp-profile"
 echo "$SELECTED_TIER" > "$HOME/.claude/supercharger/scope/.economy-tier"
+# Minimal sets the Concise output style when none is set (hooks/lib-output-style.sh).
+# Not when the user chose to leave settings.json alone.
+if [[ "$SETTINGS_ACTION" != "skip" ]]; then
+  source "$SCRIPT_DIR/hooks/lib-output-style.sh"
+  sync_output_style "$SELECTED_TIER"
+fi
 
 # How many tagged entries we left in settings.json. guard-registration-check
 # compares against this so it can see PARTIAL registration loss, not just the
