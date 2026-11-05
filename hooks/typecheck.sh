@@ -168,7 +168,7 @@ fi
 ERROR_COUNT=$(printf '%s\n' "$ERRORS" | awk '/ error TS/{c++} END{print c+0}')
 
 # Compact output for context injection
-COMPACT=$(printf '%s\n' "$ERRORS" | grep ' error TS' | head -8 | sed 's|'"$PROJECT_ROOT/"'||g' | tr '\n' '|' | sed 's/|$//')
+COMPACT=$(printf '%s\n' "$ERRORS" | grep ' error TS' | head -8 | sed 's|'"$PROJECT_ROOT/"'||g' | tr '\n' '|' | sed 's/|$//' || true)
 
 MSG="[TSC] ${ERROR_COUNT} type error(s) after editing $(basename "$FILE_PATH"): ${COMPACT}"
 

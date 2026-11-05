@@ -30,6 +30,7 @@ jobs:
   test:
     name: Test suite
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]
@@ -73,6 +74,7 @@ jobs:
   version-check:
     name: Version consistency
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -85,6 +87,7 @@ jobs:
   plugin-manifest:
     name: Plugin manifest
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -101,6 +104,7 @@ jobs:
   perf:
     name: Hook latency (report-only)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
 
@@ -142,6 +146,7 @@ jobs:
   windows-suite:
     name: Windows (Git Bash) shard ${{ matrix.shard }}/4
     runs-on: windows-latest
+    timeout-minutes: 90
     if: (github.event_name == 'push' && github.ref == 'refs/heads/master') || github.event_name == 'workflow_dispatch'
     strategy:
       fail-fast: false
@@ -176,6 +181,7 @@ jobs:
   windows-smoke:
     name: Windows (Git Bash)
     runs-on: windows-latest
+    timeout-minutes: 20
     # Master pushes only: not on every PR, not again on rel/**.
     # release.sh promote gates on this job for the release's base commit, and this
     # job gates on all four suite shards, so it must run even when one failed.
@@ -716,6 +722,7 @@ jobs:
   shellcheck:
     name: Shellcheck
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, macos-latest]

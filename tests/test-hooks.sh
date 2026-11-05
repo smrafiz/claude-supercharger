@@ -3627,6 +3627,16 @@ cd "$ORIG_PWD_SMW3"
 [ -f "$TMPDIR_SMW3/.claude/supercharger-memory.md" ] && pass || fail "expected supercharger-memory.md to be written"
 rm -rf "$TMPDIR_SMW3"
 
+# An empty memory file made `grep -o 'open:…'` exit 1 under pipefail; the hook
+# died before rewriting it, so memory never updated again (2026-11-05).
+begin_test "session-memory-write: an empty memory file is rewritten"
+TMPDIR_SMW4=$(mktemp -d)
+mkdir -p "$TMPDIR_SMW4/.claude" && : > "$TMPDIR_SMW4/.claude/supercharger-memory.md"
+(cd "$TMPDIR_SMW4" && git init --quiet && git -c user.name=t -c user.email=t@t commit --allow-empty -m init --quiet && printf '{}' | bash "$SESSION_MEM_WRITE" >/dev/null 2>&1)
+EXIT=$?
+grep -q '^mem:' "$TMPDIR_SMW4/.claude/supercharger-memory.md" && [ "$EXIT" -eq 0 ] && pass || fail "exit=$EXIT, memory not rewritten"
+rm -rf "$TMPDIR_SMW4"
+
 # ─── human-approval-gate Tests ───────────────────────────────────────────────
 echo ""
 echo "=== human-approval-gate Tests ==="
