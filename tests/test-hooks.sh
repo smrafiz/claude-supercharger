@@ -81,9 +81,10 @@ _ok "$SAFETY_HOOK" '{"tool_name":"Bash","tool_input":{"command":"rm -rf /tmp/bui
 # Roadmap item 5 (2026-11-05): a recursive force rm outside the project and temp
 # dirs asks; it used to pass. A deny in the same command still wins.
 _RMP=$(mktemp -d); mkdir -p "$_RMP/proj/.git"
+_RM_WIN=""; case "${OSTYPE:-}" in msys*|cygwin*) _RM_WIN=1 ;; esac
 _rmv(){ printf '{"tool_name":"Bash","tool_input":{"command":"%s"},"cwd":"%s"}' "$1" "$_RMP/proj" | bash "$SAFETY_HOOK" 2>/dev/null; }
 begin_test "safety: rm -rf on an absolute path outside the project asks"
-_rmv "rm -rf /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"
+if [ -n "$_RM_WIN" ]; then echo "    (skipped: the outside-project check is off on Windows)"; pass; else _rmv "rm -rf /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"; fi
 begin_test "safety: rm -rf inside the project stays allowed"
 [ -z "$(_rmv "rm -rf $_RMP/proj/build")" ] && pass || fail "expected allow"
 begin_test "safety: rm -rf in /tmp stays allowed"
@@ -91,9 +92,9 @@ begin_test "safety: rm -rf in /tmp stays allowed"
 begin_test "safety: an outside-project rm next to /etc is still denied"
 _rmv "rm -rf /opt/app/data /etc" | grep -q '"permissionDecision":"deny"' && pass || fail "expected deny"
 begin_test "safety: rm -r (no -f) outside the project asks too"
-_rmv "rm -r /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"
+if [ -n "$_RM_WIN" ]; then echo "    (skipped: the outside-project check is off on Windows)"; pass; else _rmv "rm -r /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"; fi
 begin_test "safety: rm -r (no -f) on /etc asks and names it a protected path"
-_o=$(_rmv "rm -r /etc"); printf "%s" "$_o" | grep -q "a protected path" && pass || fail "expected protected-path wording, got: $_o"
+if [ -n "$_RM_WIN" ]; then echo "    (skipped: the outside-project check is off on Windows)"; pass; else _o=$(_rmv "rm -r /etc"); printf "%s" "$_o" | grep -q "a protected path" && pass || fail "expected protected-path wording, got: $_o"; fi
 begin_test "safety: rm -r (no -f) inside the project stays allowed"
 [ -z "$(_rmv "rm -r build")" ] && pass || fail "expected allow"
 rm -rf "$_RMP"
