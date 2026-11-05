@@ -4,25 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-04, session `e323355d`.*
+*Verified 2026-11-04, session `3d213381`.*
 
-- **Released: v4.4.3** (2026-11-03, tag on `41ace1bc`). Installed 4.4.3 on the session's machine (per-machine).
-- **master `32e3c2f6`**: on top of 4.4.3, two release.sh fixes (smoke-gate abort prints failing checks;
-  promote reports a failed checkout/pull) and this carry file.
-- **Open PR #239** `sc-security-domains`, head `a46e47b1`: Cloudflare security-audit-skill domain files,
-  needs_validation, coverage ledger, critic waves, one deep report per repo; DoS deep-only (user's call).
-  **User: merge when CI is green.** Windows dispatch run 41693026699. Then `update.sh --yes` and try
-  `/sc-security deep repo` on a small project (never run on a real repo yet).
-- **Worktrees (per-machine):** `secdom` = PR #239; `hwt` (merged #232) and `cite` (#230) stale, clean.
+- **Released: v4.4.3** (2026-11-03). Installed 4.4.3 on this session's machine (per-machine).
+  4.4.4 not authorized; master carries #239-#244 since.
+- **master `e0d1fdd4`** (#245): agent-handoff-gate refuses a flagged `SubagentHandback` once per
+  agent; subagent-stop-check retired. Merged 2026-11-05 with PR checks + Windows green; installed here.
+- **This docs PR (#246)** carries the 2026-11-04 HOOK_AUTHORING notes and these handoff files.
+- **Worktrees (per-machine):** none besides the docs PR's.
+- **Stashes (per-machine):** 5; `supply-unpinned-mcp-rejected-2026-11-04` is safe to drop (user drops).
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`. Auto mode denies
-  force-push, `release.sh promote` (public surface) and running cloned external code: the user runs those.
-- **macOS runners:** capacity cancels happen; `gh run rerun <id> --failed`, never bypass the gate.
-- **Flake:** test-perf-chain.sh failed once in the stage smoke gate; 40/40 loaded re-runs green; the
-  gate now prints the failing check.
-- **Open (user):** roadmap item 5 (recursive delete outside project: ask?); SpecLock coexistence test;
-  star-keeper commitTypes; Machine B commit-msg hook; radius-apps guard-push wrapper, rotate
-  CRON_SECRET, re-enable Actions.
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
+- **Open:** commit-check accepted `agent-handoff-gate: …` (gap?); roadmap item 5; SpecLock
+  coexistence; user's: rotate the Context7 key, star-keeper, Machine B commit-msg hook, radius-apps.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -56,6 +50,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-04 (deep) — 3d213381
+Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
+tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
+SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
+
 #### 2026-11-04 (deep) — e323355d
 Released v4.4.3 (promote run by the user; auto mode denies it). release.sh: gate prints failing
 checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill ported into
@@ -78,10 +78,4 @@ Detail: `.claude/handoff-111c7837-ccb3-4199-a4d8-57243e3a9fdd.md`
 Merged #221-#226, #228, #229, #231 (memory leak + Windows fix, MCP lineup, real demo GIF, profiles,
 economy, pwn issue_comment, suppression ask). Open: #227 spend-guard, #230 citation-gate, #232, #233.
 4.4.3 held by the user.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-11-02 (deep) — 3d213381
-Updated Machine A to 4.4.2. Merged #217-#220. README top image is now a real Claude Code session
-(#221, open); found and fixed a cross-project session-memory leak (#222, open). Issue 3 (UPDATE) is
-intended. Next: plain-language block reasons, economy hooks.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`

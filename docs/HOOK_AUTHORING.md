@@ -1038,3 +1038,22 @@ catch `SystemExit`, and call the handler directly.
 - **Load-only test failures.** `test-perf-chain.sh` and the dig/dotenv case in
   `test-detect-fp-2026-10.sh` failed only under parallel load and passed alone. Rerun the file alone
   and probe the guard directly before calling a change broken.
+
+## Notes from 2026-11-04
+
+- **Stop and SubagentStop notes on exit 0 reach no agent.** stderr and `systemMessage` land as hidden
+  transcript attachments; a Stop `systemMessage` reaches the user's UI only. A Stop check that must
+  change what the agent does exits 2, once (skip when `stop_hook_active`, spaced or compact JSON).
+- **Subagents end through a tool call.** On Claude Code 2.1.318 a subagent calls `SubagentHandback`;
+  SubagentStop fires after the report is delivered, so even exit 2 there changes nothing. A PreToolUse
+  deny on matcher `SubagentHandback` reaches the subagent (`tool_input.message`, `agent_id`). Refuse
+  once per agent and say how to get through, or the subagent loops.
+- **No hook hands the parent a subagent's result.** Agents launch async; PostToolUse:Agent sees only
+  `status: async_launched`. A check meant for the parent has to act on the subagent instead.
+- **A "once" latch must not expire mid-task.** The shared dedup forgets after 600s; a slow revision
+  would be refused again. Use a marker file per (session, agent) for a refuse-once decision.
+- **Prove the channel before building on it.** Each of these was a live `claude -p --settings <file>`
+  run with a marker word the agent had to quote back. Two planned fixes died in that probe.
+- **A load-only failure can be a real gap.** The paste-site upload check lived only in the deep
+  detector, so it fell open when the detector ran out of time under load (#243). Before calling a
+  load-only failure a flake, run the guard with `SUPERCHARGER_DETECT_BUDGET_S` near zero.
