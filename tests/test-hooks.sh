@@ -93,7 +93,7 @@ _rmv "rm -rf /opt/app/data /etc" | grep -q '"permissionDecision":"deny"' && pass
 begin_test "safety: rm -r (no -f) outside the project asks too"
 _rmv "rm -r /opt/app/data" | grep -q '"permissionDecision":"ask"' && pass || fail "expected ask"
 begin_test "safety: rm -r (no -f) on /etc asks and names it a protected path"
-_rmv "rm -r /etc" | grep -q 'a protected path' && pass || fail "expected protected-path wording"
+_o=$(_rmv "rm -r /etc"); printf "%s" "$_o" | grep -q "a protected path" && pass || fail "expected protected-path wording, got: $_o"
 begin_test "safety: rm -r (no -f) inside the project stays allowed"
 [ -z "$(_rmv "rm -r build")" ] && pass || fail "expected allow"
 rm -rf "$_RMP"

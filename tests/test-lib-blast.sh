@@ -33,5 +33,12 @@ begin_test "blast: a commit after the push is not counted"
 blast_summary 'git push origin HEAD && git commit -m c'
 case "$BLAST" in "pushes 0 commit(s)"*) pass ;; *) fail "BLAST=$BLAST" ;; esac
 
+# Callers run under `set -euo pipefail`. `git ls-files -- <path outside the repo>`
+# exits 128, and that pipeline killed the hook before its ask printed (2026-11-05).
+begin_test "blast: an rm of a path outside the repo survives set -euo pipefail"
+mkdir -p "$T/outside/d" && : > "$T/outside/d/f"
+_o=$(bash -c 'set -euo pipefail; . "$1/hooks/lib-blast.sh"; blast_summary "rm -r $2"; echo "done:$BLAST"' _ "$REPO_DIR" "$T/outside/d" 2>/dev/null)
+case "$_o" in "done:deletes 1 file(s)"*) pass ;; *) fail "got: $_o" ;; esac
+
 cd / && rm -rf "$T"
 report

@@ -12,7 +12,7 @@
 
 blast_summary() {
   BLAST=""; BLAST_UNSAVED=0
-  local cmd="$1" n up dropped ci untracked t f rest
+  local cmd="$1" n up dropped ci untracked t f u rest
   case "$cmd" in
     *"git push"*)
       git rev-parse --git-dir >/dev/null 2>&1 || return 0
@@ -42,12 +42,16 @@ blast_summary() {
       rest="${cmd#*rm }"; rest="${rest%%[;&|]*}"
       for t in $(printf '%s\n' "$rest" | tr ' ' '\n' | grep -v '^-' | tr -d "\"'" | grep -v '[$*?`<>(){}~]' | head -20); do
         [ -e "$t" ] || continue
-        f=$(find "$t" -type f 2>/dev/null | head -100001 | wc -l | tr -d ' ')
-        n=$((n + f))
+        # `|| true`: callers run under `set -euo pipefail`, and a failed pipeline here
+        # (unreadable dir, a path outside the repo) killed the hook before its ask
+        # printed, so the command ran unasked.
+        f=$(find "$t" -type f 2>/dev/null | head -100001 | wc -l | tr -d ' ') || true
+        n=$((n + ${f:-0}))
         # Untracked AND not ignored: work nobody saved. node_modules, build output and
         # everything else .gitignore names is regenerable, so it does not count.
         if git rev-parse --git-dir >/dev/null 2>&1; then
-          untracked=$((untracked + $(git ls-files --others --exclude-standard -- "$t" 2>/dev/null | head -100001 | wc -l | tr -d ' ')))
+          u=$(git ls-files --others --exclude-standard -- "$t" 2>/dev/null | head -100001 | wc -l | tr -d ' ') || true
+          untracked=$((untracked + ${u:-0}))
         fi
       done
       [ "$n" -gt 0 ] || return 0
