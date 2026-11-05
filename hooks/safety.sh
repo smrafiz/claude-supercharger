@@ -338,10 +338,14 @@ SYS_ROOTS = ('/etc','/usr','/bin','/sbin','/lib','/lib64','/boot','/sys','/dev',
 # /var/folders/... -> /private/var/...) live there and are legit to rm.
 HOME_SENS = ('.ssh','.aws','.gnupg','.config','.kube','.docker','.gcloud','.azure',
              '.password-store','.gpg','.netrc')
+# Walk up to the git root. Stop when dirname() stops changing: on Windows the top is
+# a drive root (D:), never '/', and a `!= '/'` test looped forever (every rm -r hung in CI).
 root = cwd
-while root != '/' and not os.path.exists(os.path.join(root, '.git')):
-    root = os.path.dirname(root)
-if root == '/': root = cwd
+while not os.path.exists(os.path.join(root, '.git')):
+    parent = os.path.dirname(root)
+    if parent == root:
+        root = cwd; break
+    root = parent
 temps = {os.path.realpath(t) for t in ('/tmp', '/var/folders', '/private/var/folders',
          os.environ.get('TMPDIR') or '/tmp')}
 out = None
@@ -376,7 +380,9 @@ for tok in tokens:
         if target[len(home):].lstrip('/').split('/')[0] in HOME_SENS:
             print(target); sys.exit(0)
     # 4. outside the project (its git root) and outside temp dirs: ASK, not deny.
-    if out is None and not any(target == t or target.startswith(t + os.sep) for t in temps) \
+    # Not on native Windows python: paths there do not resolve to the POSIX forms
+    # the temp list uses (see the Windows text-match block below).
+    if out is None and os.name != 'nt' and not any(target == t or target.startswith(t + os.sep) for t in temps) \
        and not (target == root or target.startswith(root + os.sep)):
         out = target
 if out:
