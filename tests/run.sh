@@ -17,7 +17,7 @@ echo "Claude Supercharger — Test Suite"
 echo "================================"
 echo ""
 
-# Parallel execution in waves of $TEST_JOBS.
+# Parallel execution, at most $TEST_JOBS files at a time.
 #
 # The suite is ~2500 assertions and each one forks a hook (which forks python3
 # or jq), so wall time was ~7 minutes of almost entirely serial fork overhead —
@@ -25,9 +25,9 @@ echo ""
 # concurrently and their output is replayed in glob order afterwards, keeping
 # the report byte-comparable to the serial version.
 #
-# Waves (batch, wait, batch) rather than a work queue: bash 3.2 has no `wait -n`,
-# and xargs -P would need `bash -c` plus an exported function. A wave is gated by
-# its slowest file, which is good enough here and far easier to reason about.
+# A pool that polls `jobs -pr` (bash 3.2 has no `wait -n`). It replaced waves
+# (batch, wait, batch) on 2026-11-05: each wave waited for its slowest file, and
+# a Windows shard ran 55m against 8-20m for the others.
 #
 # TEST_JOBS=1 restores fully serial execution for debugging an ordering-sensitive
 # failure.
@@ -158,7 +158,6 @@ _pick() {
   [ "$r" -eq "$_SHARD_I" ]
 }
 
-running=0
 _n=0
 _launch() {
   [ -f "$1" ] || return 0
@@ -166,11 +165,9 @@ _launch() {
   _skip_this "$_t" && return 0
   _pick "$_t" || return 0
   run_one "$1" &
-  running=$((running + 1))
-  if [ "$running" -ge "$TEST_JOBS" ]; then
-    wait
-    running=0
-  fi
+  # A pool, not waves: start the next file as soon as any one finishes. Waves of
+  # TEST_JOBS each waited for their slowest file. bash 3.2 has no `wait -n`.
+  while [ "$(jobs -pr | wc -l)" -ge "$TEST_JOBS" ]; do sleep 0.2; done
 }
 for h in $_HEAVY; do
   # shellcheck disable=SC2254 # TEST_GLOB is a glob on purpose
