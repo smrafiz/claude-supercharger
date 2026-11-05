@@ -18,7 +18,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `adaptive-economy` | UserPromptSubmit | (none) | Auto-switches economy tier based on context window usage. |
 | `agent-allowlist-guard` | PreToolUse | Bash,Monitor,PowerShell,WebFetch,Write,Edit,MultiEdit,NotebookEdit,Agent,Workflow | Opt-in: a subagent whose definition declares supercharger-allow lists is held to them. |
 | `agent-gate` | PreToolUse | Agent | Reads the stored agent classification. Warns on mismatch but allows |
-| `agent-handoff-gate` | SubagentStop | (none) | Validates sub-agent output quality before the result flows back to the parent. |
+| `agent-handoff-gate` | PreToolUse | SubagentHandback  (also SubagentStop, older Claude Code) | Validates sub-agent output quality before the result flows back to the parent. |
 | `agent-poisoning-scanner` | PreToolUse | Agent | Agent definitions (~/.claude/agents/<name>.md) are instructions Claude follows. |
 | `agent-router` | UserPromptSubmit | (none) | Classifies each user prompt and injects a routing directive into |
 | `ai-lock-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Asks before editing a line range a human deliberately locked, and quotes the |
@@ -151,7 +151,6 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `subagent-report-fallback` | SubagentStop | * | async | Companion to subagent-safety.sh's report-pin instruction (v2.6.82). |
 | `subagent-report-notify` | SubagentStop | (none)  [BLOCKING — must inject into parent] | Closes the last gap in the report-recovery story. When a subagent's final |
 | `subagent-safety` | SubagentStart | (none) | Injects safety context into sub-agents spawned via the Agent tool, |
-| `subagent-stop-check` | SubagentStop | (none) | Reads last_assistant_message from subagent output and flags incomplete/failed work |
 | `task-poll-guard` | PreToolUse | Bash | Deny a command that both SLEEPS and names a harness task output file. That is |
 | `test-integrity-guard` | PreToolUse | Edit, MultiEdit, Write | Defends the Verification Gate ("run tests, confirm they pass"): the one way an |
 | `test-mask-guard` | PreToolUse | Bash | Defends the flagship Verification Gate ("run the check, confirm it passes") at |
