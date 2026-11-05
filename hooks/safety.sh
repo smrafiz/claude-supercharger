@@ -386,7 +386,10 @@ PYEOF
       fi
       # Without a tty, rm -r deletes writable files without asking, so any target the
       # resolver flags asks (the -rf branch below denies protected ones).
-      if $has_recursive && ! $has_force && [ -n "$BAD" ]; then _RM_OUT_ASK="${BAD#OUT:}"; fi
+      if $has_recursive && ! $has_force && [ -n "$BAD" ]; then
+        _RM_OUT_ASK="${BAD#OUT:}"
+        case "$BAD" in OUT:*) ;; *) _RM_OUT_WHY="a protected path (a system directory, a home directory or a credential folder)" ;; esac
+      fi
       if $has_recursive && $has_force; then
         # v2.6.80: added ${HOME} braced form (fuzz harness bypass). Also
         # tightened to catch `~/` and `$HOME/` (with trailing slash) since
@@ -1906,7 +1909,7 @@ fi
 # Recursive force rm outside the project and temp dirs (recorded above). Last, so a
 # deny in the same command wins.
 if [ -n "${_RM_OUT_ASK:-}" ]; then
-  sc_decision ask "this recursively deletes $_RM_OUT_ASK, which is outside this project." "confirm that directory is meant to go"
+  sc_decision ask "this recursively deletes $_RM_OUT_ASK, ${_RM_OUT_WHY:-which is outside this project}." "confirm that directory is meant to go"
   exit 0
 fi
 
