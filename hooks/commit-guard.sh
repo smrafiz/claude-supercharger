@@ -8,7 +8,7 @@
 # Behavior is identical — each check keeps its own opt-in/disable flag and its own
 # block reason; any check can deny. Order: cheap → expensive (coauthor grep,
 # conventional-format parse, then the staged-diff secret scan which forks git).
-# Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
+# Disable: SUPERCHARGER_COMMIT_SECRET_GUARD=0  |  SUPERCHARGER_FOCUSED_TEST_GUARD=0  |  SUPERCHARGER_COMMIT_CODE_SCAN=0
 #          SUPERCHARGER_DEFAULT_BRANCH_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -146,7 +146,7 @@ else:
 fi
 
 # ─── Check 3: secret in the staged diff (default ON) ─────────────────────────
-if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ] || [ "${SUPERCHARGER_FOCUSED_TEST_GUARD:-1}" != "0" ]; then
   ( [ -n "$PROJECT_DIR" ] && [ -d "$PROJECT_DIR" ] && cd "$PROJECT_DIR" 2>/dev/null || exit 0
     git rev-parse --git-dir >/dev/null 2>&1 || exit 0
     DIFF=$(git diff --cached --unified=0 --no-color 2>/dev/null || true)
@@ -162,8 +162,11 @@ if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
     # command substitution above swallows it. Neither verdict is honest:
     # say the scan did not happen. (write-secret-guard takes `|| exit 0` on
     # the same lib and fails OPEN — noted, tracked separately.)
-    [ -n "$_CP" ] || exit 43
-    printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    if [ "${SUPERCHARGER_COMMIT_SECRET_GUARD:-1}" != "0" ]; then
+      [ -n "$_CP" ] || exit 43
+      printf '%s\n' "$ADDED" | LC_ALL=C grep -qE "$_CP" && exit 42
+    fi
+    [ "${SUPERCHARGER_FOCUSED_TEST_GUARD:-1}" = "0" ] && exit 0
     # A focused test (it.only, describe.only, fit, fdescribe) left in a JS/TS test file
     # makes the runner skip every other test, and CI still goes green.
     printf '%s\n' "$DIFF" | awk '/^\+\+\+ /{f=($2 ~ /(test|spec)[^\/]*\.(js|jsx|ts|tsx|mjs|cjs|mts|cts)$/ || $2 ~ /__tests__\//); next} f && /^\+/' \
