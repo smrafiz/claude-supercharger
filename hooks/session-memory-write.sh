@@ -147,8 +147,8 @@ CONTENT="mem:${TIMESTAMP} branch:${BRANCH} open:${OPEN_CSV:-none} commits:${COMM
 # --- #11 Differential write: skip if open-work, commits, AND decisions unchanged ---
 if [ -f "$MEMORY_FILE" ]; then
   PREV=$(cat "$MEMORY_FILE" 2>/dev/null)
-  PREV_OPEN=$(printf '%s' "$PREV" | grep -o 'open:[^ ]*' | cut -d: -f2-)
-  PREV_COMMITS=$(printf '%s' "$PREV" | grep -o 'commits:[^ ]*' | cut -d: -f2-)
+  PREV_OPEN=$(printf '%s' "$PREV" | grep -o 'open:[^ ]*' | cut -d: -f2- || true)
+  PREV_COMMITS=$(printf '%s' "$PREV" | grep -o 'commits:[^ ]*' | cut -d: -f2- || true)
   PREV_DECISIONS=$(printf '%s' "$PREV" | sed -n 's/.*decisions:\(.*\)/\1/p')
   if [ "$PREV_OPEN" = "${OPEN_CSV:-none}" ] && [ "$PREV_COMMITS" = "${COMMITS_CSV:-none}" ] && [ "$PREV_DECISIONS" = "$DECISIONS_LINE" ]; then
     echo "[Supercharger] session-memory: no changes, skipping write" >&2

@@ -25,7 +25,7 @@ status_bits=()
 
 ver="unknown"
 if [ -f "$UTILS" ]; then
-  ver=$(grep -E '^VERSION=' "$UTILS" 2>/dev/null | head -1 | cut -d'"' -f2)
+  ver=$(grep -E '^VERSION=' "$UTILS" 2>/dev/null | head -1 | cut -d'"' -f2 || true)
   [ -n "$ver" ] || ver="unknown"
 fi
 
