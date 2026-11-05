@@ -76,10 +76,11 @@ teardown_test_home
 begin_test "output-style: a symlinked settings.json stays a symlink"
 setup_test_home
 mkdir -p "$HOME/dotfiles"; printf '{}\n' > "$HOME/dotfiles/settings.json"
-ln -s "$HOME/dotfiles/settings.json" "$(S)"
-sync minimal
+ln -s "$HOME/dotfiles/settings.json" "$(S)" 2>/dev/null
+if [ ! -L "$(S)" ]; then echo "    (skipped: Git Bash created no symlink — nothing to keep)"; pass
+else sync minimal
 if [ -L "$(S)" ] && [ "$(style)" = "Concise" ]; then pass
-else fail "symlink=$([ -L "$(S)" ] && echo y || echo n) style='$(style)'"; fi
+else fail "symlink=$([ -L "$(S)" ] && echo y || echo n) style='$(style)'"; fi; fi
 teardown_test_home
 
 begin_test "output-style: economy-switch.sh minimal sets Concise"
