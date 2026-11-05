@@ -121,9 +121,10 @@ _skip_this() {
   return 1
 }
 
-# TEST_SHARD=i/n runs the i-th of every n files (1-based), so CI can split the suite
-# across n machines. Counted after TEST_SKIP, in glob order, identically in the run
-# and replay loops below. Unset runs everything.
+# TEST_SHARD=i/n splits the suite across n machines (1-based). The _HEAVY files are
+# dealt out first (1,2,..n,n,..1) and run first; the rest go round robin in glob
+# order, after TEST_SKIP, identically in the run and replay loops below. Unset runs
+# everything.
 _SHARD_I=0; _SHARD_N=1
 case "${TEST_SHARD:-}" in
   '') ;;
@@ -138,23 +139,50 @@ fi
 # a quarter of its own fixture. Found on the first sharded Windows run.
 _SHARDED=${TEST_SHARD:+1}
 unset TEST_SHARD
-_in_shard() { [ $(( $1 % _SHARD_N )) -eq "$_SHARD_I" ]; }
+# Slowest files, slowest first (measured 2026-11-05). Round robin alone put the top
+# two in one shard, which ran 55m on Windows against 8-20m for the others.
+_HEAVY="test-command-prelude-matrix test-hooks test-perf-chain test-credential-access-matrix \
+test-safety-bash-evasions test-list-hooks test-safety-fp test-download-execute-matrix \
+test-claude-md-marker test-claim-evidence-gate test-cloud-cli-destructive-guard \
+test-hook-contracts test-install test-bash-injection-scanner test-deny-rule-fp test-sweep5"
+_is_heavy() { case " $_HEAVY " in *" $1 "*) return 0 ;; esac; return 1; }
+# _pick <name>: is this file in our shard? Advances _n for non-heavy files.
+_pick() {
+  local k=0 h r
+  if _is_heavy "$1"; then
+    for h in $_HEAVY; do [ "$h" = "$1" ] && break; k=$((k + 1)); done
+    r=$(( k % (2 * _SHARD_N) )); [ "$r" -ge "$_SHARD_N" ] && r=$(( 2 * _SHARD_N - 1 - r ))
+  else
+    r=$(( _n % _SHARD_N )); _n=$((_n + 1))
+  fi
+  [ "$r" -eq "$_SHARD_I" ]
+}
 
 running=0
-_idx=0
-for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
-  [ -f "$test_file" ] || continue
-  _skip_this "$(basename "$test_file" .sh)" && continue
-  _idx=$((_idx + 1)); _in_shard "$((_idx - 1))" || continue
-  run_one "$test_file" &
+_n=0
+_launch() {
+  [ -f "$1" ] || return 0
+  _t=$(basename "$1" .sh)
+  _skip_this "$_t" && return 0
+  _pick "$_t" || return 0
+  run_one "$1" &
   running=$((running + 1))
   if [ "$running" -ge "$TEST_JOBS" ]; then
     wait
     running=0
   fi
+}
+for h in $_HEAVY; do
+  # shellcheck disable=SC2254 # TEST_GLOB is a glob on purpose
+  case "$h.sh" in $TEST_GLOB) _launch "$SCRIPT_DIR/$h.sh" ;; esac
+done
+for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
+  _is_heavy "$(basename "$test_file" .sh)" && continue
+  _launch "$test_file"
 done
 wait
 
+_n=0
 # Replay in glob order so the report is deterministic regardless of finish order.
 # Must use the SAME glob as the run loop above, or a subset run replays files it
 # never executed and reports them as empty.
@@ -163,7 +191,7 @@ for test_file in "$SCRIPT_DIR"/$TEST_GLOB; do
   test_name=$(basename "$test_file" .sh)
   # Same exclusion as the run loop, or the replay reports files that never ran.
   _skip_this "$test_name" && continue
-  _ridx=$((${_ridx:-0} + 1)); _in_shard "$((_ridx - 1))" || continue
+  _pick "$test_name" || continue
   echo "--- $test_name ---"
 
   output=$(cat "$RESULT_DIR/$test_name.out" 2>/dev/null || true)
