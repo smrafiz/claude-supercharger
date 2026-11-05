@@ -8,12 +8,10 @@ session on any machine.**
 
 - **Released: v4.4.3** (2026-11-03). Installed 4.4.3 on this session's machine (per-machine).
   4.4.4 not authorized; master carries #239-#244 since.
-- **master `94b6bf72`** (#244), master CI green.
-- **Open PR #245** `fix/handoff-gate-handback`, head `980a3cf2`: agent-handoff-gate refuses a flagged
-  `SubagentHandback` once per agent; subagent-stop-check retired. Windows dispatch 41830023094.
-  Merge pinned once suite + checks + Windows are green; then remove worktree, `update.sh --yes`.
-- **Uncommitted on master checkout:** HOOK_AUTHORING "Notes from 2026-11-04", handoff files. Docs PR next.
-- **Worktrees (per-machine):** `../sc-wt-handback` = PR #245.
+- **master `e0d1fdd4`** (#245): agent-handoff-gate refuses a flagged `SubagentHandback` once per
+  agent; subagent-stop-check retired. Merged 2026-11-05 with PR checks + Windows green; installed here.
+- **This docs PR (#246)** carries the 2026-11-04 HOOK_AUTHORING notes and these handoff files.
+- **Worktrees (per-machine):** none besides the docs PR's.
 - **Stashes (per-machine):** 5; `supply-unpinned-mcp-rejected-2026-11-04` is safe to drop (user drops).
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -55,7 +53,7 @@ session on any machine.**
 #### 2026-11-04 (deep) — 3d213381
 Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
 tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
-SubagentHandback. PR #245 does that and retires subagent-stop-check; awaiting CI.
+SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
 #### 2026-11-04 (deep) — e323355d
