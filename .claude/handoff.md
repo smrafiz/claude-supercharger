@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-04, session `3d213381`.*
+*Verified 2026-11-05, session `1c2a497d`.*
 
-- **Released: v4.4.3** (2026-11-03). Installed 4.4.3 on this session's machine (per-machine).
-  4.4.4 not authorized; master carries #239-#244 since.
-- **master `e0d1fdd4`** (#245): agent-handoff-gate refuses a flagged `SubagentHandback` once per
-  agent; subagent-stop-check retired. Merged 2026-11-05 with PR checks + Windows green; installed here.
-- **This docs PR (#246)** carries the 2026-11-04 HOOK_AUTHORING notes and these handoff files.
-- **Worktrees (per-machine):** none besides the docs PR's.
-- **Stashes (per-machine):** 5; `supply-unpinned-mcp-rejected-2026-11-04` is safe to drop (user drops).
+- **Released: v4.4.3** (2026-11-03). master carries #239-#248 since; 4.4.4 approved to prepare.
+- **master `a7fc8937`** (#248) = origin, clean; master CI green on #246, #247, #248.
+- **Open PRs:** none.
+- **4.4.4 message drafted** (per-machine scratchpad path in this session's brief). User runs
+  `release.sh stage patch --message ...` then `promote 4.4.4`; auto mode denies promote.
 - **Windows:** PR CI skips it; dispatch `gh workflow run ci.yml --ref <branch>` BEFORE merge.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** commit-check accepted `agent-handoff-gate: …` (gap?); roadmap item 5; SpecLock
-  coexistence; user's: rotate the Context7 key, star-keeper, Machine B commit-msg hook, radius-apps.
+- **Worktrees / stashes (per-machine, this machine):** no extra worktrees; 2 stashes.
+- **Open:** commit-check accepted `agent-handoff-gate: …` (gap?); SpecLock coexistence;
+  `/sc-security` never run on a real repo; user's: rotate the Context7 key, star-keeper,
+  Machine B commit-msg hook, radius-apps.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -50,6 +50,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-05 — 1c2a497d
+Status check: #246-#248 merged, master green, no PRs. Carry file refreshed; 4.4.4 release
+message drafted for #239-#248, awaiting the user's stage/promote run.
+Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+
 #### 2026-11-04 (deep) — 3d213381
 Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
 tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
@@ -73,9 +78,3 @@ would have dropped 26 — KNOWN-ISSUES #8) and #230 install count 175. #230 Wind
 failure in test-stdin-timeout D, twice: not a flake, a 1s read timeout. Fixed on master `b4fe7193`,
 merged into #230 (`bb1c54b4`), Windows 41501558568 + merge chain left running.
 Detail: `.claude/handoff-111c7837-ccb3-4199-a4d8-57243e3a9fdd.md`
-
-#### 2026-11-02 (deep, end of day) — 3d213381
-Merged #221-#226, #228, #229, #231 (memory leak + Windows fix, MCP lineup, real demo GIF, profiles,
-economy, pwn issue_comment, suppression ask). Open: #227 spend-guard, #230 citation-gate, #232, #233.
-4.4.3 held by the user.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
