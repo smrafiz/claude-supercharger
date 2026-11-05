@@ -19,7 +19,6 @@ echo "=== Subagent Chain Tests ==="
 # an earlier one's output.
 STOP_CHAIN=(
   "subagent-discovery.sh"
-  "subagent-stop-check.sh"
   "subagent-report-fallback.sh"
   "subagent-report-notify.sh"
   "event-logger.sh subagent_stop"

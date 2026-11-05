@@ -443,7 +443,6 @@ get_hooks_for_mode() {
     hooks+=("PreCompact||${hooks_dir}/precompact-priorities.sh|")
     hooks+=("PostToolUse||${hooks_dir}/slow-tool-detector.sh|async")
     hooks+=("Stop|*|${hooks_dir}/stop-keep-going.sh|")
-    hooks+=("SubagentStop|*|${hooks_dir}/subagent-stop-check.sh|")
     # v2.7.1: auto-recover subagent reports when the agent ignores the
     # report-pin instruction from subagent-safety.sh. async — pure scrape.
     hooks+=("SubagentStop|*|${hooks_dir}/subagent-report-fallback.sh|async")
@@ -584,6 +583,7 @@ get_hooks_for_mode() {
     hooks+=("FileChanged|.env,.envrc,package.json,settings.json,.claude/settings.json,settings.local.json,.claude/settings.local.json,.mcp.json,.supercharger.json,CLAUDE.md,tasks.json,.vscode/tasks.json|${hooks_dir}/file-watcher.sh|")
     hooks+=("SubagentStart||${hooks_dir}/subagent-safety.sh|")
     hooks+=("SubagentStop||${hooks_dir}/agent-handoff-gate.sh|")
+    hooks+=("PreToolUse|SubagentHandback|${hooks_dir}/agent-handoff-gate.sh|")
     hooks+=("PostToolUse||${hooks_dir}/budget-cap.sh|async")
     hooks+=("PostToolUse|Write,Edit,Bash,PowerShell|${hooks_dir}/session-checkpoint.sh|async")
     hooks+=("PreToolUse||${hooks_dir}/budget-cap.sh check|")
