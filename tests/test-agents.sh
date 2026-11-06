@@ -17,6 +17,7 @@ EXPECTED_AGENTS=(
   "general"
   "architect"
   "explorer"
+  "batch-editor"
 )
 
 for agent in "${EXPECTED_AGENTS[@]}"; do
@@ -63,6 +64,14 @@ done
 # Haiku). Aliases, not pinned IDs: the pins had drifted to legacy models.
 begin_test "agents: explorer (read-only search) uses haiku model"
 grep -qx "model: haiku" "$AGENTS_DIR/explorer.md" && pass || fail "explorer should use haiku"
+
+# 2026-11-06: fully specified batch edits need no judgment (Provost's mech-executor).
+begin_test "agents: batch-editor (mechanical batch edits) uses haiku model"
+grep -qx "model: haiku" "$AGENTS_DIR/batch-editor.md" && pass || fail "batch-editor should use haiku"
+
+begin_test "agents: batch-editor can edit but cannot delegate"
+_be_tools=$(grep -m1 '^tools:' "$AGENTS_DIR/batch-editor.md")
+case "$_be_tools" in *Edit*) case "$_be_tools" in *Agent*|*Task*) fail "can delegate: $_be_tools" ;; *) pass ;; esac ;; *) fail "no Edit: $_be_tools" ;; esac
 
 begin_test "agents: no agent pins a dated model ID (aliases track the current model)"
 ! grep -l "^model: claude-" "$AGENTS_DIR"/*.md >/dev/null 2>&1 && pass || fail "pinned: $(grep -l '^model: claude-' "$AGENTS_DIR"/*.md)"

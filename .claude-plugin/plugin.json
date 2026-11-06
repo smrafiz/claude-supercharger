@@ -48,6 +48,7 @@
   ],
   "agents": [
     "./configs/agents/architect.md",
+    "./configs/agents/batch-editor.md",
     "./configs/agents/code-helper.md",
     "./configs/agents/data-analyst.md",
     "./configs/agents/debugger.md",
