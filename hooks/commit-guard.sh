@@ -107,9 +107,20 @@ if [ -f "$SUPERCHARGER_STATE/.conventional-commits" ] && ! check_hook_disabled "
     # The line-based iterator cuts a heredoc or a multi-line -m message at its first
     # newline, which left MSG empty and skipped the check. Parse the full command from
     # its first `git commit` on.
-    MSG=$(COMMIT_CMD="$CMD" python3 -c "
+    # The subject can also come from a file: -F/--file <path>, or -m "$(cat <path>)".
+    # -F was never read, so any subject passed (2026-11-06, real). Any other $( ) or
+    # backtick is computed at run time and unknowable here: skipped, not checked as
+    # the literal "$(...)", which blocked valid commits.
+    MSG=$(COMMIT_CMD="$CMD" COMMIT_CWD="$PROJECT_DIR" python3 -c "
 import os, re
 cmd = os.environ['COMMIT_CMD']
+def readmsg(p):
+    try:
+        with open(os.path.join(os.environ.get('COMMIT_CWD') or '.', p)) as fh:
+            return fh.read(65536)
+    except Exception:
+        return ''
+
 g = re.search(r'\bgit\s+commit\b', cmd)
 cmd = cmd[g.start():] if g else cmd
 heredoc = re.search(r\"<<'?EOF'?\s*\n(.+?)\nEOF\b\", cmd, re.DOTALL)
@@ -119,7 +130,18 @@ if heredoc:
 else:
     # -m may be bundled with other short flags: -qm, -am, -qam (all real).
     m = re.search(r\"(?:^|\s)-[a-zA-Z]*m\s+([\\\"'])(.+?)\\1\", cmd, re.DOTALL)
-    first = [l.strip() for l in (m.group(2) if m else '').splitlines() if l.strip()]
+    f = re.search(r\"(?:^|\s)(?:-[a-zA-Z]*F\s*|--file[=\s]+)([\\\"']?)([^\s\\\"']+)\\1\", cmd)
+    body = ''
+    if m:
+        body = m.group(2)
+        c = re.fullmatch(r\"\\\$\(\s*cat\s+([\\\"']?)([^\s\\\"'()]+)\\1\s*\)\", body.strip())
+        if c:
+            body = readmsg(c.group(2))
+        elif '\$(' in body or '\`' in body:
+            body = ''
+    elif f and f.group(2) != '-':
+        body = readmsg(f.group(2))
+    first = [l.strip() for l in body.splitlines() if l.strip()]
     print(first[0] if first else '')
 " 2>/dev/null || echo "")
     # Per-repo: `git config supercharger.commitTypes "words notes"` adds types for

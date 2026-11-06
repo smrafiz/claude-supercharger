@@ -2513,6 +2513,33 @@ begin_test "commit-check: an earlier -m in another command is not read as the su
 run_hook "$COMMIT_CHECK" "grep -m 1 'x' f && git commit -m 'fix: real'"
 assert_exit_code 0 $? && pass
 
+# The subject from a file: -F was never read, so any subject passed, and
+# -m "$(cat f)" was checked as the literal "$(cat f)" and always blocked (2026-11-06, real).
+_CC_MF=$(mktemp -d)
+printf 'agent-handoff-gate: x\n\nbody\n' > "$_CC_MF/bad.txt"; printf 'fix: ok\n' > "$_CC_MF/good.txt"
+begin_test "commit-check: -F with a bad subject is blocked"
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" "git commit -F bad.txt")
+assert_exit_code 2 $? && pass
+
+begin_test "commit-check: --file= and bundled -qF with a bad subject are blocked"
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" "git commit --file=bad.txt"); _a=$?
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" "git commit -qF bad.txt"); _b=$?
+[ "$_a$_b" = 22 ] && pass || fail "--file=: $_a, -qF: $_b (want 2 2)"
+
+begin_test "commit-check: -F with a valid subject passes"
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" "git commit -F good.txt")
+assert_exit_code 0 $? && pass
+
+begin_test "commit-check: -m \"\$(cat f)\" is checked against the file, both ways"
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" 'git commit -m "$(cat good.txt)"'); _a=$?
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" 'git commit -m "$(cat bad.txt)"'); _b=$?
+[ "$_a$_b" = 02 ] && pass || fail "good: $_a, bad: $_b (want 0 2)"
+
+begin_test "commit-check: a subject computed at run time is not blocked"
+(cd "$_CC_MF" && run_hook "$COMMIT_CHECK" 'git commit -m "$(git log -1 --format=%s)"')
+assert_exit_code 0 $? && pass
+rm -rf "$_CC_MF"
+
 # Per-repo types: star-keeper commits as `words: ...`, `notes: ...` (2026-10-19, real).
 _CC_REPO=$(mktemp -d); git -C "$_CC_REPO" init -q
 git -C "$_CC_REPO" config supercharger.commitTypes "words, notes|access"
