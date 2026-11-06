@@ -4,7 +4,7 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-06, session `1c2a497d` (resumed as `92edb542`).*
+*Verified 2026-11-07, session `1c2a497d` (resumed as `92edb542`).*
 
 - **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4;
   Concise output style confirmed applied mid-session.
@@ -53,6 +53,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-07 (deep) — 1c2a497d
+Deep brief for the 2026-11-05→07 session (v4.4.4, #249-#254). HOOK_AUTHORING notes 2026-11-06;
+memory: zsh tool shell, agents picked by description, Windows whole-run rerun, dispatch capacity.
+Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+
 #### 2026-11-06 (late) — 1c2a497d
 Merged #252-#254: `-F ~/path`, batch-editor agent (from Provost), risk-review report-only arm.
 Reviewed norton77930/Provost: took mech-executor + risk-triggered review; skipped the rest.
@@ -72,9 +77,3 @@ Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 Status check: #246-#248 merged, master green, no PRs. Carry file refreshed; 4.4.4 release
 message drafted for #239-#248, awaiting the user's stage/promote run.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
-
-#### 2026-11-04 (deep) — 3d213381
-Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
-tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
-SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`

@@ -1057,3 +1057,26 @@ catch `SystemExit`, and call the handler directly.
 - **A load-only failure can be a real gap.** The paste-site upload check lived only in the deep
   detector, so it fell open when the detector ran out of time under load (#243). Before calling a
   load-only failure a flake, run the guard with `SUPERCHARGER_DETECT_BUDGET_S` near zero.
+
+## Notes from 2026-11-06
+
+- **A message can come from a file.** commit-check read only `-m` and heredocs, so `git commit -F
+  msg.txt` passed any subject (an `agent-handoff-gate:` commit got through), and `-m "$(cat f)"` was
+  checked as the literal `$(cat f)` and always blocked. Read the file for `-F`/`--file`/`$(cat f)`;
+  any other `$( )` or backtick is computed at run time and cannot be known at PreToolUse, so skip it
+  rather than check the literal (#251, #252).
+- **Expand `~` from `$HOME`.** `os.path.expanduser` reads `%USERPROFILE%` on Windows, and
+  `test-python-encoding.sh` fails any hook that calls it. `os.environ.get('HOME','') + p[1:]` for
+  `~/…` (#252).
+- **A background fetch can write the flag itself.** update-check's `} &` block cannot print (its
+  stdout is orphaned), so the notice waited for the next session. Writing the statusline's flag file
+  from inside the block shows it within the session, since the statusline re-reads it every turn
+  (#250).
+- **A report-only arm logs its own denominator.** The risk-review arm logs every claim turn with code
+  edits, hit or not, so "fires on N of M turns" can be read straight from the log before anyone
+  decides to block (#254, docs/RISK-REVIEW-PLAN.md).
+- **Count only lines the turn added.** An Edit's `new_string` carries unchanged context; a risky line
+  present in `old_string` too was not written by this turn. Same rule as the placeholder arm.
+- **A routing hint is not a channel.** The router's agent hint was followed 1.1% of the time
+  (v4.1.21). A new agent is reached through its `description`; a required action goes through a
+  Stop exit 2 or a PreToolUse deny.
