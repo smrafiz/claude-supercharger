@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Session Start Update Check
 # Event: SessionStart | Matcher: (none)
-# Checks for updates once per day and prints a banner if one is available.
+# Checks for updates every 6 hours and prints a banner if one is available.
 #
 # The banner goes to STDOUT, and that is the whole feature. It was on stderr for
 # the life of the hook and therefore was never delivered to anyone — the check
@@ -38,7 +38,9 @@ set -euo pipefail
 SUPERCHARGER_DIR="$SUPERCHARGER_STATE"
 VERSION_FILE="$SUPERCHARGER_DIR/.version"
 CACHE_FILE="$SUPERCHARGER_DIR/.update-cache"
-CACHE_TTL=86400  # 24 hours
+# 6 hours, not 24: a release published just after a fetch went unseen for a
+# day. Four unauthenticated GETs a day is far under GitHub's 60/hour limit.
+CACHE_TTL=21600
 
 # Skip if no installed version stamp (pre-1.7.4 installs)
 [ -f "$VERSION_FILE" ] || exit 0
@@ -137,6 +139,13 @@ except Exception:
 
   if [ -n "$REMOTE" ]; then
     echo "$REMOTE" > "$CACHE_FILE"; rm -f "$FAIL_FILE" 2>/dev/null
+    # Flag the statusline now, not next session: it re-reads the flag every turn,
+    # so a release found by this fetch shows in the CURRENT session. Without this
+    # the notice waited for the session after the one that found it.
+    if _sc_newer_than "$REMOTE" "$LOCAL"; then
+      mkdir -p "$SUPERCHARGER_DIR/scope" 2>/dev/null || true
+      printf '%s\n' "$REMOTE" > "$SUPERCHARGER_DIR/scope/.update-available" 2>/dev/null || true
+    fi
   else
     touch "$FAIL_FILE" 2>/dev/null
   fi
