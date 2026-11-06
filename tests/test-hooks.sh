@@ -2535,6 +2535,12 @@ begin_test "commit-check: -m \"\$(cat f)\" is checked against the file, both way
 (cd "$_CC_MF" && run_hook "$COMMIT_CHECK" 'git commit -m "$(cat bad.txt)"'); _b=$?
 [ "$_a$_b" = 02 ] && pass || fail "good: $_a, bad: $_b (want 0 2)"
 
+begin_test "commit-check: -F ~/file with a bad subject is blocked"
+cp "$_CC_MF/bad.txt" "$HOME/cc-bad.txt"
+run_hook "$COMMIT_CHECK" "git commit -F ~/cc-bad.txt"
+assert_exit_code 2 $? && pass
+rm -f "$HOME/cc-bad.txt"
+
 begin_test "commit-check: a subject computed at run time is not blocked"
 (cd "$_CC_MF" && run_hook "$COMMIT_CHECK" 'git commit -m "$(git log -1 --format=%s)"')
 assert_exit_code 0 $? && pass

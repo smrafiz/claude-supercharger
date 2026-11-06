@@ -115,6 +115,9 @@ if [ -f "$SUPERCHARGER_STATE/.conventional-commits" ] && ! check_hook_disabled "
 import os, re
 cmd = os.environ['COMMIT_CMD']
 def readmsg(p):
+    # ~ from \$HOME, not expanduser (which reads %USERPROFILE% on Windows).
+    if p == '~' or p.startswith('~/'):
+        p = os.environ.get('HOME', '') + p[1:]
     try:
         with open(os.path.join(os.environ.get('COMMIT_CWD') or '.', p)) as fh:
             return fh.read(65536)
