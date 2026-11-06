@@ -565,7 +565,7 @@ Hook output is hidden by default. Per-project: `touch .supercharger-debug` in yo
 `bash ~/.claude/supercharger/tools/update.sh`
 
 **Does this send any data anywhere?**
-No telemetry, no analytics, no API keys read, and no user data ever leaves your machine. The only network call is an optional once-daily version check (`update-check.sh`, Full mode) that fetches this project's public version string from GitHub and sends nothing but a static `User-Agent`. Disable with `SUPERCHARGER_NO_UPDATE_CHECK=1`, `--mode safe`, or `hook-toggle.sh update-check off`. `tools/update.sh` also contacts GitHub, but only when you run it. Optional webhook notifications (opt-in) POST to URLs you configure. Nothing else makes network calls.
+No telemetry, no analytics, no API keys read, and no user data ever leaves your machine. The only network call is an optional version check (at most every 6 hours) (`update-check.sh`, Full mode) that fetches this project's public version string from GitHub and sends nothing but a static `User-Agent`. Disable with `SUPERCHARGER_NO_UPDATE_CHECK=1`, `--mode safe`, or `hook-toggle.sh update-check off`. `tools/update.sh` also contacts GitHub, but only when you run it. Optional webhook notifications (opt-in) POST to URLs you configure. Nothing else makes network calls.
 
 **Can I write my own hooks?**
 ```bash

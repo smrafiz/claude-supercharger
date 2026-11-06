@@ -23,7 +23,7 @@ EXIT=$?
 teardown_test_home
 [ "$EXIT" -eq 0 ] && pass || fail "exit=$EXIT out=$OUT"
 
-begin_test "update-check: uses cache when fresh (<24h)"
+begin_test "update-check: uses cache when fresh (<6h)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger"
 echo "2.6.77" > "$HOME/.claude/supercharger/.version"
@@ -56,12 +56,12 @@ d = json.loads(sys.stdin.read())
 assert 'Update available' in d['systemMessage'], d
 " 2>/dev/null && pass || fail "no systemMessage notice, exit=$EXIT out=$OUT"
 
-begin_test "update-check: cache miss when stale (>24h)"
+begin_test "update-check: cache miss when stale (>6h)"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger"
 echo "2.6.77" > "$HOME/.claude/supercharger/.version"
 echo "2.6.77" > "$HOME/.claude/supercharger/.update-cache"
-# Backdate cache to >24h ago
+# Backdate cache to >6h ago
 touch -t 202001010000 "$HOME/.claude/supercharger/.update-cache" 2>/dev/null
 # Hook should NOT exit on cache (proceed to fetch) — but the fetch is
 # backgrounded and non-blocking, so the foreground still returns ~immediately.
@@ -217,5 +217,37 @@ SUPERCHARGER_UPDATE_RETRY_S=0 _uc; N3=$(cat "$HOME/fetches" 2>/dev/null | wc -l 
 teardown_test_home
 { [ "$N1" = 1 ] && [ "$N2" = 1 ] && [ "$N3" = 2 ]; } && pass \
   || fail "fetches: first=$N1 (want 1), retried-at-once=$N2 (want 1), after-window=$N3 (want 2)"
+
+# The lag fix: a release published just after a fetch went unseen for 24h, then
+# one more session (the fetch is backgrounded and only the NEXT session rendered).
+# A python3 shim stands in for GitHub and answers 9.9.9.
+_ucl_setup() {
+  setup_test_home
+  mkdir -p "$HOME/.claude/supercharger" "$HOME/shim"
+  echo "4.4.3" > "$HOME/.claude/supercharger/.version"
+  echo "4.4.3" > "$HOME/.claude/supercharger/.update-cache"
+  printf '#!/bin/sh\ncase "$*" in *api.github.com*) echo 9.9.9 ;; esac\n' > "$HOME/shim/python3"
+  chmod +x "$HOME/shim/python3"
+}
+_ucl_age() { python3 -c 'import os,sys,time; t=time.time()-float(sys.argv[2]); os.utime(sys.argv[1],(t,t))' "$HOME/.claude/supercharger/.update-cache" "$1"; }
+_ucl_run() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; sleep 2; }
+
+begin_test "update-check: a 7h-old cache is refetched (TTL is 6h, not 24h)"
+_ucl_setup; _ucl_age 25200; _ucl_run
+GOT=$(cat "$HOME/.claude/supercharger/.update-cache")
+teardown_test_home
+[ "$GOT" = "9.9.9" ] && pass || fail "cache=$GOT, want 9.9.9 (7h-old cache was trusted)"
+
+begin_test "update-check: a 5h-old cache is still trusted"
+_ucl_setup; _ucl_age 18000; _ucl_run
+GOT=$(cat "$HOME/.claude/supercharger/.update-cache")
+teardown_test_home
+[ "$GOT" = "4.4.3" ] && pass || fail "cache=$GOT, want 4.4.3 (fetched inside the TTL)"
+
+begin_test "update-check: the fetch that finds a release flags the statusline in the same session"
+_ucl_setup; _ucl_age 25200; _ucl_run
+GOT=$(cat "$HOME/.claude/supercharger/scope/.update-available" 2>/dev/null)
+teardown_test_home
+[ "$GOT" = "9.9.9" ] && pass || fail "flag='$GOT', want 9.9.9 (notice waits for the next session)"
 
 report
