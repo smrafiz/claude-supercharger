@@ -8,14 +8,16 @@ session on any machine.**
 
 - **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4;
   Concise output style confirmed applied mid-session.
-- **Master `6b43c6f1`, unreleased:** #250 (update check every 6h; the fetch that finds a release
-  flags the statusline in the same session), #251 (commit-check reads `-F`/`--file`/`-m "$(cat f)"`;
-  other run-time subjects skipped). **4.4.5 on hold** (user, 2026-11-06).
-- **Open PR #252:** commit-check expands `-F ~/path` from `$HOME`. CI + Windows dispatch running.
+- **Master `2beee9fb`, CI green, unreleased:** #250 (update check every 6h, same-session
+  statusline flag), #251+#252 (commit-check reads `-F`/`--file`/`-F ~/x`/`-m "$(cat f)"`),
+  #253 (batch-editor agent, Haiku), #254 (risk-review report-only log in claim gate →
+  `audit/risk-review.jsonl`; plan `docs/RISK-REVIEW-PLAN.md`). **4.4.5 on hold** (user).
+- **Open PRs:** none. CI reds today were macOS runner capacity (0-step cancels) and one
+  `test-bounded-run` Windows flake (timeout took 21s; passed on rerun).
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
   `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** SpecLock coexistence (parked); `/sc-security` never run on a real repo; economy
+- **Open:** risk-review: read the log ~2026-11-20, then decide blocking; SpecLock (parked); `/sc-security` never run on a real repo; economy
   re-measure once Concise sessions exist; user's: rotate the Context7 key, star-keeper,
   Machine B commit-msg hook, radius-apps.
 
@@ -51,6 +53,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-06 (late) — 1c2a497d
+Merged #252-#254: `-F ~/path`, batch-editor agent (from Provost), risk-review report-only arm.
+Reviewed norton77930/Provost: took mech-executor + risk-triggered review; skipped the rest.
+Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+
 #### 2026-11-06 (later) — 1c2a497d
 Merged #250 (update-check lag) and #251 (commit-check `-F` gap, the `agent-handoff-gate:` cause).
 Opened #252 (`-F ~/path`). 4.4.5 held by the user.
@@ -71,9 +78,3 @@ Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks,
 tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
 SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-11-04 (deep) — e323355d
-Released v4.4.3 (promote run by the user; auto mode denies it). release.sh: gate prints failing
-checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill ported into
-/sc-security (domain files, needs_validation, coverage ledger, DoS deep-only), awaiting CI.
-Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
