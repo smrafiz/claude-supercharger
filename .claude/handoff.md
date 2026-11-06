@@ -51,7 +51,7 @@ session on any machine.**
 
 ## Log
 
-2026-11-06 (later) — 1c2a497d
+#### 2026-11-06 (later) — 1c2a497d
 Merged #250 (update-check lag) and #251 (commit-check `-F` gap, the `agent-handoff-gate:` cause).
 Opened #252 (`-F ~/path`). 4.4.5 held by the user.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
