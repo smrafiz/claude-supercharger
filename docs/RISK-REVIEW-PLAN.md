@@ -1,4 +1,4 @@
-# Risk-triggered review — design (2026-11-06, not built)
+# Risk-triggered review — design (2026-11-06; report-only arm built)
 
 Idea from Provost (norton77930/Provost, MIT): send a change to a fresh-context
 reviewer when it touches code whose failure tests and a live run cannot show —
@@ -67,9 +67,27 @@ through the same detector and read a sample. Turn on blocking only if:
 If the signal list is too noisy, narrow it (drop `async`/`await`, keep
 `catch`/`|| true`/`lock`) rather than widen the cap.
 
-## Open questions
+## Decided (user, 2026-11-06)
 
-1. Reviewer model for these: Opus (current reviewer) or a Sonnet pass first?
-2. Should the reason name the agent (`Gordon Ramsay (Critic)`) or just "a
-   fresh-context reviewer" so a project's own reviewer agent counts?
-3. Does a review by the user in chat ("I checked it") count as evidence?
+1. **Reviewer model: Sonnet first.** These reviews are narrow (a few added lines,
+   one named risk). Move to Opus only if the report-only phase shows Sonnet misses.
+2. **Any reviewer counts.** An `Agent` call whose `subagent_type` or `description`
+   says review/critic, so a project's own reviewer satisfies it.
+3. **A "checked it" in chat does not count.** The escape is a one-line reason why
+   review is not needed; the second stop passes.
+
+## Report-only phase (built)
+
+`claim-evidence-gate.sh` logs every claim turn with non-test code edits to
+`audit/risk-review.jsonl`: `code_edits`, `reviewed`, `would_block`, and up to 20
+hits (`file`, `class`, `signal`, `line`). It never changes the gate's verdict.
+Read it after two weeks:
+
+```python
+import json, collections, os
+rows = [json.loads(l) for l in open(os.path.expanduser(
+    "~/.claude/supercharger/audit/risk-review.jsonl"))]
+fire = [r for r in rows if r["would_block"]]
+print(f"{len(fire)}/{len(rows)} code turns would block")
+print(collections.Counter(h["signal"] for r in fire for h in r["hits"]).most_common(15))
+```

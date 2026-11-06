@@ -85,7 +85,9 @@ tail -c 20000 "$TRANSCRIPT" 2>/dev/null \
   | LC_ALL=C grep -qiE 'tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean|implemented|implementation is (complete|done)|nothing (left|else) to |production.?ready|ready to (ship|merge)|(it.s|this is|that.s|all) (done|complete|finished)' \
   || exit 0
 
-VERDICT=$(TRANSCRIPT_PATH="$TRANSCRIPT" python3 <<'PYEOF' 2>/dev/null || true
+_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+VERDICT=$(TRANSCRIPT_PATH="$TRANSCRIPT" RISK_LOG="$SUPERCHARGER_STATE/audit/risk-review.jsonl" \
+  RISK_SID="$_SID" python3 <<'PYEOF' 2>/dev/null || true
 import json, os, re, sys
 
 path = os.environ.get("TRANSCRIPT_PATH", "")
@@ -260,12 +262,57 @@ def placeholder_hit(writes):
                 return path, s[:160]
     return None
 
+# --- risk-review arm (REPORT-ONLY) ------------------------------------------
+# docs/RISK-REVIEW-PLAN.md. A completed turn whose ADDED code lines touch error
+# handling, data conversion or concurrency, with no reviewer dispatched after the
+# last edit. Logs to audit/risk-review.jsonl and never blocks: the signal list is
+# unmeasured, and blocking waits until two weeks of logs show it is not noise.
+# Every claim turn with code edits is logged, hit or not, so the log carries its
+# own denominator. Off: SUPERCHARGER_RISK_REVIEW=0.
+RISK = (
+    ("error-handling", re.compile(
+        r"\bcatch\b|\bexcept\b|\brescue\b|\brecover\(\)|\bfinally\b"
+        r"|\|\|\s*true\b|2>\s*/dev/null|\.catch\(")),
+    ("data-conversion", re.compile(
+        r"\b(?:parse|serialize|deserialize|decode|encode)\w*\(|\bJSON\.|\bstrconv\."
+        r"|\bparse(?:Int|Float)\b|\bNumber\(|\bDate\(|\btimezone\b|\b[Uu][Tt][Ff]-?8\b")),
+    ("concurrency", re.compile(
+        r"\b(?:R?W?Mutex|Lock|lock|unlock|atomic|flock|Semaphore|threading|Thread)\b"
+        r"|\bgo\s+func\b|Promise\.all|\basync\s+def\b|\bawait\b")),
+)
+TESTISH = re.compile(r"(^|/)(tests?|spec|__tests__)/|(^|/)test_|[._-](test|spec)\.", re.I)
+COMMENT = re.compile(r"^\s*(#|//|\*|/\*|--)")
+
+def risk_hits(writes):
+    hits = []
+    for path, added, removed in writes:
+        if (not path or os.path.splitext(path)[1].lower() in PROSE_EXT
+                or TESTISH.search(path)):
+            continue
+        for line in added.splitlines():
+            s = line.strip()
+            if not s or s in removed or COMMENT.match(s):
+                continue
+            for cls, rx in RISK:
+                m = rx.search(s)
+                if m:
+                    hits.append({"file": path, "class": cls,
+                                 "signal": m.group(0), "line": s[:120]})
+    return hits
+
+def is_reviewer(name, inp):
+    if name not in ("Agent", "Task"):
+        return False
+    who = " ".join(str(inp.get(k) or "") for k in ("subagent_type", "description"))
+    return re.search(r"review|critic", who, re.I) is not None
+
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
 edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
+reviewed = False     # a reviewer ran after the CURRENT turn's last code edit
 
 def is_turn_start(entry):
     """A user entry that is a real message, not a tool_result carrier.
@@ -309,9 +356,13 @@ for ln in lines:
                 for _p, _a, _r in _ed:
                     if _p and os.path.splitext(_p)[1].lower() not in PROSE_EXT:
                         edited_after = _p
+                        reviewed = False
+                if is_reviewer(b.get("name") or "", b.get("input") or {}):
+                    reviewed = True
     elif t == "user":
         if is_turn_start(e):
             writes = []
+            reviewed = False
             done_claim = None
             last_claim = None   # each turn's Stop judges that turn's claims only
             continue
@@ -328,6 +379,25 @@ for ln in lines:
                 text = str(content or "")
             last_result = (test_calls[tid], bool(b.get("is_error")), text[-4000:])
             edited_after = None
+
+if os.environ.get("SUPERCHARGER_RISK_REVIEW", "1") != "0" and (done_claim or last_claim):
+    _code = [w for w in writes if w[0] and os.path.splitext(w[0])[1].lower() not in PROSE_EXT
+             and not TESTISH.search(w[0])]
+    if _code:
+        try:
+            import time
+            _log = os.environ.get("RISK_LOG", "")
+            os.makedirs(os.path.dirname(_log), exist_ok=True)
+            _hits = risk_hits(_code)
+            with open(_log, "a") as _f:
+                _f.write(json.dumps({
+                    "ts": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                    "session": os.environ.get("RISK_SID", ""),
+                    "code_edits": len(_code), "reviewed": reviewed,
+                    "would_block": bool(_hits) and not reviewed,
+                    "hits": _hits[:20]}) + "\n")
+        except Exception:
+            pass
 
 # Evaluated BEFORE the test-claim exits below, not after. Placed after them it
 # would be unreachable on any turn that made no test claim -- which is most turns
