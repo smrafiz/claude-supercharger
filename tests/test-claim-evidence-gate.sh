@@ -449,5 +449,54 @@ mk unev_sys 'asst(text="All tests pass.")'
 begin_test "the no-test-ran note is a systemMessage the user can see, not only stderr"
 printf '{"transcript_path":"%s","stop_hook_active":false}' "$TD/unev_sys.jsonl" | bash "$GATE" 2>/dev/null | grep -q '"systemMessage"' && pass || fail "no systemMessage on stdout"
 
+# --- 2026-11-06: risk-review arm, REPORT-ONLY (docs/RISK-REVIEW-PLAN.md) ------
+# Logs a completed turn whose ADDED code lines touch error handling, conversion or
+# concurrency with no reviewer after the last edit. Must never change the verdict.
+RLOG="$TD/rstate/audit/risk-review.jsonl"
+rlog_run() { rm -f "$RLOG"; printf '{"transcript_path":"%s","stop_hook_active":false,"session_id":"s1"}' "$TD/$1.jsonl" \
+  | SUPERCHARGER_STATE="$TD/rstate" ${2:+$2} bash "$GATE" >/dev/null 2>&1; echo $?; }
+rlast() { tail -1 "$RLOG" 2>/dev/null | python3 -c "import sys,json; d=json.load(sys.stdin); print(d['would_block'], ','.join(sorted({h['class'] for h in d['hits']})))" 2>/dev/null; }
+
+mke rk_catch "$TD/api.js" "return r" "try { return r } catch (e) { return null }" "Done — it's complete."
+begin_test "risk-review: a turn that adds a catch is logged as would-block"
+RC=$(rlog_run rk_catch); GOT=$(rlast)
+[ "$RC" = 0 ] && [ "$GOT" = "True error-handling" ] && pass || fail "rc=$RC log='$GOT'"
+
+mke rk_plain "$TD/api.js" "return a" "return b" "Done — it's complete."
+begin_test "risk-review: a plain edit is logged with no hits (the denominator)"
+RC=$(rlog_run rk_plain); GOT=$(rlast)
+[ "$RC" = 0 ] && [ "$GOT" = "False " ] && pass || fail "rc=$RC log='$GOT'"
+
+mke rk_ctx "$TD/api.js" $'x = 1\ncatch (e) {}' $'x = 2\ncatch (e) {}' "Done — it's complete."
+begin_test "risk-review: a risky line carried through unchanged does not count"
+rlog_run rk_ctx >/dev/null; GOT=$(rlast)
+[ "$GOT" = "False " ] && pass || fail "log='$GOT'"
+
+mke rk_test "$TD/tests/api.test.js" "a" "await x(); catch (e) {}" "Done — it's complete."
+begin_test "risk-review: edits to test files are not logged"
+rlog_run rk_test >/dev/null
+[ ! -s "$RLOG" ] && pass || fail "logged: $(cat "$RLOG")"
+
+python3 - "$TD/rk_rev.jsonl" "$TD/lock.go" <<'PYR'
+import json, sys
+out, path = sys.argv[1:3]
+j = json.dumps
+open(out, "w").write("\n".join([
+    j({"type": "user", "message": {"content": "do it"}}),
+    j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "e1", "name": "Edit",
+        "input": {"file_path": path, "old_string": "x", "new_string": "mu.Lock()"}}]}}),
+    j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "a1", "name": "Agent",
+        "input": {"subagent_type": "Gordon Ramsay (Critic)", "description": "review lock"}}]}}),
+    j({"type": "assistant", "message": {"content": [{"type": "text", "text": "Done — it's complete."}]}}),
+]) + "\n")
+PYR
+begin_test "risk-review: a reviewer after the last edit clears would-block"
+rlog_run rk_rev >/dev/null; GOT=$(rlast)
+[ "$GOT" = "False concurrency" ] && pass || fail "log='$GOT'"
+
+begin_test "risk-review: SUPERCHARGER_RISK_REVIEW=0 logs nothing"
+rlog_run rk_catch SUPERCHARGER_RISK_REVIEW=0 >/dev/null
+[ ! -s "$RLOG" ] && pass || fail "logged with the switch off"
+
 rm -rf "$TD"
 report
