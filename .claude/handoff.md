@@ -53,27 +53,32 @@ session on any machine.**
 
 ## Log
 
-#### 2026-11-07 (deep) — 1c2a497d
-Deep brief for the 2026-11-05→07 session (v4.4.4, #249-#254). HOOK_AUTHORING notes 2026-11-06;
-memory: zsh tool shell, agents picked by description, Windows whole-run rerun, dispatch capacity.
+#### 2026-11-05 → 11-07 (deep) — 1c2a497d
+Released v4.4.4 (#239-#249). Merged #250-#254: 6h update check, commit-check `-F`/`$(cat f)`/`~`,
+batch-editor agent and report-only risk review (both from Provost). 4.4.5 held. HOOK_AUTHORING
+notes 2026-11-06; memory: zsh tool shell, agents picked by description, Windows whole-run rerun.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 
-#### 2026-11-06 (late) — 1c2a497d
-Merged #252-#254: `-F ~/path`, batch-editor agent (from Provost), risk-review report-only arm.
-Reviewed norton77930/Provost: took mech-executor + risk-triggered review; skipped the rest.
-Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+#### 2026-11-04 (deep) — 3d213381
+Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
+tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
+SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
-#### 2026-11-06 (later) — 1c2a497d
-Merged #250 (update-check lag) and #251 (commit-check `-F` gap, the `agent-handoff-gate:` cause).
-Opened #252 (`-F ~/path`). 4.4.5 held by the user.
-Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+#### 2026-11-04 (deep) — e323355d
+Released v4.4.3 (promote run by the user; auto mode denies it). release.sh: gate prints failing
+checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill ported into
+/sc-security (domain files, needs_validation, coverage ledger, DoS deep-only), awaiting CI.
+Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
 
-#### 2026-11-06 — 1c2a497d
-Merged #249 (minimal tier sets Concise output style; Windows symlink test skips like
-test-env-file-guard). Released v4.4.4 (#239-#249); user ran promote.
-Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+#### 2026-11-03 — 3d213381
+Merged #230, #232-#238: autopilot `full`, plain block reasons, grep -e FP, manifest generator,
+lock-aware sed -i / perl -pi. Releasing 4.4.3 on the user's word.
+Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
-#### 2026-11-05 — 1c2a497d
-Status check: #246-#248 merged, master green, no PRs. Carry file refreshed; 4.4.4 release
-message drafted for #239-#248, awaiting the user's stage/promote run.
-Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
+#### 2026-11-03 (deep) — 111c7837
+Merged #227 (Windows failure was the test: MSYS cwd in JSON). Fixed #232 manifest (+1 hash; generator
+would have dropped 26 — KNOWN-ISSUES #8) and #230 install count 175. #230 Windows hit a suspected
+failure in test-stdin-timeout D, twice: not a flake, a 1s read timeout. Fixed on master `b4fe7193`,
+merged into #230 (`bb1c54b4`), Windows 41501558568 + merge chain left running.
+Detail: `.claude/handoff-111c7837-ccb3-4199-a4d8-57243e3a9fdd.md`
