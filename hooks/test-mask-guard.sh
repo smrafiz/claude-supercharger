@@ -13,6 +13,8 @@
 # (`2>/dev/null` alone) is NOT flagged — it hides output but the exit code still
 # propagates, so it can't turn red into green on its own. Advisory + fail-open;
 # disable with SUPERCHARGER_TEST_MASK_GUARD=0.
+# A runner piped into tail/head/grep/tee without pipefail gets an ADVISORY (no
+# prompt): the exit code is the filter's, but the output still shows the result.
 # Disable: SUPERCHARGER_TEST_MASK_GUARD=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -48,6 +50,7 @@ case "$_INPUT" in
   *'| true'*|*'|true'*|*'| :'*|*'|:'*|*'| echo'*|*'|echo'*) : ;;
   *'& true'*|*'&true'*|*'& :'*|*'&:'*) : ;;
   *'( true'*|*'{ true'*|*'(true'*|*'{true'*|*'time true'*|*'time :'*) : ;;
+  *'| tail'*|*'|tail'*|*'| head'*|*'|head'*|*'| grep'*|*'|grep'*|*'| tee'*|*'|tee'*|*'|&'*) : ;;
   *) exit 0 ;;
 esac
 
@@ -61,7 +64,14 @@ fi
 [ -z "$CMD" ] && exit 0
 
 # A verification runner (test / lint / typecheck / build).
-_RUNNER='(^|[^a-zA-Z0-9_./-])((npm|yarn|pnpm|bun)[[:space:]]+(run[[:space:]]+)?(test|build|lint|typecheck|check|tsc)|jest|vitest|mocha|ava|pytest|py\.test|tox|nox|go[[:space:]]+test|cargo[[:space:]]+test|make[[:space:]]+(test|check|lint)|tsc|eslint|ruff|mypy|rspec|phpunit|rubocop|golangci-lint|gradle[[:space:]]+(test|check)|mvn[[:space:]]+(test|verify)|dotnet[[:space:]]+test|ctest)([^a-zA-Z0-9_-]|$)'
+_RUNNER_CORE='(^|[^a-zA-Z0-9_./-])((npm|yarn|pnpm|bun)[[:space:]]+(run[[:space:]]+)?(test|build|lint|typecheck|check|tsc)|jest|vitest|mocha|ava|pytest|py\.test|tox|nox|go[[:space:]]+test|cargo[[:space:]]+test|make[[:space:]]+(test|check|lint)|tsc|eslint|ruff|mypy|rspec|phpunit|rubocop|golangci-lint|gradle[[:space:]]+(test|check)|mvn[[:space:]]+(test|verify)|dotnet[[:space:]]+test|ctest)'
+_RUNNER="$_RUNNER_CORE"'([^a-zA-Z0-9_-]|$)'
+# The runner piped into an output filter IN THE SAME PIPELINE. Without pipefail the
+# pipeline's status is the filter's: `pytest | tail -20` exits 0 when pytest fails.
+# `[^;&|]` keeps the runner and the pipe in one pipeline (`npm test && git log | head`
+# is not this), with `>&`/`&>` let through for `2>&1 | tail`. Idea from Himmel's
+# block-tail-pipe-on-gates (github.com/yotamleo-org/Himmel, MIT); code our own.
+_PIPE="$_RUNNER_CORE"'([[:space:]]([^;&|]|>&|&>)*)?\|&?[[:space:]]*(tail|head|grep|tee)([[:space:]]|$)'
 # An exit-status mask. Every one of these makes a FAILING runner report success.
 #
 # v4.0.41 widened this from `|| true|:|echo` and `; exit 0|true|:` after testing
@@ -84,7 +94,8 @@ _RUNNER='(^|[^a-zA-Z0-9_./-])((npm|yarn|pnpm|bun)[[:space:]]+(run[[:space:]]+)?(
 #   pytest && exit 0     `&&` short-circuits; a failure still exits non-zero
 #   pytest || ! true     `! true` exits 1, so the failure survives
 #   pytest || npm run x  a real fallback command is not a no-op
-#   pytest | tee log     piping to a REAL command keeps the status meaningful
+#   pytest | tee log     not a no-op, so no ASK; it still takes tee's status, which
+#                        the pipe ADVISORY below reports instead
 # The no-op must be a COMPLETE WORD. Without the trailing boundary, the `&`
 # branch matched `&true=2` inside a query string and denied
 # `curl "https://x?a=1&true=2" && pytest -q` — a real false positive, introduced
@@ -99,7 +110,12 @@ _MASK='(\|\|[[:space:]]*([({][[:space:]]*)?(time[[:space:]]+)?'"$_NOOP"\
 '|;[[:space:]]*(exit[[:space:]]+0|true|:)([[:space:]]|;|$))'
 
 printf '%s\n' "$CMD" | grep -qE "$_RUNNER" || exit 0
-printf '%s\n' "$CMD" | grep -qE "$_MASK"   || exit 0
+_KIND=ask
+if ! printf '%s\n' "$CMD" | grep -qE "$_MASK"; then
+  case "$CMD" in *pipefail*|*PIPESTATUS*|*pipestatus*) exit 0 ;; esac
+  printf '%s\n' "$CMD" | grep -qE "$_PIPE" || exit 0
+  _KIND=pipe
+fi
 
 # Ask once per command per session (don't nag on a repeated identical command).
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="${CLAUDE_CODE_SESSION_ID:-default}"
@@ -110,6 +126,12 @@ if [ -f "$_SEEN" ] && grep -qxF "$_KEY" "$_SEEN" 2>/dev/null; then
 fi
 mkdir -p "$(dirname "$_SEEN")" 2>/dev/null || true
 echo "$_KEY" >> "$_SEEN" 2>/dev/null || true
+
+if [ "$_KIND" = pipe ]; then
+  _sc_json_escape "Supercharger: this pipes a test/lint/build run into tail, head, grep or tee. Without pipefail the exit code is the filter's, so a failing run reports 0. Read the pass/fail line in the output rather than the exit code, or prefix set -o pipefail; (Disable: SUPERCHARGER_TEST_MASK_GUARD=0)"
+  printf '{"systemMessage":"%s","hookSpecificOutput":{"hookEventName":"PreToolUse","additionalContext":"%s"}}\n' "$_SC_JSON" "$_SC_JSON"
+  exit 0
+fi
 
 _MSG="This command runs a verification tool (test/lint/typecheck) but MASKS its exit status (e.g. || true, || echo, ; exit 0) — a failing check will report success, so a subsequent \"it passes\" claim would be unfounded. Remove the exit-mask and let the real status surface, or confirm this is intentional CI glue. (Disable: SUPERCHARGER_TEST_MASK_GUARD=0)"
 sc_decision ask "$_MSG"

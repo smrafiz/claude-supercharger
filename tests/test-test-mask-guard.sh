@@ -128,4 +128,36 @@ for c in 'pytest -q && exit 0' 'pytest -q || ! true' 'pytest -q || npm run test:
 done
 [ -z "$_TMW_FP" ] && pass || fail "over-blocked:$_TMW_FP"
 
+# --- pipe advisory: a runner piped into an output filter ---------------------
+# Without pipefail `pytest | tail` exits with tail's status. Advisory only: the
+# output still carries the result, so this informs instead of asking.
+_TMW_KIND() {  # $1 = command -> ASK | ADVISE | silent
+  local st out
+  st=$(mktemp -d); mkdir -p "$st/scope"
+  out=$(printf '{"tool_name":"Bash","cwd":"/tmp","session_id":"p%s","tool_input":{"command":%s}}' \
+        "$RANDOM" "$(printf '%s' "$1" | python3 -c 'import sys,json; print(json.dumps(sys.stdin.read()))')" \
+        | SUPERCHARGER_STATE="$st" bash "$HOOK" 2>/dev/null)
+  rm -rf "$st"
+  case "$out" in *permissionDecision*) printf 'ASK' ;; *additionalContext*) printf 'ADVISE' ;; *) printf 'silent' ;; esac
+}
+begin_test "pipe: a runner piped into tail/head/grep/tee is advised, not asked"
+_TMW_BAD=""
+for c in 'pytest -q | tail -20' 'npm test 2>&1 | tail -5' 'go test ./... | grep FAIL' \
+         'make test|head' 'cargo test |& tee log' 'npx vitest run 2>&1 | tail'; do
+  [ "$(_TMW_KIND "$c")" = "ADVISE" ] || _TMW_BAD="$_TMW_BAD [$c]=$(_TMW_KIND "$c")"
+done
+[ -z "$_TMW_BAD" ] && pass || fail "not advised:$_TMW_BAD"
+
+begin_test "pipe: silent when pipefail/PIPESTATUS is used or the pipe is another command's"
+_TMW_FP=""
+for c in 'set -o pipefail; pytest | tail' 'pytest | tail; echo ${PIPESTATUS[0]}' \
+         'npm test && git log | head' 'git log | head' 'cat out | grep pytest' \
+         'pytest; ls | head' 'pytest -q'; do
+  [ "$(_TMW_KIND "$c")" = "silent" ] || _TMW_FP="$_TMW_FP [$c]=$(_TMW_KIND "$c")"
+done
+[ -z "$_TMW_FP" ] && pass || fail "fired on:$_TMW_FP"
+
+begin_test "pipe: a real exit mask still ASKS when it is also piped"
+[ "$(_TMW_KIND 'pytest | tail || true')" = "ASK" ] && pass || fail "mask downgraded to advisory"
+
 report
