@@ -2940,6 +2940,22 @@ INPUT=$(python3 -c "import json; print(json.dumps({'session_id':'hghb2','hook_ev
 OUT=$(printf '%s' "$INPUT" | HOME=$(mktemp -d) bash "$HANDOFF_GATE" 2>/dev/null); RC=$?
 [ "$RC" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected silent allow; rc=$RC out='$OUT'"
 
+# 2026-11-07 replay of 81 real handbacks: a bare stub/placeholder word refused finished reports.
+begin_test "agent-handoff-gate: test stubs and SQL placeholders in a finished report pass"
+for M in 'All gates green. The script sets up the paddle stub itself. I changed no files.' \
+         'Security review: no findings. take, skip and formId are all ${} placeholders inside prisma.sql.'; do
+  INPUT=$(M="$M" python3 -c "import json,os; print(json.dumps({'session_id':'hgfp','tool_name':'SubagentHandback','agent_id':'fp','tool_input':{'message':os.environ['M']},'cwd':'/tmp'}))")
+  OUT=$(printf '%s' "$INPUT" | HOME=$(mktemp -d) bash "$HANDOFF_GATE" 2>/dev/null); RC=$?
+  [ "$RC" -eq 0 ] && [ -z "$OUT" ] || { fail "expected allow for: $M; rc=$RC out='$OUT'"; break; }
+done; [ "$RC" -eq 0 ] && [ -z "$OUT" ] && pass
+
+begin_test "agent-handoff-gate: a stub left behind and 'still blocked' are still refused"
+for M in 'The parser is a stub for now; the rest works.' 'Still blocked, and nothing has changed in the repo.'; do
+  INPUT=$(M="$M" python3 -c "import json,os; print(json.dumps({'session_id':'hgtp','tool_name':'SubagentHandback','agent_id':'tp','tool_input':{'message':os.environ['M']},'cwd':'/tmp'}))")
+  printf '%s' "$INPUT" | HOME=$(mktemp -d) bash "$HANDOFF_GATE" >/dev/null 2>&1; RC=$?
+  [ "$RC" -eq 2 ] || { fail "expected refusal for: $M; rc=$RC"; break; }
+done; [ "$RC" -eq 2 ] && pass
+
 echo ""
 echo "=== Compaction Backup Tests ==="
 
