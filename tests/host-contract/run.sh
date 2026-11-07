@@ -37,7 +37,7 @@ run_case() {
       ANTHROPIC_BASE_URL="http://127.0.0.1:$port" ANTHROPIC_API_KEY="$STANDIN_KEY" \
       CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 DISABLE_AUTOUPDATER=1 DISABLE_TELEMETRY=1 \
       DISABLE_ERROR_REPORTING=1 SC_HC_DIR="$d" \
-      sc_bounded_run 90 "$BIN" -p "$prompt" --model claude-sonnet-4-5 \
+      sc_bounded_run 90 "$BIN" -p "$prompt (hc-main)" --model claude-sonnet-4-5 \
         --permission-mode bypassPermissions ) > "$d/out.txt" 2>&1
   kill "$pid" 2>/dev/null; wait "$pid" 2>/dev/null
 }
@@ -49,6 +49,16 @@ import json, sys
 rows = [json.loads(l) for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
 rows = [r for r in rows if r["path"].endswith("/v1/messages")]
 sys.exit(0 if any(sys.argv[2] in json.dumps(r["body"]) for r in rows[int(sys.argv[3]) - 1:]) else 1)
+PY
+}
+
+# seen_in <dir> <word> <lane> — the word is in a request whose FIRST message holds <lane>.
+seen_in() {
+  python3 - "$1/req.jsonl" "$2" "$3" <<'PY'
+import json, sys
+rows = [json.loads(l)["body"] for l in open(sys.argv[1], encoding="utf-8") if l.strip()]
+rows = [b for b in rows if b.get("messages") and sys.argv[3] in json.dumps(b["messages"][0])]
+sys.exit(0 if any(sys.argv[2] in json.dumps(b) for b in rows) else 1)
 PY
 }
 
@@ -151,6 +161,36 @@ if seen "$d" "hc-sentinel-stop" 2; then ok "Stop exit 2 reason reaches the model
 else bad "Stop exit 2 reason reaches the model"; fi
 if [ "$(turns "$d")" -eq 2 ]; then ok "Stop exit 2 continues once, then stop_hook_active passes"
 else bad "Stop exit 2 continues once, then stop_hook_active passes" "main-loop requests: $(turns "$d")"; fi
+
+echo "host contract: inside a subagent"
+# The main lane asks for a subagent; its lane (hc-sub-task, the word in the prompt the Agent
+# call hands it) asks for Bash. Every guard depends on PreToolUse firing there too.
+SUB='[{"tool":"Agent","input":{"description":"sub","prompt":"hc-sub-task: touch sub-ran.txt","subagent_type":"general-purpose","run_in_background":false}},{"lane":"hc-sub-task","tool":"Bash","input":{"command":"touch sub-ran.txt","description":"touch"}},{"lane":"hc-sub-task","text":"sub finished"},{"text":"done"}]'
+
+d=$(new_case sub-control "$SUB" '{}')
+run_case "$d" "Delegate."
+if [ -e "$d/proj/sub-ran.txt" ]; then ok "control: a subagent's Bash runs when no hook stops it"
+else bad "control: a subagent's Bash runs when no hook stops it" "$(tail -3 "$d/out.txt")"; fi
+# agent-handoff-gate refuses a subagent's SubagentHandback call once. 2.1.319 does not offer
+# that tool here (likely a server-side flag this offline run never fetches), so the refusal
+# cannot be held yet; say which it is, so the weekly log shows the day it appears.
+if seen_in "$d" '"name": "SubagentHandback"' "hc-sub-task"; then
+  echo "  INFO SubagentHandback is offered to the subagent: add a case for agent-handoff-gate"
+else echo "  INFO SubagentHandback not offered here: agent-handoff-gate's refusal is not held"; fi
+
+d=$(new_case sub-exit2 "$SUB" "$(settings "$(hook PreToolUse 'Bash' 'echo hc-sentinel-sub >&2; exit 2')")")
+run_case "$d" "Delegate."
+if [ ! -e "$d/proj/sub-ran.txt" ]; then ok "PreToolUse exit 2 stops a subagent's tool"
+else bad "PreToolUse exit 2 stops a subagent's tool" "sub-ran.txt was created"; fi
+if seen_in "$d" "hc-sentinel-sub" "hc-sub-task"; then ok "its reason reaches the subagent"
+else bad "its reason reaches the subagent"; fi
+
+d=$(new_case sub-deny "$SUB" "$(settings "$(hook PreToolUse 'Bash' "$(reply '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"deny","permissionDecisionReason":"hc-sentinel-subdeny"}}')")")")
+run_case "$d" "Delegate."
+if [ ! -e "$d/proj/sub-ran.txt" ]; then ok "PreToolUse deny stops a subagent's tool"
+else bad "PreToolUse deny stops a subagent's tool" "sub-ran.txt was created"; fi
+if seen_in "$d" "hc-sentinel-subdeny" "hc-sub-task"; then ok "its reason reaches the subagent"
+else bad "its reason reaches the subagent"; fi
 
 echo "host contract: Supercharger installed, end to end"
 # The real install in a sandbox home; the model asks for a download piped to a shell, which
