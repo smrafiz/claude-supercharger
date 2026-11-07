@@ -120,7 +120,9 @@ patterns = (
     # Credential-exfil directive persisted as a "fact" the agent will later act on.
     # \b on the verb: docs naming a guard ("WebFetch url/prompt | ..._SECRET_GUARD")
     # matched via the `fetch` inside `webfetch`.
-    (re.compile(r'\b(send|post|upload|exfiltrate|curl|fetch) .{0,40}(secret|credential|token|api[_ -]?key|password|\.env|/proc/self/environ)'), 'credential-exfil directive'),
+    # Not `password reset`: a handoff describing the feature ("send a password reset
+    # link") was denied (docs/GUARD-FP-AUDIT.md: both instruction-file blocks).
+    (re.compile(r'\b(send|post|upload|exfiltrate|curl|fetch) .{0,40}(secret|credential|token|api[_ -]?key|password(?![ -]?reset)|\.env|/proc/self/environ)'), 'credential-exfil directive'),
 )
 
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
