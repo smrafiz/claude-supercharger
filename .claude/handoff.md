@@ -7,19 +7,21 @@ session on any machine.**
 *Verified 2026-11-07, session `1c2a497d`.*
 
 - **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4.
-- **Master `b1e4bc58`, CI green, 15 commits unreleased:** #250-#254 (see log), #255+#256
-  (`tests/host-contract/`: real `claude` binary vs a local stand-in model, 19 cases, weekly
-  stable/latest cron), #257 (handback gate: bare `stub`/`placeholder` no longer refuse; replay of
-  82 real handbacks 5 → 2 refused, both true). **4.4.5 on hold** (user).
+- **Master `44252eb3`, CI green, 17 commits unreleased:** #250-#257 (see log), #258
+  (test-mask-guard: advisory when a test/lint/build is piped into tail/head/grep/tee without
+  pipefail; from Himmel), `docs/GUARD-FP-AUDIT.md`. **4.4.5 on hold** (user).
+- **Guard FP audit** (2026-11-07, per-machine data): 58 real blocks judged, 36 FP (62%). Git/process
+  guards 16/16 right; content scanners 0/18; sensitive-file 12/15 FP. Source: transcript
+  `hook error` results, not `scope/.blocked-commands` (cut at 400 chars).
 - **Open PRs:** none.
-- **Next (recommended):** PreToolUse advisory for `test|build|lint ... | tail/head/grep` without
-  `pipefail` (exit code masked; idea from yotamleo-org/Himmel `block-tail-pipe-on-gates`), then 4.4.5.
+- **Next (recommended):** PR sensitive-file guard allows `grep -c/-l/-q` and `sed`-masked `.env`
+  reads; PR instruction-file guard exempts `.claude/handoff*.md`; then 4.4.5. Fixtures = audit cases.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
   `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Open:** replay handbacks after a week of subagent use on 4.4.4+; risk-review log ~2026-11-20;
-  SpecLock (parked); `/sc-security` never run on a real repo; economy re-measure; per-guard
-  false-alarm study (backlog). SubagentHandback is not offered offline, so CI cannot hold it.
+  re-run the FP audit a month after 4.4.5; SpecLock (parked); `/sc-security` never run on a real
+  repo; economy re-measure. SubagentHandback is not offered offline, so CI cannot hold it.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -54,9 +56,9 @@ session on any machine.**
 ## Log
 
 #### 2026-11-05 → 11-07 (deep) — 1c2a497d
-Released v4.4.4 (#239-#249). Merged #250-#257: 6h update check, commit-check `-F`, batch-editor,
-report-only risk review, host-contract suite (#255/#256, from mnema), handback gate FP fix (#257).
-Reviewed mnema, systemone-judge, Himmel: took host contract; pipe-exit advisory next. 4.4.5 held.
+Released v4.4.4 (#239-#249). Merged #250-#258: 6h update check, commit-check `-F`, batch-editor,
+report-only risk review, host-contract suite (#255/#256, from mnema), handback gate FP fix (#257),
+pipe-exit advisory (#258, from Himmel). Guard FP audit (method from Steer): 62% FP. 4.4.5 held.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 
 #### 2026-11-04 (deep) — 3d213381
