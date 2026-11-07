@@ -1115,3 +1115,7 @@ catch `SystemExit`, and call the handler directly.
 - **Replay before you build a gate.** Commit hashes cited in replies: 1157 over 42 transcripts,
   1 never seen in the session, and it was invented. The gate shipped warn-only (#261) on that
   measurement, not on the idea.
+- **Start `release.sh stage` in the background.** Its smoke gate is the full suite (6-8 min here),
+  over the Bash tool's 10-minute ceiling once install steps are added. A foreground run that times
+  out keeps going, and `ps` from the tool did not show it: it was reported dead, then pushed
+  `rel/X.Y.Z` 20 minutes later. Check `git ls-remote --heads origin rel/X.Y.Z` before restaging.

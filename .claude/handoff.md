@@ -7,15 +7,16 @@ session on any machine.**
 *Verified 2026-11-08, session `1c2a497d`.*
 
 - **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4.
-- **Master `5dde9c7c`, CI green, 23 commits unreleased:** #250-#262 plus docs. **4.4.5 on hold**
-  (user, repeated 2026-11-07). Installed 4.4.4 still lets `terraform -chdir=prod destroy` through
-  (fixed in #262) and its memory-write-guard lacks #260.
+- **Master `9d8d2de5`, CI green, #250-#262 unreleased.** **4.4.5 STAGED** 2026-11-08 on
+  `rel/4.4.5` (`ec72f63a`), not promoted: no tag, Windows not dispatched; user resumes 2026-11-09.
+  Installed 4.4.4 still lets `terraform -chdir=prod destroy` through (fixed in #262).
 - **This round:** #259 masked dotenv reads, #260 password-reset note not exfil, #261 citation-gate
   warns on an unseen commit hash, #262 global options before a subcommand (`sc_hoist_global_opts_into`).
 - **Guard FP audit** (docs/GUARD-FP-AUDIT.md, per-machine data): 58 blocks, 62% FP. Two fixes
   shipped; the data-in-heredoc class (~18 of 36) is deferred, no cheap safe fix.
 - **Open PRs:** none.
-- **Next:** 4.4.5 when the user says. Unswept CLIs for global options: pulumi, flyctl, gh, eksctl.
+- **Next:** dispatch Windows on `rel/4.4.5`, user promotes; re-stage if master moved. Unswept CLIs
+  for global options: pulumi, flyctl, gh, eksctl.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
   `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -58,7 +59,7 @@ session on any machine.**
 #### 2026-11-05 → 11-08 (deep) — 1c2a497d
 Released v4.4.4 (#239-#249). Merged #250-#262: update check, commit-check `-F`, batch-editor, risk
 review, host-contract suite, handback/pipe/dotenv/password-reset FP fixes, commit-hash citation warning,
-global options before a subcommand (found via applygate). Guard FP audit: 62% FP. 4.4.5 held.
+global options before a subcommand (found via applygate). Guard FP audit: 62% FP. 4.4.5 staged.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 
 #### 2026-11-04 (deep) — 3d213381
