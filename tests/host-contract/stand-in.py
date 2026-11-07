@@ -4,9 +4,11 @@ account and no model. Idea from mnema (github.com/mnema-work/mnema, Apache-2.0);
 
 Usage: stand-in.py <script.json> <requests.jsonl> <port-file>
 
-The script is a JSON list of turns, answered in order to each main-loop request (one that
-offers tools): {"text": "..."} or {"tool": "Bash", "input": {...}}. Past the end, and for side
-requests (no tools: titles, summaries), it answers {"text": "done"}. Every request body is
+The script is a JSON list of turns: {"text": "..."} or {"tool": "Bash", "input": {...}}, each
+with an optional "lane" (default "hc-main"). A request takes the first unused turn whose lane
+word is in its FIRST message: the main session's first message holds the prompt (run.sh puts
+hc-main in it), a subagent's holds the prompt the Agent call gave it. Anything else (the
+host's "foo" probe, titles, summaries) and a lane past its end gets {"text": "done"}. Every request body is
 appended to requests.jsonl, so a case can grep what the host put in front of the model.
 """
 import json
@@ -17,17 +19,20 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 SCRIPT = json.load(open(sys.argv[1], encoding="utf-8"))
 LOG = sys.argv[2]
 LOCK = threading.Lock()
-STATE = {"turn": 0, "n": 0}
+STATE = {"used": set(), "n": 0}
 
 
 def next_turn(body):
+    msgs = body.get("messages") or []
+    first = json.dumps(msgs[0]) if msgs else ""
     with LOCK:
         STATE["n"] += 1
-        if not body.get("tools") or STATE["turn"] >= len(SCRIPT):
-            return {"text": "done"}, STATE["n"]
-        turn = SCRIPT[STATE["turn"]]
-        STATE["turn"] += 1
-        return turn, STATE["n"]
+        if body.get("tools"):
+            for i, turn in enumerate(SCRIPT):
+                if i not in STATE["used"] and turn.get("lane", "hc-main") in first:
+                    STATE["used"].add(i)
+                    return turn, STATE["n"]
+        return {"text": "done"}, STATE["n"]
 
 
 def blocks(turn, n):
