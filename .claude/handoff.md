@@ -4,27 +4,27 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-07, session `1c2a497d` (resumed as `92edb542`).*
+*Verified 2026-11-07, session `1c2a497d`.*
 
-- **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4;
-  Concise output style confirmed applied mid-session.
-- **Master `2beee9fb`, CI green, unreleased:** #250 (update check every 6h, same-session
-  statusline flag), #251+#252 (commit-check reads `-F`/`--file`/`-F ~/x`/`-m "$(cat f)"`),
-  #253 (batch-editor agent, Haiku), #254 (risk-review report-only log in claim gate →
-  `audit/risk-review.jsonl`; plan `docs/RISK-REVIEW-PLAN.md`). **4.4.5 on hold** (user).
-- **Open PRs:** none. CI reds today were macOS runner capacity (0-step cancels) and one
-  `test-bounded-run` Windows flake (timeout took 21s; passed on rerun).
+- **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4.
+- **Master `b1e4bc58`, CI green, 15 commits unreleased:** #250-#254 (see log), #255+#256
+  (`tests/host-contract/`: real `claude` binary vs a local stand-in model, 19 cases, weekly
+  stable/latest cron), #257 (handback gate: bare `stub`/`placeholder` no longer refuse; replay of
+  82 real handbacks 5 → 2 refused, both true). **4.4.5 on hold** (user).
+- **Open PRs:** none.
+- **Next (recommended):** PreToolUse advisory for `test|build|lint ... | tail/head/grep` without
+  `pipefail` (exit code masked; idea from yotamleo-org/Himmel `block-tail-pipe-on-gates`), then 4.4.5.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
   `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** risk-review: read the log ~2026-11-20, then decide blocking; SpecLock (parked); `/sc-security` never run on a real repo; economy
-  re-measure once Concise sessions exist; user's: rotate the Context7 key, star-keeper,
-  Machine B commit-msg hook, radius-apps.
+- **Open:** replay handbacks after a week of subagent use on 4.4.4+; risk-review log ~2026-11-20;
+  SpecLock (parked); `/sc-security` never run on a real repo; economy re-measure; per-guard
+  false-alarm study (backlog). SubagentHandback is not offered offline, so CI cannot hold it.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
-  none of the four the previous brief listed; recreate from `origin/<branch>`. This machine now has
-  `cite` (branch `cite-ff`) and `hwt`, plus stash `cite-count-fix` (safe to drop, already pushed).
+  none of the four the previous brief listed; recreate from `origin/<branch>`. On 2026-11-07 this machine
+  has no extra worktrees, only the `master` branch and 0 stashes (cleaned this session).
 - **This session's machine (2026-10-30):** 0 stashes, no extra worktrees, Caveman active (it elides
   tool output lines). The "4 stashes on Machine A" earlier note was not seen here.
 - **`claude-supercharger` is PUBLIC — its Actions are free and unmetered.**
@@ -54,9 +54,9 @@ session on any machine.**
 ## Log
 
 #### 2026-11-05 → 11-07 (deep) — 1c2a497d
-Released v4.4.4 (#239-#249). Merged #250-#254: 6h update check, commit-check `-F`/`$(cat f)`/`~`,
-batch-editor agent and report-only risk review (both from Provost). 4.4.5 held. HOOK_AUTHORING
-notes 2026-11-06; memory: zsh tool shell, agents picked by description, Windows whole-run rerun.
+Released v4.4.4 (#239-#249). Merged #250-#257: 6h update check, commit-check `-F`, batch-editor,
+report-only risk review, host-contract suite (#255/#256, from mnema), handback gate FP fix (#257).
+Reviewed mnema, systemone-judge, Himmel: took host contract; pipe-exit advisory next. 4.4.5 held.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 
 #### 2026-11-04 (deep) — 3d213381
