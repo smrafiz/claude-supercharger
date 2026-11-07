@@ -509,7 +509,7 @@ def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
     # Metadata text is prose, not a path -- see _strip_metadata_text. Only the
     # commit/tag/PR segment goes; anything chained to it is still scanned.
-    c = _strip_metadata_text(c)
+    c = _strip_masked_greps(_strip_metadata_text(c))
 
     # Reader/editor commands followed by a sensitive filename token.
     # base64/gzip/bzip2/xz/zstd/uuencode sit here with xxd and od because they
@@ -837,6 +837,26 @@ _ENV_SELF_CONTAINED = [
 ]
 
 
+# 2026-11-07 (guard FP audit, docs/GUARD-FP-AUDIT.md): `grep NAME <dotenv> | sed
+# 's/=.*/=<set>/'` prints which keys are set, never a value: the sed cuts every line
+# at its first `=`. 2 of the sensitive-file guard's 12 audited FPs were this form.
+# The grep+sed stage pair is dropped before scanning, so a reader anywhere else in
+# the command is still seen. Not when grep's args run something (`$(`, backtick,
+# `<(`), and only a replacement with no `&` or backslash (`&` would put the match back).
+# ponytail: a dotenv line with no `=` (a multi-line quoted value) passes the mask
+# unchanged; only grep is exempt, not cat, so such a line must also match grep's pattern.
+_MASKED_GREP_RE = re.compile(
+    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
+    r"""\|(?![|&])[ \t]*sed[ \t]+(?:-[Ere][ \t]+)*"""
+    r"""(?:'s(?P<d>[/|#,])=\.\*(?P=d)[^&\\'\n]*?(?P=d)g?'|"s(?P<e>[/|#,])=\.\*(?P=e)[^&\\"$`\n]*?(?P=e)g?")"""
+    r"""(?=[ \t]*(?:$|[|;&\n)]))""")
+
+
+def _strip_masked_greps(c: str) -> str:
+    return _MASKED_GREP_RE.sub(
+        lambda m: m.group(0) if re.search(r"\$\(|`|<\(", m.group(1)) else " ", c)
+
+
 # v4.3.6: the reader regex `<reader>.*\.env` ran over the WHOLE command, so its
 # `.*` crossed `&&`/`;`: `sed -i ... a.ts && bun --env-file=<dotenv> x.ts` paired
 # a reader in one segment with the name in another. Matching is now per segment.
@@ -921,7 +941,8 @@ def _segment_prints_nothing(seg: str) -> bool:
 def check_env_file(c: str) -> str | None:
     # Metadata text is prose, not a path -- see _strip_metadata_text. Sibling of
     # the same fix in check_sensitive_read; both carried the identical defect.
-    c = _strip_metadata_text(c)
+    # Before _strip_pattern_operands: that drops sed's script, which is the mask.
+    c = _strip_masked_greps(_strip_metadata_text(c))
 
     # A search PATTERN is not a path -- see _strip_pattern_operands. The dotenv
     # file as a search TARGET is untouched: only the first non-flag operand goes.
@@ -970,7 +991,9 @@ def check_env_file(c: str) -> str | None:
         if _segment_prints_nothing(seg):
             continue
         for pat in _ENV_READ_WRITE_PREFIXES:
-            if re.search(pat + r".*\.env\b", seg, re.IGNORECASE):
+            # Not a template (`.env\b` matched inside `.env.example`): a template
+            # in one segment paired with a real name flagged in another.
+            if re.search(pat + r".*\.env(?!\.(?:example|template|sample|dist)(?![\w-]))\b", seg, re.IGNORECASE):
                 return f".env file access ({flagged[0]}) — credentials likely present"
     for pat in _ENV_SELF_CONTAINED:
         if re.search(pat, c, re.IGNORECASE):
