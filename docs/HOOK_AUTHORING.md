@@ -507,6 +507,14 @@ echo "exit: $?"
 
 Check that the exit code and stdout match what you expect before registering.
 
+**Whether Claude Code acts on the output is a separate question.** A hook can print the right
+JSON and still do nothing if the host ignores that field for that event. `tests/host-contract/`
+runs the real `claude` binary against a stand-in model and greps the requests it sends for a
+sentinel word, so it shows what reached the model, not what the hook printed. A new channel the
+product relies on (an event, a field, an exit code) gets a case there:
+`bash tests/host-contract/run.sh` (`HC_KEEP=1` keeps each case's `req.jsonl`). The workflow
+runs the pinned version on PRs and `stable`/`latest` every Monday.
+
 **Use `printf '%s'`, not `echo`, when the JSON content has escape sequences.** zsh `echo` (and `bash` with `xpg_echo`) interprets `\n` in single-quoted strings as actual newlines, breaking JSON payloads that contain `"content":"line1\nline2"`. The literal `\n` becomes a real newline inside the JSON string value, making it invalid JSON (raw control chars are forbidden in JSON strings) — `json.loads()` then throws and your hook exits 0 silently, looking like a hook bug. Use `printf '%s' '{"content":"line1\nline2"}'` to preserve the escape. This burned the v2.6.48 audit.
 
 ---

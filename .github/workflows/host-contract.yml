@@ -1,0 +1,45 @@
+name: Host contract
+
+# Runs the REAL Claude Code binary against a stand-in model (tests/host-contract/) and checks
+# the host behaviours Supercharger's hooks rely on: which hook outputs reach the model, that a
+# deny or exit 2 stops a tool, that a Stop exit 2 continues once. No account, no model, no cost.
+# Pull requests run the pinned version; every Monday runs `stable` and `latest`, so a Claude Code
+# release that changes a channel turns this red before users notice a guard went quiet.
+
+on:
+  pull_request:
+    branches: [master]
+  push:
+    branches: [master]
+  schedule:
+    - cron: '17 6 * * 1'
+  workflow_dispatch:
+
+concurrency:
+  group: host-contract-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  host-contract:
+    name: Host contract (claude ${{ matrix.version }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        # The pin is the version the cases were last read against by hand; bump it on purpose.
+        version: ${{ fromJSON(contains(fromJSON('["schedule","workflow_dispatch"]'), github.event_name) && '["stable","latest"]' || '["2.1.319"]') }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install Claude Code ${{ matrix.version }}
+        run: |
+          npm install -g "@anthropic-ai/claude-code@${{ matrix.version }}"
+          claude --version
+      - name: Run the host contract
+        run: bash tests/host-contract/run.sh
