@@ -65,6 +65,9 @@ fi
 [ -z "$CMD" ] && exit 0
 # v4.2.0: a command asking for --help runs nothing (`gh release delete --help`).
 CMD=$(printf '%s' "$CMD" | LC_ALL=C sed -E 's/(^|[;&|])[^;&|]*[[:space:]]--help([[:space:]][^;&|]*)?([;&|]|$)/\1 \3/g')
+# `kubectl -n prod delete …`: a global option hid the subcommand. See cmd-normalize.sh.
+# shellcheck source=hooks/cmd-normalize.sh
+if . "$HOOKS_DIR/cmd-normalize.sh" 2>/dev/null; then sc_hoist_global_opts_into "$CMD"; CMD="$_SC_GO"; fi
 
 # Destructive bulk-delete operations per provider. Each pattern targets an
 # irreversible resource teardown; ordinary reads/list/describe do not match.
