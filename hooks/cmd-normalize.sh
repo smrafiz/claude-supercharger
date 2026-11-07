@@ -708,6 +708,8 @@ wipefs|fdisk|diskutil|crontab|launchctl|rsync|scp|ssh|tar|gh|npm|npx) ;;
       fi
       ;;
   esac
+  # Global options before a subcommand (`terraform -chdir=x destroy`): see below.
+  sc_hoist_global_opts_into "$cmd"; cmd="$_SC_GO"
   printf '%s\n' "$cmd"
 }
 
@@ -794,6 +796,60 @@ sc_blank_data_into() {
       ;;
   esac
   _SC_SCAN="$CMD_SCAN"
+}
+
+# 2026-11-07 (applygate review): a global option between a CLI and its subcommand
+# hid the subcommand from every rule anchored on `<tool> <subcommand>`:
+# `terraform -chdir=envs/prod destroy` was allowed while `terraform destroy` was
+# denied. A sweep found 14 of 23 such forms weaker than their bare spelling (git
+# already had this, in _sc_wrapper_prelude_into). APPENDS a copy with the global
+# options dropped (`cmd ; copy`), as the other normalizations do, so a rule matches
+# either spelling. Options that take a separate value are listed per tool; any other
+# `-x` / `-x=v` is one token. Result in $_SC_GO, no subshell.
+# ponytail: a quoted value with a space (`--context "a b"`) ends the scan early, so
+# that one spelling stays hidden; shlex-grade parsing if it ever shows up.
+sc_hoist_global_opts_into() {
+  _SC_GO="$1"
+  case "$1" in
+    *terraform[[:space:]]-*|*tofu[[:space:]]-*|*terragrunt[[:space:]]-*|*kubectl[[:space:]]-*|*helm[[:space:]]-*|\
+    *az[[:space:]]-*|*docker[[:space:]]-*|*npm[[:space:]]-*|*pnpm[[:space:]]-*|*yarn[[:space:]]-*|*aws[[:space:]]-*|*gcloud[[:space:]]-*) : ;;
+    *) return 0 ;;
+  esac
+  local scan="$1" out="$1" tool rest used tok vals _i
+  local rx='(^|[[:space:];&|(`])(terraform|tofu|terragrunt|kubectl|helm|az|docker|npm|pnpm|yarn|aws|gcloud)([[:space:]]+-.*)$'
+  for _i in 1 2 3 4; do
+    [[ "$scan" =~ $rx ]] || break
+    tool="${BASH_REMATCH[2]}"; rest="${BASH_REMATCH[3]}"; used=""
+    case "$tool" in
+      terraform|tofu) vals=" " ;;
+      terragrunt) vals=" --terragrunt-working-dir --working-dir " ;;
+      kubectl) vals=" -n --namespace --context --cluster --kubeconfig -s --server --user --token --as --as-group --as-uid --certificate-authority --client-certificate --client-key --cache-dir --request-timeout --tls-server-name -v --v " ;;
+      helm) vals=" -n --namespace --kube-context --kubeconfig --kube-apiserver --kube-token --kube-as-user --kube-as-group --kube-ca-file --registry-config --repository-config --repository-cache --burst-limit --qps " ;;
+      aws) vals=" --profile --region --output --endpoint-url --query --cli-connect-timeout --cli-read-timeout --ca-bundle --color " ;;
+      gcloud) vals=" --project --account --configuration --verbosity --impersonate-service-account --format --billing-project --flags-file " ;;
+      az) vals=" --subscription --output -o --query " ;;
+      docker) vals=" --context -c -H --host --config -l --log-level --tlscacert --tlscert --tlskey " ;;
+      npm|pnpm|yarn) vals=" --prefix -C --dir --cwd --workspace -w --filter " ;;
+    esac
+    while :; do
+      tok="${rest#"${rest%%[![:space:]]*}"}"; used+="${rest%"$tok"}"; rest="$tok"
+      tok="${rest%%[[:space:];&|)]*}"
+      case "$tok" in
+        --|-|'') break ;;
+        -*) used+="$tok"; rest="${rest#"$tok"}"
+            case "$vals" in *" $tok "*)
+              tok="${rest#"${rest%%[![:space:]]*}"}"; used+="${rest%"$tok"}"; rest="$tok"
+              tok="${rest%%[[:space:];&|)]*}"; used+="$tok"; rest="${rest#"$tok"}" ;;
+            esac ;;
+        *) break ;;
+      esac
+    done
+    # Replacement via a variable: bash 3.2 keeps the quotes of a quoted literal one.
+    tok="$tool "; [ -n "$used" ] && out="${out/"$tool$used"/$tok}"
+    scan="$rest"
+  done
+  [ "$out" != "$1" ] && _SC_GO="$1 ; $out"
+  return 0
 }
 
 # Split a shell command on &&, ||, ;, |  into individual segments.

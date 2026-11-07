@@ -129,7 +129,10 @@ try:
 except Exception:
     print('')
 " 2>/dev/null || echo "")
-  if printf '%s\n' "$COMMAND_PEEK" | grep -qiE '(terraform[[:space:]]+destroy|prisma[[:space:]]+migrate[[:space:]]+reset|drizzle-kit[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force([[:space:]]|$)|drop[[:space:]]+database|kubectl[[:space:]]+delete[[:space:]]+namespace)'; then
+  # `[^;&|]*` in the terraform/kubectl arms: global options (`-chdir=x`, `-n prod`)
+  # sit before the subcommand. This only switches the gate on; the rules below
+  # match precisely, on the text sc_hoist_global_opts_into produced.
+  if printf '%s\n' "$COMMAND_PEEK" | grep -qiE '(terraform[[:space:]]([^;&|]*[[:space:]])?destroy|prisma[[:space:]]+migrate[[:space:]]+reset|drizzle-kit[[:space:]]+push[[:space:]]+([^&|;]*[[:space:]])?--force([[:space:]]|$)|drop[[:space:]]+database|kubectl[[:space:]]([^;&|]*[[:space:]])?delete[[:space:]]+namespace)'; then
     GATE_ENABLED="1"
   fi
 fi
@@ -156,6 +159,7 @@ except Exception:
 # shellcheck source=hooks/cmd-normalize.sh
 . "$HOOKS_DIR/cmd-normalize.sh"
 sc_blank_data_into "$(strip_heredoc_bodies "$COMMAND")"; COMMAND_SCAN="$_SC_SCAN"
+sc_hoist_global_opts_into "$COMMAND_SCAN"; COMMAND_SCAN="$_SC_GO"
 
 # Normalize: collapse whitespace, lowercase for matching
 CMD_NORM=$(printf '%s\n' "$COMMAND_SCAN" | tr '[:upper:]' '[:lower:]' | tr -s ' \t' ' ' | sed 's/^ //; s/ $//')
