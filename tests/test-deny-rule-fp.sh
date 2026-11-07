@@ -264,4 +264,41 @@ denies "scp-remote" "scp ${E} host:${E}"
 begin_test "F5: copying secrets INTO a committed template still denies"
 denies "cp-into-template" "cp ${E} ${E}.example"
 
+# --- F6: masked reads and a template in another segment (GUARD-FP-AUDIT) ------
+# 2026-11-07 audit of real blocks: `grep KEY <dotenv> | sed 's/=.*/=<set>/'` prints
+# only key names, and a template in one segment paired with a real name flagged in
+# another (`\.env\b` matched inside the .example name).
+begin_test "F6: grep piped into a sed that cuts at = is allowed"
+allows "grep-sed-mask" "grep -n CRON_SECRET ${E} | sed 's/=.*/=<set>/' | head -2"
+
+begin_test "F6: the mask with -E, | delimiter and double quotes is allowed"
+allows "grep-sed-mask-dq" "grep -E '^(A|B)=' ${E}.local | sed \"s|=.*|=set|\""
+
+begin_test "F6: a template grep beside a count of the real file is allowed"
+allows "tpl-beside-count" "grep -n HOST ${E}.example docs/x.md | head -8; grep -c '^HOST=' ${E} 2>/dev/null"
+
+begin_test "F6: a sed that puts the match back (&) still denies"
+denies "grep-sed-amp" "grep A ${E} | sed 's/=.*/&/'"
+
+begin_test "F6: a sed backreference still denies"
+denies "grep-sed-backref" "grep A ${E} | sed -E 's/=(.*)/=\\1/'"
+
+begin_test "F6: a sed that does not cut at = still denies"
+denies "grep-sed-other" "grep A ${E} | sed 's/x/y/'"
+
+begin_test "F6: cat piped into the mask still denies (only grep is exempt)"
+denies "cat-sed-mask" "cat ${E} | sed 's/=.*/=x/'"
+
+begin_test "F6: a tee before the mask still denies"
+denies "grep-tee-mask" "grep A ${E} | tee out | sed 's/=.*/=x/'"
+
+begin_test "F6: a substitution in the masked grep still denies"
+denies "grep-subst-mask" "grep \"\$(cat ${E})\" x | sed 's/=.*//'"
+
+begin_test "F6: a read chained after the mask still denies"
+denies "mask-then-cat" "grep A ${E} | sed 's/=.*/=x/'; cat ${E}"
+
+begin_test "F6: a template read beside a real read still denies"
+denies "tpl-then-real" "cat ${E}.example; cat ${E}"
+
 report

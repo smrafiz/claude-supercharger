@@ -82,7 +82,29 @@ def _strip_metadata_text(c: str) -> str:
     return METADATA_TEXT_RE.sub(_drop, c)
 
 
-cmd = _strip_metadata_text(_strip_pattern_operands(cmd))
+# Keep in sync with hooks/safety-detect.py.
+# 2026-11-07 (guard FP audit, docs/GUARD-FP-AUDIT.md): `grep NAME <dotenv> | sed
+# 's/=.*/=<set>/'` prints which keys are set, never a value: the sed cuts every line
+# at its first `=`. 2 of the sensitive-file guard's 12 audited FPs were this form.
+# The grep+sed stage pair is dropped before scanning, so a reader anywhere else in
+# the command is still seen. Not when grep's args run something (`$(`, backtick,
+# `<(`), and only a replacement with no `&` or backslash (`&` would put the match back).
+# ponytail: a dotenv line with no `=` (a multi-line quoted value) passes the mask
+# unchanged; only grep is exempt, not cat, so such a line must also match grep's pattern.
+_MASKED_GREP_RE = re.compile(
+    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
+    r"""\|(?![|&])[ \t]*sed[ \t]+(?:-[Ere][ \t]+)*"""
+    r"""(?:'s(?P<d>[/|#,])=\.\*(?P=d)[^&\\'\n]*?(?P=d)g?'|"s(?P<e>[/|#,])=\.\*(?P=e)[^&\\"$`\n]*?(?P=e)g?")"""
+    r"""(?=[ \t]*(?:$|[|;&\n)]))""")
+
+
+def _strip_masked_greps(c: str) -> str:
+    return _MASKED_GREP_RE.sub(
+        lambda m: m.group(0) if re.search(r"\$\(|`|<\(", m.group(1)) else " ", c)
+
+
+# The mask first: _strip_pattern_operands drops sed's script, which is the mask.
+cmd = _strip_metadata_text(_strip_pattern_operands(_strip_masked_greps(cmd)))
 # v4.2.0: `cp .env.example .env` creates a dotenv FROM a template: it reads only the
 # template. It was denied as a .env read, on one of the commonest setup steps
 # (dcg/flowrail allow corpora). Only cp with a template SOURCE; the target may
@@ -200,7 +222,8 @@ triggered = False
 for seg in _env_segments(cmd):
     if _segment_prints_nothing(seg):
         continue
-    if any(re.search(pat + r".*\.env\b", seg, re.IGNORECASE) for pat in READ_WRITE_PREFIXES):
+    # Not a template: see the same line in safety-detect.py.
+    if any(re.search(pat + r".*\.env(?!\.(?:example|template|sample|dist)(?![\w-]))\b", seg, re.IGNORECASE) for pat in READ_WRITE_PREFIXES):
         triggered = True
         break
 
