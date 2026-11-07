@@ -30,7 +30,7 @@ One judge (the model), no second reader; borderline calls are marked.
 | commit format | 4 | 2 | 2 | 2 `wip(…)` TP; 2 well-formed messages FP, not reproducible on 4.4.4 offline |
 | DNS exfiltration | 3 | 0 | 3 | words `host`/`token`/`secret` in TypeScript edit text; this audit's own search terms |
 | SQL destructive (`drop database`) | 3 | 0 | 3 | all test strings in a `for q in '…'` list |
-| instruction-file write | 2 | 0 | 2 | `.claude/handoff.md` (the carry file the workflow requires editing) |
+| instruction-file write | 2 | 0 | 2 | both one edit: "send a password reset link" (a feature note) matched the credential-exfil pattern |
 | clipboard | 2 | 1 | 1 | FP: this audit's own search terms |
 | `git branch -f` protected | 1 | 1 | 0 | borderline: `main` to `origin/main` |
 | cron | 1 | 0 | 1 | `Crontab unchanged.` inside a `sed` replacement |
@@ -48,13 +48,15 @@ One judge (the model), no second reader; borderline calls are marked.
   a regex.
 - **The sensitive-file guard treats a masked or count-only read as a read.** `grep -c` and
   `| sed 's/=.*/=…/'` cannot print a value; recognising those two forms covers 5 of its 12 FPs.
-- **The `.claude/handoff.md` deny contradicts this project's own workflow** (CLAUDE.md
-  requires updating it).
+- **The instruction-file blocks were the content scan, not the name.** First read as a deny
+  on `.claude/handoff.md`; the reason says `credential-exfil directive`, matched by "send a
+  password reset link". The file IS auto-loaded at session start, so it stays guarded.
 
 ## Next, if wanted (each its own PR, each with the FP cases above as fixtures)
 
-1. sensitive-file: allow `grep -c` / `-l` / `-q` and a `sed` mask of the value.
-2. instruction-file: exempt `.claude/handoff*.md`.
+1. sensitive-file: a `sed` mask of the value, and a template in another segment (#259;
+   `grep -c/-l/-q` was already allowed since v4.3.6).
+2. instruction-file: `password reset` is not a credential (not an exemption for handoff.md).
 3. credential-in-command: skip empty values (`X=""`) and assignments to `localhost`/`127.0.0.1` stand-ins.
 4. The data-in-heredoc class: measure first; no cheap fix found.
 
