@@ -11,6 +11,11 @@
 # from memory is often right, and the reader decides.
 #
 # Placeholder hosts (example.com, localhost, 127.0.0.1) are ignored.
+#
+# 2026-11-07: commit hashes too, in backticks or after "commit". Replay over 42
+# transcripts: 1197 hashes cited, 1 seen nowhere else, and it was invented (the real
+# commit's hash was never printed; the reply made one up). A hash is evidenced when its
+# first 7 characters appear: tools print short hashes, replies often cite longer ones.
 # Stop fires every turn: the fast path greps the transcript tail for a URL first,
 # and the full scan only json-parses lines that contain one of the candidates.
 # Fail-open. Disable: SUPERCHARGER_CITATION_GATE=0
@@ -30,7 +35,7 @@ case "$_INPUT" in *'"stop_hook_active":true'*) exit 0 ;; esac
 TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/null || true)
 [ -n "$TRANSCRIPT" ] && [ -f "$TRANSCRIPT" ] || exit 0
 
-tail -c 40000 "$TRANSCRIPT" 2>/dev/null | LC_ALL=C grep -qE 'https?://' || exit 0
+tail -c 40000 "$TRANSCRIPT" 2>/dev/null | LC_ALL=C grep -qE 'https?://|`[0-9a-f]{7,40}`|commit [0-9a-f]{7}' || exit 0
 
 # Output goes to a file, not $(...): a quote char in a heredoc inside $() can cut
 # the script short (see heredoc-in-substitution-quoting).
@@ -91,6 +96,12 @@ for u in URL.findall("\n".join(reply)):
     n = norm(u)
     if n.count("/") >= 2 and "." in n.split("/")[2] and not PLACEHOLDER.match(n):
         cands.setdefault(n, u.rstrip(".,;:!?*_"))
+# Commit hashes: backticked or after "commit"; a digit and a letter, so a word or a
+# number is not one. Keyed by the 7-char prefix that evidence must contain.
+SHA = re.compile(r"(?:`|\bcommits? )([0-9a-f]{7,40})(?![0-9a-zA-Z_])")
+for h in SHA.findall("\n".join(reply)):
+    if re.search(r"\d", h) and re.search(r"[a-f]", h):
+        cands.setdefault(h[:7], h)
 if not cands:
     sys.exit(0)
 
@@ -130,9 +141,9 @@ for ln in hits_out.splitlines():
 
 if unseen:
     shown = [cands[n] for n in sorted(unseen)][:5]
-    print("[Supercharger] citation-gate: this reply cites link(s) that never appeared in this session "
-          "(not fetched, searched, opened or returned by a tool), so they may be invented: "
-          + ", ".join(shown) + ". Open them before relying on them.")
+    print("[Supercharger] citation-gate: this reply cites link(s) or commit(s) that never appeared in "
+          "this session (not fetched, searched, opened or returned by a tool), so they may be invented: "
+          + ", ".join(shown) + ". Check them before relying on them.")
 PYEOF
 MSG=$(cat "$_CG_OUT" 2>/dev/null); rm -f "$_CG_OUT" 2>/dev/null
 [ -n "$MSG" ] || exit 0
