@@ -1088,3 +1088,30 @@ catch `SystemExit`, and call the handler directly.
 - **A routing hint is not a channel.** The router's agent hint was followed 1.1% of the time
   (v4.1.21). A new agent is reached through its `description`; a required action goes through a
   Stop exit 2 or a PreToolUse deny.
+
+## Notes from 2026-11-07
+
+- **Audit blocks from transcripts.** `scope/.blocked-commands` cuts each command at 400 characters
+  and rotates at 30 days. The full record is each `PreToolUse … hook error` tool result in
+  `~/.claude/projects/**/*.jsonl`, paired with its `tool_use` input (docs/GUARD-FP-AUDIT.md).
+- **Read the whole block reason before planning the fix.** The audit called both instruction-file
+  blocks "a deny on `.claude/handoff.md`" and proposed exempting the file. The reason said
+  `credential-exfil directive`: the content scan matched "send a password reset link". The file is
+  auto-loaded at session start, so the exemption would have opened a poisoning hole (#260).
+- **A sibling name matches inside a longer one.** `\.env\b` matches inside `.env.example`, so a
+  template in one segment paired with a real name flagged in another segment and denied a
+  `grep -c` the v4.3.6 fix had allowed (#259).
+- **Bash 3.2 keeps the quotes of a quoted replacement.** `${v/"$p"/"$t "}` inserts the literal
+  quotes; put the replacement in a variable and write `${v/"$p"/$r}` (#262).
+- **A fail-open detector hides its own crash.** A Python-built edit wrote `\\b` into a raw-string
+  regex; `env-file-guard.sh` runs its detector with `2>/dev/null`, so it allowed `cat` on the
+  dotenv file and printed nothing. Only the full suite caught it. Run the whole suite after any edit
+  to a detector.
+- **Use the bare spelling as the oracle.** A rule anchored on `<tool> <subcommand>` misses
+  `terraform -chdir=x destroy`. The sweep ran each command with and without a global option and
+  flagged any option form judged more leniently: 14 of 23 before #262, 0 after. A new tool rule
+  adds its rows to `tests/test-global-opts.sh` and its value-taking options to
+  `sc_hoist_global_opts_into`.
+- **Replay before you build a gate.** Commit hashes cited in replies: 1157 over 42 transcripts,
+  1 never seen in the session, and it was invented. The gate shipped warn-only (#261) on that
+  measurement, not on the idea.

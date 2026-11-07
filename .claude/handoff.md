@@ -4,18 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-07, session `1c2a497d`.*
+*Verified 2026-11-08, session `1c2a497d`.*
 
 - **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4.
-- **Master `44252eb3`, CI green, 17 commits unreleased:** #250-#257 (see log), #258
-  (test-mask-guard: advisory when a test/lint/build is piped into tail/head/grep/tee without
-  pipefail; from Himmel), `docs/GUARD-FP-AUDIT.md`. **4.4.5 on hold** (user).
-- **Guard FP audit** (2026-11-07, per-machine data): 58 real blocks judged, 36 FP (62%). Git/process
-  guards 16/16 right; content scanners 0/18; sensitive-file 12/15 FP. Source: transcript
-  `hook error` results, not `scope/.blocked-commands` (cut at 400 chars).
+- **Master `5dde9c7c`, CI green, 23 commits unreleased:** #250-#262 plus docs. **4.4.5 on hold**
+  (user, repeated 2026-11-07). Installed 4.4.4 still lets `terraform -chdir=prod destroy` through
+  (fixed in #262) and its memory-write-guard lacks #260.
+- **This round:** #259 masked dotenv reads, #260 password-reset note not exfil, #261 citation-gate
+  warns on an unseen commit hash, #262 global options before a subcommand (`sc_hoist_global_opts_into`).
+- **Guard FP audit** (docs/GUARD-FP-AUDIT.md, per-machine data): 58 blocks, 62% FP. Two fixes
+  shipped; the data-in-heredoc class (~18 of 36) is deferred, no cheap safe fix.
 - **Open PRs:** none.
-- **Next (recommended):** PR sensitive-file guard allows `grep -c/-l/-q` and `sed`-masked `.env`
-  reads; PR instruction-file guard exempts `.claude/handoff*.md`; then 4.4.5. Fixtures = audit cases.
+- **Next:** 4.4.5 when the user says. Unswept CLIs for global options: pulumi, flyctl, gh, eksctl.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
   `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -55,10 +55,10 @@ session on any machine.**
 
 ## Log
 
-#### 2026-11-05 → 11-07 (deep) — 1c2a497d
-Released v4.4.4 (#239-#249). Merged #250-#258: 6h update check, commit-check `-F`, batch-editor,
-report-only risk review, host-contract suite (#255/#256, from mnema), handback gate FP fix (#257),
-pipe-exit advisory (#258, from Himmel). Guard FP audit (method from Steer): 62% FP. 4.4.5 held.
+#### 2026-11-05 → 11-08 (deep) — 1c2a497d
+Released v4.4.4 (#239-#249). Merged #250-#262: update check, commit-check `-F`, batch-editor, risk
+review, host-contract suite, handback/pipe/dotenv/password-reset FP fixes, commit-hash citation warning,
+global options before a subcommand (found via applygate). Guard FP audit: 62% FP. 4.4.5 held.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
 
 #### 2026-11-04 (deep) — 3d213381
