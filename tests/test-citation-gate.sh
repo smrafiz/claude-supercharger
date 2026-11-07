@@ -55,6 +55,22 @@ F=$T/oldturn.jsonl
 { prompt "q1"; said "https://old.madeup-site.io/a"; prompt "q2"; said "No links here."; } > "$F"
 check "only the latest reply is checked" "$F" quiet
 
+F=$T/sha-invented.jsonl
+{ prompt "remove the button"; result "[develop a0023dc] fix: drop the link"; said "Removed it (commit \`1d0c1f7b\` on develop)."; } > "$F"
+check "an invented commit hash is named" "$F" "warn:1d0c1f7b"
+
+F=$T/sha-seen.jsonl
+{ prompt "commit it"; result "[develop a0023dc] fix: drop the link"; said "Committed as \`a0023dcf\` on develop."; } > "$F"
+check "a hash whose 7-char prefix a tool printed is quiet" "$F" quiet
+
+F=$T/sha-prose.jsonl
+{ prompt "q"; said "The hash \`deadbeef\` and the number \`12345678\` are not commits."; } > "$F"
+check "an all-letter or all-digit token is not a hash" "$F" quiet
+
+F=$T/sha-after-commit.jsonl
+{ prompt "q"; said "That landed in commit 9f3e2a1c last week."; } > "$F"
+check "a bare hash after 'commit' is checked" "$F" "warn:9f3e2a1c"
+
 check "SUPERCHARGER_CITATION_GATE=0 turns it off" "$T/invented.jsonl" quiet "SUPERCHARGER_CITATION_GATE=0"
 
 begin_test "stop_hook_active: never re-enters"
