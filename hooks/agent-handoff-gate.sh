@@ -46,8 +46,12 @@ output = sys.argv[1].lower()
 
 # Incomplete work signals
 incomplete = [
-    r'\btodo\b', r'\bfixme\b', r'\bnot implemented\b', r'\bstub\b',
-    r'\bpass\s*#', r'\b\.\.\.\s*$', r'placeholder',
+    r'\btodo\b', r'\bfixme\b', r'\bnot implemented\b', r'\bstubbed out\b',
+    # stub/placeholder only as work left behind: a bare word also hits test stubs and
+    # SQL placeholders (2 of 81 real handbacks, 2026-11-07 replay).
+    r'\b(left|added|wrote|is|are|still|just) (a |an |only )?(todo )?(stub|placeholder)s?\b',
+    r'\bstill blocked\b',
+    r'\bpass\s*#', r'\b\.\.\.\s*$',
     r'i (was unable|could not|cannot|am unable) to',
     r'(failed|error|exception) (to|while|when)',
     r'\bleft as an exercise\b',
