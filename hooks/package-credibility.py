@@ -54,14 +54,28 @@ def tokens(tail):
     return out[:MAX_PACKAGES]
 
 
-def get(url):
+EXACT = re.compile(r"^v?\d+(?:\.\d+)*(?:[-+][\w.]+)?$")
+
+
+def pins(tail):
+    """name -> exact version for `pkg@1.2.3` / `pkg==1.2.3`; ranges and tags are not pins."""
+    out = {}
+    for raw in tail.split():
+        m = re.match(r"^((?:@[\w.-]+/)?[\w.-]+)(?:@|==)(.+)$", raw)
+        if m and EXACT.match(m.group(2)):
+            out[m.group(1)] = m.group(2).lstrip("v")
+    return out
+
+
+def get(url, body=None):
     left = BUDGET_S - (time.monotonic() - _T0)
     if left < 0.5:
         return None                                   # budget spent: say nothing, never stall
     t = min(TIMEOUT, left)
+    post = ["-X", "POST", "-H", "Content-Type: application/json", "-d", json.dumps(body)] if body else []
     try:
         r = subprocess.run(
-            ["curl", "-sSL", "--max-time", "%.1f" % t, "-H", "Accept: application/json", url],
+            ["curl", "-sSL", "--max-time", "%.1f" % t, "-H", "Accept: application/json"] + post + [url],
             capture_output=True, text=True, timeout=t + 1)
         if r.returncode != 0 or not r.stdout.strip():
             return None
@@ -78,32 +92,61 @@ def age_days(stamp):
         return None
 
 
-def check_npm(name):
+def malware(name, ecosystem):
+    """OSV malicious-package reports: [(id, affected versions)]. [] on any failure."""
+    r = get("https://api.osv.dev/v1/query", {"package": {"name": name, "ecosystem": ecosystem}})
+    out = []
+    for v in (r or {}).get("vulns") or []:
+        if str(v.get("id", "")).startswith("MAL-"):
+            out.append((v["id"], {x for a in v.get("affected") or [] for x in a.get("versions") or []}))
+    return out
+
+
+def mal_verdict(name, sep, ver, mal, credible):
+    """A report naming the version being installed blocks. A report on other versions
+    blocks only a package with no credibility of its own: chalk 5.6.1 was hijacked for
+    a day in 2025 and `npm i chalk` now gets a clean release, while a malware package
+    often republishes under a version the report never listed (dsh-notify-focus)."""
+    hit = [i for i, vs in mal if ver and ver in vs]
+    if hit:
+        return "MALWARE %s%s%s (%s)" % (name, sep, ver, ", ".join(hit))
+    if mal and not credible:
+        return "MALWARE %s (%s on other versions; this one is unvetted)" % (name, ", ".join(i for i, _ in mal))
+    return None
+
+
+def check_npm(name, pin=None):
     meta = get("https://registry.npmjs.org/%s" % name.replace("/", "%2f"))
     if meta is None:
         return None                                   # network trouble: say nothing
     if meta.get("error") or not meta.get("name"):
         return "%s does NOT EXIST on npm" % name
+    ver = pin or (meta.get("dist-tags") or {}).get("latest")
+    mal = malware(name, "npm")
     created = (meta.get("time") or {}).get("created")
     age = age_days(created) if created else None
     repo = (meta.get("repository") or {}).get("url") if isinstance(meta.get("repository"), dict) else meta.get("repository")
     dl = get("https://api.npmjs.org/downloads/point/last-week/%s" % name)
     weekly = (dl or {}).get("downloads")
-    return verdict(name, age, weekly, repo)
+    v = verdict(name, age, weekly, repo)
+    return mal_verdict(name, "@", ver, mal, v is None) or v
 
 
-def check_pypi(name):
+def check_pypi(name, pin=None):
     meta = get("https://pypi.org/pypi/%s/json" % name)
     if meta is None:
         return None
     info = meta.get("info")
     if not info:
         return "%s does NOT EXIST on PyPI" % name
+    ver = pin or info.get("version")
+    mal = malware(name, "PyPI")
     stamps = [r.get("upload_time_iso_8601") for v in (meta.get("releases") or {}).values()
               for r in (v or []) if r.get("upload_time_iso_8601")]
     age = age_days(min(stamps)) if stamps else None
     repo = info.get("project_urls", {}).get("Source") if info.get("project_urls") else info.get("home_page")
-    return verdict(name, age, None, repo)            # PyPI has no download API here
+    v = verdict(name, age, None, repo)            # PyPI has no download API here
+    return mal_verdict(name, "==", ver, mal, v is None) or v
 
 
 def verdict(name, age, weekly, repo):
@@ -134,15 +177,21 @@ def main():
         names, check = tokens(m.group(1)), check_pypi
     if not names:
         return                                        # bare `npm install` restores a manifest
-    found = []
+    pinned = pins(m.group(1))
+    found, bad = [], []
     for n in names:
         try:
-            v = check(n)
+            v = check(n, pinned.get(n))
         except Exception:
             v = None
-        if v:
+        if v and v.startswith("MALWARE "):
+            bad.append(v[len("MALWARE "):])
+        elif v:
             found.append(v)
-    if found:
+    # Line 1 "MALWARE: ..." is the guard's deny signal; anything else is an ask.
+    if bad:
+        print("MALWARE: " + "; ".join(bad))
+    elif found:
         print("; ".join(found))
 
 
