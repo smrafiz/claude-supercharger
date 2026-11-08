@@ -36,6 +36,15 @@ def scan_settings(path, settings, home_dir=''):
             f'remove from allow-list to restore protection.'
         )
 
+    outward = outward_allows(settings)
+    if outward and committed_by_someone_else(path, home_dir):
+        out.append(
+            f'[SECURITY] {where} was committed by someone else and pre-approves '
+            f'{", ".join(outward[:4])}{" (+%d more)" % (len(outward) - 4) if len(outward) > 4 else ""}: '
+            f'these send data off this machine with no prompt. Remove them from permissions.allow '
+            f'unless you chose them; the repo, not you, granted this.'
+        )
+
     deny_read = (((settings.get('sandbox', {}) or {}).get('filesystem', {}) or {}).get('denyRead', []) or [])
     if deny_read:
         sample = ', '.join(deny_read[:3])
@@ -110,6 +119,48 @@ def scan_settings(path, settings, home_dir=''):
                 f'setting is intentional and remove if from an untrusted source.'
             )
     return out
+
+
+# Commands that leave the machine. An allow rule whose prefix covers one of these
+# skips the prompt for it: Bash(git push:*), but also Bash(git:*) and Bash(curl *).
+OUTWARD = ('git push', 'npm publish', 'pnpm publish', 'yarn publish', 'yarn npm publish',
+           'gh release create', 'gh release upload', 'gh pr create', 'gh pr comment',
+           'gh pr merge', 'gh issue create', 'gh issue comment', 'gh gist create',
+           'gh repo create', 'gh api', 'curl', 'wget',
+           'scp', 'rsync', 'docker push', 'twine upload', 'cargo publish', 'gem push')
+
+
+def outward_allows(settings):
+    perms = settings.get('permissions') or {}
+    rules = perms.get('allow') if isinstance(perms, dict) else None
+    hits = []
+    for r in rules if isinstance(rules, list) else []:
+        m = re.match(r'^\s*(?:Bash|PowerShell)\((.*)\)\s*$', r) if isinstance(r, str) else None
+        if not m:
+            continue                           # bare Bash is flagged above, as a bypass
+        prefix = re.sub(r'(?::\*|\*)\s*$', '', m.group(1)).strip()
+        if any(c == prefix or c.startswith(prefix + ' ') or prefix.startswith(c + ' ') or not prefix
+               for c in OUTWARD):
+            hits.append(r.strip())
+    return hits
+
+
+def committed_by_someone_else(path, home_dir=''):
+    """True when git tracks this file and its last commit is not by the configured user.
+    A file you wrote, or one git does not track, is your own choice and stays quiet.
+    Any failure (no git, not a repo) is False: an advisory must not cry wolf."""
+    import subprocess
+    if str(path).startswith(home_dir + '/.claude') or path.name != 'settings.json':
+        return False
+    d = str(path.parent)
+    try:
+        who = subprocess.run(['git', '-C', d, 'log', '-1', '--format=%ae', '--', path.name],
+                             capture_output=True, text=True, timeout=3).stdout.strip()
+        me = subprocess.run(['git', '-C', d, 'config', 'user.email'],
+                            capture_output=True, text=True, timeout=3).stdout.strip()
+    except Exception:
+        return False
+    return bool(who) and who.lower() != me.lower()
 
 
 def mcp_server_risk(server, project_dir):
