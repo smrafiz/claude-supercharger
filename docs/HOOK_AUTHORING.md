@@ -1119,3 +1119,19 @@ catch `SystemExit`, and call the handler directly.
   over the Bash tool's 10-minute ceiling once install steps are added. A foreground run that times
   out keeps going, and `ps` from the tool did not show it: it was reported dead, then pushed
   `rel/X.Y.Z` 20 minutes later. Check `git ls-remote --heads origin rel/X.Y.Z` before restaging.
+
+## Notes from 2026-11-08
+
+- **A green PR is not a green Windows.** PR CI skips the Windows job, so #264 and #265 merged
+  green and turned master red: their new tests (a stubbed `curl`, a `git log` author check) pass on
+  macOS and Linux and fail on Git Bash. A change that stubs a binary or shells out to git from
+  Python gets `gh workflow run ci.yml --ref <branch>` before merge.
+- **Name the workflow in every `gh run list`.** Two workflows run on each master push, so
+  `runs[0]` is whichever finished last. release.sh read the Host contract run: stage ran its
+  55-minute local gate and promote reported Windows "missing" (#263).
+- **Match a malware report by package, not only by version.** OSV MAL- entries list affected
+  versions, but a squatted package's newest version is often unlisted (`dsh-notify-focus`,
+  `0.0.0-stage`). The deny also fires when other versions are listed and the package has no
+  credibility (#264).
+- **The `Disable:` line must stay in the first 40 lines** (`tests/test-hook-contracts.sh`).
+  Adding header text above it fails two contract tests.

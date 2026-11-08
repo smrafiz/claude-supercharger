@@ -4,25 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-08, session `1c2a497d`.*
+*Verified 2026-11-08, session `78fcacce`.*
 
-- **Released: v4.4.4** (2026-11-06), tag `65bd9927`. This machine (per-machine) runs 4.4.4.
-- **Master `9d8d2de5`, CI green, #250-#262 unreleased.** **4.4.5 STAGED** 2026-11-08 on
-  `rel/4.4.5` (`ec72f63a`), not promoted: no tag, Windows not dispatched; user resumes 2026-11-09.
-  Installed 4.4.4 still lets `terraform -chdir=prod destroy` through (fixed in #262).
-- **This round:** #259 masked dotenv reads, #260 password-reset note not exfil, #261 citation-gate
-  warns on an unseen commit hash, #262 global options before a subcommand (`sc_hoist_global_opts_into`).
-- **Guard FP audit** (docs/GUARD-FP-AUDIT.md, per-machine data): 58 blocks, 62% FP. Two fixes
-  shipped; the data-in-heredoc class (~18 of 36) is deferred, no cheap safe fix.
-- **Open PRs:** none.
-- **Next:** dispatch Windows on `rel/4.4.5`, user promotes; re-stage if master moved. Unswept CLIs
-  for global options: pulumi, flyctl, gh, eksctl.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`; push CI skips Windows, so dispatch
-  `gh workflow run ci.yml --ref rel/X.Y.Z`; user runs `promote X.Y.Z --yes` (`!` has no stdin).
+- **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
+- **Master `ee056e15` is RED on Windows only** (ci.yml 42467464473, 42471021887). #264 OSV malware
+  deny + #265 config-scan outward allows: their tests fail on Windows (5 + 3). Undiagnosed; full FAIL
+  lines in the `windows-suite-log` artifact. PR CI has no Windows, so "green" PRs merged red.
+- **4.4.6 (#264 + #265) HELD** until the user says to release; Windows must be green first.
+- **#263:** release.sh reads only `ci.yml` runs (was reading Host contract, so the gate ran 55 min).
+- **Open PRs:** none. Worktree `ci/test-pool` (per-machine) has uncommitted work, no PR.
+- **Next:** fix Windows on a branch, dispatch `gh workflow run ci.yml --ref <branch>`. Unswept
+  CLIs for global options: pulumi, flyctl, gh, eksctl. `test-audit-gaps-1026` flakes under load.
+- **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
+  when master CI is green on HEAD; promote needs Windows green on master's base commit.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Open:** replay handbacks after a week of subagent use on 4.4.4+; risk-review log ~2026-11-20;
   re-run the FP audit a month after 4.4.5; SpecLock (parked); `/sc-security` never run on a real
-  repo; economy re-measure. SubagentHandback is not offered offline, so CI cannot hold it.
+  repo; economy re-measure.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -56,6 +54,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-08 (deep) — 78fcacce
+Released v4.4.5 after #263 (release.sh gated on the wrong workflow). Merged #264 (OSV malware deny)
+and #265 (config-scan outward allows), release held. Both turned master Windows red: undiagnosed.
+Detail: `.claude/handoff-78fcacce-5d1c-41b5-940b-c12ac8d016cb.md`
+
 #### 2026-11-05 → 11-08 (deep) — 1c2a497d
 Released v4.4.4 (#239-#249). Merged #250-#262: update check, commit-check `-F`, batch-editor, risk
 review, host-contract suite, handback/pipe/dotenv/password-reset FP fixes, commit-hash citation warning,
@@ -78,10 +81,3 @@ Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
 Merged #230, #232-#238: autopilot `full`, plain block reasons, grep -e FP, manifest generator,
 lock-aware sed -i / perl -pi. Releasing 4.4.3 on the user's word.
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-#### 2026-11-03 (deep) — 111c7837
-Merged #227 (Windows failure was the test: MSYS cwd in JSON). Fixed #232 manifest (+1 hash; generator
-would have dropped 26 — KNOWN-ISSUES #8) and #230 install count 175. #230 Windows hit a suspected
-failure in test-stdin-timeout D, twice: not a flake, a 1s read timeout. Fixed on master `b4fe7193`,
-merged into #230 (`bb1c54b4`), Windows 41501558568 + merge chain left running.
-Detail: `.claude/handoff-111c7837-ccb3-4199-a4d8-57243e3a9fdd.md`
