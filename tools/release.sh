@@ -377,7 +377,7 @@ master_ci_green_sha() {
   local sha run_id
   sha=$(git -C "$REPO_DIR" rev-parse HEAD 2>/dev/null) || return 0
   [ "$sha" = "$(git -C "$REPO_DIR" rev-parse origin/master 2>/dev/null)" ] || return 0
-  run_id=$(gh run list --branch master --commit "$sha" --limit 5 \
+  run_id=$(gh run list --workflow ci.yml --branch master --commit "$sha" --limit 5 \
     --json headSha,status,conclusion,databaseId 2>/dev/null | python3 -c "
 import sys, json
 runs = [r for r in json.load(sys.stdin) if r.get('headSha') == sys.argv[1]
@@ -504,7 +504,7 @@ cmd_stage() {
   # No match yet is the normal case; fall back to the branch message.
   local CI_URL=""
   if command -v gh >/dev/null 2>&1 && gh auth status >/dev/null 2>&1; then
-    CI_URL=$(gh run list --branch "$REL_BRANCH" --limit 10 --json headSha,url \
+    CI_URL=$(gh run list --workflow ci.yml --branch "$REL_BRANCH" --limit 10 --json headSha,url \
       2>/dev/null | python3 -c "
 import sys, json
 runs = json.load(sys.stdin)
@@ -558,7 +558,7 @@ cmd_promote() {
 
   # Find the run whose headSha matches the branch tip.
   local RUN_JSON
-  RUN_JSON=$(gh run list --branch "$REL_BRANCH" --limit 10 \
+  RUN_JSON=$(gh run list --workflow ci.yml --branch "$REL_BRANCH" --limit 10 \
     --json headSha,status,conclusion,databaseId,url 2>/dev/null || echo "[]")
 
   # Extract fields for the matching run. Python handles both compact and pretty JSON.
@@ -634,7 +634,7 @@ print('\n'.join(failed))
   # plus the version bump, and stage only cuts from master.
   local BASE_SHA MASTER_JSON WIN_RUN WIN_STATE
   BASE_SHA=$(git -C "$REPO_DIR" rev-parse "origin/${REL_BRANCH}^")
-  MASTER_JSON=$(gh run list --branch master --limit 30 \
+  MASTER_JSON=$(gh run list --workflow ci.yml --branch master --limit 30 \
     --json headSha,status,databaseId 2>/dev/null || echo "[]")
   WIN_RUN=$(printf '%s' "$MASTER_JSON" | python3 -c "
 import sys, json
