@@ -18,7 +18,7 @@ mk() {
   fi
   printf '%s' "$h"
 }
-run() { printf '{"cwd":"%s/proj"}' "$1" | HOME="$1" SUPERCHARGER_STATE="$1/st" bash "$SCAN" 2>/dev/null; }
+run() { printf '{"cwd":"%s"}' "$(native_path "$1/proj")" | HOME="$1" SUPERCHARGER_STATE="$1/st" bash "$SCAN" 2>/dev/null; }
 
 while IFS='|' read -r ALLOW WHO WANT DESC; do
   [ -z "$ALLOW" ] && continue

@@ -160,22 +160,25 @@ echo "=== known malware (OSV MAL-), offline: curl is a stub ==="
 # The stub registry: "goodpkg" is old and popular, "newpkg" is 3 days old with 4
 # downloads. OSV reports MAL-TEST-1 on version 2.0.1 of both.
 _mal() {
-  local d; d=$(mktemp -d)
-  cat > "$d/curl" <<'STUB'
-#!/bin/sh
-for a in "$@"; do u="$a"; done
-case "$u" in
-  *api.osv.dev*) printf '{"vulns":[{"id":"MAL-TEST-1","affected":[{"versions":["2.0.1"]}]},{"id":"GHSA-x","affected":[]}]}' ;;
-  *downloads*goodpkg) printf '{"downloads":500000}' ;;
-  *downloads*) printf '{"downloads":4}' ;;
-  *registry.npmjs.org/goodpkg) printf '{"name":"goodpkg","dist-tags":{"latest":"2.0.2"},"time":{"created":"2015-01-01T00:00:00Z"},"repository":{"url":"git+https://x/y"}}' ;;
-  *registry.npmjs.org/newpkg) printf '{"name":"newpkg","dist-tags":{"latest":"0.0.0-stage"},"time":{"created":"%s"}}' "$(date -u +%Y-%m-%dT00:00:00Z)" ;;
-  *registry.npmjs.org/*) printf '{"error":"Not found"}' ;;
-esac
-STUB
-  chmod +x "$d/curl"
-  CMD="$1" PATH="$d:$PATH" python3 "$PY" 2>/dev/null
-  rm -rf "$d"
+  # Stub get() in-process: a PATH curl stub never runs on Windows, where
+  # CreateProcess finds System32\curl.exe first (and cannot exec a #!/bin/sh file).
+  CMD="$1" PY="$PY" python3 -c '
+import importlib.util, json, os, sys, time
+spec = importlib.util.spec_from_file_location("pc", os.environ["PY"])
+pc = importlib.util.module_from_spec(spec); spec.loader.exec_module(pc)
+def get(u, body=None):
+    if "api.osv.dev" in u:
+        return {"vulns": [{"id": "MAL-TEST-1", "affected": [{"versions": ["2.0.1"]}]}, {"id": "GHSA-x", "affected": []}]}
+    if "downloads" in u:
+        return {"downloads": 500000 if u.endswith("goodpkg") else 4}
+    if u.endswith("registry.npmjs.org/goodpkg"):
+        return {"name": "goodpkg", "dist-tags": {"latest": "2.0.2"}, "time": {"created": "2015-01-01T00:00:00Z"}, "repository": {"url": "git+https://x/y"}}
+    if u.endswith("registry.npmjs.org/newpkg"):
+        return {"name": "newpkg", "dist-tags": {"latest": "0.0.0-stage"}, "time": {"created": time.strftime("%Y-%m-%dT00:00:00Z", time.gmtime())}}
+    return {"error": "Not found"}
+pc.get = get
+pc.main()
+' 2>/dev/null
 }
 
 while IFS='|' read -r CMD WANT; do
