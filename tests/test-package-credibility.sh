@@ -154,4 +154,63 @@ begin_test "credibility: the python companion ships beside the shell hook"
 # guard calling a file that is not there — the phantom-deny failure mode.
 [ -f "$PY" ] && [ -x "$PY" ] && pass || fail "package-credibility.py missing or not executable"
 
+echo "=== known malware (OSV MAL-), offline: curl is a stub ==="
+
+# _mal <command> -> the companion's output, with curl answering from canned JSON.
+# The stub registry: "goodpkg" is old and popular, "newpkg" is 3 days old with 4
+# downloads. OSV reports MAL-TEST-1 on version 2.0.1 of both.
+_mal() {
+  local d; d=$(mktemp -d)
+  cat > "$d/curl" <<'STUB'
+#!/bin/sh
+for a in "$@"; do u="$a"; done
+case "$u" in
+  *api.osv.dev*) printf '{"vulns":[{"id":"MAL-TEST-1","affected":[{"versions":["2.0.1"]}]},{"id":"GHSA-x","affected":[]}]}' ;;
+  *downloads*goodpkg) printf '{"downloads":500000}' ;;
+  *downloads*) printf '{"downloads":4}' ;;
+  *registry.npmjs.org/goodpkg) printf '{"name":"goodpkg","dist-tags":{"latest":"2.0.2"},"time":{"created":"2015-01-01T00:00:00Z"},"repository":{"url":"git+https://x/y"}}' ;;
+  *registry.npmjs.org/newpkg) printf '{"name":"newpkg","dist-tags":{"latest":"0.0.0-stage"},"time":{"created":"%s"}}' "$(date -u +%Y-%m-%dT00:00:00Z)" ;;
+  *registry.npmjs.org/*) printf '{"error":"Not found"}' ;;
+esac
+STUB
+  chmod +x "$d/curl"
+  CMD="$1" PATH="$d:$PATH" python3 "$PY" 2>/dev/null
+  rm -rf "$d"
+}
+
+while IFS='|' read -r CMD WANT; do
+  [ -z "$CMD" ] && continue
+  begin_test "malware: ${CMD} -> ${WANT:-silent}"
+  GOT=$(_mal "$CMD")
+  case "$WANT" in
+    '') [ -z "$GOT" ] && pass || fail "expected silence, got [$GOT]" ;;
+    *) case "$GOT" in $WANT) pass ;; *) fail "got [$GOT], wanted $WANT" ;; esac ;;
+  esac
+done <<'CASES'
+npm i goodpkg|
+npm i goodpkg@2.0.2|
+npm i goodpkg@2.0.1|MALWARE: goodpkg@2.0.1 (MAL-TEST-1)
+npm i newpkg|MALWARE: newpkg (MAL-TEST-1 on other versions*
+npm i express goodpkg@2.0.1|MALWARE: goodpkg@2.0.1*
+CASES
+
+begin_test "malware: pins() takes exact versions only, not ranges or tags"
+GOT=$(REPO="$REPO_DIR" python3 -c "
+import importlib.util, os
+spec = importlib.util.spec_from_file_location('pc', os.environ['REPO'] + '/hooks/package-credibility.py')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+print(sorted(m.pins('a@1.2.3 @s/b@v2.0.0 c@^1.0 d@latest e==3.1 f>=2').items()))
+" 2>/dev/null)
+[ "$GOT" = "[('@s/b', '2.0.0'), ('a', '1.2.3'), ('e', '3.1')]" ] && pass || fail "got $GOT"
+
+begin_test "malware: a MALWARE report DENIES (exit 2), not asks"
+# An ask is auto-approved under /sc-autopilot full; the install script is the payload.
+SB=$(mktemp -d)
+cp "$REPO_DIR"/hooks/package-credibility-guard.sh "$REPO_DIR"/hooks/lib-*.sh "$SB/"
+printf '#!/usr/bin/env python3\nprint("MALWARE: evilpkg@1.0.0 (MAL-TEST-1)")\n' > "$SB/package-credibility.py"
+OUT=$(printf '{"cwd":"/tmp","tool_name":"Bash","hook_event_name":"PreToolUse","tool_input":{"command":"npm install evilpkg@1.0.0"}}' \
+  | HOME="$SB" SUPERCHARGER_STATE="$SB" bash "$SB/package-credibility-guard.sh" 2>/dev/null); RC=$?
+case "$OUT" in *'"permissionDecision":"deny"'*'evilpkg@1.0.0 (MAL-TEST-1)'*) [ "$RC" = 2 ] && pass || fail "deny JSON but rc=$RC" ;; *) fail "no deny: $OUT" ;; esac
+rm -rf "$SB"
+
 report

@@ -36,6 +36,10 @@
 # unparseable response. A supply-chain check that blocks work when the registry
 # is down teaches people to switch it off.
 #
+# Known malware (an OSV MAL- report on the version being installed, or on any version
+# of a package with no credibility of its own) DENIES instead: that is a published
+# fact, not a threshold, and an ask is auto-approved under /sc-autopilot full.
+#
 # Disable: SUPERCHARGER_PACKAGE_CREDIBILITY=0
 set -uo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -83,5 +87,13 @@ REPORT=$(CMD="$COMMAND" \
 
 . "$HOOKS_DIR/lib-deny.sh" 2>/dev/null || exit 0
 CMD="$COMMAND"
+# A published malware report (OSV MAL-) is not a judgement call, so it denies:
+# an ask is auto-approved under /sc-autopilot full, and the payload runs at install.
+case "$REPORT" in
+  MALWARE:*)
+    sc_deny "package-credibility: ${REPORT#MALWARE: }. OSV lists this package as malicious; its install script would run now." \
+      "use a different package, or pin a version the report does not list if the package itself is sound."
+    ;;
+esac
 sc_decision ask "package-credibility: ${REPORT}. A package that is very new or barely downloaded may be a slopsquat: a name an LLM invented that someone registered, with its attack in an install script that runs now." "check the repository link and publish date; if it is right, approve, or install with --ignore-scripts first."
 exit 0
