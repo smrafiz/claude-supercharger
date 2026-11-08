@@ -428,4 +428,45 @@ printf '%s' "$OUT" | grep -q 'Fix failing tests' && pass \
   || fail "override ignored: $(printf '%s' "$OUT" | tail -4)"
 rm -rf "$FIX" "$MOCK"
 
+# ── a second workflow on the same commit must not stand in for CI ──
+# The Host contract workflow also runs on master pushes, has no Windows job, and
+# GitHub lists it first: stage then ran the 55-minute gate and promote reported
+# Windows "missing" (4.4.5). Unfiltered lists return it first; ci.yml lists don't.
+# make_two_workflow_mock <dir> <ci_sha> <base_sha>
+make_two_workflow_mock() {
+  mkdir -p "$1"
+  cat > "$1/gh" << MOCKEOF
+#!/bin/sh
+case "\$*" in
+  *"auth status"*) exit 0 ;;
+  *"run list"*"--workflow ci.yml"*)
+    printf '[{"headSha":"%s","status":"completed","conclusion":"success","databaseId":99999,"url":"u"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":88888,"url":"u"}]\n' "$2" "$3" ;;
+  *"run list"*)
+    printf '[{"headSha":"%s","status":"completed","conclusion":"success","databaseId":66666,"url":"u"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":66666,"url":"u"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":99999,"url":"u"},{"headSha":"%s","status":"completed","conclusion":"success","databaseId":88888,"url":"u"}]\n' "$2" "$3" "$2" "$3" ;;
+  *"run view 66666"*) printf '{"jobs":[{"name":"Host contract (claude 2.1.319)","conclusion":"success"}]}\n' ;;
+  *"run view 88888"*) printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"success"},{"name":"Windows (Git Bash)","conclusion":"success"}]}\n' ;;
+  *"run view"*) printf '{"jobs":[{"name":"Test suite (ubuntu-latest)","conclusion":"success"},{"name":"Windows (Git Bash)","conclusion":"skipped"}]}\n' ;;
+esac
+exit 0
+MOCKEOF
+  chmod +x "$1/gh"
+}
+
+begin_test "stage: a Host contract run listed first does not stop the gate skip"
+FIX=$(make_fixture "$FAILING_TEST"); MOCK=$(mktemp -d)
+H=$(git -C "$FIX" rev-parse HEAD)
+make_two_workflow_mock "$MOCK" deadbeef "$H"
+OUT=$(printf 'y\ny\n' | PATH="$MOCK:$PATH" bash "$FIX/tools/release.sh" stage patch -m "test" 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'local smoke gate skipped' && pass \
+  || fail "gate not skipped: $(printf '%s' "$OUT" | tail -4)"
+rm -rf "$FIX" "$MOCK"
+
+begin_test "promote: a Host contract run listed first does not hide master's Windows run"
+FIX=$(make_promote_fixture); MOCK=$(mktemp -d)
+make_two_workflow_mock "$MOCK" "$(git -C "$FIX" rev-parse origin/rel/1.2.4)" "$(git -C "$FIX" rev-parse 'origin/rel/1.2.4^')"
+OUT=$(PATH="$MOCK:$PATH" bash "$FIX/tools/release.sh" promote 1.2.4 --yes 2>&1 || true)
+printf '%s' "$OUT" | grep -q 'Windows (Git Bash) green on master' && pass \
+  || fail "Windows gate misread: $(printf '%s' "$OUT" | grep -i windows | head -3)"
+rm -rf "$FIX" "$MOCK"
+
 report
