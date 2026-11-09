@@ -845,8 +845,12 @@ _ENV_SELF_CONTAINED = [
 # `<(`), and only a replacement with no `&` or backslash (`&` would put the match back).
 # ponytail: a dotenv line with no `=` (a multi-line quoted value) passes the mask
 # unchanged; only grep is exempt, not cat, so such a line must also match grep's pattern.
+# 2026-11-09: a lone quote may match only when no closing quote follows on the line.
+# Before, a quote could start a quoted string OR stand alone, so each quoted word
+# doubled the paths: 20 of them after a grep took ~90s inside C, where the 0.5s
+# watchdog cannot run, and the hook hung (the command ran unguarded).
 _MASKED_GREP_RE = re.compile(
-    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
+    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|"(?![^"\n]*")|'(?![^'\n]*'))*)"""
     r"""\|(?![|&])[ \t]*sed[ \t]+(?:-[Ere][ \t]+)*"""
     r"""(?:'s(?P<d>[/|#,])=\.\*(?P=d)[^&\\'\n]*?(?P=d)g?'|"s(?P<e>[/|#,])=\.\*(?P=e)[^&\\"$`\n]*?(?P=e)g?")"""
     r"""(?=[ \t]*(?:$|[|;&\n)]))""")
