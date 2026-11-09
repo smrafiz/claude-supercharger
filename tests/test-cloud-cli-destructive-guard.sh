@@ -33,6 +33,11 @@ check "gsutil-recursive-rm"   "gsutil rm -r gs://b/p"                           
 check "gcloud-instance-delete" "gcloud compute instances delete web-1"                ASK
 check "gcloud-projects-delete" "gcloud projects delete my-proj"                       ASK
 check "flyctl-destroy"        "flyctl destroy myapp"                                  ASK
+# 2026-11-09: eksctl passed the fast-path but no arm matched it.
+check "eksctl-delete-cluster" "eksctl delete cluster --name prod"                     ASK
+check "eksctl-delete-ng-opt"  "eksctl -C false delete nodegroup --cluster prod ng-1"  ASK
+check "eksctl-get-cluster"    "eksctl get cluster"                                    SILENT
+check "eksctl-create-cluster" "eksctl create cluster --name dev"                      SILENT
 
 # --- should PASS (read / list / describe / unrelated) ---
 # v4.1.13: hosted-database CLIs. `fly` was already in the destroy arm but NOT in
