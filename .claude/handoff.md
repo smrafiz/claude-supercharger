@@ -7,10 +7,14 @@ session on any machine.**
 *Verified 2026-11-09, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `7a9f0dc9` is green** on all 12 ci.yml jobs, Windows included (Windows fixed by #266).
-- **4.4.6 HELD** (user, 2026-11-09): #264–#271 merged and unreleased. Release only on their word.
-- **#271:** statusline measures context against `modelSettings.<model>.autoCompactWindow` when set
-  (a 1M session compacted at 348K with the bar at 35%; now reads 86% of 400K).
+- **Master `21a43b4b` is green** on all 12 ci.yml jobs (red twice before #273: a nested run.sh
+  swept live test homes).
+- **4.4.6 HELD** (user, 2026-11-09): #264–#273 merged and unreleased. Release only on their word.
+- **Open PRs, CI dispatched, not merged:** #274 (masked-grep ReDoS hung safety.sh = fail open) and
+  #275 (`.claude` directory guard, from the applygate delta; worktree `cdir`, per-machine).
+  Merge each when its ci.yml run is green on all 12 jobs.
+- **Next:** applygate leftovers: kubectl `--server/--kubeconfig/--as`, gcloud `--flags-file`,
+  `*.tfstate` write target. Details in the session brief.
 - **#267–#270:** pulumi/gh global options hoisted; pool test runner (Windows shards ≤16m);
   eksctl delete asks; detector budget pinned in tests/helpers.sh (load flakes).
 - **Open PRs:** none. No extra worktrees (per-machine). Stash `3d45886a` (per-machine) = stale
@@ -55,10 +59,10 @@ session on any machine.**
 
 ## Log
 
-#### 2026-11-09 — 104cfc73
-Windows was already green (#266). Merged #267 (pulumi/gh global opts), #268 (pool test runner,
-Windows shards 23m → 16m max), #269 (eksctl delete asks), #270 (detector budget pinned in helpers:
-181 load-flake cases at 1ms → 0). 4.4.6 held again.
+#### 2026-11-09 (deep) — 104cfc73
+Merged #267-#273: pulumi/gh global opts, pool runner, eksctl ask, detector budget pin, statusline
+autoCompactWindow, nested-run home sweep (master red → green). Open: #274 ReDoS guard hang, #275
+.claude dir guard. 4.4.6 held.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 
 #### 2026-11-08 (deep) — 78fcacce

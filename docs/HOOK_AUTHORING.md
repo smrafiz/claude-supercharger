@@ -1154,3 +1154,22 @@ catch `SystemExit`, and call the handler directly.
   credibility (#264).
 - **The `Disable:` line must stay in the first 40 lines** (`tests/test-hook-contracts.sh`).
   Adding header text above it fails two contract tests.
+
+## Notes from 2026-11-09
+
+- **A regex that backtracks beats the watchdog.** safety-detect.py's 0.5s timer is a Python
+  thread, and `re` holds the GIL in C. `_MASKED_GREP_RE` let a quote start a quoted string or
+  stand alone, so each quoted word after `grep` doubled the paths (~90s at 20 words) and the
+  hook hung, which runs the command unguarded (#274). Alternatives inside `(...)*` must be
+  exclusive; try a new pattern on 2000 repeated quoted words.
+- **Replay real commands before shipping a guard rule.** Running 1929 transcript commands that
+  name `.claude` through the old and new safety.sh found 4 false denies (a handoff.md copied
+  into `.claude/`) and the regex hang above (#275, #274).
+- **Guard a directory, not only the files in it.** selfmod matched settings file names, so
+  `mv ~/.claude x` (every guard off) and planting into `.claude/` were allowed (#275).
+- **A cleanup glob over a shared temp dir is a race.** run.sh's exit sweep ran inside fixture
+  runs of run.sh and deleted live test homes; scope cleanup to the run that made it (#273).
+- **When a flake will not reproduce, ship the diagnostic first.** Dumping the dedup file on
+  failure named the cause on its first CI hit (#272).
+- **Pin the detector budget in tests.** A DENY that becomes ASK only under load is the overrun
+  fallback; helpers.sh sets 10s (#270). Sweep: set the default to 1ms and run the suite.
