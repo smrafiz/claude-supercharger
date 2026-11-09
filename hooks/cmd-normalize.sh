@@ -812,11 +812,12 @@ sc_hoist_global_opts_into() {
   _SC_GO="$1"
   case "$1" in
     *terraform[[:space:]]-*|*tofu[[:space:]]-*|*terragrunt[[:space:]]-*|*kubectl[[:space:]]-*|*helm[[:space:]]-*|\
-    *az[[:space:]]-*|*docker[[:space:]]-*|*npm[[:space:]]-*|*pnpm[[:space:]]-*|*yarn[[:space:]]-*|*aws[[:space:]]-*|*gcloud[[:space:]]-*) : ;;
+    *az[[:space:]]-*|*docker[[:space:]]-*|*npm[[:space:]]-*|*pnpm[[:space:]]-*|*yarn[[:space:]]-*|*aws[[:space:]]-*|*gcloud[[:space:]]-*|\
+    *pulumi[[:space:]]-*|*gh[[:space:]]-*) : ;;
     *) return 0 ;;
   esac
   local scan="$1" out="$1" tool rest used tok vals _i
-  local rx='(^|[[:space:];&|(`])(terraform|tofu|terragrunt|kubectl|helm|az|docker|npm|pnpm|yarn|aws|gcloud)([[:space:]]+-.*)$'
+  local rx='(^|[[:space:];&|(`])(terraform|tofu|terragrunt|kubectl|helm|az|docker|npm|pnpm|yarn|aws|gcloud|pulumi|gh)([[:space:]]+-.*)$'
   for _i in 1 2 3 4; do
     [[ "$scan" =~ $rx ]] || break
     tool="${BASH_REMATCH[2]}"; rest="${BASH_REMATCH[3]}"; used=""
@@ -830,6 +831,8 @@ sc_hoist_global_opts_into() {
       az) vals=" --subscription --output -o --query " ;;
       docker) vals=" --context -c -H --host --config -l --log-level --tlscacert --tlscert --tlskey " ;;
       npm|pnpm|yarn) vals=" --prefix -C --dir --cwd --workspace -w --filter " ;;
+      pulumi) vals=" -C --cwd --color -v --verbose --profiling --tracing " ;;
+      gh) vals=" -R --repo " ;; # cobra: `gh -R o/r release delete` runs (verified 2026-11-09)
     esac
     while :; do
       tok="${rest#"${rest%%[![:space:]]*}"}"; used+="${rest%"$tok"}"; rest="$tok"

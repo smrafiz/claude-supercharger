@@ -15,7 +15,9 @@ print(json.dumps({"tool_name": os.environ["TOOL"], "cwd": os.environ["CWD"], "se
 }
 _verdict() {  # hook -> DENY | ASK | ALLOW
   local out rc
-  out=$(SUPERCHARGER_STATE="$T/state" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/$1" < "$T/p.json" 2>/dev/null); rc=$?
+  # A generous detector budget: under suite load the 0.5s default overran and the
+  # paste-site rule fell back to its ASK (test-detect-overrun.sh tests that fallback).
+  out=$(SUPERCHARGER_STATE="$T/state" SUPERCHARGER_NO_DEDUP=1 SUPERCHARGER_DETECT_BUDGET_S=10 bash "$REPO_DIR/hooks/$1" < "$T/p.json" 2>/dev/null); rc=$?
   case "$rc:$out" in 2:*|*'"permissionDecision":"deny"'*) echo DENY ;; *'"permissionDecision":"ask"'*) echo ASK ;; *) echo ALLOW ;; esac
 }
 _bash() {  # name, command, want
