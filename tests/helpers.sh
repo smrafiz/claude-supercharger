@@ -39,6 +39,11 @@ unset _sc_v
 # fired REAL desktop popups ("Blocked credential request ... from evil"). Default
 # it here; the notify tests that need the real send path unset it themselves.
 export SUPERCHARGER_NO_NOTIFY="${SUPERCHARGER_NO_NOTIFY:-1}"
+# 2026-11-09: a generous deep-detector budget. Under suite load the 0.5s default
+# overran and detector-only rules fell back to their ASK/allow, failing tests at
+# random (a 1ms default broke 181 cases in 23 files). Tests of the overrun path
+# set their own budget inline (test-detect-overrun.sh).
+export SUPERCHARGER_DETECT_BUDGET_S=10
 # 4.3.0: install.sh compiles the macOS notifier app (seconds per install). Tests
 # install many times; only test-notifier.sh builds it, by unsetting this.
 export SUPERCHARGER_NO_NOTIFIER=1
