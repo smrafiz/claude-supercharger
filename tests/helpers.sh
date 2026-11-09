@@ -85,7 +85,8 @@ export PYTHONDONTWRITEBYTECODE=1
 # Tests that set their own HOME afterwards are unaffected: state follows whatever
 # HOME is current when the hook runs.
 if [ -z "${SUPERCHARGER_TEST_HOME:-}" ]; then
-  SUPERCHARGER_TEST_HOME="${TMPDIR:-/tmp}/sc-test-home-$$"
+  # The run id lets tests/run.sh sweep only its own homes (see SC_SUITE_RUN there).
+  SUPERCHARGER_TEST_HOME="${TMPDIR:-/tmp}/sc-test-home-${SC_SUITE_RUN:+$SC_SUITE_RUN-}$$"
   mkdir -p "$SUPERCHARGER_TEST_HOME/.claude/supercharger/scope" \
            "$SUPERCHARGER_TEST_HOME/.claude/supercharger/audit" 2>/dev/null || true
   # Canonicalise, for the reason run_one documents: on macOS TMPDIR lives under

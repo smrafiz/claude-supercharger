@@ -78,8 +78,19 @@ rm -rf "$TD"
 
 # --- run.sh must clean up ----------------------------------------------------
 begin_test "run.sh sweeps the isolated home dirs"
-grep -q 'sc-test-home-\*' "$REPO_DIR/tests/run.sh" && pass \
-  || fail "run.sh does not sweep leftovers — they accumulate in TMPDIR"
+grep -q 'sc-test-home-"$SC_SUITE_RUN"-\*' "$REPO_DIR/tests/run.sh" && pass \
+  || fail "run.sh does not sweep its own leftovers — they accumulate in TMPDIR"
+
+# A nested run.sh (test-run-shard runs a fixture copy) must not sweep the homes
+# of test files it did not start: that wiped a live test home mid-test (2026-11-09).
+begin_test "a nested run.sh leaves other runs' test homes alone"
+_NT=$(mktemp -d); mkdir -p "$_NT/tests"
+cp "$REPO_DIR/tests/run.sh" "$REPO_DIR/tests/helpers.sh" "$_NT/tests/"
+printf '#!/usr/bin/env bash\nsource "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"\nbegin_test t\npass\nreport\n' > "$_NT/tests/test-a.sh"
+_LIVE="${TMPDIR:-/tmp}/sc-test-home-${SC_SUITE_RUN:-x}-live$$"; mkdir -p "$_LIVE"
+SC_SUITE_RUN= bash "$_NT/tests/run.sh" >/dev/null 2>&1
+[ -d "$_LIVE" ] && pass || fail "the nested run.sh deleted another run's test home"
+rm -rf "$_NT" "$_LIVE"
 
 # --- configuration isolation (v2.26.46) --------------------------------------
 # SUPERCHARGER_* vars are the documented way to disable a guard. Setting one in
