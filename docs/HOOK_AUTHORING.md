@@ -1066,6 +1066,25 @@ catch `SystemExit`, and call the handler directly.
   detector, so it fell open when the detector ran out of time under load (#243). Before calling a
   load-only failure a flake, run the guard with `SUPERCHARGER_DETECT_BUDGET_S` near zero.
 
+## Notes from 2026-11-05
+
+- **Parse a command whole before cutting it into lines.** commit-guard split the command into
+  line segments, so a multi-line `-m "…"` message was cut and the check saw an empty message and
+  skipped (#247). Read the whole command from its `git commit` onward, then take the message.
+- **Under `set -euo pipefail`, a substitution that can match nothing kills the hook.** In a
+  decision path that means allow: lib-blast ran `git ls-files` on a path outside the repo (exit
+  128) inside `sc_decision`, and the ask never printed (#247). Write `x=$(pipeline) || true` and
+  use `${x:-0}`. Test an ask by its printed text, not by "not denied".
+- **A path walk must stop where `dirname` stops changing.** `os.path.dirname('D:\\')` is `D:\\`,
+  so a `while p != '/'` loop hung every Windows shard for 99 minutes (#247).
+- **A check that is off on one platform needs its tests skipped there, with the reason printed.**
+  Otherwise the Windows gate fails on tests that cannot pass by design.
+- **Do not change a script while bash is running it.** bash reads a script as it executes, so
+  pulling a new `tests/run.sh` under a running suite voided that run.
+- **Measure before you split work.** Round robin by file index put the two slowest test files in
+  one shard (55 minutes against 8 to 20). Dealing the measured slowest files out first brought
+  the Windows shards to 17 to 24 minutes (#248).
+
 ## Notes from 2026-11-06
 
 - **A message can come from a file.** commit-check read only `-m` and heredocs, so `git commit -F
