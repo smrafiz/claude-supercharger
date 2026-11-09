@@ -25,6 +25,10 @@ REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # shellcheck source=tests/helpers.sh
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
+# A generous detector budget: under suite load the 0.5s default overran and a
+# credential read fell back to its ASK (test-detect-overrun.sh tests that fallback).
+export SUPERCHARGER_DETECT_BUDGET_S=10
+
 SAFETY="$REPO_DIR/hooks/safety.sh"
 ENVGUARD="$REPO_DIR/hooks/env-file-guard.sh"
 
