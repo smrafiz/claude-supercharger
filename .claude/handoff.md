@@ -7,8 +7,10 @@ session on any machine.**
 *Verified 2026-11-09, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `86af5b2e` is green** on all 12 ci.yml jobs, Windows included (Windows fixed by #266).
-- **4.4.6 HELD** (user, 2026-11-09): #264–#270 merged and unreleased. Release only on their word.
+- **Master `7a9f0dc9` is green** on all 12 ci.yml jobs, Windows included (Windows fixed by #266).
+- **4.4.6 HELD** (user, 2026-11-09): #264–#271 merged and unreleased. Release only on their word.
+- **#271:** statusline measures context against `modelSettings.<model>.autoCompactWindow` when set
+  (a 1M session compacted at 348K with the bar at 35%; now reads 86% of 400K).
 - **#267–#270:** pulumi/gh global options hoisted; pool test runner (Windows shards ≤16m);
   eksctl delete asks; detector budget pinned in tests/helpers.sh (load flakes).
 - **Open PRs:** none. No extra worktrees (per-machine). Stash `3d45886a` (per-machine) = stale
