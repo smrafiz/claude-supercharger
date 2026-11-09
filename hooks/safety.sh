@@ -1720,6 +1720,44 @@ if _cat_enabled "selfmod" && _selfmod_scan \
   block "self-modification — agent should not directly edit its own guardrail config files"
 fi
 
+# 2026-11-09 (applygate delta): the arms above match config FILE names, so the
+# .claude DIRECTORY itself was open. `mv ~/.claude x` moved the install and every
+# guard failed open; `cp x .claude/`, `tar -C .claude`, `cp -r ../o/.claude .` can
+# plant a settings.json that runs code next session. A path counts when its LAST
+# component is .claude. Copying OUT of it (a backup) and moves inside it
+# (`mv .claude/a.md .claude/b.md`) stay allowed: only the directory itself is the target.
+_CD_P="[\"']?([^[:space:];&|\"']*/)?\.claude/?[\"']?"
+_CD_E="([[:space:];&|)]|$)"
+# mv with the directory as any operand: moving it away, or moving onto it.
+_CDIR_MV="(^|[[:space:];&|])mv[[:space:]]([^;&|]*[[:space:]])?${_CD_P}${_CD_E}"
+# the directory as the destination: last operand, or -t / --target-directory.
+_CDIR_DEST="(^|[[:space:];&|])(cp|rsync|ln|install)[[:space:]][^;&|]*[[:space:]]${_CD_P}[[:space:]]*([;&|)]|$)"
+_CDIR_T="(^|[[:space:];&|])(cp|ln|install)[[:space:]]([^;&|]*[[:space:]])?(-t[[:space:]]*|--target-directory[[:space:]=]+)${_CD_P}${_CD_E}[^;&|]*"
+# a .claude directory copied INTO the working or home directory replaces that one.
+_CDIR_PLANT="(^|[[:space:];&|])(cp|rsync)[[:space:]][^;&|]*[[:space:]]${_CD_P}[[:space:]]+[\"']?(\.|\./|~|~/|\\\$HOME/?|\\\$\{HOME\}/?)[\"']?[[:space:]]*([;&|)]|$)"
+# extraction into it.
+_CDIR_X="(^|[[:space:];&|])(tar|gtar|bsdtar|unzip)[[:space:]][^;&|]*[[:space:]](-C|--directory|-d)[[:space:]=]*${_CD_P}${_CD_E}"
+# find .claude ... -delete, and restoring it from another ref.
+_CDIR_FIND="(^|[[:space:];&|])find[[:space:]]+${_CD_P}[[:space:]][^;&|]*-delete"
+_CDIR_GIT="(^|[[:space:];&|])git[[:space:]]([^;&|]*[[:space:]])?checkout[[:space:]][^;&|]*[[:space:]]--[[:space:]]+([^;&|]*[[:space:]])?${_CD_P}${_CD_E}"
+# A copy INTO .claude plants only when it brings a directory or a config file: a
+# replay of 1929 real commands found 4 new denies, all a handoff.md copied into
+# .claude/. rsync and ln always count (a tree, or a link that replaces it).
+_CDIR_RISKY="(^|[[:space:];&|])(rsync|ln)[[:space:]]|[[:space:]](-[a-zA-Z]*[rRa][a-zA-Z]*|--recursive|--archive)([[:space:]]|$)|(settings(\.local)?\.json|CLAUDE\.md|\.mcp\.json)"
+_cdir_into() {
+  local re
+  for re in "$_CDIR_DEST" "$_CDIR_T"; do
+    [[ "$_SM_SCAN" =~ $re ]] && [[ "${BASH_REMATCH[0]}" =~ $_CDIR_RISKY ]] && return 0
+  done
+  return 1
+}
+if _cat_enabled "selfmod" \
+   && { [[ "$_SM_SCAN" =~ $_CDIR_MV ]] || _cdir_into \
+        || [[ "$_SM_SCAN" =~ $_CDIR_PLANT ]] || [[ "$_SM_SCAN" =~ $_CDIR_X ]] || [[ "$_SM_SCAN" =~ $_CDIR_FIND ]] \
+        || [[ "$_SM_SCAN" =~ $_CDIR_GIT ]]; }; then
+  block "self-modification — this moves, replaces or writes into a .claude directory, which holds the hooks and settings that run every guard"
+fi
+
 # --- Unified detector (shell-wrapper, env-file, exfiltration) ---
 # Single python3 fork covers 3 categories that previously required 3 separate hooks.
 # Fast-path: skip the fork unless the command contains a trigger keyword.
