@@ -62,9 +62,13 @@ rm -f "$HOME/.claude/supercharger/scope/.dedup-sDUP-subagent-report-notify"
 J='{"agent_id":"aDUP","agent_name":"x","last_assistant_message":"Ready.","session_id":"sDUP"}'
 first=$(echo "$J" | bash "$H" 2>/dev/null | emit)
 second=$(echo "$J" | bash "$H" 2>/dev/null | emit)
-rm -f "$HOME/.claude/supercharger/scope/.dedup-sDUP-subagent-report-notify"
+# 2026-11-09: failed once on CI macOS (1/1), never locally in 24 parallel runs.
+# On failure, show what the dedup record held so the next occurrence names its cause.
+_DF="$HOME/.claude/supercharger/scope/.dedup-sDUP-subagent-report-notify"
+_DD=$( { printf 'STATE=%s file:' "${SUPERCHARGER_STATE:-unset}"; cat "$_DF" 2>&1; ls -la "${_DF%/*}" 2>&1 | grep -i dedup; } | tr '\n' ' ')
+rm -f "$_DF"
 export SUPERCHARGER_NO_DEDUP=1
-[ "$first" -ge 1 ] && [ "$second" -eq 0 ] && pass || fail "expected first=emit second=suppressed (got $first/$second)"
+[ "$first" -ge 1 ] && [ "$second" -eq 0 ] && pass || fail "expected first=emit second=suppressed (got $first/$second) [$_DD]"
 
 # v2.19.1: when the recovered report is already on disk, INLINE its tail (the
 # findings) into the pointer so the parent gets them without a recovery command.
