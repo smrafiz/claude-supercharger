@@ -36,6 +36,11 @@ if [ -z "${TEST_JOBS:-}" ]; then
 fi
 
 RESULT_DIR=$(mktemp -d)
+# 2026-11-09: helpers.sh names each test home sc-test-home-<this run>-<pid>, and
+# the sweep below removes only this run's homes. A bare sc-test-home-* glob let a
+# NESTED run.sh (test-run-shard runs a fixture copy) delete the homes of every
+# test file running at that moment: a dedup record vanished between two calls.
+export SC_SUITE_RUN="$$"
 # v2.26.47: keep the per-file output when the suite goes red.
 #
 # RESULT_DIR was always deleted on exit, so a failure that does not reproduce
@@ -56,7 +61,7 @@ _sc_cleanup() {
       && echo "Per-file output kept for inspection: $SC_KEEP_DIR" >&2
   fi
   rm -rf "$RESULT_DIR"
-  rm -rf "${TMPDIR:-/tmp}"/sc-test-home-* 2>/dev/null || true
+  rm -rf "${TMPDIR:-/tmp}"/sc-test-home-"$SC_SUITE_RUN"-* 2>/dev/null || true
 }
 # Also sweep the per-test isolated state dirs from tests/helpers.sh. Tests that
 # install their own EXIT trap replace the helper's cleanup, so without this the
