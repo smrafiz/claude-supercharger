@@ -4,17 +4,16 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-08, session `78fcacce`.*
+*Verified 2026-11-09, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `ee056e15` is RED on Windows only** (ci.yml 42467464473, 42471021887). #264 OSV malware
-  deny + #265 config-scan outward allows: their tests fail on Windows (5 + 3). Undiagnosed; full FAIL
-  lines in the `windows-suite-log` artifact. PR CI has no Windows, so "green" PRs merged red.
-- **4.4.6 (#264 + #265) HELD** until the user says to release; Windows must be green first.
-- **#263:** release.sh reads only `ci.yml` runs (was reading Host contract, so the gate ran 55 min).
-- **Open PRs:** none. Worktree `ci/test-pool` (per-machine) has uncommitted work, no PR.
-- **Next:** fix Windows on a branch, dispatch `gh workflow run ci.yml --ref <branch>`. Unswept
-  CLIs for global options: pulumi, flyctl, gh, eksctl. `test-audit-gaps-1026` flakes under load.
+- **Master `86af5b2e` is green** on all 12 ci.yml jobs, Windows included (Windows fixed by #266).
+- **4.4.6 HELD** (user, 2026-11-09): #264–#270 merged and unreleased. Release only on their word.
+- **#267–#270:** pulumi/gh global options hoisted; pool test runner (Windows shards ≤16m);
+  eksctl delete asks; detector budget pinned in tests/helpers.sh (load flakes).
+- **Open PRs:** none. No extra worktrees (per-machine). Stash `3d45886a` (per-machine) = stale
+  handoff edits from the removed test-pool worktree; the user drops it.
+- **Next:** nothing in flight. `test-perf-chain` statusline timing flaked once under load.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
   when master CI is green on HEAD; promote needs Windows green on master's base commit.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -54,6 +53,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-09 — 104cfc73
+Windows was already green (#266). Merged #267 (pulumi/gh global opts), #268 (pool test runner,
+Windows shards 23m → 16m max), #269 (eksctl delete asks), #270 (detector budget pinned in helpers:
+181 load-flake cases at 1ms → 0). 4.4.6 held again.
+Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
+
 #### 2026-11-08 (deep) — 78fcacce
 Released v4.4.5 after #263 (release.sh gated on the wrong workflow). Merged #264 (OSV malware deny)
 and #265 (config-scan outward allows), release held. Both turned master Windows red: undiagnosed.
@@ -77,7 +82,3 @@ checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill 
 /sc-security (domain files, needs_validation, coverage ledger, DoS deep-only), awaiting CI.
 Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
 
-#### 2026-11-03 — 3d213381
-Merged #230, #232-#238: autopilot `full`, plain block reasons, grep -e FP, manifest generator,
-lock-aware sed -i / perl -pi. Releasing 4.4.3 on the user's word.
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
