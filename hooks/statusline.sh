@@ -97,6 +97,39 @@ try:
  ctx = data.get('context_window') or {}
  pct = int(ctx.get('used_percentage', 0) or 0)
 
+ # 2026-11-09: modelSettings.<model id>.autoCompactWindow (set by /autocompact)
+ # makes CC compact near that window, while the payload still reports the full
+ # one: a 1M model compacted at 348K with the bar at 35 percent. Measure against
+ # the effective window instead. Later files win: user, project, project local.
+ acw = 0
+ try:
+     _mid = str((data.get('model') or {}).get('id') or '')
+     _keys = [k for k in (_mid, _mid.split('[')[0]) if k]
+     _home = os.environ.get('HOME') or os.path.expanduser('~')
+     for _f in (os.path.join(_home, '.claude', 'settings.json'),
+                os.path.join(cwd, '.claude', 'settings.json') if cwd else '',
+                os.path.join(cwd, '.claude', 'settings.local.json') if cwd else ''):
+         if not _f or not os.path.isfile(_f):
+             continue
+         with open(_f, encoding='utf-8') as _fh:
+             _ms = (json.load(_fh) or {}).get('modelSettings') or {}
+         for _k in _keys:
+             _v = (_ms.get(_k) or {}).get('autoCompactWindow') if isinstance(_ms, dict) else None
+             if isinstance(_v, int) and _v > 0:
+                 acw = _v
+                 break
+ except Exception:
+     pass
+ _full = int(ctx.get('context_window_size', 0) or 0)
+ if acw and (_full == 0 or acw < _full):
+     _u0 = ctx.get('current_usage') or {}
+     _used0 = sum(int(_u0.get(k, 0) or 0) for k in
+                  ('input_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'))
+     if _used0 > 0:
+         pct = min(100, _used0 * 100 // acw)
+ else:
+     acw = 0
+
  # v4.1.8: publish the percentage for the hooks that cannot see it.
  # `context_window` rides on the statusLine payload ONLY — no hook event carries
  # it, so adaptive-economy / context-advisor / auto-compact had nothing to read
@@ -123,7 +156,7 @@ try:
      pass
 
  # Use official context_window_size if available (exact), else derive
- ctx_max = ctx.get('context_window_size', 0) or 0
+ ctx_max = acw or ctx.get('context_window_size', 0) or 0
 
  # Cumulative session totals
  session_input = ctx.get('total_input_tokens', 0) or 0
