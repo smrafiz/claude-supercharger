@@ -178,6 +178,7 @@ done
 # writes provider passwords and generated keys, in plaintext, by design.
 for _f in "/proj/terraform.tfstate" "/proj/terraform.tfstate.backup" \
           "/home/u/.vault-token" "/home/u/.terraformrc" "/proj/.flaskenv" \
+          "/proj/.envrc" "/proj/.envrc.local" \
           "/proj/.dev.vars" "/proj/.bunfig.toml" "/proj/AuthKey_ABC123.p8" \
           "/proj/release.jks" "/home/u/.composer/auth.json" \
           "/home/u/.bundle/config" "/home/u/.config/pypoetry/auth.toml"; do

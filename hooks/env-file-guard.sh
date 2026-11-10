@@ -157,7 +157,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     if [ -n "$_EFG_GLOB" ]; then
       _EFG_GBASE="${_EFG_GLOB##*/}"
       case "$_EFG_GBASE" in
-        .env|.env.*|id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*|*.pem|*.key|*.p12|*.pfx|*.jks|*.p8|\
+        .env|.env.*|.envrc|.envrc.*|id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*|*.pem|*.key|*.p12|*.pfx|*.jks|*.p8|\
         .npmrc|.pypirc|.pgpass|.netrc|.git-credentials|.my.cnf|credentials|credentials.*|\
         secrets.yaml|secrets.yml|*.tfstate|.vault-token|wallet.dat)
           block "Search of credential files blocked (glob: $_EFG_GLOB) — a content search reads the same bytes as opening them" "$_EFG_GLOB" ;;
@@ -264,7 +264,8 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of key/certificate file blocked ($base)" "$FILE_PATH" ;;
     .npmrc|.pypirc|.pgpass|.netrc|.authinfo|.authinfo.gpg|.git-credentials|.my.cnf|credentials.toml|secrets.yaml|secrets.yml|credentials.json|pip.conf)
       block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
-    .flaskenv|.flaskenv.*|.dev.vars|.dev.vars.*|.vault-token|.terraformrc|terraform.rc|.bunfig.toml)
+    # .envrc (direnv) added 2026-11-10: Bash `cat .envrc` was denied, Read allowed.
+    .envrc|.envrc.*|.flaskenv|.flaskenv.*|.dev.vars|.dev.vars.*|.vault-token|.terraformrc|terraform.rc|.bunfig.toml)
       block "Read of credential file blocked ($base)" "$FILE_PATH" ;;
     # Terraform STATE, not only tfvars. We covered the INPUT and missed the
     # OUTPUT — and state is where the secrets actually land, in plaintext, by
