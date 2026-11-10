@@ -53,6 +53,18 @@ first=$(SUPERCHARGER_STATE="$SS" bash "$HOOK" < "$TMP/dd.json" 2>/dev/null)
 begin_test "silent on repeat (dedup)"
 second=$(SUPERCHARGER_STATE="$SS" bash "$HOOK" < "$TMP/dd.json" 2>/dev/null)
 [ -z "$second" ] && pass || fail "expected SILENT repeat: $second"
+# 2026-11-10: the same masked runner beside OTHER text that changed is still a repeat.
+mkin "$TMP/dd2.json" "python3 - <<'EOF'
+print('changelog v2')
+EOF
+pytest || true" 99
+begin_test "silent when only the surrounding command changed"
+third=$(SUPERCHARGER_STATE="$SS" bash "$HOOK" < "$TMP/dd2.json" 2>/dev/null)
+[ -z "$third" ] && pass || fail "re-asked on the same masked runner: $third"
+mkin "$TMP/dd3.json" 'npm run lint || echo ok' 99
+begin_test "a different masked runner still asks"
+fourth=$(SUPERCHARGER_STATE="$SS" bash "$HOOK" < "$TMP/dd3.json" 2>/dev/null)
+[ -n "$fourth" ] && pass || fail "a new mask was swallowed by the dedup"
 rm -rf "$SS"
 
 # --- kill switch + fail-open ---

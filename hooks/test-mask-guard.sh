@@ -117,10 +117,15 @@ if ! printf '%s\n' "$CMD" | grep -qE "$_MASK"; then
   _KIND=pipe
 fi
 
-# Ask once per command per session (don't nag on a repeated identical command).
+# Ask once per masked runner per session. 2026-11-10: the key was the WHOLE command,
+# so an agent re-running the same `npm run lint || echo ok` beside a heredoc whose
+# text changed each time was asked every time. Now the key is only the segments
+# (split on ; && and newlines) that name a runner; the rest of the command is ignored.
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true); [ -z "$SID" ] && SID="${CLAUDE_CODE_SESSION_ID:-default}"
 _SEEN="${SUPERCHARGER_STATE:-$HOME/.claude/supercharger}/scope/.testmask-seen-${SID}"
-_KEY=$(printf '%s' "$CMD" | cksum 2>/dev/null | cut -d' ' -f1 || echo "$CMD")
+_KEYSRC=$(printf '%s\n' "$CMD" | awk '{gsub(/&&|;/, "\n"); print}' | grep -E "$_RUNNER" | sed -E 's/^[[:space:]]+|[[:space:]]+$//g' | sort -u)
+[ -z "$_KEYSRC" ] && _KEYSRC="$CMD"
+_KEY=$(printf '%s' "$_KEYSRC" | cksum 2>/dev/null | cut -d' ' -f1 || echo "$CMD")
 if [ -f "$_SEEN" ] && grep -qxF "$_KEY" "$_SEEN" 2>/dev/null; then
   exit 0
 fi
