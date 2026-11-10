@@ -91,8 +91,10 @@ def _strip_metadata_text(c: str) -> str:
 # `<(`), and only a replacement with no `&` or backslash (`&` would put the match back).
 # ponytail: a dotenv line with no `=` (a multi-line quoted value) passes the mask
 # unchanged; only grep is exempt, not cat, so such a line must also match grep's pattern.
+# 2026-11-09: a lone quote may match only when no closing quote follows on the line
+# (exponential backtracking otherwise; see safety-detect.py).
 _MASKED_GREP_RE = re.compile(
-    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
+    r"""\b[ef]?grep[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|"(?![^"\n]*")|'(?![^'\n]*'))*)"""
     r"""\|(?![|&])[ \t]*sed[ \t]+(?:-[Ere][ \t]+)*"""
     r"""(?:'s(?P<d>[/|#,])=\.\*(?P=d)[^&\\'\n]*?(?P=d)g?'|"s(?P<e>[/|#,])=\.\*(?P=e)[^&\\"$`\n]*?(?P=e)g?")"""
     r"""(?=[ \t]*(?:$|[|;&\n)]))""")
