@@ -65,8 +65,21 @@ begin_test "attribution: says it is a warning, nothing was blocked"
 case "$ERR" in *'nothing was blocked'*) pass ;; *) fail "err=$ERR" ;; esac
 
 begin_test "detection unchanged: real-shaped secret still exits 2 (parent and subagent)"
-run "$T/p2"; R1=$RC; run "$T/p3"; R2=$RC
+payload "$T/p4" Bash "bash tests/run.sh" "key=$AKIA" "b456" "general-purpose"
+run "$T/p2"; R1=$RC; run "$T/p4"; R2=$RC
 [ "$R1" -eq 2 ] && [ "$R2" -eq 2 ] && pass || fail "rc parent=$R1 sub=$R2"
+
+# 2026-11-10: a subagent's rewake wakes the parent; one notice per subagent.
+begin_test "subagent: first notice says later hits are not reported"
+payload "$T/p5" Bash "cat fixtures" "key=$AKIA" "c789" "general-purpose"
+run "$T/p5"
+[ "$RC" -eq 2 ] && case "$ERR" in *'not reported'*) true ;; *) false ;; esac && pass || fail "rc=$RC err=$ERR"
+begin_test "subagent: a second hit from the same subagent is silent"
+run "$T/p5"
+[ "$RC" -eq 0 ] && [ -z "$ERR" ] && pass || fail "rc=$RC err=$ERR"
+begin_test "parent: repeated hits still notify every time"
+run "$T/p2"; R1=$RC; run "$T/p2"; R2=$RC
+[ "$R1" -eq 2 ] && [ "$R2" -eq 2 ] && pass || fail "rc=$R1/$R2"
 
 begin_test "detection unchanged: clean output stays silent"
 payload "$T/p4" Bash "ls" "README.md src tests"
