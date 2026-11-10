@@ -4,28 +4,27 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-09, session `104cfc73`.*
+*Verified 2026-11-10, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `21a43b4b` is green** on all 12 ci.yml jobs (red twice before #273: a nested run.sh
-  swept live test homes).
-- **4.4.6 HELD** (user, 2026-11-09): #264–#273 merged and unreleased. Release only on their word.
-- **Open PRs, CI dispatched, not merged:** #274 (masked-grep ReDoS hung safety.sh = fail open) and
-  #275 (`.claude` directory guard, from the applygate delta; worktree `cdir`, per-machine).
-  Merge each when its ci.yml run is green on all 12 jobs.
-- **Next:** applygate leftovers: kubectl `--server/--kubeconfig/--as`, gcloud `--flags-file`,
-  `*.tfstate` write target. Details in the session brief.
-- **#267–#270:** pulumi/gh global options hoisted; pool test runner (Windows shards ≤16m);
-  eksctl delete asks; detector budget pinned in tests/helpers.sh (load flakes).
-- **Open PRs:** none. No extra worktrees (per-machine). Stash `3d45886a` (per-machine) = stale
-  handoff edits from the removed test-pool worktree; the user drops it.
-- **Next:** nothing in flight. `test-perf-chain` statusline timing flaked once under load.
+- **Master `6938b0f5`**: #277's PR run was green on all 12 jobs; master's own run after the
+  merge not checked.
+- **4.4.6 HELD** (user, 2026-11-09): #264–#277 merged and unreleased. Release only on their word.
+- **Open PRs:** none. The applygate delta is closed (#274–#276); left by design: `tar -C` over
+  state, `--kubeconfig` with an `exec:` entry.
+- **#277:** `allowPromptSecrets` / `SUPERCHARGER_PROMPT_SECRET_ALLOW` + AWS doc keys pass the
+  prompt guard; `allowPatterns` reaches env-file-guard (Read/Grep/Glob); handback gate FPs 10→6;
+  test-mask dedup keyed on the masked runner segment.
+- **Next:** release 4.4.6 on the user's word; README lines for the new allowlist keys (ask first);
+  `/sc-security` recall test (plant vulns) or an opt-in dependency-audit step.
+- `/sc-security` HAS run on a real repo: radius-bundles 2026-11-01, 0 findings, honest gaps.
+- Per-machine: stashes `3d45886a` + 2 older are the user's to drop; branch `feat/supply-chain-gaps`.
+- `test-perf-chain` statusline timing flakes under suite load (passes alone).
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
   when master CI is green on HEAD; promote needs Windows green on master's base commit.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** replay handbacks after a week of subagent use on 4.4.4+; risk-review log ~2026-11-20;
-  re-run the FP audit a month after 4.4.5; SpecLock (parked); `/sc-security` never run on a real
-  repo; economy re-measure.
+- **Open:** risk-review log ~2026-11-20; re-run the FP audit a month after 4.4.5; SpecLock
+  (parked); economy re-measure. Handback replay done 2026-11-10 (#277).
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -59,6 +58,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-10 — 104cfc73
+Merged #274 (ReDoS), #275 (.claude dir), #276 (kubectl/helm/gcloud identity flags, tfstate writes),
+#277 (prompt/env allowlists, handback + test-mask FPs). Handback replay: 3 of 5 refusals were FPs.
+Doc-key allowlist broke a fixture that used AWS's example key as "real" (fixed). 4.4.6 still held.
+Detail: this entry (no separate brief).
+
 #### 2026-11-09 (deep) — 104cfc73
 Merged #267-#273: pulumi/gh global opts, pool runner, eksctl ask, detector budget pin, statusline
 autoCompactWindow, nested-run home sweep (master red → green). Open: #274 ReDoS guard hang, #275
@@ -82,9 +87,4 @@ tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreT
 SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
 Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
 
-#### 2026-11-04 (deep) — e323355d
-Released v4.4.3 (promote run by the user; auto mode denies it). release.sh: gate prints failing
-checks, promote reports a failed pull. PR #239: Cloudflare security-audit-skill ported into
-/sc-security (domain files, needs_validation, coverage ledger, DoS deep-only), awaiting CI.
-Detail: `.claude/handoff-e323355d-8bb7-445a-9d69-1c893ff551cb.md`
 
