@@ -61,4 +61,27 @@ printf '{"prompt":"hello world","session_id":"t"}' | bash "$TMPH/prompt-secret-g
 [ "$?" -eq 0 ] && pass || fail "missing lib blocked the prompt (fail-closed regression)"
 rm -rf "$TMPH"
 
+# ---- 2026-11-10: allowlisted dummy values pass; everything else still blocks ----
+AWS_DOC="AK""IAIOSFODNN7EX""AMPLE"
+allow_case "AWS documentation example key" "use $AWS_DOC as the placeholder"
+block_case "real key beside the doc example" "doc $AWS_DOC and mine $AK"
+
+PROJ=$(mktemp -d); printf '{"allowPromptSecrets": ["%s", "short"]}' "$GH" > "$PROJ/.supercharger.json"
+rc_cwd() { local j; j=$(python3 -c 'import json,sys;print(json.dumps({"prompt":sys.argv[1],"session_id":"t","cwd":sys.argv[2]}))' "$1" "$2"); printf '%s' "$j" | bash "$H" >/dev/null 2>&1; echo $?; }
+begin_test "prompt-secret-guard: allowPromptSecrets value passes"
+[ "$(rc_cwd "token $GH" "$PROJ")" -eq 0 ] && pass || fail "allowlisted value blocked"
+begin_test "prompt-secret-guard: allowPromptSecrets does not cover another key"
+[ "$(rc_cwd "token $GH and $AK" "$PROJ")" -eq 2 ] && pass || fail "unlisted key passed"
+begin_test "prompt-secret-guard: allowPromptSecrets ignored in another project"
+[ "$(rc_cwd "token $GH" "$(mktemp -d)")" -eq 2 ] && pass || fail "allowlist leaked across projects"
+printf '{"allowPromptSecrets": "%s"}' "$GH" > "$PROJ/.supercharger.json"
+begin_test "prompt-secret-guard: malformed allowPromptSecrets still blocks"
+[ "$(rc_cwd "token $GH" "$PROJ")" -eq 2 ] && pass || fail "a string value was treated as a list"
+rm -rf "$PROJ"
+
+begin_test "prompt-secret-guard: SUPERCHARGER_PROMPT_SECRET_ALLOW value passes"
+[ "$(SUPERCHARGER_PROMPT_SECRET_ALLOW="x $GH" rc_for "token $GH")" -eq 0 ] && pass || fail "env-allowlisted value blocked"
+begin_test "prompt-secret-guard: env entry under 8 chars is ignored"
+[ "$(SUPERCHARGER_PROMPT_SECRET_ALLOW="gh""p_" rc_for "token $GH")" -eq 2 ] && pass || fail "short entry cut a real key"
+
 report

@@ -42,6 +42,20 @@ check_hook_disabled "env-file-guard" && exit 0
 
 block() {
   local reason="$1" preview="$2"
+  # 2026-11-10: allowPatterns reaches this channel too, matched against the PATH or
+  # glob (on Bash, safety.sh matches it against the command). Same rules as there:
+  # case-insensitive ERE, an invalid regex is no match (stays blocked), and every
+  # exemption is written to the ledger /sc-why reads.
+  local _apf=""
+  if type sc_scope_resolve >/dev/null 2>&1; then sc_scope_resolve ".allow-patterns" "$PROJECT_DIR"; _apf="$SC_SCOPE_FILE"; fi
+  if [ -n "$_apf" ] && [ -s "$_apf" ] && [ -n "$preview" ]; then
+    local _aj; _aj=$(tr '\n' '|' < "$_apf" 2>/dev/null | sed 's/|$//')
+    if [ -n "$_aj" ] && printf '%s\n' "$preview" | LC_ALL=C grep -qiE "$_aj" 2>/dev/null; then
+      printf '[%s] ALLOWED by allowPatterns (would have blocked: %s) — %.400s\n' \
+        "$(date '+%Y-%m-%d %H:%M')" "$reason" "$preview" >> "$SUPERCHARGER_STATE/scope/.blocked-commands" 2>/dev/null || true
+      exit 0
+    fi
+  fi
   echo "" >&2
   echo "Supercharger blocked .env access." >&2
   echo "  Reason : $reason" >&2

@@ -127,6 +127,32 @@ printf '{"cwd":"%s","prompt":"hi"}' "$PJ" \
 
 begin_test "and the global custom-patterns name is no longer written"
 [ ! -f "$ST/scope/$CUSTOM" ] && pass || fail "still writing the shared global file"
+
+# 2026-11-10: the Read/Grep/Glob channel (env-file-guard) honors allowPatterns,
+# matched against the path or glob.
+ENVT="$PJ/.env"".test"
+AF="$ST/scope/$ALLOW-$(key_for "$PJ")"
+efg() { # tool, field, value -> BLOCKED | allowed
+  printf '{"tool_name":"%s","cwd":"%s","tool_input":{"%s":"%s"}}' "$1" "$PJ" "$2" "$3" \
+    | SUPERCHARGER_STATE="$ST" bash "$REPO_DIR/hooks/env-file-guard.sh" >/dev/null 2>&1
+  [ $? -eq 2 ] && echo BLOCKED || echo allowed
+}
+: > "$AF"
+begin_test "env-file-guard: Read of a dotenv blocks with no allow pattern"
+[ "$(efg Read file_path "$ENVT")" = "BLOCKED" ] && pass || fail "no baseline block"
+printf '%s\n' '\.env\.test$' > "$AF"
+: > "$ST/scope/.blocked-commands"
+begin_test "env-file-guard: a matching allow pattern exempts the Read"
+[ "$(efg Read file_path "$ENVT")" = "allowed" ] && pass || fail "exemption ignored on Read"
+begin_test "env-file-guard: the exemption is in the ledger"
+grep -q "ALLOWED by allowPatterns" "$ST/scope/.blocked-commands" && pass || fail "silent exemption"
+begin_test "env-file-guard: another dotenv still blocks"
+[ "$(efg Read file_path "$PJ/.env")" = "BLOCKED" ] && pass || fail "exemption leaked to .env"
+begin_test "env-file-guard: Grep glob still blocks when the pattern does not match"
+[ "$(efg Grep glob ".env")" = "BLOCKED" ] && pass || fail "glob exempted"
+printf '%s\n' '([' > "$AF"
+begin_test "env-file-guard: an invalid allow regex stays blocked"
+[ "$(efg Read file_path "$ENVT")" = "BLOCKED" ] && pass || fail "broken regex widened the guard"
 rm -rf "$ST" "$PJ"
 
 report

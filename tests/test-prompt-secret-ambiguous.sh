@@ -26,8 +26,9 @@ HASH='0x8f2e4b1c9a7d3e6f0b5a8c2d4e7f1a3b6c9d2e5f8a1b4c7d0e3f6a9b2c5d8e1f'
 # own commit and output scanners will trip on it. The length assertion below
 # proves the assembled value is intact — a silent truncation here would make
 # every "still blocks" test pass for the wrong reason.
-AWS_ID="AK""IAIOSFODNN7EXAMPLE"
-AWS_SECRET="aws_secret_access_key=wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
+# Not AWS's documentation example keys: prompt-secret-guard allows those (2026-11-10).
+AWS_ID="AK""IAQ7Z2M4XK9WB3TR5P"
+AWS_SECRET="aws_secret_access_key=""q8Vt2NfK0dLs9RpYw4HcXm7UeJb1GaZoTi5Q6nEy"
 
 rc_for() { # prompt -> exit code
   printf '%s' "$(V="$1" python3 -c '

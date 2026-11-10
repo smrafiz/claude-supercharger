@@ -43,6 +43,11 @@ QUALITY_ISSUE=$(python3 -c "
 import re, sys
 
 output = sys.argv[1].lower()
+# 2026-11-10 replay (3 FPs in 119 handbacks): text in inline code is QUOTED, often an
+# error message the agent fixed. chr(96) is a backtick; a literal one here would be
+# command substitution inside this double-quoted bash string.
+bt = chr(96)
+output = re.sub(bt + '[^' + bt + '\\n]*' + bt, ' ', output)
 
 # Incomplete work signals
 incomplete = [
@@ -53,9 +58,9 @@ incomplete = [
     r'\bstill blocked\b',
     r'\bpass\s*#', r'\b\.\.\.\s*$',
     r'i (was unable|could not|cannot|am unable) to',
-    r'(failed|error|exception) (to|while|when)',
+    r'(failed|error|exception) (to|while|when)\b',
     r'\bleft as an exercise\b',
-    r'i (stopped|halted|did not (finish|complete))',
+    r'i ((stopped|halted)(?! (no|nothing)\b)|did not (finish|complete))',
 ]
 # Uncertainty signals that should trigger a check
 uncertain = [
