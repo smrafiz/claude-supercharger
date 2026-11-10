@@ -7,18 +7,19 @@ session on any machine.**
 *Verified 2026-11-10, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `6938b0f5`**: #277's PR run was green on all 12 jobs; master's own run after the
-  merge not checked.
-- **4.4.6 HELD** (user, 2026-11-09): #264–#277 merged and unreleased. Release only on their word.
-- **Open PRs:** none. The applygate delta is closed (#274–#276); left by design: `tar -C` over
-  state, `--kubeconfig` with an `exec:` entry.
-- **#277:** `allowPromptSecrets` / `SUPERCHARGER_PROMPT_SECRET_ALLOW` + AWS doc keys pass the
-  prompt guard; `allowPatterns` reaches env-file-guard (Read/Grep/Glob); handback gate FPs 10→6;
-  test-mask dedup keyed on the masked runner segment.
-- **Next:** release 4.4.6 on the user's word; README lines for the new allowlist keys (ask first);
-  `/sc-security` recall test (plant vulns) or an opt-in dependency-audit step.
+- **Master `5bdf4689`** (#280 merged; PR run green on 12 jobs). Branch
+  `fix/sensitive-read-commit-prose` open: commit-message prose with `;`/`|` inside the quotes
+  was scanned as a command (b495e37d); output-secrets-scanner wakes the parent once per
+  subagent, not per hit (4b034d8f). PR after the full suite.
+- **4.4.6 HELD** (user, 2026-11-09): #264–#280 merged and unreleased. Release only on their word.
+- **#277–#280:** prompt/env allowlists (+README), handback FPs 10→6, test-mask dedup,
+  direnv files on Read/Grep/Glob, `whsec_`/`glpat-`/`shp*_` token formats (phantom-secrets delta;
+  its proxy/vault design is off-thesis). applygate delta closed (#274–#276).
+- **Next:** release 4.4.6 on the user's word; `/sc-security` recall test (planted vulns) if wanted.
+  Skipped by decision: an audit step in /sc-security (no network, version currency excluded).
 - `/sc-security` HAS run on a real repo: radius-bundles 2026-11-01, 0 findings, honest gaps.
-- Per-machine: stashes `3d45886a` + 2 older are the user's to drop; branch `feat/supply-chain-gaps`.
+- Per-machine: 6 stashes (incl. `3d45886a`) are the user's to drop; a stash/pop probe popped it by
+  mistake 2026-11-10, restored, stash kept; branch `feat/supply-chain-gaps`.
 - `test-perf-chain` statusline timing flakes under suite load (passes alone).
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
   when master CI is green on HEAD; promote needs Windows green on master's base commit.
@@ -59,9 +60,9 @@ session on any machine.**
 ## Log
 
 #### 2026-11-10 — 104cfc73
-Merged #274 (ReDoS), #275 (.claude dir), #276 (kubectl/helm/gcloud identity flags, tfstate writes),
-#277 (prompt/env allowlists, handback + test-mask FPs). Handback replay: 3 of 5 refusals were FPs.
-Doc-key allowlist broke a fixture that used AWS's example key as "real" (fixed). 4.4.6 still held.
+Merged #274-#280: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
+README, direnv + token formats (phantom-secrets delta). Handback replay: 3 of 5 refusals were FPs.
+Open branch: commit-prose separator FP + one subagent notice. 4.4.6 still held.
 Detail: this entry (no separate brief).
 
 #### 2026-11-09 (deep) — 104cfc73

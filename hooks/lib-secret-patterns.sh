@@ -72,6 +72,10 @@ SECRET_PATTERNS=(
   'whsec_[A-Za-z0-9+/=]{24,}'
   'glpat-[A-Za-z0-9_-]{20,}'
   'shp(at|ss|ca|pa)_[a-fA-F0-9]{32}'
+  # Presigned / SAS URL signatures: the URL itself grants access until it expires.
+  # Anchored on the parameter name; 0 hits in local transcripts (2026-11-10).
+  '[Xx]-([Aa]mz|[Gg]oog)-[Ss]ignature=[0-9a-f]{64,}'
+  '[?&]sig=[A-Za-z0-9%+/=]{40,}'
   # npm
   'npm_[A-Za-z0-9]{36}'
   # JWTs
