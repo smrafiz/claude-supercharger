@@ -326,6 +326,12 @@ For the false positive you hit repeatedly. Without it the only escape is `disabl
 
 Every exemption is written to the block ledger, so `/sc-why` and the session `[BLOCKS]` summary show what was let through.
 
+`allowPatterns` also reaches `.env` reads through the Read, Grep and Glob tools, matched against the file path: `{"allowPatterns": ["\\.env\\.test$"]}` lets the agent read `.env.test` while every other dotenv file stays blocked.
+
+Allow a dummy key in your prompt: `{"allowPromptSecrets": ["<exact value>"]}`
+
+The prompt guard blocks a prompt that contains something shaped like a live credential. List the exact test or placeholder values you paste on purpose, and only those values get through; a real key in the same prompt is still blocked. For every project, set `SUPERCHARGER_PROMPT_SECRET_ALLOW` (space-separated values) in the `env` block of `~/.claude/settings.json`. Values shorter than 8 characters are ignored, and AWS's documentation example keys are always allowed.
+
 Work across directories outside the project: `{"additionalRoots": ["/path/to/parent"]}`
 
 **One entry per parent, not per directory.** Everything under a root counts as in-project — including directories created later. If you maintain many sibling directories (WordPress themes across Local sites, a plugins folder, a monorepo's packages), that is one line total:
