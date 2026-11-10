@@ -67,6 +67,11 @@ SECRET_PATTERNS=(
   'sk_live_[0-9a-zA-Z]{24}'
   'rk_live_[0-9a-zA-Z]{24}'
   'pk_live_[0-9a-zA-Z]{24}'
+  # 2026-11-10 (phantom-secrets delta): webhook signing secret, GitLab PAT, Shopify
+  # admin/shared-secret/custom-app/private-app tokens. 0 hits in local transcripts.
+  'whsec_[A-Za-z0-9+/=]{24,}'
+  'glpat-[A-Za-z0-9_-]{20,}'
+  'shp(at|ss|ca|pa)_[a-fA-F0-9]{32}'
   # npm
   'npm_[A-Za-z0-9]{36}'
   # JWTs

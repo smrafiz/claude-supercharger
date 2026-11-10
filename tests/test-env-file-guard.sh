@@ -178,6 +178,7 @@ done
 # writes provider passwords and generated keys, in plaintext, by design.
 for _f in "/proj/terraform.tfstate" "/proj/terraform.tfstate.backup" \
           "/home/u/.vault-token" "/home/u/.terraformrc" "/proj/.flaskenv" \
+          "/proj/.envrc" "/proj/.envrc.local" \
           "/proj/.dev.vars" "/proj/.bunfig.toml" "/proj/AuthKey_ABC123.p8" \
           "/proj/release.jks" "/home/u/.composer/auth.json" \
           "/home/u/.bundle/config" "/home/u/.config/pypoetry/auth.toml"; do
@@ -273,7 +274,7 @@ grep_input Grep '{"pattern":"x","path":"/proj/awsx"}'
 # files. Measured after that release: path=~/.env DENY, glob=.env ALLOWED,
 # glob=**/id_rsa ALLOWED. One arm of the same tool — the shape
 # audit-sibling-branches-not-instances describes.
-for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials"; do
+for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials" "**/.envrc" ".envrc.local"; do
   begin_test "env-guard: Grep glob=$_g is blocked"
   grep_input Grep "{\"pattern\":\"x\",\"glob\":\"$_g\",\"output_mode\":\"content\"}"
   [ "$?" = "2" ] && pass || fail "glob=$_g read credential files"

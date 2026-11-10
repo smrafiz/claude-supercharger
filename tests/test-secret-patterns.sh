@@ -13,6 +13,18 @@ catches() { printf '%s' "$1" | LC_ALL=C grep -qE "$CP"; }
 AWS40="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"   # canonical 40-char AWS secret
 GHPAT_TAIL=$(printf 'A%.0s' $(seq 1 82))
 
+# ---- 2026-11-10 (phantom-secrets delta) ----
+begin_test "secret: webhook signing whsec_ is caught"
+catches "wh""sec_Q7Zx2M4XK9WB3TRp8Vt2NfK0dLs9" && pass || fail "whsec evades"
+begin_test "secret: GitLab glpat- is caught"
+catches "gl""pat-Ab3dEf0123456789xYz_" && pass || fail "glpat evades"
+begin_test "secret: Shopify shpat_ is caught"
+catches "sh""pat_0123456789abcdef0123456789abcdef" && pass || fail "shpat evades"
+begin_test "secret: Shopify shpss_ is caught"
+catches "sh""pss_0123456789abcdef0123456789abcdef" && pass || fail "shpss evades"
+begin_test "secret: short shpat_ prefix in prose is not caught"
+catches "the shpat_ prefix marks an admin token" && fail "prose FP" || pass
+
 # ---- v2.22.0: modern formats that used to EVADE ----
 begin_test "secret: Anthropic sk-ant- key is caught"
 catches "sk-""ant-api03-AbCdEf0123456789AbCdEf0123456789xyz" && pass || fail "sk-ant evades"
