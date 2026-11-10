@@ -39,6 +39,32 @@ check "eksctl-delete-ng-opt"  "eksctl -C false delete nodegroup --cluster prod n
 check "eksctl-get-cluster"    "eksctl get cluster"                                    SILENT
 check "eksctl-create-cluster" "eksctl create cluster --name dev"                      SILENT
 
+# 2026-11-10 (applygate delta): identity / API-server overrides ask.
+check "kubectl-as"            "kubectl --as=system:admin get secrets"                 ASK
+check "kubectl-as-group"      "kubectl get pods --as-group system:masters"            ASK
+check "kubectl-token-server"  "kubectl --server https://203.0.113.5 --token abc get ns" ASK
+check "kubectl-s-short"       "kubectl -s https://203.0.113.5 get pods"               ASK
+check "helm-kube-token"       "helm list --kube-apiserver https://x --kube-token t"   ASK
+check "gcloud-flags-file"     "gcloud compute instances list --flags-file=f.yaml"    ASK
+check "gcloud-token-file"     "gcloud storage ls --access-token-file /tmp/t"         ASK
+check "kubectl-can-i-as"      "kubectl auth can-i list pods --as jane"                SILENT
+check "kubectl-get-plain"     "kubectl get pods -n dev"                               SILENT
+check "kubectl-assume-word"   "kubectl get pods --assume-yes"                         SILENT
+check "helm-template-s"       "helm template . -s templates/svc.yaml"                 SILENT
+check "kubectl-logs-since"    "kubectl logs pod/x --since 5m"                         SILENT
+
+# Terraform state as a write target.
+check "tfstate-redirect"      "terraform state pull > terraform.tfstate"              ASK
+check "tfstate-devnull-cp"    "cp /dev/null terraform.tfstate"                        ASK
+check "tfstate-rm"            "rm -f env/prod/terraform.tfstate"                      ASK
+check "tfstate-openssl-out"   "openssl enc -d -in s.enc -out terraform.tfstate"       ASK
+check "tfstate-tee"           "echo {} | tee terraform.tfstate"                       ASK
+check "tfstate-quoted"        "echo {} > 'terraform.tfstate'"                         ASK
+check "tfstate-backup-copy"   "cp terraform.tfstate backups/state-1.json"             SILENT
+check "tfstate-read"          "terraform show terraform.tfstate"                      SILENT
+check "tfstate-ls"            "ls -la *.tfstate"                                      SILENT
+check "tfstate-gitignore"     "grep tfstate .gitignore"                               SILENT
+
 # --- should PASS (read / list / describe / unrelated) ---
 # v4.1.13: hosted-database CLIs. `fly` was already in the destroy arm but NOT in
 # the fast-path gate (only `flyctl` was), so `fly postgres destroy` never reached it.
