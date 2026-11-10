@@ -110,7 +110,7 @@ fi
 # a matching run out of a REAL key. Any failure keeps the original prompt: this
 # step only loosens, so failing means scanning everything, as before.
 _CWD=""
-_json_get _CWD cwd "$_INPUT" '.cwd // empty'
+_json_get _CWD cwd "$_INPUT" '.cwd // .workspace.current_dir // empty'
 _CFG=""
 if [ -n "$_CWD" ] && . "$HOOKS_DIR/lib-project-root.sh" 2>/dev/null; then
   _CFG="$(_resolve_project_root "$_CWD")/.supercharger.json"

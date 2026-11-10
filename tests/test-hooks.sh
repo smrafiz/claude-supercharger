@@ -2893,6 +2893,19 @@ OUT=$(printf '%s' "$INPUT" | bash "$HANDOFF_GATE" 2>&1)
 EXIT=$?
 [ "$EXIT" -eq 0 ] && pass || fail "expected exit 0 on empty output, got exit=$EXIT"
 
+# 2026-11-10 handback replay: three refusals of 119 were false positives.
+_hg_silent() { # name, text (BT = backtick) -> passes when the gate says nothing
+  begin_test "agent-handoff-gate: $1"
+  local o; o=$(python3 -c 'import json,sys; print(json.dumps({"result":sys.argv[1].replace("BT",chr(96)),"agent_id":"fp","cwd":"/tmp"}))' "$2" | bash "$HANDOFF_GATE" 2>&1)
+  [ -z "$o" ] && pass || fail "false positive: $o"
+}
+_hg_silent "negated 'I stopped no processes' passes" "Port 3100 was free after the run; I stopped no processes. All tests pass."
+_hg_silent "quoted error text in inline code passes" "Retries now match the real message BTfailed to parse session tokenBT. Tests pass."
+_hg_silent "'error toast' is not 'error to'" "Forced 422: error toast still there after 8s. Verified in the browser."
+begin_test "agent-handoff-gate: an unquoted failure still fires"
+OUT=$(python3 -c "import json; print(json.dumps({'result':'The deploy failed to start and I stopped there.','agent_id':'fp2','cwd':'/tmp'}))" | bash "$HANDOFF_GATE" 2>&1)
+[ -n "$OUT" ] && pass || fail "real failure no longer flagged"
+
 # v2.7.12: real CC SubagentStop shape — output is in last_assistant_message, not result
 begin_test "agent-handoff-gate: reads last_assistant_message (real Stop shape) — fires on failure"
 INPUT=$(python3 -c "import json; print(json.dumps({'last_assistant_message':'I was unable to finish; the build failed and I could not resolve the errors.','agent_id':'ag3','agent_type':'Engineer','cwd':'/tmp'}))")
