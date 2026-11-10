@@ -485,7 +485,7 @@ def _strip_pattern_operands(c: str) -> str:
 # command, not prose, and it stays in front of the detector.
 _METADATA_TEXT_RE = re.compile(
     r"(?:^|(?<=[;&|]))"
-    r"(\s*(?:git\s+(?:commit|tag)|gh\s+(?:pr|issue|release)\s+create)\b[^;&|]*)"
+    r"""(\s*(?:git\s+(?:commit|tag)|gh\s+(?:pr|issue|release)\s+create)\b(?:"(?:[^"\\]|\\.)*"|'[^']*'|[^;&|"'])*)"""
 )
 
 
