@@ -165,6 +165,17 @@ denies "commit-subst" "$SUBST_CMD"
 begin_test "F3: a compound commit followed by a read still denies"
 denies "compound-then-read" "cd /repo && git commit -m 'notes' && cat ${E}"
 
+# 2026-11-10: a `;` (or `|`, `&`) INSIDE the quoted message ended the exempt
+# segment, so the prose after it was scanned as a command and denied.
+begin_test "F3: a separator inside the quoted message does not end it"
+allows "commit-msg-semicolon" "git commit -m \"fix: a; b
+
+${MSG}\""
+begin_test "F3: a pipe inside the quoted message does not end it"
+allows "commit-msg-pipe" "git commit -m 'gains shp(at|ss)_ formats; ${MSG}'"
+begin_test "F3: a read after a message holding a separator still denies"
+denies "commit-semicolon-then-read" "git commit -m 'a; b' && cat ${E}"
+
 # --- F4: the DNS resolver rule read PROSE as a command (2026-10-12 ledger) -----
 # check_exfiltration matched the word `host` anywhere after whitespace, and its
 # payload list counted `process.env` / the .example template as the dotenv file.

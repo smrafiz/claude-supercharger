@@ -175,6 +175,16 @@ print("[Supercharger] output-secrets-scanner (warning, nothing was blocked): %s 
           tool, (" of `%s`" % subj) if subj else "", ", ".join(labels) or "a secret pattern", src))
 ' 2>/dev/null) || _OSS_LINE=""
   [ -n "$_OSS_LINE" ] || _OSS_LINE="[Supercharger] output-secrets-scanner (warning, nothing was blocked): tool output contains a secret-shaped value. Do not repeat, log or quote it."
+  # 2026-11-10: a subagent's rewake wakes the PARENT, once per hit (3 in one delta
+  # review, all fixtures). One notice per subagent; later hits still update the
+  # statusline breadcrumb above. The main session's own hits are unchanged.
+  if [ -n "$_OSS_SRC" ]; then
+    _OSS_AID=$(printf '%s\n' "$_INPUT" | jq -r '.agent_id // empty' 2>/dev/null | tr -cd 'A-Za-z0-9_-')
+    _OSS_MARK="$SCOPE_DIR/.oss-rewake-${SID}-${_OSS_AID:-unknown}"
+    [ -f "$_OSS_MARK" ] && exit 0
+    : > "$_OSS_MARK" 2>/dev/null || true
+    _OSS_LINE="$_OSS_LINE Further hits from this subagent are not reported."
+  fi
   printf '%s\n' "$_OSS_LINE" >&2
   exit 2
 fi

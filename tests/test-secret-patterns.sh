@@ -22,6 +22,17 @@ begin_test "secret: Shopify shpat_ is caught"
 catches "sh""pat_0123456789abcdef0123456789abcdef" && pass || fail "shpat evades"
 begin_test "secret: Shopify shpss_ is caught"
 catches "sh""pss_0123456789abcdef0123456789abcdef" && pass || fail "shpss evades"
+SIG64="0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+begin_test "secret: S3 presigned X-Amz-Signature is caught"
+catches "https://b.s3.amazonaws.com/k?X-Amz-Expires=900&X-Amz-Sig""nature=$SIG64" && pass || fail "presigned evades"
+begin_test "secret: GCS signed X-Goog-Signature is caught"
+catches "https://storage.googleapis.com/b/k?X-Goog-Sig""nature=$SIG64$SIG64" && pass || fail "gcs signed evades"
+begin_test "secret: Azure SAS sig= is caught"
+catches "https://a.blob.core.windows.net/c/b?sv=2022-11-02&s""ig=q8Vt2NfK0dLs9RpYw4HcXm7UeJb1GaZoTi5Q6nEy%3D" && pass || fail "SAS evades"
+begin_test "secret: a short sig= query value is not caught"
+catches "https://example.com/feed?sig=abc123" && fail "short sig FP" || pass
+begin_test "secret: the parameter name in prose is not caught"
+catches "S3 adds an X-Amz-Signature query parameter" && fail "prose FP" || pass
 begin_test "secret: short shpat_ prefix in prose is not caught"
 catches "the shpat_ prefix marks an admin token" && fail "prose FP" || pass
 
