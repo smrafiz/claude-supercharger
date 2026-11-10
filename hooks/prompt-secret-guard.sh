@@ -102,6 +102,37 @@ if ! printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
   exit 0
 fi
 
+# 2026-11-10: allow specific dummy values instead of switching the whole guard off.
+# AWS's documentation example keys always pass. Add exact values per project with
+# "allowPromptSecrets": [...] in .supercharger.json, or for every project with
+# SUPERCHARGER_PROMPT_SECRET_ALLOW="v1 v2" (settings.json env). The agent cannot
+# write either (selfmod). Entries under 8 chars are ignored: a short one would cut
+# a matching run out of a REAL key. Any failure keeps the original prompt: this
+# step only loosens, so failing means scanning everything, as before.
+_CWD=""
+_json_get _CWD cwd "$_INPUT" '.cwd // empty'
+_CFG=""
+if [ -n "$_CWD" ] && . "$HOOKS_DIR/lib-project-root.sh" 2>/dev/null; then
+  _CFG="$(_resolve_project_root "$_CWD")/.supercharger.json"
+fi
+_STRIPPED=$(printf '%s' "$PROMPT" | SC_CFG="$_CFG" SC_ALLOW="${SUPERCHARGER_PROMPT_SECRET_ALLOW:-}" python3 -c '
+import json, os, re, sys
+s = sys.stdin.read()
+vals = ["AKIAIOSFODNN7EXAMPLE", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"]
+vals += re.split(r"[\s,]+", os.environ.get("SC_ALLOW", ""))
+try:
+    v = json.load(open(os.environ["SC_CFG"])).get("allowPromptSecrets")
+    vals += [x for x in v if isinstance(x, str)] if isinstance(v, list) else []
+except Exception:
+    pass
+for v in sorted({v for v in vals if len(v) >= 8}, key=len, reverse=True):
+    s = s.replace(v, " ")
+sys.stdout.write(s)
+' 2>/dev/null) && PROMPT="$_STRIPPED"
+if ! printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$COMBINED_PATTERN"; then
+  exit 0
+fi
+
 BLOCK_LIST=()
 WARN_LIST=()
 for _p in "${SECRET_PATTERNS[@]:-}"; do
@@ -129,7 +160,7 @@ if [ -n "$WARN_PATTERN" ] \
 fi
 
 if [ -n "$BLOCK_PATTERN" ] && printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$BLOCK_PATTERN"; then
-  MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is intentional (e.g. a revoked or test value), resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
+  MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is a dummy or test value, allow that exact value: add it to "allowPromptSecrets" in .supercharger.json, or to SUPERCHARGER_PROMPT_SECRET_ALLOW (space-separated) for every project. Or resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
   echo "$MSG" >&2
   # Log the block (never the value).
   BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
