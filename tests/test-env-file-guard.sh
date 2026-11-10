@@ -274,7 +274,7 @@ grep_input Grep '{"pattern":"x","path":"/proj/awsx"}'
 # files. Measured after that release: path=~/.env DENY, glob=.env ALLOWED,
 # glob=**/id_rsa ALLOWED. One arm of the same tool — the shape
 # audit-sibling-branches-not-instances describes.
-for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials"; do
+for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials" "**/.envrc" ".envrc.local"; do
   begin_test "env-guard: Grep glob=$_g is blocked"
   grep_input Grep "{\"pattern\":\"x\",\"glob\":\"$_g\",\"output_mode\":\"content\"}"
   [ "$?" = "2" ] && pass || fail "glob=$_g read credential files"
