@@ -142,6 +142,18 @@ elif printf '%s' "$CMD" | grep -Eq -- '(terraform|tofu|opentofu|terragrunt)[^;&|
 # reverses it. drain EVICTS running pods -- without a PodDisruptionBudget that
 # can take every replica down at once.
 elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]drain([[:space:]]|$)';                       then op="kubectl drain (evicts running workloads)"
+# 2026-11-10 (applygate delta): flags that change WHO the client is or WHERE its
+# credential goes. --as impersonates another identity (the gcloud twin,
+# --impersonate-service-account, is denied in safety.sh); --token/--server send a
+# bearer token to a server the kubeconfig does not name. ASK, not deny: RBAC testing
+# and CI use them. `auth can-i --as` only asks the API a yes/no question, so it passes.
+# Not -s for helm: there it is `template --show-only`.
+# shortcut: can-i exemption is per command, not per segment; fine until a compound pairs it with a real --as.
+elif printf '%s' "$CMD" | grep -Eq -- '(kubectl[^;&|]*[[:space:]](--as(-group|-uid)?|--token|-s|--server)|helm[^;&|]*[[:space:]](--kube-token|--kube-as-user|--kube-as-group|--kube-apiserver))([[:space:]=]|$)' \
+     && ! printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]auth[[:space:]]+can-i([[:space:]]|$)'; then op="kubectl/helm identity or API-server override (--as / --token / --server)"; op_reason="This command overrides the cluster identity or API server: --as impersonates another user or group, and --token/--server send a bearer credential to a server your kubeconfig does not name. Confirm the server is yours and the impersonation is intended."
+# Same delta, gcloud: --flags-file can carry --impersonate-service-account where the
+# inline deny never sees it; --access-token-file authenticates with a token from a file.
+elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*[[:space:]](--flags-file|--access-token-file)([[:space:]=]|$)'; then op="gcloud --flags-file / --access-token-file"; op_reason="gcloud is reading flags or an access token from a file. --flags-file can carry --impersonate-service-account, which is denied when written inline; --access-token-file switches the identity the command runs as. Check the file's contents before confirming."
 # v2.29.30: rsync --delete turns a copy into a MIRROR -- every file in the target
 # that is absent from the source is removed. The classic loss is a trailing-slash
 # slip on the source path, which silently empties a live directory. ASK, not deny:
