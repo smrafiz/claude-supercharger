@@ -1173,3 +1173,27 @@ catch `SystemExit`, and call the handler directly.
   failure named the cause on its first CI hit (#272).
 - **Pin the detector budget in tests.** A DENY that becomes ASK only under load is the overrun
   fallback; helpers.sh sets 10s (#270). Sweep: set the default to 1ms and run the suite.
+
+## Notes from 2026-11-10
+
+- **A separator inside quotes is not a separator.** The commit-message exemption stopped at the
+  first `;` `&` `|`, even inside the quoted message, so the prose after it was scanned as a command
+  and a real commit was denied (#281). Any segment regex over shell text must consume quoted
+  strings whole; test with a `;` and a `|` inside the quotes.
+- **An allowlist changes what your fixtures mean.** Allowing AWS's documentation example keys
+  turned the "a real credential still blocks" fixture into an allowed value (#277). A fixture
+  that stands for a real secret must not be a published example.
+- **Replay the gate on real traffic before tuning it.** 119 real handbacks since 11-05: 3 of 5
+  refusals were false (`error toast` matched `error to`, a negated `stopped no`, an error quoted
+  in inline code). Word boundaries, negation, and dropping code spans cut refusals 10 to 6 (#277).
+- **Dedup on what the guard is about, not the whole input.** test-mask-guard keyed on the full
+  command, so a masked lint beside a changing heredoc asked every time (#277).
+- **A subagent's asyncRewake wakes the parent once per hit.** Fixture keys printed by a review
+  subagent interrupted the parent three times; now one notice per subagent (#281).
+- **Same file, two channels, one list.** Bash denied `.envrc`; Read allowed it (#280). When a
+  name joins one channel's credential list, grep the other channel's list in the same change.
+- **Never test old behaviour with stash/pop.** With the change already committed, `git stash
+  push <file>` saved nothing and `pop` applied an unrelated older stash. Copy the old file from
+  `git show HEAD~1:<path>` into a scratch tree and point the test at it.
+- **A settings.json `env` change loaded mid-session stays in the process.** Removing the entry
+  does not undo it; only a restart does. A guard switched off this way stays off until then.
