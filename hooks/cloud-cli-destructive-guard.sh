@@ -36,7 +36,7 @@ case "$_INPUT" in
   # v2.29.28: IaC state tooling. Widened WITH the patterns below, never after --
   # a pattern added under a fast-path that cannot reach it is a silently inert
   # guard, which is exactly how tool-preferences shipped dead in v2.29.23.
-  *terraform*|*tofu*|*terragrunt*) : ;;
+  *terraform*|*tofu*|*terragrunt*|*tfstate*) : ;;
   *rsync*) : ;;
   # v4.1.13: hosted-database CLIs, widened WITH their arm below. `*fly*` because
   # the destroy arm always matched plain `fly`, but only `*flyctl*` got through
@@ -153,6 +153,13 @@ elif printf '%s' "$CMD" | grep -Eq -- '(kubectl[^;&|]*[[:space:]](--as(-group|-u
      && ! printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*[[:space:]]auth[[:space:]]+can-i([[:space:]]|$)'; then op="kubectl/helm identity or API-server override (--as / --token / --server)"; op_reason="This command overrides the cluster identity or API server: --as impersonates another user or group, and --token/--server send a bearer credential to a server your kubeconfig does not name. Confirm the server is yours and the impersonation is intended."
 # Same delta, gcloud: --flags-file can carry --impersonate-service-account where the
 # inline deny never sees it; --access-token-file authenticates with a token from a file.
+# Same delta: a Terraform state file as a WRITE target. `terraform state rm` asks
+# above, but replacing the file does the same damage with no terraform verb at all.
+# Reads and copies FROM state (backups) stay silent: only redirects, tee/truncate/rm,
+# cp/mv/install whose LAST operand is state, and -out/-o/of= outputs.
+# shortcut: tar -C extracting over a state file is not seen; add if it shows up in the block log.
+elif printf '%s' "$CMD" | grep -Eq -- '(>{1,2}[[:space:]]*|(^|[[:space:];&|(])(tee|truncate|rm|shred|unlink)[[:space:]][^;&|]*|(^|[[:space:]])(of=|-out[[:space:]=]+|-o[[:space:]]+|--output[[:space:]=]+))["'"'"']?[^[:space:];&|<>"'"'"']*\.tfstate["'"'"']?([[:space:];&|)]|$)' \
+  || printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|(])(cp|mv|install)[[:space:]][^;&|]*[[:space:]]["'"'"']?[^[:space:];&|<>"'"'"']*\.tfstate["'"'"']?[[:space:]]*([;&|)]|$)'; then op="write over a Terraform state file"; op_reason="This replaces or removes a Terraform state file. State is the only record of which real resources Terraform manages: overwrite it and those resources are orphaned (the next apply recreates or loses them). Back it up first, or use terraform state commands, and confirm."
 elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*[[:space:]](--flags-file|--access-token-file)([[:space:]=]|$)'; then op="gcloud --flags-file / --access-token-file"; op_reason="gcloud is reading flags or an access token from a file. --flags-file can carry --impersonate-service-account, which is denied when written inline; --access-token-file switches the identity the command runs as. Check the file's contents before confirming."
 # v2.29.30: rsync --delete turns a copy into a MIRROR -- every file in the target
 # that is absent from the source is removed. The classic loss is a trailing-slash

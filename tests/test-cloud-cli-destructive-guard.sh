@@ -53,6 +53,18 @@ check "kubectl-assume-word"   "kubectl get pods --assume-yes"                   
 check "helm-template-s"       "helm template . -s templates/svc.yaml"                 SILENT
 check "kubectl-logs-since"    "kubectl logs pod/x --since 5m"                         SILENT
 
+# Terraform state as a write target.
+check "tfstate-redirect"      "terraform state pull > terraform.tfstate"              ASK
+check "tfstate-devnull-cp"    "cp /dev/null terraform.tfstate"                        ASK
+check "tfstate-rm"            "rm -f env/prod/terraform.tfstate"                      ASK
+check "tfstate-openssl-out"   "openssl enc -d -in s.enc -out terraform.tfstate"       ASK
+check "tfstate-tee"           "echo {} | tee terraform.tfstate"                       ASK
+check "tfstate-quoted"        "echo {} > 'terraform.tfstate'"                         ASK
+check "tfstate-backup-copy"   "cp terraform.tfstate backups/state-1.json"             SILENT
+check "tfstate-read"          "terraform show terraform.tfstate"                      SILENT
+check "tfstate-ls"            "ls -la *.tfstate"                                      SILENT
+check "tfstate-gitignore"     "grep tfstate .gitignore"                               SILENT
+
 # --- should PASS (read / list / describe / unrelated) ---
 # v4.1.13: hosted-database CLIs. `fly` was already in the destroy arm but NOT in
 # the fast-path gate (only `flyctl` was), so `fly postgres destroy` never reached it.

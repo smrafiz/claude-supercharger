@@ -16,7 +16,7 @@ guard_out() { SUPERCHARGER_STATE="$1" bash "$GUARD" <<<"$(edit_json "$2" "${3:-s
 # ---- matcher: true positives ----
 source "$REPO_DIR/hooks/lib-critical-infra.sh"
 for p in ".github/workflows/ci.yml" "/abs/.github/workflows/deploy.yaml" ".gitlab-ci.yml" ".circleci/config.yml" \
-         "Jenkinsfile" "Dockerfile" "Dockerfile.prod" "docker-compose.yml" "compose.yaml" "infra/main.tf" "prod.tfvars" \
+         "Jenkinsfile" "Dockerfile" "Dockerfile.prod" "docker-compose.yml" "compose.yaml" "infra/main.tf" "prod.tfvars" "terraform.tfstate" "env/prod/terraform.tfstate.backup" \
          "migrations/001.sql" "app/db/migrate/002.rb" "alembic/versions/x.py" "prisma/schema.prisma" \
          "auth/login.ts" "src/authentication/i.js" "middleware/auth.js" "config/passport.js" "google.strategy.ts"; do
   begin_test "matcher: '$p' is critical-infra"

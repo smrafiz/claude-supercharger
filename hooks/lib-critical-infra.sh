@@ -55,6 +55,8 @@ is_critical_infra_path() {
     docker-compose.yml|docker-compose.yaml|docker-compose.*.yml|compose.yml|compose.yaml)
       echo "container/deploy"; return 0 ;;
     *.tf|*.tfvars) echo "infrastructure-as-code"; return 0 ;;
+    # Overwriting state orphans every resource it tracks (applygate delta, 2026-11-10).
+    *.tfstate|*.tfstate.backup) echo "Terraform state"; return 0 ;;
   esac
 
   # 3. DB schema / migrations
