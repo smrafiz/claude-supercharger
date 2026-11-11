@@ -7,11 +7,9 @@ session on any machine.**
 *Verified 2026-11-10, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `5bdf4689`** (#280 merged; PR run green on 12 jobs). Branch
-  `fix/sensitive-read-commit-prose` open: commit-message prose with `;`/`|` inside the quotes
-  was scanned as a command (b495e37d); output-secrets-scanner wakes the parent once per
-  subagent, not per hit (4b034d8f). PR after the full suite.
-- **4.4.6 HELD** (user, 2026-11-09): #264–#280 merged and unreleased. Release only on their word.
+- **Master `3b788319`**: #274–#281 merged today; each PR's ci.yml green on 12 jobs. Master's
+  own run after the last merges not checked.
+- **4.4.6 HELD** (user, 2026-11-09): #264–#281 merged and unreleased. Release only on their word.
 - **#277–#280:** prompt/env allowlists (+README), handback FPs 10→6, test-mask dedup,
   direnv files on Read/Grep/Glob, `whsec_`/`glpat-`/`shp*_` token formats (phantom-secrets delta;
   its proxy/vault design is off-thesis). applygate delta closed (#274–#276).
@@ -60,10 +58,10 @@ session on any machine.**
 ## Log
 
 #### 2026-11-10 — 104cfc73
-Merged #274-#280: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
+Merged #274-#281: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
 README, direnv + token formats (phantom-secrets delta). Handback replay: 3 of 5 refusals were FPs.
-Open branch: commit-prose separator FP + one subagent notice. 4.4.6 still held.
-Detail: this entry (no separate brief).
+Then #281: commit-prose separator FP, one subagent notice, signed-URL patterns. 4.4.6 held.
+Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 
 #### 2026-11-09 (deep) — 104cfc73
 Merged #267-#273: pulumi/gh global opts, pool runner, eksctl ask, detector budget pin, statusline
