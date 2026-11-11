@@ -27,7 +27,7 @@ Effort: a leading `quick`, `standard` or `deep`. Default `standard`. Then pick t
 | `commit <sha>` / a 7–40 hex sha | **single commit** | `git show <sha>` |
 | `repo` / file/dir paths | those files (whole-file review) | read the files directly |
 
-For a diff scope, review the changed lines **and the functions that contain them**, and report only what the change introduced — pre-existing issues go in a separate section, never mixed in. State the resolved scope and effort in the header. If the arguments is ambiguous, ask once, then proceed. A diff under ~50 changed lines runs as `quick`.
+For a diff scope, review the changed lines **and the functions that contain them**, and report only what the change introduced — pre-existing issues go in a separate section, never mixed in. State the resolved scope and effort in the header. If the arguments is ambiguous, ask once, then proceed. A diff under ~50 changed lines runs as `quick`. A whole-repo or path scope under ~300 lines runs one discovery agent covering all families with `ATTACK-CLASSES.md`; Step 3 verification still runs one independent agent per finding (never self-verified). Say so in the header: `effort: standard (small scope: single discovery pass)`.
 
 **Step 1 — Repository context (once, shared by every agent)**
 
