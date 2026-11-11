@@ -4,26 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-10, session `104cfc73`.*
+*Verified 2026-11-11, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `3b788319`**: #274–#281 merged today; each PR's ci.yml green on 12 jobs. Master's
-  own run after the last merges not checked.
-- **4.4.6 HELD** (user, 2026-11-09): #264–#281 merged and unreleased. Release only on their word.
-- **#277–#280:** prompt/env allowlists (+README), handback FPs 10→6, test-mask dedup,
-  direnv files on Read/Grep/Glob, `whsec_`/`glpat-`/`shp*_` token formats (phantom-secrets delta;
-  its proxy/vault design is off-thesis). applygate delta closed (#274–#276).
-- **Next:** release 4.4.6 on the user's word; `/sc-security` recall test (planted vulns) if wanted.
-  Skipped by decision: an audit step in /sc-security (no network, version currency excluded).
-- `/sc-security` HAS run on a real repo: radius-bundles 2026-11-01, 0 findings, honest gaps.
-- Per-machine: 6 stashes (incl. `3d45886a`) are the user's to drop; a stash/pop probe popped it by
-  mistake 2026-11-10, restored, stash kept; branch `feat/supply-chain-gaps`.
-- `test-perf-chain` statusline timing flakes under suite load (passes alone).
+- **Master `16ee990c`**: #282-#288 merged 2026-11-11; CI + Host contract green on it.
+- **Open, not merged:** #289 (secret dirs on Read; .azure, pass store, sops age key) CI run
+  43016837281; #290 (GIT_CONFIG_PARAMETERS/GIT_PROXY_COMMAND/GIT_EXEC_PATH/ZDOTDIR) CI run
+  43019899100. Merge each when its dispatched ci.yml is 12/12 green.
+- **4.4.6 HELD** (user): #264-#288 merged and unreleased (+#289/#290 once merged). Release only on their word.
+- **Delta audits closed:** cc-audit (#285/#286/#287) and aidevops (#289/#290). Parked by the user:
+  variable-as-command-name (`x=rm; $x -rf /`). Unchecked: aidevops's prompt-injection patterns, `GOCSPX-`.
+- Per-machine: 6 stashes (incl. `3d45886a`) are the user's; branch `feat/supply-chain-gaps`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
   when master CI is green on HEAD; promote needs Windows green on master's base commit.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** risk-review log ~2026-11-20; re-run the FP audit a month after 4.4.5; SpecLock
-  (parked); economy re-measure. Handback replay done 2026-11-10 (#277).
+- **Open:** risk-review log ~2026-11-20; FP audit re-run ~2026-12-08; SpecLock (parked).
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -57,6 +52,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-11 (deep) — 104cfc73
+Merged #282-#288: perf-chain + timing retries, /sc-security small-scope pass, cc-audit delta
+(6 Bash gaps, webhook/Telegram secrets, browser stores on Read). aidevops delta opened #289/#290,
+CI running at hand-off. 4.4.6 held.
+Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
+
 #### 2026-11-10 — 104cfc73
 Merged #274-#281: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
 README, direnv + token formats (phantom-secrets delta). Handback replay: 3 of 5 refusals were FPs.
@@ -79,11 +80,3 @@ Released v4.4.4 (#239-#249). Merged #250-#262: update check, commit-check `-F`, 
 review, host-contract suite, handback/pipe/dotenv/password-reset FP fixes, commit-hash citation warning,
 global options before a subcommand (found via applygate). Guard FP audit: 62% FP. 4.4.5 staged.
 Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
-
-#### 2026-11-04 (deep) — 3d213381
-Merged #241-#244 (cloud-cli asks, claim gate stale/zero-test, supply-chain asks, paste overrun,
-tamper chmod). Found Stop/SubagentStop notes reach nobody; subagents need a PreToolUse deny on
-SubagentHandback. #245 does that and retires subagent-stop-check (merged 2026-11-05).
-Detail: `.claude/handoff-3d213381-9717-4755-b743-9b2b101ebce9.md`
-
-

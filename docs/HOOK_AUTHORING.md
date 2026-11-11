@@ -1197,3 +1197,22 @@ catch `SystemExit`, and call the handler directly.
   `git show HEAD~1:<path>` into a scratch tree and point the test at it.
 - **A settings.json `env` change loaded mid-session stays in the process.** Removing the entry
   does not undo it; only a restart does. A guard switched off this way stays off until then.
+
+## Notes from 2026-11-11
+
+- **A location rule on one channel needs a location rule on the other.** Bash denied browser
+  stores and custom-named keys in `.ssh`/`.gnupg`/`.aws` by directory; Read matched basenames
+  only, so `deploy_key` and `Login Data` were readable (#287, #289). Both were found by diffing
+  other projects' guards, not by our own sweeps.
+- **Every spelling of the same setting.** `git -c` and `GIT_CONFIG_KEY_n` were checked;
+  `GIT_CONFIG_PARAMETERS` carries the same keys and was not (#290). When a guard parses one
+  form of a config channel, list the others in the same change.
+- **A name added to the detector touches three lists.** `_SENSITIVE_NAME_RE`, the safety.sh
+  gate glob, and `test-gate-detector-parity.sh` (NAMES + PINNED). The targeted tests passed;
+  only the full suite caught the missed re-pin (#289).
+- **Regenerate after any `configs/` edit.** #284 went red twice on generated command files and
+  the shipped manifest. Run every `tools/gen-*.sh` before pushing.
+- **Timing tests: retry, don't widen.** Re-measure up to 3 times and fail only if all miss;
+  prove the check still fails with an impossible bound (#283, #288).
+- **Replay with isolated state.** Old-vs-new replay over shared `SUPERCHARGER_STATE` made
+  ask-once dedup look like ask-to-allow regressions; one state dir per call removed all of them.
