@@ -159,7 +159,8 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       case "$_EFG_GBASE" in
         .env|.env.*|.envrc|.envrc.*|id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*|*.pem|*.key|*.p12|*.pfx|*.jks|*.p8|\
         .npmrc|.pypirc|.pgpass|.netrc|.git-credentials|.my.cnf|credentials|credentials.*|\
-        secrets.yaml|secrets.yml|*.tfstate|.vault-token|wallet.dat)
+        secrets.yaml|secrets.yml|*.tfstate|.vault-token|wallet.dat|\
+        "Login Data"|"Login Data For Account"|Cookies|cookies.sqlite|logins.json|key4.db)
           block "Search of credential files blocked (glob: $_EFG_GLOB) — a content search reads the same bytes as opening them" "$_EFG_GLOB" ;;
       esac
     fi
@@ -293,6 +294,24 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
     */.config/phantom*/*|*/.config/solflare*/*|*/.electrum/*)
       shopt -u nocasematch
       block "Access to crypto-wallet app data blocked ($FILE_PATH) — wallet keystores and seeds live here" "$FILE_PATH" ;;
+  esac
+  # Browser password, cookie and history stores (2026-11-11). safety.sh denies these
+  # over Bash (category: browser) but Read/Grep/Glob reached them: parity drift.
+  # Same paths and the same off-switch, `disableSecurityCategories: ["browser"]`.
+  case "$FILE_PATH/" in
+    */"Application Support"/Google/Chrome*/*|*/"Application Support"/Chromium/*|\
+    */"Application Support"/BraveSoftware/*|*/"Application Support"/"Microsoft Edge"*/*|\
+    */"Application Support"/Arc/*|*/"Application Support"/Firefox/*|\
+    */Library/Safari/*|*/Library/Cookies/*|\
+    */.config/google-chrome*/*|*/.config/chromium/*|*/.config/BraveSoftware/*|\
+    */.config/microsoft-edge*/*|*/.mozilla/firefox/*)
+      shopt -u nocasematch
+      _efg_br_off=""
+      if type sc_scope_resolve >/dev/null 2>&1; then
+        sc_scope_resolve ".disabled-security-categories" "$PROJECT_DIR"
+        grep -qw browser "$SC_SCOPE_FILE" 2>/dev/null && _efg_br_off=1
+      fi
+      [ -z "$_efg_br_off" ] && block "Access to browser data blocked ($FILE_PATH) — saved passwords, cookies and history live here" "$FILE_PATH" ;;
   esac
   shopt -u nocasematch
   # credential paths not distinguished by basename alone

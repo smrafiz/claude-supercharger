@@ -317,6 +317,26 @@ wal Read file_path "$HOME/Library/Application Support/Code/User/settings.json"; 
 begin_test "env-guard: a project file merely named like a wallet is allowed"
 wal Read file_path "/repo/src/phantom-types.ts"; [ "$?" = "0" ] && pass || fail "blocked"
 
+# --- 2026-11-11: browser stores on Read/Grep (safety.sh denied them on Bash only) ---
+_BR="$HOME/Library/Application Support"
+begin_test "env-guard: Read of Chrome Login Data (macOS) blocked"
+wal Read file_path "$_BR/Google/Chrome/Default/Login Data"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Read of Linux Chrome Cookies blocked"
+wal Read file_path "$HOME/.config/google-chrome/Default/Cookies"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Read of Firefox logins.json blocked"
+wal Read file_path "$HOME/.mozilla/firefox/abc.default/logins.json"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Grep inside the Chrome profile folder blocked"
+wal Grep path "$_BR/Google/Chrome"; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: Grep with glob=**/Login Data blocked"
+grep_input Grep '{"pattern":"x","glob":"**/Login Data"}'; [ "$?" = "2" ] && pass || fail "allowed"
+begin_test "env-guard: a project file named history.ts is allowed"
+wal Read file_path "/repo/src/firefox/history.ts"; [ "$?" = "0" ] && pass || fail "blocked"
+begin_test "env-guard: disableSecurityCategories browser lifts the browser block"
+_BRS=$(mktemp -d); mkdir -p "$_BRS/scope"; echo browser > "$_BRS/scope/.disabled-security-categories"
+python3 -c 'import json,sys;print(json.dumps({"tool_name":"Read","tool_input":{"file_path":sys.argv[1]},"cwd":"/tmp"}))' "$_BR/Google/Chrome/Default/Login Data" \
+  | SUPERCHARGER_STATE="$_BRS" bash "$HOOK" >/dev/null 2>&1; [ "$?" = "0" ] && pass || fail "still blocked"
+rm -rf "$_BRS"
+
 # #436: ~/.mcp-auth/ is mcp-remote's OAuth token cache -- a peer of
 # .gemini/oauth_creds.json, missing from every credential list.
 begin_test "env-guard: Read of ~/.mcp-auth token file blocked"
