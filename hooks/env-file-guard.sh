@@ -229,7 +229,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   # trailing slash makes a path that ENDS at the directory match too.
   if [ "$TOOL" = "Grep" ] || [ "$TOOL" = "Glob" ]; then
     case "$FILE_PATH/" in
-      */.ssh/*|*/.gnupg/*|*/.aws/*|*/.docker/*|*/.kube/*|*/.config/gcloud/*|*/.config/gh/*|*/.mcp-auth/*)
+      */.ssh/*|*/.gnupg/*|*/.aws/*|*/.docker/*|*/.kube/*|*/.config/gcloud/*|*/.config/gh/*|*/.mcp-auth/*|*/.azure/*|*/.password-store/*)
         block "Search of a credential directory blocked ($FILE_PATH) — .ssh/.gnupg/.aws hold key material regardless of file name" "$FILE_PATH" ;;
     esac
   fi
@@ -312,6 +312,17 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
         grep -qw browser "$SC_SCOPE_FILE" 2>/dev/null && _efg_br_off=1
       fi
       [ -z "$_efg_br_off" ] && block "Access to browser data blocked ($FILE_PATH) — saved passwords, cookies and history live here" "$FILE_PATH" ;;
+  esac
+  # Secret DIRECTORIES on Read (2026-11-11, aidevops delta): Bash denied
+  # `cat ~/.ssh/deploy_key` by location while Read only knew id_* names: parity
+  # drift. Public members mirror safety-detect.py:_SECRET_DIR_PUBLIC.
+  case "$FILE_PATH" in
+    */.ssh/*|*/.gnupg/*|*/.aws/*|*/.azure/*|*/.password-store/*|*/sops/age/keys.txt)
+      case "$base" in
+        known_hosts|known_hosts.old|config|authorized_keys|authorized_keys2|environment|rc|pubring.*|trustdb.gpg|*.pub) ;;
+        *) shopt -u nocasematch
+           block "Read of a credential directory blocked ($FILE_PATH) — files here are keys or tokens whatever their name" "$FILE_PATH" ;;
+      esac ;;
   esac
   shopt -u nocasematch
   # credential paths not distinguished by basename alone
