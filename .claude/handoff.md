@@ -55,7 +55,7 @@ session on any machine.**
 #### 2026-11-11 (deep) — 104cfc73
 Merged #282-#288: perf-chain + timing retries, /sc-security small-scope pass, cc-audit delta
 (6 Bash gaps, webhook/Telegram secrets, browser stores on Read). aidevops delta opened #289/#290,
-CI running at hand-off. 4.4.6 held.
+CI running at hand-off. 4.4.6 held. This hand-off: docs PR #291.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 
 #### 2026-11-10 — 104cfc73
