@@ -288,6 +288,8 @@ _SENSITIVE_NAME_RE = re.compile(
     # ran, then matched nothing -- every reader allowed it while the Read channel
     # blocked it. Cross-channel drift in the direction the first probe did not test.
     r"|\.aws/credentials"
+    # 2026-11-11: the sops age private key (aidevops delta, adjacent find).
+    r"|sops/age/keys\.txt"
     # Credential stores with distinctive extensions: a password database and a Java
     # keystore are never anything else, so the extension alone is safe to match.
     r"|[\w.*-]+\.(?:kdbx|keystore)"
@@ -622,7 +624,9 @@ def check_credential_laundering(c: str) -> str | None:
 # filename patterns above protect id_rsa and friends; a deploy key called
 # `github_ci` sitting beside it was completely unguarded, and custom key names
 # are ordinary practice.
-_SECRET_DIRS = ("/.ssh/", "/.gnupg/", "/.aws/", "/.mcp-auth/")
+# 2026-11-11 (aidevops delta): .azure holds the MSAL token cache, .password-store
+# is pass(1), one encrypted secret per file.
+_SECRET_DIRS = ("/.ssh/", "/.gnupg/", "/.aws/", "/.mcp-auth/", "/.azure/", "/.password-store/")
 # Members of those directories that are NOT secrets and are read routinely. A
 # blanket directory rule without this list denies `cat ~/.ssh/config`, which is
 # how a guard earns a reputation for crying wolf and gets switched off.
@@ -637,7 +641,7 @@ _SECRET_DIR_CONTENT_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "tar
 
 def check_secret_directory(c: str) -> str | None:
     """A read of a file inside a secret directory, whatever it is called."""
-    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/)[\w.-]+)", c):
+    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/|/\.azure/|/\.password-store/)[\w.-]+)", c):
         path = m.group(1)
         if _SECRET_DIR_PUBLIC.search(path):
             continue
@@ -645,7 +649,7 @@ def check_secret_directory(c: str) -> str | None:
         if _SENSITIVE_NAME_RE.search(path):
             continue
         return (f"secret directory access: {path} — files under "
-                f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
+                f".ssh/.gnupg/.aws/.azure/.password-store/.mcp-auth are credentials regardless of their name")
     # 2026-10-31: a tool that reads CONTENT given the directory itself: `grep -R
     # 'PRIVATE KEY' ~/.ssh` names no file, so the path rule above never fires
     # (pi-automode-classifier Permission corpus). Listing stays allowed: `ls`,
@@ -657,20 +661,20 @@ def check_secret_directory(c: str) -> str | None:
         verb = words[1] if words[0] == "sudo" and len(words) > 1 else words[0]
         if verb not in _SECRET_DIR_CONTENT_READERS:
             continue
-        d = re.search(r"(?:^|[\s'\"=])([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth))/?(?=[\s'\"]|$)", seg)
+        d = re.search(r"(?:^|[\s'\"=])([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth|azure|password-store))/?(?=[\s'\"]|$)", seg)
         if d:
             return (f"secret directory access: {verb} over {d.group(1)} — files under "
-                    f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
+                    f".ssh/.gnupg/.aws/.azure/.password-store/.mcp-auth are credentials regardless of their name")
     # 2026-10-27: `cd ~/.aws && cat credentials` names the file relative to the
     # directory, so the path above never appears (cc-safety-net corpus).
-    m = re.search(r"(?:^|[;&|(]\s*)cd\s+[\"']?([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth))/?[\"']?\s*(?:&&|;|\|\|)(.*)", c, re.S)
+    m = re.search(r"(?:^|[;&|(]\s*)cd\s+[\"']?([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth|azure|password-store))/?[\"']?\s*(?:&&|;|\|\|)(.*)", c, re.S)
     if m:
         for seg in re.split(r"&&|\|\||[;|\n]", m.group(2)):
             for w in seg.split()[1:]:
                 w = w.strip("'\"")
                 if w and not w.startswith("-") and "/" not in w and not _SECRET_DIR_PUBLIC.search(w):
                     return (f"secret directory access: {m.group(1)}/{w} — files under "
-                            f".ssh/.gnupg/.aws/.mcp-auth are credentials regardless of their name")
+                            f".ssh/.gnupg/.aws/.azure/.password-store/.mcp-auth are credentials regardless of their name")
     return None
 
 

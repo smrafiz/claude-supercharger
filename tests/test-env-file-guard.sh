@@ -368,4 +368,58 @@ run_input '{"tool_name":"Read","tool_input":{"file_path":"C:\\Users\\dev\\site\\
 [ "$?" = "0" ] && pass || fail "backslash .env.example blocked"
 
 
+
+# --- 2026-11-11: secret DIRECTORIES on Read (aidevops delta; Bash denied by location) ---
+begin_test "env-guard: Read ~/.ssh/deploy_key blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/deploy_key"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.ssh/github-work blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/github-work"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.gnupg/secring.gpg blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.gnupg/secring.gpg"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.aws/sso/cache/abc.json blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.aws/sso/cache/abc.json"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.aws/cli/cache/abc.json blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.aws/cli/cache/abc.json"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.azure/msal_token_cache.json blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.azure/msal_token_cache.json"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.password-store/bank.gpg blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.password-store/bank.gpg"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.config/sops/age/keys.txt blocked"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.config/sops/age/keys.txt"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+begin_test "env-guard: Read ~/.ssh/known_hosts allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/known_hosts"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.ssh/config allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/config"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.ssh/authorized_keys allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/authorized_keys"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.ssh/work.pub allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.ssh/work.pub"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.aws/config allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.aws/config"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.gnupg/pubring.kbx allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.gnupg/pubring.kbx"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/.azure/config allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.azure/config"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Read ~/repo/docs/azure/setup.md allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/repo/docs/azure/setup.md"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+begin_test "env-guard: Grep of ~/.azure blocked"
+run_input '{"tool_name":"Grep","tool_input":{"pattern":"token","path":"/home/u/.azure"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+
 report

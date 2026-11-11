@@ -56,6 +56,11 @@ done <<'CASES'
 # #436: mcp-remote's OAuth token cache (Read-channel parity: env-file-guard)
 /home/u/.mcp-auth/mcp-remote-0.1.29/abc123_tokens.json|deny
 ~/.mcp-auth/mcp-remote-0.1.29/abc123_tokens.json|deny
+# 2026-11-11 (aidevops delta): Azure MSAL cache, pass(1) store, sops age key
+/home/u/.azure/msal_token_cache.json|deny
+/home/u/.password-store/bank.gpg|deny
+/home/u/.config/sops/age/keys.txt|deny
+/home/u/.azure/config|open
 # --- the standard names must still be caught (no regression) ---
 /home/u/.ssh/id_rsa|deny
 /home/u/.aws/credentials|deny
