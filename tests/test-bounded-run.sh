@@ -35,12 +35,17 @@ ERR=$(sc_bounded_run 5 sh -c 'printf oops >&2' 2>&1 >/dev/null)
 # `while kill -0; do sleep 1; done` loop charges every call up to a full second,
 # and quality-gate makes several per edit. This pins that it does not.
 begin_test "a fast command adds no polling latency"
+# 2026-11-11: re-measured up to 3 times (278ms once under full-suite load). A polling
+# loop charges ~1s per call on every attempt; contention rarely lasts three.
+for _try in 1 2 3; do
 _T0=$(python3 -c 'import time; print(time.time())')
 for _ in 1 2 3 4 5; do sc_bounded_run 30 true; done
 _T1=$(python3 -c 'import time; print(time.time())')
 _PER=$(python3 -c 'import sys; print("%.0f" % ((float(sys.argv[2]) - float(sys.argv[1])) * 1000 / 5))' "$_T0" "$_T1")
 _OK=$(python3 -c 'import sys; print("1" if float(sys.argv[1]) < 250 else "0")' "$_PER")
-[ "$_OK" = "1" ] && pass || fail "${_PER}ms per call — the bound is charging fast commands (polling?)"
+[ "$_OK" = "1" ] && break
+done
+[ "$_OK" = "1" ] && pass || fail "${_PER}ms per call on 3 attempts — the bound is charging fast commands (polling?)"
 
 begin_test "an overrunning command is killed and reports 124"
 _T0=$(python3 -c 'import time; print(time.time())')
