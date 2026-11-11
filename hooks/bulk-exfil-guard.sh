@@ -30,7 +30,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # Fast-path: needs an archive tool, a cloud-sync verb, or a remote-copy tool.
 # Superset of every pattern below, so it can never skip a real match.
 case "$_INPUT" in
-  *tar*|*zip*|*gzip*|*pigz*|*bzip2*|*xz*|*zstd*|*7z*|*cpio*|*pax*|*rclone*|*rsync*|*gsutil*|*" s3 "*|*'s3\t'*|*scp*|*Compress-Archive*|*Invoke-WebRequest*|*Invoke-RestMethod*) : ;;
+  *tar*|*zip*|*gzip*|*pigz*|*bzip2*|*xz*|*zstd*|*7z*|*cpio*|*pax*|*rclone*|*rsync*|*gsutil*|*" s3 "*|*'s3\t'*|*scp*|*Compress-Archive*|*Invoke-WebRequest*|*Invoke-RestMethod*|*"git "*archive*|*"git "*bundle*) : ;;
   *) exit 0 ;;
 esac
 
@@ -49,7 +49,9 @@ REASON=""
 # Producer writing a stream, piped (|) into curl/wget-upload/nc/ncat (NOT ssh —
 # `tar | ssh host` is a common legit backup, left alone). safety.sh already
 # handles curl|bash download-exec; this is the reverse (upload) direction.
-if printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z])(tar|zip|gzip|pigz|bzip2|xz|zstd|7z|7za|cpio|pax)\b[^|]*\|[^|]*(curl|wget|nc[[:space:]]|ncat|/dev/tcp)'; then
+# 2026-11-11 (cc-audit delta): `git archive`/`git bundle` stream the whole repo the
+# same way; they were missing from the producer list.
+if printf '%s\n' "$CMD" | grep -qE '(^|[^a-zA-Z])((tar|zip|gzip|pigz|bzip2|xz|zstd|7z|7za|cpio|pax)\b|git[[:space:]]+(archive|bundle)\b)[^|]*\|[^|]*(curl|wget|nc[[:space:]]|ncat|/dev/tcp)'; then
   REASON="an archive/stream is piped into a network sink (curl/wget/nc) — this can bulk-exfiltrate local files with no filename appearing in the command"
 fi
 # v2.23.22: PowerShell parity (matcher now Bash,PowerShell). Compress-Archive piped

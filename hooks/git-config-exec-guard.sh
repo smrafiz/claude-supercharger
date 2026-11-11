@@ -39,6 +39,23 @@ case "$_INPUT" in *git*) : ;; *) exit 0 ;; esac
 _GCE_SET=0
 case "$_INPUT" in *config*|*CONFIG_KEY*|*"-c "*|*" -c"[a-z]*"."*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*) _GCE_SET=1 ;; esac
 
+# 2026-11-11 (cc-audit delta): the same exec surface written as a FILE over Bash.
+# Write/Edit into .git/hooks or .git/config is already gated (path-guard 3.3) and
+# `git config core.fsmonitor` is denied below, but `cp x .git/hooks/pre-commit` or
+# `echo ... >> .git/config` reached neither. ASK: hook installers are legitimate.
+case "$_INPUT" in
+  *.git/hooks*|*.git/config*|*.githooks/*)
+    CMD=$(printf '%s' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null)
+    _gce_t='["'"'"']?[^[:space:];&|<>"'"'"']*\.git(hooks(/[^[:space:];&|<>"'"'"']*)?|/hooks(/[^[:space:];&|<>"'"'"']*)?|/config)["'"'"']?([[:space:];&|)]|$)'
+    if printf '%s' "$CMD" | grep -Eq -- "(>{1,2}[[:space:]]*|(^|[[:space:];&|(])tee[[:space:]]+(-a[[:space:]]+)?)${_gce_t}" \
+      || printf '%s' "$CMD" | grep -Eq -- "(^|[[:space:];&|(])(cp|mv|install|ln)[[:space:]][^;&|]*[[:space:]]${_gce_t}" \
+      || printf '%s' "$CMD" | grep -Eq -- "(^|[[:space:];&|(])(sed|perl)[[:space:]][^;&|]*-i[^;&|]*[[:space:]]${_gce_t}"; then
+      sc_decision ask "This writes into git's hooks or .git/config over Bash. Git runs hook scripts and exec-capable config keys (core.fsmonitor, hooksPath, sshCommand) on ordinary git commands, so whatever lands there executes later without another prompt. Confirm this is an intended hook install. (Disable: SUPERCHARGER_GIT_CONFIG_EXEC_GUARD=0)"
+      echo "[Supercharger] git-config-exec-guard: ASK Bash write into git hooks/config" >&2
+      exit 0
+    fi ;;
+esac
+
 # GitSpawn: a repo OUTSIDE the project (or nested in it with its own .git) can ship
 # a .git/config whose core.fsmonitor / hooksPath / sshCommand / pager / filter driver
 # runs on an ordinary `git status`. Lives here rather than in a new hook because the
