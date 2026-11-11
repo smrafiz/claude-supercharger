@@ -36,6 +36,18 @@ catches "S3 adds an X-Amz-Signature query parameter" && fail "prose FP" || pass
 begin_test "secret: short shpat_ prefix in prose is not caught"
 catches "the shpat_ prefix marks an admin token" && fail "prose FP" || pass
 
+# ---- 2026-11-11 (cc-audit delta) ----
+begin_test "secret: Slack incoming webhook URL is caught"
+catches "https://hooks.sl""ack.com/services/T0ABC1234/B0DEF5678/q8Vt2NfK0dLs9RpYw4HcXm7U" && pass || fail "slack webhook evades"
+begin_test "secret: Discord webhook URL is caught"
+catches "https://discord.com/api/web""hooks/123456789012345678/$(printf 'aB3_%.0s' $(seq 1 17))" && pass || fail "discord webhook evades"
+begin_test "secret: Telegram bot token is caught"
+catches "TOKEN=1234567890"":AA$(printf 'x%.0s' $(seq 1 33))" && pass || fail "telegram token evades"
+begin_test "secret: a bare slack webhook host in prose is not caught"
+catches "post to hooks.slack.com/services when the build fails" && fail "prose FP" || pass
+begin_test "secret: a time-like digits:AA string is not caught"
+catches "at 12:AA the run started" && fail "short FP" || pass
+
 # ---- v2.22.0: modern formats that used to EVADE ----
 begin_test "secret: Anthropic sk-ant- key is caught"
 catches "sk-""ant-api03-AbCdEf0123456789AbCdEf0123456789xyz" && pass || fail "sk-ant evades"
