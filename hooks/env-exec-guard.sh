@@ -27,7 +27,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 # Fast-path: one of the code-injecting var names must be present.
 case "$_INPUT" in
-  *LD_PRELOAD*|*DYLD_INSERT_LIBRARIES*|*LD_LIBRARY_PATH*|*DYLD_LIBRARY_PATH*|*NODE_OPTIONS*|*BASH_ENV*|*PYTHONSTARTUP*|*PYTHONPATH*|*PERL5OPT*|*RUBYOPT*|*PROMPT_COMMAND*|*GIT_SSH_COMMAND*|*GIT_SSH*|*GIT_EXTERNAL_DIFF*|*ENV=*|*[Ee][Nn][Vv]:*) : ;;
+  *LD_PRELOAD*|*DYLD_INSERT_LIBRARIES*|*LD_LIBRARY_PATH*|*DYLD_LIBRARY_PATH*|*NODE_OPTIONS*|*BASH_ENV*|*PYTHONSTARTUP*|*PYTHONPATH*|*PERL5OPT*|*RUBYOPT*|*PROMPT_COMMAND*|*GIT_SSH_COMMAND*|*GIT_SSH*|*GIT_EXTERNAL_DIFF*|*GIT_PROXY_COMMAND*|*GIT_EXEC_PATH*|*ZDOTDIR*|*ENV=*|*[Ee][Nn][Vv]:*) : ;;
   *) exit 0 ;;
 esac
 
@@ -61,6 +61,11 @@ POLICY = {
     # ssh". Found by diffing against kenryu42/cc-safety-net (git.ssh-env).
     "GIT_SSH_COMMAND": "ssh-exec", "GIT_SSH": "ssh-exec",
     "GIT_EXTERNAL_DIFF": "ssh-exec",
+    # 2026-11-11 (aidevops delta): each names code git/zsh runs with no shell
+    # gadget in sight. GIT_PROXY_COMMAND runs per git:// connection;
+    # GIT_EXEC_PATH is where git loads git-remote-https & co. from; zsh
+    # sources $ZDOTDIR/.zshenv on every start, like BASH_ENV.
+    "GIT_PROXY_COMMAND": "any", "GIT_EXEC_PATH": "any", "ZDOTDIR": "any",
     "NODE_OPTIONS": "node", "PERL5OPT": "perl", "RUBYOPT": "ruby",
     "LD_LIBRARY_PATH": "writable", "DYLD_LIBRARY_PATH": "writable",
     "PYTHONPATH": "writable",
