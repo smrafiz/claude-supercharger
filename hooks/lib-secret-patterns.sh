@@ -76,6 +76,11 @@ SECRET_PATTERNS=(
   # Anchored on the parameter name; 0 hits in local transcripts (2026-11-10).
   '[Xx]-([Aa]mz|[Gg]oog)-[Ss]ignature=[0-9a-f]{64,}'
   '[?&]sig=[A-Za-z0-9%+/=]{40,}'
+  # 2026-11-11 (cc-audit delta): chat webhook URLs are bearer credentials (anyone
+  # holding one can post), and Telegram bot tokens. 0 hits in 6 GB of transcripts.
+  'hooks\.slack\.com/(services|workflows|triggers)/[A-Za-z0-9_/-]{20,}'
+  'discord(app)?\.com/api/webhooks/[0-9]{17,20}/[A-Za-z0-9_-]{60,}'
+  '(^|[^0-9])[0-9]{8,10}:AA[A-Za-z0-9_-]{33}'
   # npm
   'npm_[A-Za-z0-9]{36}'
   # JWTs
