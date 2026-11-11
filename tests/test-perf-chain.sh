@@ -62,6 +62,10 @@ begin_test "spawn floor is measured, positive, and plausible against the cheapes
 # was measuring the machine, not the harness. 6x+5 stays far below the ~17x a
 # genuinely broken probe produces while surviving contention. A gate that cries
 # wolf gets muted, and this one was being re-run rather than believed.
+# 2026-11-11: still flaked under suite load (`floor 40.00 vs cheapest 5.00`).
+# Rather than widen the bound a third time, re-measure: a broken probe is wrong on
+# every attempt, contention rarely three times running.
+for _try in 1 2 3; do
 DIAG=$(bash "$HARNESS" --iterations 1 --json 2>/dev/null | python3 -c "
 import json,sys
 d=json.load(sys.stdin)
@@ -76,7 +80,9 @@ for lab,p in d['payloads'].items():
     if not 0<p['spawn_share']<=1:
         print('%s: spawn_share out of range: %r' % (lab,p['spawn_share'])); sys.exit(1)
 " 2>&1)
-[ -z "$DIAG" ] && pass || fail "spawn floor implausible — $DIAG"
+[ -z "$DIAG" ] && break
+done
+[ -z "$DIAG" ] && pass || fail "spawn floor implausible on 3 attempts — $DIAG"
 
 begin_test "--json emits valid JSON with per-hook means + slowest"
 JOUT=$(bash "$HARNESS" --iterations 1 --json 2>/dev/null)
@@ -146,6 +152,10 @@ SOUT=$(bash "$HARNESS" --target statusline --iterations 2 2>/dev/null)
   && pass || fail "missing cold/warm rows: $SOUT"
 
 begin_test "--target statusline --json reports a cache speedup over real renders"
+# 2026-11-11: re-measured up to 3 times, same reasoning as the spawn-floor test:
+# a disabled cache is ~1.0x on every attempt; a loaded machine rarely is.
+SJ_OK=1
+for _try in 1 2 3; do
 SJ=$(bash "$HARNESS" --target statusline --iterations 2 --json 2>/dev/null)
 printf '%s' "$SJ" | python3 -c "
 import json,sys
@@ -170,7 +180,9 @@ for k in ('cold_render','warm_render'):
 floor = 2.0 if d.get('platform') == 'Windows' else 2.5
 assert d['cache_speedup_min']>floor, (d['cache_speedup_min'], d['cache_speedup'], floor)
 print('ok')
-" >/dev/null 2>&1 && pass || fail "invalid statusline JSON or no cache benefit: $SJ"
+" >/dev/null 2>&1 && { SJ_OK=0; break; }
+done
+[ "$SJ_OK" -eq 0 ] && pass || fail "invalid statusline JSON or no cache benefit on 3 attempts: $SJ"
 
 begin_test "committed baseline carries BOTH the chain and statusline sections"
 # --write-baseline runs once per target, so the second write must merge rather than
