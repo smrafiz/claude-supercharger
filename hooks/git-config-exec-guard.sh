@@ -37,7 +37,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # away from the project's own repo). Superset.
 case "$_INPUT" in *git*) : ;; *) exit 0 ;; esac
 _GCE_SET=0
-case "$_INPUT" in *config*|*CONFIG_KEY*|*"-c "*|*" -c"[a-z]*"."*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*) _GCE_SET=1 ;; esac
+case "$_INPUT" in *config*|*CONFIG_KEY*|*"-c "*|*" -c"[a-z]*"."*|*"-c\\\""*|*"ext::"*|*"fd::"*|*"protocol."*|*CONFIG_PARAMETERS*) _GCE_SET=1 ;; esac
 
 # 2026-11-11 (cc-audit delta): the same exec surface written as a FILE over Bash.
 # Write/Edit into .git/hooks or .git/config is already gated (path-guard 3.3) and
@@ -199,6 +199,19 @@ for m in re.finditer(r'git\s+(?:[^|;&]*\s)?-c\s*([\w][\w.-]*)=(\S+)', cmd):
 for m in re.finditer(r'GIT_CONFIG_KEY_(\d+)=(\S+)', cmd):
     v = re.search(r'GIT_CONFIG_VALUE_' + m.group(1) + r'=(\S+)', cmd)
     emit(keyclass(m.group(2).strip("'\""), v.group(1).strip("'\"") if v else ""))
+
+# Form 4 (2026-11-11, aidevops delta): GIT_CONFIG_PARAMETERS carries the same
+# keys as -c, quoted as 'key=value' or 'key'='value'. Forms 2 and 3 asked;
+# this spelling of the same setting walked through.
+for m in re.finditer(r'''GIT_CONFIG_PARAMETERS=("[^"]*"|'[^']*'|\S*)''', cmd):
+    raw = m.group(1)
+    if raw[:1] in ('"', "'") and raw[-1:] == raw[:1]:
+        raw = raw[1:-1]
+    pairs = re.findall(r"'([\w][\w.-]*)(?:'=')?=?([^']*)'", raw)
+    if not pairs and "=" in raw:
+        pairs = [tuple(raw.split("=", 1))]
+    for k, v in pairs:
+        emit(keyclass(k, v))
 
 # --- GitSpawn: which repo does each git invocation land in? If it is not the
 # project's own (by common git dir, so a linked worktree of the project counts as
