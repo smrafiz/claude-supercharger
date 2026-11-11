@@ -35,6 +35,28 @@ check_hook_disabled "package-source-guard" 2>/dev/null && exit 0
 # the payload, and cover the case variants python gets via .lower()), so a gate miss
 # can never skip a file the guard would have flagged; a spurious match just falls
 # through to the unchanged python.
+# 2026-11-11 (cc-audit delta): PERSISTENT trust-off settings over Bash. Per-command
+# `--trusted-host`/`--registry http` asks below; making it permanent did not.
+# 0 hits in 54,585 real calls. One-off `curl -k` is deliberately left alone.
+case "$_INPUT" in
+  *[Ss][Ss][Ll][Vv]erify*|*strict-ssl*|*NODE_TLS_REJECT_UNAUTHORIZED*|*GOSUMDB*|*GONOSUMDB*|*GOINSECURE*|\
+  *GOFLAGS*insecure*|*trusted-host*|*GIT_SSL_NO_VERIFY*|*"config set"*registry*http:*)
+    CMD=$(printf '%s' "$_INPUT" | jq -r 'select(.tool_name == "Bash") | .tool_input.command // empty' 2>/dev/null)
+    _PSG_TRUST=""
+    if printf '%s' "$CMD" | grep -Eiq -- 'git[[:space:]]+config[^;&|]*http\.([^[:space:]]*\.)?sslverify[[:space:]=]+["'"'"']?(false|0|no|off)'; then _PSG_TRUST="git TLS verification off (http.sslVerify)"
+    elif printf '%s' "$CMD" | grep -Eq -- '(npm|yarn|pnpm)[[:space:]]+config[[:space:]]+set[[:space:]]+strict-ssl[[:space:]=]+["'"'"']?false'; then _PSG_TRUST="npm TLS verification off (strict-ssl false)"
+    elif printf '%s' "$CMD" | grep -Eq -- 'NODE_TLS_REJECT_UNAUTHORIZED=["'"'"']?0|GIT_SSL_NO_VERIFY=["'"'"']?(1|true)'; then _PSG_TRUST="TLS certificate checks off for every later request"
+    elif printf '%s' "$CMD" | grep -Eq -- 'GOSUMDB=["'"'"']?off|GONOSUMDB=|GOINSECURE=|GOFLAGS=[^;&|]*-insecure'; then _PSG_TRUST="Go module checksum/TLS verification off"
+    elif printf '%s' "$CMD" | grep -Eq -- '(npm|yarn|pnpm)[[:space:]]+config[[:space:]]+set[[:space:]]+([^[:space:]]*:)?registry[[:space:]=]+["'"'"']?http://'; then _PSG_TRUST="package registry over plain http"
+    elif printf '%s' "$CMD" | grep -Eq -- 'pip3?[[:space:]]+config[[:space:]]+set[[:space:]]+[^[:space:]]*trusted-host'; then _PSG_TRUST="pip trusted-host (TLS checks off for that index)"
+    fi
+    if [ -n "$_PSG_TRUST" ]; then
+      sc_decision ask "This turns off a supply-chain check for every later install or fetch: ${_PSG_TRUST}. Anyone on the network path can then serve modified packages. Use a one-off flag for the single command that needs it, or confirm. (Disable: SUPERCHARGER_PACKAGE_SOURCE_GUARD=0)"
+      echo "[Supercharger] package-source-guard: ASK persistent trust-off (${_PSG_TRUST})" >&2
+      exit 0
+    fi ;;
+esac
+
 case "$_INPUT" in
   *package.json*|*[Pp]yproject.toml*|*[Pp]ipfile*|*[Pp]ipFile*|*requirements*|*[Rr]equirements*|\
   *[Gg]emfile*|*go.mod*|*[Cc]argo.toml*|*[Cc]argo.TOML*) : ;;

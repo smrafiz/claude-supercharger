@@ -1400,7 +1400,7 @@ _ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*'
 # 4.4: a grep that keeps every line but one (`-v`) or keeps the secret-named lines is
 # still a dump. Residual: a QUOTED grep word is blanked by the re-check below.
 _ENV_GREP='\|[[:space:]]*[ef]?grep[[:space:]]+([^|;&]*[[:space:]])?(-[[:alpha:]]*v|[^|;&]*([Kk][Ee][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss]|[Aa][Uu][Tt][Hh]|[Cc][Rr][Ee][Dd]))'
-_ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee)([[:space:]]|$)|'"${_ENV_GREP}"')'
+_ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee|curl|wget|nc|ncat|socat|base64|xxd|gzip|openssl)([[:space:]]|$)|'"${_ENV_GREP}"')'
 if _cat_enabled "credentials"; then
   # 4.4: dump flags. `env -0`/`-u NAME` with no command after them still print the rest.
   _ENV_DUMP="${_ENV_SEG}"'(env([[:space:]]+(-0|--null|-u[[:space:]]*[^-[:space:];&|][^[:space:];&|]*|--unset=?[^[:space:];&|]+))*|printenv([[:space:]]+(-0|--null))?|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
@@ -1425,6 +1425,11 @@ if _cat_enabled "credentials"; then
     [[ "$_ENV_SRC" =~ $_ENV_DUMP ]] && _env_hit=1
   fi
   done
+  # 2026-11-11 (cc-audit delta): the whole environment serialized in an interpreter
+  # and sent over the network in the same command. 0 hits in 54,585 real calls.
+  _ENV_OBJ='(dict|str|repr)\(os\.environ\)|os\.environ\.copy\(|json\.dumps\(os\.environ|JSON\.stringify\(process\.env\)|Object\.(entries|keys)\(process\.env\)'
+  _ENV_NET='urlopen|requests\.(post|put|get)|httpx\.|http\.client|urllib|socket\.|fetch\(|https?\.(request|get)|axios|net\.connect'
+  [[ "$CMD_SCAN" =~ $_ENV_OBJ ]] && [[ "$CMD_SCAN" =~ $_ENV_NET ]] && _env_hit=1
   if [ -n "$_env_hit" ] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
     block "environment dump — prints every secret in the session into the transcript; read one variable instead (printenv NAME)"
   fi
@@ -1542,7 +1547,9 @@ if _cat_enabled "persistence"; then
   # 2.22.2: permissive target (a quote between `$HOME`/`~`/`/`/`.bashrc` broke the
   # old contiguous regex — `>> "$HOME/.bashrc"`, `>> ~/'.bashrc'`) + copy verbs
   # (cp/mv/install/rsync/dd overwriting a profile evaded the redirect-only check).
-  _PROF_FILE='\.(bashrc|zshrc|profile|bash_profile|zprofile)([[:space:]"'\''`;&|)]|$)'
+  # 2026-11-11 (cc-audit delta): + zshenv (runs in the agent's own non-interactive
+  # zsh), zlogin, bash_login, fish, the system-wide files and PowerShell's $PROFILE.
+  _PROF_FILE='(\.(bashrc|zshrc|profile|bash_profile|zprofile|zshenv|zlogin|bash_login)|fish/config\.fish|/etc/(profile|zshenv|zshrc|bashrc|zprofile|rc\.local)|/etc/profile\.d/[^[:space:]"'\''`;&|)]*|\$PROFILE)([[:space:]"'\''`;&|)]|$)'
   _PROF_REDIR=">>?[[:space:]]*[^|;&<>()]*${_PROF_FILE}"
   _PROF_COPY="(^|[[:space:];&|])(cp|mv|install|rsync|dd)[[:space:]][^|;&]*${_PROF_FILE}"
   if [[ "$CMD" =~ $_PROF_REDIR ]] || [[ "$CMD" =~ $_PROF_COPY ]]; then
@@ -1599,7 +1606,12 @@ fi
 
 # --- Sensitive app data paths (category: browser) ---
 if _cat_enabled "browser"; then
-  if [[ "$CMD" =~ (Application[[:space:]]+Support/(Google/Chrome|Arc|Firefox|BraveSoftware|Microsoft[[:space:]]+Edge)/|/Cookies|/Login[[:space:]]+Data|/History) ]]; then
+  # 2026-11-11 (cc-audit delta): the backslash-escaped space (`Application\ Support`,
+  # `Login\ Data`) and a quoted segment slipped past; Linux profiles were not covered.
+  # Bare `logins.json`/`key4.db` were tried and dropped: they denied a grep of this file.
+  _BR_SP='(\\?[[:space:]])+'
+  _BR_RE="(Application${_BR_SP}Support/(Google/Chrome|Arc|Firefox|BraveSoftware|Microsoft${_BR_SP}Edge)/|/Cookies|/[\"']?Login${_BR_SP}Data|/History|\\.config/(google-chrome|chromium|BraveSoftware|microsoft-edge)/|\\.mozilla/firefox/)"
+  if [[ "$CMD" =~ $_BR_RE ]]; then
     block "browser data access — agent should not read browser cookies, passwords, or history"
   fi
 
