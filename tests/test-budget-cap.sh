@@ -319,6 +319,10 @@ TR="$SCOPE_DIR/transcript.jsonl"
 asst_msg 1000 0 0 0 > "$TR"
 PAYLOAD=$(python3 -c 'import json,sys; print(json.dumps({"tool_name":"Write","transcript_path":sys.argv[1]}))' "$TR")
 # Background holder grabs the lock and keeps it for 6s (> the 2s acquire budget).
+# 2026-11-11: up to 3 attempts (5s once under full-suite load). A hook that really
+# waits on the lock takes the holder's full 6s on every attempt.
+for _try in 1 2 3; do
+rm -f "$SCOPE_DIR/.session-cost"
 python3 -c "import fcntl,sys,time; f=open(sys.argv[1],'w'); fcntl.flock(f, fcntl.LOCK_EX); time.sleep(6)" "$SCOPE_DIR/.session-cost.lock" &
 HOLDER=$!
 sleep 1  # let the holder acquire before we race it
@@ -327,6 +331,8 @@ echo "$PAYLOAD" | bash "$HOOK" >/dev/null 2>&1
 END=$(date +%s)
 kill "$HOLDER" 2>/dev/null; wait "$HOLDER" 2>/dev/null
 ELAPSED=$((END - START))
+[ "$ELAPSED" -lt 5 ] && [ -f "$SCOPE_DIR/.session-cost" ] && break
+done
 if [ "$ELAPSED" -lt 5 ] && [ -f "$SCOPE_DIR/.session-cost" ]; then
   pass
 else
