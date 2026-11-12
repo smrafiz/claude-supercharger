@@ -24,7 +24,14 @@ EGRESS_METADATA_RE='169\.254\.169\.254|2852039166|0xa9fea9fe|a9fe:a9fe|100\.100\
 # v2.22.5: Slack Workflow-Builder inbound webhooks use /triggers/ and /workflows/
 # (not just /services); plus Telegram Bot API and webhook.site/requestbin/pipedream
 # — all one-request exfil channels.
-EGRESS_WEBHOOK_RE='discord(app)?\.com/api/(v[0-9]+/)?webhooks|hooks\.slack\.com/(services|triggers|workflows)|outlook\.office\.com/webhook|webhook\.office\.com|api\.telegram\.org/bot[0-9]|webhook\.site|requestbin\.|\.pipedream\.net'
+EGRESS_WEBHOOK_RE='discord(app)?\.com/api/(v[0-9]+/)?webhooks|hooks\.slack\.com/(services|triggers|workflows)|outlook\.office\.com/webhook|webhook\.office\.com|api\.telegram\.org/bot[0-9]|webhook\.site|requestbin\.|\.pipedream\.net|oastify\.com|\boast\.(fun|me|live|site|online|pro)\b|interact\.sh|burpcollaborator\.net|dnslog\.cn|ceye\.io'
+
+# Request CATCHERS: hosts whose only job is to record what is sent to them, plus the
+# out-of-band (OAST) callback domains security tools use (2026-11-12, aidevops delta).
+# Chat webhooks are NOT here: posting a build message to Slack is ordinary work.
+# safety-detect.py denies a Bash upload to any of these; every host here must also
+# be in EGRESS_WEBHOOK_RE (tests/test-aidevops-delta.sh checks it).
+EGRESS_CATCHER_RE='webhook\.site|requestbin\.|\.pipedream\.net|oastify\.com|\boast\.(fun|me|live|site|online|pro)\b|interact\.sh|burpcollaborator\.net|dnslog\.cn|ceye\.io'
 
 # Paste / anonymous-transfer sites (exfil endpoints).
 EGRESS_PASTE_RE='\b(pastebin\.com|paste\.rs|paste\.ee|hastebin\.com|dpaste\.|ix\.io|0x0\.st|transfer\.sh|file\.io|termbin\.com|gofile\.io|anonfiles|catbox\.moe|rentry\.co|controlc\.com|bashupload\.com|tmpfiles\.org)'
@@ -39,4 +46,4 @@ EGRESS_IPFS_RE='(ipfs\.io|dweb\.link|w3s\.link|nftstorage\.link|cf-ipfs\.com|clo
 # an optional userinfo (user@host) prefix so `http://user@10.0.0.5/…` is still caught.
 EGRESS_PRIVATE_RE='https?://([^/@ ]*@)?(127\.[0-9]+\.[0-9]+\.[0-9]+|localhost|10\.[0-9]+\.[0-9]+\.[0-9]+|192\.168\.[0-9]+\.[0-9]+|172\.(1[6-9]|2[0-9]|3[01])\.[0-9]+\.[0-9]+|\[::1\]|0\.0\.0\.0)'
 
-export EGRESS_METADATA_RE EGRESS_WEBHOOK_RE EGRESS_PASTE_RE EGRESS_IPFS_RE EGRESS_PRIVATE_RE
+export EGRESS_METADATA_RE EGRESS_WEBHOOK_RE EGRESS_CATCHER_RE EGRESS_PASTE_RE EGRESS_IPFS_RE EGRESS_PRIVATE_RE

@@ -1100,25 +1100,30 @@ def check_exfiltration(c: str) -> str | None:
         # and MCP guards already refused these hosts; Bash curl/wget did not
         # (found 2026-10-26 from the MiMo Code prompt). One list, read from
         # lib-egress-patterns.sh, so the channels cannot drift apart.
-        paste = _paste_re()
+        paste = _egress_re("EGRESS_PASTE_RE")
         if paste and paste.search(c.lower()):
             return "upload to a paste or anonymous file-transfer site — possible data exfiltration"
+        # 2026-11-12 (aidevops delta): request catchers and OAST callback hosts.
+        # WebFetch and MCP already refused them; Bash curl did not (parity drift).
+        catcher = _egress_re("EGRESS_CATCHER_RE")
+        if catcher and catcher.search(c.lower()):
+            return "upload to a request-catcher or out-of-band callback host — possible data exfiltration"
     return None
 
 
-_PASTE = []
+_EGRESS = {}
 
 
-def _paste_re():
-    if not _PASTE:
+def _egress_re(name):
+    if name not in _EGRESS:
         try:
             src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                                     "lib-egress-patterns.sh"), encoding="utf-8").read()
-            m = re.search(r"^EGRESS_PASTE_RE='([^']*)'", src, re.M)
-            _PASTE.append(re.compile(m.group(1)) if m else None)
+            m = re.search(r"^" + name + r"='([^']*)'", src, re.M)
+            _EGRESS[name] = re.compile(m.group(1)) if m else None
         except (OSError, re.error):
-            _PASTE.append(None)
-    return _PASTE[0]
+            _EGRESS[name] = None
+    return _EGRESS[name]
 
 
 # 4.4 (randommonicle/claude-skills audit): PowerShell prints environment secrets with
