@@ -23,7 +23,7 @@ get_hooks_for_mode() {
 
   # ── Safe mode: core safety + smart UX (always on) ──
   # safety.sh is the consolidated security hook for Bash. It runs:
-  #   destructive patterns, credentials, persistence, clipboard, browser, history,
+  #   destructive patterns, credentials, persistence, clipboard, desktop-input, browser, history,
   #   shell-wrapper detection (python/node/perl/ruby -c/-e), .env access, exfiltration.
   # env-file-guard.sh stays separate because safety.sh's matcher is Bash,PowerShell
   # only — env-file-guard catches direct .env reads (PreToolUse|Read), which safety.sh

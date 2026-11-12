@@ -85,6 +85,18 @@ begin_test "clipboard opt-out allows the keystroke injection"
 [ "$(verdict "osascript -e 'tell app \"System Events\" to keystroke \"x\"'" clipboard)" = "ALLOW" ] && pass \
   || fail "disableSecurityCategories=clipboard did not reach the input-inject patterns"
 
+begin_test "desktop-input opt-out allows cliclick"
+[ "$(verdict "cliclick c:100,200" desktop-input)" = "ALLOW" ] && pass \
+  || fail "disableSecurityCategories=desktop-input did not reach the input-inject patterns"
+
+begin_test "desktop-input opt-out keeps the clipboard rule"
+[ "$(verdict "pbpaste" desktop-input)" = "DENY" ] && pass \
+  || fail "disableSecurityCategories=desktop-input also lifted the clipboard rule"
+
+begin_test "clipboard opt-out still allows cliclick (backward compatible)"
+[ "$(verdict "cliclick c:100,200" clipboard)" = "ALLOW" ] && pass \
+  || fail "disableSecurityCategories=clipboard no longer reaches the input-inject patterns"
+
 begin_test "an unrelated opt-out does NOT allow the keychain read"
 [ "$(verdict 'security find-generic-password -s github' history)" = "DENY" ] && pass \
   || fail "an unrelated category opt-out disabled the keychain patterns"
