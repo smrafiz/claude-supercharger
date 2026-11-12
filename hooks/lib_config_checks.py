@@ -328,7 +328,27 @@ def mcp_server_risk(server, project_dir):
             if isinstance(a, str) and a.startswith('/') and os.path.realpath(a).startswith(rp):
                 reasons.append('an argument references a path inside the project')
                 break
+    # A shell given its script inline (`bash -c "<fetch> | sh"`, `env sh -lc ...`) hides
+    # the real command in a string no launcher allowlist reads. `env` and its
+    # VAR=val / -flag words are unwrapped first.
+    words = [cmd] + [a for a in args if isinstance(a, str)]
+    while words and os.path.basename(words[0]) == 'env':
+        words = words[1:]
+        while words and (words[0].startswith('-') or re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', words[0])):
+            words = words[1:]
+    if (words and os.path.basename(words[0]) in _SHELLS
+            and any(re.match(r'^-[A-Za-z]*c[A-Za-z]*$', w) for w in words[1:])):
+        reasons.append('runs an inline shell script (%s -c)' % os.path.basename(words[0]))
+    # A launcher or script in a world-writable/temporary dir: nothing a repo or package
+    # manager keeps, and anything else on the machine can swap it. Flag-shaped args skipped.
+    for w in [cmd] + [a for a in args if isinstance(a, str) and not a.startswith('-')]:
+        if _TRANSIENT.match(w.replace('${HOME}', '~').replace('$HOME', '~').replace(os.path.expanduser('~'), '~', 1)):
+            reasons.append('launcher or script lives in a temporary dir (%s)' % w[:60])
+            break
     return reasons or None
+
+_SHELLS = {'sh', 'bash', 'zsh', 'dash', 'ksh', 'fish'}
+_TRANSIENT = re.compile(r'^(?:/private)?(?:/tmp/|/var/tmp/|/var/folders/)|^/dev/shm/|^~/\.cache/')
 
 _WALLET_NAME = re.compile(r'^(PRIVATE_KEY|MNEMONIC|SEED_PHRASE)$|'
                           r'(WALLET|EVM|ETH|SOLANA|SOL|CDP|X402|CRYPTO|BASE).*(PRIVATE_KEY|SECRET|MNEMONIC|SEED)')

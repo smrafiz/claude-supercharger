@@ -103,8 +103,10 @@ try:
     # not being importable.
     sys.path.insert(0, _msys(os.environ.get('HOOKS_DIR_PY', '')))
     from lib_poison_patterns import scan_text as _shared_scan
+    from lib_poison_patterns import frontmatter_hook_findings as _fm_findings
 except Exception:
     _shared_scan = None
+    _fm_findings = None
 
 # (label, compiled regex, severity) — ordered by severity.
 # v2.7.14: all patterns are re.IGNORECASE — previously case-sensitive against raw
@@ -135,6 +137,7 @@ _TAG_BLOCK = re.compile('[\U000e0000-\U000e007f]')
 
 findings = []
 critical = 0
+_fm_items = []
 for p in scan_paths:
     try:
         text = p.read_text(encoding='utf-8', errors='replace')
@@ -145,6 +148,8 @@ for p in scan_paths:
     if not p.name.lower().endswith('.md'):
         text = text[:262144]
     fname = p.name
+    if fname.lower().endswith('.md'):
+        _fm_items.append((p, text))
     if _shared_scan is not None:
         _f, _c = _shared_scan(text, fname)
         findings.extend(_f)
@@ -162,6 +167,10 @@ for p in scan_paths:
     tags = len(_TAG_BLOCK.findall(text))
     if tags:
         findings.append(f'HIGH: unicode tag-block ASCII smuggling ({tags}x in {fname})')
+
+# A `hooks:` block in the frontmatter runs host commands when the skill loads.
+if _fm_findings is not None:
+    findings.extend(_fm_findings(_fm_items, home_dir))
 
 if not findings:
     sys.exit(0)
