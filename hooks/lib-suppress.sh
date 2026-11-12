@@ -67,9 +67,9 @@ _emit_hook_timing() {
     return
   fi
   local audit_dir="$SUPERCHARGER_STATE/audit"
-  mkdir -p "$audit_dir" 2>/dev/null || return
+  mkdir -p "$audit_dir" 2>/dev/null || return 0
   local date_str
-  date_str=$(date +%Y-%m-%d 2>/dev/null) || return
+  date_str=$(date +%Y-%m-%d 2>/dev/null) || return 0
   printf '{"hook":"%s","elapsed_ms":%d,"ts":%d}\n' "$HOOK_NAME" "$elapsed" "$end_ms" \
     >> "$audit_dir/${date_str}.jsonl" 2>/dev/null || true
 }

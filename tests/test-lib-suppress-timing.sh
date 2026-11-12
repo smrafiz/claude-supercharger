@@ -106,4 +106,12 @@ result=$(
 )
 [ "${result##* }" = "1" ] && pass || fail "full mode did not record fast invocation: $result"
 
+begin_test "timing: an unwritable audit dir never changes the hook's exit code (deny stays 2)"
+# 2026-11-13: the EXIT trap's `mkdir ... || return` returned 1 under set -e, turning a
+# deny (exit 2) into a non-blocking exit 1. Seen on ubuntu-26.04, where the scanner
+# crossed the 40ms threshold with HOME=/nonexistent.
+bash -c 'set -euo pipefail; . "$1"; HOOK_START_MS=1; HOOK_NAME=x; SUPERCHARGER_STATE=/nonexistent/s
+  _HOOK_PERF_FULL=1; trap _emit_hook_timing EXIT; exit 2' _ "$LIB"; rc=$?
+[ "$rc" = 2 ] && pass || fail "timing trap rewrote exit 2 to $rc"
+
 report
