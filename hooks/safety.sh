@@ -1340,6 +1340,10 @@ if _cat_enabled "credentials"; then
     'ghp_[0-9a-zA-Z]{36}'
     'sk-[0-9a-zA-Z]{48}'
     'AIza[0-9A-Za-z_-]{35}'
+    # 2026-11-12 (aidevops delta): Google access token and OAuth client secret;
+    # lib-secret-patterns.sh had ya29 since v4.2.0, this separate list did not.
+    'ya29\.[0-9A-Za-z_-]{20,}'
+    'GOCSPX-[A-Za-z0-9_-]{28}'
     'sk_live_[0-9a-zA-Z]{24}'
     'pk_live_[0-9a-zA-Z]{24}'
     'npm_[0-9a-zA-Z]{36}'

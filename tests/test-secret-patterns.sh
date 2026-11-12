@@ -48,6 +48,11 @@ catches "post to hooks.slack.com/services when the build fails" && fail "prose F
 begin_test "secret: a time-like digits:AA string is not caught"
 catches "at 12:AA the run started" && fail "short FP" || pass
 
+begin_test "secret: Google OAuth client secret is caught"
+catches "GOC""SPX-$(printf 'aB3_%.0s' $(seq 1 7))" && pass || fail "client secret evades"
+begin_test "secret: the bare client-secret prefix in prose is not caught"
+catches "client secrets start with GOC""SPX- in the console" && fail "prefix FP" || pass
+
 # ---- v2.22.0: modern formats that used to EVADE ----
 begin_test "secret: Anthropic sk-ant- key is caught"
 catches "sk-""ant-api03-AbCdEf0123456789AbCdEf0123456789xyz" && pass || fail "sk-ant evades"

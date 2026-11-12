@@ -24,7 +24,7 @@ _POSIX = {'[:space:]': r'\s', '[:digit:]': '0-9', '[:alnum:]': 'A-Za-z0-9',
 _LABELS = (
     ('AKIA', 'AWS access key ID'), ('ASIA', 'AWS access key ID'),
     ('[Aa][Ww][Ss]_', 'AWS secret access key'), ('github_pat', 'GitHub token'),
-    ('gh[oprsu]', 'GitHub token'), ('ya29', 'Google OAuth token'),
+    ('gh[oprsu]', 'GitHub token'), ('ya29', 'Google OAuth token'), ('GOCSPX-', 'Google OAuth client secret'),
     ('_token"', 'OAuth token'), ('Bearer', 'bearer token'),
     ('PRIVATE KEY', 'private key'), ('"private_key"', 'private key'),
     ('://', 'URL with embedded credentials'), ('_live_', 'Stripe key'),
