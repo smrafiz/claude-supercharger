@@ -5,7 +5,7 @@
 # Per-category toggles: disable specific security categories via
 #   ~/.claude/supercharger/scope/.disabled-security-categories
 # One category per line: filesystem, database, destructive, network,
-#   credentials, persistence, clipboard, browser, history, selfmod, cloud
+#   credentials, persistence, clipboard, desktop-input, browser, history, selfmod, cloud
 #
 # Or per-project via .supercharger.json:
 #   {"disableSecurityCategories": ["clipboard", "history"]}
@@ -186,7 +186,7 @@ block() {
   echo "  Override: run it in your terminal directly, OR add the relevant category to" >&2
   echo "            \"disableSecurityCategories\" in .supercharger.json (project) — categories:" >&2
   echo "            filesystem, database, destructive, network, credentials, persistence," >&2
-  echo "            clipboard, browser, history, selfmod, cloud" >&2
+  echo "            clipboard, desktop-input, browser, history, selfmod, cloud" >&2
   echo "" >&2
   # Log for learning — future sessions will know to avoid this pattern
   local blocks_log="$SUPERCHARGER_STATE/scope/.blocked-commands"
@@ -1127,7 +1127,9 @@ _cat_enabled "network" && _add_pats "it could open a way for data to leave the m
 _cat_enabled "cloud" && _add_pats "it could take cloud credentials or let a container reach the host machine" "${CLOUD_PATTERNS[@]}"
 _cat_enabled "persistence" && _add_pats "it sets up access that outlasts this session (sudo rights, an SSH key, a scheduled task, or a redirected domain)" "${PERSIST_PATTERNS[@]}"
 _cat_enabled "credentials" && _add_pats "it would read stored passwords or keys, or make their storage less safe" "${CRED_CMD_PATTERNS[@]}"
-_cat_enabled "clipboard" && _add_pats "it would type or click in other apps on your desktop, outside what the agent is allowed to touch" "${INPUT_INJECT_PATTERNS[@]}"
+# 2026-11-12: own category, so a user can allow clicking (cliclick, keystroke) and keep
+# the clipboard rule. Turning off `clipboard` still turns these off too, as before.
+_cat_enabled "desktop-input" && _cat_enabled "clipboard" && _add_pats "it would type or click in other apps on your desktop, outside what the agent is allowed to touch (category: desktop-input)" "${INPUT_INJECT_PATTERNS[@]}"
 
 # v2.26.65: blank the VALUE of -m/--message before pattern matching. These patterns
 # match the raw command with no awareness of shell quoting, so prose inside a commit

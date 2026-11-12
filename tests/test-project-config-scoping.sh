@@ -135,6 +135,21 @@ begin_test "and it does not write the legacy global name"
 [ ! -f "$ST/scope/.profile" ] && pass || fail "still writing the shared global file"
 rm -rf "$ST" "$PJ"
 
+# 2026-11-12: project-config filters categories through a known list; a category
+# missing there is dropped silently and the .supercharger.json switch does nothing.
+# `cloud` was missing from that list since it was added to safety.sh.
+for _cat in desktop-input cloud; do
+  begin_test "project-config passes $_cat through to the category file"
+  ST=$(mktemp -d); mkdir -p "$ST/scope"
+  PJ=$(mktemp -d)
+  printf '{"disableSecurityCategories":["%s"]}\n' "$_cat" > "$PJ/.supercharger.json"
+  printf '{"cwd":"%s","prompt":"hi"}' "$PJ" \
+    | SUPERCHARGER_STATE="$ST" bash "$REPO_DIR/hooks/project-config.sh" >/dev/null 2>&1
+  grep -qx "$_cat" "$ST/scope/$CATS-$(key_for "$PJ")" 2>/dev/null && pass \
+    || fail "$_cat not written; got: $(ls -A "$ST/scope" 2>/dev/null | tr '\n' ' ')"
+  rm -rf "$ST" "$PJ"
+done
+
 # --- the protection guards must still cover the renamed files ---------------
 # path-guard matched these by EXACT basename. The suffix would have slipped past
 # it silently, un-protecting the very files the selfmod rule exists to protect.
