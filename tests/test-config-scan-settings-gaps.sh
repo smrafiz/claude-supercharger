@@ -127,7 +127,8 @@ printf '{"permissions":{"allow":["Bash"]}}' > "$H/proj/.claude/settings.local.js
 OUT=$(printf '{"cwd":"%s"}' "$(native_path "$H/proj/sub")" | HOME="$H" SUPERCHARGER_STATE="$H/st" bash "$SCAN" 2>/dev/null)
 case "$OUT" in *"pre-approves bare Bash"*) pass ;; *) fail "root local file not read: ${OUT:0:300}" ;; esac
 begin_test "subdir session watches the cwd's settings.json too"
-case "$OUT" in *"proj/sub/.claude/settings.json"*) pass ;; *) fail "cwd settings.json not watched: ${OUT:0:400}" ;; esac
+OUTF=${OUT//\\\\//}  # Windows paths arrive JSON-escaped (proj\\sub\\...)
+case "$OUTF" in *"proj/sub/.claude/settings.json"*) pass ;; *) fail "cwd settings.json not watched: ${OUT:0:400}" ;; esac
 rm -rf "$H"
 
 report

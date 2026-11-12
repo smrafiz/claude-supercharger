@@ -69,7 +69,10 @@ def _repo_path(cmd, project_dir):
 def scan_settings(path, settings, home_dir=''):
     out = []
     where = path.name
-    is_user = str(path).startswith(home_dir + '/.claude')
+    # Compare resolved, case-folded paths: on Windows str(path) uses backslashes.
+    ud = os.path.normcase(os.path.realpath(os.path.join(home_dir, '.claude'))) if home_dir else ''
+    pp = os.path.normcase(os.path.realpath(str(path)))
+    is_user = bool(ud) and pp.startswith(ud + os.sep)
     if is_user:
         where = '~/.claude/' + where
     # The committed project file, the one a clone brings. settings.local.json is the
