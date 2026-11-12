@@ -27,6 +27,9 @@ SECRET_PATTERNS=(
   # API returns ({"access_token": "...", "refresh_token": "..."}). Value length >= 20 so
   # schema docs and empty fields do not match.
   'ya29\.[0-9A-Za-z_-]{20,}'
+  # Google OAuth CLIENT secret (2026-11-12, aidevops delta): only caught inside a
+  # "client_secret" JSON field before; a bare one in output or a file passed.
+  'GOCSPX-[A-Za-z0-9_-]{28}'
   '"(access|refresh)_token"[[:space:]]*:[[:space:]]*"[A-Za-z0-9._~+/=-]{20,}"'
   # GitHub fine-grained PAT (v2.22.0) — github_pat_<...>, 60+ tail
   'github_pat_[A-Za-z0-9_]{60,}'

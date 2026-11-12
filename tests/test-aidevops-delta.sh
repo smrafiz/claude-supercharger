@@ -42,4 +42,9 @@ check env-exec-guard.sh ask   "ZDOTDIR"                           "ZDOTDIR=/tmp/
 check env-exec-guard.sh allow "reading ZDOTDIR"                   "echo \$ZDOTDIR"
 check env-exec-guard.sh allow "git --exec-path query"             "git --exec-path"
 
+# 4. Google credentials in a command (safety.sh CRED_PATTERNS, 2026-11-12)
+GS="GOC""SPX-$(printf 'aB3_%.0s' $(seq 1 7))"; YT="ya""29.$(printf 'aB3_%.0s' $(seq 1 6))"
+check safety.sh deny  "OAuth client secret in a command"  "echo $GS > creds.txt"
+check safety.sh deny  "Google access token in a command"  "curl -H \"Authorization: Bearer $YT\" https://www.googleapis.com/x"
+
 report
