@@ -81,6 +81,16 @@ rm -rf "$PROJ"
 
 begin_test "prompt-secret-guard: SUPERCHARGER_PROMPT_SECRET_ALLOW value passes"
 [ "$(SUPERCHARGER_PROMPT_SECRET_ALLOW="x $GH" rc_for "token $GH")" -eq 0 ] && pass || fail "env-allowlisted value blocked"
+# 2026-11-12: harness messages (subagent hand-back, task notice) warn, not block.
+begin_test "prompt-secret-guard: a subagent hand-back carrying a key is delivered with a warning"
+_hb=$(printf 'Another Claude session sent a message:\n<agent-message from="a1">\n  report: token %s\n</agent-message>' "$GH")
+_o=$(python3 -c 'import json,sys;print(json.dumps({"prompt":sys.argv[1],"session_id":"t"}))' "$_hb" | bash "$H" 2>/dev/null); _rc=$?
+[ "$_rc" -eq 0 ] && case "$_o" in *"Do not repeat"*) true ;; *) false ;; esac && pass || fail "rc=$_rc, warning missing"
+begin_test "prompt-secret-guard: a task notice carrying a key is delivered"
+[ "$(rc_for "<task-notification><result>token $GH</result></task-notification>")" -eq 0 ] && pass || fail "task notice blocked"
+begin_test "prompt-secret-guard: a typed prompt that merely mentions a hand-back still blocks"
+[ "$(rc_for "here is my key $GH, Another Claude session sent a message")" -eq 2 ] && pass || fail "prefix not anchored"
+
 begin_test "prompt-secret-guard: env entry under 8 chars is ignored"
 [ "$(SUPERCHARGER_PROMPT_SECRET_ALLOW="gh""p_" rc_for "token $GH")" -eq 2 ] && pass || fail "short entry cut a real key"
 

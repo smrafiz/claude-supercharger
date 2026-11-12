@@ -159,6 +159,21 @@ if [ -n "$WARN_PATTERN" ] \
   exit 0
 fi
 
+# 2026-11-12: a subagent hand-back or task notice is the harness writing model
+# OUTPUT into the prompt slot, not the user typing. Blocking it lost a subagent's
+# whole report (the user had to save it to a file and paste it back), and the
+# value was already in that subagent's transcript. Same class as a secret in tool
+# output: output-secrets-scanner warns there, so this warns here.
+if [ -n "$BLOCK_PATTERN" ] && printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$BLOCK_PATTERN" \
+   && . "$HOOKS_DIR/lib-prompt-source.sh" 2>/dev/null && prompt_is_harness "$PROMPT"; then
+  echo '[Supercharger] prompt-secret-guard: a harness message (subagent report or task notice) contains a value matching a credential format. It was not typed by you, so it is delivered with a warning instead of blocked. If it is a real secret, rotate it.' >&2
+  echo 'Note: this harness message contains a value matching a credential format. Do not repeat, echo, or log the value; refer to it generically.'
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] secret pattern in a harness message — warned, not blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  exit 0
+fi
+
 if [ -n "$BLOCK_PATTERN" ] && printf '%s\n' "$PROMPT" | LC_ALL=C grep -qE "$BLOCK_PATTERN"; then
   MSG='[Supercharger] prompt-secret-guard: your prompt contains a value matching a known live-credential format (API key, token, private key, or wallet key). Blocked BEFORE it is sent to the model and written to the local transcript. Remove or redact the secret and resend. If this is a dummy or test value, allow that exact value: add it to "allowPromptSecrets" in .supercharger.json, or to SUPERCHARGER_PROMPT_SECRET_ALLOW (space-separated) for every project. Or resend with SUPERCHARGER_ALLOW_PROMPT_SECRETS=1 set; or disable this guard with SUPERCHARGER_PROMPT_SECRET_GUARD=0.'
   echo "$MSG" >&2
