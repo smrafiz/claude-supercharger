@@ -32,4 +32,18 @@ begin_test "health: neither set, neither reported"
 out=$(health '{"hooks":{}}' -u IS_DEMO)
 case "$out" in *"IS_DEMO is set"*|*"disableAllHooks is true"*) fail "false report" ;; *) pass ;; esac
 
+# A project .claude/settings.json outranks the user file, so a cloned repo can turn every
+# hook off in its folder (settings-reference, disableAllHooks).
+P=$(mktemp -d); mkdir -p "$P/.claude"
+begin_test "health: disableAllHooks in the project settings is reported"
+printf '{"disableAllHooks":true}' > "$P/.claude/settings.json"
+out=$(cd "$P" && health '{"hooks":{}}' -u IS_DEMO)
+case "$out" in *"disableAllHooks is true in .claude/settings.json"*) pass ;; *) fail "not reported: $out" ;; esac
+
+begin_test "health: a settings.local.json false outranks the project true"
+printf '{"disableAllHooks":false}' > "$P/.claude/settings.local.json"
+out=$(cd "$P" && health '{"hooks":{}}' -u IS_DEMO)
+case "$out" in *"disableAllHooks is true"*) fail "false report" ;; *) pass ;; esac
+rm -rf "$P"
+
 report
