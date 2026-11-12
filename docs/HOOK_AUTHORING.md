@@ -1234,3 +1234,19 @@ catch `SystemExit`, and call the handler directly.
 - **Parallel subagents load the machine.** Three agents plus replays pushed load average to ~230;
   a timing test failed in the full suite and passed 14/14 alone. Re-run a timing failure alone
   before treating it as real.
+
+## Notes from 2026-11-13
+
+- **An EXIT trap must not change the exit code.** `_emit_hook_timing` runs as an EXIT trap under
+  `set -e`. Its `mkdir ... || return` returned 1 when the audit dir was unwritable, errexit ended
+  the trap with 1, and a hook's deny (exit 2) became a non-blocking exit 1 (#301). Every early exit
+  in a trap is `return 0`. The same code was copied in `lib-timing.sh`; fix both.
+- **Code gated on `EPOCHREALTIME` never runs on macOS.** The timing trap is bash 5 only, so the
+  stock bash 3.2 on macOS skips it and every local run passed. A Linux-only CI failure in a hook
+  is worth reading for bash-5-only paths first.
+- **A runner image change can turn master red with no code change.** `ubuntu-latest` moved from
+  24.04 to 26.04 on 2026-11-12; the agent scanner crossed the 40ms timing threshold with
+  `HOME=/nonexistent`. To tell the image from the code, re-run the Linux job of the last green
+  commit (`gh run rerun <id> --job <job>`): it failed the same way.
+- **A failing test must print what it threw away.** The scanner test reported only `exit=1`. It
+  now prints the output and a `bash -x` trace on failure, and the trace named the line at once.

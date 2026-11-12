@@ -4,17 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-12, session `104cfc73`.*
+*Verified 2026-11-13, session `00ecfc20`.*
 
-- **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs commit `954fafb` (label 4.4.5).
-- **Master `ca25b022`**: #289-#298 merged 2026-11-11/12, each 12/12 CI green.
-- **Open, not merged:** #299 (normalizer bypasses, `2b9ab907`, CI 43207779757). Merge when 12/12 green.
-- **4.4.6 HELD** (user): #264-#299. Release only on their word.
+- **Released: v4.4.6** (2026-11-13), tag on `88699aa6` = master HEAD; #264-#301. Master CI +
+  Host contract green on `db2e6d3a` (the commit before the release bump).
+- **Open PRs:** none. **In flight:** none.
+- **CI runs on `ubuntu-26.04`** since 2026-11-12 (`ubuntu-latest` moved). #301 fixed the one
+  failure it exposed: a timing EXIT trap turned deny (2) into exit 1.
 - **Audits closed:** cc-audit, aidevops (2 rounds), lodeline. Parked by the user: `x=rm; $x -rf /`.
-- **Open question:** does a project `disableAllHooks: true` disable user hooks? Docs say yes; live
-  test blocked by our self-mod guard; see the brief for the manual test.
-- Per-machine: 6 stashes (incl. `3d45886a`) are the user's; branch `feat/supply-chain-gaps`.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); promote needs Windows green.
+- **Open questions:** project `disableAllHooks: true` vs user hooks (manual test in the
+  2026-11-12 brief); why the commit check refused the first #301 message (unverified FP).
+- Per-machine (this machine, 2026-11-13): installed v4.4.6; 0 stashes; stale local `rel/4.4.5`.
+- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
+  `release.sh promote X.Y.Z --yes` (Windows is checked on master's base commit).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Open:** risk-review log ~2026-11-20; FP audit re-run ~2026-12-08; SpecLock (parked).
 
@@ -50,6 +52,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-13 (deep) — 00ecfc20
+Merged #299; master went red on the ubuntu-26.04 image switch. Root cause: timing EXIT trap
+rewrote a deny (exit 2) to exit 1 on an unwritable audit dir — fixed in #301. Released v4.4.6.
+Detail: `.claude/handoff-00ecfc20-17c7-4686-8d8f-3c1c1b36af96.md`
+
 #### 2026-11-12 (deep) — 104cfc73
 Merged #292-#297: desktop-input category, aidevops round 2 (Google secrets, OAST catchers, 13
 injection families, harness-message secret warn), lodeline config-scan keys. Merged #298 (MCP,
@@ -73,8 +80,3 @@ Merged #267-#273: pulumi/gh global opts, pool runner, eksctl ask, detector budge
 autoCompactWindow, nested-run home sweep (master red → green). Open: #274 ReDoS guard hang, #275
 .claude dir guard. 4.4.6 held.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
-
-#### 2026-11-08 (deep) — 78fcacce
-Released v4.4.5 after #263 (release.sh gated on the wrong workflow). Merged #264 (OSV malware deny)
-and #265 (config-scan outward allows), release held. Both turned master Windows red: undiagnosed.
-Detail: `.claude/handoff-78fcacce-5d1c-41b5-940b-c12ac8d016cb.md`
