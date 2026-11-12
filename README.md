@@ -310,7 +310,9 @@ Lower `SUPERCHARGER_LESSON_THRESHOLD` to 0.2 if lessons rarely surface; raise to
 
 Disable security categories: `{"disableSecurityCategories": ["clipboard", "build-artifacts"]}`
 
-Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `browser`, `history`, `selfmod`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
+Categories: `filesystem`, `database`, `destructive`, `network`, `credentials`, `persistence`, `clipboard`, `desktop-input`, `browser`, `history`, `selfmod`, `cloud`, `path-traversal`, `symlink`, `git-internals`, `abs-path`, `build-artifacts`.
+
+`desktop-input` covers typing and clicking in other apps (`cliclick`, `osascript` keystrokes and System Events clicks). Disable it alone to allow those while the clipboard stays blocked; disabling `clipboard` turns off both.
 
 Add your own blocks: `{"customPatterns": ["terraform[[:space:]]+apply", "kubectl[[:space:]]+delete"]}`
 

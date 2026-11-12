@@ -391,7 +391,7 @@ if config_file and os.path.isfile(config_file):
         # Per-project security category toggles
         disabled_cats = config.get('disableSecurityCategories', [])
         cats_file = _scope('.disabled-security-categories')
-        valid_cats = {'filesystem', 'database', 'destructive', 'network', 'credentials', 'persistence', 'clipboard', 'desktop-input', 'browser', 'history', 'selfmod'}
+        valid_cats = {'filesystem', 'database', 'destructive', 'network', 'credentials', 'persistence', 'clipboard', 'desktop-input', 'browser', 'history', 'selfmod', 'cloud'}
         filtered = [c.strip().lower() for c in disabled_cats if c.strip().lower() in valid_cats]
         if filtered:
             os.makedirs(os.path.dirname(cats_file), exist_ok=True)
