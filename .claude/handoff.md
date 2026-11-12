@@ -4,19 +4,17 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-11, session `104cfc73`.*
+*Verified 2026-11-12, session `104cfc73`.*
 
-- **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs 4.4.5.
-- **Master `16ee990c`**: #282-#288 merged 2026-11-11; CI + Host contract green on it.
-- **Open, not merged:** #289 (secret dirs on Read; .azure, pass store, sops age key) CI run
-  43016837281; #290 (GIT_CONFIG_PARAMETERS/GIT_PROXY_COMMAND/GIT_EXEC_PATH/ZDOTDIR) CI run
-  43019899100. Merge each when its dispatched ci.yml is 12/12 green.
-- **4.4.6 HELD** (user): #264-#288 merged and unreleased (+#289/#290 once merged). Release only on their word.
-- **Delta audits closed:** cc-audit (#285/#286/#287) and aidevops (#289/#290). Parked by the user:
-  variable-as-command-name (`x=rm; $x -rf /`). Unchecked: aidevops's prompt-injection patterns, `GOCSPX-`.
+- **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs commit `954fafb` (label 4.4.5).
+- **Master `ca25b022`**: #289-#298 merged 2026-11-11/12, each 12/12 CI green.
+- **Open, not merged:** #299 (normalizer bypasses, `2b9ab907`, CI 43207779757). Merge when 12/12 green.
+- **4.4.6 HELD** (user): #264-#299. Release only on their word.
+- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline. Parked by the user: `x=rm; $x -rf /`.
+- **Open question:** does a project `disableAllHooks: true` disable user hooks? Docs say yes; live
+  test blocked by our self-mod guard; see the brief for the manual test.
 - Per-machine: 6 stashes (incl. `3d45886a`) are the user's; branch `feat/supply-chain-gaps`.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); stage skips its gate
-  when master CI is green on HEAD; promote needs Windows green on master's base commit.
+- **Releasing:** `release.sh stage X.Y.Z --message ... --yes` (background); promote needs Windows green.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Open:** risk-review log ~2026-11-20; FP audit re-run ~2026-12-08; SpecLock (parked).
 
@@ -52,6 +50,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-12 (deep) — 104cfc73
+Merged #292-#297: desktop-input category, aidevops round 2 (Google secrets, OAST catchers, 13
+injection families, harness-message secret warn), lodeline config-scan keys. Merged #298 (MCP,
+frontmatter hooks, AGENTS.md). Open: #299 (normalizer bypasses), CI running. 4.4.6 held.
+Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
+
 #### 2026-11-11 (deep) — 104cfc73
 Merged #282-#288: perf-chain + timing retries, /sc-security small-scope pass, cc-audit delta
 (6 Bash gaps, webhook/Telegram secrets, browser stores on Read). aidevops delta opened #289/#290,
@@ -74,9 +78,3 @@ Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 Released v4.4.5 after #263 (release.sh gated on the wrong workflow). Merged #264 (OSV malware deny)
 and #265 (config-scan outward allows), release held. Both turned master Windows red: undiagnosed.
 Detail: `.claude/handoff-78fcacce-5d1c-41b5-940b-c12ac8d016cb.md`
-
-#### 2026-11-05 → 11-08 (deep) — 1c2a497d
-Released v4.4.4 (#239-#249). Merged #250-#262: update check, commit-check `-F`, batch-editor, risk
-review, host-contract suite, handback/pipe/dotenv/password-reset FP fixes, commit-hash citation warning,
-global options before a subcommand (found via applygate). Guard FP audit: 62% FP. 4.4.5 staged.
-Detail: `.claude/handoff-1c2a497d-cf2e-47c6-b04d-a1f84d704781.md`
