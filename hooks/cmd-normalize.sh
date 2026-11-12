@@ -99,8 +99,11 @@ SUBST = re.compile(r'\$\(([^()]*)\)|`([^`]*)`')
 # cannot be called from here. Keep the two in step: the note above that function
 # says a second copy is a second bug, and this is the copy it warned about.
 WRAPPERS = {'sudo', 'doas', 'command', 'env', 'nohup', 'nice', 'timeout',
-            'stdbuf', 'xargs', 'setsid', 'ionice'}
-OPT_TAKES_ARG = {'-u', '-g', '-I', '-n', '-P', '-o', '--user', '--group', '--output'}
+            'stdbuf', 'xargs', 'setsid', 'ionice', 'chroot', 'proxychains',
+            'proxychains4'}
+OPT_TAKES_ARG = {'-u', '-g', '-I', '-n', '-P', '-o', '-f', '--user', '--group', '--output'}
+# A leading redirection (`2>/dev/null bash`) and its target, as one or two tokens.
+REDIR = re.compile(r'^[0-9&]*(>>|>[|&]?|<&?)(.*)$')
 
 
 def first_token(seg):
@@ -108,7 +111,12 @@ def first_token(seg):
     parts = seg.split()
     i = 0
     while i < len(parts):
-        tok = parts[i].rsplit('/', 1)[-1]
+        r = REDIR.match(parts[i])
+        if r and not parts[i].startswith('<<'):
+            i += 1 if r.group(2) else 2
+            continue
+        # A quoted command word (`'bash'`) is the same word to the shell.
+        tok = parts[i].strip('\'"').rsplit('/', 1)[-1]
         if tok not in WRAPPERS:
             return tok
         i += 1
@@ -119,6 +127,8 @@ def first_token(seg):
         # `timeout 5 cmd` / `nice 10 cmd` take a bare numeric argument
         if tok in ('timeout', 'nice') and i < len(parts) and re.match(r'^[0-9]', parts[i]):
             i += 1
+        if tok == 'chroot' and i < len(parts):
+            i += 1              # NEWROOT
     return ''
 
 
@@ -184,9 +194,12 @@ SCPYEOF
 # release set out to fix, committed while fixing it.
 #
 # Callers must never re-implement this. A second copy is a second bug.
+# A leading redirection: `2>&1`, `&>f`, `>| f`, `< f`.
+# Built once at source time: the prelude runs once per segment.
+_SC_RD_RX='^([0-9]*|&)(>>|>[|&]?|<&?)[[:space:]]*('"'"'[^'"'"']*'"'"'|"[^"]*"|[^[:space:]<>(&|;'"'"'"]+)[[:space:]]+'
 _sc_wrapper_prelude_into() {
   local cmd="$1"
-  local _before_struct
+  local _before_struct _cr _crt
   # v2.29.34: STRUCTURAL PRELUDE. A segment only had its verb recognised when the
   # verb came first, so any shell structure hid it: `( rm -rf / )`, `{ rm -rf /; }`,
   # `if true; then rm -rf /; fi`, for/while/case bodies, and function bodies. The
@@ -247,6 +260,54 @@ _sc_wrapper_prelude_into() {
       if [[ "$cmd" =~ ^[A-Za-z_][A-Za-z0-9_]*\(\)[[:space:]]*\{[[:space:]]* ]]; then
         cmd="${cmd#"${BASH_REMATCH[0]}"}"
       fi
+      # 2026-11-12 (lodeline shell_norm audit): three spellings of the command word
+      # the shell resolves before it runs, each of which hid the verb from every rule.
+      case "$cmd" in
+        # A redirection may come first: `> /dev/null rm -rf /` runs rm. Never `<<`
+        # (a heredoc) or `<(`/`>(` (a process substitution): the target class bars them.
+        [\<\>]*|[0-9][\<\>]*|[0-9][0-9][\<\>]*|\&\>*)
+          [[ "$cmd" =~ $_SC_RD_RX ]] && cmd="${cmd#"${BASH_REMATCH[0]}"}" ;;
+        # A fully quoted command word: `'rm' -rf /` runs rm. Plain word chars only.
+        # Slices, not a regex: a quote opens many heredoc body lines, and each is a segment.
+        [\'\"]*)
+          _cr="${cmd:0:1}"; _crt="${cmd:1}"; _crt="${_crt%%"$_cr"*}"
+          case "$_crt" in
+            ''|*[![:alnum:]_./+-]*) ;;
+            *) if [ "${cmd:${#_crt}+1:1}" = "$_cr" ]; then
+                 case "${cmd:${#_crt}+2:1}" in ''|[[:space:]]) cmd="$_crt${cmd:${#_crt}+2}" ;; esac
+               fi ;;
+          esac ;;
+        # `chroot [opts] NEWROOT cmd` runs cmd. `chroot /host` is kept whole: that
+        # container-escape spelling is denied by name in safety.sh.
+        'chroot '*)
+          _cr="${cmd#chroot}"
+          while :; do
+            _cr="${_cr#"${_cr%%[![:space:]]*}"}"
+            case "$_cr" in
+              -[ugG][[:space:]]*) _cr="${_cr#-?}"; _cr="${_cr#"${_cr%%[![:space:]]*}"}"; _cr="${_cr#"${_cr%%[[:space:]]*}"}" ;;
+              -*) _cr="${_cr#"${_cr%%[[:space:]]*}"}" ;;
+              *) break ;;
+            esac
+          done
+          _crt="${_cr%%[[:space:]]*}"
+          case "$_crt" in ''|/host|/host/*) ;; *) cmd="${_cr#"$_crt"}" ;; esac ;;
+        # `runuser -u USER [--] cmd` runs cmd. Its `-c BODY` form keeps the name for
+        # the -c scan in normalize_cmd, so only the -u form is peeled here.
+        'runuser '*)
+          _cr="${cmd#runuser}"; _crt=""
+          while :; do
+            _cr="${_cr#"${_cr%%[![:space:]]*}"}"
+            case "$_cr" in
+              -u[[:space:]]*|--user[[:space:]]*|-[gGsw][[:space:]]*|--group[[:space:]]*|--shell[[:space:]]*)
+                case "$_cr" in -u*|--user*) _crt=1 ;; esac
+                _cr="${_cr#"${_cr%%[[:space:]]*}"}"; _cr="${_cr#"${_cr%%[![:space:]]*}"}"; _cr="${_cr#"${_cr%%[[:space:]]*}"}" ;;
+              --user=*) _crt=1; _cr="${_cr#"${_cr%%[[:space:]]*}"}" ;;
+              -*) _cr="${_cr#"${_cr%%[[:space:]]*}"}" ;;
+              *) break ;;
+            esac
+          done
+          [ -n "$_crt" ] && cmd="$_cr" ;;
+      esac
       [ "$cmd" = "$_before_struct" ] && break
     done
   # v2.29.32: WRAPPER PRELUDE. This loop used to be `^(sudo|command|env)[[:space:]]+`
@@ -277,7 +338,7 @@ _sc_wrapper_prelude_into() {
     /*/?*) [ -n "${_t0##*/}" ] && cmd="${_t0##*/}${cmd#"$_t0"}" ;;
   esac
   # v4.1.14: busybox is a multi-call launcher — `busybox rm -rf /` runs rm.
-  while [[ "$cmd" =~ ^(sudo|command|builtin|exec|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl)[[:space:]]+ ]]; do
+  while [[ "$cmd" =~ ^(sudo|command|builtin|exec|env|doas|nohup|setsid|nice|ionice|timeout|stdbuf|chrt|taskset|xargs|parallel|busybox|caffeinate|xcrun|arch|chronic|unbuffer|flock|watch|script|wsl|proxychains|proxychains4)[[:space:]]+ ]]; do
     _w="${BASH_REMATCH[1]}"
     cmd="${cmd#"${BASH_REMATCH[0]}"}"
     while :; do
@@ -297,7 +358,8 @@ _sc_wrapper_prelude_into() {
             xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
             parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S|\
             caffeinate:-t|caffeinate:-w|watch:-n|watch:--interval|flock:-w|flock:-E|\
-            xcrun:--sdk|xcrun:--toolchain|wsl:-d|wsl:--distribution|wsl:-u|wsl:--user|wsl:--cd)
+            xcrun:--sdk|xcrun:--toolchain|wsl:-d|wsl:--distribution|wsl:-u|wsl:--user|wsl:--cd|\
+            proxychains:-f|proxychains4:-f)
               cmd="${cmd#"${cmd%%[![:space:]]*}"}"
               _tok="${cmd%%[[:space:]]*}"
               cmd="${cmd#"$_tok"}"
@@ -520,7 +582,7 @@ normalize_cmd() {
   # the -exec block above does, so every segment rule sees it. The original text
   # stays in place for the rules that match on it.
   case "$cmd" in
-    *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*|*SHELL*-*c*)
+    *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*|*SHELL*-*c*|*su\ *-*c*|*runuser\ *-*c*)
       local _sc_scan="$cmd" _sc_body
       # A -c body quoted inside a commit/PR/release MESSAGE is prose, not a
       # command: blank those values first, exactly as safety.sh's CMD_SCAN does,
@@ -537,7 +599,10 @@ normalize_cmd() {
       # The opening quote sits outside the path group: `'bash' -c` (quoted name,
       # no path) was not unwrapped and ran its body unchecked.
       _sc_shc='(^|[[:space:];&|(`])["'"$_sc_q"']?(([A-Za-z]:)?[/\\][^"'"$_sc_q"';&|]*[/\\])?(bash|sh|zsh|dash|ksh|ash|\$SHELL|\$\{SHELL\})(\.[eE][xX][eE])?["'"$_sc_q"']?[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
-      _sc_tails=""
+      _sc_tails=""; local _sc_scan0="$_sc_scan"
+      # Only a shell spelling enters this loop: _sc_shc is slow to FAIL on a long
+      # command, and an su-only command has nothing for it to find.
+      case "$cmd" in *sh\ *-*c*|*sh[\'\"]\ *-*c*|*[sS][hH].[eE][xX][eE]*-*c*|*SHELL*-*c*) ;; *) _sc_scan="" ;; esac
       for _sc_i in 1 2 3 4 5; do
         [[ "$_sc_scan" =~ $_sc_shc ]] || break
         _sc_body="${BASH_REMATCH[7]}"
@@ -547,7 +612,26 @@ normalize_cmd() {
         esac
         [ -n "$_sc_body" ] && _sc_tails="$_sc_tails ; $_sc_body"
       done
-      [ -n "$_sc_tails" ] && cmd="$cmd$_sc_tails"
+      # 2026-11-12: `su [opts] [user] -c BODY` and `runuser ... -c BODY` run BODY in
+      # a shell too, and the user name may sit before -c. Two anchored steps, not one
+      # regex: a repeated `( +word)*` group before -c was quadratic (3.5s at 32KB).
+      local _su_rx='^([^;&|]*[[:space:]])?(-[[:alpha:]]*c|--command=?)[[:space:]]*('"$_sc_q"'[^'"$_sc_q"']*'"$_sc_q"'|"[^"]*"|[^[:space:];&|]+)'
+      _sc_scan="$_sc_scan0"
+      for _sc_i in 1 2 3; do
+        [[ "$_sc_scan" =~ (^|[[:space:]\;\&\|\(\`])(su|runuser)[[:space:]] ]] || break
+        _sc_scan="${_sc_scan#*"${BASH_REMATCH[0]}"}"
+        [[ "$_sc_scan" =~ $_su_rx ]] || continue
+        _sc_body="${BASH_REMATCH[3]}"
+        # A slice, not ${v#match}: that strip is quadratic in the match length on bash 3.2.
+        _sc_scan="${_sc_scan:${#BASH_REMATCH[0]}}"
+        case "$_sc_body" in
+          "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
+        esac
+        [ -n "$_sc_body" ] && _sc_tails="$_sc_tails ; $_sc_body"
+      done
+      # The body also feeds the spelling passes below (quote joins, case, $IFS...),
+      # which read _sb_src: `sh -c "r''m -rf /"` must join like a bare `r''m -rf /`.
+      [ -n "$_sc_tails" ] && { cmd="$cmd$_sc_tails"; _sb_src="$_sb_src$_sc_tails"; }
       ;;
   esac
   # v4.2.0: command and process SUBSTITUTION bodies run too. `echo $(<cmd>)`,
