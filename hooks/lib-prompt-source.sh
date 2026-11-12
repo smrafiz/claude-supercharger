@@ -9,8 +9,9 @@
 # tasks, raised "destructive intent" on quoted commands, and logged Stop hook
 # feedback as a user correction.
 #
-# Advisory hooks only. A SECURITY guard (prompt-secret-guard) must not skip
-# these: the text still reaches the model.
+# Advisory hooks skip these. A SECURITY guard must not skip them silently: the
+# text still reaches the model. prompt-secret-guard WARNS on them instead of
+# blocking, since blocking only loses the message (2026-11-12).
 
 # prompt_is_harness <prompt> — 0 when the prompt is a harness message.
 prompt_is_harness() {
