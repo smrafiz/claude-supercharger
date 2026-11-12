@@ -494,4 +494,42 @@ done
 begin_test "safety: a commit message naming an MCP config is allowed"
 [ "$(decision 'git commit -m "fix: claude_desktop_config.json read"')" = "" ] && pass || fail "over-asked commit message"
 
+# --- 2026-11-12: command-word spellings from the lodeline shell_norm audit ---
+# Each DENY case passed safety.sh AND git-safety.sh before this block: a quoted
+# command word, a redirection before it, su/runuser/chroot/proxychains wrappers,
+# and quote splices inside a -c body. Both hooks run; either denying counts.
+verdict2() {
+  local j h v=ALLOW st
+  j=$(printf '%s' "$1" | python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":sys.stdin.read()}}))')
+  for h in safety.sh git-safety.sh; do
+    st=$(mktemp -d)
+    SUPERCHARGER_STATE="$st" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/$h" <<<"$j" >/dev/null 2>&1 || v=BLOCK
+    rm -rf "$st"
+  done
+  echo "$v"
+}
+_R="r""m"; _G="gi""t"; _F="--for""ce"
+for _c in "'$_R' -rf /" "\"$_R\" -rf /" "'$_G' push $_F origin main" "sudo '$_R' -rf /" "true; '$_R' -rf /" \
+          "> /dev/null $_R -rf /" "2>/dev/null $_G push $_F origin main" ">>log 2>&1 $_R -rf /" \
+          "true && > /dev/null $_R -rf /" \
+          "su -c '$_R -rf /'" "su root -c '$_R -rf /'" "su - root -c \"$_R -rf /\"" \
+          "runuser -l root -c '$_R -rf /'" "runuser -u root -- $_R -rf /" \
+          "chroot / $_R -rf /" "proxychains $_R -rf /" "proxychains4 -q $_R -rf /" \
+          "sh -c \"r''m -rf /\"" "sudo sh -c \"r''m -rf /\"" "bash -c 'r\"\"m -rf /'" \
+          "cat <<EOF | 'bash'"$'\n'"$_R -rf /"$'\n'"EOF" \
+          "cat <<EOF | proxychains bash"$'\n'"$_R -rf /"$'\n'"EOF" \
+          "2>/dev/null bash <<EOF"$'\n'"$_R -rf /"$'\n'"EOF"; do
+  begin_test "safety: command-word spelling is denied: $(printf '%q' "$_c")"
+  [ "$(verdict2 "$_c")" = BLOCK ] && pass || fail "evaded: $_c"
+done
+begin_test "safety: chroot /host stays denied after chroot is peeled"
+[ "$(verdict2 "chroot /ho""st bash")" = BLOCK ] && pass || fail "chroot /host regressed"
+for _c in "echo '$_R' -rf /" "grep \"$_R\" file.txt" "ls 'my dir' -la" "'ls' -la" "> out.txt echo hi" \
+          "2>&1 ls -la" "echo hi 2>/dev/null" "su - user" "su postgres -c 'psql -l'" "runuser -u app -- ls" \
+          "chroot /srv/jail ls" "git commit -m 'note: su -c \"$_R -rf /\" is now denied'" \
+          "cat <<EOF > notes.txt"$'\n'"$_R -rf / is bad"$'\n'"EOF"; do
+  begin_test "safety: still allowed: $(printf '%q' "$_c")"
+  [ "$(verdict2 "$_c")" = ALLOW ] && pass || fail "over-blocked: $_c"
+done
+
 report
