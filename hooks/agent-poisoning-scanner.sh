@@ -86,7 +86,9 @@ hooks_dir = _msys(hooks_dir)
 sys.path.insert(0, hooks_dir)
 try:
     from lib_poison_patterns import scan_text, resolve_agent_defs
+    from lib_poison_patterns import frontmatter_hook_findings
 except Exception:
+    frontmatter_hook_findings = None
     I = re.IGNORECASE
     _P = [
         # 2026-10-27: CRITICAL only when the decoded text is RUN on the same line; a decode
@@ -162,6 +164,16 @@ for p in scan_paths:
     f, c = scan_text(text, p.name)
     findings.extend(f)
     critical += c
+
+# A `hooks:` block in the frontmatter runs host commands when the agent starts.
+if frontmatter_hook_findings is not None:
+    _items = []
+    for p in scan_paths:
+        try:
+            _items.append((p, p.read_text(encoding='utf-8', errors='replace')))
+        except Exception:
+            continue
+    findings.extend(frontmatter_hook_findings(_items, home_dir))
 
 # v4.2.0: tool grants. A definition with no `tools:` line inherits EVERY tool; one
 # that later gains Bash (a git pull into .claude/agents) runs with more power than

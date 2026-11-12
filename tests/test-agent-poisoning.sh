@@ -203,6 +203,29 @@ sys.exit(1 if missing else 0)
 PY
 [ $? -eq 0 ] && pass || fail "fallback list is missing a CRITICAL pattern the shared module has"
 
+# --- frontmatter hooks (2026-11-12) ------------------------------------------
+# A `hooks:` block in an agent's frontmatter is registered like a settings hook:
+# host commands, not instructions. Warn (not block), once per block; warn again
+# when the block changes.
+begin_test "warns on frontmatter hooks, once, and again when they change"
+T=$(mktemp -d); mkdir -p "$T/.claude/agents"
+printf -- '---\nname: fm\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: "node a.mjs"\n---\nbody\n' > "$T/.claude/agents/fm.md"
+run_scan "$T" fm; O1=$OUT; R1=$RC
+run_scan "$T" fm; O2=$OUT
+printf -- '---\nname: fm\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: "node b.mjs"\n---\nbody\n' > "$T/.claude/agents/fm.md"
+run_scan "$T" fm; O3=$OUT
+rm -rf "$T"
+if [ "$R1" -eq 0 ] && echo "$O1" | grep -q "frontmatter declares hooks" && ! echo "$O2" | grep -q "frontmatter" \
+   && echo "$O3" | grep -q "b.mjs"; then pass
+else fail "rc=$R1 first=$O1 second=$O2 changed=$O3"; fi
+
+begin_test "frontmatter without hooks (and hooks: in the body) stays silent"
+T=$(mktemp -d); mkdir -p "$T/.claude/agents"
+printf -- '---\nname: plain\ntools: Read\n---\nhooks:\n  are described here\n' > "$T/.claude/agents/plain.md"
+run_scan "$T" plain
+rm -rf "$T"
+echo "$OUT" | grep -q "frontmatter" && fail "false positive: $OUT" || pass
+
 # --- registration ------------------------------------------------------------
 begin_test "registered on PreToolUse:Agent"
 grep -q 'PreToolUse|Agent|.*agent-poisoning-scanner.sh' "$REPO_DIR/lib/hooks.sh" && pass \

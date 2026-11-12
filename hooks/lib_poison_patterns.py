@@ -168,6 +168,50 @@ def scan_text(text, fname):
     return findings, critical
 
 
+_FRONTMATTER = re.compile(r'\A\ufeff?---[ \t]*\r?\n(.*?)\r?\n---[ \t]*(?:\r?\n|\Z)', re.S)
+
+
+def frontmatter_hooks(text):
+    """The `hooks:` block of a SKILL.md / agent .md YAML frontmatter, or ''. Claude Code
+    registers it like settings hooks: host commands, not instructions."""
+    m = _FRONTMATTER.match(text or '')
+    if not m:
+        return ''
+    h = re.search(r'(?m)^["\']?hooks["\']?[ \t]*:.*(?:\n(?:[ \t-].*|[ \t]*))*', m.group(1))
+    return h.group(0).rstrip() if h else ''
+
+
+def frontmatter_hook_findings(items, home_dir):
+    """Findings for (path, text) items whose frontmatter hooks are new or changed since
+    last seen. A file that declares hooks on purpose warns once, not on every load;
+    a cloned or edited one still warns the first time it is read."""
+    import hashlib, json, os as _os
+    state = _os.environ.get('SUPERCHARGER_STATE') or _os.path.join(home_dir or '', '.claude', 'supercharger')
+    sf = _os.path.join(state, 'scope', 'frontmatter-hooks-seen.json')
+    try:
+        seen = json.load(open(sf))
+    except Exception:
+        seen = {}
+    out, dirty = [], False
+    for path, text in items:
+        block = frontmatter_hooks(text)
+        if not block:
+            continue
+        key, h = str(path), hashlib.sha256(block.encode('utf-8', 'replace')).hexdigest()
+        if seen.get(key) == h:
+            continue
+        seen[key], dirty = h, True
+        out.append('HIGH: frontmatter declares hooks, which run shell commands on this machine '
+                   '(in %s): %s' % (_os.path.basename(key), ' '.join(block.split())[:200]))
+    if dirty:
+        try:
+            _os.makedirs(_os.path.dirname(sf), exist_ok=True)
+            json.dump(seen, open(sf, 'w'))
+        except Exception:
+            pass
+    return out
+
+
 def msys_path(x):
     """Git Bash's /c/Users/... -> C:\\Users\\..., on Windows only.
 
