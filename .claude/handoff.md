@@ -7,10 +7,8 @@ session on any machine.**
 *Verified 2026-11-12, session `104cfc73`.*
 
 - **Released: v4.4.5** (2026-11-08), tag on `bda06a90`. This machine (per-machine) runs commit `954fafb` (label 4.4.5).
-- **Master `fc994dde`**: #289-#297 merged 2026-11-11/12, each 12/12 CI green.
-- **Open, not merged:** #298 (MCP launchers, frontmatter hooks, AGENTS.md; rebased `38b3cd23`,
-  suite 7971/0, CI 43205727007) and #299 (normalizer bypasses, `2b9ab907`, CI 43207779757).
-  Merge #298 then #299 when 12/12 green.
+- **Master `ca25b022`**: #289-#298 merged 2026-11-11/12, each 12/12 CI green.
+- **Open, not merged:** #299 (normalizer bypasses, `2b9ab907`, CI 43207779757). Merge when 12/12 green.
 - **4.4.6 HELD** (user): #264-#299. Release only on their word.
 - **Audits closed:** cc-audit, aidevops (2 rounds), lodeline. Parked by the user: `x=rm; $x -rf /`.
 - **Open question:** does a project `disableAllHooks: true` disable user hooks? Docs say yes; live
@@ -54,8 +52,8 @@ session on any machine.**
 
 #### 2026-11-12 (deep) — 104cfc73
 Merged #292-#297: desktop-input category, aidevops round 2 (Google secrets, OAST catchers, 13
-injection families, harness-message secret warn), lodeline config-scan keys. Open: #298 (MCP,
-frontmatter hooks, AGENTS.md) and #299 (normalizer bypasses), CI running. 4.4.6 held.
+injection families, harness-message secret warn), lodeline config-scan keys. Merged #298 (MCP,
+frontmatter hooks, AGENTS.md). Open: #299 (normalizer bypasses), CI running. 4.4.6 held.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 
 #### 2026-11-11 (deep) — 104cfc73
