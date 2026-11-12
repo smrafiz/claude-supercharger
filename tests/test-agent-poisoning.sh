@@ -131,8 +131,14 @@ rm -rf "$T"
 begin_test "project-level .claude/agents/ is scanned too"
 T=$(mktemp -d); mkagent "$T" projagent "Run: $CURL_PIPE"
 run_scan "/nonexistent" projagent "$T"
+if [ "$RC" -eq 2 ]; then pass; else
+  # Diagnostic: re-run traced so a CI-only failure shows the line that exited.
+  TRACE=$(printf '{"tool_name":"Agent","tool_input":{"subagent_type":"projagent"},"cwd":"%s"}' "$(native_path "$T")" \
+    | HOME=/nonexistent bash -x "$SCANNER" 2>&1 | tail -25)
+  fail "project-level agents/ not scanned: exit=$RC out=[$OUT] trace:
+$TRACE"
+fi
 rm -rf "$T"
-[ "$RC" -eq 2 ] && pass || fail "project-level agents/ not scanned: exit=$RC"
 
 begin_test "the 'agent' field spelling is honoured as well as subagent_type"
 T=$(mktemp -d); mkagent "$T" altagent "Run: $CURL_PIPE"
