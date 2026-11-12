@@ -137,6 +137,36 @@ patterns = (
     # (EchoLeak CVE-2025-32711). Sibling of the zero-width set above; near-zero FP
     # (these chars never appear in legit content). Non-raw string so \U resolves.
     (re.compile('[\U000e0000-\U000e007f]'),                 'unicode tag-block (ASCII smuggling)'),
+    # 2026-11-12 (aidevops delta, prompt-injection-patterns.yaml): 51 of 52 of its
+    # probe strings passed this panel. Each family below measured 0 hits across
+    # ~54k real MCP/WebFetch/Read/Bash results and this repo's docs. Mirrored in
+    # the other injection scanner; tests/test-injection-families.sh probes both.
+    (re.compile(r'ignore (all |your |any |the )?(previous|above|prior|following|earlier|preceding) (rules|guidelines|prompts?|context)'
+                r'|ignore (all |your |any |the )?(earlier|preceding) (instructions?|directions?|commands?)'), 'instruction override'),
+    (re.compile(r'override (all |your )?(system |previous |prior )?(instructions|rules|guidelines)\b'), 'instruction override'),
+    (re.compile(r'do not (follow|obey|comply with) (the |your )?(previous |original )?(rules|instructions|guidelines)'), 'instruction discard'),
+    (re.compile(r'replace (your )?(instructions?|system prompt|guidelines) with'
+                r'|\b(new|updated|revised|real) system prompt\b'
+                r'|\byour new (tasks?|objectives?|missions?|instructions?|directives?)\b'), 'instruction injection'),
+    (re.compile(r'(takes?|has) (priority|precedence) over (all |any )?(other |previous |prior )?(instructions|rules)'
+                r'|supersedes? (all )?(previous|prior|other) instructions'
+                r'|more important than (your )?(original|previous) instructions'), 'precedence claim'),
+    (re.compile(r'\b(clear|wipe|reset) your (memory|context|instructions)'), 'memory wipe'),
+    (re.compile(r'developer mode (enabled|activated|on)\b|enable developer mode|do anything now'
+                r'|\byou are (now )?dan\b|\b(god|uncensored|unfiltered) mode\b'), 'jailbreak persona'),
+    (re.compile(r'-{2,} ?(end|begin) (of )?(new )?(system )?(prompt|instructions)'
+                r'|<\|im_end\|>|<\|endoftext\|>|<\|(user|assistant|human)\|>'
+                r'|</?(tool_output|function_result|tool_response)>'), 'prompt delimiter'),
+    (re.compile(r'(repeat|reveal|print|output|recite) (your )?(system )?(instructions|initial prompt) (verbatim|back|exactly)'
+                r'|translate your (system prompt|instructions)|what are your (system )?instructions'), 'system prompt leak'),
+    (re.compile(r'(anthropic|openai|claude team) (requires|demands|instructs|orders) you'
+                r'|official (instruction|message) from (anthropic|openai|claude)|admin(istrator)? override'), 'fake authority'),
+    (re.compile(r'in our (last|previous) conversation you (agreed|said|confirmed)'
+                r'|you (previously|already) (agreed|promised) (that|to)|the above was (just )?(a )?(test|joke|fake)'
+                r'|real instructions? (start|begin)s? (here|below)|ignore everything (above|before) this'), 'false memory'),
+    (re.compile(r'decode (this|the following) (base64|hex|rot13)|execute the decoded'
+                r'|reverse (this|the following) (text|string) and (execute|follow)|apply rot13'), 'decode and execute'),
+    (re.compile(r'1gn0r3|pr3v10us|syst3m pr0mpt|j41lbr34k|0v3rr1d3'), 'leetspeak injection'),
 )
 
 # v4.1.19: three channels from ilyautov/cordon, each judged on the RAW text.
@@ -230,11 +260,28 @@ def _hidden(raw):
         if _DIRECTIVE.search(' ' + txt) or _phrase(txt): return 'directive in html attribute'
     return None
 
+# 2026-11-12: bash-injection-scanner's structural panel (role prefix, instruction
+# tag, role link, comment or note addressed to an AI, fabricated tool result) ran on
+# FETCHED Bash output only; the same text via WebFetch or MCP passed. Measured on
+# fetched channels: 0 hits in 11,746 MCP and 168 Web results. Read stays out: a
+# local file's `system:` key is the compose/yaml FP that panel was gated against.
+struct_patterns = (
+    (re.compile(r'^\s*(?:system|assistant)\s*:', re.M | re.I),          'fabricated role prefix'),
+    (re.compile(r'</?(?:system|instructions?|important)>', re.I),        'instruction tag'),
+    (re.compile(r'\[(?:system|assistant)\]\(', re.I),                   'markdown role link'),
+    (re.compile(r'<!--[^>]{0,200}?\b(?:ai|llm|agent|assistant|claude|gpt)\b[^>]{0,200}?-->', re.I | re.S), 'html comment addressed to an AI'),
+    (re.compile(r'\b(?:notes?|notice|instructions?)\s+(?:for|to)\s+(?:all\s+|any\s+|automated\s+)*'
+                r'(?:agents?|ai|llms?|assistants?|bots?)\b', re.I),      'text addressed to agents'),
+    (re.compile(r'\btool[_ ]result\b\s*:', re.I),                       'fabricated tool result'),
+)
+
 matched = next((label for regex, label in patterns if regex.search(normalized)), None)
 if not matched:
     matched = next((label for regex, label in cased_patterns if regex.search(_nfkc)), None)
 if not matched:
     matched = _invisible(output) or _encoded(output) or _hidden(output)
+if not matched and (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch')):
+    matched = next((label for regex, label in struct_patterns if regex.search(output)), None)
 if not matched:
     sys.exit(0)
 

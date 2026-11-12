@@ -27,11 +27,13 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # --- Fast-path gate (this fires on EVERY Bash call — must stay cheap) ---
 # Only fork python when the raw payload contains a seed token that a real
 # injection would carry. One grep over stdin; the common case (ordinary command
-# output with none of these words) exits here with zero python forks. The gate is
+# output with none of these words) exits here with zero python forks.
+# 2026-11-12: the injection families added then are seeded by PHRASES, not words:
+# a bare `override` forked python on 877 of 41,784 real Bash results, `decode` 222. The gate is
 # a fail-safe SUPERSET of the python panel below: matching a seed in the COMMAND
 # rather than the output just costs one wasted fork (python re-checks the actual
 # output field and exits 0). Zero-width chars are matched by their UTF-8 bytes.
-if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
+if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|override your|override all|override system|override previous|override prior|override instructions|override rules|override guidelines|admin override|administrator override|supersedes? (all|previous|prior|other)|precedence over|priority over|developer mode|anything now|god mode|uncensored mode|unfiltered mode|you are dan|you are now dan|rot13|your new|your memory|your context|requires you|demands you|instructs you|orders you|from anthropic|from openai|from claude|conversation you|already agreed|previously agreed|already promised|previously promised|above was|everything above|everything before|instructions verbatim|prompt verbatim|translate your|1gn0r3|pr3v10us|syst3m|0v3rr1d3|j41lbr|im_end|endoftext|<.user|<.assistant|<.human|tool_output>|function_result>|tool_response>|decode this|decode the following|the decoded|and execute|and follow|end prompt|begin prompt|end of prompt|begin of prompt|end of new|begin of new|end new|begin new|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
   # v4.0.31: the tier-2 structural panel (see the python side) carries NONE of the
   # seeds above — "SYSTEM:", a role link, an HTML comment addressed to an AI. Adding
   # its seeds to the grep above would widen the gate on EVERY Bash call, which is the
@@ -203,6 +205,36 @@ patterns = (
     # instructions in a command (EchoLeak CVE-2025-32711). Sibling of the
     # zero-width set; non-raw string so \U resolves to the codepoint range.
     (re.compile('[\U000e0000-\U000e007f]'),                 'unicode tag-block (ASCII smuggling)'),
+    # 2026-11-12 (aidevops delta, prompt-injection-patterns.yaml): 51 of 52 of its
+    # probe strings passed this panel. Each family below measured 0 hits across
+    # ~54k real MCP/WebFetch/Read/Bash results and this repo's docs. Mirrored in
+    # the other injection scanner; tests/test-injection-families.sh probes both.
+    (re.compile(r'ignore (all |your |any |the )?(previous|above|prior|following|earlier|preceding) (rules|guidelines|prompts?|context)'
+                r'|ignore (all |your |any |the )?(earlier|preceding) (instructions?|directions?|commands?)'), 'instruction override'),
+    (re.compile(r'override (all |your )?(system |previous |prior )?(instructions|rules|guidelines)\b'), 'instruction override'),
+    (re.compile(r'do not (follow|obey|comply with) (the |your )?(previous |original )?(rules|instructions|guidelines)'), 'instruction discard'),
+    (re.compile(r'replace (your )?(instructions?|system prompt|guidelines) with'
+                r'|\b(new|updated|revised|real) system prompt\b'
+                r'|\byour new (tasks?|objectives?|missions?|instructions?|directives?)\b'), 'instruction injection'),
+    (re.compile(r'(takes?|has) (priority|precedence) over (all |any )?(other |previous |prior )?(instructions|rules)'
+                r'|supersedes? (all )?(previous|prior|other) instructions'
+                r'|more important than (your )?(original|previous) instructions'), 'precedence claim'),
+    (re.compile(r'\b(clear|wipe|reset) your (memory|context|instructions)'), 'memory wipe'),
+    (re.compile(r'developer mode (enabled|activated|on)\b|enable developer mode|do anything now'
+                r'|\byou are (now )?dan\b|\b(god|uncensored|unfiltered) mode\b'), 'jailbreak persona'),
+    (re.compile(r'-{2,} ?(end|begin) (of )?(new )?(system )?(prompt|instructions)'
+                r'|<\|im_end\|>|<\|endoftext\|>|<\|(user|assistant|human)\|>'
+                r'|</?(tool_output|function_result|tool_response)>'), 'prompt delimiter'),
+    (re.compile(r'(repeat|reveal|print|output|recite) (your )?(system )?(instructions|initial prompt) (verbatim|back|exactly)'
+                r'|translate your (system prompt|instructions)|what are your (system )?instructions'), 'system prompt leak'),
+    (re.compile(r'(anthropic|openai|claude team) (requires|demands|instructs|orders) you'
+                r'|official (instruction|message) from (anthropic|openai|claude)|admin(istrator)? override'), 'fake authority'),
+    (re.compile(r'in our (last|previous) conversation you (agreed|said|confirmed)'
+                r'|you (previously|already) (agreed|promised) (that|to)|the above was (just )?(a )?(test|joke|fake)'
+                r'|real instructions? (start|begin)s? (here|below)|ignore everything (above|before) this'), 'false memory'),
+    (re.compile(r'decode (this|the following) (base64|hex|rot13)|execute the decoded'
+                r'|reverse (this|the following) (text|string) and (execute|follow)|apply rot13'), 'decode and execute'),
+    (re.compile(r'1gn0r3|pr3v10us|syst3m pr0mpt|j41lbr34k|0v3rr1d3'), 'leetspeak injection'),
 )
 
 # v4.0.31 — tier 2: structural shapes, gated on FETCH provenance (KNOWN-ISSUES #6).
@@ -223,9 +255,8 @@ patterns = (
 # and _SELF_INSPECT above, pointed the other way: those switch the panel OFF for a
 # command, this switches a stricter panel ON for one.
 #
-# Deliberately NOT mirrored into prompt-injection-scanner.sh: everything that hook
-# sees (WebFetch, MCP, Read) is already remote or already a file, so it has no
-# provenance question to answer and would need its own measurement.
+# Mirrored into prompt-injection-scanner.sh for WebFetch/WebSearch/MCP (2026-11-12,
+# measured 0 hits in 11,746 MCP and 168 Web results); Read stays out there.
 _IS_FETCH = re.compile(
     r'(^|[;&|`]|\$\()\s*(curl|wget)\b[^;&|]*\bhttps?://'   # a fetch OF a URL, not `curl --help`
     r'|(^|[;&|`])\s*gh\s+(issue|pr|release)\s+view\b'
