@@ -12,13 +12,70 @@
 import json, os, re, sys  # subprocess is imported where used: the git guard's hot path rarely needs it
 from pathlib import Path
 
-protected = re.compile(r'^(Edit|Write|Bash|MultiEdit)$')
+# A rule that admits every call of a tool: bare `Bash`, `Bash(*)`, `Edit(**)`, or `*`.
+protected = re.compile(r'^(?:\*|(?:Edit|Write|Bash|MultiEdit)(?:\(\s*(?:\*|\*\*|\.\*|\*:\*|:\*)?\s*\))?)$')
+
+# Top-level settings keys whose value is a command Claude Code runs to get credentials
+# or headers (settings-reference: "Authentication and providers"). They run in `claude -p`
+# and the SDK before any folder-trust prompt.
+HELPER_KEYS = ('apiKeyHelper', 'awsAuthRefresh', 'awsCredentialExport', 'gcpAuthRefresh', 'otelHeadersHelper')
+# {type: command} interface keys: they run over and over while the session is open.
+UI_COMMAND_KEYS = ('statusLine', 'subagentStatusLine', 'fileSuggestion')
+# `env` variables a repository should not set, with what setting one does. ANTHROPIC_BASE_URL
+# and the proxies are config-scan's raw-text CVE-2026-21852 check.
+RISKY_ENV = {
+    'NODE_OPTIONS': 'makes every Node.js program Claude Code starts load extra code first',
+    'BASH_ENV': 'makes every bash shell Claude Code starts run a file first',
+    'LD_PRELOAD': 'loads a library into every program Claude Code starts',
+    'DYLD_INSERT_LIBRARIES': 'loads a library into every program Claude Code starts',
+    'NODE_TLS_REJECT_UNAUTHORIZED': 'turns off HTTPS certificate checks, so your traffic can be read or changed in transit',
+    'NODE_EXTRA_CA_CERTS': 'trusts an extra certificate authority, so your HTTPS traffic can be read or changed in transit',
+    'ANTHROPIC_BEDROCK_BASE_URL': 'sends your model traffic, credentials included, to {host}',
+    'ANTHROPIC_VERTEX_BASE_URL': 'sends your model traffic, credentials included, to {host}',
+    'ANTHROPIC_FOUNDRY_BASE_URL': 'sends your model traffic, credentials included, to {host}',
+}
+
+
+def url_host(url):
+    """Host of a URL or a scheme-less host:port, lowercased; '' when there is none."""
+    rest = url.split('://', 1)[-1]
+    host = re.split(r'[/\\?#]', rest, 1)[0].rsplit('@', 1)[-1]   # `\` ends it, as browsers do
+    host = host[1:].split(']')[0] if host.startswith('[') else host.split(':')[0]
+    return host.strip().lower()
+
+
+def is_loopback(url):
+    import ipaddress
+    host = url_host(url)
+    try:
+        return host == 'localhost' or ipaddress.ip_address(host).is_loopback
+    except ValueError:
+        return False
+
+
+def _repo_path(cmd, project_dir):
+    """The first token of a command that names a file inside the project, else None."""
+    rp = os.path.realpath(project_dir) if project_dir else ''
+    for tok in cmd.split():
+        tok = tok.strip('\'"')
+        if tok.startswith(('./', '../')) or ('/' in tok and '://' not in tok and '=' not in tok
+                                             and not tok.startswith(('/', '~', '$', '-'))):
+            return tok
+        if rp and tok.startswith('/') and (os.path.realpath(tok) + '/').startswith(rp + '/'):
+            return tok
+    return None
+
 
 def scan_settings(path, settings, home_dir=''):
     out = []
     where = path.name
-    if str(path).startswith(home_dir + '/.claude'):
+    is_user = str(path).startswith(home_dir + '/.claude')
+    if is_user:
         where = '~/.claude/' + where
+    # The committed project file, the one a clone brings. settings.local.json is the
+    # user's own (Claude Code writes it and git-ignores it), so repo-choice checks skip it.
+    shared = not is_user and path.name == 'settings.json'
+    project_dir = str(path.parent.parent)
 
     flagged_tools = set()
     for entry in settings.get('allowedTools', []) or []:
@@ -94,14 +151,24 @@ def scan_settings(path, settings, home_dir=''):
     # apiKeyHelper and env.aws*/gcp* are passed via shell=true in CC auth flow.
     # A malicious project settings file can inject shell metacharacters to
     # achieve RCE through the auth helper execution path (fixed in v2.1.92+).
+    # These keys are TOP-LEVEL settings (settings-reference); they were only read under
+    # `env` until v4.4.6. The env reading is kept: it costs nothing.
     _shell_meta = re.compile(r'[\$`;|&]')
-    auth_helper_fields = [
-        ('apiKeyHelper', settings.get('apiKeyHelper') or ''),
-    ]
+    auth_helper_fields = [(k, settings.get(k) or '') for k in HELPER_KEYS]
     env_block = settings.get('env') or {}
     if isinstance(env_block, dict):
         for _k in ('awsAuthRefresh', 'awsCredentialExport', 'gcpAuthRefresh'):
             auth_helper_fields.append((_k, env_block.get(_k) or ''))
+    if shared:
+        for field_name, field_val in auth_helper_fields[:len(HELPER_KEYS)]:
+            script = _repo_path(field_val, project_dir) if isinstance(field_val, str) else None
+            if script:
+                out.append(
+                    f'[SECURITY] {where} sets {field_name} to run {script[:80]}, a script inside this '
+                    f'repository. Claude Code runs this command to fetch credentials, also in '
+                    f'`claude -p` runs in a folder you never trusted, so whoever can change the repo '
+                    f'decides what runs. Read the script, and remove the setting unless you added it.'
+                )
     for field_name, field_val in auth_helper_fields:
         if not isinstance(field_val, str) or not field_val:
             continue
@@ -118,6 +185,78 @@ def scan_settings(path, settings, home_dir=''):
                 f'auth helper path (CVE-2026-35022, fixed v2.1.92). Verify this '
                 f'setting is intentional and remove if from an untrusted source.'
             )
+    if shared:
+        out.extend(_repo_choice_findings(where, settings, lambda: committed_by_someone_else(path, home_dir)))
+    return out
+
+
+def _names(xs, n=5):
+    xs = [str(x)[:60] for x in xs]
+    return ', '.join(xs[:n]) + (f' (+{len(xs) - n} more)' if len(xs) > n else '')
+
+
+def _repo_choice_findings(where, settings, foreign):
+    """Keys in a committed project settings file that hand the repo a choice that should
+    be the user's: what runs, where traffic goes, which hooks run at all. Plugins and
+    marketplaces are ordinary team config, so those two speak only when someone else
+    committed the file (foreign() runs git; called at most once, and only then)."""
+    out = []
+    if settings.get('disableAllHooks') is True:
+        out.append(
+            f'[SECURITY] {where} sets disableAllHooks: true. In a project file this turns off EVERY '
+            f'hook in this folder, your own user hooks included, so Supercharger\'s safety guards '
+            f'do not run here (Claude Code settings precedence: project outranks user). A cloned repo '
+            f'should not decide that. Remove the line unless you put it there.'
+        )
+    env = settings.get('env')
+    for name, val in (env.items() if isinstance(env, dict) else []):
+        what = RISKY_ENV.get(str(name).upper())
+        val = str(val).strip() if isinstance(val, (str, int, float, bool)) else ''
+        if not what or not val:        # an empty value unsets a variable
+            continue
+        if str(name).upper() == 'NODE_TLS_REJECT_UNAUTHORIZED' and val != '0':
+            continue
+        if '{host}' in what:
+            if is_loopback(val):       # a local gateway keeps the traffic on this machine
+                continue
+            what = what.format(host=url_host(val)[:60] or 'another server')
+        out.append(
+            f'[SECURITY] {where} sets the environment variable {str(name).upper()}, which {what}. '
+            f'A cloned repo should not set this; remove it unless you added it yourself.'
+        )
+    servers = settings.get('enabledMcpjsonServers')
+    if isinstance(servers, list) and servers:
+        out.append(
+            f'[SECURITY] {where} pre-approves MCP server(s) {_names(servers)} from the project '
+            f'.mcp.json, so they start as programs on your machine without their own approval '
+            f'prompt once you trust this folder. Check what each one runs in .mcp.json first.'
+        )
+    for key in UI_COMMAND_KEYS:
+        v = settings.get(key)
+        cmd = v.get('command') if isinstance(v, dict) else None
+        if isinstance(cmd, str) and cmd.strip():
+            out.append(
+                f'[SECURITY] {where} sets {key}, a command Claude Code runs again and again while you '
+                f'work once this folder is trusted: {cmd.strip()[:80]}. From a cloned repo that is '
+                f'code the repo chose. Review it, or remove it if you did not add it.'
+            )
+    plugins = settings.get('enabledPlugins')
+    on = [k for k, v in plugins.items() if v is True] if isinstance(plugins, dict) else []
+    markets = [(k, settings.get(k)) for k in ('extraKnownMarketplaces', 'additionalMarketplaces')]
+    markets = [(k, m) for k, m in markets if isinstance(m, dict) and m]
+    if (on or markets) and not foreign():
+        return out
+    if on:
+        out.append(
+            f'[SECURITY] {where} was committed by someone else and turns on plugin(s) {_names(on)}. A plugin can add hooks, commands '
+            f'and MCP servers that run with your privileges. Keep only plugins you know.'
+        )
+    for key, m in markets:
+        out.append(
+            f'[SECURITY] {where} was committed by someone else and adds plugin marketplace(s) '
+            f'{_names(m)} ({key}). Plugins installed from a marketplace run with your privileges, '
+            f'and their owner can update them later. Add only marketplaces you trust.'
+        )
     return out
 
 
@@ -217,6 +356,13 @@ def settings_hook_commands(settings):
                 if not isinstance(h, dict):
                     continue
                 cmd = h.get('command', '') or h.get('prompt', '')
+                # http hooks send each event's data to a URL (a loopback one stays on this
+                # machine); mcp_tool hooks hand it to an MCP server. Host/server only: a URL
+                # can carry a token.
+                if h.get('type') == 'http' and isinstance(h.get('url'), str):
+                    cmd = '' if is_loopback(h['url']) else f"sends event data to {url_host(h['url'])[:60] or h['url'][:40]}"
+                elif h.get('type') == 'mcp_tool':
+                    cmd = f"sends event data to MCP server {str(h.get('server') or '?')[:40]} (tool {str(h.get('tool') or '?')[:40]})"
                 if cmd and isinstance(cmd, str) and '#supercharger' not in cmd:
                     out.append(f'{event}: {cmd[:80]}')
     return out

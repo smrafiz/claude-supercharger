@@ -156,7 +156,8 @@ if project_settings_data is not None:
         sys.stderr.write('[Supercharger] CVE-2025-59536: project settings define foreign hooks — warning Claude\n')
         warnings.append(
             f'[SECURITY] Project .claude/settings.json defines {len(foreign)} non-supercharger hook(s): '
-            f'{sample}{suffix}. Review before running — this file could execute arbitrary commands (CVE-2025-59536).'
+            f'{sample}{suffix}. Review before running — this file could execute arbitrary commands or send '
+            f'your data elsewhere (CVE-2025-59536).'
         )
 
 # --- A hook ADDED to the user's own ~/.claude/settings.json since last session ---
@@ -197,11 +198,33 @@ except Exception:
 anthropic_pat = re.compile(
     r'ANTHROPIC_(BASE_URL|API_KEY|AUTH_TOKEN)'
     r'|\b(HTTPS?_PROXY|ALL_PROXY|https?_proxy|all_proxy)\b')
+# Started in a subdirectory, Claude Code reads .claude/settings.json from the cwd but
+# .claude/settings.local.json from the git root (settings.md, "Where Claude Code keeps
+# the local file"), and still reads a cwd copy an older version left. Read both.
+# shortcut: a worktree's local file lives at the main checkout's root; not followed.
+def _git_root(start):
+    d = os.path.realpath(start) if start else ''
+    while d:
+        if os.path.exists(os.path.join(d, '.git')):
+            return d
+        nd = os.path.dirname(d)
+        if nd == d:
+            return None
+        d = nd
+    return None
+
+git_root = _git_root(project_dir)
+root_local = Path(git_root) / '.claude' / 'settings.local.json' if git_root else None
+if root_local is not None and os.path.realpath(git_root) == os.path.realpath(project_dir):
+    root_local = None
+
 ant_files = []
 for rel in ('CLAUDE.md', '.claude/settings.json', '.claude/settings.local.json'):
     p = Path(project_dir) / rel
     if p.is_file():
         ant_files.append(p)
+if root_local is not None and root_local.is_file():
+    ant_files.append(root_local)
 for pf in ant_files:
     try:
         text = pf.read_text(encoding='utf-8', errors='replace')
@@ -229,8 +252,9 @@ def scan_settings(path, settings):
 settings_files = []
 for cand in (Path(home_dir) / '.claude' / 'settings.json',
              Path(project_dir) / '.claude' / 'settings.json',
-             Path(project_dir) / '.claude' / 'settings.local.json'):
-    if cand.is_file():
+             Path(project_dir) / '.claude' / 'settings.local.json',
+             root_local):
+    if cand is not None and cand.is_file():
         # Reuse already-parsed project settings to avoid double JSON parse.
         if cand == project_settings and project_settings_data is not None:
             settings_files.append((cand, project_settings_data))
@@ -474,20 +498,20 @@ except Exception:
 # the cwd, so a session launched in a subdirectory watched the wrong files. Hand
 # Claude Code the git-root copies as absolute paths (it accepts nonexistent ones,
 # so a file created mid-session is still seen).
+# The settings files are watched where the scan above reads them: settings.json in the
+# cwd, settings.local.json at the root and in the cwd.
 def _watch_paths(start):
-    root, d = None, os.path.realpath(start) if start else ''
-    while d:
-        if os.path.exists(os.path.join(d, '.git')):
-            root = d; break
-        nd = os.path.dirname(d)
-        if nd == d: break
-        d = nd
-    root = root or (os.path.realpath(start) if start else '')
+    cwd = os.path.realpath(start) if start else ''
+    root = git_root or cwd
     if not root:
         return []
     rels = ('.env', '.envrc', 'package.json', '.mcp.json', '.supercharger.json', 'CLAUDE.md',
             '.claude/settings.json', '.claude/settings.local.json', '.vscode/tasks.json')
-    return [os.path.join(root, r) for r in rels]
+    out = [os.path.join(root, r) for r in rels]
+    for r in ('.claude/settings.json', '.claude/settings.local.json'):
+        if os.path.join(cwd, r) not in out:
+            out.append(os.path.join(cwd, r))
+    return out
 
 watch = _watch_paths(project_dir)
 

@@ -213,6 +213,18 @@ score_security() {
     pts=0; marks="${marks}${FAIL}"
     ISSUES+=("disableAllHooks is true in settings.json: no guard is active")
   fi
+  # A project file outranks the user file, so a cloned repo can switch every hook off
+  # in its folder. settings.local.json outranks both; the first file that sets it decides.
+  local f v
+  for f in "$PWD/.claude/settings.local.json" "$PWD/.claude/settings.json"; do
+    v=$(jq -r 'if has("disableAllHooks") then .disableAllHooks else empty end' "$f" 2>/dev/null || true)
+    [ -n "$v" ] || continue
+    if [ "$v" = true ]; then
+      pts=0; marks="${marks}${FAIL}"
+      ISSUES+=("disableAllHooks is true in ${f#"$PWD/"}: no hook runs in this folder, yours included, so no guard is active here")
+    fi
+    break
+  done
 
   SCORE=$((SCORE + pts))
   printf "  Security:  %2d/20  %s\n" "$pts" "$marks"
