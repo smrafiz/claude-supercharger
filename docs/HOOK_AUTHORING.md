@@ -1216,3 +1216,21 @@ catch `SystemExit`, and call the handler directly.
   prove the check still fails with an impossible bound (#283, #288).
 - **Replay with isolated state.** Old-vs-new replay over shared `SUPERCHARGER_STATE` made
   ask-once dedup look like ask-to-allow regressions; one state dir per call removed all of them.
+
+## Notes from 2026-11-12
+
+- **Normalize the command word in every spelling.** `r''m` was caught; `'rm'`, a redirection
+  before the word (`> /dev/null rm`), `su -c '…'` and the spelling tricks inside a `-c` body were
+  not (#299). Unquote with string slices, not a regex, and keep the change in the shared
+  normalizer: all 15 Bash hooks inherit it.
+- **Replay only what the change can affect.** Diff the normalizer's output old vs new over every
+  real command first (54,632 → 1,474 differed), then run the full hook chain on those. Identical
+  normalized output cannot change a verdict.
+- **Settings keys: check where Claude Code reads them.** The auth-refresh helpers are top-level
+  keys; we looked under `env` (#297). Read the settings reference before adding a key check.
+- **Path comparisons on Windows.** `str(path).startswith(HOME + '/.claude')` never matches a
+  backslash path. Compare `normcase(realpath(...))` with `os.sep`; tests that look for a path in
+  JSON output must accept the escaped form (#297, Windows CI only).
+- **Parallel subagents load the machine.** Three agents plus replays pushed load average to ~230;
+  a timing test failed in the full suite and passed 14/14 alone. Re-run a timing failure alone
+  before treating it as real.
