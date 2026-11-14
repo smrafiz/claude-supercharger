@@ -6,19 +6,19 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-14, session `e7f6ce82`.*
 
-- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master `784db292`** carries five
-  unreleased PRs: #302 (Bidi warn), #303 (JWT / torch.load / CORS warns), #304
-  (update-check fetch no longer holds stdout), #305 (drop vacuous stale-cache test),
-  #306 (env-file-guard blocks Grep wildcard globs like `.env*`, `*.env`, `{.env,x}`).
-  Release **held by the user**.
-- #305 and #306 dispatched CI green incl. Windows; master push run on `784db292` not checked.
-- **Open PRs:** none. **In flight:** none.
+- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master** carries five unreleased
+  PRs: #302 (Bidi warn), #303 (JWT / torch.load / CORS warns), #304 (update-check fetch no
+  longer holds stdout), #305 (vacuous test removed), #306 (Grep wildcard globs). Release
+  **held by the user**. Master CI + Host contract green on `784db292` and `56d85e12`.
+- **Open PRs:** #307 (kubectl secret output in either flag order, mvn showPasswords, Read
+  parity for tfvars and service-account keys). Full CI run 43624725793 in progress at write.
 - **Audits closed:** cc-audit, aidevops (2 rounds), lodeline, kintsugi-harness, Nodrail
-  agent-plugins. Parked by the user: `x=rm; $x -rf /`.
-- **RISK:** #306 FP evidence is thin: transcripts held one real Grep glob. Ordinary-file
-  controls keep `*`, `*.*`, `*.yaml` allowed.
-- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief).
-- Per-machine (this machine, 2026-11-14): 0 stashes; stale local `rel/4.4.5`.
+  agent-plugins, JeongJaeSoon/agent-guard. Parked by the user: `x=rm; $x -rf /`.
+- **RISK:** #306/#307 FP evidence thin (1 real Grep glob; no tfvars Read in transcripts).
+- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief); env dump to a
+  sink (`env > file`, `set | grep`) allowed, not built.
+- Per-machine (this machine, 2026-11-14): 0 stashes; stale local `rel/4.4.5`; gh has two
+  accounts, `wp-sigmadevs` cannot merge (`gh auth switch -u smrafiz`).
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes` (Windows is checked on master's base commit).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -57,11 +57,9 @@ session on any machine.**
 ## Log
 
 #### 2026-11-14 — e7f6ce82
-Reviewed kintsugi-harness; probed 24 scenarios against our hooks. Merged #302 (Bidi /
-Trojan Source warn) and #303 (JWT verify off, bare torch.load, any-origin CORS + creds).
-#303 CI: py-floor `:=` grep FP fixed; Windows update-check 6s timeout flaked once.
-Then #304 (update-check stdout fix), #305 (vacuous test removed) and #306 (Grep
-wildcard globs blocked, found reviewing Nodrail agent-plugins) merged.
+Reviewed kintsugi-harness, Nodrail agent-plugins and agent-guard by probing their scenarios
+against our hooks. Merged #302–#306 (Bidi, code patterns, update-check stdout, vacuous test,
+Grep wildcard globs); #307 (kubectl/mvn/Read parity) open. Release held.
 Detail: `.claude/handoff-e7f6ce82-f0ce-4e41-957d-c06160b73ecb.md`
 
 #### 2026-11-13 (deep) — 00ecfc20

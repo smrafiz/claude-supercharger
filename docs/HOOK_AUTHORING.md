@@ -1250,3 +1250,24 @@ catch `SystemExit`, and call the handler directly.
   commit (`gh run rerun <id> --job <job>`): it failed the same way.
 - **A failing test must print what it threw away.** The scanner test reported only `exit=1`. It
   now prints the output and a `bash -x` trace on failure, and the trace named the line at once.
+
+## Notes from 2026-11-14
+
+- **A backgrounded block holds the hook's pipe.** `{ ... } &` inherits stdout and stderr, and the
+  reader of the hook's output waits for EOF, i.e. for the whole background job. update-check's
+  "non-blocking" fetch held session start for the full network timeout (#304). Redirect every `&`
+  in a hook: `} >/dev/null 2>&1 &`. Time a hook through a pipe, not by its own exit status.
+- **A test that wraps the hook in a missing tool passes without running it.** macOS has no
+  `timeout`; `$(timeout 6 bash "$HOOK")` exited 127 and the elapsed-time check went green (#305).
+  Stub the slow part instead of wrapping the hook in an external tool.
+- **Match a glob as a pattern, not a string.** env-file-guard compared Grep's `glob` with a list of
+  literal names, so `.env*`, `*.env` and `{.env,x}` passed (#306). It now tests the glob against
+  sample credential names, and allows a glob that also matches ordinary source (`*`, `*.yaml`).
+- **Bash and Read must agree on names.** `cat prod.tfvars` and `cat service-account.json` were
+  denied by `safety-detect.py:_SENSITIVE_NAME_RE`; Read of the same files was allowed (#307). When
+  adding a name to one channel, grep the other.
+- **Regex classes trip the py-floor grep.** `tests/test-owasp-asi.sh` greps hooks for a literal
+  `:=` (Python 3.8). A regex class `[:=]` contains it; write `(?::|=)` (#303).
+- **Check the hooks for a recorded rejection before proposing a rule.** `safety.sh` had a comment
+  rejecting `gh auth token` and `npm config get _authToken` (the output scanner covers known-shape
+  tokens). A review that skips it recommends work already argued down.
