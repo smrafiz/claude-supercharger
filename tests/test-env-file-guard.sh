@@ -280,6 +280,20 @@ for _g in ".env" "**/id_rsa" "**/.env" "*.pem" "**/credentials" "**/.envrc" ".en
   [ "$?" = "2" ] && pass || fail "glob=$_g read credential files"
 done
 
+# Wildcard globs name the same files without spelling them (Nodrail review,
+# 2026-11-14): the literal-basename case above let all of these through.
+for _g in ".env*" "*.env" "**/.env*" ".e*" "{.env,x}" "*.{ts,env}" "id_*" "*.pe?" ".git-cred*"; do
+  begin_test "env-guard: Grep wildcard glob=$_g is blocked"
+  grep_input Grep "{\"pattern\":\"x\",\"glob\":\"$_g\",\"output_mode\":\"content\"}"
+  [ "$?" = "2" ] && pass || fail "glob=$_g read credential files"
+done
+# A glob broad enough to match ordinary source is a normal search, like no glob.
+for _g in "*" "*.*" "**/*" "*.ts" "*.{ts,tsx}" "src/**/*.py" "*.json" "*.md"; do
+  begin_test "env-guard: broad or ordinary glob=$_g is NOT blocked"
+  grep_input Grep "{\"pattern\":\"x\",\"glob\":\"$_g\"}"
+  [ "$?" = "0" ] && pass || fail "over-blocked glob=$_g"
+done
+
 begin_test "env-guard: an ordinary glob is NOT blocked"
 grep_input Grep '{"pattern":"TODO","glob":"*.ts"}'
 [ "$?" = "0" ] && pass || fail "over-blocked an ordinary glob"
