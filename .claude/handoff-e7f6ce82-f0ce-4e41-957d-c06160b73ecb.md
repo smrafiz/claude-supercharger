@@ -15,14 +15,18 @@
 - **#304** merged (`05c0be9e`): `update-check.sh` background fetch now `} >/dev/null 2>&1 &`;
   it inherited stdout, so readers waited for the whole fetch (root cause of the Windows
   6s flake). Stub-python test, red before / green after. Master CI green.
-- **#305** open: drops the old stale-cache test (`timeout` absent on macOS ⇒ exit 127,
-  vacuous pass; live network elsewhere). CI run 43603303900 dispatched.
+- **#305** merged (`639c353d`): drops the old stale-cache test (`timeout` absent on macOS ⇒ exit 127,
+  vacuous pass; live network elsewhere). Dispatched CI green.
 - **Reviewed Nodrail/agent-plugins** (Apache-2.0, cloud approval client). Its local read
   check covers the same credential places our `env-file-guard.sh` does; `onFailure: block`
   already tested here. One candidate: our Grep `glob` arm matches literal basenames, so
   `.env*` / `*.env` / brace globs likely pass (code-read; Nodrail matches the glob against
   example secret names). Probe via Bash was blocked by our own guard (command text named
   `.env`), so not run.
+- **#306** merged (`784db292`): `env-file-guard.sh` matches a wildcard Grep glob (one brace
+  level) against sample credential names; allowed if it also matches ordinary-file controls.
+  9 block tests red before; 8 allow tests. Full local suite 8038/0; dispatched CI green.
+- `gh` was on account `wp-sigmadevs` (no merge rights); user switched back to `smrafiz`.
 
 ### In Flight
 - none
@@ -52,11 +56,11 @@
 - `hooks/code-security-scanner.sh`, `tests/test-hooks.sh` (#302);
   `hooks/lib_code_patterns.py`, `tests/test-lib-code-patterns.sh` (#303);
   `hooks/update-check.sh`, `tests/test-update-check.sh` (#304, #305);
+  `hooks/env-file-guard.sh`, `tests/test-env-file-guard.sh` (#306);
   `.claude/handoff.md`, this file.
 
 ### Resume With
-Read `.claude/handoff.md`. Master has #302–#304, unreleased since v4.4.6 (release held). #305 awaiting CI.
+Read `.claude/handoff.md`. Master has #302–#306, unreleased since v4.4.6 (release held). Nothing in flight.
 
 ### Open questions
-- Build the wildcard-glob fix in `env-file-guard.sh` (needs a red test first)?
 - Guard repo-root `skills/*/SKILL.md` in `memory-write-guard.sh`? Low value.
