@@ -6,15 +6,18 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-14, session `e7f6ce82`.*
 
-- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master `7ef44edf`** carries two
-  unreleased PRs: #302 (Bidi/Trojan Source warn) and #303 (JWT / torch.load / CORS warns).
-- Master CI + Host contract green on `62e8e3c3` (#302). #303's dispatched run (incl.
-  Windows) green on attempt 2; its master push run not checked.
-- **Open PRs:** none. **In flight:** none.
-- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline, kintsugi-harness.
-  Parked by the user: `x=rm; $x -rf /`.
-- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief); widen the
-  6s timeout in `tests/test-update-check.sh:69` (Windows flake, 2026-11-14).
+- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master `05c0be9e`** carries three
+  unreleased PRs: #302 (Bidi warn), #303 (JWT / torch.load / CORS warns), #304
+  (update-check background fetch no longer holds stdout). Release **held by the user**.
+- Master CI + Host contract green on `05c0be9e`.
+- **Open PRs:** #305 (test-only: drop the stale-cache update-check test, which never ran
+  the hook on macOS and hit the network elsewhere). Full CI dispatched: run 43603303900.
+- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline, kintsugi-harness, Nodrail
+  agent-plugins. Parked by the user: `x=rm; $x -rf /`.
+- **Candidate (Nodrail review, unbuilt):** `env-file-guard.sh` matches a Grep `glob` by
+  literal basename only, so wildcard globs (`.env*`, `*.env`, `{.env,x}`) likely pass.
+  Code-read, not yet proven by a red test.
+- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief).
 - Per-machine (this machine, 2026-11-14): 0 stashes; stale local `rel/4.4.5`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes` (Windows is checked on master's base commit).
@@ -57,6 +60,8 @@ session on any machine.**
 Reviewed kintsugi-harness; probed 24 scenarios against our hooks. Merged #302 (Bidi /
 Trojan Source warn) and #303 (JWT verify off, bare torch.load, any-origin CORS + creds).
 #303 CI: py-floor `:=` grep FP fixed; Windows update-check 6s timeout flaked once.
+Then #304 (update-check stdout fix) merged, #305 opened, Nodrail agent-plugins
+reviewed (one candidate: wildcard Grep globs in env-file-guard).
 Detail: `.claude/handoff-e7f6ce82-f0ce-4e41-957d-c06160b73ecb.md`
 
 #### 2026-11-13 (deep) — 00ecfc20

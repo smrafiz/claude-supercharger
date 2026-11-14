@@ -12,6 +12,17 @@
   weights_only=True, any-origin CORS with credentials. 10 tests in
   `tests/test-lib-code-patterns.sh`; 5 detection tests red before. Replay over 668 past
   writes: no hits outside this work's fixtures.
+- **#304** merged (`05c0be9e`): `update-check.sh` background fetch now `} >/dev/null 2>&1 &`;
+  it inherited stdout, so readers waited for the whole fetch (root cause of the Windows
+  6s flake). Stub-python test, red before / green after. Master CI green.
+- **#305** open: drops the old stale-cache test (`timeout` absent on macOS ⇒ exit 127,
+  vacuous pass; live network elsewhere). CI run 43603303900 dispatched.
+- **Reviewed Nodrail/agent-plugins** (Apache-2.0, cloud approval client). Its local read
+  check covers the same credential places our `env-file-guard.sh` does; `onFailure: block`
+  already tested here. One candidate: our Grep `glob` arm matches literal basenames, so
+  `.env*` / `*.env` / brace globs likely pass (code-read; Nodrail matches the glob against
+  example secret names). Probe via Bash was blocked by our own guard (command text named
+  `.env`), so not run.
 
 ### In Flight
 - none
@@ -40,11 +51,12 @@
 ### Files Touched
 - `hooks/code-security-scanner.sh`, `tests/test-hooks.sh` (#302);
   `hooks/lib_code_patterns.py`, `tests/test-lib-code-patterns.sh` (#303);
+  `hooks/update-check.sh`, `tests/test-update-check.sh` (#304, #305);
   `.claude/handoff.md`, this file.
 
 ### Resume With
-Read `.claude/handoff.md`. Master has #302 and #303, unreleased since v4.4.6. Nothing in flight.
+Read `.claude/handoff.md`. Master has #302–#304, unreleased since v4.4.6 (release held). #305 awaiting CI.
 
 ### Open questions
-- Widen the 6s timeout in `tests/test-update-check.sh:69`? Flaked once on Windows.
+- Build the wildcard-glob fix in `env-file-guard.sh` (needs a red test first)?
 - Guard repo-root `skills/*/SKILL.md` in `memory-write-guard.sh`? Low value.
