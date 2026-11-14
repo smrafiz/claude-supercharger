@@ -2170,6 +2170,12 @@ INPUT=$(python3 -c "import json; c = 'import os\npassword = os.environ[\"DB_PASS
 OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
 echo "$OUT" | grep -qi "hardcoded password" && fail "false positive on env read: $OUT" || pass
 
+# Trojan Source: Bidi override in written code (kintsugi-harness scenario)
+begin_test "code-security-scanner: warns on Bidi override character (Trojan Source)"
+INPUT=$(python3 -c "import json; c = 'tool_prompt = \"Summarize file' + chr(0x202e) + '\"\n'; print(json.dumps({'tool_name':'Write','tool_input':{'file_path':'/tmp/t.py','content':c}}))")
+OUT=$(printf '%s' "$INPUT" | bash "$CODE_SCANNER" 2>&1)
+echo "$OUT" | grep -q "Trojan Source" && pass || fail "Bidi override not flagged: $OUT"
+
 # v2.23.15: patterns adopted from Anthropic's Security Guidance taxonomy.
 # Helper: build a Write payload with content taken from $C (no inline-quote pain).
 css_json() { C="$1" python3 -c "import os,json;print(json.dumps({'tool_name':'Write','tool_input':{'file_path':os.environ.get('CSSFP','/tmp/x.js'),'content':os.environ['C']}}))"; }
