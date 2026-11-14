@@ -92,6 +92,11 @@ for pat, msg in secret_checks:
 if re.search(r'[​‌‍﻿­]', content):
     warnings.append('invisible Unicode characters detected — possible hidden prompt injection')
 
+# Bidi override/isolate controls: Trojan Source (CVE-2021-42574), code that reads
+# differently than it compiles. Same range as lib_poison_patterns._BIDI.
+if re.search(r'[‪-‮⁦-⁩]', content):
+    warnings.append('Unicode Bidi control characters detected — Trojan Source risk (CVE-2021-42574); remove them')
+
 # GitHub Actions workflow command injection (only .yml/.yaml)
 if file_path.endswith(('.yml', '.yaml')) and '${{ github.event.' in content:
     warnings.append('${{ github.event.* }} in workflow — GitHub Actions command injection risk; sanitise before use')
