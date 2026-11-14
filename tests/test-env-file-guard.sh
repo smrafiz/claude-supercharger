@@ -187,6 +187,20 @@ for _f in "/proj/terraform.tfstate" "/proj/terraform.tfstate.backup" \
   [ "$?" = "2" ] && pass || fail "Read allowed $_f"
 done
 
+# Read parity with Bash (agent-guard review, 2026-11-14): safety-detect.py denies
+# `cat` of these by name, and Read allowed all of them.
+for _f in "/p/prod.tfvars" "/p/terraform.tfvars" "/p/keys/my-service-account-prod.json" \
+          "/p/service_account.json" "/p/app-firebase-adminsdk-x1.json" "/p/client_secret_123.apps.json"; do
+  begin_test "env-guard: Read blocks $(basename "$_f") (Bash parity)"
+  run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}"
+  [ "$?" = "2" ] && pass || fail "Read allowed $_f"
+done
+for _f in "/p/variables.tf" "/p/docs/service-account-setup.md" "/p/src/serviceAccount.ts"; do
+  begin_test "env-guard: Read allows $(basename "$_f")"
+  run_input "{\"tool_name\":\"Read\",\"tool_input\":{\"file_path\":\"$_f\"}}"
+  [ "$?" = "0" ] && pass || fail "over-blocked $_f"
+done
+
 # These two carry credentials AND ordinary build settings, so they ASK rather
 # than deny. A hard block on a file an agent reads to do its job is an FP, and
 # an FP is what gets a guard switched off.

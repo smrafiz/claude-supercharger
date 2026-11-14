@@ -936,7 +936,10 @@ CLOUD_PATTERNS=(
   '(--privileged|--pid=host|--cap-add[=[:space:]]+(SYS_ADMIN|SYS_PTRACE|DAC_OVERRIDE|DAC_READ_SEARCH|ALL)|/var/run/docker\.sock|/run/docker\.sock|/run/containerd/containerd\.sock|/run/crio/crio\.sock|/run/podman/podman\.sock|chroot[[:space:]]+/host|(^|[[:space:]])nsenter([[:space:]]|$))'
   # k8s: cluster-admin RBAC grant + secret exfil (gated on kubectl verb / data form)
   'kubectl[^;&|]*(apply|create)[^;&|]*(clusterrolebinding|cluster-admin)'
-  'kubectl[[:space:]]+(get|describe)[[:space:]]+secret[^;&|]*(-o[[:space:]]+ya?ml|-o[[:space:]]+json|jsonpath=\{\.data)'
+  # 2026-11-14 (agent-guard review): kubectl takes the output flag on either side
+  # of the resource and in -o yaml / -oyaml / -o=yaml / --output=yaml forms; only
+  # `get secret x -o yaml` was caught. `-o name` and `get secrets` (names) still pass.
+  'kubectl[^;&|]*[[:space:]](get|describe)[^;&|]*([[:space:]]secrets?(/[^[:space:]]*)?([[:space:]][^;&|]*)?(-o|--output)[=[:space:]]*(ya?ml|json([[:space:]]|$)|go-template|jsonpath[^[:space:]]*\.data)|(-o|--output)[=[:space:]]*(ya?ml|json([[:space:]]|$)|go-template|jsonpath[^[:space:]]*\.data)([^;&|]*[[:space:]])?secrets?(/[^[:space:]]*)?([[:space:]]|$))'
   # IaC teardown of live resources (destroy subcommand, not `plan -destroy`)
   '(terraform|tofu|opentofu|terragrunt)[[:space:]]+destroy([[:space:]]|$)'
   # v4.2.0: `apply -destroy` is the same teardown spelled as an apply (infra audit).
@@ -1047,6 +1050,9 @@ CRED_CMD_PATTERNS=(
   '(^|[[:space:]])infisical[[:space:]]+(export|secrets[[:space:]]+get)([[:space:]]|$)'
   '(^|[[:space:]])bw[[:space:]]+get[[:space:]]+(password|item|totp|notes)([[:space:]]|$)'
   '(^|[[:space:]])(pass|lpass)[[:space:]]+show([[:space:]]|$)'
+  # Maven prints settings.xml server passwords in plaintext with this flag
+  # (arbitrary shape, so the output scanner cannot see them). agent-guard review.
+  '(^|[[:space:]/])mvnw?[[:space:]][^;&|]*-DshowPasswords(=true)?([[:space:]]|$)'
 )
 # v2.24.13: synthetic input injection (category: clipboard — same "drive the user's
 # desktop" surface). `osascript -e 'tell app "System Events" to keystroke ...'` types
