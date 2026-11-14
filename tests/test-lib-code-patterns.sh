@@ -29,6 +29,18 @@ check("go InsecureSkipVerify flagged", any("InsecureSkipVerify" in h for h in L.
 check("php CURLOPT verifypeer 0 flagged", any("CURLOPT" in h for h in L.scan_content("curl_setopt($c, CURLOPT_SSL_VERIFYPEER, 0);")))
 check("py unverified ssl ctx flagged", any("unverified" in h for h in L.scan_content("ssl._create_unverified_context()")))
 check("TLS: no FP on verify=True", not any("TLS" in h for h in L.scan_content("requests.get(u, verify=True)")))
+# JWT / torch.load / CORS (kintsugi-harness scenarios)
+has = lambda s, w: any(w in h for h in L.scan_content(s))
+check("jwt verify_signature False flagged", has('claims = jwt.decode(token, options={"verify_signature": False})', "JWT"))
+check("jwt alg none flagged", has("jwt.decode(t, key, algorithms=['none'])", "JWT"))
+check("jwt: no FP on RS256 verify", not has('claims = jwt.decode(token, public_key, algorithms=["RS256"])', "JWT"))
+check("torch.load bare flagged", has('ckpt = torch.load("weights.pt")', "torch.load"))
+check("torch.load: no FP with weights_only=True", not has('ckpt = torch.load("w.pt", map_location="cpu", weights_only=True)', "torch.load"))
+check("torch.load: no FP multi-line weights_only=True", not has('ckpt = torch.load(\n    open(p, "rb"),\n    weights_only=True,\n)', "torch.load"))
+check("fastapi cors * + credentials flagged", has('app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_credentials=True)', "CORS"))
+check("express cors origin:true + credentials flagged", has("app.use(cors({ credentials: true, origin: true }))", "CORS"))
+check("cors: no FP on listed origin + credentials", not has('app.add_middleware(CORSMiddleware, allow_origins=["https://app.example.com"], allow_credentials=True)', "CORS"))
+check("cors: no FP on * without credentials", not has('app.add_middleware(CORSMiddleware, allow_origins=["*"])', "CORS"))
 PY
 )
 while IFS= read -r line; do

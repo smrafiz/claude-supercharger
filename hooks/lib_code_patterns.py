@@ -49,6 +49,18 @@ _CHECKS = [
     (re.compile(r'InsecureSkipVerify\s*:\s*true', re.I),                 'InsecureSkipVerify: true — disables TLS certificate validation (Go)'),
     (re.compile(r'CURLOPT_SSL_VERIFY(?:PEER|HOST)\s*,\s*(?:0|false)', re.I), 'CURLOPT_SSL_VERIFYPEER/HOST disabled — no TLS validation (PHP/libcurl)'),
     (re.compile(r'_create_unverified_context|ssl\.CERT_NONE'),          'unverified SSL context / CERT_NONE — disables TLS certificate validation (Python)'),
+    # JWT accepted without checking it: PyJWT verify_signature off, or the "none" alg.
+    (re.compile(r'''verify_signature['"]?\s*:\s*False|algorithms?['"]?\s*[:=]\s*\[?\s*['"]none['"]''', re.I),
+     'JWT verification disabled (verify_signature False / alg "none") — forged tokens accepted; verify with a key and an explicit algorithm list'),
+    # torch.load unpickles: arbitrary code from a checkpoint unless weights_only=True
+    # (the default only from torch 2.6). Look 200 chars ahead so a multi-line call counts.
+    (re.compile(r'torch\.load\((?![\s\S]{0,200}?weights_only\s*=\s*True)'),
+     'torch.load() without weights_only=True — unpickles the checkpoint (code execution); pass weights_only=True'),
+    # Any-origin CORS plus credentials: Starlette and `cors({origin: true})` reflect the
+    # caller's Origin, so any site can make credentialed requests.
+    (re.compile(r'''(?:allow_origins\s*=\s*\[\s*['"]\*['"]\s*\]|\borigin\s*:\s*(?:true|['"]\*['"]))[\s\S]{0,300}?(?:allow_credentials\s*=\s*True|\bcredentials\s*:\s*true)'''
+                r'''|(?:allow_credentials\s*=\s*True|\bcredentials\s*:\s*true)[\s\S]{0,300}?(?:allow_origins\s*=\s*\[\s*['"]\*['"]\s*\]|\borigin\s*:\s*(?:true|['"]\*['"]))'''),
+     'CORS any-origin with credentials — any site can make authenticated requests; list allowed origins explicitly'),
 ]
 
 # Insecure randomness is gated on a security-context word nearby — a blind
