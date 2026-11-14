@@ -73,6 +73,24 @@ teardown_test_home
 # Background fetch shouldn't block past a few seconds
 [ "$((END - START))" -lt 6 ] && pass || fail "stale path blocked too long: $((END - START))s"
 
+# The background fetch must not hold the hook's stdout open: a reader of the
+# pipe (Claude Code, or $(...) here) waits for EOF, i.e. for the whole fetch.
+# A python3 stub that sleeps 3s stands in for a slow network.
+begin_test "update-check: stale path does not hold stdout open during the fetch"
+setup_test_home
+mkdir -p "$HOME/.claude/supercharger" "$HOME/stubbin"
+echo "2.6.77" > "$HOME/.claude/supercharger/.version"
+echo "2.6.77" > "$HOME/.claude/supercharger/.update-cache"
+touch -t 202001010000 "$HOME/.claude/supercharger/.update-cache" 2>/dev/null
+printf '#!/bin/sh\nsleep 3\n' > "$HOME/stubbin/python3"; chmod +x "$HOME/stubbin/python3"
+START=$(date +%s)
+# No `timeout`: macOS has none, so `timeout 6 bash` exits 127 without running the
+# hook and the check passes vacuously. The stub's 3s sleep is the upper bound.
+OUT=$(PATH="$HOME/stubbin:$PATH" bash "$HOOK" 2>&1)
+END=$(date +%s)
+teardown_test_home
+[ "$((END - START))" -lt 2 ] && pass || fail "reader waited for the background fetch: $((END - START))s"
+
 # --- v4.0.32: the banner must land on STDOUT ---------------------------------
 # For the life of this hook the banner went to stderr and was never delivered to
 # anyone. The check ran, the network call completed, the cache was written, the
