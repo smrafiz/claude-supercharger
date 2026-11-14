@@ -163,6 +163,46 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
         "Login Data"|"Login Data For Account"|Cookies|cookies.sqlite|logins.json|key4.db)
           block "Search of credential files blocked (glob: $_EFG_GLOB) — a content search reads the same bytes as opening them" "$_EFG_GLOB" ;;
       esac
+      # A wildcard names the same files without spelling them: `.env*`, `*.env`,
+      # `{.env,x}` and `id_*` all walked past the literal list above. Match the
+      # glob, as a pattern, against sample credential names; a glob that also
+      # matches ordinary source (`*`, `*.*`, `*.yaml`) is a broad search, which
+      # stays allowed like a search with no glob. One brace level, max 3 groups.
+      case "$_EFG_GBASE" in *[*?[{]*)
+        shopt -s nocasematch
+        _efg_alts=("$_EFG_GBASE")
+        for _efg_i in 1 2 3; do
+          _efg_next=()
+          for _efg_a in "${_efg_alts[@]}"; do
+            case "$_efg_a" in
+              *\{*\}*)
+                _efg_pre="${_efg_a%%\{*}"; _efg_body="${_efg_a#*\{}"
+                _efg_post="${_efg_body#*\}}"; _efg_rest="${_efg_body%%\}*},"
+                while [ -n "$_efg_rest" ]; do
+                  _efg_next+=("$_efg_pre${_efg_rest%%,*}$_efg_post"); _efg_rest="${_efg_rest#*,}"
+                done ;;
+              *) _efg_next+=("$_efg_a") ;;
+            esac
+          done
+          _efg_alts=("${_efg_next[@]}")
+        done
+        for _efg_a in "${_efg_alts[@]}"; do
+          _efg_secret=0
+          for _efg_n in .env .env.local .env.prod prod.env .envrc id_rsa id_dsa id_ecdsa id_ed25519 \
+              server.pem server.key cert.p12 cert.pfx keystore.jks .npmrc .pypirc .pgpass .netrc \
+              .git-credentials .my.cnf credentials .vault-token terraform.tfstate secrets.yaml secrets.yml; do
+            # shellcheck disable=SC2254  # unquoted on purpose: the glob is the pattern
+            case "$_efg_n" in $_efg_a) _efg_secret=1; break ;; esac
+          done
+          [ "$_efg_secret" = 1 ] || continue
+          for _efg_n in main.ts index.js app.py README.md package.json style.css main.go Makefile notes.txt config.yaml; do
+            # shellcheck disable=SC2254
+            case "$_efg_n" in $_efg_a) continue 2 ;; esac
+          done
+          block "Search of credential files blocked (glob: $_EFG_GLOB) — the wildcard matches credential file names, and a content search reads the same bytes as opening them" "$_EFG_GLOB"
+        done
+        shopt -u nocasematch ;;
+      esac
     fi
     # No path AND no glob means the tool searches the cwd — ordinary project work.
     [ -z "$FILE_PATH" ] && exit 0
