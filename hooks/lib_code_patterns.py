@@ -50,7 +50,7 @@ _CHECKS = [
     (re.compile(r'CURLOPT_SSL_VERIFY(?:PEER|HOST)\s*,\s*(?:0|false)', re.I), 'CURLOPT_SSL_VERIFYPEER/HOST disabled — no TLS validation (PHP/libcurl)'),
     (re.compile(r'_create_unverified_context|ssl\.CERT_NONE'),          'unverified SSL context / CERT_NONE — disables TLS certificate validation (Python)'),
     # JWT accepted without checking it: PyJWT verify_signature off, or the "none" alg.
-    (re.compile(r'''verify_signature['"]?\s*:\s*False|algorithms?['"]?\s*[:=]\s*\[?\s*['"]none['"]''', re.I),
+    (re.compile(r'''verify_signature['"]?\s*:\s*False|algorithms?['"]?\s*(?::|=)\s*\[?\s*['"]none['"]''', re.I),
      'JWT verification disabled (verify_signature False / alg "none") — forged tokens accepted; verify with a key and an explicit algorithm list'),
     # torch.load unpickles: arbitrary code from a checkpoint unless weights_only=True
     # (the default only from torch 2.6). Look 200 chars ahead so a multi-line call counts.
