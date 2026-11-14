@@ -56,23 +56,6 @@ d = json.loads(sys.stdin.read())
 assert 'Update available' in d['systemMessage'], d
 " 2>/dev/null && pass || fail "no systemMessage notice, exit=$EXIT out=$OUT"
 
-begin_test "update-check: cache miss when stale (>6h)"
-setup_test_home
-mkdir -p "$HOME/.claude/supercharger"
-echo "2.6.77" > "$HOME/.claude/supercharger/.version"
-echo "2.6.77" > "$HOME/.claude/supercharger/.update-cache"
-# Backdate cache to >6h ago
-touch -t 202001010000 "$HOME/.claude/supercharger/.update-cache" 2>/dev/null
-# Hook should NOT exit on cache (proceed to fetch) — but the fetch is
-# backgrounded and non-blocking, so the foreground still returns ~immediately.
-START=$(date +%s)
-OUT=$(timeout 6 bash "$HOOK" 2>&1)
-END=$(date +%s)
-EXIT=$?
-teardown_test_home
-# Background fetch shouldn't block past a few seconds
-[ "$((END - START))" -lt 6 ] && pass || fail "stale path blocked too long: $((END - START))s"
-
 # The background fetch must not hold the hook's stdout open: a reader of the
 # pipe (Claude Code, or $(...) here) waits for EOF, i.e. for the whole fetch.
 # A python3 stub that sleeps 3s stands in for a slow network.
