@@ -154,6 +154,8 @@ except Exception:
   # orphaned and cannot reach the terminal however the hook is registered —
   # printing here only looked like a feature. The cache write is the point: the
   # NEXT session start renders from it, synchronously, with no network.
-} &
+  # Detach stdout/stderr too: a backgrounded block that inherits them holds the
+  # hook's pipe open, and the reader waits for EOF — the whole fetch — anyway.
+} >/dev/null 2>&1 &
 
 exit 0
