@@ -4,17 +4,18 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-13, session `00ecfc20`.*
+*Verified 2026-11-14, session `e7f6ce82`.*
 
-- **Released: v4.4.6** (2026-11-13), tag on `88699aa6` = master HEAD; #264-#301. Master CI +
-  Host contract green on `db2e6d3a` (the commit before the release bump).
+- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master `7ef44edf`** carries two
+  unreleased PRs: #302 (Bidi/Trojan Source warn) and #303 (JWT / torch.load / CORS warns).
+- Master CI + Host contract green on `62e8e3c3` (#302). #303's dispatched run (incl.
+  Windows) green on attempt 2; its master push run not checked.
 - **Open PRs:** none. **In flight:** none.
-- **CI runs on `ubuntu-26.04`** since 2026-11-12 (`ubuntu-latest` moved). #301 fixed the one
-  failure it exposed: a timing EXIT trap turned deny (2) into exit 1.
-- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline. Parked by the user: `x=rm; $x -rf /`.
-- **Open questions:** project `disableAllHooks: true` vs user hooks (manual test in the
-  2026-11-12 brief); why the commit check refused the first #301 message (unverified FP).
-- Per-machine (this machine, 2026-11-13): installed v4.4.6; 0 stashes; stale local `rel/4.4.5`.
+- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline, kintsugi-harness.
+  Parked by the user: `x=rm; $x -rf /`.
+- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief); widen the
+  6s timeout in `tests/test-update-check.sh:69` (Windows flake, 2026-11-14).
+- Per-machine (this machine, 2026-11-14): 0 stashes; stale local `rel/4.4.5`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes` (Windows is checked on master's base commit).
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -52,6 +53,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-14 — e7f6ce82
+Reviewed kintsugi-harness; probed 24 scenarios against our hooks. Merged #302 (Bidi /
+Trojan Source warn) and #303 (JWT verify off, bare torch.load, any-origin CORS + creds).
+#303 CI: py-floor `:=` grep FP fixed; Windows update-check 6s timeout flaked once.
+Detail: `.claude/handoff-e7f6ce82-f0ce-4e41-957d-c06160b73ecb.md`
+
 #### 2026-11-13 (deep) — 00ecfc20
 Merged #299; master went red on the ubuntu-26.04 image switch. Root cause: timing EXIT trap
 rewrote a deny (exit 2) to exit 1 on an unwritable audit dir — fixed in #301. Released v4.4.6.
@@ -73,10 +80,4 @@ Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 Merged #274-#281: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
 README, direnv + token formats (phantom-secrets delta). Handback replay: 3 of 5 refusals were FPs.
 Then #281: commit-prose separator FP, one subagent notice, signed-URL patterns. 4.4.6 held.
-Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
-
-#### 2026-11-09 (deep) — 104cfc73
-Merged #267-#273: pulumi/gh global opts, pool runner, eksctl ask, detector budget pin, statusline
-autoCompactWindow, nested-run home sweep (master red → green). Open: #274 ReDoS guard hang, #275
-.claude dir guard. 4.4.6 held.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
