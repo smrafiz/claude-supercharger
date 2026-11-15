@@ -68,11 +68,19 @@ description: project copy, no list
 ---
 EOF
 
+# Closest definition to the cwd wins (sub-agents.md), over the repo root's copy.
+mkdir -p "$P/sub/.claude/agents"
+printf -- '---\nname: closest\n---\n' > "$P/sub/.claude/agents/closest.md"
+printf -- '---\nname: closest\nsupercharger-allow:\n  bash: ["ls"]\n---\n' > "$P/.claude/agents/closest.md"
+printf -- '---\nname: closest2\nsupercharger-allow:\n  bash: ["ls"]\n---\n' > "$P/sub/.claude/agents/closest2.md"
+printf -- '---\nname: closest2\n---\n' > "$P/.claude/agents/closest2.md"
+NSUB=$(native_path "$P/sub")
+
 # Sets OUT / ERR / RC in the caller (no command substitution around the call).
 run() { # agent tool input-json [with_agent_id=1]
   local id='"agent_id":"a-1",'
   [ "${4:-1}" = 0 ] && id=""
-  printf '{%s"agent_type":"%s","cwd":"%s","tool_name":"%s","tool_input":%s}' "$id" "$1" "$NP" "$2" "$3" \
+  printf '{%s"agent_type":"%s","cwd":"%s","tool_name":"%s","tool_input":%s}' "$id" "$1" "${RUNCWD:-$NP}" "$2" "$3" \
     | HOME="$H" SUPERCHARGER_STATE="$T/state" CLAUDE_PROJECT_DIR="" bash "$HOOK" >"$T/out" 2>"$T/err"
   RC=$?; OUT=$(cat "$T/out"); ERR=$(cat "$T/err")
 }
@@ -174,6 +182,11 @@ run narrow Write '{"file_path":"/etc/hosts","content":"x"}' 0; allowed
 
 begin_test "project definition shadows the user one (project has no list)"
 run shadowed Bash "$(cmd 'curl https://example.com')"; allowed
+
+begin_test "cwd definition (no list) shadows the repo-root one with a list"
+RUNCWD="$NSUB" run closest Bash "$(cmd 'curl https://example.com')"; allowed
+begin_test "cwd definition with a list wins over the repo-root one without"
+RUNCWD="$NSUB" run closest2 Bash "$(cmd 'curl https://example.com')"; denied "closest2"
 
 begin_test "malformed frontmatter fails open"
 run broken Bash "$(cmd 'curl https://example.com')"; allowed

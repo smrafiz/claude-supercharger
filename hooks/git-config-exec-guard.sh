@@ -134,9 +134,40 @@ CMD_SHAPE = re.compile(
     r'\bpython3?\s+-c\b|\bperl\s+-e\b|\bruby\s+-e\b|/\S+\.(?:sh|py|rb|pl|js|ps1))',
     re.I)
 
+# A config key: section[.subsection].variable. The subsection (a URL, a remote or
+# driver name) may hold any char but whitespace here, dots included. Shared by every
+# form below; was [\w][\w.-]*, so `credential.https://h.helper` matched in no form.
+KEY = r"""[\w][^\s='"]*"""
+
+def splitkey(key):
+    """git-config(1): section and variable are case-insensitive, the variable is the
+    part after the LAST dot, the subsection (case-sensitive) is everything between."""
+    key = key.strip("'\"")
+    i, j = key.find("."), key.rfind(".")
+    if i < 0:
+        return key.lower(), ""
+    return key[:i].lower(), key[j + 1:].lower()
+
+# Keys whose value is always a command git runs (git-config(1), gitattributes(5),
+# git-send-email(1)); keyed on section.variable, so any subsection matches.
+ALWAYS_CMD = {
+    "filter.clean", "filter.smudge", "filter.process", "diff.command", "diff.textconv",
+    "merge.driver", "difftool.cmd", "mergetool.cmd", "trailer.cmd", "trailer.command",
+    "browser.cmd", "man.cmd", "guitool.cmd", "core.gitproxy", "core.alternaterefscommand",
+    "gc.recentobjectshook", "gpg.defaultkeycommand", "uploadpack.packobjectshook",
+    "sendemail.sendmailcmd", "sendemail.tocmd", "sendemail.cccmd", "sendemail.headercmd",
+}
+# Sometimes-legit program-valued keys: flag only when the value is command-shaped.
+SHAPED_CMD = {
+    "core.pager", "core.editor", "credential.helper", "sequence.editor", "core.askpass",
+    "diff.external", "gpg.program", "remote.uploadpack", "remote.receivepack",
+    "interactive.difffilter",
+}
+
 def keyclass(key, val):
     """Return (verdict, label) or None. verdict in {DENY, ASK}."""
-    k = key.lower()
+    sec, var = splitkey(key)
+    k = sec + "." + var
     cmdshaped = bool(CMD_SHAPE.search(val))
     # git-config(1): core.fsmonitor is a boolean or a hook command path. A false
     # spelling (false/no/off/0/empty) turns it OFF; `true` starts git's own built-in
@@ -149,8 +180,7 @@ def keyclass(key, val):
         if b in ("true", "yes", "on", "1"):
             return ("ASK", "core.fsmonitor=true (starts git's built-in fsmonitor daemon)")
         return ("DENY", "core.fsmonitor (runs on every git op)")
-    if re.match(r'(filter\.[^.]+\.(clean|smudge)|diff\.[^.]+\.command|'
-                r'(difftool|mergetool)\.[^.]+\.cmd)$', k):
+    if k in ALWAYS_CMD:
         return ("ASK", key)
     # Persistent hooks redirect = verification/attack-hook bypass.
     if k == "core.hookspath":
@@ -163,12 +193,11 @@ def keyclass(key, val):
             return ("DENY", "core.sshCommand")
         prog = (val.strip().strip("'\"").split() or [""])[0]
         return None if re.sub(r'\.exe$', '', os.path.basename(prog).lower()) in ("ssh", "plink", "tortoiseplink") else ("ASK", "core.sshCommand (runs " + prog + ")")
-    # Aliases exec a shell only when '!'-prefixed.
-    if k.startswith("alias."):
-        return ("ASK", key) if val.lstrip().startswith("!") else None
-    # Sometimes-legit keys: flag only when the value is command-shaped.
-    if k in ("core.pager", "core.editor", "credential.helper", "sequence.editor",
-             "core.askpass", "diff.external", "gpg.program", "uploadpack", "receivepack"):
+    # Aliases, submodule.<name>.update and pager.<cmd> run a shell only when '!'-prefixed
+    # (alias) or command-shaped; a plain value is a name / method / boolean.
+    if sec == "alias" or k == "submodule.update":
+        return ("ASK", key) if val.lstrip().strip("'\"").startswith("!") else None
+    if k in SHAPED_CMD or sec == "pager":
         return ("ASK", key) if cmdshaped else None
     return None
 
@@ -189,7 +218,7 @@ if re.search(r'\bgit\b', cmd):
         emit(("DENY", "protocol.*.allow=always (re-enables the ext:: transport)"))
 
 # Form 1: git config [--flags] <key> <value...>   (value runs to end / ; / && / |)
-for m in re.finditer(r'git\s+config\s+((?:--\S+\s+)*)([\w][\w.-]*)\s+(.+)', cmd):
+for m in re.finditer(r'''git\s+config\s+((?:--\S+\s+)*)['"]?(''' + KEY + r''')['"]?\s+(.+)''', cmd):
     key = m.group(2)
     rest = m.group(3)
     # value = up to an unquoted command separator; strip surrounding quotes.
@@ -201,7 +230,7 @@ for m in re.finditer(r'git\s+config\s+((?:--\S+\s+)*)([\w][\w.-]*)\s+(.+)', cmd)
 # Form 2: git -c <key>=<value>
 # 2026-10-27: `-ckey=val` glued is the same option (cc-safety-net corpus).
 # 2026-11-15: the pair may be quoted whole (`-c 'key=val'`); that walked past this form.
-for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?-c\s*(['"]?)([\w][\w.-]*)=(\S*)''', cmd):
+for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?-c\s*(['"]?)(''' + KEY + r''')=(\S*)''', cmd):
     v = m.group(3)
     if m.group(1) and v.endswith(m.group(1)):
         v = v[:-1]
@@ -219,11 +248,25 @@ for m in re.finditer(r'''GIT_CONFIG_PARAMETERS=("[^"]*"|'[^']*'|\S*)''', cmd):
     raw = m.group(1)
     if raw[:1] in ('"', "'") and raw[-1:] == raw[:1]:
         raw = raw[1:-1]
-    pairs = re.findall(r"'([\w][\w.-]*)(?:'=')?=?([^']*)'", raw)
+    # the key must end AT a quote or '=': an optional tail would let [^']* rescan
+    # the rest of the value from every key position (quadratic on a long value)
+    pairs = re.findall(r"'(" + KEY + r")(?:'='|=|(?='))([^']*)'", raw)
     if not pairs and "=" in raw:
         pairs = [tuple(raw.split("=", 1))]
     for k, v in pairs:
         emit(keyclass(k, v))
+
+# Form 5 (2026-11-15): git --config-env=<key>=<ENVVAR> (git(1)) is -c with the value
+# read from an environment variable. Classify every inline assignment of that variable
+# in the command; with none, the value is invisible here, so an exec-capable key ASKs.
+for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?--config-env(?:=|\s+)(['"]?)(''' + KEY + r''')=([A-Za-z_]\w*)''', cmd):
+    key, var = m.group(2), m.group(3)
+    # a quote may open the assignment too: alias x="P=delta git --config-env=core.pager=P"
+    vals = [a.strip("'\"") for a in re.findall(r'''(?:^|[\s;&|("'])''' + var + r'''=("[^"]*"|'[^']*'|\S*)''', cmd)]
+    for v in vals:
+        emit(keyclass(key, v))
+    if not vals and keyclass(key, "!x"):
+        emit(("ASK", key + " from $" + var + " via --config-env (value not visible to the guard)"))
 
 # --- GitSpawn: which repo does each git invocation land in? If it is not the
 # project's own (by common git dir, so a linked worktree of the project counts as

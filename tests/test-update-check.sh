@@ -6,6 +6,12 @@ HOOK="$REPO_DIR/hooks/update-check.sh"
 
 echo "=== Update Check Tests ==="
 
+# Run a command and return only once every process it spawned has exited, the
+# backgrounded fetch included: they all inherit fd 9, the write end of a pipe, and
+# `cat` sees EOF only when the last holder exits. A "did not fetch" assertion after
+# this cannot pass merely because a wrong fetch had not started yet.
+_uc_settled() { { "$@" 9>&1 >/dev/null 2>&1; } | cat >/dev/null; }
+
 begin_test "update-check: respects SUPERCHARGER_NO_UPDATE_CHECK=1"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger"
@@ -30,13 +36,18 @@ echo "2.6.77" > "$HOME/.claude/supercharger/.version"
 echo "2.6.77" > "$HOME/.claude/supercharger/.update-cache"
 # Force cache freshness — touch to now
 touch "$HOME/.claude/supercharger/.update-cache"
-START=$(date +%s)
-OUT=$(SUPERCHARGER_NO_UPDATE_CHECK=0 bash "$HOOK" 2>&1)
-END=$(date +%s)
-EXIT=$?
+# No network: a python3 shim records any fetch. Counting calls, not wall-clock
+# time, so a loaded machine cannot fail this.
+mkdir -p "$HOME/shim"
+printf '#!/bin/sh\ncase "$*" in *api.github.com*) echo x >> "$HOME/fetches" ;; esac\n' > "$HOME/shim/python3"
+chmod +x "$HOME/shim/python3"
+_uc3() { SUPERCHARGER_NO_UPDATE_CHECK=0 PATH="$HOME/shim:$PATH" bash "$HOOK" > "$HOME/out" 2>&1; echo $? > "$HOME/rc"; }
+_uc_settled _uc3
+OUT=$(cat "$HOME/out"); EXIT=$(cat "$HOME/rc")
+NF=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
 teardown_test_home
-# Should return fast (no network) — and silent (LOCAL == REMOTE)
-[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && [ "$((END - START))" -lt 3 ] && pass || fail "exit=$EXIT out=$OUT time=$((END - START))s"
+# Should not fetch — and silent (LOCAL == REMOTE)
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && [ "$NF" = 0 ] && pass || fail "exit=$EXIT out=$OUT fetches=$NF"
 
 begin_test "update-check: prints banner when cache shows newer version"
 setup_test_home
@@ -211,13 +222,19 @@ cat > "$HOME/shim/python3" <<'SH'
 case "$*" in *api.github.com*) echo x >> "$HOME/fetches" ;; esac
 SH
 chmod +x "$HOME/shim/python3"
-_uc() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; sleep 2; }
-_uc; N1=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
-_uc; N2=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
-SUPERCHARGER_UPDATE_RETRY_S=0 _uc; N3=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
+# The fetch is backgrounded: poll for its result (up to 10s) rather than sleeping a
+# fixed 2s, which a loaded full suite overran. The window is set by mtime, not waited.
+_uc() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; }
+_ucn() { cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' '; }
+_ucw() { local i=0; while [ "$i" -lt 100 ] && ! eval "$1"; do sleep 0.1; i=$((i+1)); done; }
+_ucf="$HOME/.claude/supercharger/.update-check-failed"
+_uc; _ucw '[ -f "$_ucf" ]'; N1=$(_ucn)
+_uc_settled _uc; N2=$(_ucn)  # negative: wait out the whole process tree, not a fixed 1s
+python3 -c 'import os,sys,time; t=time.time()-25200; os.utime(sys.argv[1],(t,t))' "$_ucf"
+_uc; _ucw '[ "$(_ucn)" -ge 2 ]'; N3=$(_ucn)
 teardown_test_home
 { [ "$N1" = 1 ] && [ "$N2" = 1 ] && [ "$N3" = 2 ]; } && pass \
-  || fail "fetches: first=$N1 (want 1), retried-at-once=$N2 (want 1), after-window=$N3 (want 2)"
+  || fail "fetches: first=$N1 (want 1), retried-at-once=$N2 (want 1), 7h-after-failure=$N3 (want 2)"
 
 # The lag fix: a release published just after a fetch went unseen for 24h, then
 # one more session (the fetch is backgrounded and only the NEXT session rendered).
@@ -231,22 +248,23 @@ _ucl_setup() {
   chmod +x "$HOME/shim/python3"
 }
 _ucl_age() { python3 -c 'import os,sys,time; t=time.time()-float(sys.argv[2]); os.utime(sys.argv[1],(t,t))' "$HOME/.claude/supercharger/.update-cache" "$1"; }
-_ucl_run() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; sleep 2; }
+_ucl_run() { PATH="$HOME/shim:$PATH" SUPERCHARGER_STATE="$HOME/.claude/supercharger" bash "$HOOK" >/dev/null 2>&1; }
+_ucl_got() { _uclf="$1"; _ucw '[ "$(cat "$_uclf" 2>/dev/null)" = 9.9.9 ]'; }  # positive: poll, do not sleep
 
 begin_test "update-check: a 7h-old cache is refetched (TTL is 6h, not 24h)"
-_ucl_setup; _ucl_age 25200; _ucl_run
+_ucl_setup; _ucl_age 25200; _ucl_run; _ucl_got "$HOME/.claude/supercharger/.update-cache"
 GOT=$(cat "$HOME/.claude/supercharger/.update-cache")
 teardown_test_home
 [ "$GOT" = "9.9.9" ] && pass || fail "cache=$GOT, want 9.9.9 (7h-old cache was trusted)"
 
 begin_test "update-check: a 5h-old cache is still trusted"
-_ucl_setup; _ucl_age 18000; _ucl_run
+_ucl_setup; _ucl_age 18000; _uc_settled _ucl_run
 GOT=$(cat "$HOME/.claude/supercharger/.update-cache")
 teardown_test_home
 [ "$GOT" = "4.4.3" ] && pass || fail "cache=$GOT, want 4.4.3 (fetched inside the TTL)"
 
 begin_test "update-check: the fetch that finds a release flags the statusline in the same session"
-_ucl_setup; _ucl_age 25200; _ucl_run
+_ucl_setup; _ucl_age 25200; _ucl_run; _ucl_got "$HOME/.claude/supercharger/scope/.update-available"
 GOT=$(cat "$HOME/.claude/supercharger/scope/.update-available" 2>/dev/null)
 teardown_test_home
 [ "$GOT" = "9.9.9" ] && pass || fail "flag='$GOT', want 9.9.9 (notice waits for the next session)"
