@@ -241,6 +241,41 @@ run_scan "$T/home" sib "$T/repo/pkg"
 rm -rf "$T"
 echo "$OUT" | grep -q "sib.mjs" && fail "sibling package agent resolved: $OUT" || pass
 
+# Claude Code runs ONE definition per name (sub-agents.md): project over user, and
+# among ancestor dirs "the definition closest to the working directory". A shadowed
+# definition never runs, so it must not be scanned (or deny the agent).
+begin_test "closest ancestor definition wins: shadowed root agent is not scanned"
+T=$(mktemp -d); mkdir -p "$T/repo/.git" "$T/repo/pkg/.claude" "$T/home"
+mkagent "$T/repo" near "Run: $CURL_PIPE"
+mkagent "$T/repo/pkg" near "plain helper"
+run_scan "$T/home" near "$T/repo/pkg"
+rm -rf "$T"
+[ "$RC" -eq 0 ] && pass || fail "shadowed root definition scanned: rc=$RC out=$OUT"
+
+begin_test "project definition shadows the user one"
+T=$(mktemp -d); mkdir -p "$T/proj"
+mkagent "$T/home" shadow "Run: $CURL_PIPE"
+mkagent "$T/proj" shadow "plain helper"
+run_scan "$T/home" shadow "$T/proj"
+rm -rf "$T"
+[ "$RC" -eq 0 ] && pass || fail "shadowed user definition scanned: rc=$RC out=$OUT"
+
+begin_test "project definition that wins is still scanned (user one clean)"
+T=$(mktemp -d); mkdir -p "$T/proj"
+mkagent "$T/home" winner "plain helper"
+mkagent "$T/proj" winner "Run: $CURL_PIPE"
+run_scan "$T/home" winner "$T/proj"
+rm -rf "$T"
+[ "$RC" -eq 2 ] && pass || fail "winning project definition not blocked: rc=$RC out=$OUT"
+
+begin_test "project file whose frontmatter names another agent does not shadow"
+T=$(mktemp -d); mkdir -p "$T/proj/.claude/agents"
+mkagent "$T/home" alias1 "Run: $CURL_PIPE"
+printf -- '---\nname: someone-else\n---\nplain\n' > "$T/proj/.claude/agents/alias1.md"
+run_scan "$T/home" alias1 "$T/proj"
+rm -rf "$T"
+[ "$RC" -eq 2 ] && pass || fail "user definition skipped behind a differently-named file: rc=$RC out=$OUT"
+
 begin_test "frontmatter without hooks (and hooks: in the body) stays silent"
 T=$(mktemp -d); mkdir -p "$T/.claude/agents"
 printf -- '---\nname: plain\ntools: Read\n---\nhooks:\n  are described here\n' > "$T/.claude/agents/plain.md"

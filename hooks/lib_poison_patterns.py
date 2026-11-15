@@ -239,7 +239,7 @@ def msys_path(x):
 
 
 def resolve_agent_defs(agent, home_dir, cwd):
-    """Map an agent name to the definition file(s) on disk. Deduped, existing.
+    """Map an agent name to the definition file(s) Claude Code would run. Deduped, existing.
 
     Shared for the same reason the patterns are: agent-poisoning-scanner (Agent)
     and workflow-guard (Workflow, via `agentType`) resolve the SAME files from two
@@ -277,14 +277,20 @@ def resolve_agent_defs(agent, home_dir, cwd):
     home_dir = msys_path(home_dir)
     cwd = msys_path(cwd)
 
-    out, seen = [], set()
-    # Claude Code also walks UP from the cwd: every .claude/agents/ up to the repo root
-    # loads (sub-agents.md, "Project subagents are discovered by walking up").
-    bases = [Path(home_dir) / '.claude' / 'agents', Path(cwd) / '.claude' / 'agents']
+    # Claude Code runs ONE definition per name (sub-agents.md): project .claude/agents/
+    # over ~/.claude/agents/, and among the project dirs found walking up to the repo
+    # root, "the definition closest to the working directory". So: cwd, then ancestors
+    # nearest-first, then home; the first base holding a match is the answer. Scanning
+    # a shadowed definition denied an agent whose file never runs.
+    bases = [Path(cwd) / '.claude' / 'agents']
     bases += [Path(d) / 'agents' for d in ancestor_claude_dirs(cwd, home_dir)]
+    bases.append(Path(home_dir) / '.claude' / 'agents')
     for base in bases:
         if not base.is_dir():
             continue
+        # Every match within the winning dir is kept: two files there declaring one
+        # name load in "filesystem read order", so either may be the one that runs.
+        out, seen = [], set()
         for pat in globs:
             try:
                 for p in base.glob(pat):
@@ -295,12 +301,29 @@ def resolve_agent_defs(agent, home_dir, cwd):
                         key = (st.st_dev, st.st_ino)
                     except OSError:
                         key = str(p.resolve())
-                    if key not in seen:
+                    if key not in seen and _fm_name_ok(p, names):
                         seen.add(key)
                         out.append(p)
             except Exception:
                 continue
-    return out
+        if out:
+            return out
+    return []
+
+
+def _fm_name_ok(p, names):
+    """False when the file's frontmatter `name:` names a different agent. Claude Code
+    keys agents by that name, not the filename, so such a file shadows nothing; letting
+    it win would skip the definition that actually runs. No name field -> True."""
+    import re as _re
+    try:
+        with open(str(p), encoding='utf-8', errors='replace') as f:
+            head = f.read(4096)
+    except OSError:
+        return True
+    m = _re.match(r'\A\ufeff?---\s*\n(.*?)\n---', head, _re.S)
+    n = m and _re.search(r'^name:\s*[\'"]?([^\'"\n]+?)[\'"]?\s*$', m.group(1), _re.M)
+    return not n or n.group(1).strip() in names
 
 
 # Directory names never searched for nested .claude dirs: dependencies, build output,

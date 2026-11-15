@@ -53,6 +53,11 @@ def resolve_skill_paths(skill, home_dir, cwd):
         Path(cwd) / '.claude' / 'plugins',
         Path(cwd) / '.claude' / 'skills',
     ]
+    # skills.md: project skills load from .claude/skills/ "in every parent directory up
+    # to the repository root". Same names everywhere is a superset scan, as above.
+    anc = _poison('ancestor_claude_dirs')
+    for d in (anc(cwd, home_dir) if anc else []):
+        candidates += [Path(d) / 'commands', Path(d) / 'skills']
 
     skill_names = {skill}
     bare = re.split(r'[:/]', skill)[-1]
@@ -84,6 +89,7 @@ def resolve_skill_paths(skill, home_dir, cwd):
                             out.append(p)
             except Exception:
                 continue
+    out += _nested(skill, bare, home_dir, cwd, bool(out), seen)
     # v4.2.0: a skill's SKILL.md is often a thin wrapper that tells the agent to run
     # scripts/x.sh; the markdown can be clean while the script carries the payload
     # (Feb 2026 skill audit: 76 malicious of 3,984). Both consumers get the scripts:
@@ -128,3 +134,40 @@ def _identity(p):
         return (st.st_dev, st.st_ino)
     except Exception:
         return str(p.resolve())
+
+
+def _poison(name):
+    try:
+        import lib_poison_patterns
+        return getattr(lib_poison_patterns, name)
+    except Exception:
+        return None
+
+
+def _nested(skill, bare, home_dir, cwd, found, seen):
+    """Skills in a .claude/skills/ BELOW the cwd (skills.md, "Nested"): they load once
+    Claude touches a file there. `/apps/web:deploy` names one directly (path relative to
+    the cwd); a bare name reaches one only when no root/personal skill holds it, since
+    "/deploy runs the root skill" on a clash. A plugin prefix (`plugin:skill`) is probed
+    as a path too; with no such directory it finds nothing."""
+    import os
+    hits = []
+    def add(d):
+        for f in ('SKILL.md', 'skill.md'):
+            p = Path(d) / 'skills' / bare / f
+            if p.is_file() and _identity(p) not in seen:
+                seen.add(_identity(p))
+                hits.append(p)
+    if ':' in skill:
+        rel = skill.rsplit(':', 1)[0]
+        parts = re.split(r'[\\/]', rel)
+        # A path segment, never an escape: no absolute path, no `..`.
+        if rel and not os.path.isabs(rel) and '..' not in parts and '' not in parts:
+            add(Path(cwd).joinpath(*parts) / '.claude')
+        return hits
+    if found or not bare:
+        return hits
+    nested = _poison('nested_claude_dirs')
+    for d in (nested(cwd, home_dir) if nested else []):
+        add(d)
+    return hits

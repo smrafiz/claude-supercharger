@@ -138,8 +138,16 @@ def keyclass(key, val):
     """Return (verdict, label) or None. verdict in {DENY, ASK}."""
     k = key.lower()
     cmdshaped = bool(CMD_SHAPE.search(val))
-    # Always an executable command — no benign form.
+    # git-config(1): core.fsmonitor is a boolean or a hook command path. A false
+    # spelling (false/no/off/0/empty) turns it OFF; `true` starts git's own built-in
+    # daemon, no user command but a persistent background process: ASK. Any other
+    # value is a path git runs on every op: DENY.
     if k == "core.fsmonitor":
+        b = val.strip().strip("'\"").lower()
+        if b in ("", "false", "no", "off", "0"):
+            return None
+        if b in ("true", "yes", "on", "1"):
+            return ("ASK", "core.fsmonitor=true (starts git's built-in fsmonitor daemon)")
         return ("DENY", "core.fsmonitor (runs on every git op)")
     if re.match(r'(filter\.[^.]+\.(clean|smudge)|diff\.[^.]+\.command|'
                 r'(difftool|mergetool)\.[^.]+\.cmd)$', k):
@@ -192,8 +200,12 @@ for m in re.finditer(r'git\s+config\s+((?:--\S+\s+)*)([\w][\w.-]*)\s+(.+)', cmd)
 
 # Form 2: git -c <key>=<value>
 # 2026-10-27: `-ckey=val` glued is the same option (cc-safety-net corpus).
-for m in re.finditer(r'git\s+(?:[^|;&]*\s)?-c\s*([\w][\w.-]*)=(\S+)', cmd):
-    emit(keyclass(m.group(1), m.group(2)))
+# 2026-11-15: the pair may be quoted whole (`-c 'key=val'`); that walked past this form.
+for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?-c\s*(['"]?)([\w][\w.-]*)=(\S*)''', cmd):
+    v = m.group(3)
+    if m.group(1) and v.endswith(m.group(1)):
+        v = v[:-1]
+    emit(keyclass(m.group(2), v))
 
 # Form 3: GIT_CONFIG_COUNT=n GIT_CONFIG_KEY_i=<key> GIT_CONFIG_VALUE_i=<value>
 for m in re.finditer(r'GIT_CONFIG_KEY_(\d+)=(\S+)', cmd):
