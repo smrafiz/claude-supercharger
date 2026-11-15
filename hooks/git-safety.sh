@@ -182,12 +182,16 @@ while IFS= read -r seg; do
         block "GIT_CONFIG_KEY_n / GIT_CONFIG_PARAMETERS set core.hooksPath — verification bypass" ;;
       *git_config_key_*include*|*git_config_parameters*include*)
         ask "GIT_CONFIG_KEY_n / GIT_CONFIG_PARAMETERS load a config file inline, which can turn off git hooks. Confirm what it sets." ;;
+      # 2026-11-15: the -c alias.<name> ask below, reached through the environment.
+      *git_config_key_*alias.*|*git_config_parameters*alias.*)
+        ask "GIT_CONFIG_KEY_n / GIT_CONFIG_PARAMETERS define a git alias inline; its body is not checked by the git rules. Confirm what it runs." ;;
     esac
   fi
   if [[ "$seg" =~ ^git[[:space:]] ]]; then
     # An inline alias runs whatever its value says, under a name no rule knows.
     # 2026-10-27: `-calias.x=...` glued is the same option (cc-safety-net corpus).
-    if [[ "$COMMAND" =~ (^|[[:space:]])-c[[:space:]]*[\"\']?alias\. ]]; then
+    # 2026-11-15: `--config-env alias.<name>=VAR` takes the body from $VAR, same ask.
+    if [[ "$COMMAND" =~ (^|[[:space:]])(-c[[:space:]]*|--config-env[[:space:]=]+)[\"\']?alias\. ]]; then
       ask "git -c alias.<name>=... defines a command inline; its body is not checked by the git rules. Confirm what it runs."
     fi
     # 2026-10-28: a SAVED alias whose body pushes, resets, cleans, checks out or runs
@@ -294,7 +298,10 @@ while IFS= read -r seg; do
   # 2026-10-28: when the ref IS the current commit (HEAD, @), "grab a file from a
   # ref" is just a discard of local edits, same as `checkout -- <path>` (claude-skills
   # lesson 10). Other refs stay allowed.
-  if [[ "$seg" =~ ^git\ checkout[[:space:]]+(HEAD|@)[[:space:]]+--[[:space:]]+[^[:space:]] ]] \
+  # 2026-11-15: `--` is optional — with HEAD/@ as the ref, a following word that is
+  # not an option can only be a pathspec (`git checkout HEAD file.txt`). A redirect
+  # (`HEAD 2>/dev/null`, `HEAD >log`) is not a path.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+(HEAD|@)[[:space:]]+(--[[:space:]]+)?([^-<>[:space:]0-9]|[0-9]+[^<>0-9[:space:]]) ]] \
      || { [[ "$seg" =~ ^git\ restore[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--source[=[:space:]]|-s[[:space:]]*)(HEAD|@)([[:space:]]|$) ]] \
           && ! [[ "$seg" =~ (^|[[:space:]])--staged([[:space:]]|$) ]]; }; then
     block "restoring a file from HEAD discards its uncommitted changes" "to undo your own edits recoverably, use git stash push -- <paths> (the stash keeps them); to discard them for good, ask the user to run the command in their terminal"
@@ -373,7 +380,8 @@ while IFS= read -r seg; do
 
   # 2026-10-27: --pathspec-from-file with no ref restores the listed paths from the
   # index, the same discard as `git checkout -- <path>` (cc-safety-net corpus).
-  if [[ "$seg" =~ ^git\ checkout[[:space:]]+(-[^[:space:]]+[[:space:]]+)*--pathspec-from-f ]]; then
+  # 2026-11-15: HEAD/@ before it restores from the current commit — the same discard.
+  if [[ "$seg" =~ ^git\ checkout[[:space:]]+((-[^[:space:]]+|HEAD|@)[[:space:]]+)*--pathspec-from-f ]]; then
     block "git checkout --pathspec-from-file discards unstaged changes to every listed path" "to keep the edits, git stash push -- <paths> first"
   fi
   # Force checkout/switch — identical effect to `git checkout -- .` (blocked

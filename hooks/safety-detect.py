@@ -165,8 +165,9 @@ _INTERPRETERS = [
     # awk is matched on its SHELL-OUT function rather than a flag: `awk '{print $1}'`
     # is one of the most common commands in a terminal and must never prompt, so
     # `system(` / `| "sh"` / `print | cmd` is what separates a launcher from a filter.
-    (r"(?:^|[\s;&|])php\s+(?:-[a-zA-Z]+\s+)*-r\s+", "php -r"),
-    (r"(?:^|[\s;&|])(?:g?awk|mawk)\s+", "awk"),
+    # 2026-11-15: clustered `-nr` (as PR #190 for python/perl/node) and nawk.
+    (r"(?:^|[\s;&|])php\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*r\s+", "php -r"),
+    (r"(?:^|[\s;&|])(?:g?awk|mawk|nawk)\s+", "awk"),
 ]
 
 # v2.7.3: an interpreter one-liner that shells out to the OS is the actual
@@ -659,7 +660,14 @@ def check_secret_directory(c: str) -> str | None:
         if not words:
             continue
         verb = words[1] if words[0] == "sudo" and len(words) > 1 else words[0]
-        if verb not in _SECRET_DIR_CONTENT_READERS:
+        # 2026-11-15: `find ~/.ssh -type f -exec cat {} +` reads every file under
+        # the root; only -exec with a content reader counts, plain find still lists.
+        if verb == "find":
+            ex = re.search(r"\s-(?:exec|execdir|ok|okdir)\s+(\S+)", seg)
+            if not ex or ex.group(1).rsplit("/", 1)[-1] not in (
+                    _SECRET_DIR_CONTENT_READERS | {"less", "more", "head", "tail", "nc", "netcat", "curl", "wget"}):
+                continue
+        elif verb not in _SECRET_DIR_CONTENT_READERS:
             continue
         d = re.search(r"(?:^|[\s'\"=])([\w.~/$-]*/\.(?:ssh|gnupg|aws|mcp-auth|azure|password-store))/?(?=[\s'\"]|$)", seg)
         if d:
@@ -833,6 +841,9 @@ _ENV_READ_WRITE_PREFIXES = [
     r"\bsed\s+",
     r"\btee\s+",
     r"\b(curl|wget)\s+.*\s-o\s+",
+    # 2026-11-15: readers named by an option, not a position.
+    r"\bdd\s+(?:.*\s)?if=",
+    r"\bopenssl\s+[\w-]+\s+(?:.*\s)?-in\s+",
 ]
 _ENV_SELF_CONTAINED = [
     r"<\s*\.env\b",
@@ -1043,8 +1054,10 @@ _CLOUD_UPLOADS = [
     (r"\bs3cmd\s+put\b", "s3cmd upload"),
 ]
 _NETWORK_UPLOADS = [
-    r"\bcurl\b.*(?:--data-binary|--data-raw|--data-urlencode|--data\b|-d\s"
-    r"|--upload-file|-T\s|-F\s|--form\b)",
+    # 2026-11-15: short flags glued to their value or clustered: `-d@f`, `-sSd @f`,
+    # `-Fk=@f`, `-Tf`. The leading space keeps `--compressed ` from reading as `-d `.
+    r"\bcurl\b.*(?:--data-binary|--data-raw|--data-urlencode|--data\b|--upload-file|--form\b"
+    r"|(?:^|\s)-[a-zA-Z]*(?:[dF](?:\s|[\"']?@|[\"']?[\w.-]+=@)|T))",
     r"\bwget\b.*--post-file=",
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",

@@ -768,6 +768,27 @@ normalize_cmd() {
       fi
       ;;
   esac
+  # 2026-11-15: a QUOTED path as the command word, `"C:\Program Files\Git\bin\git.exe"`
+  # or `"/opt/my tools/git"`: the space keeps it one word for the shell but split it
+  # here, so the basename rule never saw it. APPEND the bare, lower-case, .exe-less name.
+  case "$_sb_src" in
+    *[\"\']*[/\\]*[\"\']*)
+      if [ "${#_sb_src}" -le 16384 ]; then
+        local _qp_q="'" _qp_rx _qp_scan=";$_sb_src" _qp_out=";$_sb_src" _qp_w _qp_hit=""
+        _qp_rx='([;&|(`{][[:space:]]*)["'"$_qp_q"'][^"'"$_qp_q"']*[/\\]([[:alpha:]][[:alnum:]_-]*)(\.[eE][xX][eE])?["'"$_qp_q"']([[:space:]]|$)'
+        for _sc_i in 1 2 3 4 5 6 7 8; do
+          [[ "$_qp_scan" =~ $_qp_rx ]] || break
+          _qp_scan="${_qp_scan#*"${BASH_REMATCH[0]}"}"
+          _qp_w="${BASH_REMATCH[2]}"
+          case "$_qp_w" in *[[:upper:]]*) _qp_w=$(printf '%s' "$_qp_w" | tr '[:upper:]' '[:lower:]') ;; esac
+          # Prefix + suffix, not ${v/x/y}: a quoted y keeps its quotes on bash 3.2,
+          # an unquoted one expands `&` on 5.2.
+          _qp_out="${_qp_out%%"${BASH_REMATCH[0]}"*}${BASH_REMATCH[1]}$_qp_w${BASH_REMATCH[4]}${_qp_out#*"${BASH_REMATCH[0]}"}"; _qp_hit=1
+        done
+        [ -n "$_qp_hit" ] && cmd="$cmd ; ${_qp_out#;}"
+      fi
+      ;;
+  esac
   # 2026-10-27, from kenryu42/cc-safety-net's verdict corpus (6983 commands, each
   # passed every guard here): three more spellings the shell resolves before it runs.
   # APPEND the resolved form, as above. Entered only when the form is present.

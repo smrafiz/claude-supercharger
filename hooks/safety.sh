@@ -1838,7 +1838,8 @@ case "$CMD" in
   *service-account*|*service_account*|*serviceaccount*|*firebase-adminsdk*|*client_secret*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: php -r and awk system() are interpreters like the ones above; both
   # execute arbitrary code and neither was in this gate.
-  *php*\ -r*|*awk*system*) _NEED_PY=true ;;
+  # 2026-11-15: `php -nr` (clustered) -- the detector matches it, so must the gate.
+  *php*\ -*r*|*awk*system*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
   *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
