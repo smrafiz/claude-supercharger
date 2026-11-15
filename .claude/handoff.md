@@ -4,23 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-14, session `e7f6ce82`.*
+*Verified 2026-11-15, session `74e29661`.*
 
-- **Released: v4.4.6** (2026-11-13), tag on `88699aa6`. **Master** carries five unreleased
-  PRs: #302 (Bidi warn), #303 (JWT / torch.load / CORS warns), #304 (update-check fetch no
-  longer holds stdout), #305 (vacuous test removed), #306 (Grep wildcard globs). Release
-  **held by the user**. Master CI + Host contract green on `784db292` and `56d85e12`.
-- **Open PRs:** #307 (kubectl secret output in either flag order, mvn showPasswords, Read
-  parity for tfvars and service-account keys). Full CI run 43624725793 in progress at write.
-- **Audits closed:** cc-audit, aidevops (2 rounds), lodeline, kintsugi-harness, Nodrail
-  agent-plugins, JeongJaeSoon/agent-guard. Parked by the user: `x=rm; $x -rf /`.
-- **RISK:** #306/#307 FP evidence thin (1 real Grep glob; no tfvars Read in transcripts).
-- **Open questions:** `disableAllHooks: true` vs user hooks (2026-11-12 brief); env dump to a
-  sink (`env > file`, `set | grep`) allowed, not built.
-- Per-machine (this machine, 2026-11-14): 0 stashes; stale local `rel/4.4.5`; gh has two
-  accounts, `wp-sigmadevs` cannot merge (`gh auth switch -u smrafiz`).
+- **Released: v4.4.6** (2026-11-13). **Master `857b540f`** (after #313) carries #302–#311 and #313
+  unreleased. Release **held by the user**.
+- **Merged after the brief:** #311 (difftool/mergetool/browser/man `<tool>.path` keys ask; suite
+  8138/0) and #313 (rules line: warn when a repo sets `disableAllHooks`). Open PRs: none.
+- **Verified live:** a project `.claude/settings.json` with `disableAllHooks: true` turns off
+  every user hook, Supercharger included; only `/sc-health` sees it. #313 adds an advisory
+  rules line; an upstream issue is drafted, NOT posted (waits for the user).
+- Hook `"if"` filters miss `env x` / `command x` / `bash -c` — never on guards.
+- Audits closed this session: lodeline delta, chanmeng repo-docs, bartholomew, agy-config, openqodex.
+- Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ not
+  live here; no extra worktrees after this PR merges.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
-  `release.sh promote X.Y.Z --yes` (Windows is checked on master's base commit).
+  `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Open:** risk-review log ~2026-11-20; FP audit re-run ~2026-12-08; SpecLock (parked).
 
@@ -56,6 +54,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-15 — 74e29661
+Merged #307–#311 and #313 (#310 closed a real `git --config-env` bypass; #313 rules line). Live-tested
+project `disableAllHooks` (kills all our hooks) and hook `if` filters (miss env/command/bash -c).
+Detail: `.claude/handoff-74e29661-88dc-4f1d-b9dd-a17f876352b7.md`
+
 #### 2026-11-14 — e7f6ce82
 Reviewed kintsugi-harness, Nodrail agent-plugins and agent-guard by probing their scenarios
 against our hooks. Merged #302–#306 (Bidi, code patterns, update-check stdout, vacuous test,
@@ -77,10 +80,4 @@ Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 Merged #282-#288: perf-chain + timing retries, /sc-security small-scope pass, cc-audit delta
 (6 Bash gaps, webhook/Telegram secrets, browser stores on Read). aidevops delta opened #289/#290,
 CI running at hand-off. 4.4.6 held. This hand-off: docs PR #291.
-Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
-
-#### 2026-11-10 — 104cfc73
-Merged #274-#281: ReDoS, .claude dir, cluster identity flags + tfstate, prompt/env allowlists,
-README, direnv + token formats (phantom-secrets delta). Handback replay: 3 of 5 refusals were FPs.
-Then #281: commit-prose separator FP, one subagent notice, signed-URL patterns. 4.4.6 held.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
