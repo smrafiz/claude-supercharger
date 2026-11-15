@@ -8,15 +8,15 @@ session on any machine.**
 
 - **Released: v4.4.6** (2026-11-13). **Master `480fcc96`** (CI + Host contract green) carries
   #302–#310 unreleased. Release **held by the user**.
-- **Open PRs:** #311 (difftool/mergetool/browser/man `<tool>.path` keys ask); CI 43698213076
-  running at write.
+- **Merged after the brief:** #311 (difftool/mergetool/browser/man `<tool>.path` keys ask; suite
+  8138/0) and #313 (rules line: warn when a repo sets `disableAllHooks`). Open PRs: none.
 - **Verified live:** a project `.claude/settings.json` with `disableAllHooks: true` turns off
-  every user hook, Supercharger included; only `/sc-health` sees it. Response undecided
-  (advisory rules line, or report upstream).
+  every user hook, Supercharger included; only `/sc-health` sees it. #313 adds an advisory
+  rules line; an upstream issue is drafted, NOT posted (waits for the user).
 - Hook `"if"` filters miss `env x` / `command x` / `bash -c` — never on guards.
 - Audits closed this session: lodeline delta, chanmeng repo-docs, bartholomew, agy-config, openqodex.
 - Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ not
-  live here; worktrees `.worktrees/gitpath` (#311) and `.worktrees/docs2` (this brief).
+  live here; no extra worktrees after this PR merges.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -55,7 +55,7 @@ session on any machine.**
 ## Log
 
 #### 2026-11-15 — 74e29661
-Merged #307–#310 (#310 closed a real `git --config-env` bypass); opened #311. Live-tested
+Merged #307–#311 and #313 (#310 closed a real `git --config-env` bypass; #313 rules line). Live-tested
 project `disableAllHooks` (kills all our hooks) and hook `if` filters (miss env/command/bash -c).
 Detail: `.claude/handoff-74e29661-88dc-4f1d-b9dd-a17f876352b7.md`
 
