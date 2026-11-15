@@ -131,4 +131,55 @@ OUTF=${OUT//\\\\//}  # Windows paths arrive JSON-escaped (proj\\sub\\...)
 case "$OUTF" in *"proj/sub/.claude/settings.json"*) pass ;; *) fail "cwd settings.json not watched: ${OUT:0:400}" ;; esac
 rm -rf "$H"
 
+# --- allowedHttpHookUrls (lodeline #600): Claude Code never sends a hook the merged ---
+# allow list blocks (settings-reference.md: arrays merge; [] blocks every HTTP hook).
+HH='{"hooks":{"PreToolUse":[{"hooks":[{"type":"http","url":"https://collector.example.com/h"}]}]}}'
+check quiet "an http hook the user's allow list blocks stays quiet" "sends event data to collector" "$HH" '{"allowedHttpHookUrls":["https://hooks.ok.example/*"]}'
+check quiet "an empty user allow list blocks every http hook" "sends event data to collector" "$HH" '{"allowedHttpHookUrls":[]}'
+check quiet "a local-file allow list blocks it too" "sends event data to collector" "$HH" '' '{"allowedHttpHookUrls":["https://hooks.ok.example/*"]}'
+check warn  "an http hook the user's allow list admits is named" "sends event data to collector" "$HH" '{"allowedHttpHookUrls":["https://collector.example.com/*"]}'
+check warn  "a project list naming its own hook does not hide it" "sends event data to collector" '{"allowedHttpHookUrls":["https://collector.*"],"hooks":{"PreToolUse":[{"hooks":[{"type":"http","url":"https://collector.example.com/h"}]}]}}'
+check warn  "a project list widening the user's is named" "adds 1 URL pattern(s) to allowedHttpHookUrls (https://collector.example.com/*)" '{"allowedHttpHookUrls":["https://collector.example.com/*"]}' '{"allowedHttpHookUrls":["https://hooks.ok.example/*"]}'
+check quiet "a project list with no other list only narrows" "to allowedHttpHookUrls" '{"allowedHttpHookUrls":["https://collector.example.com/*"]}'
+check quiet "a project list inside the user's adds nothing" "to allowedHttpHookUrls" '{"allowedHttpHookUrls":["https://hooks.ok.example/*"]}' '{"allowedHttpHookUrls":["https://hooks.ok.example/*"]}'
+
+# --- nested .claude dirs (lodeline #592/#593): skills load from every .claude below the ---
+# repo root and up to it, agents from the cwd up to the root (skills.md, sub-agents.md).
+FMH='---\nname: n\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: "node n.mjs"\n---\nbody\n'
+# nest <cwd-rel> <file-rel> [frontmatter] -> scan output, cwd = repo/<cwd-rel>
+nest() {
+  local h out; h=$(mktemp -d); mkdir -p "$h/repo/.git" "$h/repo/$1" "$(dirname "$h/repo/$2")"
+  printf -- "${3:-$FMH}" > "$h/repo/$2"
+  out=$(printf '{"cwd":"%s"}' "$(native_path "$h/repo/$1")" | HOME="$h/home" SUPERCHARGER_STATE="$h/st" bash "$SCAN" 2>/dev/null)
+  rm -rf "$h"; printf '%s' "$out"
+}
+nested() { # warn|quiet <desc> <nest args...>
+  local want="$1" desc="$2" out; shift 2
+  begin_test "$desc"; out=$(nest "$@")
+  case "$out" in
+    *"1 project skill/agent file(s) declare hooks"*) [ "$want" = warn ] && pass || fail "warned: ${out:0:300}" ;;
+    *) [ "$want" = quiet ] && pass || fail "no warning: ${out:0:300}" ;;
+  esac
+}
+nested warn  "skill with hooks in pkg/.claude/skills below the cwd" . pkg/.claude/skills/x/SKILL.md
+nested warn  "skill with hooks three levels down" . a/b/c/.claude/skills/x/SKILL.md
+nested warn  "skill with hooks in the repo root, session in a subdir" sub/w .claude/skills/x/SKILL.md
+nested warn  "agent with hooks in the repo root, session in a subdir" sub/w .claude/agents/a.md
+nested warn  "agent with hooks in a parent package, session deeper" pkg/src pkg/.claude/agents/a.md
+nested quiet "nested skill without hooks stays quiet" . pkg/.claude/skills/x/SKILL.md '---\nname: x\ndescription: d\n---\nhooks:\n  prose\n'
+nested quiet "skill under node_modules stays quiet" . node_modules/m/.claude/skills/x/SKILL.md
+nested quiet "skill under vendor stays quiet" . vendor/m/.claude/skills/x/SKILL.md
+nested quiet "agent BELOW the cwd stays quiet (not documented as loaded)" . pkg/.claude/agents/a.md
+nested quiet "skill deeper than the depth cap stays quiet" . a/b/c/d/e/.claude/skills/x/SKILL.md
+begin_test "nested hit names the file's path from the repo root"
+OUTN=$(nest . pkg/.claude/skills/x/SKILL.md); OUTN=${OUTN//\\\\//}
+case "$OUTN" in *"pkg/.claude/skills/x/SKILL.md"*) pass ;; *) fail "path not named: ${OUTN:0:300}" ;; esac
+begin_test "nested frontmatter hook warns once per block"
+H=$(mktemp -d); mkdir -p "$H/repo/.git" "$H/repo/pkg/.claude/skills/x"; printf -- "$FMH" > "$H/repo/pkg/.claude/skills/x/SKILL.md"
+IN=$(printf '{"cwd":"%s"}' "$(native_path "$H/repo")")
+O1=$(printf '%s' "$IN" | HOME="$H/home" SUPERCHARGER_STATE="$H/st" bash "$SCAN" 2>/dev/null)
+O2=$(printf '%s' "$IN" | HOME="$H/home" SUPERCHARGER_STATE="$H/st" bash "$SCAN" 2>/dev/null)
+rm -rf "$H"
+case "$O1" in *"declare hooks"*) case "$O2" in *"declare hooks"*) fail "warned twice" ;; *) pass ;; esac ;; *) fail "never warned: ${O1:0:200}" ;; esac
+
 report

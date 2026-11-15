@@ -99,7 +99,11 @@ else:
             elif len(out) < 3:
                 out.append(f"stdio MCP server '{sname}' runs `{line}`")
     elif isinstance(data, dict):
-        hooks = cc.settings_hook_commands(data)
+        try:
+            allow = cc.merged_http_allowlist(cc.http_hook_allow_lists(os.environ.get('HOME', ''), root))
+        except Exception:
+            allow = None
+        hooks = cc.settings_hook_commands(data, allow)
         if hooks:
             out.append(f"{len(hooks)} hook command(s), which run on every matching event: " + '; '.join(hooks[:3]))
         out.extend(cc.scan_settings(__import__('pathlib').Path(path), data, os.environ.get('HOME', '')))

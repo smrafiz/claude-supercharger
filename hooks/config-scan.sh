@@ -187,30 +187,54 @@ for p in instruction_files:
 
 # --- Skill and agent files whose YAML frontmatter declares `hooks:` — Claude Code
 # registers those like settings hooks, so a cloned repo runs host commands through them.
+# Not only the cwd's .claude: skills and agents load from every .claude up to the repo
+# root, and skills also from .claude dirs below it (skills.md "Nested", sub-agents.md).
 try:
-    from lib_poison_patterns import frontmatter_hook_findings as _fm_findings
+    from lib_poison_patterns import frontmatter_hook_findings as _fm_findings, frontmatter_hooks as _fm_block
 except Exception:
     _fm_findings = None
     warnings.append('[Supercharger] config-scan could not load lib_poison_patterns.py, so skill and '
                     'agent frontmatter hooks were NOT checked this session. Reinstall Supercharger.')
-if _fm_findings and claude_dir.is_dir():
-    _fm_items = []
-    for pat in ('agents/*.md', 'agents/*/*.md', 'skills/*/SKILL.md', 'skills/*/*/SKILL.md'):
-        for p in claude_dir.glob(pat):
-            try:
-                if p.is_file():
-                    _fm_items.append((p, p.read_text(encoding='utf-8', errors='replace')[:65536]))
-            except Exception:
-                continue
-    # New or changed blocks only (state shared with the skill/agent scanners): a repo
-    # that declares hooks on purpose warns once, not at every session start.
-    _fm_hit = _fm_findings(_fm_items, home_dir)
+if _fm_findings:
+    _SK = ('skills/*/SKILL.md', 'skills/*/*/SKILL.md')
+    _AG = ('agents/*.md', 'agents/*/*.md')
+    _bases = [(claude_dir, _AG + _SK)]
+    try:
+        from lib_poison_patterns import ancestor_claude_dirs, nested_claude_dirs, git_root as _fm_root
+        _up = ancestor_claude_dirs(project_dir, home_dir)
+        _down = [d for d in nested_claude_dirs(project_dir, home_dir) if d not in _up]
+        _bases += [(Path(d), _AG + _SK) for d in _up] + [(Path(d), _SK) for d in _down]
+        _rel_top = _fm_root(project_dir) or project_dir
+    except Exception:
+        _rel_top = project_dir
+    _fm_hit = []
+    for _base, _pats in _bases:
+        if not _base.is_dir():
+            continue
+        for pat in _pats:
+            for p in _base.glob(pat):
+                try:
+                    if not p.is_file():
+                        continue
+                    _t = p.read_text(encoding='utf-8', errors='replace')[:65536]
+                except Exception:
+                    continue
+                if not _fm_block(_t):
+                    continue
+                # New or changed blocks only (state shared with the skill/agent scanners): a
+                # repo that declares hooks on purpose warns once, not at every session start.
+                for h in _fm_findings([(p, _t)], home_dir):
+                    try:
+                        _r = os.path.relpath(str(p), _rel_top)
+                    except ValueError:      # another drive on Windows
+                        _r = str(p)
+                    _fm_hit.append(f"{_r} ({h.split('): ', 1)[-1]})")
     if _fm_hit:
         sys.stderr.write('[Supercharger] config-scan: skill/agent frontmatter declares hooks\n')
         warnings.append(
             f"[SECURITY] {len(_fm_hit)} project skill/agent file(s) declare hooks in their frontmatter, "
             f"which run shell commands on this machine when the skill or agent loads: "
-            f"{' | '.join(h[6:] for h in _fm_hit[:3])}. Review them before trusting this folder.")
+            f"{' | '.join(_fm_hit[:3])}. Review them before trusting this folder.")
 
 # --- CVE-2025-59536: project .claude/settings.json may define foreign hooks ---
 project_settings = Path(project_dir) / '.claude' / 'settings.json'
@@ -222,8 +246,27 @@ if project_settings.is_file():
     except Exception:
         project_settings_data = None
 
+# allowedHttpHookUrls: arrays merge across every settings file, and Claude Code blocks an
+# http hook whose URL matches none (settings-reference.md), so a blocked hook is not named.
+try:
+    _http_lists = _cc.http_hook_allow_lists(home_dir, project_dir) if _cc else {}
+except Exception:
+    _http_lists = {}
+_http_allow = _cc.merged_http_allowlist(_http_lists) if _cc else None
+# The committed file can ADD patterns to a list the user or an admin set, re-opening
+# URLs that list kept closed.
+_others = [p for k, v in _http_lists.items() if k != 'project' for p in v]
+_widen = sorted(set(_http_lists.get('project', [])) - set(_others)) \
+    if 'project' in _http_lists and len(_http_lists) > 1 else []
+if _widen:
+    sys.stderr.write('[Supercharger] config-scan: project widens allowedHttpHookUrls\n')
+    warnings.append(
+        f"[SECURITY] Project .claude/settings.json adds {len(_widen)} URL pattern(s) to "
+        f"allowedHttpHookUrls ({', '.join(x[:60] for x in _widen[:3])}). Lists merge across files, so "
+        f"this lets hooks send event data to URLs your own or your organization's list did not allow.")
+
 if project_settings_data is not None:
-    foreign = _cc.settings_hook_commands(project_settings_data) if _cc else []
+    foreign = _cc.settings_hook_commands(project_settings_data, _http_allow) if _cc else []
     if foreign:
         sample = ', '.join(foreign[:3])
         more = len(foreign) - 3
@@ -244,7 +287,7 @@ try:
     _ustate = os.environ.get('SUPERCHARGER_STATE') or os.path.join(_uhome, '.claude', 'supercharger')
     _ubase = os.path.join(_ustate, 'scope', '.user-hooks-seen')
     _uset = Path(_uhome) / '.claude' / 'settings.json'
-    _ucur = set(_cc.settings_hook_commands(json.loads(_uset.read_text())) if _cc and _uset.is_file() else [])
+    _ucur = set(_cc.settings_hook_commands(json.loads(_uset.read_text()), _http_allow) if _cc and _uset.is_file() else [])
     _useen = set(Path(_ubase).read_text().splitlines()) if os.path.exists(_ubase) else None
     if _useen is not None:
         _unew = sorted(_ucur - _useen)
