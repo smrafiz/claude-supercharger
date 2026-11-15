@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-15, session `74e29661`.*
+*Verified 2026-11-15, session `104cfc73` (resumed as `74e29661`).*
 
-- **Released: v4.4.6** (2026-11-13). **Master `857b540f`** (after #313) carries #302–#311 and #313
-  unreleased. Release **held by the user**.
-- **Merged after the brief:** #311 (difftool/mergetool/browser/man `<tool>.path` keys ask; suite
-  8138/0) and #313 (rules line: warn when a repo sets `disableAllHooks`). Open PRs: none.
-- **Verified live:** a project `.claude/settings.json` with `disableAllHooks: true` turns off
-  every user hook, Supercharger included; only `/sc-health` sees it. #313 adds an advisory
-  rules line; an upstream issue is drafted, NOT posted (waits for the user).
-- Hook `"if"` filters miss `env x` / `command x` / `bash -c` — never on guards.
-- Audits closed this session: lodeline delta, chanmeng repo-docs, bartholomew, agy-config, openqodex.
-- Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ not
-  live here; no extra worktrees after this PR merges.
+- **Released: v4.4.6** (2026-11-13). **Master `1e25caab`** carries #302-#313 unreleased.
+  Release **held by the user**.
+- **In flight: three pushed WIP branches, no PRs** (cc-safety-net delta fixes, 20 bypasses + 3
+  classes): `fix/sn-shell-pipes-normalizer` 2efd841e (A), `fix/sn-git-interp-env` 8ebe3b19 (B),
+  `feat/sn-dropper-metadata-classes` 0fd3e802 (C). Each passes its own new test file; each still
+  needs shellcheck, the full suite, an FP replay, timing, PR and CI. Merge A first, then rebase B, C.
+- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
+  #313 ships an advisory rules line meanwhile.
+- **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
+- Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ are
+  not live here; worktrees `.claude/worktrees/agent-*` hold the three sn branches.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -54,6 +54,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-15 (deep) — 104cfc73
+cc-safety-net delta audit: 20 bypasses of our rules + 3 new classes; fixes split into three WIP
+branches (A/B/C), pushed at shutdown, no PRs. Posted anthropics/claude-code#110181.
+Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
+
 #### 2026-11-15 — 74e29661
 Merged #307–#311 and #313 (#310 closed a real `git --config-env` bypass; #313 rules line). Live-tested
 project `disableAllHooks` (kills all our hooks) and hook `if` filters (miss env/command/bash -c).
@@ -74,10 +79,4 @@ Detail: `.claude/handoff-00ecfc20-17c7-4686-8d8f-3c1c1b36af96.md`
 Merged #292-#297: desktop-input category, aidevops round 2 (Google secrets, OAST catchers, 13
 injection families, harness-message secret warn), lodeline config-scan keys. Merged #298 (MCP,
 frontmatter hooks, AGENTS.md). Open: #299 (normalizer bypasses), CI running. 4.4.6 held.
-Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
-
-#### 2026-11-11 (deep) — 104cfc73
-Merged #282-#288: perf-chain + timing retries, /sc-security small-scope pass, cc-audit delta
-(6 Bash gaps, webhook/Telegram secrets, browser stores on Read). aidevops delta opened #289/#290,
-CI running at hand-off. 4.4.6 held. This hand-off: docs PR #291.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`

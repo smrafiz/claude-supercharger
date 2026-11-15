@@ -1271,3 +1271,28 @@ catch `SystemExit`, and call the handler directly.
 - **Check the hooks for a recorded rejection before proposing a rule.** `safety.sh` had a comment
   rejecting `gh auth token` and `npm config get _authToken` (the output scanner covers known-shape
   tokens). A review that skips it recommends work already argued down.
+
+## Notes from 2026-11-15
+
+- **A repo can switch every hook off.** Verified live on Claude Code 2.1.325: a project
+  `.claude/settings.json` with `"disableAllHooks": true` disables user, plugin and `--settings`
+  hooks. No hook can report it, because the hooks are what got disabled. Only text that loads
+  without hooks can warn: the rules file (#313) and `/sc-health`. Reported upstream as
+  anthropics/claude-code#110181.
+- **The hook `if` filter is not a guard boundary.** `"if":"Bash(echo x*)"` fired for `&&`, `;`,
+  `( )` and `VAR=` prefixes, but not for `env x`, `command x` or `bash -c "x"`. Keep `if` off every
+  guard. A ledger such as push receipts would silently lose entries, so it does not qualify either.
+- **Every `<tool>.path` git key names a program.** `difftool`, `mergetool`, `browser` and `man`
+  `<tool>.path` all run the named program (#311). When adding exec keys, read git-config(1) for
+  every variable whose value is a path or command, not only the ones that end in `cmd`.
+- **Launcher words keep slipping past single rules.** cc-safety-net's corpus found the same gap
+  in many rules: `| /bin/sh`, `| env sh`, `sudo bash -c "$(…)"`, `nawk`, `php -nr`, a dropper run
+  with `python3` or `source`. A rule that names a program must also accept a path prefix, a
+  launcher prelude (env/command/nice/sudo/timeout) and clustered short flags. Grep the sibling
+  rules when fixing one.
+- **The two-gate trap struck again.** The php clustered-flag fix in `safety-detect.py` needed the
+  `safety.sh` gate glob widened too (`*php*\ -*r*`). Test the full chain, not one function.
+- **Our own guards block probes and test prompts.** A `claude -p` prompt that quotes a blocked
+  command is denied as the outer command. Pass it from a file. The commit guard refuses a `wip(`
+  type, so tell agents to use `chore(` for work-in-progress commits.
+
