@@ -33,7 +33,7 @@ setup_test_home
 bash "$REPO_DIR/install.sh" --mode full --roles developer --config deploy --settings deploy --economy lean >/dev/null 2>&1
 R="$HOME/.claude/rules/supercharger.md"
 MISS=""
-for t in '## Issues List' '**BROKEN**' '**RISK**' '**NOT DONE**' '**UNKNOWN**' '**I caused this**'; do
+for t in '## Hooks Switched Off by a Repo' 'disableAllHooks' '## Issues List' '**BROKEN**' '**RISK**' '**NOT DONE**' '**UNKNOWN**' '**I caused this**'; do
   grep -qF -- "$t" "$R" 2>/dev/null || MISS="$MISS [$t]"
 done
 [ -z "$MISS" ] && pass || fail "installed supercharger.md lacks:$MISS"

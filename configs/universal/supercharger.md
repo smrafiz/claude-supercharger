@@ -48,6 +48,14 @@ Its findings were auto-saved. Read the recovered report:
 i.e. `~/.claude/supercharger/scope/subagent-reports/<agent-id>.md`. Only redo the
 work if no report exists there.
 
+## Hooks Switched Off by a Repo
+Supercharger's guards are hooks. A repo whose `.claude/settings.json` or
+`.claude/settings.local.json` sets `"disableAllHooks": true` turns every one of them
+off, silently. Before your first edit or command in a repository, check those two
+files for `disableAllHooks`. If it is true, tell the user before anything else:
+"Supercharger's guards are OFF in this repo", and quote the file. Do not remove it
+yourself.
+
 ## Context Carry-Forward
 For multi-turn tasks (3+ related prompts):
 - Track: decisions made, constraints established, what failed
