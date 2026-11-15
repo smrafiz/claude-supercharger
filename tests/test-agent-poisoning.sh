@@ -225,6 +225,22 @@ if [ "$R1" -eq 0 ] && echo "$O1" | grep -q "frontmatter declares hooks" && ! ech
    && echo "$O3" | grep -q "b.mjs"; then pass
 else fail "rc=$R1 first=$O1 second=$O2 changed=$O3"; fi
 
+# Claude Code walks UP from the cwd: every .claude/agents/ to the repo root loads
+# (sub-agents.md). A session in a subdir must still read the root's definition.
+begin_test "agent defined at the repo root is scanned from a subdir session"
+T=$(mktemp -d); mkdir -p "$T/repo/.git" "$T/repo/.claude/agents" "$T/repo/pkg/src"
+printf -- '---\nname: up\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: "node up.mjs"\n---\nbody\n' > "$T/repo/.claude/agents/up.md"
+run_scan "$T/home" up "$T/repo/pkg/src"
+rm -rf "$T"
+echo "$OUT" | grep -q "up.mjs" && pass || fail "root agent not scanned from subdir: rc=$RC out=$OUT"
+
+begin_test "agent in a sibling package is not resolved from another package"
+T=$(mktemp -d); mkdir -p "$T/repo/.git" "$T/repo/other/.claude/agents" "$T/repo/pkg"
+printf -- '---\nname: sib\nhooks:\n  PreToolUse:\n    - hooks:\n        - type: command\n          command: "node sib.mjs"\n---\nbody\n' > "$T/repo/other/.claude/agents/sib.md"
+run_scan "$T/home" sib "$T/repo/pkg"
+rm -rf "$T"
+echo "$OUT" | grep -q "sib.mjs" && fail "sibling package agent resolved: $OUT" || pass
+
 begin_test "frontmatter without hooks (and hooks: in the body) stays silent"
 T=$(mktemp -d); mkdir -p "$T/.claude/agents"
 printf -- '---\nname: plain\ntools: Read\n---\nhooks:\n  are described here\n' > "$T/.claude/agents/plain.md"

@@ -278,7 +278,11 @@ def resolve_agent_defs(agent, home_dir, cwd):
     cwd = msys_path(cwd)
 
     out, seen = [], set()
-    for base in (Path(home_dir) / '.claude' / 'agents', Path(cwd) / '.claude' / 'agents'):
+    # Claude Code also walks UP from the cwd: every .claude/agents/ up to the repo root
+    # loads (sub-agents.md, "Project subagents are discovered by walking up").
+    bases = [Path(home_dir) / '.claude' / 'agents', Path(cwd) / '.claude' / 'agents']
+    bases += [Path(d) / 'agents' for d in ancestor_claude_dirs(cwd, home_dir)]
+    for base in bases:
         if not base.is_dir():
             continue
         for pat in globs:
@@ -296,4 +300,92 @@ def resolve_agent_defs(agent, home_dir, cwd):
                         out.append(p)
             except Exception:
                 continue
+    return out
+
+
+# Directory names never searched for nested .claude dirs: dependencies, build output,
+# VCS internals. Dot-dirs are skipped too (and .claude is never descended into: its
+# worktrees/ holds whole checkouts).
+_NESTED_SKIP = frozenset(('node_modules', 'vendor', 'dist', 'build'))
+
+
+def git_root(start):
+    """Nearest directory at or above `start` holding .git (a dir, or a worktree's file)."""
+    import os as _os
+    d = _os.path.realpath(start) if start else ''
+    while d:
+        if _os.path.exists(_os.path.join(d, '.git')):
+            return d
+        nd = _os.path.dirname(d)
+        if nd == d:
+            return None
+        d = nd
+    return None
+
+
+def _same(a, b):
+    import os as _os
+    return _os.path.normcase(_os.path.realpath(a)) == _os.path.normcase(_os.path.realpath(b))
+
+
+def ancestor_claude_dirs(cwd, home_dir=''):
+    """`.claude` dirs strictly above the cwd, up to the git root. Claude Code loads
+    skills and agents from each at startup (skills.md, sub-agents.md). [] outside a
+    repo; ~/.claude is user scope and left out."""
+    import os as _os
+    cwd = msys_path(cwd)
+    root = git_root(cwd) if cwd else None
+    if not root:
+        return []
+    home_claude = _os.path.join(msys_path(home_dir), '.claude') if home_dir else ''
+    out, d = [], _os.path.realpath(cwd)
+    while not _same(d, root):
+        nd = _os.path.dirname(d)
+        if nd == d:
+            break
+        d = nd
+        p = _os.path.join(d, '.claude')
+        if _os.path.isdir(p) and not (home_claude and _same(p, home_claude)):
+            out.append(p)
+    return out
+
+
+def nested_claude_dirs(cwd, home_dir='', max_depth=4, max_dirs=800):
+    """`.claude` dirs anywhere under the git root (the cwd outside a repo), at most
+    `max_depth` levels down. Skills in one load the first time Claude touches a file
+    in that subfolder (skills.md, "Nested"). The cwd's own and ~/.claude are left out.
+    Breadth-first, so shallow packages are always covered first.
+    shortcut: stops after `max_depth` levels or `max_dirs` directories (~40us each on
+    macOS; this runs at SessionStart) and skips dependency/build dirs, so a skill
+    deeper than that in a huge tree is missed. Raise the caps if that bites."""
+    import os as _os
+    cwd = msys_path(cwd)
+    if not cwd or not _os.path.isdir(cwd):
+        return []
+    top = git_root(cwd) or _os.path.realpath(cwd)
+    skip = [_os.path.join(cwd, '.claude')] + ([_os.path.join(msys_path(home_dir), '.claude')] if home_dir else [])
+    out, level = [], [top]
+    seen = 0
+    for depth in range(max_depth + 1):
+        nxt = []
+        for d in level:
+            seen += 1
+            if seen > max_dirs:
+                return out
+            try:
+                it = list(_os.scandir(d))
+            except OSError:
+                continue
+            for e in it:
+                try:
+                    if not e.is_dir(follow_symlinks=False):
+                        continue
+                except OSError:
+                    continue
+                if e.name == '.claude':
+                    if not any(_same(e.path, s) for s in skip):
+                        out.append(e.path)
+                elif depth < max_depth and not e.name.startswith('.') and e.name not in _NESTED_SKIP:
+                    nxt.append(e.path)
+        level = nxt
     return out

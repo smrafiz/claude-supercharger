@@ -365,8 +365,66 @@ def mcp_wallet_env(server):
             (_WALLET_NAME.search(k.upper()) or (isinstance(v, str) and _WALLET_VALUE.match(v.strip())))]
 
 
-def settings_hook_commands(settings):
-    """'<event>: <command>' for every hook a settings dict defines that is not ours."""
+# managed-settings.json locations (managed-settings.md); drop-in dirs are not read, which
+# can only leave a list out and so keep a warning, never drop one.
+_MANAGED_SETTINGS = ('/Library/Application Support/ClaudeCode/managed-settings.json',
+                     '/etc/claude-code/managed-settings.json',
+                     'C:\\Program Files\\ClaudeCode\\managed-settings.json')
+
+
+def http_hook_allow_lists(home_dir, project_dir):
+    """{source: patterns} for each settings file that defines allowedHttpHookUrls.
+    Source 'project' is the committed .claude/settings.json; the rest are the user,
+    local (cwd and git root, as settings.md places it) and managed files. A malformed
+    value counts as undefined, which keeps warnings."""
+    git_root, d = None, os.path.realpath(project_dir) if project_dir else ''
+    while d:
+        if os.path.exists(os.path.join(d, '.git')):
+            git_root = d
+            break
+        d = '' if os.path.dirname(d) == d else os.path.dirname(d)
+    files = [('user', os.path.join(home_dir, '.claude', 'settings.json'))] if home_dir else []
+    if project_dir:
+        files += [('project', os.path.join(project_dir, '.claude', 'settings.json')),
+                  ('local', os.path.join(project_dir, '.claude', 'settings.local.json'))]
+    if git_root and os.path.normcase(git_root) != os.path.normcase(os.path.realpath(project_dir)):
+        files.append(('root-local', os.path.join(git_root, '.claude', 'settings.local.json')))
+    files += [('managed', m) for m in _MANAGED_SETTINGS]
+    out = {}
+    for src, f in files:
+        try:
+            with open(f, encoding='utf-8') as fh:
+                v = json.load(fh).get('allowedHttpHookUrls')
+        except Exception:
+            continue
+        if isinstance(v, list) and all(isinstance(x, str) for x in v):
+            out.setdefault(src, []).extend(v)
+    return out
+
+
+def merged_http_allowlist(lists):
+    """The list Claude Code enforces: arrays merge across files; unset everywhere -> None
+    (any URL allowed); an empty merged list blocks every HTTP hook (settings-reference.md)."""
+    return None if not lists else [p for v in lists.values() for p in v]
+
+
+def http_url_allowed(url, patterns):
+    """True when Claude Code would send to `url`. `*` is the only wildcard. Matched
+    case-insensitively and with or without a trailing slash: a looser match keeps the warning."""
+    if patterns is None:
+        return True
+    cands = {url, url.rstrip('/'), url + '/'}
+    for pat in patterns:
+        rx = re.compile('.*'.join(re.escape(s) for s in pat.split('*')), re.I | re.S)
+        if any(rx.fullmatch(c) for c in cands):
+            return True
+    return False
+
+
+def settings_hook_commands(settings, http_allow=None):
+    """'<event>: <command>' for every hook a settings dict defines that is not ours.
+    `http_allow`: the merged allowedHttpHookUrls (None = unset); an http hook it blocks
+    never runs, so it is not reported."""
     out = []
     hooks_block = (settings or {}).get('hooks', {}) or {}
     if not isinstance(hooks_block, dict):
@@ -383,7 +441,8 @@ def settings_hook_commands(settings):
                 # machine); mcp_tool hooks hand it to an MCP server. Host/server only: a URL
                 # can carry a token.
                 if h.get('type') == 'http' and isinstance(h.get('url'), str):
-                    cmd = '' if is_loopback(h['url']) else f"sends event data to {url_host(h['url'])[:60] or h['url'][:40]}"
+                    cmd = '' if is_loopback(h['url']) or not http_url_allowed(h['url'], http_allow) \
+                        else f"sends event data to {url_host(h['url'])[:60] or h['url'][:40]}"
                 elif h.get('type') == 'mcp_tool':
                     cmd = f"sends event data to MCP server {str(h.get('server') or '?')[:40]} (tool {str(h.get('tool') or '?')[:40]})"
                 if cmd and isinstance(cmd, str) and '#supercharger' not in cmd:
