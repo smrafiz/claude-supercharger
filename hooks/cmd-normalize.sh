@@ -356,6 +356,7 @@ _sc_wrapper_prelude_into() {
             timeout:-s|timeout:--signal|timeout:-k|timeout:--kill-after|\
             stdbuf:-i|stdbuf:-o|stdbuf:-e|chrt:-p|taskset:-c|taskset:-p|\
             xargs:-n|xargs:-P|xargs:-d|xargs:-a|xargs:-E|xargs:-s|xargs:-L|xargs:-I|\
+            xargs:--process-slot-var|xargs:--max-procs|xargs:--max-args|xargs:--delimiter|xargs:--arg-file|xargs:--max-chars|\
             parallel:-j|parallel:--jobs|parallel:-n|parallel:-P|parallel:-S|\
             caffeinate:-t|caffeinate:-w|watch:-n|watch:--interval|flock:-w|flock:-E|\
             xcrun:--sdk|xcrun:--toolchain|wsl:-d|wsl:--distribution|wsl:-u|wsl:--user|wsl:--cd|\
@@ -399,7 +400,10 @@ _sc_wrapper_prelude_into() {
   # see the subcommand.
   case "$cmd" in
     'git '*)
-      local _g_rest="${cmd#git}" _g_tok
+      local _g_rest="${cmd#git}" _g_tok _g_q="'"
+      # 2026-11-15: a value is one shell WORD, not one whitespace token: `-C "a b"`
+      # and `-C $(printf /tmp)` left `b"` / `/tmp)` behind as the subcommand.
+      local _g_vrx='^('"$_g_q"'[^'"$_g_q"']*'"$_g_q"'|"[^"]*"|\$\([^)]*\)|[^[:space:]'"$_g_q"'"$]+|\$)+'
       while :; do
         _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
         _g_tok="${_g_rest%%[[:space:]]*}"
@@ -407,7 +411,8 @@ _sc_wrapper_prelude_into() {
           -C|-c|--git-dir|--work-tree|--namespace|--exec-path|--config-env|--super-prefix)
             _g_rest="${_g_rest#"$_g_tok"}"
             _g_rest="${_g_rest#"${_g_rest%%[![:space:]]*}"}"
-            _g_tok="${_g_rest%%[[:space:]]*}"; _g_rest="${_g_rest#"$_g_tok"}" ;;
+            if [[ "$_g_rest" =~ $_g_vrx ]]; then _g_tok="${BASH_REMATCH[0]}"; else _g_tok="${_g_rest%%[[:space:]]*}"; fi
+            _g_rest="${_g_rest:${#_g_tok}}" ;;
           -*) [ -z "${_g_tok#-}" ] && break; _g_rest="${_g_rest#"$_g_tok"}" ;;
           *) break ;;
         esac
@@ -439,6 +444,30 @@ _sc_wrapper_prelude_into() {
 # Result in $_SC_WP, no subshell. split_segments called the printing form once
 # per segment: a 105-line python heredoc paid 110 forks (587ms at load 50).
 _sc_strip_wrapper_prelude() { _sc_wrapper_prelude_into "$1"; printf '%s' "$_SC_WP"; }
+
+# 2026-11-15: one shell word is every adjacent quoted and unquoted piece:
+# `'echo "it'"'"'s" && rm …'` is ONE argument. Reading only the first quoted piece
+# as a `-c` body hid the rest. Joins the word at the start of $1, quotes removed,
+# into _SC_JW; _SC_JW_EXP gets the pieces the shell expands (double-quoted and bare).
+# An unterminated quote, or more than 64 pieces, keeps the rest as is, so nothing
+# is dropped from view. Fork-free, linear in the word.
+sc_join_word_into() {
+  local _r="$1" _i=0 _rs="^'([^']*)'" _rd='^"([^"]*)"' _ru='^([^[:space:];&|'"'"'"]+)'
+  _SC_JW=""; _SC_JW_EXP=""
+  while [ -n "$_r" ]; do
+    _i=$((_i + 1))
+    if [ "$_i" -gt 64 ]; then _SC_JW="$_SC_JW$_r"; _SC_JW_EXP="$_SC_JW_EXP$_r"; break; fi
+    case "$_r" in
+      "'"*) [[ "$_r" =~ $_rs ]] || { _SC_JW="$_SC_JW${_r:1}"; break; }
+            _SC_JW="$_SC_JW${BASH_REMATCH[1]}" ;;
+      '"'*) [[ "$_r" =~ $_rd ]] || { _SC_JW="$_SC_JW${_r:1}"; _SC_JW_EXP="$_SC_JW_EXP${_r:1}"; break; }
+            _SC_JW="$_SC_JW${BASH_REMATCH[1]}"; _SC_JW_EXP="$_SC_JW_EXP${BASH_REMATCH[1]}" ;;
+      *) [[ "$_r" =~ $_ru ]] || break
+         _SC_JW="$_SC_JW${BASH_REMATCH[1]}"; _SC_JW_EXP="$_SC_JW_EXP${BASH_REMATCH[1]}" ;;
+    esac
+    _r="${_r:${#BASH_REMATCH[0]}}"
+  done
+}
 
 normalize_cmd() {
   local cmd="$1" _sc_rest _sc_tails _sc_sub _sc_prev _sc_i
@@ -607,8 +636,13 @@ normalize_cmd() {
         [[ "$_sc_scan" =~ $_sc_shc ]] || break
         _sc_body="${BASH_REMATCH[7]}"
         _sc_scan="${_sc_scan#*"${BASH_REMATCH[0]}"}"
-        case "$_sc_body" in
-          "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
+        case "$_sc_scan" in
+          # More pieces of the same word follow: join them all (sc_join_word_into).
+          [!\;\&\|[:space:]]*) sc_join_word_into "$_sc_body$_sc_scan"; _sc_body="$_SC_JW" ;;
+          *)
+            case "$_sc_body" in
+              "'"*"'"|'"'*'"') _sc_body="${_sc_body:1:${#_sc_body}-2}" ;;
+            esac ;;
         esac
         [ -n "$_sc_body" ] && _sc_tails="$_sc_tails ; $_sc_body"
       done
@@ -634,6 +668,22 @@ normalize_cmd() {
       [ -n "$_sc_tails" ] && { cmd="$cmd$_sc_tails"; _sb_src="$_sb_src$_sc_tails"; }
       ;;
   esac
+  # 2026-11-15: `trap 'ACTION' SIGNAL` is a deferred eval: the shell runs ACTION
+  # when the signal (or EXIT) fires. Append ACTION as its own segment, like a -c
+  # body. Runs after the -c block so `bash -c "trap '…' EXIT"` is seen too. `trap -`
+  # and `trap -p` start with a dash and carry no action.
+  case "$cmd" in
+    *trap\ *)
+      local _tr_scan="$cmd" _tr_rx='(^|[;&|(`{]|[[:space:]](then|do|else))[[:space:]]*trap[[:space:]]+(--[[:space:]]+)?([^-[:space:];&|][^[:space:];&|]*)' _tr_tails=""
+      for _sc_i in 1 2 3; do
+        [[ "$_tr_scan" =~ $_tr_rx ]] || break
+        _tr_scan="${_tr_scan#*"${BASH_REMATCH[0]}"}"
+        sc_join_word_into "${BASH_REMATCH[4]}$_tr_scan"
+        [ -n "${_SC_JW//[[:space:]]/}" ] && _tr_tails="$_tr_tails ; $_SC_JW"
+      done
+      [ -n "$_tr_tails" ] && { cmd="$cmd$_tr_tails"; _sb_src="$_sb_src$_tr_tails"; }
+      ;;
+  esac
   # v4.2.0: command and process SUBSTITUTION bodies run too. `echo $(<cmd>)`,
   # `x=$(<cmd>)`, a backtick body and `<(<cmd>)` all execute <cmd>, and nothing
   # emitted them as segments, so every segment rule missed them. A here-string
@@ -643,13 +693,30 @@ normalize_cmd() {
   # one of these forms is present.
   case "$_sb_src" in
     *'$('*|*'`'*|*'<('*|*'>('*|*'<<<'*)
-      local _sb_scan="$_sb_src" _sb_body _sb_q="'"
+      local _sb_scan="" _sb_r="$_sb_src" _sb_body _sb_q="'" _sb_c
       # A placeholder, not a space: `cut -d'"'` blanked to `cut -d ` read as curl's -d.
-      while [[ "$_sb_scan" =~ ${_sb_q}[^${_sb_q}]*${_sb_q} ]]; do
-        _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/_Q_}"
+      # 2026-11-15: only a single-quoted span OUTSIDE double quotes is inert. In
+      # `"x'$(cmd)'y"` the ' are literal and $(cmd) runs; masking '…' there hid it.
+      # Walk the quotes left to right: '…' -> _Q_, "…" kept, an escaped quote is text.
+      local _sb_rx='^([^'"$_sb_q"'"]*)(['"$_sb_q"'"])' _sb_rs="^[^$_sb_q]*$_sb_q" _sb_rd='^([^"\\]|\\.)*"'
+      while [[ "$_sb_r" =~ $_sb_rx ]]; do
+        _sb_scan="$_sb_scan${BASH_REMATCH[1]}"; _sb_c="${BASH_REMATCH[2]}"
+        _sb_r="${_sb_r:${#BASH_REMATCH[0]}}"
+        case "${BASH_REMATCH[1]}" in
+          *\\) _sb_scan="$_sb_scan$_sb_c"; continue ;;
+        esac
+        if [ "$_sb_c" = "$_sb_q" ]; then
+          [[ "$_sb_r" =~ $_sb_rs ]] || { _sb_scan="$_sb_scan$_sb_c"; continue; }
+          _sb_scan="${_sb_scan}_Q_"
+        else
+          [[ "$_sb_r" =~ $_sb_rd ]] || { _sb_scan="$_sb_scan$_sb_c"; continue; }
+          _sb_scan="$_sb_scan\"${BASH_REMATCH[0]}"
+        fi
+        _sb_r="${_sb_r:${#BASH_REMATCH[0]}}"
       done
+      _sb_scan="$_sb_scan$_sb_r"
       _sc_tails=""
-      for _sc_i in 1 2 3 4 5 6; do
+      for _sc_i in 1 2 3 4 5 6 7 8; do
         # 2026-10-27: `>(cmd)` runs cmd too, and `$( (cmd) )` wraps it in a subshell
         # whose parens the [^()] body refused (cc-safety-net corpus). The space after
         # `$(` is required: `$((...))` is arithmetic, and its backticks are found below.
@@ -662,6 +729,9 @@ normalize_cmd() {
         fi
         _sb_scan="${_sb_scan/"${BASH_REMATCH[0]}"/ }"
         [ -n "${_sb_body//[[:space:]]/}" ] && _sc_tails="$_sc_tails ; $_sb_body"
+        # 2026-11-15: a backtick inside a $( ) body was taken with it and never
+        # scanned again. Re-queue a body that still holds a substitution.
+        case "$_sb_body" in *'$('*|*'`'*|*'<('*|*'>('*) _sb_scan="$_sb_scan ; $_sb_body" ;; esac
       done
       local _sb_sh='(^|[[:space:];&|(])(/[^[:space:]]*/)?(bash|sh|zsh|dash|ksh)[[:space:]]+(<<<|<\((echo|printf)[[:space:]]+)[[:space:]]*('"$_sb_q"'[^'"$_sb_q"']*'"$_sb_q"'|"[^"]*"|[^[:space:];&|)]+)'
       if [[ "$_sb_src" =~ $_sb_sh ]]; then

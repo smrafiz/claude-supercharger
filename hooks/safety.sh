@@ -821,6 +821,12 @@ DESTRUCT_PATTERNS=(
   '(^|[[:space:]])sfdisk[[:space:]]+(/dev/|--delete|--wipe([[:space:]]|$))'
   'parted[[:space:]][^;&|]*(mklabel|mkpart|resizepart|[[:space:]](rm|move|name|toggle|set)[[:space:]])'
 )
+# 2026-11-15: what may stand between a pipe and the shell it feeds. Only sudo/doas
+# were accepted, and only a bare shell name, so `| /bin/sh`, `| env sh`,
+# `| nice -n 5 bash` and `| ksh` all ran the piped bytes unchecked. A launcher
+# (optionally by path) with its options, option values, numbers or VAR=val, then
+# the shell (optionally by path).
+_PIPE_WRAP='((/[^[:space:]|;&]*/)?(sudo|doas|env|command|builtin|exec|nice|nohup|timeout|stdbuf|setsid)([[:space:]]+(-[^[:space:]|;&]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[0-9][^[:space:]|;&]*|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]|;&]*))*[[:space:]]+)*(/[^[:space:]|;&]*/)?(bash|sh|zsh|dash|ksh|ash)'
 NETWORK_PATTERNS=(
   # v2.28.2: these four were substring matches — curl anywhere, then any bytes,
   # then a pipe, then 'sh' anywhere. None of the three parts had to be what it
@@ -842,7 +848,7 @@ NETWORK_PATTERNS=(
   # those from `curl x | python` (RCE). Bare curl|python is a documented residual.
   # fp-batch-2: node/deno/bun moved to the _PIPE_JS block below, which exempts an
   # INLINE script (`| node -e '...process.stdin...'`: stdin is data there).
-  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*(bash|sh|zsh|dash)([[:space:]]|[;&|)]|$)'
+  '(^|[^[:alnum:]_])(curl|wget)[^|]*\|[[:space:]]*'"$_PIPE_WRAP"'([[:space:]]|[;&|)]|$)'
   # v2.29.38: the INVERSE process-substitution shape. v2.29.31 covered a shell as
   # the SUBSTITUTED command (tee into a process substitution running a shell); this
   # is a shell as the OUTER command with a fetcher inside -- the same capability as
@@ -883,14 +889,14 @@ NETWORK_PATTERNS=(
   # download-and-execute case stays covered twice over.
   # An elevating launcher between the pipe and the shell (sudo -u root bash)
   # still runs the piped bytes; it hid the shell from all three forms.
-  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]*([;&|)]|$)'
-  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)[[:space:]]+-[[:alnum:]]*c([[:space:]]|[;&|)]|$)'
+  '[^|]\|[[:space:]]*'"$_PIPE_WRAP"'([[:space:]]+-[^[:space:];&|]+)*[[:space:]]*([;&|)]|$)'
+  '[^|]\|[[:space:]]*'"$_PIPE_WRAP"'[[:space:]]+-[[:alnum:]]*c([[:space:]]|[;&|)]|$)'
   # The trailing class MUST accept a command separator, not just space-or-end:
   # `… | bash -; echo done` and `… | bash /dev/stdin; echo done` slipped through
   # while it was `([[:space:]]|$)`, because `;` is neither. The old blanket pattern
   # caught these, so narrowing had silently reopened them — found by the
   # pipe-to-shell bases added to fuzz-safety.sh, which is why they were added.
-  '[^|]\|[[:space:]]*((sudo|doas)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?)*[[:space:]]+)?(bash|sh|zsh|dash)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
+  '[^|]\|[[:space:]]*'"$_PIPE_WRAP"'([[:space:]]+-[^[:space:];&|]+)*[[:space:]]+(-|/dev/stdin|/dev/fd/[0-9]+|/proc/self/fd/[0-9]+)([[:space:]]|[;&|)]|$)'
   # v4.2.0: command-position `bash -c` is judged below (_sc_opaque_shell_c), not
   # here: a LITERAL body is appended by normalize_cmd and checked by every rule,
   # so only an opaque body (variable, $( ), backtick, decoded) is still denied.
@@ -1170,20 +1176,23 @@ sc_blank_data_into "$CMD"; CMD_SCAN="$_SC_SCAN"
 # whose content cannot be judged is denied: unquoted, a command substitution or
 # backtick, base64/eval, or a body whose command word is a variable.
 if _cat_enabled "destructive"; then
-  _shc_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*(/[^[:space:]]*/)?(bash|sh|zsh|dash)[[:space:]]+(-[[:alpha:]]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+(.*)$'
+  # 2026-11-15: a launcher before the shell (`sudo bash -c "$(…)"`, `env bash -c`)
+  # hid it from this command-position anchor: _PIPE_WRAP's launcher prelude is
+  # accepted here too. The rest is the LAST group, whatever the prelude's count.
+  _shc_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*'"$_PIPE_WRAP"'[[:space:]]+(-[[:alpha:]]+[[:space:]]+)*-[[:alpha:]]*c[[:alpha:]]*[[:space:]]+(.*)$'
   if [[ "$COMMAND" =~ $_shc_rx ]]; then
-    _shc_rest="${BASH_REMATCH[5]}"
+    _shc_rest="${BASH_REMATCH[${#BASH_REMATCH[@]}-1]}"
     _shc_opaque=1
     _shc_q="${_shc_rest:0:1}"
     if [ "$_shc_q" = "'" ] || [ "$_shc_q" = '"' ]; then
-      _shc_body="${_shc_rest:1}"; _shc_body="${_shc_body%%"$_shc_q"*}"
+      # One word may be several quoted pieces: `'echo "it'"'"'s" && …'`. The first
+      # piece alone hid everything after it, so join the whole word.
+      sc_join_word_into "$_shc_rest"; _shc_body="$_SC_JW"
       _shc_opaque=0
       case "$_shc_body" in
         *'$('*|*'`'*|*base64*|*eval*) _shc_opaque=1 ;;
       esac
-      if [ "$_shc_q" = '"' ]; then
-        case "$_shc_body" in *'${'*) _shc_opaque=1 ;; esac
-      fi
+      case "$_SC_JW_EXP" in *'${'*) _shc_opaque=1 ;; esac
       [[ "$_shc_body" =~ (^|[\;\&\|]|\&\&|\|\|)[[:space:]]*\$ ]] && _shc_opaque=1
     fi
     if [ "$_shc_opaque" = 1 ]; then
@@ -1192,9 +1201,9 @@ if _cat_enabled "destructive"; then
   fi
   # 4.4.3: the same opaque body fed as a here-string (`bash <<< "$(... | base64 -d)"`)
   # ran unchecked: the -c rule needs -c and the pipe rules need a pipe.
-  _shh_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*(/[^[:space:]]*/)?(bash|sh|zsh|dash)[[:space:]]*<<<(.*)$'
+  _shh_rx='(^|[;&|(]|&&|\|\|)[[:space:]]*'"$_PIPE_WRAP"'[[:space:]]*<<<(.*)$'
   if [[ "$COMMAND" =~ $_shh_rx ]]; then
-    case "${BASH_REMATCH[4]}" in
+    case "${BASH_REMATCH[${#BASH_REMATCH[@]}-1]}" in
       *'$('*|*'`'*|*base64*|*eval*|*'$'[A-Za-z_{]*)
         block "dangerous pattern: shell reading a here-string it cannot check (variable, command substitution or decoded text)" ;;
     esac
