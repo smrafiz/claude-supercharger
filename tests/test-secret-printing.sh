@@ -47,6 +47,14 @@ cases = [
     ("curl -v, then a key read", "curl -v https://example.com; cat ~/.s" + "sh/id_" + "rsa", "DENY"),
     # still allowed
     ("env as a wrapper", "env NODE_ENV=test npm test", "ALLOW"),
+    # agent-guard review (2026-11-14): output flag before the resource
+    ("kubectl -o json secrets", "kubectl get -o json secrets", "DENY"),
+    ("kubectl --output=yaml secret/x", "kubectl get --output=yaml secret/db", "DENY"),
+    ("kubectl -n ns secret -o jsonpath", "kubectl -n prod get secret db -o jsonpath={.data.pw}", "DENY"),
+    ("mvn showPasswords", "mvn help:effective-settings -DshowPasswords=true", "DENY"),
+    ("kubectl -o yaml pods", "kubectl get -o yaml pods", "ALLOW"),
+    ("kubectl get secrets -o name", "kubectl get secrets -o name", "ALLOW"),
+    ("mvn effective-settings", "mvn help:effective-settings", "ALLOW"),
     ("printenv PATH", "printenv PATH", "ALLOW"),
     ("env | grep NODE", "env | grep NODE_", "ALLOW"),
     ("key length", "echo ${#" + K + "}", "ALLOW"),

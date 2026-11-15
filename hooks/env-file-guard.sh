@@ -320,6 +320,12 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       block "Read of wallet/credentials file blocked ($base)" "$FILE_PATH" ;;
     kubeconfig)
       block "Read of kubeconfig blocked ($base) — cluster credentials" "$FILE_PATH" ;;
+    # Bash parity (agent-guard review, 2026-11-14): safety-detect.py's
+    # _SENSITIVE_NAME_RE denies `cat` of these; Read allowed them.
+    *.tfvars|*.tfvars.json)
+      block "Read of Terraform variables blocked ($base) — tfvars carry provider credentials" "$FILE_PATH" ;;
+    *service-account*.json|*service_account*.json|*serviceaccount*.json|*firebase-adminsdk*.json|client_secret*.json)
+      block "Read of cloud service-account / OAuth key blocked ($base)" "$FILE_PATH" ;;
   esac
   # Crypto-wallet app data (v4.1.31): keystores and seed vaults live in app folders,
   # not in files named *.wallet. Names from trailofbits/claude-code-config's deny
