@@ -254,7 +254,6 @@ def resolve_agent_defs(agent, home_dir, cwd):
         counted twice.
     """
     import re as _re
-    from pathlib import Path
 
     if not agent or not isinstance(agent, str):
         return []
@@ -282,10 +281,7 @@ def resolve_agent_defs(agent, home_dir, cwd):
     # root, "the definition closest to the working directory". So: cwd, then ancestors
     # nearest-first, then home; the first base holding a match is the answer. Scanning
     # a shadowed definition denied an agent whose file never runs.
-    bases = [Path(cwd) / '.claude' / 'agents']
-    bases += [Path(d) / 'agents' for d in ancestor_claude_dirs(cwd, home_dir)]
-    bases.append(Path(home_dir) / '.claude' / 'agents')
-    for base in bases:
+    for base in agent_def_dirs(cwd, home_dir):
         if not base.is_dir():
             continue
         # Every match within the winning dir is kept: two files there declaring one
@@ -309,6 +305,18 @@ def resolve_agent_defs(agent, home_dir, cwd):
         if out:
             return out
     return []
+
+
+def agent_def_dirs(cwd, home_dir):
+    """Agent definition dirs in Claude Code's precedence: cwd, ancestors nearest first
+    (up to the git root), then home. The first dir holding the agent wins. Shared by
+    resolve_agent_defs and agent-allowlist-detect.py so the two orders cannot drift."""
+    from pathlib import Path
+    cwd, home_dir = msys_path(cwd), msys_path(home_dir)
+    bases = [Path(cwd) / '.claude' / 'agents']
+    bases += [Path(d) / 'agents' for d in ancestor_claude_dirs(cwd, home_dir)]
+    bases.append(Path(home_dir) / '.claude' / 'agents')
+    return bases
 
 
 def _fm_name_ok(p, names):

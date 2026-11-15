@@ -225,6 +225,17 @@ for m in re.finditer(r'''GIT_CONFIG_PARAMETERS=("[^"]*"|'[^']*'|\S*)''', cmd):
     for k, v in pairs:
         emit(keyclass(k, v))
 
+# Form 5 (2026-11-15): git --config-env=<key>=<ENVVAR> (git(1)) is -c with the value
+# read from an environment variable. Classify every inline assignment of that variable
+# in the command; with none, the value is invisible here, so an exec-capable key ASKs.
+for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?--config-env(?:=|\s+)(['"]?)([\w][\w.-]*)=([A-Za-z_]\w*)''', cmd):
+    key, var = m.group(2), m.group(3)
+    vals = [a.strip("'\"") for a in re.findall(r'''(?:^|[\s;&|(])''' + var + r'''=("[^"]*"|'[^']*'|\S*)''', cmd)]
+    for v in vals:
+        emit(keyclass(key, v))
+    if not vals and keyclass(key, "!x"):
+        emit(("ASK", key + " from $" + var + " via --config-env (value not visible to the guard)"))
+
 # --- GitSpawn: which repo does each git invocation land in? If it is not the
 # project's own (by common git dir, so a linked worktree of the project counts as
 # the project), read that repo's config -- with `git config --file`, never by

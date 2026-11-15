@@ -37,6 +37,18 @@ check "fsmonitor config no"      "git config core.fsmonitor no"                 
 check "fsmonitor env false"      "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false git status" ALLOW
 check "fsmonitor params false"   "GIT_CONFIG_PARAMETERS=\"'core.fsmonitor=false'\" git status" ALLOW
 check "fsmonitor -c true"        "git -c core.fsmonitor=true status"               ASK
+
+# --config-env=<key>=<ENVVAR> (git(1)): -c with the value read from an env var. An
+# inline assignment is classified; with none the value is invisible: exec key ASKs.
+check "config-env sshCommand"    "git --config-env=core.sshCommand=X fetch"        ASK
+check "config-env spaced"        "git --config-env core.fsmonitor=X status"        ASK
+check "config-env pager"         "git --config-env=core.pager=X log"               ASK
+check "config-env inline sh -c"  "X='sh -c id' git --config-env=core.sshCommand=X fetch" DENY
+check "config-env inline path"   "X=/tmp/pwn git --config-env=core.fsmonitor=X status"   DENY
+check "config-env export path"   "export X=/tmp/pwn; git --config-env core.fsmonitor=X status" DENY
+check "config-env inline less"   "X=less git --config-env=core.pager=X log"        ALLOW
+check "config-env inline false"  "X=false git --config-env=core.fsmonitor=X status" ALLOW
+check "config-env benign key"    "git --config-env=user.email=EMAIL commit -m x"   ALLOW
 check "fsmonitor -c falsey path" "git -c core.fsmonitor=false.sh status"           DENY
 
 # --- ASK: exec-capable key with a command-shaped value ---

@@ -206,18 +206,19 @@ def project_root(cwd):
     return d
 
 
-def find_definition(agent, home, bases, resolve_agent_defs):
-    """Project definitions shadow user ones (Claude Code's precedence)."""
+def find_definition(agent, home, cwd, resolve_agent_defs, agent_def_dirs):
+    """The definition closest to the working directory wins (Claude Code's precedence,
+    sub-agents.md): the shared agent_def_dirs order, first dir holding the agent."""
     from pathlib import Path
     home_agents = os.path.realpath(os.path.join(home, ".claude", "agents"))
-    ordered = [b for b in bases if b] + [home]
     seen = set()
-    for base in ordered:
-        agents_dir = os.path.realpath(os.path.join(base, ".claude", "agents"))
+    for d in agent_def_dirs(cwd, home):
+        agents_dir = os.path.realpath(str(d))
         if agents_dir in seen or not os.path.isdir(agents_dir):
             continue
         seen.add(agents_dir)
         is_home = agents_dir == home_agents
+        base = os.path.dirname(os.path.dirname(agents_dir))
         # Shared resolver first: filename == agent name is the common case.
         cands = []
         try:
@@ -404,7 +405,7 @@ def main():
     hooks_dir = os.path.dirname(os.path.abspath(__file__))
     sys.path.insert(0, hooks_dir)
     try:
-        from lib_poison_patterns import resolve_agent_defs, msys_path
+        from lib_poison_patterns import resolve_agent_defs, agent_def_dirs, msys_path
     except Exception as e:
         note("shared resolver not importable (%s); call not checked" % e)
         out("ALLOW")
@@ -412,12 +413,8 @@ def main():
     home = msys_path(os.environ.get("HOME", ""))
     cwd = msys_path(d.get("cwd") or os.environ.get("PWD_DIR") or os.getcwd())
     root = project_root(cwd)
-    bases = []
-    for b in (root, msys_path(os.environ.get("CLAUDE_PROJECT_DIR", "")), cwd):
-        if b and b not in bases:
-            bases.append(b)
 
-    deff, allow, notes = find_definition(agent, home, bases, resolve_agent_defs)
+    deff, allow, notes = find_definition(agent, home, cwd, resolve_agent_defs, agent_def_dirs)
     for nt in notes:
         note(nt)
     if deff is None or not allow:
