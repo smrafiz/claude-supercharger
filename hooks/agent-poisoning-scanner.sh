@@ -128,10 +128,11 @@ except Exception:
         for nm in names_:
             globs_ += ['%s.md' % nm, '*/%s.md' % nm, '*/*/%s.md' % nm,
                        '%s/AGENT.md' % nm, '*/%s/AGENT.md' % nm]
-        out_, seen_ = [], set()
-        for base in (Path(home) / '.claude' / 'agents', Path(cwd_) / '.claude' / 'agents'):
+        # Project shadows user, as in the shared resolver (closest definition wins).
+        for base in (Path(cwd_) / '.claude' / 'agents', Path(home) / '.claude' / 'agents'):
             if not base.is_dir():
                 continue
+            out_, seen_ = [], set()
             for pat in globs_:
                 try:
                     for p in base.glob(pat):
@@ -145,7 +146,9 @@ except Exception:
                             seen_.add(key); out_.append(p)
                 except Exception:
                     continue
-        return out_
+            if out_:
+                return out_
+        return []
 
 # v2.26.76: resolution moved to lib_poison_patterns so the Workflow channel
 # (workflow-guard, via `agentType`) reads the SAME files by the SAME rules. The

@@ -25,6 +25,20 @@ check() { n=$((n+1)); mkin "$TMP/c$n.json" "$2" "$n"; begin_test "$1"; local g; 
 check "fsmonitor command"        "git config core.fsmonitor '!/tmp/x.sh'"          DENY
 check "sshCommand sh -c"         "git config core.sshCommand 'sh -c id'"           DENY
 
+# core.fsmonitor is a boolean or a hook path (git-config(1)). False spellings turn it
+# OFF; `true` starts git's own daemon (ASK); any other value is a command (DENY).
+check "fsmonitor -c path"        "git -c core.fsmonitor=/tmp/x ls-files"           DENY
+check "fsmonitor -c false"       "git -c core.fsmonitor=false ls-files"            ALLOW
+check "fsmonitor -c 0"           "git -c core.fsmonitor=0 status"                  ALLOW
+check "fsmonitor -c Off quoted"  "git -c 'core.fsmonitor=Off' status"              ALLOW
+check "fsmonitor -c path quoted" "git -c 'core.fsmonitor=/tmp/x' status"           DENY
+check "fsmonitor -c dq path"     "git -c \"core.fsmonitor=/tmp/x\" status"         DENY
+check "fsmonitor config no"      "git config core.fsmonitor no"                    ALLOW
+check "fsmonitor env false"      "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=core.fsmonitor GIT_CONFIG_VALUE_0=false git status" ALLOW
+check "fsmonitor params false"   "GIT_CONFIG_PARAMETERS=\"'core.fsmonitor=false'\" git status" ALLOW
+check "fsmonitor -c true"        "git -c core.fsmonitor=true status"               ASK
+check "fsmonitor -c falsey path" "git -c core.fsmonitor=false.sh status"           DENY
+
 # --- ASK: exec-capable key with a command-shaped value ---
 check "credential.helper bang"   "git config credential.helper '!/tmp/h.sh'"       ASK
 check "core.pager script"        "git config core.pager '!/tmp/x.sh'"              ASK
