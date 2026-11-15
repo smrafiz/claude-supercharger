@@ -65,6 +65,35 @@ check "editor node -e"           "git config core.editor 'node -e proc'"        
 check "difftool cmd"             "git config difftool.x.cmd 'sh -c d'"            ASK
 check "sshCommand benign->ASK?"  "git config core.sshCommand 'ssh -i /k'"         ALLOW
 
+# URL/name subsection keys (section.<subsection>.variable): the subsection may hold
+# ':' '/' and dots; the variable is the part after the LAST dot. Every form.
+U=credential.https://example.com.helper
+check "scoped helper config"     "git config $U '!/tmp/h.sh'"                      ASK
+check "scoped helper -c"         "git -c '$U=!/tmp/h.sh' fetch"                    ASK
+check "scoped helper env pair"   "GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=$U GIT_CONFIG_VALUE_0='!/tmp/h.sh' git fetch" ASK
+check "scoped helper params"     "GIT_CONFIG_PARAMETERS=\"'$U=!/tmp/h.sh'\" git fetch" ASK
+check "scoped helper config-env" "git --config-env=$U=H fetch"                     ASK
+check "scoped fsmonitor -c"      "git -c core.x.y.fsmonitor=/tmp/x status"         DENY
+check "remote receivepack"       "git -c remote.my.host.receivepack=/tmp/h.sh push" ASK
+check "scoped helper store"      "git config $U store"                             ALLOW
+check "scoped extraHeader -c"    "git -c http.https://example.com/.extraHeader=X-Trace:1 fetch" ALLOW
+check "scoped extraHeader params" "GIT_CONFIG_PARAMETERS=\"'http.https://example.com/.extraHeader=X-Trace:1'\" git fetch" ALLOW
+check "scoped insteadOf"         "git config url.https://github.com/.insteadOf git@github.com:" ALLOW
+
+# Command-valued keys from git-config(1) / gitattributes(5) / git-send-email(1).
+check "interactive.diffFilter"   "git -c interactive.diffFilter='/tmp/x.sh' add -p" ASK
+check "diffFilter delta"         "git -c interactive.diffFilter='delta --color-only' add -p" ALLOW
+check "diff textconv"            "git config diff.pdf.textconv /tmp/x"             ASK
+check "merge driver"             "git config merge.ours.driver /tmp/x"             ASK
+check "filter process"           "git config filter.lfs.process /tmp/x"            ASK
+check "core.gitProxy"            "git config core.gitProxy /tmp/x"                 ASK
+check "packObjectsHook"          "git -c uploadpack.packObjectsHook=/tmp/x fetch"  ASK
+check "pager.<cmd> bang"         "git config pager.log '!/tmp/x.sh'"               ASK
+check "pager.<cmd> false"        "git config pager.log false"                      ALLOW
+check "submodule update bang"    "git config submodule.sub.update '!/tmp/x'"       ASK
+check "submodule update rebase"  "git config submodule.sub.update rebase"          ALLOW
+check "sendemail toCmd"          "git config sendemail.toCmd /tmp/x"               ASK
+
 # --- ALLOW: benign non-command values / non-exec keys ---
 check "user.email"               "git config user.email me@x.com"                 ALLOW
 check "pager less"               "git config core.pager less"                     ALLOW
