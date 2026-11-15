@@ -63,6 +63,11 @@ check "persistent hooksPath"     "git config core.hooksPath /tmp/hooks"         
 check "filter clean cmd"         "git config filter.lfs.clean 'sh -c evil'"       ASK
 check "editor node -e"           "git config core.editor 'node -e proc'"          ASK
 check "difftool cmd"             "git config difftool.x.cmd 'sh -c d'"            ASK
+check "difftool tool path"       "git config difftool.meld.path /tmp/x"           ASK
+check "mergetool path via -c"     "git -c mergetool.vim.path=./x mergetool"        ASK
+check "browser path config-env"   "git --config-env=browser.ff.path=P help -w log" ASK
+check "man path"                  "git config man.foo.path /tmp/x"                 ASK
+check "difftool.prompt stays"     "git config difftool.prompt false"              ALLOW
 check "sshCommand benign->ASK?"  "git config core.sshCommand 'ssh -i /k'"         ALLOW
 
 # URL/name subsection keys (section.<subsection>.variable): the subsection may hold

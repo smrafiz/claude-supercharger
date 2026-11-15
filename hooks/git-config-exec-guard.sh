@@ -156,6 +156,8 @@ ALWAYS_CMD = {
     "browser.cmd", "man.cmd", "guitool.cmd", "core.gitproxy", "core.alternaterefscommand",
     "gc.recentobjectshook", "gpg.defaultkeycommand", "uploadpack.packobjectshook",
     "sendemail.sendmailcmd", "sendemail.tocmd", "sendemail.cccmd", "sendemail.headercmd",
+    # <tool>.path: the program git runs for that difftool/mergetool/browser/man tool.
+    "difftool.path", "mergetool.path", "browser.path", "man.path",
 }
 # Sometimes-legit program-valued keys: flag only when the value is command-shaped.
 SHAPED_CMD = {
