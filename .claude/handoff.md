@@ -6,8 +6,8 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-15, session `74e29661`.*
 
-- **Released: v4.4.6** (2026-11-13). **Master `480fcc96`** (CI + Host contract green) carries
-  #302–#310 unreleased. Release **held by the user**.
+- **Released: v4.4.6** (2026-11-13). **Master `857b540f`** (after #313) carries #302–#311 and #313
+  unreleased. Release **held by the user**.
 - **Merged after the brief:** #311 (difftool/mergetool/browser/man `<tool>.path` keys ask; suite
   8138/0) and #313 (rules line: warn when a repo sets `disableAllHooks`). Open PRs: none.
 - **Verified live:** a project `.claude/settings.json` with `disableAllHooks: true` turns off
