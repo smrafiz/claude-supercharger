@@ -48,6 +48,10 @@ check "config-env inline path"   "X=/tmp/pwn git --config-env=core.fsmonitor=X s
 check "config-env export path"   "export X=/tmp/pwn; git --config-env core.fsmonitor=X status" DENY
 check "config-env inline less"   "X=less git --config-env=core.pager=X log"        ALLOW
 check "config-env inline false"  "X=false git --config-env=core.fsmonitor=X status" ALLOW
+check "config-env alias quoted"  "alias dg=\"P=delta git --config-env=core.pager=P \"" ALLOW
+check "config-env quoted bad"    "alias dg=\"X=/tmp/pwn git --config-env=core.fsmonitor=X status\"" DENY
+check "config-env extraheader"   "git --config-env=http.extraheader=GIT_AUTH_HEADER fetch" ALLOW
+check "config-env url extraheader" "git -c http.extraHeader= --config-env=http.https://github.com/o/r.git.extraHeader=AUTH clone https://github.com/o/r.git" ALLOW
 check "config-env benign key"    "git --config-env=user.email=EMAIL commit -m x"   ALLOW
 check "fsmonitor -c falsey path" "git -c core.fsmonitor=false.sh status"           DENY
 

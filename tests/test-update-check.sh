@@ -6,6 +6,12 @@ HOOK="$REPO_DIR/hooks/update-check.sh"
 
 echo "=== Update Check Tests ==="
 
+# Run a command and return only once every process it spawned has exited, the
+# backgrounded fetch included: they all inherit fd 9, the write end of a pipe, and
+# `cat` sees EOF only when the last holder exits. A "did not fetch" assertion after
+# this cannot pass merely because a wrong fetch had not started yet.
+_uc_settled() { { "$@" 9>&1 >/dev/null 2>&1; } | cat >/dev/null; }
+
 begin_test "update-check: respects SUPERCHARGER_NO_UPDATE_CHECK=1"
 setup_test_home
 mkdir -p "$HOME/.claude/supercharger"
@@ -35,9 +41,9 @@ touch "$HOME/.claude/supercharger/.update-cache"
 mkdir -p "$HOME/shim"
 printf '#!/bin/sh\ncase "$*" in *api.github.com*) echo x >> "$HOME/fetches" ;; esac\n' > "$HOME/shim/python3"
 chmod +x "$HOME/shim/python3"
-OUT=$(SUPERCHARGER_NO_UPDATE_CHECK=0 PATH="$HOME/shim:$PATH" bash "$HOOK" 2>&1)
-EXIT=$?
-sleep 1  # a wrong fetch is backgrounded; a slow one can only make this pass, never flake
+_uc3() { SUPERCHARGER_NO_UPDATE_CHECK=0 PATH="$HOME/shim:$PATH" bash "$HOOK" > "$HOME/out" 2>&1; echo $? > "$HOME/rc"; }
+_uc_settled _uc3
+OUT=$(cat "$HOME/out"); EXIT=$(cat "$HOME/rc")
 NF=$(cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' ')
 teardown_test_home
 # Should not fetch — and silent (LOCAL == REMOTE)
@@ -223,7 +229,7 @@ _ucn() { cat "$HOME/fetches" 2>/dev/null | wc -l | tr -d ' '; }
 _ucw() { local i=0; while [ "$i" -lt 100 ] && ! eval "$1"; do sleep 0.1; i=$((i+1)); done; }
 _ucf="$HOME/.claude/supercharger/.update-check-failed"
 _uc; _ucw '[ -f "$_ucf" ]'; N1=$(_ucn)
-_uc; sleep 1; N2=$(_ucn)  # negative: a slow wrong fetch can only make this pass
+_uc_settled _uc; N2=$(_ucn)  # negative: wait out the whole process tree, not a fixed 1s
 python3 -c 'import os,sys,time; t=time.time()-25200; os.utime(sys.argv[1],(t,t))' "$_ucf"
 _uc; _ucw '[ "$(_ucn)" -ge 2 ]'; N3=$(_ucn)
 teardown_test_home
@@ -252,7 +258,7 @@ teardown_test_home
 [ "$GOT" = "9.9.9" ] && pass || fail "cache=$GOT, want 9.9.9 (7h-old cache was trusted)"
 
 begin_test "update-check: a 5h-old cache is still trusted"
-_ucl_setup; _ucl_age 18000; _ucl_run; sleep 1
+_ucl_setup; _ucl_age 18000; _uc_settled _ucl_run
 GOT=$(cat "$HOME/.claude/supercharger/.update-cache")
 teardown_test_home
 [ "$GOT" = "4.4.3" ] && pass || fail "cache=$GOT, want 4.4.3 (fetched inside the TTL)"

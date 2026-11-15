@@ -230,7 +230,8 @@ for m in re.finditer(r'''GIT_CONFIG_PARAMETERS=("[^"]*"|'[^']*'|\S*)''', cmd):
 # in the command; with none, the value is invisible here, so an exec-capable key ASKs.
 for m in re.finditer(r'''git\s+(?:[^|;&]*\s)?--config-env(?:=|\s+)(['"]?)([\w][\w.-]*)=([A-Za-z_]\w*)''', cmd):
     key, var = m.group(2), m.group(3)
-    vals = [a.strip("'\"") for a in re.findall(r'''(?:^|[\s;&|(])''' + var + r'''=("[^"]*"|'[^']*'|\S*)''', cmd)]
+    # a quote may open the assignment too: alias x="P=delta git --config-env=core.pager=P"
+    vals = [a.strip("'\"") for a in re.findall(r'''(?:^|[\s;&|("'])''' + var + r'''=("[^"]*"|'[^']*'|\S*)''', cmd)]
     for v in vals:
         emit(keyclass(key, v))
     if not vals and keyclass(key, "!x"):
