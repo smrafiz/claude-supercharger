@@ -4,19 +4,19 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-15, session `104cfc73` (resumed as `74e29661`).*
+*Verified 2026-11-16, session `c8c4db43`.*
 
-- **Released: v4.4.6** (2026-11-13). **Master `1e25caab`** carries #302-#313 unreleased.
-  Release **held by the user**.
-- **In flight: three pushed WIP branches, no PRs** (cc-safety-net delta fixes, 20 bypasses + 3
-  classes): `fix/sn-shell-pipes-normalizer` 2efd841e (A), `fix/sn-git-interp-env` 8ebe3b19 (B),
-  `feat/sn-dropper-metadata-classes` 0fd3e802 (C). Each passes its own new test file; each still
-  needs shellcheck, the full suite, an FP replay, timing, PR and CI. Merge A first, then rebase B, C.
-- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
-  #313 ships an advisory rules line meanwhile.
-- **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
-- Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ are
-  not live here; worktrees `.claude/worktrees/agent-*` hold the three sn branches.
+- **Released: v4.4.6** (2026-11-13). **Master `bc85c97b`** carries #302-#316 unreleased.
+  Release **held by the user** (4.4.7 on their word only).
+- **Merged today:** #315 (PR A, shell/-c/trap/git/xargs) and #316 (PR B, git/interpreter/env).
+- **Open: #317** (PR C, dropper/metadata/interp-fetch/unshare; N2 dropped by the user), head
+  376e92b3; full CI run 43864806536 was running at handoff. Merge with `--match-head-commit`.
+- **Local-only branches on the session machine (not pushed):** `fix/sc-security-scanner-fp`
+  c7103a5d (the /sc-security skill-scan FP: shipped-hash manifest, CRLF, 5 tests) and
+  `perf/normalize-c-locale` 95346e9a (`LC_ALL=C` in normalize_cmd; speedup unmeasured). Both
+  are on old master dd9a77d9: rebase, run the suite, open a PR, dispatch CI.
+- **No worktrees** (all removed 2026-11-16 at the user's request).
+- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks`).
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -54,6 +54,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-16 (deep) — c8c4db43
+Finished the cc-safety-net A/B/C PRs: merged #315 and #316, opened #317. A 10k transcript replay
+caught 9 real-work FPs the tests missed; two quadratic hot-path steps fixed (344 s, 4-14 s). N2 dropped.
+Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
+
 #### 2026-11-15 (deep) — 104cfc73
 cc-safety-net delta audit: 20 bypasses of our rules + 3 new classes; fixes split into three WIP
 branches (A/B/C), pushed at shutdown, no PRs. Posted anthropics/claude-code#110181.
@@ -74,9 +79,3 @@ Detail: `.claude/handoff-e7f6ce82-f0ce-4e41-957d-c06160b73ecb.md`
 Merged #299; master went red on the ubuntu-26.04 image switch. Root cause: timing EXIT trap
 rewrote a deny (exit 2) to exit 1 on an unwritable audit dir — fixed in #301. Released v4.4.6.
 Detail: `.claude/handoff-00ecfc20-17c7-4686-8d8f-3c1c1b36af96.md`
-
-#### 2026-11-12 (deep) — 104cfc73
-Merged #292-#297: desktop-input category, aidevops round 2 (Google secrets, OAST catchers, 13
-injection families, harness-message secret warn), lodeline config-scan keys. Merged #298 (MCP,
-frontmatter hooks, AGENTS.md). Open: #299 (normalizer bypasses), CI running. 4.4.6 held.
-Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`

@@ -1296,3 +1296,25 @@ catch `SystemExit`, and call the handler directly.
   command is denied as the outer command. Pass it from a file. The commit guard refuses a `wip(`
   type, so tell agents to use `chore(` for work-in-progress commits.
 
+
+## Notes from 2026-11-16
+
+- **Replay real commands before merging a guard change.** Feeding 10,000 unique Bash commands
+  from local transcripts through `safety.sh` and `git-safety.sh`, on the branch and on master,
+  found what the tests did not: 4 new denies in A, 0 in B, 5 in C. Every one was real work.
+  Compare verdicts per command and read each difference, rather than counting blocks.
+- **Look for quadratic cost before shipping, and test it at a size that fails.** Two quadratic
+  steps sat on the Bash hot path. A `=~` walk over quoted spans cost 344 s on 6000 spans, and a
+  multi-`*` case glob (`*["']*[/\\]*["']*`) cost 4 s idle and 14 s on a CI runner. Any glob
+  with two or more `*[class]` steps on tool input is suspect. A timing test whose ceiling the
+  slow version still meets locally proves nothing: grow the payload until it fails with the fix
+  removed (12,000 spans: 16 s before, about 1 s after).
+- **A backslash inside a bracket class is a member.** `[\;\&\|]` also matches `\`, so
+  `echo rc=\$?` in a `-c` body read as a variable in command position. Keep such regexes in a
+  variable with a bare class: `rx='(^|[;&|])[[:space:]]*\$'`.
+- **Code the guard can read asks; code it cannot read denies.** A `$( )` in a single-quoted
+  `-c` piece runs in the inner shell and is visible text, so it asks, emitted last so any deny in
+  the same command wins. A substitution the outer shell expands, `base64` or `eval` still denies.
+- **Scanning a heredoc body that the same command runs (N2) was dropped.** It denied five
+  guard-development scripts that carry attack strings as data, and cost about 2 s per 50 KB of
+  body. If it comes back, it should ask on hits in the body only and cap the body size.
