@@ -8,13 +8,15 @@ REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 verdict() {
-  local j h v=ALLOW st
+  local j h v=ALLOW st o ask=""
   j=$(printf '%s' "$1" | python3 -c 'import json,sys; print(json.dumps({"tool_name":"Bash","cwd":"/tmp","tool_input":{"command":sys.stdin.read()}}))')
   for h in safety.sh git-safety.sh; do
     st=$(mktemp -d)
-    SUPERCHARGER_STATE="$st" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/$h" <<<"$j" >/dev/null 2>&1 || v=BLOCK
+    o=$(SUPERCHARGER_STATE="$st" SUPERCHARGER_NO_DEDUP=1 bash "$REPO_DIR/hooks/$h" <<<"$j" 2>/dev/null) || v=BLOCK
+    case "$o" in *'"permissionDecision":"ask"'*) ask=1 ;; esac
     rm -rf "$st"
   done
+  [ "$v" = ALLOW ] && [ -n "$ask" ] && v=ASK
   echo "$v"
 }
 
@@ -64,5 +66,28 @@ for _c in "bash --version" "ksh script.ksh" "sh ./build.sh" "trap 'rm -f \"\$tmp
   begin_test "PR A: still allowed: $(printf '%q' "$_c")"
   [ "$(verdict "$_c")" = ALLOW ] && pass || fail "over-blocked: $_c"
 done
+
+# 10k transcript replay: real -c bodies A denied. `\$?` read as a variable command
+# word (a backslash sat in the separator class); a substitution in single quotes
+# is the inner shell's code, visible here: ask, and a deny elsewhere still wins.
+for _c in "nohup bash -c \"cd '\$PWD' && bash tests/run.sh > '\$L' 2>&1; echo rc=\\\$? >> '\$L'\" > /dev/null 2>&1 < /dev/null &" \
+          "bash -c \"cd \$PWD && bash tests/run.sh; echo EXIT=\\\$?\""; do
+  begin_test "PR A: replay body still allowed: $(printf '%q' "$_c")"
+  [ "$(verdict "$_c")" = ALLOW ] && pass || fail "over-blocked: $_c"
+done
+_c="bash -c 'a=\$(date); echo \$a'"
+begin_test "PR A: substitution in a single-quoted -c body asks"
+[ "$(verdict "$_c")" = ASK ] && pass || fail "got $(verdict "$_c")"
+for _c in "bash -c 'a=\$(date)'; $RM" "bash -c \"echo \$($CU)\"" "bash -c 'echo hi; \$CMD'" "bash -c \"\$X\""; do
+  begin_test "PR A: -c body still denied: $(printf '%q' "$_c")"
+  [ "$(verdict "$_c")" = BLOCK ] && pass || fail "evaded: $_c"
+done
+
+# The quote walk was quadratic: 6000 '…' spans took 344s on master, past the 15s hook
+# timeout (fail open). The ceiling is ~30x the fixed time, so load cannot flake it.
+_big="echo \$($RM)"; for _i in $(seq 6000); do _big="$_big 'a'"; done
+begin_test "PR A: 6000 quoted spans still block, inside the hook timeout"
+_t0=$SECONDS; _v=$(verdict "$_big"); _dt=$((SECONDS - _t0))
+[ "$_v" = BLOCK ] && [ "$_dt" -lt 10 ] && pass || fail "verdict=$_v after ${_dt}s"
 
 report

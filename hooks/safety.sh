@@ -1189,11 +1189,16 @@ if _cat_enabled "destructive"; then
       # piece alone hid everything after it, so join the whole word.
       sc_join_word_into "$_shc_rest"; _shc_body="$_SC_JW"
       _shc_opaque=0
-      case "$_shc_body" in
-        *'$('*|*'`'*|*base64*|*eval*) _shc_opaque=1 ;;
-      esac
-      case "$_SC_JW_EXP" in *'${'*) _shc_opaque=1 ;; esac
-      [[ "$_shc_body" =~ (^|[\;\&\|]|\&\&|\|\|)[[:space:]]*\$ ]] && _shc_opaque=1
+      case "$_shc_body" in *base64*|*eval*) _shc_opaque=1 ;; esac
+      # A substitution the OUTER shell expands (double-quoted or bare piece) is
+      # unknown text. One in a single-quoted piece is visible code the inner shell
+      # runs: ask (deferred to the end, so a deny elsewhere still wins).
+      case "$_SC_JW_EXP" in *'$('*|*'`'*|*'${'*) _shc_opaque=1 ;; esac
+      case "$_shc_body" in *'$('*|*'`'*) [ "$_shc_opaque" = 1 ] || _SHC_ASK=1 ;; esac
+      # Unquoted in [ ]: `[\;\&\|]` also held a backslash, so `rc=\$?` read as a
+      # variable in command position (3 real commands denied in a 10k replay).
+      _shc_cw='(^|[;&|])[[:space:]]*\$'
+      [[ "$_shc_body" =~ $_shc_cw ]] && _shc_opaque=1
     fi
     if [ "$_shc_opaque" = 1 ]; then
       block "dangerous pattern: shell -c with a body that cannot be checked (variable, command substitution or decoded text)"
@@ -1988,6 +1993,13 @@ fi
 # deny in the same command wins.
 if [ -n "${_RM_OUT_ASK:-}" ]; then
   sc_decision ask "this recursively deletes $_RM_OUT_ASK, ${_RM_OUT_WHY:-which is outside this project}." "confirm that directory is meant to go"
+  exit 0
+fi
+
+# Shell -c body with a command substitution in single quotes (recorded above). Last,
+# so a deny in the same command wins.
+if [ -n "${_SHC_ASK:-}" ]; then
+  sc_decision ask "this runs a shell -c body whose substitutions (\$( ) or backticks) run inside that shell and are not checked one by one." "read the body and confirm what each substitution runs"
   exit 0
 fi
 

@@ -699,7 +699,12 @@ normalize_cmd() {
       # `"x'$(cmd)'y"` the ' are literal and $(cmd) runs; masking '…' there hid it.
       # Walk the quotes left to right: '…' -> _Q_, "…" kept, an escaped quote is text.
       local _sb_rx='^([^'"$_sb_q"'"]*)(['"$_sb_q"'"])' _sb_rs="^[^$_sb_q]*$_sb_q" _sb_rd='^([^"\\]|\\.)*"'
-      while [[ "$_sb_r" =~ $_sb_rx ]]; do
+      # Each =~ costs O(length) on bash 3.2, so the walk is quadratic in quotes: 6000
+      # '…' spans took 344s and timed the hook out (fail open). Over 4KB nothing is
+      # masked, which scans MORE text, never less. Once no ' is left, the rest is as is.
+      # shortcut: no masking over 4KB may over-block a huge command; upgrade to a linear awk walk if the FP log shows it.
+      [ "${#_sb_r}" -gt 4096 ] && { _sb_scan="$_sb_r"; _sb_r=""; }
+      while [[ "$_sb_r" == *"$_sb_q"* ]] && [[ "$_sb_r" =~ $_sb_rx ]]; do
         _sb_scan="$_sb_scan${BASH_REMATCH[1]}"; _sb_c="${BASH_REMATCH[2]}"
         _sb_r="${_sb_r:${#BASH_REMATCH[0]}}"
         case "${BASH_REMATCH[1]}" in
