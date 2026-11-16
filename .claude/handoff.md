@@ -17,8 +17,7 @@ session on any machine.**
   #313 ships an advisory rules line meanwhile.
 - **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
 - Per-machine: no worktrees on either machine (2026-11-16). 247c5456's machine: install is
-  v4.4.6 (176 hooks match the tag; the 954fafb note was stale), so 4.4.7's fixes are not live
-  there until `/sc-update`. c8c4db43's machine: not checked.
+  v4.4.7 (updated 2026-11-17 via `/sc-update`; the older 954fafb note was stale). c8c4db43's machine: not checked.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
