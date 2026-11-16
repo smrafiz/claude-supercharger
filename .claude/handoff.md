@@ -4,10 +4,9 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-16, sessions `c8c4db43` then `247c5456`.*
+*Verified 2026-11-17, sessions `c8c4db43` then `247c5456`.*
 
-- **Released: v4.4.6** (2026-11-13). **Master `03ed1a8e`** carries #302-#317 unreleased.
-  Release **held by the user** (4.4.7 on their word only).
+- **Released: v4.4.7** (2026-11-17, `605ebde8`): #302-#318. Nothing unreleased.
 - **cc-safety-net delta fixes all merged:** A #315, B #316, C #317 (dispatched ci.yml green incl.
   Windows 4/4; N2 dropped by the user). No open PRs; no branches on origin besides master.
 - **Local-only branches on c8c4db43's machine (not pushed, absent from 247c5456's machine):**
@@ -17,8 +16,9 @@ session on any machine.**
 - **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
   #313 ships an advisory rules line meanwhile.
 - **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
-- Per-machine: no worktrees on either machine (2026-11-16). Install at commit 954fafb (label
-  4.4.5) as of 2026-11-15, not re-checked, so #293+ are not live there.
+- Per-machine: no worktrees on either machine (2026-11-16). 247c5456's machine: install is
+  v4.4.6 (176 hooks match the tag; the 954fafb note was stale), so 4.4.7's fixes are not live
+  there until `/sc-update`. c8c4db43's machine: not checked.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
