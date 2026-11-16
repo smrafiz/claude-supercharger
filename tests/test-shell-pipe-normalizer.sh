@@ -84,9 +84,11 @@ for _c in "bash -c 'a=\$(date)'; $RM" "bash -c \"echo \$($CU)\"" "bash -c 'echo 
 done
 
 # The quote walk was quadratic: 6000 '…' spans took 344s on master, past the 15s hook
-# timeout (fail open). The ceiling is ~30x the fixed time, so load cannot flake it.
-_big="echo \$($RM)"; for _i in $(seq 6000); do _big="$_big 'a'"; done
-begin_test "PR A: 6000 quoted spans still block, inside the hook timeout"
+# timeout. A quoted-path glob was too: 4s idle and 14s on a CI runner at 6000, which
+# a 10s ceiling let through locally. At 12000 a quadratic step costs ~4x that; the
+# linear path takes ~1s, so the ceiling holds ~10x headroom for a loaded runner.
+_big="echo \$($RM)"; for _i in $(seq 12000); do _big="$_big 'a'"; done
+begin_test "PR A: 12000 quoted spans still block, inside the hook timeout"
 _t0=$SECONDS; _v=$(verdict "$_big"); _dt=$((SECONDS - _t0))
 [ "$_v" = BLOCK ] && [ "$_dt" -lt 10 ] && pass || fail "verdict=$_v after ${_dt}s"
 

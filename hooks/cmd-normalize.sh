@@ -771,8 +771,12 @@ normalize_cmd() {
   # 2026-11-15: a QUOTED path as the command word, `"C:\Program Files\Git\bin\git.exe"`
   # or `"/opt/my tools/git"`: the space keeps it one word for the shell but split it
   # here, so the basename rule never saw it. APPEND the bare, lower-case, .exe-less name.
-  case "$_sb_src" in
-    *[\"\']*[/\\]*[\"\']*)
+  # Two one-class globs, not `*["']*[/\\]*["']*`: with a / only before the first of
+  # 12000 quotes that glob rescans from every quote (3s); the regex below is exact.
+  local _qp_gate=""
+  case "$_sb_src" in *[/\\]*) case "$_sb_src" in *[\"\']*) _qp_gate=1 ;; esac ;; esac
+  case "$_qp_gate" in
+    1)
       if [ "${#_sb_src}" -le 16384 ]; then
         local _qp_q="'" _qp_rx _qp_scan=";$_sb_src" _qp_out=";$_sb_src" _qp_w _qp_hit=""
         _qp_rx='([;&|(`{][[:space:]]*)["'"$_qp_q"'][^"'"$_qp_q"']*[/\\]([[:alpha:]][[:alnum:]_-]*)(\.[eE][xX][eE])?["'"$_qp_q"']([[:space:]]|$)'
