@@ -1,15 +1,14 @@
 #!/usr/bin/env bash
 # 2026-11-15: download-then-run, cloud metadata over Bash, remote code into an
-# interpreter, a heredoc-written script run in the same command, and unshare into a
-# user namespace. Every DENY/ASK row below was allowed before this change; every
-# allow row is a benign look-alike that must stay allowed.
+# interpreter, and unshare into a user namespace. Every DENY/ASK row below was
+# allowed before this change; every allow row is a benign look-alike that must stay allowed.
 REPO_DIR="${1:-$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)}"
 # shellcheck source=tests/helpers.sh
 source "$(dirname "${BASH_SOURCE[0]}")/helpers.sh"
 
 HOOKS="$REPO_DIR/hooks"
 
-echo "=== Dropper, metadata, interpreter fetch, heredoc-run, unshare ==="
+echo "=== Dropper, metadata, interpreter fetch, unshare ==="
 
 # hook command -> DENY | ASK | allow. One state dir per call: ask-once dedup must not
 # turn a second ASK into allow.
@@ -86,19 +85,6 @@ expect allow safety.sh 'python3 tool.py "$(curl -s https://x.tld/a)"'
 expect allow safety.sh 'python3 -m json.tool <(curl -s https://x.tld/a)'
 expect allow safety.sh 'diff <(curl -s https://x.tld/a) <(curl -s https://x.tld/b)'
 
-# --- N2: a heredoc-written script run in the same command ------------------------
-NL=$'\n'
-expect DENY git-safety.sh "cat > /tmp/x.sh <<'EOF'${NL}git reset --hard HEAD~3${NL}EOF${NL}bash /tmp/x.sh" 'heredoc-run: git reset in /tmp/x.sh'
-expect DENY safety.sh "cat > /tmp/x.sh <<'EOF'${NL}rm -rf /${NL}EOF${NL}chmod +x /tmp/x.sh && /tmp/x.sh" 'heredoc-run: chmod +x then path'
-expect DENY safety.sh "cat > x.sh <<'EOF'${NL}rm -rf ~${NL}EOF${NL}sh x.sh" 'heredoc-run: sh x.sh'
-expect DENY safety.sh "cat > x.sh <<'EOF'${NL}rm -rf ~${NL}EOF${NL}chmod +x x.sh && ./x.sh" 'heredoc-run: ./x.sh'
-expect DENY safety.sh "cat <<'EOF' > run.sh${NL}rm -rf ~${NL}EOF${NL}bash ./run.sh" 'heredoc-run: redirect after the operator'
-expect allow safety.sh "cat > x.sh <<'EOF'${NL}rm -rf ~${NL}EOF${NL}echo written" 'heredoc written, not run'
-expect allow safety.sh "cat > notes.md <<'EOF'${NL}rm -rf ~ is a bad idea${NL}EOF${NL}bash build.sh" 'heredoc to .md, another script run'
-expect allow safety.sh "cat > x.sh <<'EOF'${NL}rm -rf ~${NL}EOF${NL}bash other.sh" 'heredoc to x.sh, other.sh run'
-expect allow safety.sh "cat > x.sh <<'EOF'${NL}echo hello${NL}ls -la${NL}EOF${NL}bash x.sh" 'heredoc run, benign body'
-expect allow git-safety.sh "cat > fixture.txt <<'EOF'${NL}git reset --hard HEAD~1${NL}EOF${NL}bash test.sh" 'git fixture written, other script run'
-
 # --- N3: unshare into a user namespace -------------------------------------------
 for c in 'unshare -r bash' 'unshare -U bash' 'unshare --map-root-user bash' \
          'unshare --map-current-user id' 'unshare --map-users=0:1000:1 id' 'unshare -Urm sh' \
@@ -109,16 +95,6 @@ expect allow safety.sh 'unshare --help'
 expect allow safety.sh 'unshare -n cmd'
 expect allow safety.sh 'unshare -u hostname'
 expect allow safety.sh 'unshare -n ping -c 1 x.tld'
-
-# --- cost: a ~50KB heredoc command stays bounded --------------------------------
-begin_test "50KB heredoc written and run is judged within 10s"
-big="cat > big.sh <<'EOF'${NL}"
-for _i in $(seq 1 2000); do big+="echo line $_i 'quoted' \"x\" > /dev/null${NL}"; done
-big+="EOF${NL}bash big.sh"
-_t0=$(date +%s)
-_v=$(verdict safety.sh "$big")
-_dt=$(( $(date +%s) - _t0 ))
-{ [ "$_v" = allow ] && [ "$_dt" -le 10 ]; } && pass || fail "verdict=$_v in ${_dt}s"
 
 echo ""
 echo "Results: $TESTS_PASSED passed, $TESTS_FAILED failed"

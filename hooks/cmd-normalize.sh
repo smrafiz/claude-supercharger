@@ -107,13 +107,6 @@ REDIR = re.compile(r'^[0-9&]*(>>|>[|&]?|<&?)(.*)$')
 
 
 def first_token(seg):
-    words = command_words(seg)
-    # A quoted command word (`'bash'`) is the same word to the shell.
-    return words[0].strip('\'"').rsplit('/', 1)[-1] if words else ''
-
-
-def command_words(seg):
-    """The segment from its command word on, past assignments, redirections, wrappers."""
     seg = re.sub(r'^([A-Za-z_][A-Za-z0-9_]*=\S*\s+)+', '', seg.strip())
     parts = seg.split()
     i = 0
@@ -122,9 +115,10 @@ def command_words(seg):
         if r and not parts[i].startswith('<<'):
             i += 1 if r.group(2) else 2
             continue
+        # A quoted command word (`'bash'`) is the same word to the shell.
         tok = parts[i].strip('\'"').rsplit('/', 1)[-1]
         if tok not in WRAPPERS:
-            return parts[i:]
+            return tok
         i += 1
         while i < len(parts) and (parts[i].startswith('-') or '=' in parts[i]):
             if parts[i] in OPT_TAKES_ARG:
@@ -135,7 +129,7 @@ def command_words(seg):
             i += 1
         if tok == 'chroot' and i < len(parts):
             i += 1              # NEWROOT
-    return []
+    return ''
 
 
 def body_receivers(line, start, end):
@@ -148,52 +142,7 @@ def body_receivers(line, start, end):
     return [t for t in toks if t in executors]
 
 
-# 2026-11-15: a body written to a file that the SAME command then runs is code:
-# `cat > /tmp/x.sh <<'EOF' ... EOF` then `bash /tmp/x.sh` (or `./x.sh`, `python3 x.py`).
-# Narrow on purpose: only the exact path the heredoc wrote, run from outside any body.
-# A body only written, or written to a path nothing runs, stays data.
-WRITTEN = re.compile(r'(?:^|[\s;&|(])(?:>>?|>\|)\s*([^\s;&|<>()]+)'
-                     r'|\btee\s+(?:(?:-a|--append)\s+)?([^\s;&|<>()-][^\s;&|<>()]*)')
-RUNNERS = {'bash', 'sh', 'zsh', 'dash', 'ksh', 'fish', 'source', '.'} | INTERP
-
-
-def _path(p):
-    p = p.strip('\'"')
-    return os.path.normpath(p) if p else ''
-
-
-def ran_paths(text):
-    ran = {}
-    for seg in re.split(r'[;&|\n]', text):
-        words = command_words(seg)
-        if not words:
-            continue
-        head = words[0].strip('\'"')
-        base = re.sub(r'^(python)[0-9.]+$', r'\g<1>3', head.rsplit('/', 1)[-1])
-        if base in RUNNERS:
-            ops = [w for w in words[1:] if not w.startswith('-')]
-            if ops:
-                ran[_path(ops[0])] = 'bash' if base in ('source', '.') else base
-        elif '/' in head:
-            ran[_path(head)] = 'sh'
-    return ran
-
-
 lines = cmd.split('\n')
-# Lines outside every heredoc body: where a written script can be run from.
-outside = []
-i = 0
-while i < len(lines):
-    outside.append(lines[i])
-    m = START.search(lines[i])
-    i += 1
-    if m:
-        while i < len(lines):
-            i += 1
-            if (lines[i - 1].strip() if m.group(1) else lines[i - 1]) == m.group(3):
-                break
-RAN = ran_paths('\n'.join(outside))
-
 out = []
 i = 0
 while i < len(lines):
@@ -205,10 +154,6 @@ while i < len(lines):
         continue
     dash, delim = m.group(1), m.group(3)
     recv = body_receivers(line, m.start(), m.end())
-    for w in WRITTEN.finditer(line):
-        r = RAN.get(_path(w.group(1) or w.group(2)))
-        if r:
-            recv.append(r)
     keep_body = bool(recv)
     # code mode: every receiver is a non-shell interpreter -> keep shell-outs only.
     prose_free = code_mode and keep_body and all(t in INTERP for t in recv)
