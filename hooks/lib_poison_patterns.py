@@ -169,7 +169,8 @@ def scan_text(text, fname):
             findings.append('HIGH: exfiltration endpoint named (webhook/bot collector) (%dx in %s)' % (n, fname))
     # A command file byte-identical to one Supercharger shipped is our own text: /sc-security
     # names attacks so it can look for them. Keep only live CRITICAL findings for it.
-    if findings and hashlib.sha256(text.encode('utf-8', 'replace')).hexdigest() in _shipped_hashes():
+    # CRLF folded to LF: a Windows checkout of the same file must still match.
+    if findings and hashlib.sha256(text.replace('\r\n', '\n').encode('utf-8', 'replace')).hexdigest() in _shipped_hashes():
         findings = [f for f in findings if f.startswith('CRITICAL')]
     return findings, critical
 

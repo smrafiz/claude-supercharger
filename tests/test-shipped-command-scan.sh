@@ -25,6 +25,15 @@ T=$(mktemp -d); { cat "$REPO_DIR/configs/commands/sc-security.md"; echo; } > "$T
 OUT=$(scan "$T/x.md"); rm -rf "$T"
 case "$OUT" in *"hidden instruction override"*) pass ;; *) fail "no warning: $OUT" ;; esac
 
+begin_test "CRLF text of the shipped file still matches (scan_text callers differ in how they read)"
+python3 - "$REPO_DIR" <<'PY' && pass || fail "CRLF copy not recognised"
+import sys
+sys.path.insert(0, sys.argv[1] + '/hooks')
+import lib_poison_patterns as L
+t = open(sys.argv[1] + '/configs/commands/sc-security.md', newline='').read().replace('\n', '\r\n')
+sys.exit(0 if L.scan_text(t, 'x.md') == ([], 0) else 1)
+PY
+
 begin_test "a shipped hash never hides a live CRITICAL"
 python3 - "$REPO_DIR" <<'PY' && pass || fail "CRITICAL dropped for a shipped hash"
 import hashlib, sys
