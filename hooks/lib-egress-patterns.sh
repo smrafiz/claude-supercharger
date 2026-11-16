@@ -17,7 +17,11 @@
 # 169.254.169.254 (a9fe:a9fe), and octal/hex-dotted + octal-dword encodings that
 # curl/libcurl/browsers resolve to the IMDS v4 address. (Guards percent-decode
 # the blob first — 2.22.5 — so encoded path tokens like /latest/%6d… are caught.)
-EGRESS_METADATA_RE='169\.254\.169\.254|2852039166|0xa9fea9fe|a9fe:a9fe|100\.100\.100\.200|025177724776|0251\.0376\.0251\.0376|0xa9\.0xfe\.0xa9\.0xfe|\[?fd00:ec2::254\]?|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computemetadata/v1|/metadata/instance'
+# 2026-11-15: + EKS Pod Identity over IPv6 (fd00:ec2::23; its v4 169.254.170.23 is
+# inside the 169.254.170.2 prefix already) and GCP's short host metadata.goog.
+# safety.sh reads this list too (it had kept a narrower copy), so every entry must
+# also be valid POSIX ERE: no \b, no lookaround.
+EGRESS_METADATA_RE='169\.254\.169\.254|2852039166|0xa9fea9fe|a9fe:a9fe|100\.100\.100\.200|025177724776|0251\.0376\.0251\.0376|0xa9\.0xfe\.0xa9\.0xfe|\[?fd00:ec2::254\]?|\[?fd00:ec2::23\]?|metadata\.google\.internal|metadata\.goog([^a-z]|$)|169\.254\.170\.2|/latest/meta-data/|computemetadata/v1|/metadata/instance'
 
 # Chat webhooks (exfil channels). Discord supports a versioned path
 # (/api/v10/webhooks/…) as well as the bare /api/webhooks/… form.
