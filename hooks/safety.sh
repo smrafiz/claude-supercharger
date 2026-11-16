@@ -920,9 +920,15 @@ NETWORK_PATTERNS=(
 # agent should not steal instance credentials, mint cloud keys, escape a
 # container, read k8s secrets, or tear down infra unprompted. Opt out per-project
 # with disableSecurityCategories:["cloud"] for devops work. (from efij Stallion)
+# 2026-11-15: the metadata hosts come from lib-egress-patterns.sh, the list WebFetch and
+# MCP already use. This file kept a narrower copy, so Bash let through the IPv6, decimal
+# and Alibaba spellings those channels denied. The literal is the fallback if the lib
+# cannot be read. No fork: the lib only assigns variables.
+# shellcheck source=hooks/lib-egress-patterns.sh
+. "${BASH_SOURCE[0]%/*}/lib-egress-patterns.sh" 2>/dev/null || true
 CLOUD_PATTERNS=(
-  # Cloud instance-metadata SSRF — steals IAM/instance creds (AWS/GCP/ECS IMDS)
-  '(169\.254\.169\.254|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computeMetadata/v1|/metadata/instance)'
+  # Cloud instance-metadata SSRF — steals IAM/instance creds (AWS/GCP/ECS/Azure/Alibaba IMDS)
+  "(${EGRESS_METADATA_RE:-169\.254\.169\.254|metadata\.google\.internal|169\.254\.170\.2|/latest/meta-data/|computeMetadata/v1|/metadata/instance})"
   # Assume-role / service-account impersonation → fresh live cloud creds
   'aws[[:space:]]+sts[[:space:]]+assume-role'
   '(--impersonate-service-account|workload-identity-pools[[:space:]]+create-cred-config)'
@@ -988,7 +994,23 @@ EXFIL_PATTERNS=(
   '((^|[[:space:]])(ngrok|cloudflared|localtunnel|serveo|chisel|bore|pinggy)([[:space:]]|$)|tailscale[[:space:]]+funnel|(^|[[:space:]])ssh[[:space:]]+[^;&|]*-[RD]([[:space:]]|$))'
   # Remote-script dropper (SPLIT form the `| sh` rule misses): fetch a script file,
   # then chmod +x / interpret / ./ it in the same command chain.
-  '(curl|wget)[^;&|]*\.(sh|bash|ps1|py)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*(chmod[^;&|]*\+x|(^|[[:space:]])(bash|sh|python|node)[[:space:]]|\./)'
+  # 2026-11-15: the executor list was bash|sh|python|node, each followed by a space,
+  # so `python3 i.py`, `source i.sh`, `. ./i.sh`, `sudo bash i.sh` and `env X=1 bash`
+  # all ran the fetched script unflagged. An elevating or env prefix is now skipped.
+  '(curl|wget)[^;&|]*\.(sh|bash|zsh|ps1|py)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?(chmod[^;&|]*\+x|(bash|sh|zsh|dash|ksh|python[0-9.]*|node|source|\.)[[:space:]]|\./)'
+  # The same for a fetched JS/Ruby/Perl/PHP file, run by its own runtime. Narrower than
+  # the line above: the executed operand must carry a script extension too, so
+  # downloading a library (`-o vendor/x.js`) and then `npm test` stays allowed.
+  '(curl|wget)[^;&|]*\.(js|mjs|cjs|rb|pl|php)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?(node|deno|bun|ruby|perl|php)[[:space:]]+([^;&|]*[[:space:]])?[^;&|[:space:]]*\.(js|mjs|cjs|rb|pl|php)([[:space:]]|[;&|)]|$)'
+)
+# 2026-11-15: downloaded text run as code by an INTERPRETER. The process-substitution
+# and `-c` rules name shells only, so `python3 <(curl …)` and `node -e "$(curl …)"`
+# ran a download unseen. The substitution must BE the program (directly after the
+# code flag, or the script operand), so `python3 tool.py "$(curl …)"` -- a download
+# passed to a local script as data -- stays allowed.
+INTERP_FETCH_PATTERNS=(
+  '(^|[^[:alnum:]_])(python[0-9.]*|node|deno|bun|perl|ruby|php)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+<\([^)]*(curl|wget|xh|xhs|http|https|fetch|aria2c|nc|ncat|netcat)[[:space:]]'
+  '(^|[^[:alnum:]_])(python[0-9.]*|node|deno|bun|perl|ruby|php)([[:space:]]+-[[:alnum:]-]+)*[[:space:]]+(-[[:alnum:]]*[ceEr]|--eval|--print|eval)[[:space:]]*["'"'"']?(\$\(|`)[[:space:]]*(curl|wget|xh|xhs|http|https|fetch|aria2c|nc|ncat|netcat)[[:space:]]'
 )
 # v2.9.14: credential-store abuse commands (category: credentials).
 CRED_CMD_PATTERNS=(
@@ -1136,6 +1158,7 @@ _cat_enabled "network" && _add_pats "it downloads a file with a Windows tool tha
 _cat_enabled "persistence" && _add_pats "it adds a program that starts with Windows, which keeps it running after this session" "${WIN_PERSIST_PATTERNS[@]}"
 _cat_enabled "network" && _add_pats "it feeds downloaded or decoded text straight into a shell, so code nobody has read would run" "${NETWORK_PATTERNS[@]}"
 _cat_enabled "network" && _add_pats "it could open a way for data to leave the machine (a live browser session, a reverse tunnel, or a fetched script run straight away)" "${EXFIL_PATTERNS[@]}"
+_cat_enabled "network" && _add_pats "it feeds downloaded text straight into an interpreter (python, node, perl, ruby, php), so code nobody has read would run" "${INTERP_FETCH_PATTERNS[@]}"
 _cat_enabled "cloud" && _add_pats "it could take cloud credentials or let a container reach the host machine" "${CLOUD_PATTERNS[@]}"
 _cat_enabled "persistence" && _add_pats "it sets up access that outlasts this session (sudo rights, an SSH key, a scheduled task, or a redirected domain)" "${PERSIST_PATTERNS[@]}"
 _cat_enabled "credentials" && _add_pats "it would read stored passwords or keys, or make their storage less safe" "${CRED_CMD_PATTERNS[@]}"
@@ -1967,6 +1990,19 @@ if _cat_enabled "destructive" && [ -z "${_RM_VAR_ASK:-}" ]; then
   _KP_SUBST='(^|[^[:alnum:]_-])kill[[:space:]][^;&|]*(\$\(|`)[[:space:]]*(pgrep|pidof)[[:space:]]'
   if [[ "$CMD_SCAN" =~ $_KP_NAME ]] || [[ "$CMD_SCAN" =~ $_KP_PIPE ]] || [[ "$CMD_SCAN" =~ $_KP_SUBST ]]; then
     sc_decision ask "this kills processes by name or pattern, which can reach processes other sessions own (a dev server, another agent's test run)." "kill the PID of a process you started (kill <pid>), or confirm every match is yours"
+    exit 0
+  fi
+fi
+
+# 2026-11-15: `unshare` with a user namespace makes the agent root inside it (Linux),
+# the usual first step of a kernel privilege-escalation chain. ASK: rootless containers
+# and build sandboxes do this for real. Case-sensitive on purpose: -u is the UTS
+# namespace, -U the user one. Options must come straight after unshare, so a flag of
+# the command it runs (`unshare -n ping -c 1 x`) does not count.
+if _cat_enabled "destructive" && [ -z "${_RM_VAR_ASK:-}" ]; then
+  _US_RX='(^|[^[:alnum:]_-])unshare([[:space:]]+-[^[:space:];&|]+)*[[:space:]]+(-[[:alpha:]]*[rUc][[:alpha:]]*|--user|--map-(root-user|current-user|users?|groups?|auto))([=[:space:];&|)]|$)'
+  if [[ "$CMD_SCAN" =~ $_US_RX ]]; then
+    sc_decision ask "this creates a user namespace where the command runs as root (unshare ${BASH_REMATCH[3]}), a common first step in Linux privilege escalation." "confirm this is a sandbox or rootless-container step you meant to run"
     exit 0
   fi
 fi

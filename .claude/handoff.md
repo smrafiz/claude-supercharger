@@ -4,19 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-16, session `c8c4db43`.*
+*Verified 2026-11-16, sessions `c8c4db43` then `247c5456`.*
 
-- **Released: v4.4.6** (2026-11-13). **Master `bc85c97b`** carries #302-#316 unreleased.
+- **Released: v4.4.6** (2026-11-13). **Master `03ed1a8e`** carries #302-#317 unreleased.
   Release **held by the user** (4.4.7 on their word only).
-- **Merged today:** #315 (PR A, shell/-c/trap/git/xargs) and #316 (PR B, git/interpreter/env).
-- **Open: #317** (PR C, dropper/metadata/interp-fetch/unshare; N2 dropped by the user), head
-  376e92b3; full CI run 43864806536 was running at handoff. Merge with `--match-head-commit`.
-- **Local-only branches on the session machine (not pushed):** `fix/sc-security-scanner-fp`
-  c7103a5d (the /sc-security skill-scan FP: shipped-hash manifest, CRLF, 5 tests) and
-  `perf/normalize-c-locale` 95346e9a (`LC_ALL=C` in normalize_cmd; speedup unmeasured). Both
-  are on old master dd9a77d9: rebase, run the suite, open a PR, dispatch CI.
-- **No worktrees** (all removed 2026-11-16 at the user's request).
-- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks`).
+- **cc-safety-net delta fixes all merged:** A #315, B #316, C #317 (dispatched ci.yml green incl.
+  Windows 4/4; N2 dropped by the user). No open PRs; no branches on origin besides master.
+- **Local-only branches on c8c4db43's machine (not pushed, absent from 247c5456's machine):**
+  `fix/sc-security-scanner-fp` c7103a5d (the /sc-security skill-scan FP: shipped-hash manifest,
+  CRLF, 5 tests) and `perf/normalize-c-locale` 95346e9a (`LC_ALL=C` in normalize_cmd; speedup
+  unmeasured). Both are on old master dd9a77d9: rebase, run the suite, open a PR, dispatch CI.
+- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
+  #313 ships an advisory rules line meanwhile.
+- **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
+- Per-machine: no worktrees on either machine (2026-11-16). Install at commit 954fafb (label
+  4.4.5) as of 2026-11-15, not re-checked, so #293+ are not live there.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
