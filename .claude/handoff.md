@@ -4,19 +4,17 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-15, session `104cfc73` (resumed as `74e29661`).*
+*Verified 2026-11-16, session `247c5456`.*
 
-- **Released: v4.4.6** (2026-11-13). **Master `1e25caab`** carries #302-#313 unreleased.
-  Release **held by the user**.
-- **In flight: three pushed WIP branches, no PRs** (cc-safety-net delta fixes, 20 bypasses + 3
-  classes): `fix/sn-shell-pipes-normalizer` 2efd841e (A), `fix/sn-git-interp-env` 8ebe3b19 (B),
-  `feat/sn-dropper-metadata-classes` 0fd3e802 (C). Each passes its own new test file; each still
-  needs shellcheck, the full suite, an FP replay, timing, PR and CI. Merge A first, then rebase B, C.
+- **Released: v4.4.6** (2026-11-13). **Master `03ed1a8e`** carries #302-#317 unreleased.
+  Release **held by the user**; next would be 4.4.7.
+- **cc-safety-net delta fixes all merged:** A #315, B #316, C #317 (dispatched ci.yml green incl.
+  Windows 4/4). No open PRs, no WIP branches.
 - **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
   #313 ships an advisory rules line meanwhile.
 - **Open questions:** interactive trust dialog vs disableAllHooks (only `-p` tested).
-- Per-machine (this machine, 2026-11-15): install at commit 954fafb (label 4.4.5), so #293+ are
-  not live here; worktrees `.claude/worktrees/agent-*` hold the three sn branches.
+- Per-machine (as of 2026-11-15, not re-checked): install at commit 954fafb (label 4.4.5), so
+  #293+ are not live there. On 2026-11-16 this machine had no extra worktrees, only `master`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
