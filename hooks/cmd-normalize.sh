@@ -773,6 +773,28 @@ normalize_cmd() {
       fi
       ;;
   esac
+  # 2026-11-17 (memokit review): two more spellings the joins above miss. A word
+  # quoted WHOLE, `git "push" "--force"`, has no word character touching its quote;
+  # a redirect glued to a word, `git push -f>/dev/null` or `origin main>/dev/null`,
+  # made the flag `-f>/dev/null` and the branch `main>/dev/null`, so a force push to
+  # main fell from deny to ask. APPEND the spelling with both undone. Regex gates
+  # (fork-free); the sed runs only when one matches. `->` and `=>` are not redirects
+  # worth a fork, so a `-` or `=` before the `>` does not open the gate.
+  local _uq_rx="(^|[[:space:];&|])['\"][-[:alnum:]_./+:=]+['\"]([[:space:];&|]|$)" _gr_rx='[^[:space:]<>&|=0-9-]&?[0-9]*>'
+  if [ "${#_sb_src}" -le 4096 ] && { [[ "$_sb_src" =~ $_uq_rx ]] || [[ "$_sb_src" =~ $_gr_rx ]]; }; then
+    local _sc_u
+    # A message value is data, not a flag: `git commit -m '-n'` must not become
+    # `-m -n` (--no-verify) in the copy. Blank it first, as sc_blank_data_into does.
+    _sc_u=$(printf '%s' "$_sb_src" | LC_ALL=C sed -E \
+      -e "s/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--title)[[:space:]]+)'[^']*'/\\1''/g" \
+      -e 's/((^|[[:space:]])(-[aqsvnS]*m|--message|--body|--notes|--title)[[:space:]]+)"[^"]*"/\1""/g' \
+      -e "s/(^|[[:space:];&|])'([-[:alnum:]_./+:=]+)'([[:space:];&|]|$)/\\1\\2\\3/g" \
+      -e 's/(^|[[:space:];&|])"([-[:alnum:]_./+:=]+)"([[:space:];&|]|$)/\1\2\3/g' \
+      -e "s/(^|[[:space:];&|])'([-[:alnum:]_./+:=]+)'([[:space:];&|]|$)/\\1\\2\\3/g" \
+      -e 's/(^|[[:space:];&|])"([-[:alnum:]_./+:=]+)"([[:space:];&|]|$)/\1\2\3/g' \
+      -e 's/([^[:space:]<>&|=0-9-])(&?[0-9]*>)/\1 \2/g')
+    [ -n "$_sc_u" ] && [ "$_sc_u" != "$_sb_src" ] && cmd="$cmd ; $_sc_u"
+  fi
   # 2026-11-15: a QUOTED path as the command word, `"C:\Program Files\Git\bin\git.exe"`
   # or `"/opt/my tools/git"`: the space keeps it one word for the shell but split it
   # here, so the basename rule never saw it. APPEND the bare, lower-case, .exe-less name.
@@ -982,6 +1004,16 @@ sc_blank_data_into() {
         -e 's/(gh[[:space:]]+api[[:space:]][^;&|]*search\/[^;&|]*(-f|-F|--field|--raw-field)[[:space:]]+)"q=[^"$`\\]*"/\1""/g' \
         -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?$/\1gh help/' \
         -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
+      ;;
+  esac
+  # 2026-11-17 (memokit review): `eval "$(ssh-agent -s)"` evals the env setup a local
+  # tool prints, and the blanket eval rule denied it. Only these emitters, only plain
+  # arguments: the eval word becomes `:`. The substitution body is still appended by
+  # normalize_cmd and checked by every rule; `eval "$(curl …)"` stays denied.
+  case "$CMD_SCAN" in
+    *eval*'$('*)
+      CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
+        -e 's/(^|[;&|(]|[[:space:]])eval([[:space:]]+"?\$\((ssh-agent|brew[[:space:]]+shellenv|(pyenv|rbenv|nodenv|jenv|zoxide|starship|direnv|fnm|mise|rtx)[[:space:]]+(init|env|hook|activate))([[:space:]]+[-[:alnum:]_.]+)*\)"?([[:space:]]|[;&|)]|$))/\1:\2/g')
       ;;
   esac
   _SC_SCAN="$CMD_SCAN"

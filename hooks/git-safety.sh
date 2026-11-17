@@ -20,7 +20,7 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # v2.26.30: the work-destroying family below adds verbs. A rule the gate does not
 # admit never runs — the gate is the first thing to extend, not the last.
 case "$_INPUT" in
-  *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -D"*|*"branch --delete"*|\
+  *push*|*reset*|*checkout*|*restore*|*clean*|*"branch -"*|*"branch --delete"*|\
   *"stash drop"*|*"stash clear"*|*switch*|*reflog*|*prune*|*filter-branch*|\
   *filter-repo*|*worktree*|*rebase*|*"git replace"*|*update-ref*|*commit*|\
   *"branch -f"*|*"branch --force"*|*read-tree*|*alias.*|*send-pack*|*" -B "*|*"pr merge"*|*/merge*|*[hH]ooks[pP]ath*|\
@@ -324,13 +324,24 @@ while IFS= read -r seg; do
   fi
 
   # v4.2.0: -n / --dry-run only lists what would go.
-  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]] \
-     && ! [[ "$seg" =~ (^|[[:space:]])(--dry-run|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$) ]]; then
-    block "git clean with force permanently removes untracked files"
+  # 2026-11-17 (memokit review): `-e`/`--exclude` takes the next word as a pattern, so
+  # `git clean -fdx -e -nx` really cleans; its `-nx` read as a dry run. Drop each
+  # exclude and its pattern before looking for -n.
+  if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
+    _gc_seg="$seg"
+    while [[ "$_gc_seg" =~ (^|[[:space:]])(-[a-zA-Z]*e|--exclude)[[:space:]]+[^[:space:]]+ ]]; do
+      _gc_seg="${_gc_seg%%"${BASH_REMATCH[0]}"*} ${_gc_seg#*"${BASH_REMATCH[0]}"}"
+    done
+    [[ "$_gc_seg" =~ (^|[[:space:]])(--dry-run|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$) ]] \
+      || block "git clean with force permanently removes untracked files"
   fi
 
+  # 2026-11-17 (memokit review): -d with -f is -D, in any spelling: `-df`, `-fd`,
+  # `-d -f`, `--delete -f`. Only the fused `-D` and the two long forms were seen.
   if [[ "$seg" =~ ^git\ branch[[:space:]] ]] \
-     && [[ "$seg" =~ (^|[[:space:]])(-D|--delete[[:space:]]+--force|--force[[:space:]]+--delete)([[:space:]]|$) ]]; then
+     && { [[ "$seg" =~ (^|[[:space:]])(-[a-zA-Z]*D[a-zA-Z]*|--delete[[:space:]]+--force|--force[[:space:]]+--delete)([[:space:]]|$) ]] \
+          || { [[ "$seg" =~ (^|[[:space:]])(-[a-zA-Z]*d[a-zA-Z]*|--delete)([[:space:]]|$) ]] \
+               && [[ "$seg" =~ (^|[[:space:]])(-[a-zA-Z]*f[a-zA-Z]*|--force)([[:space:]]|$) ]]; }; }; then
     if [[ "$seg" =~ (^|[[:space:]])(main|master)([[:space:]]|$) ]]; then
       block "force-deleting a protected branch (main/master)"
     fi
