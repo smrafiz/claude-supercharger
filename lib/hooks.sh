@@ -744,6 +744,8 @@ deploy_hook_scripts() {
   # gate (python -c, curl, find, .env, secret, aws, …). Deploy them here.
   cp "$source_dir/hooks/"*.py "$stage/" 2>/dev/null || true
   chmod 700 "$stage/"*.py 2>/dev/null || true
+  # lib_poison_patterns.py reads it to recognise our own command files.
+  cp "$source_dir/configs/commands-shipped.txt" "$stage/" 2>/dev/null || true
   _swap_into "$target_dir" "$stage"
 
   # Deploy tools so they're available after one-liner installs (no local repo)
