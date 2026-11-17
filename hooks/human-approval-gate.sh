@@ -33,6 +33,42 @@ HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 
 check_hook_disabled "human-approval-gate" && exit 0
 
+# 2026-11-17 (from tsrmehmet/memokit): the same script runs on UserPromptSubmit,
+# where the USER grants a pending code by starting a prompt with `approve <code>`
+# (or a bare `approve` when exactly one code is pending). Only a prompt can write
+# a grant, so Claude retrying is never mistaken for the user saying yes. A hook
+# "ask" is no substitute: it does not reliably prompt in auto mode or `claude -p`.
+case "$_INPUT" in
+  *UserPromptSubmit*)
+    case "$_INPUT" in *[aA][pP][pP][rR][oO][vV][eE]*) ;; *) exit 0 ;; esac
+    _hp=$(printf '%s\n' "$_INPUT" | jq -r '(.session_id // "nosession") + "\n" + (.prompt // "")' 2>/dev/null) || exit 0
+    _hsid=${_hp%%$'\n'*}; _hl=${_hp#*$'\n'}; _hl=${_hl%%$'\n'*}; _hl=${_hl//$'\r'/}
+    _hl=$(printf '%s' "$_hl" | tr '[:upper:]' '[:lower:]')
+    [[ "$_hl" =~ ^[[:space:]]*(approve|approved)([[:space:]]+([0-9a-f]{6}))?([[:space:]]+([0-9]+)(m|h))?[[:space:]]*[.!]?[[:space:]]*$ ]] || exit 0
+    _hc="${BASH_REMATCH[3]}"; _hn="${BASH_REMATCH[5]}"; _hu="${BASH_REMATCH[6]}"; _hdir="$SUPERCHARGER_STATE/scope"
+    # `approve <code> 30m` also opens a window for that code's category (memokit's
+    # change window, lightly): one approval for a multi-step plan. At most 4h; a
+    # longer one counts as a plain single-use approval.
+    _hwin=0
+    if [ -n "$_hc" ] && [ -n "$_hn" ]; then
+      _hwin=$(( 10#$_hn )); [ "$_hu" = h ] && _hwin=$(( _hwin * 60 ))
+      [ "$_hwin" -gt 240 ] && _hwin=0
+    fi
+    _hpend=()
+    for _hf in "$_hdir/.gate-pending-${_hsid}-${_hc}"*; do [ -f "$_hf" ] && _hpend+=("$_hf"); done
+    # A bare approve is unambiguous only with one code pending.
+    if [ -n "$_hc" ] || [ "${#_hpend[@]}" -eq 1 ]; then
+      for _hf in ${_hpend[@]+"${_hpend[@]}"}; do
+        : > "${_hf/.gate-pending-/.gate-granted-}"
+        if [ "$_hwin" -gt 0 ]; then
+          _hcat=$(head -1 "$_hf" 2>/dev/null); _hcat=${_hcat//[^a-z0-9_-]/}
+          [ -n "$_hcat" ] && echo $(( $(date -u +%s) + _hwin * 60 )) > "$_hdir/.gate-granted-window-${_hsid}-${_hcat}"
+        fi
+      done
+    fi
+    exit 0 ;;
+esac
+
 # The skip list is CONFIG state, so it starts empty and only .supercharger.json
 # (or the namespaced override below) may fill it. Without this line an inherited
 # environment variable seeded it: `SKIP_CATS` is a plausible name for someone's
@@ -299,31 +335,45 @@ CMD_HASH=${CMD_HASH//$'\r'/}
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 [ -z "$SID" ] && SID="nosession"
 PENDING_FILE="$SCOPE_DIR/.gate-pending-${SID}-${CMD_HASH}"
+GRANT_FILE="$SCOPE_DIR/.gate-granted-${SID}-${CMD_HASH}"
+CODE=${CMD_HASH:0:6}
+
+# An open window for this category (the user typed `approve <code> <N>m`) covers it.
+# Named under the .gate-granted prefix so safety.sh/path-guard's selfmod rule protects it.
+WINDOW_FILE="$SCOPE_DIR/.gate-granted-window-${SID}-${MATCH_CAT}"
+if [ -f "$WINDOW_FILE" ]; then
+  _WEND=$(head -c 20 "$WINDOW_FILE" 2>/dev/null); _WEND=${_WEND//[^0-9]/}
+  if [ -n "$_WEND" ] && [ "$_WEND" -gt "$(date -u +%s)" ]; then
+    rm -f "$PENDING_FILE" "$GRANT_FILE"
+    exit 0
+  fi
+  rm -f "$WINDOW_FILE"
+fi
 
 if [ -f "$PENDING_FILE" ]; then
-  # Check TTL — pending files older than 1 hour are stale (session ended without retry)
+  # Check TTL — a code older than 1 hour is stale: ask again with a fresh one.
   FILE_TS=$(tail -1 "$PENDING_FILE" 2>/dev/null || echo "0")
   NOW=$(date -u +%s 2>/dev/null || echo "0")
   AGE=$(( NOW - FILE_TS ))
   if [ "$AGE" -gt 3600 ]; then
-    # Stale — delete and block again
-    rm -f "$PENDING_FILE"
-  else
-    # Fresh — user was asked and Claude is retrying, allow through
-    rm -f "$PENDING_FILE"
+    rm -f "$PENDING_FILE" "$GRANT_FILE"
+  elif [ -f "$GRANT_FILE" ]; then
+    # The user typed `approve <code>`: let this one run through, once.
+    rm -f "$PENDING_FILE" "$GRANT_FILE"
     exit 0
   fi
 fi
 
-# First encounter — create pending file and block
-printf '%s\n%s\n' "$MATCH_CAT" "$(date -u +%s 2>/dev/null || echo 0)" > "$PENDING_FILE"
+# Not approved yet — (re)record the pending code and block
+[ -f "$PENDING_FILE" ] || printf '%s\n%s\n' "$MATCH_CAT" "$(date -u +%s 2>/dev/null || echo 0)" > "$PENDING_FILE"
 
 DISPLAY_CMD=$(printf '%s' "$COMMAND" | head -c 200)
 MSG="Human approval required [${MATCH_CAT}]: ${MATCH_REASON}.
 
 Command: ${DISPLAY_CMD}
 
-Ask the user to confirm before retrying. If approved, retry the exact same command."
+Stop and ask the user. To allow it once, the user replies: approve ${CODE}
+Then retry the exact same command. A retry without that reply is blocked again."
 
 echo "[Supercharger] human-approval-gate: blocking — ${MATCH_REASON}" >&2
 sc_decision deny "$MSG"

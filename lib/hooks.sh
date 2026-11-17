@@ -468,6 +468,8 @@ get_hooks_for_mode() {
     hooks+=("UserPromptSubmit||${hooks_dir}/prompt-validator.sh|async")
     hooks+=("UserPromptSubmit||${hooks_dir}/shell-escape-advisor.sh|")
     hooks+=("UserPromptSubmit||${hooks_dir}/destructive-prompt-scanner.sh|")
+    # 2026-11-17: the approval gate reads `approve <code>` from the USER's prompt.
+    hooks+=("UserPromptSubmit||${hooks_dir}/human-approval-gate.sh|")
     # v4.2.0: inbound messages from other sessions/agents are harness text, which the
     # prompt scanners skip; this one scans exactly those, advisory only.
     hooks+=("UserPromptSubmit||${hooks_dir}/peer-message-scanner.sh|")
