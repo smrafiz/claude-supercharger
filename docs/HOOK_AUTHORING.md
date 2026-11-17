@@ -1318,3 +1318,26 @@ catch `SystemExit`, and call the handler directly.
 - **Scanning a heredoc body that the same command runs (N2) was dropped.** It denied five
   guard-development scripts that carry attack strings as data, and cost about 2 s per 50 KB of
   body. If it comes back, it should ask on hits in the body only and cap the body size.
+
+## Notes from 2026-11-17
+
+- **Pick the command copy on purpose.** `CMD` in `safety.sh` is the normalized copy: `sh -c` is
+  unwrapped and quotes are changed. A question about the command's shape ("is the whole command
+  one `docker run`?") answered wrongly on `CMD` and correctly on the raw `$COMMAND` (#321).
+  Match patterns on `CMD`; parse structure with shlex on `$COMMAND`.
+- **On Windows one path arrives in two spellings in the same call.** An env var handed to
+  python.exe becomes `C:\Users\x`; the same path inside the command stays `/c/Users/x`. Fold
+  both to one key before comparing (#321: 2 rows failed only on the Windows runners).
+- **Test rows should expect the platform's own baseline.** The outside-project rm ASK is skipped on
+  native Windows Python, so a row asserting ASK fails there for a reason unrelated to the change.
+  Compute the expected verdict from a bare control command on the same platform.
+- **Measure a perf change under load and idle.** `LC_ALL=C` in `normalize_cmd` (#320): 12.49 /
+  13.00 / 13.72 s → 7.22 / 7.69 / 8.13 s at load 21–55, and 123.57 / 94.05 / 46.34 s →
+  62.29 / 24.97 / 24.70 s at load ≈115, on a 63,386-byte `$( )` payload. One idle number
+  would have hidden how much the spread moves.
+- **A skill's `` !`command` `` is not a bypass on current Claude Code.** Live probe: the harness
+  rewrites it into a "run this first" instruction and the model runs it through the Bash tool,
+  where PreToolUse guards see it. Re-probe if skill rendering changes.
+- **Some Claude Code settings count only from managed files.** `allowManagedHooksOnly` in user or
+  project settings does nothing; in managed settings it stops every user and plugin hook. Read
+  the docs' scope column before adding a health check, or it reports a value that has no effect.
