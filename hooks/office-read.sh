@@ -42,7 +42,7 @@ real = os.path.realpath(fp)
 if proj == "/" or not real.startswith(proj + os.sep):
     sys.exit(0)
 # Any Read deny/ask rule, in any settings file we can see: stay out.
-home = os.environ.get("HOME") or os.path.expanduser("~")
+home = os.environ.get("HOME", "")
 for s in (os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json"),
           os.path.join(proj, ".claude", "settings.json"), os.path.join(proj, ".claude", "settings.local.json"),
           "/Library/Application Support/ClaudeCode/managed-settings.json", "/etc/claude-code/managed-settings.json"):
