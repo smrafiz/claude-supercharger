@@ -264,6 +264,13 @@ if _cat_enabled "filesystem"; then
       # segment may now arrive indented (newline-split); strip before slicing
       seg="${seg#"${seg%%[![:space:]]*}"}"
       args="${seg#rm }"
+      # 2026-11-17 (memokit review): a redirect is not an operand. `rm -rf node_modules
+      # 2> /dev/null` read /dev/null as a target and was denied as a protected path, by
+      # the python resolver and the Windows text arm alike. Drop each redirect and its
+      # target here, once, so every check below sees operands only. Slices, not ${v/x/y}.
+      while [[ "$args" =~ (^|[[:space:]])[0-9]*(&?>>?|<|>&|<&)[[:space:]]*[^[:space:]]* ]]; do
+        args="${args%%"${BASH_REMATCH[0]}"*} ${args#*"${BASH_REMATCH[0]}"}"
+      done
 
       # v4.2.0: -R is the same flag as -r (rm(1)); lowercase-only let -Rf through.
       if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*[rR][a-zA-Z]*([[:space:]]|$) ]] || \
@@ -353,19 +360,7 @@ try:
     tokens = shlex.split(args, posix=True)
 except ValueError:
     sys.exit(0)
-# 2026-11-17 (memokit review): a redirect is not an operand. `rm -rf node_modules
-# 2> /dev/null` read /dev/null as a target and was denied as a protected path.
-import re
-_redir = re.compile(r'^[0-9]*(&?>>?|<|>&|<&)')
-skip = False
 for tok in tokens:
-    if skip:
-        skip = False
-        continue
-    m = _redir.match(tok)
-    if m:
-        skip = m.end() == len(tok)  # operator alone: its target is the next word
-        continue
     if not tok or tok.startswith('-'): continue
     expanded = os.path.expanduser(os.path.expandvars(tok))
     target = os.path.realpath(os.path.join(cwd, expanded))
