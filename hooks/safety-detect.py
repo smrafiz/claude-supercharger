@@ -762,6 +762,59 @@ def check_container_mount(c: str) -> str | None:
             return (f"writable container mount of a system path ({host}) — a "
                     f"root container can overwrite host binaries or kernel "
                     f"interfaces; mount it :ro if the container truly needs it")
+    return check_container_rm_mount(c)
+
+
+# The host's project dir as a mount source. `rm -rf .` and `rm -rf "$PWD"` are
+# denied on the host; mounting the dir and deleting the mount target from inside
+# a container did the same thing unguarded (from kenryu42/cc-safety-net #367).
+_CWD_SPELLING = re.compile(r"^(?:\.|\.\.|\$\{?PWD\}?|\$\(pwd\)|`pwd`)$")
+_RM_RECURSIVE_RE = re.compile(r"(?:^|[\s;&|(\"'])rm\s+([^;&|\"')\n]*)")
+
+
+def _host_is_project(host: str) -> bool:
+    h = host.rstrip("/") or "/"
+    if _CWD_SPELLING.match(h) or re.match(r"^(?:\$\{?PWD\}?|\$\(pwd\)|`pwd`|\.)/\.\.?$", h):
+        return True
+    cwd = os.environ.get("CWD", "")
+    if h.startswith("/") and cwd:
+        cwd = os.path.realpath(cwd)
+        t = os.path.realpath(h)
+        return t == cwd or cwd.startswith(t.rstrip("/") + "/")
+    return False
+
+
+def check_container_rm_mount(c: str) -> str | None:
+    """A container run that bind-mounts the project dir and recursively deletes the mount target."""
+    targets = []
+    for m in re.finditer(r"(?:^|\s)(?:-v|--volume)(?:[=]|\s+)(\S+)", c):
+        parts = m.group(1).replace('"', "").replace("'", "").split(":")
+        if len(parts) >= 2 and parts[1].startswith("/") and _host_is_project(parts[0]):
+            if not re.search(r"(?:^|,)(?:ro|readonly)(?:,|$)", parts[2] if len(parts) >= 3 else ""):
+                targets.append((parts[0], parts[1].rstrip("/") or "/"))
+    for m in re.finditer(r"(?:^|\s)--mount(?:[=]|\s+)(\S+)", c):
+        spec = m.group(1).replace('"', "").replace("'", "")
+        src = re.search(r"(?:^|,)(?:source|src)=([^,]+)", spec)
+        dst = re.search(r"(?:^|,)(?:target|dst|destination)=([^,]+)", spec)
+        if src and dst and _host_is_project(src.group(1)) and \
+                not re.search(r"(?:^|,)(?:readonly|ro)(?:[=](?:true|1))?(?:,|$)", spec):
+            targets.append((src.group(1), dst.group(1).rstrip("/") or "/"))
+    if not targets:
+        return None
+    for m in _RM_RECURSIVE_RE.finditer(c):
+        args = m.group(1).split()
+        if not any(re.match(r"^-[a-zA-Z]*[rR]", a) or a == "--recursive" for a in args):
+            continue
+        for a in args:
+            if a.startswith("-"):
+                continue
+            a = re.sub(r"/(?:\*|\.)?$", "", a) or "/"
+            for host, dst in targets:
+                # the mount target itself, its contents, or any parent of it
+                if a == dst or dst.startswith(a.rstrip("/") + "/"):
+                    return (f"recursive rm of a container path ({a}) that is the "
+                            f"host project dir mounted writable ({host}:{dst}) — it "
+                            f"deletes the project on the host, as `rm -rf .` would")
     return None
 
 
