@@ -42,7 +42,10 @@ case "$_INPUT" in
   *UserPromptSubmit*)
     case "$_INPUT" in *[aA][pP][pP][rR][oO][vV][eE]*) ;; *) exit 0 ;; esac
     _hp=$(printf '%s\n' "$_INPUT" | jq -r '(.session_id // "nosession") + "\n" + (.prompt // "")' 2>/dev/null) || exit 0
-    _hsid=${_hp%%$'\n'*}; _hl=${_hp#*$'\n'}; _hl=${_hl%%$'\n'*}; _hl=${_hl//$'\r'/}
+    # Windows jq ends lines with CRLF: a CR left on the session id names a grant file
+    # the PreToolUse side never looks for (Windows CI). Drop every CR first.
+    _hp=${_hp//$'\r'/}
+    _hsid=${_hp%%$'\n'*}; _hl=${_hp#*$'\n'}; _hl=${_hl%%$'\n'*}
     _hl=$(printf '%s' "$_hl" | tr '[:upper:]' '[:lower:]')
     [[ "$_hl" =~ ^[[:space:]]*(approve|approved)([[:space:]]+([0-9a-f]{6}))?([[:space:]]+([0-9]+)(m|h))?[[:space:]]*[.!]?[[:space:]]*$ ]] || exit 0
     _hc="${BASH_REMATCH[3]}"; _hn="${BASH_REMATCH[5]}"; _hu="${BASH_REMATCH[6]}"; _hdir="$SUPERCHARGER_STATE/scope"
@@ -333,6 +336,7 @@ CMD_HASH=${CMD_HASH//$'\r'/}
 # bypass of the approval gate. Suffix with the session id so each session must
 # clear its own gate.
 SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+SID=${SID//$'\r'/}  # Windows jq: CRLF. Must match the prompt side's id exactly.
 [ -z "$SID" ] && SID="nosession"
 PENDING_FILE="$SCOPE_DIR/.gate-pending-${SID}-${CMD_HASH}"
 GRANT_FILE="$SCOPE_DIR/.gate-granted-${SID}-${CMD_HASH}"
