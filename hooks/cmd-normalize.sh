@@ -470,6 +470,11 @@ sc_join_word_into() {
 }
 
 normalize_cmd() {
+  # Bytes, not characters: in a UTF-8 locale bash 3.2's ${v/pat/} and =~ walk
+  # multibyte, ~10-16x slower; a 57KB command with 1600 $( ) took 158s against 16s
+  # (load-inflated), past the 15s hook timeout. Every pattern here is ASCII. Local:
+  # the caller's locale returns with the function.
+  local LC_ALL=C
   local cmd="$1" _sc_rest _sc_tails _sc_sub _sc_prev _sc_i
   # Data-only heredoc bodies come out before any matching happens, so every guard
   # sourcing this helper (safety, git-safety, enforce-pkg-manager, commit-guard)
