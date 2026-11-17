@@ -777,11 +777,22 @@ def _host_is_project(host: str) -> bool:
     if _CWD_SPELLING.match(h) or re.match(r"^(?:\$\{?PWD\}?|\$\(pwd\)|`pwd`|\.)/\.\.?$", h):
         return True
     cwd = os.environ.get("CWD", "")
-    if h.startswith("/") and cwd:
-        cwd = os.path.realpath(cwd)
-        t = os.path.realpath(h)
+    if cwd and re.match(r"^(?:/|[A-Za-z]:[/\\])", h):
+        t, cwd = _host_path_key(h), _host_path_key(cwd)
         return t == cwd or cwd.startswith(t.rstrip("/") + "/")
     return False
+
+
+def _host_path_key(p: str) -> str:
+    """One spelling per host path. On Windows /c/x, C:\\x and C:/x name one dir
+    (MSYS hands python the drive form); elsewhere realpath folds /tmp -> /private/tmp."""
+    if os.name != "nt":
+        return os.path.realpath(p)
+    p = p.replace("\\", "/")
+    m = re.match(r"^/([A-Za-z])(/|$)", p)
+    if m:
+        p = m.group(1) + ":/" + p[m.end():]
+    return re.sub(r"/+", "/", p).rstrip("/").lower() or "/"
 
 
 def check_container_rm_mount(c: str) -> str | None:
@@ -789,6 +800,8 @@ def check_container_rm_mount(c: str) -> str | None:
     targets = []
     for m in re.finditer(r"(?:^|\s)(?:-v|--volume)(?:[=]|\s+)(\S+)", c):
         parts = m.group(1).replace('"', "").replace("'", "").split(":")
+        if len(parts) >= 3 and re.match(r"^[A-Za-z]$", parts[0]) and parts[1][:1] in "/\\":
+            parts = [parts[0] + ":" + parts[1]] + parts[2:]  # C:\\proj:/w
         if len(parts) >= 2 and parts[1].startswith("/") and _host_is_project(parts[0]):
             if not re.search(r"(?:^|,)(?:ro|readonly)(?:,|$)", parts[2] if len(parts) >= 3 else ""):
                 targets.append((parts[0], parts[1].rstrip("/") or "/"))

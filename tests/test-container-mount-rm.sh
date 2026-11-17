@@ -55,12 +55,17 @@ expect allow 'docker run --rm -v "$PWD":/w alpine ls /w'
 # --- no mount: an rm unwrapped from sh -c is a container path ----------------------
 expect allow 'docker run --rm alpine sh -c "rm -rf /var/lib/x"'
 expect allow 'docker container run --rm alpine sh -c "rm -rf /opt/x"'
-# still asked: a host rm beside the run, a mount, exec into a running container
-expect ASK 'docker run --rm alpine true; rm -rf /var/lib/x'
-expect ASK 'docker run --rm alpine sh -c "true" && rm -rf /var/lib/x'
-expect ASK 'docker run --rm -v /data:/d alpine sh -c "rm -rf /var/lib/x"'
-expect ASK 'docker exec app sh -c "rm -rf /var/lib/x"'
-expect ASK 'docker run --rm alpine sh -c "$(echo x)"; rm -rf /var/lib/x'
+# still asked: a host rm beside the run, a mount, exec into a running container.
+# Expected = whatever a bare host `rm -rf /var/lib/x` gets here: the outside-project
+# ask does not run on native Windows python, so there it is allow on master too.
+HOST_RM=$(verdict 'rm -rf /var/lib/x')
+# so the rows below cannot pass vacuously where the ask does run
+case "${OSTYPE:-}" in msys*|cygwin*|win*) ;; *) expect ASK 'rm -rf /var/lib/x' ;; esac
+expect "$HOST_RM" 'docker run --rm alpine true; rm -rf /var/lib/x'
+expect "$HOST_RM" 'docker run --rm alpine sh -c "true" && rm -rf /var/lib/x'
+expect "$HOST_RM" 'docker run --rm -v /data:/d alpine sh -c "rm -rf /var/lib/x"'
+expect "$HOST_RM" 'docker exec app sh -c "rm -rf /var/lib/x"'
+expect "$HOST_RM" 'docker run --rm alpine sh -c "$(echo x)"; rm -rf /var/lib/x'
 
 rm -rf "$PROJ"
 echo ""
