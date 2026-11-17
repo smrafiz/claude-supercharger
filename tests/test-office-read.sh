@@ -8,7 +8,10 @@ H="$REPO_DIR/hooks/office-read.sh"
 echo "=== office-read ==="
 
 T=$(mktemp -d); trap 'rm -rf "$T"' EXIT
-T=$(cd "$T" && pwd -P)
+T=$(cd "$T" && pwd -P); TP="$T"   # TP: POSIX form, for PATH (a drive colon would split it)
+# Windows: the hook's python is native, so it gets native paths (as Claude Code sends
+# them), and finds a .cmd fake through PATHEXT; a shebang script is not runnable there.
+WIN=""; case "$OSTYPE" in msys*|cygwin*) WIN=1; T=$(cygpath -m "$T") ;; esac
 mkdir -p "$T/bin" "$T/proj/docs" "$T/home" "$T/state" "$T/out"
 cat > "$T/bin/markitdown" <<'EOF'
 #!/bin/sh
@@ -16,6 +19,7 @@ echo "converted:$(basename "$1")"
 echo x >> "$CALLS"
 EOF
 chmod +x "$T/bin/markitdown"
+[ -n "$WIN" ] && printf '@echo off\r\necho converted:%%~nx1\r\necho x>>"%%CALLS%%"\r\n' > "$T/bin/markitdown.cmd"
 printf 'PK fake docx' > "$T/proj/docs/spec.docx"
 printf '%%PDF fake' > "$T/proj/docs/r.pdf"
 printf '%%PDF fake' > "$T/out/other.pdf"
@@ -25,13 +29,13 @@ export CALLS="$T/calls"
 read_() {
   local fp="$1" extra="${2:-}"; shift 2 2>/dev/null || shift
   printf '{"tool_name":"Read","session_id":"o1","cwd":"%s","tool_input":{"file_path":"%s"%s}}' "$T/proj" "$fp" "$extra" \
-    | env HOME="$T/home" SUPERCHARGER_STATE="$T/state" CLAUDE_PROJECT_DIR="$T/proj" PATH="$T/bin:$PATH" SUPERCHARGER_MARKITDOWN=1 "$@" bash "$H" 2>/dev/null
+    | env HOME="$T/home" SUPERCHARGER_STATE="$T/state" CLAUDE_PROJECT_DIR="$T/proj" PATH="$TP/bin:$PATH" SUPERCHARGER_MARKITDOWN=1 "$@" bash "$H" 2>/dev/null
 }
 newpath() { printf '%s' "$1" | python3 -c "import json,sys;print(json.load(sys.stdin)['hookSpecificOutput']['updatedInput']['file_path'])" 2>/dev/null; }
 
 begin_test "a .docx in the project is redirected to its Markdown conversion"
 out=$(read_ "$T/proj/docs/spec.docx"); np=$(newpath "$out")
-[ -n "$np" ] && [ "$(cat "$np")" = "converted:spec.docx" ] && [[ "$out" == *'"allow"'* ]] && pass || fail "no redirect: $out"
+[ -n "$np" ] && [ "$(tr -d '\r' < "$np")" = "converted:spec.docx" ] && [[ "$out" == *'"allow"'* ]] && pass || fail "no redirect: $out"
 
 begin_test "a second Read hits the cache (markitdown not run again)"
 read_ "$T/proj/docs/spec.docx" >/dev/null
@@ -66,9 +70,12 @@ printf '{"permissions":{"deny":["Read(./docs/r.pdf)"]}}' > "$T/proj/.claude/sett
 [ -z "$(read_ "$T/proj/docs/r.pdf")" ] && pass || fail "redirected past a Read deny rule"
 rm "$T/proj/.claude/settings.json"
 
-begin_test "a symlink pointing outside the project is left alone"
-ln -s "$T/out/other.pdf" "$T/proj/docs/link.pdf"
-[ -z "$(read_ "$T/proj/docs/link.pdf")" ] && pass || fail "symlink redirected"
+# Git Bash `ln -s` makes a COPY without developer mode, so the row means nothing there.
+if [ -z "$WIN" ]; then
+  begin_test "a symlink pointing outside the project is left alone"
+  ln -s "$T/out/other.pdf" "$T/proj/docs/link.pdf"
+  [ -z "$(read_ "$T/proj/docs/link.pdf")" ] && pass || fail "symlink redirected"
+fi
 
 begin_test "other extensions are ignored"
 printf 'x' > "$T/proj/docs/a.txt"

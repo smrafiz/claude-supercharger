@@ -58,8 +58,13 @@ kdir = os.path.join(os.environ["CACHE"], key)
 out = os.path.join(kdir, os.path.basename(fp)[:120] + ".md")
 if not (os.path.isfile(out) and not os.path.islink(out) and os.path.getsize(out) > 0):
     os.makedirs(kdir, mode=0o700, exist_ok=True)
+    # shutil.which honours PATHEXT: Windows CreateProcess finds only a bare .exe itself.
+    import shutil
+    exe = shutil.which("markitdown")
+    if not exe:
+        sys.exit(0)
     try:
-        r = subprocess.run(["markitdown", real], capture_output=True, timeout=60)
+        r = subprocess.run([exe, real], capture_output=True, timeout=60)
     except Exception:
         sys.exit(0)
     if r.returncode != 0 or not r.stdout.strip():
