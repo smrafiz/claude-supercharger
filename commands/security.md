@@ -107,6 +107,14 @@ For every finding, dispatch a fresh read-only verifier agent that receives ONLY 
 
 For each confirmed finding, search the scope for the same sink pattern and the same missing defense — the same raw query builder, the same handler missing the same decorator. Each hit is verified like any other finding before it is reported. Findings sharing one root cause are reported once, at the root, listing the other sites.
 
+**Step 4b — Chains** (skip with fewer than two confirmed findings)
+
+Ask whether confirmed findings combine into a larger attack than any one alone: the output of one supplies the precondition of the next (an open redirect leaks the OAuth code a missing state check then accepts; an SSRF reaches the metadata endpoint whose credentials a path traversal could not get; an IDOR exposes the email that a weak reset flow then takes over). Rules:
+- Every step is a **confirmed** finding already in the report. A `needs_validation` entry may be a step only if the chain is reported under NEEDS VALIDATION with the same fact. Never invent a missing link; name it instead ("needs also: …") and do not report the chain.
+- Each hand-off between steps must hold in the code: the same principal, a reachable order, data that actually flows from one step to the next. Read the code that connects them; a chain with no code path between steps is not a chain.
+- The chain's severity is what its end state demonstrates on the scale above, never more. A chain whose result is no worse than its strongest step is not reported.
+- `deep`: a fresh verifier tries to refute each chain the same way as Step 3, given only the steps and their `file:line`s.
+
 **Step 5 — Deterministic final filter**
 
 Before writing the report, drop any finding whose category or description is DoS, resource exhaustion, rate limiting, resource leak, ReDoS (unless it came from F7 in a `deep` run and names the shared resource and the other principals it harms), log spoofing or open redirect (unless precedent 8 is met), memory safety outside C/C++/`unsafe` Rust, SSRF inside an `.html` file, or located in a `.md` file. This mirrors Anthropic's `findings_filter.py`: a rule, not a judgment.
@@ -123,6 +131,7 @@ Checks the finding contract and Steps 3–5 do not already enforce:
 7. **Padding** — is any finding present only to avoid returning nothing? An empty FINDINGS section is a valid result.
 8. **Ledger** — does every coverage-ledger row carry a state, and does no row say `covered` for a surface nobody read? A scoped or `quick` run says it is partial.
 9. **Verdicts** — does every NEEDS VALIDATION entry name one exact unresolved fact and carry no severity? Is anything there really a finding (fact in the repo after all) or really nothing (no boundary)?
+10. **Chains** — is every chain step a finding in this report, every hand-off backed by code you read, and the chain's severity above its strongest step? Does RECOMMENDATION account for the worst chain?
 
 **Prior runs** (`deep` only — read before Step 2, write after Step 6)
 
@@ -142,6 +151,12 @@ FINDINGS:
   Exploit: [concrete request / payload and what the attacker gets]
   Fix: [the specific change to this code]
   Also at: [variant sites, if any]
+
+CHAINS (only when the combination is worse than its strongest step):
+[CRITICAL|HIGH|MEDIUM] [end state, e.g. "account takeover"]
+  Steps: [finding 1 → finding 2 → …, each with File: path:line]
+  Hand-off: [what each step gives the next, and the code that carries it]
+  Fix: [the one fix that breaks the chain most cheaply]
 
 PRE-EXISTING (not introduced by this change):
 [same format, one line each is fine]
