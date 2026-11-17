@@ -1913,7 +1913,7 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   # only when a heredoc is present.
   _CMD_CODE=""
   case "$CMD" in *'<<'*) _CMD_CODE=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _CMD_CODE="" ;; esac
-  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" CWD="${PROJECT_DIR:-}" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   # The deep scan ran out of time (the detector says so instead of exiting silently).
   # Everywhere else that fails open to the regex verdict above: failing closed showed
   # users phantom "hook error" denies under load. A credential path is different:
@@ -2028,6 +2028,33 @@ fi
 
 # Recursive force rm outside the project and temp dirs (recorded above). Last, so a
 # deny in the same command wins.
+# Not when the whole command is one `docker|podman run` with no mount: the rm then
+# deletes container paths only (a `sh -c` payload unwrapped above looked like a host
+# rm; from kenryu42/cc-safety-net #367). Any operator, substitution or mount flag
+# keeps the ask.
+if [ -n "${_RM_OUT_ASK:-}" ] && CMD="$COMMAND" python3 - <<'PYEOF' 2>/dev/null
+import os, shlex, sys
+c = os.environ["CMD"]
+if "$(" in c or "`" in c or "\n" in c:
+    sys.exit(1)
+try:
+    lx = shlex.shlex(c, posix=True, punctuation_chars=True); lx.whitespace_split = True
+    t = list(lx)
+except ValueError:
+    sys.exit(1)
+if any(x and set(x) <= set(";&|<>()") for x in t):
+    sys.exit(1)
+i = 2 if t[1:2] == ["container"] else 1
+if not t or t[0].rsplit("/", 1)[-1] not in ("docker", "podman") or t[i:i+1] != ["run"]:
+    sys.exit(1)
+if any(x in ("-v", "--volume", "--mount", "--volumes-from", "--privileged")
+       or x.startswith(("-v=", "--volume=", "--mount=", "--volumes-from=", "--pid=host"))
+       or (x.startswith("-v") and len(x) > 2 and ":" in x) for x in t):
+    sys.exit(1)
+PYEOF
+then
+  _RM_OUT_ASK=""
+fi
 if [ -n "${_RM_OUT_ASK:-}" ]; then
   sc_decision ask "this recursively deletes $_RM_OUT_ASK, ${_RM_OUT_WHY:-which is outside this project}." "confirm that directory is meant to go"
   exit 0
