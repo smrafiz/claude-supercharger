@@ -46,4 +46,29 @@ out=$(cd "$P" && health '{"hooks":{}}' -u IS_DEMO)
 case "$out" in *"disableAllHooks is true"*) fail "false report" ;; *) pass ;; esac
 rm -rf "$P"
 
+# allowManagedHooksOnly counts only from managed settings (managed-settings.md).
+M=$(mktemp -d)
+begin_test "health: allowManagedHooksOnly in managed settings is reported"
+printf '{"allowManagedHooksOnly":true}' > "$M/managed.json"
+out=$(health '{"hooks":{}}' -u IS_DEMO SUPERCHARGER_MANAGED_SETTINGS="$M/none.json:$M/managed.json")
+case "$out" in *"allowManagedHooksOnly is true in $M/managed.json"*) pass ;; *) fail "not reported: $out" ;; esac
+
+begin_test "health: allowManagedHooksOnly false is not reported"
+printf '{"allowManagedHooksOnly":false}' > "$M/managed.json"
+out=$(health '{"hooks":{}}' -u IS_DEMO SUPERCHARGER_MANAGED_SETTINGS="$M/managed.json")
+case "$out" in *"allowManagedHooksOnly is true"*) fail "false report" ;; *) pass ;; esac
+
+begin_test "health: allowManagedHooksOnly in user settings is not reported"
+out=$(health '{"hooks":{},"allowManagedHooksOnly":true}' -u IS_DEMO SUPERCHARGER_MANAGED_SETTINGS="$M/none.json")
+case "$out" in *"allowManagedHooksOnly is true"*) fail "false report" ;; *) pass ;; esac
+rm -rf "$M"
+
+begin_test "health: hardening lines read the scrub and bypass settings"
+out=$(health '{"hooks":{},"env":{"CLAUDE_CODE_SUBPROCESS_ENV_SCRUB":"1"},"permissions":{"disableBypassPermissionsMode":"disable"}}' -u IS_DEMO -u CLAUDE_CODE_SUBPROCESS_ENV_SCRUB)
+case "$out" in *"credential scrub: on"*"mode:     blocked"*) pass ;; *) fail "not read: $out" ;; esac
+
+begin_test "health: hardening lines show off and allowed when unset"
+out=$(health '{"hooks":{}}' -u IS_DEMO -u CLAUDE_CODE_SUBPROCESS_ENV_SCRUB)
+case "$out" in *"credential scrub: off"*"mode:     allowed"*) pass ;; *) fail "not shown: $out" ;; esac
+
 report

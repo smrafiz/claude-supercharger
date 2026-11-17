@@ -225,6 +225,19 @@ score_security() {
     fi
     break
   done
+  # allowManagedHooksOnly is read only from managed settings (managed-settings.md); there it
+  # blocks user, project and plugin hooks unless the admin force-enables the plugin.
+  local mf mfiles
+  mfiles="${SUPERCHARGER_MANAGED_SETTINGS:-/Library/Application Support/ClaudeCode/managed-settings.json:/etc/claude-code/managed-settings.json}"
+  local IFS_OLD="$IFS"; IFS=:
+  for mf in $mfiles; do
+    IFS="$IFS_OLD"
+    if [ "$(jq -r '.allowManagedHooksOnly // false' "$mf" 2>/dev/null)" = true ]; then
+      pts=0; marks="${marks}${FAIL}"
+      ISSUES+=("allowManagedHooksOnly is true in $mf: only admin-managed hooks run, so no Supercharger guard runs unless your admin force-enables the Supercharger plugin")
+    fi
+  done
+  IFS="$IFS_OLD"
 
   SCORE=$((SCORE + pts))
   printf "  Security:  %2d/20  %s\n" "$pts" "$marks"
@@ -239,6 +252,16 @@ score_tools
 score_security
 echo "  ─────────────────"
 printf "  Total:     %d/100\n" "$SCORE"
+
+# Opt-in Claude Code hardening (env-vars.md, settings-reference.md); not scored.
+scrub="${CLAUDE_CODE_SUBPROCESS_ENV_SCRUB:-$(jq -r '.env.CLAUDE_CODE_SUBPROCESS_ENV_SCRUB // empty' "$SETTINGS" 2>/dev/null || true)}"
+bypass=$(jq -r '.permissions.disableBypassPermissionsMode // empty' "$SETTINGS" 2>/dev/null || true)
+[ "$scrub" = 1 ] && scrub="on" || scrub="off (set CLAUDE_CODE_SUBPROCESS_ENV_SCRUB=1 to strip credentials from commands Claude runs)"
+[ "$bypass" = disable ] && bypass="blocked" || bypass="allowed (set permissions.disableBypassPermissionsMode to \"disable\" to block it)"
+echo ""
+echo "Hardening (optional):"
+echo "  Subprocess credential scrub: $scrub"
+echo "  Bypass-permissions mode:     $bypass"
 
 if [ ${#ISSUES[@]} -gt 0 ]; then
   echo ""
