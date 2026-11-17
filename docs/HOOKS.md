@@ -100,6 +100,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `notify-permission` | PermissionRequest | (none) | Only fires for tools not auto-approved by smart-approve. |
 | `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
 | `notify` | Notification | idle_prompt | shellcheck source=hooks/lib-suppress.sh |
+| `office-read` | PreToolUse | Read | Opt-in: redirects a Read of a PDF or Office file to a cached markitdown conversion. |
 | `output-secrets-scanner` | PostToolUse | Bash,Read | Scans tool output for leaked secrets and warns Claude not to repeat them. |
 | `package-credibility-guard` | PreToolUse | Bash,Monitor,PowerShell | Slopsquatting. An LLM asked for a package name that does not exist, someone |
 | `package-source-guard` | PreToolUse | Write, Edit, MultiEdit, Bash | Supply-chain: flags a dependency added/changed to point at a NON-REGISTRY |
