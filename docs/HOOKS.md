@@ -77,7 +77,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `guard-drift-alarm` | SessionStart | # Event: SessionStart | A registered guard whose script is missing or not executable never runs: Claude |
 | `guard-registration-check` | SessionStart | (none) | Verifies that Supercharger's hooks are actually REGISTERED, because an install |
 | `harness-tamper-guard` | PreToolUse | Bash | Self-defense on the BASH channel. path-guard protects .claude/settings.json and |
-| `human-approval-gate` | PreToolUse, UserPromptSubmit | Bash,PowerShell | Opt-in gate: blocks high-risk commands until the user replies `approve <code>` (one run per approval; a retry alone is not approval) |
+| `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
 | `install-script-guard` | PreToolUse | Write, Edit, MultiEdit | npm/pnpm/yarn/bun run lifecycle scripts automatically on `install` |
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |

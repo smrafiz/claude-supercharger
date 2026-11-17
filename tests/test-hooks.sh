@@ -3895,18 +3895,26 @@ OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"npm run test"}}' \
 EXIT=$?
 [ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && pass || fail "expected pass for safe command, got exit=$EXIT"
 
-begin_test "human-approval-gate: allows retry after first block (pending file)"
+begin_test "human-approval-gate: a retry alone is NOT approval (pending file, no grant)"
 CMD='kubectl delete namespace production'
 HASH=$(printf '%s' "$CMD" | python3 -c "import sys,hashlib; print(hashlib.md5(sys.stdin.read().encode()).hexdigest()[:12])" 2>/dev/null)
 mkdir -p "$HAG_SCOPE/.claude/supercharger/scope"
-# 2.21.4: pending file is session-scoped; input has no session_id → "nosession"
 PENDING="$HAG_SCOPE/.claude/supercharger/scope/.gate-pending-nosession-${HASH}"
-# Simulate first block having written the pending file (current timestamp so TTL check passes)
 printf 'infra\n%s\n' "$(date -u +%s)" > "$PENDING"
 OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD" \
   | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
 EXIT=$?
-[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && [ ! -f "$PENDING" ] && pass || fail "expected allow on retry, got exit=$EXIT pending_exists=$([ -f "$PENDING" ] && echo yes || echo no)"
+[ "$EXIT" -eq 2 ] && pass || fail "retry without the user's approve <code> was allowed (exit=$EXIT)"
+
+# 2026-11-17: the grant file is written only by the user's `approve <code>` prompt
+# (tests/test-human-approval-gate.sh covers that path end to end).
+begin_test "human-approval-gate: allows retry once the user granted it"
+GRANT="$HAG_SCOPE/.claude/supercharger/scope/.gate-granted-nosession-${HASH}"
+: > "$GRANT"
+OUT=$(printf '{"tool_name":"Bash","tool_input":{"command":"%s"}}' "$CMD" \
+  | SUPERCHARGER_HUMAN_GATE=1 HOME="$HAG_SCOPE" bash "$HAG_HOOK" 2>/dev/null)
+EXIT=$?
+[ "$EXIT" -eq 0 ] && [ -z "$OUT" ] && [ ! -f "$PENDING" ] && [ ! -f "$GRANT" ] && pass || fail "expected allow on granted retry, got exit=$EXIT pending_exists=$([ -f "$PENDING" ] && echo yes || echo no)"
 
 begin_test "human-approval-gate: creates pending file on first block"
 CMD2='DROP TABLE orders'
