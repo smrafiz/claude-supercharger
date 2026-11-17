@@ -4,17 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-17, session `c8c4db43`.*
+*Verified 2026-11-18, session `c03df59e` (after c8c4db43's 2026-11-17 state).*
 
-- **Released: v4.4.7** (2026-11-17, `605ebde8`): #302-#318.
-- **Unreleased on master (fe1e423f): #319–#323.** The user is HOLDING 4.4.8; release only on their
-  word. Not an issue to report.
-- No open PRs except this brief's docs PR; no local branches besides master after it merges.
-- The two local-only branches from 2026-11-16 are done: #319 and #320.
-- **Upstream:** anthropics/claude-code#110181 (project `disableAllHooks` kills user hooks).
-- **Open questions:** `allowManagedHooksOnly` untested in real managed settings (sudo);
-  harness-tamper FP on the skip-permissions flag mentioned in heredoc text.
-- Per-machine: c8c4db43's machine install is v4.4.7; no worktrees besides the docs one for this PR.
+- **Released: v4.4.7.** Master `fe1e423f` carries #319–#323 unreleased. The user is HOLDING 4.4.8;
+  release only on their word.
+- **Open PRs, none merged, all from the memokit review (c03df59e):**
+  #325 gap fixes (CI all green incl. Windows) · #326 approval codes · #327 disk-watch ·
+  #328 office-read (PR checks green; Windows green in dispatched runs) · #329 quoted-pipe FP
+  (macOS CI pending at handoff) · #324 this docs PR.
+- **Merge order:** #325 and #329 first. #326/#327/#328 each regenerate `hooks/hooks.json` +
+  `docs/HOOKS.md` and bump the full-mode count in `tests/test-install.sh`: after the first of them
+  merges, rebase the next, rerun `tools/gen-plugin-hooks.sh` + `tools/list-hooks.sh`, recount.
+- **#326 changes behaviour:** the opt-in approval gate no longer lets a retry through; the user
+  types `approve <code>` (or `approve <code> 30m` for a window).
+- **No worktrees.** The user asked (2026-11-18): switch branches in the main checkout instead.
+- **Open questions:** quoted remote bodies (`ssh host '…|sh'`, `watch`, `tmux send-keys`,
+  `script -c`) are allowed on master — design question, not started. office-read tested only with a
+  fake markitdown.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -52,6 +58,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-18 (deep) — c03df59e
+Reviewed tsrmehmet/memokit (MIT) by replaying 701 of its fixtures through our Bash chain. Opened
+#325 (7 gaps, 2 FPs), #326 approval codes, #327 disk-watch, #328 office-read, #329 quoted-pipe FP.
+Three Windows-only failures found and fixed. Nothing merged.
+Detail: `.claude/handoff-c03df59e-1112-4fd1-b43d-e88dec9ea249.md`
+
 #### 2026-11-17 (deep) — c8c4db43
 Merged #319–#323: skill-scan FP, LC_ALL=C normalize (≈40% faster), container bind-mount rm deny,
 /sc-security chains, /sc-health allowManagedHooksOnly. Seven repo audits. 4.4.8 held by the user.
@@ -71,9 +83,3 @@ Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
 Merged #307–#311 and #313 (#310 closed a real `git --config-env` bypass; #313 rules line). Live-tested
 project `disableAllHooks` (kills all our hooks) and hook `if` filters (miss env/command/bash -c).
 Detail: `.claude/handoff-74e29661-88dc-4f1d-b9dd-a17f876352b7.md`
-
-#### 2026-11-14 — e7f6ce82
-Reviewed kintsugi-harness, Nodrail agent-plugins and agent-guard by probing their scenarios
-against our hooks. Merged #302–#306 (Bidi, code patterns, update-check stdout, vacuous test,
-Grep wildcard globs); #307 (kubectl/mvn/Read parity) open. Release held.
-Detail: `.claude/handoff-e7f6ce82-f0ce-4e41-957d-c06160b73ecb.md`
