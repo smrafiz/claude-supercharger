@@ -725,7 +725,8 @@ jobs:
     timeout-minutes: 15
     strategy:
       matrix:
-        os: [ubuntu-latest, macos-latest]
+        # Ubuntu only: static analysis is OS-independent, and scarce macOS runners left this job unstarted.
+        os: [ubuntu-latest]
     steps:
       - uses: actions/checkout@v5
 
