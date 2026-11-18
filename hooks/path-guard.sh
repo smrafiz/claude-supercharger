@@ -505,7 +505,8 @@ if 'selfmod' not in disabled:
     # suffix (".disabled-hooks-Users-me-proj"), and an exact-basename set stopped
     # matching them the moment they did — silently un-protecting the very files
     # this rule exists to protect. The prefix form covers both spellings.
-    _selfmod_basenames = ('.disabled-security-categories', '.disabled-hooks')
+    # 2026-11-17: + human-approval-gate's grant file; only the user's prompt writes it.
+    _selfmod_basenames = ('.disabled-security-categories', '.disabled-hooks', '.gate-granted')
     _bn = os.path.basename(p)
     if any(_bn == b or _bn.startswith(b + '-') for b in _selfmod_basenames) or any(p == t for t in selfmod_targets):
         print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
