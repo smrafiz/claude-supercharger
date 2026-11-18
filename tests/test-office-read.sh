@@ -91,14 +91,16 @@ printf '%%PDF big' > "$T/proj/docs/cap.pdf"
 if [ -z "$WIN" ]; then
   begin_test "a markitdown slower than the inner timeout: fall back, no temp file, child killed"
   mkdir -p "$T/slowbin"
-  printf '#!/bin/sh\nsleep 60 &\necho $! > "$PIDF"\nwait\n' > "$T/slowbin/markitdown"
+  printf '#!/bin/sh\nsleep 20 &\necho $! > "$PIDF"\nwait\n' > "$T/slowbin/markitdown"
   chmod +x "$T/slowbin/markitdown"
   printf '%%PDF slow' > "$T/proj/docs/slow.pdf"
   export PIDF="$T/pid"
+  SECONDS=0
   out=$(read_ "$T/proj/docs/slow.pdf" '' PATH="$T/slowbin:$PATH" SUPERCHARGER_OFFICE_READ_TIMEOUT=1)
+  took=$SECONDS   # fake sleeps 20s, timeout is 1s: only an enforced timeout returns in under 10s
   alive=1; for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$(cat "$PIDF" 2>/dev/null)" 2>/dev/null || { alive=0; break; }; sleep 0.5; done
   stray=$(find "$T/state/office-read" -type f -name 'tmp*' | wc -l | tr -d ' ')
-  [ -z "$out" ] && [ "$alive" = 0 ] && [ "$stray" = 0 ] && pass || fail "out=[$out] child alive=$alive stray=$stray"
+  [ -z "$out" ] && [ "$took" -lt 10 ] && [ "$alive" = 0 ] && [ "$stray" = 0 ] && pass || fail "out=[$out] took=${took}s child alive=$alive stray=$stray"
 fi
 
 begin_test "other extensions are ignored"
