@@ -372,6 +372,9 @@ get_hooks_for_mode() {
     # on install verbs (fast-path gate) and is capped at 6s in total.
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/package-credibility-guard.sh|")
     hooks+=("PostToolUse|Bash,PowerShell,Read|${hooks_dir}/repetition-detector.sh|")
+    # 2026-11-17 (memokit): free disk space dropped a lot, or sits under a floor.
+    hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/disk-watch.sh|")
+    hooks+=("PostToolUseFailure|Bash,PowerShell|${hooks_dir}/disk-watch.sh|")
     hooks+=("PreToolUse|Agent|${hooks_dir}/agent-gate.sh|")
     hooks+=("PreToolUse|Skill|${hooks_dir}/skill-poisoning-scanner.sh|block")
     # Change detection, not classification: the scanner asks whether a skill
