@@ -984,6 +984,49 @@ sc_blank_data_into() {
         -e 's/(^|[;&|(]|[[:space:]])gh[[:space:]][^;&|]*[[:space:]](--help|-h)([[:space:]][^;&|]*)?([;&|])/\1gh help \4/g')
       ;;
   esac
+  # 2026-11-17: a `|` inside SINGLE quotes is a literal, not a pipe. The pipe-into-shell
+  # rule read `git log --format='%s|bash|%h'`, a sed expression naming `PostToolUse|Bash|`
+  # and `printf 'a|sh|b'` as a pipe into bash. Mask those pipes in the scan copy only.
+  # A real quote-state scan, not a regex: `echo "it's" | sh` must keep its pipe. It
+  # gives up (no masking) on an unbalanced quote and on a heredoc, whose body is another
+  # language's text, and on `$(`, backticks and an unquoted `#` comment, which it does not
+  # model (a nested quote or a comment apostrophe would flip its state and mask a real pipe).
+  # `sh -c '…'` bodies are judged on the unquoted copy normalize_cmd appends, so masking the quoted original hides nothing that runs.
+  case "$CMD_SCAN" in
+    *"<<"*) ;;
+    *"'"*"|"*[sS][hH]*)
+      # Fork only when a `|` is followed by a shell name: the one shape the rule reads.
+      if [ "${#CMD_SCAN}" -le 16384 ] && [[ "$CMD_SCAN" =~ \|[[:space:]]*[bBzZdDkK]?[aA]?[sS][hH] ]]; then
+        local _qm
+        _qm=$(printf '%s' "$CMD_SCAN" | python3 -c '
+import sys
+s = sys.stdin.read(); out = []; q = None; i = 0
+while i < len(s):
+    c = s[i]
+    if q != chr(39) and q != "$" and (c == chr(96) or (c == "$" and s[i+1:i+2] == "(")):
+        sys.exit(1)
+    if q is None:
+        if c == "#" and (i == 0 or s[i-1] in " \t\n;&|("): sys.exit(1)
+        if c == "\\": out.append(s[i:i+2]); i += 2; continue
+        if c == "$" and s[i+1:i+2] == chr(39): q = "$"; out.append("$" + chr(39)); i += 2; continue
+        if c in (chr(39), chr(34)): q = c
+    elif q == chr(39):
+        if c == chr(39): q = None
+        elif c == "|": c = " "
+    elif q == "$":
+        if c == "\\": out.append(s[i:i+2]); i += 2; continue
+        if c == chr(39): q = None
+    elif q == chr(34):
+        if c == "\\": out.append(s[i:i+2]); i += 2; continue
+        if c == chr(34): q = None
+    out.append(c); i += 1
+if q is not None:
+    sys.exit(1)
+sys.stdout.write("".join(out))
+' 2>/dev/null) && CMD_SCAN="$_qm"
+      fi
+      ;;
+  esac
   _SC_SCAN="$CMD_SCAN"
 }
 
