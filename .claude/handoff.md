@@ -4,23 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-18, session `c03df59e` (after c8c4db43's 2026-11-17 state).*
+*Verified 2026-11-18, session `eaedd321`.*
 
-- **Released: v4.4.7.** Master `fe1e423f` carries #319–#323 unreleased. The user is HOLDING 4.4.8;
-  release only on their word.
-- **Open PRs, none merged, all from the memokit review (c03df59e):**
-  #325 gap fixes (CI all green incl. Windows) · #326 approval codes · #327 disk-watch ·
-  #328 office-read (PR checks green; Windows green in dispatched runs) · #329 quoted-pipe FP
-  (macOS CI pending at handoff) · #324 this docs PR.
-- **Merge order:** #325 and #329 first. #326/#327/#328 each regenerate `hooks/hooks.json` +
-  `docs/HOOKS.md` and bump the full-mode count in `tests/test-install.sh`: after the first of them
-  merges, rebase the next, rerun `tools/gen-plugin-hooks.sh` + `tools/list-hooks.sh`, recount.
-- **#326 changes behaviour:** the opt-in approval gate no longer lets a retry through; the user
-  types `approve <code>` (or `approve <code> 30m` for a window).
+- **Released: v4.4.8** (2026-11-18, tag on `68071b2a`): #319–#333. Nothing unreleased; no open PRs;
+  master = `68071b2a`, CI green incl. Windows.
+- **Now in master:** the approval gate (#326; the user types `approve <code>` or `approve <code> 30m`, a window
+  over 4h is clamped with a notice); safety.sh fails closed on its own crash (#333); `>|` denied in 4 guards (#331).
+- **Known limits:** a crash inside lib-timing/lib-paths before safety.sh installs its trap relies on
+  `onFailure`; variable-built paths bypass string-matching guards; the office-read cache is never evicted.
 - **No worktrees.** The user asked (2026-11-18): switch branches in the main checkout instead.
+  (Session eaedd321 missed this line and used worktrees throughout; read this file first.)
 - **Open questions:** quoted remote bodies (`ssh host '…|sh'`, `watch`, `tmux send-keys`,
   `script -c`) are allowed on master — design question, not started. office-read tested only with a
   fake markitdown.
+- Per-machine: eaedd321's machine install is **v4.4.7**, so run `/sc-update`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
@@ -58,6 +55,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-18 — eaedd321
+Reviewers found fail-opens in #325/#326/#329; fixed, then merged #324–#333 and released v4.4.8.
+New: #331 `>|` in 4 guards, #332 disk-watch `$(( ))` code exec, #333 safety.sh fail-closed + `--build-arg`.
+Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
+
 #### 2026-11-18 (deep) — c03df59e
 Reviewed tsrmehmet/memokit (MIT) by replaying 701 of its fixtures through our Bash chain. Opened
 #325 (7 gaps, 2 FPs), #326 approval codes, #327 disk-watch, #328 office-read, #329 quoted-pipe FP.
@@ -78,8 +80,3 @@ Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
 cc-safety-net delta audit: 20 bypasses of our rules + 3 new classes; fixes split into three WIP
 branches (A/B/C), pushed at shutdown, no PRs. Posted anthropics/claude-code#110181.
 Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
-
-#### 2026-11-15 — 74e29661
-Merged #307–#311 and #313 (#310 closed a real `git --config-env` bypass; #313 rules line). Live-tested
-project `disableAllHooks` (kills all our hooks) and hook `if` filters (miss env/command/bash -c).
-Detail: `.claude/handoff-74e29661-88dc-4f1d-b9dd-a17f876352b7.md`
