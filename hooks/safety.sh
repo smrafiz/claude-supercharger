@@ -1599,7 +1599,7 @@ if _cat_enabled "persistence"; then
   # 2026-11-11 (cc-audit delta): + zshenv (runs in the agent's own non-interactive
   # zsh), zlogin, bash_login, fish, the system-wide files and PowerShell's $PROFILE.
   _PROF_FILE='(\.(bashrc|zshrc|profile|bash_profile|zprofile|zshenv|zlogin|bash_login)|fish/config\.fish|/etc/(profile|zshenv|zshrc|bashrc|zprofile|rc\.local)|/etc/profile\.d/[^[:space:]"'\''`;&|)]*|\$PROFILE)([[:space:]"'\''`;&|)]|$)'
-  _PROF_REDIR=">>?[[:space:]]*[^|;&<>()]*${_PROF_FILE}"
+  _PROF_REDIR=">[>|]?[[:space:]]*[^|;&<>()]*${_PROF_FILE}"
   _PROF_COPY="(^|[[:space:];&|])(cp|mv|install|rsync|dd)[[:space:]][^|;&]*${_PROF_FILE}"
   if [[ "$CMD" =~ $_PROF_REDIR ]] || [[ "$CMD" =~ $_PROF_COPY ]]; then
     block "shell profile modification — agent should not modify shell startup files"
@@ -1703,8 +1703,8 @@ fi
 # Suffixed forms (.autopilot-until-<session>, .allow-patterns-<projectkey>) need
 # no extra alternative: these patterns are matched as substrings, not anchored.
 _SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.autopilot-full|\.readonly-until|\.strict-until)'
-# (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
-_SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
+# (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg`, `>| cfg` (noclobber override)
+_SELFMOD_REDIR="[0-9]*>[>|]?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
 # v4.1.23: a verb must be a whole word: "installer", "installed" and "install.sh"
 # in an echo line matched `install` (fp-triage on a real ledger, 2026-09-29).

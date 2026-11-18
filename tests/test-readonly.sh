@@ -75,7 +75,7 @@ rm -rf "$D"
 begin_test "readonly: blocks mutating bash (rm/git commit/npm install/sed -i/redirect)"
 D=$(new_state); echo $(( $(date +%s)+600 )) > "$D/scope/.readonly-until-sX"
 ok=1
-for c in 'rm -rf /tmp/x' 'git commit -m x' 'npm install left-pad' 'sed -i s/a/b/ f' 'echo hi > out.txt' 'pip install requests'; do
+for c in 'rm -rf /tmp/x' 'git commit -m x' 'npm install left-pad' 'sed -i s/a/b/ f' 'echo hi > out.txt' 'echo hi >| out.txt' 'pip install requests'; do
   [ "$(guard_rc "$D" "$(bash_json "$c")")" -eq 2 ] || { ok=0; echo "  wrongly allowed: $c"; }
 done
 [ "$ok" -eq 1 ] && pass || fail "mutating command allowed"

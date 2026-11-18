@@ -1199,6 +1199,10 @@ begin_test "safety: shell profile modification is blocked"
 run_hook "$SAFETY_HOOK" "echo 'alias ll=ls' >> ~/.bashrc"
 assert_exit_code 2 $? && pass
 
+begin_test "safety: noclobber redirect (>|) into a shell profile is blocked"
+run_hook "$SAFETY_HOOK" "echo 'alias ll=ls' >| ~/.bashrc"
+assert_exit_code 2 $? && pass
+
 begin_test "safety: zshrc modification is blocked"
 run_hook "$SAFETY_HOOK" "echo 'export PATH' >> ~/.zshrc"
 assert_exit_code 2 $? && pass

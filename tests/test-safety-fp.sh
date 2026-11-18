@@ -494,6 +494,9 @@ denies "autopilot"   "date +%s > $_SW/.autopilot-until"
 denies "rm-readonly" "rm -f $_SW/.readonly-until"
 denies "suffixed"    "echo '.' >> $_SW/.allow-patterns-projkey"
 denies "sed-i"       "sed -i '' s/a/b/ $_SW/.allow-patterns"
+# `>|` is `>` that ignores noclobber: the `|` after `>` stopped the path match.
+denies "noclobber"   "echo x >| $_SW/.disabled-hooks"
+denies "noclobber-fd" "echo x 1>|$_SW/.supercharger-disabled"
 
 begin_test "but READING them is still allowed (/sc-status introspection)"
 # v2.10.6 drew this line deliberately: a read is not a write, and `cat
