@@ -326,11 +326,17 @@ while IFS= read -r seg; do
   # v4.2.0: -n / --dry-run only lists what would go.
   # 2026-11-17 (memokit review): `-e`/`--exclude` takes the next word as a pattern, so
   # `git clean -fdx -e -nx` really cleans; its `-nx` read as a dry run. Drop each
-  # exclude and its pattern before looking for -n.
+  # exclude and its pattern before looking for -n. git parses `-e` like any short
+  # option: the FIRST e in a group ends it, the rest of the group is the pattern
+  # (`-enx`), and an e last in the group takes the next word (`-nde tmp`). Letters
+  # before that e stay flags, so `-nde tmp -f` is still a dry run.
   if [[ "$seg" =~ ^git\ clean[[:space:]] ]] && [[ "$seg" =~ (^|[[:space:]])(--force|-[a-zA-Z]*f[a-zA-Z]*)([[:space:]]|$) ]]; then
     _gc_seg="$seg"
-    while [[ "$_gc_seg" =~ (^|[[:space:]])(-[a-zA-Z]*e|--exclude)[[:space:]]+[^[:space:]]+ ]]; do
-      _gc_seg="${_gc_seg%%"${BASH_REMATCH[0]}"*} ${_gc_seg#*"${BASH_REMATCH[0]}"}"
+    while [[ "$_gc_seg" =~ (^|[[:space:]])(-[a-df-zA-Z]*)e[^[:space:]]+ ]] \
+       || [[ "$_gc_seg" =~ (^|[[:space:]])(-[a-df-zA-Z]*e|--exclude)[[:space:]]+[^[:space:]]+ ]]; do
+      _gc_keep="${BASH_REMATCH[2]}"
+      case "$_gc_keep" in --*) _gc_keep="" ;; *e) _gc_keep="${_gc_keep%e}" ;; esac
+      _gc_seg="${_gc_seg%%"${BASH_REMATCH[0]}"*}${BASH_REMATCH[1]}${_gc_keep} ${_gc_seg#*"${BASH_REMATCH[0]}"}"
     done
     [[ "$_gc_seg" =~ (^|[[:space:]])(--dry-run|-[a-zA-Z]*n[a-zA-Z]*)([[:space:]]|$) ]] \
       || block "git clean with force permanently removes untracked files"

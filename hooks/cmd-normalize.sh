@@ -1009,11 +1009,13 @@ sc_blank_data_into() {
   # 2026-11-17 (memokit review): `eval "$(ssh-agent -s)"` evals the env setup a local
   # tool prints, and the blanket eval rule denied it. Only these emitters, only plain
   # arguments: the eval word becomes `:`. The substitution body is still appended by
-  # normalize_cmd and checked by every rule; `eval "$(curl …)"` stays denied.
+  # normalize_cmd and checked by every rule; `eval "$(curl …)"` stays denied. The
+  # substitution must be eval's WHOLE argument list (eval runs every argument): a
+  # second argument after it keeps the eval, so it stays denied.
   case "$CMD_SCAN" in
     *eval*'$('*)
       CMD_SCAN=$(printf '%s' "$CMD_SCAN" | LC_ALL=C sed -E \
-        -e 's/(^|[;&|(]|[[:space:]])eval([[:space:]]+"?\$\((ssh-agent|brew[[:space:]]+shellenv|(pyenv|rbenv|nodenv|jenv|zoxide|starship|direnv|fnm|mise|rtx)[[:space:]]+(init|env|hook|activate))([[:space:]]+[-[:alnum:]_.]+)*\)"?([[:space:]]|[;&|)]|$))/\1:\2/g')
+        -e 's/(^|[;&|(]|[[:space:]])eval([[:space:]]+"?\$\((ssh-agent|brew[[:space:]]+shellenv|(pyenv|rbenv|nodenv|jenv|zoxide|starship|direnv|fnm|mise|rtx)[[:space:]]+(init|env|hook|activate))([[:space:]]+[-[:alnum:]_.]+)*\)"?[[:space:]]*([;&|)]|$))/\1:\2/g')
       ;;
   esac
   _SC_SCAN="$CMD_SCAN"
