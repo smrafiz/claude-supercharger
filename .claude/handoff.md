@@ -6,8 +6,8 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-18, session `eaedd321`.*
 
-- **Released: v4.4.8** (2026-11-18, tag on `68071b2a`): #319–#333. Nothing unreleased; no open PRs;
-  master = `68071b2a`, CI green incl. Windows.
+- **Released: v4.4.8** (2026-11-18, tag on `68071b2a`): #319–#333. Nothing unreleased. Only open PR:
+  #334 (this docs PR). Master = `68071b2a`; its release-base CI was green incl. Windows.
 - **Now in master:** the approval gate (#326; the user types `approve <code>` or `approve <code> 30m`, a window
   over 4h is clamped with a notice); safety.sh fails closed on its own crash (#333); `>|` denied in 4 guards (#331).
 - **Known limits:** a crash inside lib-timing/lib-paths before safety.sh installs its trap relies on

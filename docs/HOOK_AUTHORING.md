@@ -1369,3 +1369,35 @@ catch `SystemExit`, and call the handler directly.
 - **A gate a retry can pass is not a human gate.** The approval gate allowed any retry, so the model
   approved itself. Only the user's prompt (UserPromptSubmit, same hook) may write the grant, and the
   grant file needs selfmod protection that includes `touch`, because it counts by existence (#326).
+
+*Later the same day: review of #325–#329 before merge, then #331–#333.*
+
+- **A scanner must give up on syntax it does not model.** The first #329 quote scanner masked a
+  real `cat f | sh` in two ways. `"$(echo "it's")"` opens a fresh quoting context inside the
+  `$( )`, and an apostrophe inside a `#` comment is not a quote. It now masks nothing when it sees
+  `$(`, a backtick or an unquoted `#`. A false deny there is acceptable; a false allow is not.
+- **Decide the hook event from the parsed field, never from a substring.** #326 picked its prompt
+  branch with `case "$_INPUT" in *UserPromptSubmit*`. Any Bash command containing that word took
+  the branch and was allowed. Read `.hook_event_name`: a tool call cannot set that top-level key.
+- **An allow-list match must cover the whole argument list.** `eval` runs every argument, so
+  `eval "$(brew shellenv)" "$(cat x)"` was neutralised on its first argument alone (#325). Anchor the
+  match to the end of the simple command (`[;&|)]` or end of line).
+- **`>|` is `>`.** A `>>?` redirect regex misses the noclobber override, and so did 4 guards
+  (#331). A guard that splits commands on `|` also cuts `>|` in two, separating the redirect from
+  its target; rewrite `>|` to `>` before splitting. Grep the whole tree for a pattern before fixing
+  one instance.
+- **Bash arithmetic executes its input.** `(( x > LAST ))` with `LAST='PATH[$(touch f)]'` read from
+  a state file runs the command (#332: disk-watch). Check `case "$v" in *[!0-9]*)` before any
+  `$(( ))` on a value read from disk.
+- **A guard under `set -e` must fail closed.** On fork exhaustion `safety.sh` exited 128 with no
+  output (5 of 12 runs with `ulimit -u` just above the live count). Claude Code blocks that only
+  if `onFailure: block` is honoured. #333 adds a builtins-only EXIT trap that turns any rc other
+  than 0/2 into a deny. Two more from the same audit:
+  - `grep -q` returning more than 1 is an error, not "no match".
+  - A pattern that starts with `--` needs `grep -e`, or it is read as an option and never matches.
+    `--build-arg …TOKEN=` was dead.
+- **A test harness can fail open too.** `test-quoted-pipe.sh` recorded every non-2 exit as
+  "allow", so a crashed guard looked like a guard gap. Map anything other than 0/2 to an error.
+- **Two PRs that each bump a count merge "cleanly" to the wrong number.** #326 and #328 each moved
+  the full-mode hook count from 177 to 178, so git saw identical edits. The merge was 179 hooks
+  with a test that still said 178. Run `test-install.sh` after merging any two hook-adding branches.
