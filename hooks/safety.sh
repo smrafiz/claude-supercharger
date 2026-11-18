@@ -11,6 +11,22 @@
 #   {"disableSecurityCategories": ["clipboard", "history"]}
 set -euo pipefail
 . "${BASH_SOURCE[0]%/*}/lib-timing.sh"
+# Fail closed: any exit other than 0 (allow) or 2 (deny) means the guard itself died
+# (fork failure under the process limit, a killed sed/grep, an errexit in a lib), and
+# Claude Code reads that as a non-blocking error unless onFailure:"block" is honoured.
+# Builtins only -- no fork -- so it still works when forks are failing. Composes with
+# lib-timing's EXIT trap: runs it first, and only ever turns a crash into exit 2.
+_sc_fail_closed_exit() {
+  local _rc=$?
+  if declare -F _emit_hook_timing_lt >/dev/null; then _emit_hook_timing_lt || true; fi
+  case "$_rc" in 0|2) return 0 ;; esac
+  trap - EXIT
+  # %s for the verdict: lib-deny.sh is the one literal emitter (test-deny-attribution); it forks, this cannot.
+  printf '{"hookSpecificOutput":{"hookEventName":"PreToolUse","permissionDecision":"%s","permissionDecisionReason":"%s"}}\n' deny 'Supercharger: the safety check could not complete (resource exhaustion or an internal error), so this command was not allowed to run. Way through: retry the command.'
+  printf '%s\n' "Supercharger: safety.sh exited $_rc before reaching a verdict; denying (fail closed). Retry." >&2
+  exit 2
+}
+trap _sc_fail_closed_exit EXIT
 # shellcheck source=hooks/lib-json-fast.sh
 . "${BASH_SOURCE[0]%/*}/lib-json-fast.sh" 2>/dev/null || true
 
@@ -1249,13 +1265,20 @@ fi
 
 if [ ${#DANGEROUS_PATTERNS[@]} -gt 0 ]; then
   JOINED_DANGEROUS=$(IFS='|'; echo "${DANGEROUS_PATTERNS[*]}")
-  if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then
+  # grep rc>1 (killed/errored) must read as a HIT, not "no match" (fail closed).
+  if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$JOINED_DANGEROUS"; then _dp_o=0; else _dp_o=${PIPESTATUS[1]}; fi
+  if [ "$_dp_o" -ne 1 ]; then
     for _dp_i in "${!DANGEROUS_PATTERNS[@]}"; do
       pattern="${DANGEROUS_PATTERNS[$_dp_i]}"
-      if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE "$pattern"; then
+      # -e: a pattern starting with "--" (--build-arg...) was read as an option, rc 2, never matched.
+      if printf '%s\n' "$CMD_SCAN" | LC_ALL=C grep -qiE -e "$pattern"; then _dp_rc=0; else _dp_rc=${PIPESTATUS[1]}; fi
+      if [ "$_dp_rc" -eq 0 ]; then
         block "dangerous pattern: $pattern" "${DANGEROUS_WHY[$_dp_i]}"
+      elif [ "$_dp_rc" -gt 1 ]; then
+        block "the pattern scan could not complete (grep status $_dp_rc)" "retry the command"
       fi
     done
+    [ "$_dp_o" -le 1 ] || block "the pattern scan could not complete (grep status $_dp_o)" "retry the command"
   fi
 fi
 
@@ -1442,8 +1465,11 @@ if _cat_enabled "credentials"; then
   # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
   # but it would hide credential leaks like `API_KEY=secret123 echo done`
   # where the secret IS the env-var value.
-  if printf '%s\n' "$CRED_SCAN" | LC_ALL=C grep -qE "$JOINED_CRED"; then
+  if printf '%s\n' "$CRED_SCAN" | LC_ALL=C grep -qE "$JOINED_CRED"; then _cr_rc=0; else _cr_rc=${PIPESTATUS[1]}; fi
+  if [ "$_cr_rc" -eq 0 ]; then
     block "potential credential in command — never embed secrets in commands"
+  elif [ "$_cr_rc" -gt 1 ]; then
+    block "the credential scan could not complete (grep status $_cr_rc)" "retry the command"
   fi
 fi
 

@@ -18,6 +18,7 @@ check() {  # check <expected deny|allow> <name> <command>
   begin_test "$2"
   local out rc got=allow
   out=$(HOME="$TMP/home" SUPERCHARGER_STATE="$TMP/state$n" bash "$REPO_DIR/hooks/safety.sh" < "$TMP/in$n" 2>/dev/null); rc=$?
+  case "$rc" in 0|2) ;; *) fail "ERROR: exit $rc (guard crashed) — $3"; return ;; esac
   [ "$rc" -eq 2 ] && got=deny
   case "$out" in *'"deny"'*) got=deny ;; esac
   [ "$got" = "$1" ] && pass || fail "expected $1, got $got — $3"
