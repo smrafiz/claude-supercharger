@@ -95,7 +95,8 @@ if [ "$TOOL" = "Bash" ]; then
   printf '%s\n' "$CMD" | grep -qE '(^|[;&|(]|[[:space:]])(pip[0-9]?|pipx)[[:space:]]+(install|uninstall)([[:space:]]|$)' && block "a package change"
   printf '%s\n' "$CMD" | grep -qE '(^|[;&|(]|[[:space:]])(gem|brew|apt|apt-get|dnf|yum|pacman|cargo|go|gcloud|aws)[[:space:]]+[a-z-]*(install|add|update|upgrade|remove|uninstall|publish|create|apply|deploy)([[:space:]]|$)' && block "an install/deploy command"
   # Output redirection to a real file (allow /dev/null-style sinks).
-  if printf '%s\n' "$CMD" | grep -oE '>>?[[:space:]]*[^[:space:]&|;)]+' | grep -qvE '>>?[[:space:]]*/dev/(null|stderr|stdout|tty)'; then
+  # `>|` overrides noclobber: it writes a file exactly like `>`.
+  if printf '%s\n' "$CMD" | grep -oE '>[>|]?[[:space:]]*[^[:space:]&|;)]+' | grep -qvE '>[>|]?[[:space:]]*/dev/(null|stderr|stdout|tty)'; then
     block "a redirect that writes a file"
   fi
 fi

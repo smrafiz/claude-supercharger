@@ -203,8 +203,10 @@ if [ -z "$REASON" ]; then
   # which rewrote `open\(` to `open(` — an unbalanced group. awk then died on the
   # invalid regex and printed nothing, so the guard silently allowed EVERYTHING,
   # including `rm <hook>`. ENVIRON values are passed through verbatim.
+  # `>|` (a redirect that overrides noclobber) is rewritten to `>` first: splitting
+  # on its `|` put the redirect and its target in different segments, so neither matched.
   _HT_HIT=$(_HT_V="$_HT_VERB" _HT_T="$_HT_TARGET" _HT_C="$_HT_COPY" ; export _HT_V _HT_T _HT_C; printf '%s' "$CMD" \
-    | sed -E 's/(&&|\|\||;|\|)/\'$'\n''/g' \
+    | sed -E -e 's/>\|/>/g' -e 's/(&&|\|\||;|\|)/\'$'\n''/g' \
     | awk '
         BEGIN { v = ENVIRON["_HT_V"]; t = ENVIRON["_HT_T"]; c = ENVIRON["_HT_C"]
                 cd_in = 0; hit = 0 }
@@ -363,7 +365,7 @@ fi
 if [ -z "$REASON" ]; then
   _HT_TRACE='(supercharger/audit/[^[:space:];&|]*|\.claude/supercharger/scope/\.blocked-commands|\.claude/projects/[^[:space:];&|]*\.jsonl|\.claude/history\.jsonl)'
   _HT_TVERB='(^|[[:space:];&|(])(rm|unlink|truncate|shred|mv|sed[[:space:]]+-i|perl[[:space:]]+-[a-zA-Z]*i|:[[:space:]]*>|>)'
-  _HT_TR_HIT=$(printf '%s' "$CMD" | sed -E 's/(&&|\|\||;|\|)/\'$'\n''/g' \
+  _HT_TR_HIT=$(printf '%s' "$CMD" | sed -E -e 's/>\|/>/g' -e 's/(&&|\|\||;|\|)/\'$'\n''/g' \
     | _HT_V="$_HT_TVERB" _HT_T="$_HT_TRACE" awk 'BEGIN{v=ENVIRON["_HT_V"]; t=ENVIRON["_HT_T"]} $0 ~ v && $0 ~ t {print "1"; exit}')
   if [ -n "$_HT_TR_HIT" ]; then
     sc_decision ask "This deletes or rewrites a session trace (Supercharger audit log, block ledger, or a Claude Code transcript/history). Those records are how you can see later what the agent did. Approve only if you asked for this."

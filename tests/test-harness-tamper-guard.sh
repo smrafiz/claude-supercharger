@@ -40,6 +40,7 @@ check "truncate a hook"               "truncate -s0 ~/.claude/supercharger/hooks
 check "touch the kill-switch file"     "touch ~/.claude/supercharger/scope/.supercharger-disabled" DENY
 check "rm plugin hooks dir"            "rm -rf ~/.claude/plugins/data/x/hooks/"               DENY
 check "redirect over a hook"           "echo x > ~/.claude/supercharger/hooks/safety.sh"      DENY
+check "noclobber redirect over a hook" "echo x >| ~/.claude/supercharger/hooks/safety.sh"     DENY
 # v4.1.1: copy-family (cp/install/rsync/scp) overwriting a hook. The bare form was
 # covered by the rule, but a trailing redirect/comment shifted the last token off the
 # hook path and the overwrite was ALLOWED — these lock that bypass shut.
