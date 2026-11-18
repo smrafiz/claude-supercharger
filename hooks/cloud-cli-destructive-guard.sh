@@ -81,7 +81,7 @@ elif printf '%s' "$CMD" | grep -Eq -- 'gcloud[^;&|]*(compute|sql|container|stora
 elif printf '%s' "$CMD" | grep -Eq -- 'gsutil([[:space:]]+-[[:alnum:]]+)*[[:space:]]+(rm[^;&|]*[[:space:]]-[a-zA-Z]*[rRa]|rb)';                                          then op="gsutil bucket/recursive delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])az[[:space:]]+(group|vm|aks|sql|webapp|storage)[^;&|]*[[:space:]]delete([[:space:]]|$)'; then op="az resource delete"
 elif printf '%s' "$CMD" | grep -Eq -- 'kubectl[^;&|]*delete[^;&|]*([[:space:]](ns|namespaces?|deploy|deployments?|sts|statefulsets?|ds|daemonsets?|pvc|pv|persistentvolumes?|persistentvolumeclaims?)([[:space:]/]|$)|--all([[:space:]]|$))'; then op="kubectl delete (namespace/workload/--all)"
-elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete)[[:space:]]';                                       then op="helm uninstall/delete"
+elif printf '%s' "$CMD" | grep -Eq -- 'helm[[:space:]]+(uninstall|delete|un|del)[[:space:]]';                                       then op="helm uninstall/delete"
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])(doctl|flyctl|fly)[^;&|]*(delete|destroy)([[:space:]]|$)';          then op="doctl/flyctl delete/destroy"
 # 2026-11-09: the fast-path admitted eksctl since it was added, but no arm matched it.
 elif printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|])eksctl[^;&|]*[[:space:]]delete[[:space:]]+(cluster|nodegroup|ng|fargateprofile|addon|iamserviceaccount|podidentityassociation)([[:space:]]|$)'; then op="eksctl delete (EKS cluster/nodegroup/addon)"

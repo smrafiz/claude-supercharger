@@ -264,6 +264,13 @@ if _cat_enabled "filesystem"; then
       # segment may now arrive indented (newline-split); strip before slicing
       seg="${seg#"${seg%%[![:space:]]*}"}"
       args="${seg#rm }"
+      # 2026-11-17 (memokit review): a redirect is not an operand. `rm -rf node_modules
+      # 2> /dev/null` read /dev/null as a target and was denied as a protected path, by
+      # the python resolver and the Windows text arm alike. Drop each redirect and its
+      # target here, once, so every check below sees operands only. Slices, not ${v/x/y}.
+      while [[ "$args" =~ (^|[[:space:]])[0-9]*(&?>>?|<|>&|<&)[[:space:]]*[^[:space:]]* ]]; do
+        args="${args%%"${BASH_REMATCH[0]}"*} ${args#*"${BASH_REMATCH[0]}"}"
+      done
 
       # v4.2.0: -R is the same flag as -r (rm(1)); lowercase-only let -Rf through.
       if [[ "$args" =~ (^|[[:space:]])-[a-zA-Z]*[rR][a-zA-Z]*([[:space:]]|$) ]] || \
@@ -578,6 +585,8 @@ DB_PATTERNS=(
   'flyway[[:space:]]+([^&|;]*[[:space:]])?clean([[:space:]]|$)'
   'liquibase[[:space:]]+([^&|;]*[[:space:]])?drop-?all([[:space:]]|$)'
   '(^|[[:space:];&|(])dropdb[[:space:]]'
+  # 2026-11-17 (memokit review): mysqladmin's drop verb (case-insensitive) drops a database.
+  '(^|[[:space:];&|(])mysqladmin[[:space:]]+([^&|;]*[[:space:]])?[dD][rR][oO][pP][[:space:]]'
   'dropDatabase[[:space:]]*\('
   'redis-cli[[:space:]]+([^&|;]*[[:space:]])?flush(all|db)([[:space:]]|$)'
   '(^|[[:space:];&|(])wp[[:space:]]+db[[:space:]]+(reset|drop|clean)([[:space:]]|$)'
@@ -784,7 +793,7 @@ DESTRUCT_PATTERNS=(
   # v4.2.0: only where the search ROOT is the danger: an absolute path, home, a
   # parent, or `.` with nothing narrowing it. `find . -name '*.pyc' -delete` and
   # `find dist -type f -delete` are routine cleanup (dcg/flowrail allow corpora).
-  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.)[^;&|]*[[:space:]]-(delete|exec(dir)?[[:space:]]+((env|sudo|doas|command|busybox|nice|nohup|exec)[[:space:]]+)*rm)([[:space:]]|$)'
+  'find[[:space:]]+(/|~|\$HOME|\$\{HOME\}|\.\.|\$\{?PWD\}?/\.\.)[^;&|]*[[:space:]]-(delete|exec(dir)?[[:space:]]+((env|sudo|doas|command|busybox|nice|nohup|exec)[[:space:]]+)*rm)([[:space:]]|$)'
   'find([[:space:]]+\./?)?[[:space:]]+-(delete|exec(dir)?[[:space:]]+((env|sudo|doas|command|busybox|nice|nohup|exec)[[:space:]]+)*rm)([[:space:]]|$)'
   # ...and anywhere when the match is the repository's own .git metadata.
   'find[[:space:]][^;&|]*-(i?name|path)[[:space:]]+["'"'"']?[^[:space:]]*\.git["'"'"']?[[:space:]][^;&|]*-(delete|exec[[:space:]]+rm)([[:space:]]|$)'
