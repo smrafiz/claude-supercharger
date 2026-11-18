@@ -31,13 +31,17 @@ DIR="$PWD"; [[ "$_INPUT" =~ \"cwd\"[[:space:]]*:[[:space:]]*\"([^\"\\]+)\" ]] &&
 FREE="${SUPERCHARGER_DF_KB:-}"
 if [ -z "$FREE" ]; then
   FREE=$(df -Pk "$DIR" 2>/dev/null) || exit 0
-  FREE=${FREE##*$'\n'}; read -r _ _ _ FREE _ <<<"$FREE"
+  # Anchor on "<used> <available> <capacity>%" so a space in the Filesystem name (Git Bash:
+  # "C:/Program Files/Git") or the mount point cannot shift the Available column.
+  FREE=${FREE##*$'\n'}
+  if [[ "$FREE" =~ [[:space:]][0-9]+[[:space:]]+([0-9]+)[[:space:]]+([0-9]+%|-)([[:space:]]|$) ]]; then FREE="${BASH_REMATCH[1]}"; else exit 0; fi
 fi
 case "$FREE" in ''|*[!0-9]*) exit 0 ;; esac
 
 ST="$SUPERCHARGER_STATE/scope"; mkdir -p "$ST" 2>/dev/null || exit 0
 LAST_F="$ST/.disk-free-$SID"; FLOOR_F="$ST/.disk-floor-$SID"
 LAST=""; [ -f "$LAST_F" ] && read -r LAST < "$LAST_F"
+case "$LAST" in *[!0-9]*) LAST="" ;; esac  # a corrupted state file is not arithmetic
 printf '%s\n' "$FREE" > "$LAST_F"
 
 GB=1048576 MSG=""

@@ -48,4 +48,37 @@ begin_test "non-Bash tools are ignored"
 out=$(printf '{"hook_event_name":"PostToolUse","tool_name":"Read","session_id":"s5","cwd":"/tmp"}' | SUPERCHARGER_STATE="$D" SUPERCHARGER_DF_KB=1 bash "$H" 2>/dev/null)
 [ -z "$out" ] && pass || fail "Read triggered: $out"
 
+# --- the parser itself: a fake `df` first on PATH prints real-shaped output ---
+mkdir -p "$D/fakebin"
+printf '#!/bin/sh\necho "Filesystem 1024-blocks Used Available Capacity Mounted on"\necho "$FAKE_DF_LINE"\n' > "$D/fakebin/df"
+chmod +x "$D/fakebin/df"
+# dfpost <df data line> <session> → hook stdout (real parse path: no SUPERCHARGER_DF_KB)
+dfpost() {
+  printf '{"hook_event_name":"PostToolUse","tool_name":"Bash","session_id":"%s","cwd":"/tmp","tool_input":{"command":"x"}}' "$2" \
+    | SUPERCHARGER_STATE="$D" PATH="$D/fakebin:$PATH" FAKE_DF_LINE="$1" bash "$H" 2>/dev/null
+}
+# 3 GB available (under the 5 GB floor, so it is reported); Used is 900 GB so a shifted column reads differently.
+AV=$((3*GB)); US=$((900*GB))
+
+begin_test "df parse: normal line"
+out=$(dfpost "/dev/disk3s1 1000000000 $US $AV 99% /System/Volumes/Data" pn)
+[[ "$out" == *"3 GB free"* ]] && pass || fail "got: $out"
+
+begin_test "df parse: space in the Filesystem name (Git Bash)"
+out=$(dfpost "C:/Program Files/Git 1000000000 $US $AV 99% /" ps)
+[[ "$out" == *"3 GB free"* ]] && pass || fail "got: $out"
+
+begin_test "df parse: space in the mount point"
+out=$(dfpost "/dev/sda1 1000000000 $US $AV 99% /mnt/My Disk" pm)
+[[ "$out" == *"3 GB free"* ]] && pass || fail "got: $out"
+
+begin_test "df parse: unparseable output is silent"
+[ -z "$(dfpost "garbage" pg)" ] && pass || fail "spoke on garbage"
+
+begin_test "a corrupted state file is not evaluated as arithmetic (PATH[...] runs its subscript)"
+rm -f "$D/pwn"
+printf '%s\n' "PATH[\$(touch $D/pwn)]" > "$D/scope/.disk-free-pc"
+out=$(post $((4*GB)) PostToolUse pc)
+[ ! -e "$D/pwn" ] && [[ "$out" == *"4 GB free"* ]] && pass || fail "pwn=$([ -e "$D/pwn" ] && echo yes || echo no) out=$out"
+
 report
