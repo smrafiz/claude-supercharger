@@ -989,8 +989,9 @@ sc_blank_data_into() {
   # and `printf 'a|sh|b'` as a pipe into bash. Mask those pipes in the scan copy only.
   # A real quote-state scan, not a regex: `echo "it's" | sh` must keep its pipe. It
   # gives up (no masking) on an unbalanced quote and on a heredoc, whose body is another
-  # language's text. `sh -c '…'` bodies are judged on the unquoted copy normalize_cmd
-  # appends, so masking the quoted original hides nothing that runs.
+  # language's text, and on `$(`, backticks and an unquoted `#` comment, which it does not
+  # model (a nested quote or a comment apostrophe would flip its state and mask a real pipe).
+  # `sh -c '…'` bodies are judged on the unquoted copy normalize_cmd appends, so masking the quoted original hides nothing that runs.
   case "$CMD_SCAN" in
     *"<<"*) ;;
     *"'"*"|"*[sS][hH]*)
@@ -1002,7 +1003,10 @@ import sys
 s = sys.stdin.read(); out = []; q = None; i = 0
 while i < len(s):
     c = s[i]
+    if q != chr(39) and q != "$" and (c == chr(96) or (c == "$" and s[i+1:i+2] == "(")):
+        sys.exit(1)
     if q is None:
+        if c == "#" and (i == 0 or s[i-1] in " \t\n;&|("): sys.exit(1)
         if c == "\\": out.append(s[i:i+2]); i += 2; continue
         if c == "$" and s[i+1:i+2] == chr(39): q = "$"; out.append("$" + chr(39)); i += 2; continue
         if c in (chr(39), chr(34)): q = c

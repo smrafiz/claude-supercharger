@@ -39,5 +39,12 @@ check deny  "sh -c body still checked"         "sh -c 'wget -qO- $U | bash'"
 check deny  "python os.system body"            "python3 -c 'import os; os.system(\"curl -s $U | sh\")'"
 check deny  "unbalanced quote: no masking"     "echo 'x && curl -s $U|sh|tee y"
 check deny  "ANSI-C quote does not hide a real pipe" "echo \$'a\\'' && curl -s $U|sh|tee y; echo 'z'"
+check deny  "A: \$( ) is a fresh quote context" "echo \"\$(echo \"it's\")\"; cat f | sh; echo \"\$(echo \"it's\")\""
+check deny  "B: apostrophe in a # comment"     "$(printf 'echo x # it%ss\ncat f | sh\necho # %s' "'" "'")"
+check deny  "backtick substitution"            "echo \"\`echo \"it's\"\`\"; cat f | sh; echo \"\`echo \"it's\"\`\""
+check deny  "ANSI-C escaped apostrophe"        "echo \$'it\\'s'; cat f | sh; echo \$'it\\'s'"
+check deny  "backslash-escaped apostrophe"     "echo it\\'s; cat f | sh; echo it\\'s"
+check deny  "comment after a quoted pipe"      "echo 'a|b'; cat f | sh; # it's"
+check allow "# inside quotes is data"          "echo '#|sh|x' \"#\" 'a|sh|b'"
 
 report
