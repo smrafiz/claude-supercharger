@@ -1709,15 +1709,19 @@ fi
 # harness-tamper-guard:277 and lib-smart-approve:221 exist to force — writing the
 # sentinel is the same privilege as running the command, without the ask.
 #
+# 2026-11-17: .gate-granted-<sid>-<hash> is human-approval-gate's grant: only the
+# user's `approve <code>` prompt may create it. It counts by EXISTENCE, so `touch`
+# is a write verb here.
+#
 # Suffixed forms (.autopilot-until-<session>, .allow-patterns-<projectkey>) need
 # no extra alternative: these patterns are matched as substrings, not anchored.
-_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.autopilot-full|\.readonly-until|\.strict-until)'
+_SELFMOD_CFG='(\.claude/settings(\.local)?\.json|\.claude/CLAUDE\.md|\.claude\.json|\.supercharger\.json|\.mcp\.json|\.disabled-security-categories|\.disabled-hooks|\.supercharger-disabled|\.allow-patterns|\.autopilot-until|\.autopilot-full|\.readonly-until|\.strict-until|\.gate-granted)'
 # (a) redirect INTO a config file: `> cfg`, `>> cfg`, `2> cfg` (fd + optional path)
 _SELFMOD_REDIR="[0-9]*>>?[[:space:]]*[^[:space:];&|]*$_SELFMOD_CFG"
 # (b) in-place edit / move / copy / remove / truncate whose argument is a config file
 # v4.1.23: a verb must be a whole word: "installer", "installed" and "install.sh"
 # in an echo line matched `install` (fp-triage on a real ledger, 2026-09-29).
-_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|(tee|mv|cp|rm|truncate|install|ln|rsync)[[:space:]])[^;&|]*$_SELFMOD_CFG"
+_SELFMOD_VERB="(^|[[:space:];&|])(sed[[:space:]]+-i|(tee|mv|cp|rm|truncate|install|ln|rsync|touch)[[:space:]])[^;&|]*$_SELFMOD_CFG"
 # 2026-10-15: dd's `of=` can come after `if=`, and the config must be the of= target:
 # `dd if=cfg of=/tmp/b` is a read and stays allowed.
 _SELFMOD_DD="(^|[[:space:];&|])dd[[:space:]]([^;&|]*[[:space:]])?of=[^[:space:];&|]*$_SELFMOD_CFG"
