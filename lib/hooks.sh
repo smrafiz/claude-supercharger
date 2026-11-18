@@ -367,6 +367,8 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
     hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/failure-tracker.sh|async")
     hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/dep-vuln-scanner.sh|async")
+    # 2026-11-17 (memokit): opt-in markitdown conversion for a PDF/Office Read.
+    hooks+=("PreToolUse|Read|${hooks_dir}/office-read.sh|")
     # PreToolUse, sync: a slopsquat's payload is its install script, which ran
     # before a PostToolUse warning could speak. The registry lookup runs only
     # on install verbs (fast-path gate) and is capped at 6s in total.

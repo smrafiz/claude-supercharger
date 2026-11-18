@@ -514,6 +514,16 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/office-read.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Read"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/package-credibility-guard.sh",
             "timeout": 15
           }
