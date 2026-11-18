@@ -56,6 +56,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Helper: not a registered hook — Shared stack detection sourced by hooks that vary behaviour per project type. |
 | `dir-added-record` | NONE — PARKED, NOT REGISTERED | # Event: NONE — PARKED, NOT REGISTERED | This was registered on "DirectoryAdded" from v2.26.43. Claude Code has no such |
+| `disk-watch` | PostToolUse, PostToolUseFailure | Bash | Tells Claude when free disk space drops sharply or sits under a floor. |
 | `display-secret-redactor` | MessageDisplay | (none) | Last line of defense, and the only one that protects the HUMAN rather than the |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `editor-config-guard` | PreToolUse | Write, Edit, MultiEdit | The `.claude/settings.json` hook-injection / `.mcp.json` stdio-server primitive |
@@ -77,7 +78,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `guard-drift-alarm` | SessionStart | # Event: SessionStart | A registered guard whose script is missing or not executable never runs: Claude |
 | `guard-registration-check` | SessionStart | (none) | Verifies that Supercharger's hooks are actually REGISTERED, because an install |
 | `harness-tamper-guard` | PreToolUse | Bash | Self-defense on the BASH channel. path-guard protects .claude/settings.json and |
-| `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: pauses on high-risk commands and forces Claude to ask the user |
+| `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: denies high-risk commands with an approval code; only the user's prompt grants. |
 | `install-script-guard` | PreToolUse | Write, Edit, MultiEdit | npm/pnpm/yarn/bun run lifecycle scripts automatically on `install` |
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |
