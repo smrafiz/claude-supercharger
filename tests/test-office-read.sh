@@ -77,6 +77,30 @@ if [ -z "$WIN" ]; then
   [ -z "$(read_ "$T/proj/docs/link.pdf")" ] && pass || fail "symlink redirected"
 fi
 
+begin_test "a Read deny rule under CLAUDE_CONFIG_DIR keeps the hook out"
+mkdir -p "$T/cfg"
+printf '{"permissions":{"ask":["Read(./docs/r.pdf)"]}}' > "$T/cfg/settings.json"
+[ -z "$(read_ "$T/proj/docs/r.pdf" '' CLAUDE_CONFIG_DIR="$T/cfg")" ] && pass || fail "redirected past a CLAUDE_CONFIG_DIR rule"
+rm "$T/cfg/settings.json"
+
+begin_test "output over the size cap falls back to the plain Read"
+printf '%%PDF big' > "$T/proj/docs/cap.pdf"
+[ -z "$(read_ "$T/proj/docs/cap.pdf" '' SUPERCHARGER_OFFICE_READ_MAX=5)" ] && pass || fail "oversized conversion handed back"
+
+# A shebang fake is not runnable on Windows, so the kill row is POSIX-only.
+if [ -z "$WIN" ]; then
+  begin_test "a markitdown slower than the inner timeout: fall back, no temp file, child killed"
+  mkdir -p "$T/slowbin"
+  printf '#!/bin/sh\nsleep 60 &\necho $! > "$PIDF"\nwait\n' > "$T/slowbin/markitdown"
+  chmod +x "$T/slowbin/markitdown"
+  printf '%%PDF slow' > "$T/proj/docs/slow.pdf"
+  export PIDF="$T/pid"
+  out=$(read_ "$T/proj/docs/slow.pdf" '' PATH="$T/slowbin:$PATH" SUPERCHARGER_OFFICE_READ_TIMEOUT=1)
+  alive=1; for _ in 1 2 3 4 5 6 7 8 9 10; do kill -0 "$(cat "$PIDF" 2>/dev/null)" 2>/dev/null || { alive=0; break; }; sleep 0.5; done
+  stray=$(find "$T/state/office-read" -type f -name 'tmp*' | wc -l | tr -d ' ')
+  [ -z "$out" ] && [ "$alive" = 0 ] && [ "$stray" = 0 ] && pass || fail "out=[$out] child alive=$alive stray=$stray"
+fi
+
 begin_test "other extensions are ignored"
 printf 'x' > "$T/proj/docs/a.txt"
 [ -z "$(read_ "$T/proj/docs/a.txt")" ] && pass || fail ".txt redirected"

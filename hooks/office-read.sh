@@ -26,7 +26,7 @@ command -v markitdown >/dev/null 2>&1 || exit 0
 check_hook_disabled "office-read" && exit 0
 
 printf '%s' "$_INPUT" | CACHE="$SUPERCHARGER_STATE/office-read" python3 -c '
-import hashlib, json, os, re, subprocess, sys, tempfile
+import glob, hashlib, json, os, re, subprocess, sys, tempfile
 try:
     d = json.load(sys.stdin)
 except Exception:
@@ -42,18 +42,27 @@ real = os.path.realpath(fp)
 if proj == "/" or not real.startswith(proj + os.sep):
     sys.exit(0)
 # Any Read deny/ask rule, in any settings file we can see: stay out.
+# shortcut: a --settings file on the command line is invisible to a hook, so a Read rule there is not seen, upgrade if Claude Code exposes it to hooks.
 home = os.environ.get("HOME", "")
-for s in (os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json"),
-          os.path.join(proj, ".claude", "settings.json"), os.path.join(proj, ".claude", "settings.local.json"),
-          "/Library/Application Support/ClaudeCode/managed-settings.json", "/etc/claude-code/managed-settings.json"):
+cfg = os.environ.get("CLAUDE_CONFIG_DIR") or os.path.join(home, ".claude")
+files = [os.path.join(cfg, "settings.json"), os.path.join(cfg, "settings.local.json"),
+         os.path.join(home, ".claude", "settings.json"), os.path.join(home, ".claude", "settings.local.json"),
+         os.path.join(proj, ".claude", "settings.json"), os.path.join(proj, ".claude", "settings.local.json")]
+for md in ("/Library/Application Support/ClaudeCode", "/etc/claude-code", "C:\\Program Files\\ClaudeCode"):
+    files.append(os.path.join(md, "managed-settings.json"))
+    files += sorted(glob.glob(os.path.join(glob.escape(md), "managed-settings.d", "*.json")))
+for s in files:
     try:
         perms = json.load(open(s)).get("permissions") or {}
     except Exception:
         continue
     if any(str(r).startswith("Read") for k in ("deny", "ask") for r in (perms.get(k) or [])):
         sys.exit(0)
+h = hashlib.sha256()
 with open(real, "rb") as f:
-    key = hashlib.sha256(f.read()).hexdigest()[:32]
+    for blk in iter(lambda: f.read(1 << 20), b""):
+        h.update(blk)
+key = h.hexdigest()[:32]
 kdir = os.path.join(os.environ["CACHE"], key)
 out = os.path.join(kdir, os.path.basename(fp)[:120] + ".md")
 if not (os.path.isfile(out) and not os.path.islink(out) and os.path.getsize(out) > 0):
@@ -63,16 +72,39 @@ if not (os.path.isfile(out) and not os.path.islink(out) and os.path.getsize(out)
     exe = shutil.which("markitdown")
     if not exe:
         sys.exit(0)
+    # Inner timeout stays under the hook timeout (15s) so the hook is never killed mid-convert.
+    tmo = float(os.environ.get("SUPERCHARGER_OFFICE_READ_TIMEOUT") or 10)
+    cap = int(os.environ.get("SUPERCHARGER_OFFICE_READ_MAX") or 2000000)
+    posix = os.name != "nt"
     try:
-        r = subprocess.run([exe, real], capture_output=True, timeout=60)
+        p = subprocess.Popen([exe, real], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, start_new_session=posix)
     except Exception:
         sys.exit(0)
-    if r.returncode != 0 or not r.stdout.strip():
+    try:
+        so, _ = p.communicate(timeout=tmo)
+    except BaseException:
+        try:
+            if posix:
+                os.killpg(p.pid, 9)
+            else:
+                p.kill()
+        except Exception:
+            pass
+        p.communicate()
+        sys.exit(0)
+    if p.returncode != 0 or not so.strip() or len(so) > cap:
         sys.exit(0)
     fd, tmp = tempfile.mkstemp(dir=kdir)
-    with os.fdopen(fd, "wb") as f:
-        f.write(r.stdout)
-    os.replace(tmp, out)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(so)
+        os.replace(tmp, out)
+    except Exception:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+        sys.exit(0)
 ti2 = dict(ti, file_path=out)
 print(json.dumps({"hookSpecificOutput": {"hookEventName": "PreToolUse", "permissionDecision": "allow",
     "permissionDecisionReason": "office-read: Markdown conversion of " + fp,

@@ -56,6 +56,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `destructive-prompt-scanner` | UserPromptSubmit | (none) | Scans the user prompt for destructive patterns and injects an |
 | `detect-stack` | — | — | Helper: not a registered hook — Shared stack detection sourced by hooks that vary behaviour per project type. |
 | `dir-added-record` | NONE — PARKED, NOT REGISTERED | # Event: NONE — PARKED, NOT REGISTERED | This was registered on "DirectoryAdded" from v2.26.43. Claude Code has no such |
+| `disk-watch` | PostToolUse, PostToolUseFailure | Bash | Tells Claude when free disk space drops sharply or sits under a floor. |
 | `display-secret-redactor` | MessageDisplay | (none) | Last line of defense, and the only one that protects the HUMAN rather than the |
 | `economy-reinforce` | UserPromptSubmit | (none) | Re-injects active economy tier rules every Nth prompt to prevent drift. |
 | `editor-config-guard` | PreToolUse | Write, Edit, MultiEdit | The `.claude/settings.json` hook-injection / `.mcp.json` stdio-server primitive |
