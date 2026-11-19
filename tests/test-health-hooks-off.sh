@@ -71,4 +71,16 @@ begin_test "health: hardening lines show off and allowed when unset"
 out=$(health '{"hooks":{}}' -u IS_DEMO -u CLAUDE_CODE_SUBPROCESS_ENV_SCRUB)
 case "$out" in *"credential scrub: off"*"mode:     allowed"*) pass ;; *) fail "not shown: $out" ;; esac
 
+# allowManagedMcpServersOnly is read only from managed settings, like allowManagedHooksOnly.
+M=$(mktemp -d)
+begin_test "health: managed MCP allowlist shown when set in managed settings"
+printf '{"allowManagedMcpServersOnly":true}' > "$M/managed.json"
+out=$(health '{"hooks":{}}' -u IS_DEMO SUPERCHARGER_MANAGED_SETTINGS="$M/none.json:$M/managed.json")
+case "$out" in *"MCP server allowlist:        managed only ($M/managed.json)"*) pass ;; *) fail "not shown: $out" ;; esac
+
+begin_test "health: managed MCP allowlist not enforced when only in user settings"
+out=$(health '{"hooks":{},"allowManagedMcpServersOnly":true}' -u IS_DEMO SUPERCHARGER_MANAGED_SETTINGS="$M/none.json")
+case "$out" in *"MCP server allowlist:        not enforced"*) pass ;; *) fail "wrong state: $out" ;; esac
+rm -rf "$M"
+
 report
