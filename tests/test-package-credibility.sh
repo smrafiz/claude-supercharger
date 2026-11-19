@@ -89,6 +89,12 @@ npm install https://example.com/pkg.tgz|
 pip3 install ./dist/mypkg.whl|
 git add -A|NOTINSTALL
 docker install something|NOTINSTALL
+pip install -r requirements.txt|
+pip install --requirement requirements.txt requests|requests
+pip install -c constraints.txt flask|flask
+pip install -e mypkg|
+pip install --editable mypkg|
+pip install requests -r requirements.txt|requests
 CASES
 
 echo "=== verdict thresholds (pure, no network) ==="
