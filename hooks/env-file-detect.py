@@ -25,7 +25,7 @@ SAFE_TEMPLATES = (".env.example", ".env.template", ".env.sample", ".env.dist")
 # this file is the fork-free copy env-file-guard.sh execs, and the two guards
 # drifting apart is what made the defect visible on one channel only.
 PATTERN_READER_INVOCATION_RE = re.compile(
-    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
+    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk|jq)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
 )
 
 

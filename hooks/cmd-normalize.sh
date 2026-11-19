@@ -218,7 +218,7 @@ _sc_wrapper_prelude_into() {
   # group (nohup, then a case arm) stripped the wrapper and stopped. Duplicated
   # logic drifting apart is the same defect this release exists to fix, so the
   # passes now alternate over one implementation until the string stabilises.
-  local _before_all
+  local _before_all _xa=""
   while :; do
     _before_all="$cmd"
     while :; do
@@ -347,6 +347,27 @@ _sc_wrapper_prelude_into() {
         -*)
           _tok="${cmd%%[[:space:]]*}"
           cmd="${cmd#"$_tok"}"
+          # 2026-11-19: `script -qc BODY` / `flock -c BODY` run BODY, so BODY is the
+          # command: unquote it in place (what follows it stays). Dropping it as an
+          # option value hid `script -qc 'cat <secret>' /dev/null` from every rule.
+          case "${_w}:${_tok}" in
+            script:-*c|flock:-*c|script:--command|flock:--command)
+              cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+              case "$cmd" in
+                \'*\'*) _tok="${cmd#\'}"; cmd="${_tok%%\'*} ${_tok#*\'}" ;;
+                \"*\"*) _tok="${cmd#\"}"; cmd="${_tok%%\"*} ${_tok#*\"}" ;;
+              esac
+              break ;;
+            # `xargs -a FILE` feeds FILE's lines to the command: keep FILE visible as
+            # an input redirect instead of dropping it with the option.
+            xargs:-a|xargs:--arg-file)
+              cmd="${cmd#"${cmd%%[![:space:]]*}"}"
+              _tok="${cmd%%[[:space:]]*}"
+              cmd="${cmd#"$_tok"}"
+              _xa="${_xa:+$_xa }< $_tok"
+              continue ;;
+            xargs:--arg-file=*) _xa="${_xa:+$_xa }< ${_tok#*=}"; continue ;;
+          esac
           # An option that takes a SEPARATE value: drop the value too, or it reads
           # as the command. `--opt=value` is one token and needs no second drop.
           case "${_w}:${_tok}" in
@@ -395,6 +416,7 @@ _sc_wrapper_prelude_into() {
   done
     [ "$cmd" = "$_before_all" ] && break
   done
+  [ -n "$_xa" ] && cmd="$cmd $_xa"
   # v4.2.0: git's global options sit between `git` and the subcommand, and the git
   # rules anchor on `git <subcommand>`. Drop them (with their values) so the rules
   # see the subcommand.

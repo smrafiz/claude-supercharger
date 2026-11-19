@@ -184,6 +184,7 @@ _FS_READ_RE = re.compile(
     r"|\bFile\.(?:read|readlines|open)\b|\bIO\.read\b"          # ruby
     r"|\bfile_get_contents\b|\bfopen\b|\breadfile\b"            # php
     r"|\bslurp\b|\bgetline\b"                                     # perl / awk
+    r"|\bopen\s+(?:my\s+)?\$?\w+\s*,"                              # perl open FH, ...
     r")")
 
 _WRAPPER_SHELLOUT = [
@@ -455,7 +456,7 @@ def _drop_first_operand(args: str) -> str:
 # siblings). Keep in sync with hooks/env-file-detect.py, which carries the same
 # pair for the fork-free Bash path.
 _PATTERN_READER_INVOCATION_RE = re.compile(
-    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk|findstr)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
+    r"\b(grep|egrep|fgrep|rg|ag|ack|sed|awk|gawk|findstr|jq)\b(\s+)([\S\s]*?)(?=$|\||;|&&)"
 )
 
 
@@ -541,6 +542,11 @@ _PATH_SEP_RUN_RE = re.compile(r"(?<=[\w~.$}-])/(?:\.?/)+")
 def _norm_path_seps(c: str) -> str:
     return _PATH_SEP_RUN_RE.sub("/", c)
 
+_SED_READS_RE = re.compile(r"""(?:[\d$/;{}'"]\s*[rR]\s+\S|/[a-zA-Z0-9]*e[a-zA-Z0-9]*['"\s]|(?:^|[;'"])\s*e\s)""")
+# An archive member printed to stdout: `tar -xOf a.tar <f>`, `unzip -p a.zip <f>`.
+_ARCHIVE_STDOUT_RE = re.compile(
+    r"\b(?:tar\s+(?:[^|;&\n]*\s)?(?:-?[a-zA-Z]*O[a-zA-Z]*|--to-stdout)|unzip\s+(?:[^|;&\n]*\s)?-[a-zA-Z]*[pc][a-zA-Z]*)\s[^|;&\n]*")
+
 
 def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
@@ -562,6 +568,10 @@ def check_sensitive_read(c: str) -> str | None:
     # sit in READER. `dotenv list|get` prints the values; `openssl pkey|rsa|...`
     # parses a private key and, with -text, prints it. From flightrules 76c678a:
     # its option-value spellings were already covered, these verbs were not.
+    for m in _ARCHIVE_STDOUT_RE.finditer(c):
+        sm = _SENSITIVE_NAME_RE.search(m.group(0))
+        if sm and not sm.group(0).endswith(".pub"):
+            return f"sensitive file access: {sm.group(0)} — an archive member printed to stdout"
     for m in re.finditer(r"\b(?:dotenv\b[^|;&]*\b(?:list|get)|openssl\s+(?:pkey|rsa|ec|dsa|pkcs8|pkcs12))\b[^|;&]*", c):
         sm = _SENSITIVE_NAME_RE.search(m.group(0))
         if sm and not sm.group(0).endswith(".pub"):
@@ -579,6 +589,12 @@ def check_sensitive_read(c: str) -> str | None:
         if m.group("tool") in ("grep", "egrep", "fgrep") and _segment_prints_nothing(m.group(0)):
             continue
         args = m.group(2)
+        # 2026-11-19: sed's script can itself read a file (`1r <f>`, `R <f>`) or run
+        # one (`s/x/cat <f>/e`); then the script is scanned like the operands.
+        if m.group("tool") == "sed" and _SED_READS_RE.search(args):
+            sm = _SENSITIVE_NAME_RE.search(args)
+            if sm and not sm.group(0).endswith(".pub"):
+                return f"sensitive file access: {sm.group(0)} — credentials likely present"
         if m.group("tool") in _PATTERN_READERS:
             # BSD `sed -i ''`: the empty string is -i's backup suffix, not the script.
             if m.group("tool") == "sed":
@@ -676,7 +692,7 @@ _SECRET_DIR_CONTENT_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "tar
 
 def check_secret_directory(c: str) -> str | None:
     """A read of a file inside a secret directory, whatever it is called."""
-    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/|/\.azure/|/\.password-store/)[\w.-]+)", c):
+    for m in re.finditer(r"(?:^|[\s'\"=])((?:[\w.~/-]*)?(?:/\.ssh/|/\.gnupg/|/\.aws/|/\.mcp-auth/|/\.azure/|/\.password-store/)[\w.*-]+)", c):  # `*`: a glob member (`id_*.pub`) is judged whole
         path = m.group(1)
         if _SECRET_DIR_PUBLIC.search(path):
             continue
@@ -904,7 +920,7 @@ def check_pipeline_bypass(c: str) -> str | None:
       ls <SENSITIVE> | xargs cat
     """
     # echo/printf <SENSITIVE> | ... | xargs cat
-    for m in re.finditer(r"\b(?:echo|printf|ls)\b\s+([\"\']?[\w./*-]+[\"\']?)", c):
+    for m in re.finditer(r"\b(?:echo|printf|ls)\b\s+([\"\']?[\w./*~$-]+[\"\']?)", c):
         arg = m.group(1).strip("'\"")
         if not _SENSITIVE_NAME_RE.search(arg):
             continue
@@ -913,6 +929,19 @@ def check_pipeline_bypass(c: str) -> str | None:
             return f"pipeline bypass: {m.group(0).strip()} | xargs cat — sensitive file exfiltration"
         if re.search(r"\|[\s\S]*?\b(cat|less|more|head|tail|nc|netcat|curl|wget)\b", tail):
             return f"pipeline bypass: piping sensitive name into reader/network tool"
+
+    # 2026-11-19: fd running a reader per match (`xargs -a <f>` is normalize_cmd's).
+    for m in re.finditer(r"\bfd(?:find)?\b([^|;&\n]*)", c):
+        ops = [t for t in m.group(1).split() if not t.startswith("-")]
+        if ops and _SENSITIVE_NAME_RE.search(ops[0].strip("'\"")) and re.search(
+                r"(?:\s(?:-[xX]|--exec(?:-batch)?)\s+|\|[\s\S]*?\bxargs\b[\s\S]*?)\b(?:cat|less|more|head|tail|nc|netcat|curl|wget)\b",
+                c[m.start():]):
+            return f"find bypass: fd runs a reader on sensitive pattern '{ops[0]}'"
+    # find over a secret DIRECTORY (_SECRET_DIRS) piped into xargs <reader>; the
+    # -exec form is check_secret_directory's.
+    dirs = "|".join(re.escape(d.strip("/")) for d in _SECRET_DIRS)
+    if re.search(r"\bfind\s+[\"']?[\w.~/$-]*/(?:" + dirs + r")/?[\"']?(?:\s[^|;&\n]*)?\|[^;&\n]*?\bxargs\b[^|;&\n]*?\b(?:cat|less|more|head|tail|strings|base64|xxd|grep|nc|curl|wget)\b", c):
+        return "find bypass: files under a secret directory piped to xargs <reader>"
 
     # find ... -name/-iname/-regex SENSITIVE ... | xargs cat OR -exec cat
     find_re = re.compile(
@@ -1158,8 +1187,11 @@ _CLOUD_UPLOADS = [
 _NETWORK_UPLOADS = [
     # 2026-11-15: short flags glued to their value or clustered: `-d@f`, `-sSd @f`,
     # `-Fk=@f`, `-Tf`. The leading space keeps `--compressed ` from reading as `-d `.
-    r"\bcurl\b.*(?:--data-binary|--data-raw|--data-urlencode|--data\b|--upload-file|--form\b"
-    r"|(?:^|\s)-[a-zA-Z]*(?:[dF](?:\s|[\"']?@|[\"']?[\w.-]+=@)|T))",
+    # 2026-11-19: --json @f posts like -d @f; -K/--config reads a file; file:// prints one.
+    r"\bcurl\b.*(?:--data-binary|--data-raw|--data-urlencode|--data\b|--upload-file|--form\b|--json\b|--config\b|file://"
+    r"|(?:^|\s)-[a-zA-Z]*(?:[dF](?:\s|[\"']?@|[\"']?[\w.-]+=@)|T|K))",
+    # gh api sends a file body with --input, or a file's content with -F/--field key=@f.
+    r"\bgh\s+api\b.*(?:--input\b|\s(?:-F|--field)[\s=]\s*[\"']?[\w.-]+=@)",
     r"\bwget\b.*--post-file=",
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",
