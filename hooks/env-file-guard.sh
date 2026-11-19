@@ -375,7 +375,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   case "$FILE_PATH" in
     */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config|\
     */.config/gh/hosts.yml|*/.claude.json|*/.codex/auth.json|*/.cursor/config.json|\
-    */.cargo/credentials*|*/.gem/credentials|*/pip.conf)
+    */.cargo/credentials*|*/.gem/credentials|*/pip.conf|*/.terraform.d/credentials.tfrc.json)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;
     # v4.2.0: AI-agent token stores, a current infostealer target (Gen Digital,
     # Sept 2026). .credentials.json missed the basename arm by its leading dot.

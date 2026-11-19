@@ -78,9 +78,12 @@ case "$COMMAND" in
   *'|'*|*';'*|*'&'*|*'<'*|*'>'*|*'$'*|*'`'*|*'('*|*')'*|*'{'*|*'}'*|*$'\n'*) : ;;
   # content-inert verbs (list names / print / repo status — never cat a secret) → skip
   # 4.4: not `type`: in PowerShell and cmd it prints a file (`type C:\app\.env`).
-  ls|ls\ *|pwd|echo\ *|printf\ *|which|which\ *|\
-  git\ status*|git\ log*|git\ diff*|git\ show*)
+  ls|ls\ *|pwd|echo\ *|printf\ *|which|which\ *|git\ status*)
     exit 0 ;;
+  # 2026-11-19: not when an argument can name a file. `git show HEAD:<dotenv>` and
+  # `git log -p -- <dotenv>` print it, and this arm skipped the scan that denies them.
+  git\ log*|git\ diff*|git\ show*)
+    case "$COMMAND" in *[:./]*) : ;; *) exit 0 ;; esac ;;
 esac
 # -----------------------------------------------------------------------------
 
@@ -1889,6 +1892,8 @@ case "$CMD" in
   # Measured: every reader (cat/less/head/grep/tail/od) allowed ~/.docker/config.json.
   # Same two-gate trap that shipped tool-preferences inert in v2.29.23.
   *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _CRED_PATH=true; _NEED_PY=true ;;
+  # 2026-11-19: Terraform Cloud and Vault CLI tokens (same list as the detector).
+  *credentials.tfrc.json*|*.vault-token*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.
   *.kdbx*|*.keystore*|*hosts.yml*|*.claude.json*|*auth.json*|*opencode/opencode.json*|*.cursor/*) _CRED_PATH=true; _NEED_PY=true ;;
   # v4.2.0: AI-agent token stores (same list as the detector) -- two-gate trap.
@@ -1925,6 +1930,10 @@ esac
 # real commands to the detector and got them denied by unrelated rules.
 if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.([[:alnum:]_.-]*[?*[]|\[) ]]; then
   _CRED_PATH=true; _NEED_PY=true
+fi
+# 2026-11-19: a glob inside a dot-directory (`~/.docker/c*.json`); the detector expands it.
+if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.[[:alnum:]_][[:alnum:]_.-]*/[^[:space:]]*[?*[] ]]; then
+  _NEED_PY=true
 fi
 
 # `command -v python3` without the $( ) — the command substitution forked a

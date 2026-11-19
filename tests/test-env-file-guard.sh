@@ -450,4 +450,12 @@ begin_test "env-guard: Grep of ~/.azure blocked"
 run_input '{"tool_name":"Grep","tool_input":{"pattern":"token","path":"/home/u/.azure"}}'
 [ "$?" = "2" ] && pass || fail "wanted rc=2"
 
+begin_test "env-guard: Read of the Terraform Cloud token blocked (Bash parity)"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/.terraform.d/credentials.tfrc.json"}}'
+[ "$?" = "2" ] && pass || fail "wanted rc=2"
+
+begin_test "env-guard: Read of a terraform provider lock file allowed"
+run_input '{"tool_name":"Read","tool_input":{"file_path":"/home/u/proj/.terraform.lock.hcl"}}'
+[ "$?" = "0" ] && pass || fail "wanted rc=0"
+
 report
