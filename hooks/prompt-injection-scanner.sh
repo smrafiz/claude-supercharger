@@ -63,8 +63,13 @@ else:
         sys.exit(0)
 
     resp = d.get('tool_response') or {}
-    # Read payloads use `.content`; MCP/Web tools use `.output`. Try both.
-    output = resp.get('output') or resp.get('content') or ''
+    # Real Read payload: {"type":"text","file":{"content":...}} (measured live
+    # 2026-11-19); flat `.output`/`.content` for MCP; `.result` for WebFetch.
+    if isinstance(resp, dict):
+        output = (resp.get('output') or resp.get('content')
+                  or (resp.get('file') or {}).get('content') or resp.get('result') or '')
+    else:
+        output = resp
     # v2.8.2: MCP/Read responses often arrive as structured content (list of blocks
     # or a dict), not a bare string. Previously NFKC on a non-str raised → the whole
     # python errored under `2>/dev/null` → the scanner was INERT for structured

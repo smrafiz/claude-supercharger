@@ -96,4 +96,15 @@ case "$E1|$E2" in
   *) fail "read=$E1 mcp=$E2" ;;
 esac
 
+# 2026-11-19: the real Read payload nests text under .file.content; it was never scanned.
+begin_test "secrets: a credential in the real Read shape (.file.content) is flagged"
+python3 - "$T/pr" "$AKIA" <<'PY'
+import json, sys
+open(sys.argv[1], 'w').write(json.dumps({'session_id': 'r-sid', 'cwd': '/tmp', 'tool_name': 'Read',
+  'tool_input': {'file_path': '/x/notes.txt'},
+  'tool_response': {'type': 'text', 'file': {'filePath': '/x/notes.txt', 'content': 'aws key ' + sys.argv[2], 'numLines': 1}}}))
+PY
+run "$T/pr"
+[ "$RC" -eq 2 ] && pass || fail "real Read shape not scanned (rc=$RC)"
+
 report

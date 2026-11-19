@@ -50,7 +50,9 @@ d = json.load(sys.stdin)
 r = d.get('tool_response')
 tool = str(d.get('tool_name') or '')
 if isinstance(r, dict):
-    out = r.get('stdout') or r.get('output') or ''
+    out = r.get('stdout') or r.get('output') or (r.get('file') or {}).get('content') or r.get('result') or ''
+    if not isinstance(out, str):
+        out = json.dumps(out)
     if not out and tool.startswith('mcp__'):
         out = json.dumps(r)
     print(out)
