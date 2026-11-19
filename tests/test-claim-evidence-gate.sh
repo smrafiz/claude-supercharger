@@ -477,22 +477,50 @@ begin_test "risk-review: edits to test files are not logged"
 rlog_run rk_test >/dev/null
 [ ! -s "$RLOG" ] && pass || fail "logged: $(cat "$RLOG")"
 
-python3 - "$TD/rk_rev.jsonl" "$TD/lock.go" <<'PYR'
+# A reviewer counts only once it COMPLETES: a launch can error or still be running
+# in the background (every Agent launch in 60 real transcripts was async_launched).
+python3 - "$TD" "$TD/lock.go" <<'PYR'
 import json, sys
-out, path = sys.argv[1:3]
+td, path = sys.argv[1:3]
 j = json.dumps
-open(out, "w").write("\n".join([
-    j({"type": "user", "message": {"content": "do it"}}),
-    j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "e1", "name": "Edit",
-        "input": {"file_path": path, "old_string": "x", "new_string": "mu.Lock()"}}]}}),
-    j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "a1", "name": "Agent",
-        "input": {"subagent_type": "Gordon Ramsay (Critic)", "description": "review lock"}}]}}),
-    j({"type": "assistant", "message": {"content": [{"type": "text", "text": "Done — it's complete."}]}}),
-]) + "\n")
+edit = j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "e1", "name": "Edit",
+          "input": {"file_path": path, "old_string": "x", "new_string": "mu.Lock()"}}]}})
+launch = j({"type": "assistant", "message": {"content": [{"type": "tool_use", "id": "a1", "name": "Agent",
+          "input": {"subagent_type": "Gordon Ramsay (Critic)", "description": "review lock"}}]}})
+def result(err=False, status=None):
+    e = {"type": "user", "message": {"content": [{"type": "tool_result", "tool_use_id": "a1",
+         "content": "report", **({"is_error": True} if err else {})}]}}
+    if status:
+        e["toolUseResult"] = {"status": status}
+    return j(e)
+def notice(status):
+    return j({"type": "attachment", "attachment": {"type": "queued_command", "prompt":
+        "<task-notification>\n<task-id>x</task-id>\n<tool-use-id>a1</tool-use-id>\n"
+        "<status>%s</status>\n<result>ok</result>\n</task-notification>" % status}})
+done = j({"type": "assistant", "message": {"content": [{"type": "text", "text": "Done — it's complete."}]}})
+start = j({"type": "user", "message": {"content": "do it"}})
+cases = {
+    "rk_rev":     [start, edit, launch, result(status="completed"), done],
+    "rk_launch":  [start, edit, launch, done],
+    "rk_err":     [start, edit, launch, result(err=True), done],
+    "rk_async":   [start, edit, launch, result(status="async_launched"), done],
+    "rk_asyncok": [start, edit, launch, result(status="async_launched"), notice("completed"), done],
+    "rk_stale":   [start, launch, result(status="async_launched"), edit, notice("completed"), done],
+}
+for name, rows in cases.items():
+    open("%s/%s.jsonl" % (td, name), "w").write("\n".join(rows) + "\n")
 PYR
-begin_test "risk-review: a reviewer after the last edit clears would-block"
-rlog_run rk_rev >/dev/null; GOT=$(rlast)
-[ "$GOT" = "False concurrency" ] && pass || fail "log='$GOT'"
+for c in "rk_rev|False|a completed reviewer after the last edit clears would-block" \
+         "rk_launch|True|a launched reviewer with no result does not count" \
+         "rk_err|True|an errored reviewer does not count" \
+         "rk_async|True|a background reviewer still running does not count" \
+         "rk_asyncok|False|a background reviewer counts once its notification says completed" \
+         "rk_stale|True|a review launched before the edit does not cover it"; do
+  IFS='|' read -r f want label <<<"$c"
+  begin_test "risk-review: $label"
+  rlog_run "$f" >/dev/null; GOT=$(rlast)
+  [ "$GOT" = "$want concurrency" ] && pass || fail "log='$GOT'"
+done
 
 begin_test "risk-review: SUPERCHARGER_RISK_REVIEW=0 logs nothing"
 rlog_run rk_catch SUPERCHARGER_RISK_REVIEW=0 >/dev/null
