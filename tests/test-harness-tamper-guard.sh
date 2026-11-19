@@ -134,6 +134,13 @@ check "ordinary localhost dev POST"    "curl -s -X POST http://localhost:3000/ap
 check "approval word, no loopback"     "grep -rn '\"behavior\":\"allow\"' src/" SILENT
 check "plain codex run"                "codex exec \"fix tests\"" SILENT
 
+# 2026-11-19: claude plugin disable/uninstall (avhn injection-then-disable-guard)
+check "plugin-disable"        "claude plugin disable supercharger" DENY
+check "plugin-uninstall"      "claude plugin uninstall supercharger@claude-supercharger" DENY
+check "plugin-disable-chain"  "cd /tmp && claude plugin disable supercharger" DENY
+check "plugin-list-silent"    "claude plugin list" SILENT
+check "plugin-install-silent" "claude plugin install foo" SILENT
+
 rm -rf "$TMP" "$SUPERCHARGER_STATE"
 
 # --- v4.0.37: a redirect counts only when the protected path is the TARGET -----
