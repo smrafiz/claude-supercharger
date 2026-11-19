@@ -13,6 +13,8 @@ export PYTHONIOENCODING PYTHONUTF8
 HOOKS_DIR="$HOME/.claude/supercharger/hooks"
 TOOLS_DIR="$HOME/.claude/supercharger/tools"
 SETTINGS="$HOME/.claude/settings.json"
+# Admin-managed settings files, colon-separated (managed-settings.md).
+MANAGED_FILES="${SUPERCHARGER_MANAGED_SETTINGS:-/Library/Application Support/ClaudeCode/managed-settings.json:/etc/claude-code/managed-settings.json}"
 SCORE=0
 ISSUES=()
 
@@ -227,10 +229,9 @@ score_security() {
   done
   # allowManagedHooksOnly is read only from managed settings (managed-settings.md); there it
   # blocks user, project and plugin hooks unless the admin force-enables the plugin.
-  local mf mfiles
-  mfiles="${SUPERCHARGER_MANAGED_SETTINGS:-/Library/Application Support/ClaudeCode/managed-settings.json:/etc/claude-code/managed-settings.json}"
+  local mf
   local IFS_OLD="$IFS"; IFS=:
-  for mf in $mfiles; do
+  for mf in $MANAGED_FILES; do
     IFS="$IFS_OLD"
     if [ "$(jq -r '.allowManagedHooksOnly // false' "$mf" 2>/dev/null)" = true ]; then
       pts=0; marks="${marks}${FAIL}"
@@ -262,6 +263,13 @@ echo ""
 echo "Hardening (optional):"
 echo "  Subprocess credential scrub: $scrub"
 echo "  Bypass-permissions mode:     $bypass"
+# Read only from managed settings; it makes the admin's allowedMcpServers the only allowlist.
+mcp="not enforced (an admin can set allowManagedMcpServersOnly with allowedMcpServers in managed settings)"
+IFS=: read -r -a _mfs <<<"$MANAGED_FILES"
+for _mf in "${_mfs[@]}"; do
+  [ "$(jq -r '.allowManagedMcpServersOnly // false' "$_mf" 2>/dev/null)" = true ] && mcp="managed only ($_mf)"
+done
+echo "  MCP server allowlist:        $mcp"
 
 if [ ${#ISSUES[@]} -gt 0 ]; then
   echo ""
