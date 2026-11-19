@@ -39,10 +39,18 @@ PIP_INSTALL = re.compile(r"(?:^|[;&|])\s*(?:pip3?\s+install|uv\s+add|poetry\s+ad
 TOKEN_OK = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*$", re.I)
 
 
+VALUE_FLAGS = {"-r", "-c", "-e", "--requirement", "--constraint", "--editable"}
+
+
 def tokens(tail):
     out = []
+    skip = False
     for raw in tail.split():
+        if skip:  # value of -r/-c/-e: a file or path, not a package name
+            skip = False
+            continue
         if raw.startswith("-"):
+            skip = raw in VALUE_FLAGS
             continue
         if raw.startswith(("/", ".", "~", "http", "git+", "git:", "file:")):
             continue
