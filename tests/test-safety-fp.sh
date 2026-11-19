@@ -667,4 +667,44 @@ denies "echo-subst" "echo \"\$(psql -c 'DROP TABLE users')\" && ls"
 begin_test "echo inside psql -c \$() is still denied"
 denies "echo-in-subst" 'psql -c "$(echo "DROP TABLE users")"'
 
+# --- 2026-11-19: credential reads the avhn/secret replay found allowed ----------
+# Through safety.sh end to end (two-gate trap): each needs the gate AND the rule.
+AWSC="~/.aws/credentials"; DCK="~/.docker/config.json"
+begin_test "path spellings of a credential file are the same file"
+denies "dbl-slash" "cat ~/.aws//credentials"
+denies "dot-slash" "cat ~/.aws///./credentials"
+denies "cd-dot-slash" "cd ~/.aws && cat ./credentials"
+_G=$(mktemp -d); mkdir -p "$_G/.docker"; : > "$_G/.docker/config.json"
+denies "glob-expands" "cat $_G/.docker/c*.json"
+allows "glob-no-secret" "cat $_G/.docker/x*.json"
+rm -rf "$_G"
+allows "url-double-slash" "curl -s https://example.com/a//b"
+
+begin_test "sort/jq/paste/fold/column/view/look read a credential like cat"
+denies "sort-cred" "sort -f $AWSC"
+denies "jq-cred" "jq . $DCK"
+denies "paste-env" "paste $E"
+denies "fold-env" "fold $E"
+denies "column-env" "column -t $E"
+denies "view-env" "view $E"
+denies "look-env" "look x $E"
+allows "sort-data" "sort -k2 data.csv"
+allows "jq-pkg" "jq . package.json"
+allows "jq-filter-env-word" "jq -r .name package.json"
+allows "column-csv" "column -t -s, data.csv"
+
+begin_test "git history prints a dotenv file"
+denies "git-show-rev-path" "git show HEAD:$E"
+denies "git-log-patch" "git log -p -- $E"
+denies "git-diff-rev-paths" "git diff HEAD~1:$E.production HEAD:public.txt"
+allows "git-show-readme" "git show HEAD:README.md"
+allows "git-log-path" "git log --oneline -- $E"
+allows "git-log-plain" "git log --oneline -5"
+allows "git-diff-file" "git diff src/app.ts"
+
+begin_test "Terraform Cloud and Vault token files"
+denies "tfrc" "cat ~/.terraform.d/credentials.tfrc.json"
+denies "vault-token" "cat ~/.vault-token"
+allows "tf-plan" "terraform plan -out tf.plan"
+
 report

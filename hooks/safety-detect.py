@@ -289,6 +289,8 @@ _SENSITIVE_NAME_RE = re.compile(
     # ran, then matched nothing -- every reader allowed it while the Read channel
     # blocked it. Cross-channel drift in the direction the first probe did not test.
     r"|\.aws/credentials"
+    # 2026-11-19 (avhn/secret replay): Terraform Cloud API token and the Vault CLI token.
+    r"|\.terraform\.d/credentials\.tfrc\.json|\.vault-token(?![\w.-])"
     # 2026-11-11: the sops age private key (aidevops delta, adjacent find).
     r"|sops/age/keys\.txt"
     # Credential stores with distinctive extensions: a password database and a Java
@@ -424,7 +426,7 @@ def _expand_sensitive_bindings(c: str) -> str:
         lambda m: bindings.get(m.group(1) or m.group(2), m.group(0)), c)
 
 
-_PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk", "findstr"}
+_PATTERN_READERS = {"grep", "egrep", "fgrep", "rg", "ag", "ack", "sed", "awk", "gawk", "findstr", "jq", "look"}
 
 
 def _drop_first_operand(args: str) -> str:
@@ -508,6 +510,38 @@ def _strip_metadata_text(c: str) -> str:
 _READER_ARGS = r"""[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n)]|["'])*)"""
 
 
+# 2026-11-19: a glob the shell expands to a credential file (`~/.docker/c*.json`).
+# Expanded the way the shell would, against the filesystem; `**` is skipped (a
+# recursive walk on the hot path). Returns a match object like the regex search.
+def _glob_hits_sensitive(args: str):
+    import glob
+    for w in args.split():
+        w = w.strip("'\"")
+        if not any(ch in w for ch in "*?[") or "**" in w:
+            continue
+        base = os.environ.get("CWD") or os.getcwd()
+        pat = os.path.expanduser(w)
+        try:
+            hits = glob.glob(pat if os.path.isabs(pat) else os.path.join(base, pat))[:50]
+        except (OSError, ValueError, re.error):
+            continue
+        for h in hits:
+            sm = _SENSITIVE_NAME_RE.search(h.replace(os.sep, "/"))
+            if sm:
+                return sm
+    return None
+
+
+# 2026-11-19: `a//b` and `a/./b` name the same file as `a/b`; collapse them before any
+# path rule runs (`~/.aws//credentials` passed every one). Only after a path char, so
+# `https://` and a `./x` operand are untouched.
+_PATH_SEP_RUN_RE = re.compile(r"(?<=[\w~.$}-])/(?:\.?/)+")
+
+
+def _norm_path_seps(c: str) -> str:
+    return _PATH_SEP_RUN_RE.sub("/", c)
+
+
 def check_sensitive_read(c: str) -> str | None:
     """Block direct reader/editor commands targeting sensitive files."""
     # Metadata text is prose, not a path -- see _strip_metadata_text. Only the
@@ -521,7 +555,7 @@ def check_sensitive_read(c: str) -> str | None:
     # gap class this repo keeps finding. Measured: `base64 <key>` and
     # `gzip -c <key>` were both silent while `xxd <key>` and `od -c <key>` denied.
     # `strings` is the same act again (measured silent beside a denying xxd).
-    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|strings|base64|uuencode|gzip|bzip2|xz|zstd|findstr|type|gc|sls|(?i:get-content|select-string))\b"
+    READER = r"\b(?P<tool>cat|less|more|head|tail|bat|nano|vim?|emacs|code|subl|atom|gedit|grep|egrep|fgrep|rg|ag|ack|awk|gawk|sed|tee|xxd|hexdump|od|strings|base64|uuencode|gzip|bzip2|xz|zstd|findstr|type|gc|sls|sort|jq|paste|fold|column|view|look|(?i:get-content|select-string))\b"
     # Tools that read a secret only in SOME subcommands. `dotenv run` and
     # `openssl x509 -in cert.pem` consume a sensitive-named file without printing
     # a secret (the same reason `docker --env-file` is allowed), so they cannot
@@ -554,7 +588,7 @@ def check_sensitive_read(c: str) -> str | None:
         # `grep -r --exclude='<envfile>*' X .` was denied as an env read (FP audit).
         if m.group("tool") in ("grep", "egrep", "fgrep", "rg", "ag", "ack"):
             args = re.sub(r"""(?:^|\s)(?:--(?:exclude|include|exclude-dir|include-dir|glob|iglob)|-g)(?:[=]|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", args)
-        sm = _SENSITIVE_NAME_RE.search(args)
+        sm = _SENSITIVE_NAME_RE.search(args) or _glob_hits_sensitive(args)
         if sm:
             # A PUBLIC key matches only because it contains the private
             # key's name. Reading one is what a public key is FOR:
@@ -679,7 +713,7 @@ def check_secret_directory(c: str) -> str | None:
     if m:
         for seg in re.split(r"&&|\|\||[;|\n]", m.group(2)):
             for w in seg.split()[1:]:
-                w = w.strip("'\"")
+                w = re.sub(r"^(?:\./)+", "", w.strip("'\""))
                 if w and not w.startswith("-") and "/" not in w and not _SECRET_DIR_PUBLIC.search(w):
                     return (f"secret directory access: {m.group(1)}/{w} — files under "
                             f".ssh/.gnupg/.aws/.azure/.password-store/.mcp-auth are credentials regardless of their name")
@@ -899,7 +933,9 @@ def check_pipeline_bypass(c: str) -> str | None:
 _ENV_READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
     r"\bgit\s+(show|diff|blame|cat-file)\s+",
-    r"\b(od|xxd|strings|nl|hexdump|base64|sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
+    # 2026-11-19: log prints file content only with a patch flag.
+    r"\bgit\s+log\s+(?:.*\s)?(?:-p|-u|--patch)\s+",
+    r"\b(od|xxd|strings|nl|hexdump|base64|sort|uniq|cut|diff|cmp|tac|rev|jq|paste|fold|column|view|look)\s+",
     r"\b(nano|vim?|emacs|code|subl|atom|gedit)\s+",
     r"\b(cp|mv|scp|rsync)\s+",
     r"\bgrep\s+",
@@ -1300,7 +1336,7 @@ disabled = set((os.environ.get("DISABLED_CATS", "") or "").split())
 # v4.0.31: resolve variable-bound sensitive paths ONCE, before any check runs — see
 # _expand_sensitive_bindings. A no-op unless the command binds a variable to a
 # credential filename, in which case every check below sees the path it was hiding.
-cmd = _expand_sensitive_bindings(cmd)
+cmd = _norm_path_seps(_expand_sensitive_bindings(cmd))
 
 if "shell_wrapper" not in disabled:
     r = check_shell_wrapper(cmd)
@@ -1325,7 +1361,7 @@ if "sensitive_read" not in disabled:
     # python/node/... heredoc bodies dropped, shell-out lines kept), so docs text
     # like `sudo nano /etc/x.env` written by a python edit is not a read.
     code = os.environ.get("CMD_CODE", "")
-    r = check_sensitive_read(_expand_sensitive_bindings(code) if code else cmd)
+    r = check_sensitive_read(_norm_path_seps(_expand_sensitive_bindings(code)) if code else cmd)
     if r:
         _say(r)
         sys.exit(0)

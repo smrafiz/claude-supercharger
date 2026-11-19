@@ -131,7 +131,8 @@ if not flagged:
 READ_WRITE_PREFIXES = [
     r"\b(cat|less|more|head|tail|bat)\s+",
     r"\bgit\s+(show|diff|blame|cat-file)\s+",
-    r"\b(sort|uniq|cut|diff|cmp|tac|rev|jq)\s+",
+    r"\bgit\s+log\s+(?:.*\s)?(?:-p|-u|--patch)\s+",
+    r"\b(sort|uniq|cut|diff|cmp|tac|rev|jq|paste|fold|column|view|look)\s+",
     # v4.2.0: byte/text dumpers read content exactly as cat does (self-audit: 4 of 26
     # spellings). NOT `source`/`.`: `set -a; . ./.env` is how projects run scripts
     # (43 of 608 real .env commands would have been denied), and it prints nothing.
