@@ -312,7 +312,8 @@ last_result = None   # (command, is_error, text)
 edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
-reviewed = False     # a reviewer ran after the CURRENT turn's last code edit
+reviewed = False     # a reviewer COMPLETED after the CURRENT turn's last code edit
+reviews = {}         # reviewer tool_use_id -> "launched" | "async", since that edit
 
 def is_turn_start(entry):
     """A user entry that is a real message, not a tool_result carrier.
@@ -357,12 +358,16 @@ for ln in lines:
                     if _p and os.path.splitext(_p)[1].lower() not in PROSE_EXT:
                         edited_after = _p
                         reviewed = False
+                        reviews.clear()   # a review started before this edit did not see it
+                # Launching a reviewer proves nothing: it may error ("Agent type not
+                # found") or still be running in the background. Credit on completion.
                 if is_reviewer(b.get("name") or "", b.get("input") or {}):
-                    reviewed = True
+                    reviews[b.get("id")] = "launched"
     elif t == "user":
         if is_turn_start(e):
             writes = []
             reviewed = False
+            reviews.clear()
             done_claim = None
             last_claim = None   # each turn's Stop judges that turn's claims only
             continue
@@ -370,6 +375,14 @@ for ln in lines:
             if b.get("type") != "tool_result":
                 continue
             tid = b.get("tool_use_id")
+            if reviews.get(tid) == "launched":
+                _tr = e.get("toolUseResult")
+                if b.get("is_error"):
+                    del reviews[tid]
+                elif isinstance(_tr, dict) and _tr.get("status") == "async_launched":
+                    reviews[tid] = "async"   # completes later as a task-notification
+                else:
+                    reviewed = True
             if tid not in test_calls:
                 continue
             content = b.get("content")
@@ -379,6 +392,12 @@ for ln in lines:
                 text = str(content or "")
             last_result = (test_calls[tid], bool(b.get("is_error")), text[-4000:])
             edited_after = None
+    elif t == "attachment":
+        _a = e.get("attachment") or {}
+        _p = str(_a.get("prompt") or "") if _a.get("type") == "queued_command" else ""
+        _m = re.search(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", _p)
+        if _m and reviews.get(_m.group(1)) == "async" and re.search(r"<status>\s*completed\s*</status>", _p):
+            reviewed = True
 
 if os.environ.get("SUPERCHARGER_RISK_REVIEW", "1") != "0" and (done_claim or last_claim):
     _code = [w for w in writes if w[0] and os.path.splitext(w[0])[1].lower() not in PROSE_EXT
