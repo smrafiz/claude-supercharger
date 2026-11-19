@@ -9,7 +9,8 @@ session on any machine.**
 - **Released: v4.4.8.** 4.4.9 is **held by the user** (#335–#339, #342 merged on master; B and C to
   join). Release only on the user's word.
 - **Open PRs:** #340 (B, credential printers + env dumps) rebased on master after #339, pushed with
-  `--force-with-lease` at hand-off, full suite was still running locally — re-run before merge.
+  `--force-with-lease` at `88650ec9`: local full suite 8548 passed / 0 failed; Windows run
+  44506111356 dispatched (check it before merging).
   #341 (C) conflicts with master: rebase after B merges.
 - **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` (steps 1–5). Step 2 is a confirmed BROKEN
   guard: start there after B and C.
