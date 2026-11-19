@@ -92,6 +92,8 @@ release.keystore
 .cursor/config.json
 .cargo/credentials
 .gem/credentials
+.terraform.d/credentials.tfrc.json
+.vault-token
 # --- SECRET DIRECTORIES: a key is a secret by LOCATION, and none of
 # these match any filename glob in the gate. Added after the rule
 # shipped unreachable.
@@ -125,7 +127,7 @@ begin_test "the name list has not fallen behind the detector"
 #
 # It does NOT hash the pattern: the source carries long explanatory comments, and
 # a canary that fires on every comment edit gets pinned to whatever silences it.
-PINNED=35
+PINNED=39
 ACTUAL=$(python3 -c "
 import re, sys
 src = open(sys.argv[1]).read()
