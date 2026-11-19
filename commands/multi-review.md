@@ -21,7 +21,7 @@ Design sources: Anthropic's managed Code Review (finders → independent verific
 
 **Step 2 — Build the shared brief (once, reused by every agent)**
 
-1. The diff, plus for each changed hunk its **enclosing function and direct callers** — findings are judged on surrounding code, not the hunk alone.
+1. The diff, plus for each changed hunk its **enclosing function, direct callers, and the unchanged functions it calls** (a new path into an existing sink counts as introduced) — findings are judged on surrounding code, not the hunk alone.
 2. Project rules: `CLAUDE.md` and `REVIEW.md` if present (repo root and the changed directories).
 3. The **finding contract** every finder must follow:
    - `file:line` citation of code it actually READ, plus the quoted line. A claim inferred from a name or signature is not a finding.
