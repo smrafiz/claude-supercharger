@@ -1045,7 +1045,7 @@ CRED_CMD_PATTERNS=(
   # enable plaintext git credential store (downgrades secure helper)
   'git[[:space:]]+config[^;&|]*credential\.helper[[:space:]]+store'
   # dump the OS credential store
-  '(security[[:space:]]+dump-keychain|secret-tool[[:space:]]+lookup|(^|[[:space:]])cmdkey[[:space:]]+/list)'
+  '(security[[:space:]]+dump-keychain|secret-tool[[:space:]]+(lookup|search)|(^|[[:space:]])cmdkey[[:space:]]+/list)'
   # v2.24.13: targeted Keychain READS. `dump-keychain` was covered, but the
   # single-item lookups were not — and they are the form actually used, since they
   # need no GUI confirmation and return one credential straight to stdout:
@@ -1055,7 +1055,8 @@ CRED_CMD_PATTERNS=(
   # and `find-certificate -p` (PEM incl. private keys where permitted).
   # This shape was already listed as dangerous in tests/fuzz-safety.sh but no pattern
   # implemented it, so it sat in the false-negative count as 100 of 300 entries.
-  '(^|[[:space:]])security[[:space:]]+(find-(generic|internet)-password|export|find-certificate)([[:space:]]|$)'
+  # 2026-11-19: global options may sit before the subcommand (`security -v find-...`).
+  '(^|[[:space:]])security([[:space:]]+-[^[:space:];&|]+)*[[:space:]]+(find-(generic|internet)-password|export|find-certificate)([[:space:]]|$)'
   # v4.0.45: secret-MANAGER reads. Same category as the Keychain reads above and
   # the same tier, for the same reason — a single command that prints one
   # credential to stdout.
@@ -1078,14 +1079,23 @@ CRED_CMD_PATTERNS=(
   #
   # `doppler run` and `vault write` are deliberately absent: they inject or store
   # rather than print, so the secret never reaches stdout.
-  '(^|[[:space:]])op[[:space:]]+(read|item[[:space:]]+get)([[:space:]]|$)'
-  '(^|[[:space:]])vault[[:space:]]+(kv[[:space:]]+get|read)([[:space:]]|$)'
+  # 2026-11-19: a global option with its value may sit first (`op --account x read`).
+  '(^|[[:space:]])op([[:space:]]+--?[^[:space:];&|]+([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)?)*[[:space:]]+(read|item[[:space:]]+get)([[:space:]]|$)'
+  '(^|[[:space:]])vault[[:space:]]+(kv[[:space:]]+get|read|print[[:space:]]+token)([[:space:]]|$)'
   '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+(secretsmanager[[:space:]]+get-secret-value|configure[[:space:]]+export-credentials)([[:space:]]|$)'
   '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+ssm[[:space:]]+get-parameters?[^;&|]*--with-decryption'
   '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+secrets[[:space:]]+versions[[:space:]]+access([[:space:]]|$)'
   # az account get-access-token is already covered under the cloud category; this
   # is its gcloud sibling, absent until now — a channel asymmetry, not a new idea.
-  '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+auth[[:space:]]+print-(access|identity|refresh)-token([[:space:]]|$)'
+  '(^|[[:space:]])gcloud([[:space:]]+--?[^[:space:]]+)*[[:space:]]+auth[[:space:]]+(application-default[[:space:]]+)?print-(access|identity|refresh)-token([[:space:]]|$)'
+  # 2026-11-19 (avhn/secret replay): printers whose output has no fixed shape, so the
+  # output scanner cannot redact it (the shaped ones stay with that scanner, above).
+  '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+configure[[:space:]]+get[[:space:]]+([^[:space:];&|]*\.)?aws_(secret_access_key|session_token)([[:space:]]|$)'
+  '(^|[[:space:]])aws([[:space:]]+--?[^[:space:]]+)*[[:space:]]+sts[[:space:]]+get-session-token([[:space:]]|$)'
+  '(^|[[:space:]])keyring[[:space:]]+get([[:space:]]|$)'
+  '(^|[[:space:]])kwallet-query[[:space:]][^;&|]*(-r|--read-password)([[:space:]]|$)'
+  '(^|[[:space:]])direnv[[:space:]]+(export[[:space:]]+json|dump)([[:space:]]|$)'
+  '(^|[[:space:]])kubectl[[:space:]][^;&|]*config[[:space:]]+view[^;&|]*[[:space:]]--(raw|flatten)([[:space:]=]|$)'
   '(^|[[:space:]])doppler[[:space:]]+secrets([[:space:]]|$)'
   # v4.1.2: gpg private-key export. `gpg --export-secret-keys` / `--export-secret-subkeys`
   # write private key material to stdout from the local keyring, by key-id — no
@@ -1483,14 +1493,19 @@ fi
 # the values are in context. Only UNFILTERED dumps deny: `printenv NAME`,
 # `env | grep X`, `env FOO=1 cmd` (env as a wrapper) and `set -e` stay allowed.
 # Command position only (segment start), so prose naming these words is ignored.
-_ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*'
+# 2026-11-19: also after a compound keyword (`if true; then env; fi`).
+_ENV_SEG='(^|[;&|(]|&&|\|\||'$'\n'')[[:space:]]*((then|do|else|\{|!)[[:space:]]+)?'
 # 4.4: a grep that keeps every line but one (`-v`) or keeps the secret-named lines is
 # still a dump. Residual: a QUOTED grep word is blanked by the re-check below.
 _ENV_GREP='\|[[:space:]]*[ef]?grep[[:space:]]+([^|;&]*[[:space:]])?(-[[:alpha:]]*v|[^|;&]*([Kk][Ee][Yy]|[Tt][Oo][Kk][Ee][Nn]|[Ss][Ee][Cc][Rr][Ee][Tt]|[Pp][Aa][Ss][Ss]|[Aa][Uu][Tt][Hh]|[Cc][Rr][Ee][Dd]))'
 _ENV_END='[[:space:]]*(2>[^[:space:];&|]*[[:space:]]*)?($|;|&|\)|\|[[:space:]]*(head|tail|cat|less|more|sort|tee|curl|wget|nc|ncat|socat|base64|xxd|gzip|openssl)([[:space:]]|$)|'"${_ENV_GREP}"')'
 if _cat_enabled "credentials"; then
   # 4.4: dump flags. `env -0`/`-u NAME` with no command after them still print the rest.
-  _ENV_DUMP="${_ENV_SEG}"'(env([[:space:]]+(-0|--null|-u[[:space:]]*[^-[:space:];&|][^[:space:];&|]*|--unset=?[^[:space:];&|]+))*|printenv([[:space:]]+(-0|--null))?|set|export[[:space:]]+-p|declare[[:space:]]+-[px]+|typeset[[:space:]]+-[px]+)'"${_ENV_END}"
+  # 2026-11-19 (avhn/secret replay): env/printenv run through a package runner, bare
+  # declare/typeset, `jq -n env`, and ps with the environment column (BSD `e`
+  # option word, macOS `-E`; Linux `ps -e` lists processes and stays allowed).
+  _ENV_RUN='((npm|pnpm|yarn|bun|uv|poetry|pipenv|pdm|hatch)[[:space:]]+(run|exec)|npx|pnpx|bunx)[[:space:]]+(--[[:space:]]+)?'
+  _ENV_DUMP="${_ENV_SEG}"'(('"${_ENV_RUN}"')?(env([[:space:]]+(-0|--null|-u[[:space:]]*[^-[:space:];&|][^[:space:];&|]*|--unset=?[^[:space:];&|]+))*|printenv([[:space:]]+(-0|--null))?)|set|export[[:space:]]+-p|declare([[:space:]]+-[px]+)?|typeset([[:space:]]+-[px]+)?|jq([[:space:]]+-[[:alpha:]]+)*[[:space:]]+(env|\$ENV)|ps[[:space:]]+([[:alpha:]]*e[[:alpha:]]*|(-[^[:space:];&|]+[[:space:]]+)*-[[:alpha:]]*E[[:alpha:]]*)([[:space:]]+[^-[:space:];&|][^[:space:];&|]*)*)'"${_ENV_END}"
   _ENV_PROC='/proc/[^[:space:]]*/environ'
   # The cheap match runs first; only on a hit is the text re-checked with heredoc
   # bodies removed and quoted strings blanked. Interpreter heredocs are kept in
@@ -1517,6 +1532,18 @@ if _cat_enabled "credentials"; then
   _ENV_OBJ='(dict|str|repr)\(os\.environ\)|os\.environ\.copy\(|json\.dumps\(os\.environ|JSON\.stringify\(process\.env\)|Object\.(entries|keys)\(process\.env\)'
   _ENV_NET='urlopen|requests\.(post|put|get)|httpx\.|http\.client|urllib|socket\.|fetch\(|https?\.(request|get)|axios|net\.connect'
   [[ "$CMD_SCAN" =~ $_ENV_OBJ ]] && [[ "$CMD_SCAN" =~ $_ENV_NET ]] && _env_hit=1
+  # 2026-11-19: node printing the whole process.env (quoted, so the check above blanks it).
+  _ENV_NODE='(^|[^[:alnum:]_-])node[[:space:]]+(-p|--print)[[:space:]]+["'"'"']?process\.env["'"'"']?([[:space:];&|)]|$)'
+  [[ "$CMD_SCAN" =~ $_ENV_NODE ]] && _env_hit=1
+  # 2026-11-19: `pass <name>` with no subcommand prints the secret (`pass show` is
+  # a CRED_CMD pattern). Not after a newline: `pass` is a Python statement in heredocs.
+  _PASS_RX='(^|[;&|(])['$'\t'' ]*pass['$'\t'' ]+([[:alnum:]_][^[:space:];&|]*)'
+  if [[ "$CMD_SCAN" =~ $_PASS_RX ]]; then
+    case "${BASH_REMATCH[2]}" in
+      ls|list|find|search|insert|add|edit|generate|rm|remove|delete|mv|rename|cp|copy|git|init|help|version|show) ;;
+      *) block "pass ${BASH_REMATCH[2]} prints a stored password into the transcript" "use it where it is needed (pass -c copies it), or confirm with the user" ;;
+    esac
+  fi
   if [ -n "$_env_hit" ] || [[ "$CMD_SCAN" =~ $_ENV_PROC ]]; then
     block "environment dump — prints every secret in the session into the transcript; read one variable instead (printenv NAME)"
   fi
