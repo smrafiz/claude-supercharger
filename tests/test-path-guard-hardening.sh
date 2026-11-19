@@ -58,6 +58,25 @@ begin_test "path-guard: absolute dir-alias g/config (→.git) is denied"
 if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: no symlink — see above)"; pass
 else [ "$(verdict "$PROJ/g/config")" = DENY ] && pass || fail "dir-alias to .git allowed (abs)"; fi
 
+# ---- SymJack: an in-project decoy symlink onto guardrail config (must DENY) ----
+# Write/Edit follow the link (CC 2.1.327), so the write lands on the target; the
+# selfmod check used to judge only the decoy's own name.
+mkdir -p "$PROJ/.claude"; : > "$PROJ/.mcp.json"; : > "$PROJ/.claude/settings.json"; : > "$PROJ/real.md"
+ln -s .mcp.json "$PROJ/notes.txt"
+ln -s .claude/settings.json "$PROJ/readme2.md"
+ln -s .supercharger.json "$PROJ/cfg.txt"         # dangling: the file does not exist yet
+ln -s real.md "$PROJ/docs.md"                    # benign in-project link
+for case in "notes.txt|MCP config" "$PROJ/readme2.md|project settings" "cfg.txt|dangling guard config"; do
+  begin_test "path-guard: decoy symlink onto ${case#*|} is denied"
+  if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: no symlink — see above)"; pass
+  else [ "$(verdict "${case%%|*}")" = DENY ] && pass || fail "SymJack decoy ${case%%|*} allowed"; fi
+done
+begin_test "path-guard: ordinary in-project symlink still allowed"
+if [ "$SYMLINKS_WORK" = 0 ]; then echo "    (skipped: no symlink — see above)"; pass
+else [ "$(verdict "docs.md")" = ALLOW ] && pass || fail "benign in-project symlink over-blocked"; fi
+rm -f "$PROJ/notes.txt" "$PROJ/readme2.md" "$PROJ/cfg.txt" "$PROJ/docs.md" "$PROJ/real.md" "$PROJ/.mcp.json"
+rm -rf "$PROJ/.claude"
+
 # ---- regressions: still deny the lowercase forms ----
 begin_test "path-guard: plain .git/config still denied"
 [ "$(verdict ".git/config")" = DENY ] && pass || fail ".git/config regressed"

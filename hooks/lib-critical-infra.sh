@@ -15,7 +15,7 @@
 # drives churn), so match by path SEGMENT / distinctive filename, never a bare
 # substring like "auth" that would fire on author.js.
 
-is_critical_infra_path() {
+_sc_ci_match() {
   # Normalize: basename for filename tests, lowercased whole path for dir-segment tests.
   local p="$1"
   [ -z "$p" ] && return 1
@@ -78,4 +78,41 @@ is_critical_infra_path() {
   esac
 
   return 1
+}
+
+# SymJack: Write/Edit follow a symlink (verified on CC 2.1.327), so a decoy
+# `notes.txt -> .github/workflows/ci.yml` lands on the pipeline while every
+# string match above sees "notes.txt". Judge the resolved target too.
+is_critical_infra_path() {
+  _sc_ci_match "$1" && return 0
+  local r c
+  r=$(_sc_ci_resolve "$1") || return 1
+  [ "$r" != "$1" ] || return 1
+  c=$(_sc_ci_match "$r") || return 1
+  echo "$c (via symlink to $r)"
+}
+
+# Builtin tests only, no fork: true when the path or any parent is a symlink.
+_sc_ci_has_link() {
+  local d="$1"
+  while [ -n "$d" ]; do
+    [ -L "$d" ] && return 0
+    case "$d" in */*) d="${d%/*}" ;; *) return 1 ;; esac
+  done
+  return 1
+}
+
+# Real location of a path that crosses a symlink, even if the file itself does
+# not exist yet. Fails (rc 1) when no component is a link.
+_sc_ci_resolve() {
+  local p="$1" t d i=0
+  _sc_ci_has_link "$p" || return 1
+  while [ -L "$p" ] && [ "$i" -lt 40 ]; do
+    t=$(readlink "$p") || return 1
+    case "$t" in /*) p="$t" ;; *) case "$p" in */*) p="${p%/*}/$t" ;; *) p="$t" ;; esac ;; esac
+    i=$((i + 1))
+  done
+  case "$p" in */*) d="${p%/*}"; [ -n "$d" ] || d=/ ;; *) d=. ;; esac
+  d=$(cd -P "$d" 2>/dev/null && pwd) || { printf '%s\n' "$p"; return 0; }
+  printf '%s/%s\n' "${d%/}" "${p##*/}"
 }

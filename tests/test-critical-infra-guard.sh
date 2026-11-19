@@ -108,4 +108,32 @@ rm -rf "$D"
 begin_test "matcher: backslash 'C:\\repo\\src\\author.js' is NOT critical-infra"
 is_critical_infra_path 'C:\repo\src\author.js' >/dev/null && fail "false positive" || pass
 
+# ---- SymJack: a decoy symlink onto a pipeline (Write/Edit follow links, CC 2.1.327) ----
+L=$(mktemp -d); mkdir -p "$L/.github/workflows" "$L/docs"; : > "$L/.github/workflows/ci.yml"; : > "$L/docs/real.md"
+ln -s .github/workflows/ci.yml "$L/notes.txt"; ln -s .github/workflows "$L/w"; ln -s docs/real.md "$L/plain.md"
+if [ -L "$L/notes.txt" ]; then
+  begin_test "guard: decoy symlink notes.txt -> workflow → ask"
+  D=$(new_state)
+  guard_out "$D" "$L/notes.txt" | grep -q '"permissionDecision":"ask"' && pass || fail "decoy symlink onto a workflow was silent"
+  rm -rf "$D"
+  begin_test "guard: write under a dir alias (w -> .github/workflows) → ask"
+  D=$(new_state)
+  guard_out "$D" "$L/w/new.yml" | grep -q '"permissionDecision":"ask"' && pass || fail "dir-alias write into workflows was silent"
+  rm -rf "$D"
+  begin_test "guard: ordinary symlink to a doc stays silent"
+  D=$(new_state)
+  [ -z "$(guard_out "$D" "$L/plain.md")" ] && pass || fail "benign symlink nagged"
+  rm -rf "$D"
+  begin_test "smart-approve: decoy symlink onto a workflow is not auto-approved under autopilot"
+  D=$(new_state); printf '%s' "$(( $(date +%s) + 9999 ))" > "$D/scope/.autopilot-until"
+  SUPERCHARGER_STATE="$D" smart_approve_verdict "{\"session_id\":\"sX\",\"tool_name\":\"Edit\",\"tool_input\":{\"file_path\":\"$L/notes.txt\"}}" \
+    && fail "autopilot swallowed the ask for a symlinked workflow" || pass
+  rm -rf "$D"
+else
+  for n in 1 2 3 4; do  # same total on every platform
+    begin_test "guard: symlink case $n"; echo "    (skipped: Git Bash created no symlink)"; pass
+  done
+fi
+rm -rf "$L"
+
 report

@@ -443,6 +443,18 @@ if 'symlink' not in disabled and proj:
     except Exception as _e:
         _dbg('3.2-EXCEPTION', err=repr(_e))
 
+# SymJack: Write/Edit follow a symlink (verified on CC 2.1.327), so an in-project
+# decoy (notes.txt -> the MCP config) lands on the target while the checks below
+# saw only "notes.txt". Each of them now judges the real target too.
+_cands = [p]
+try:
+    _abs = p if os.path.isabs(p) or not proj else os.path.join(proj, p)
+    _rt = os.path.realpath(_abs)
+    if _rt != os.path.normpath(_abs):
+        _cands.append(_rt)
+except Exception:
+    pass
+
 # --- 3.3 Git internals + supercharger hooks ---
 if 'git-internals' not in disabled:
     git_patterns = [
@@ -456,7 +468,7 @@ if 'git-internals' not in disabled:
         # v2.22.1: IGNORECASE — a case-insensitive FS (macOS APFS default) resolves
         # `.GIT/config` / `.Git/hooks/` to the real `.git`, but the case-sensitive
         # regex missed them (proven: `.GIT/config` clobbered the real `.git/config`).
-        if re.search(pat, p, re.IGNORECASE):
+        if any(re.search(pat, q, re.IGNORECASE) for q in _cands):
             print('write to git internals (' + pat + ') — repo integrity risk; opt out via disableSecurityCategories: ["git-internals"]')
             sys.exit(0)
     home = (os.environ.get('HOME') or os.path.expanduser('~'))
@@ -466,15 +478,15 @@ if 'git-internals' not in disabled:
     # nothing — this guard blocks writes to the hooks dir, so a miss here is a
     # write that disables every other check. Same fault found three times
     # elsewhere in this file; fixed here before it is found a fourth.
-    _pn = p.replace(os.sep, '/')
+    _pns = [q.replace(os.sep, '/') for q in _cands]
     _hn = home.replace(os.sep, '/').rstrip('/')
-    if _pn.startswith(_hn + '/.claude/hooks') or _pn.startswith(_hn + '/.claude/supercharger/hooks'):
+    if any(_pn.startswith(_hn + '/.claude/hooks') or _pn.startswith(_hn + '/.claude/supercharger/hooks') for _pn in _pns):
         print('write to supercharger hooks dir — would disable security checks; opt out via disableSecurityCategories: ["git-internals"]')
         sys.exit(0)
     # v4.2.0 (CC 2.1.287 Claude Mods): a session's dev mod loads at the end of the
     # turn, and its tool.check can approve calls a PreToolUse hook denied. The
     # generic absolute-path rule caught this only while ~ stayed outside the roots.
-    if (_hn + '/.claude/dev-mods/') in _pn + '/':
+    if any((_hn + '/.claude/dev-mods/') in _pn + '/' for _pn in _pns):
         print('write to ~/.claude/dev-mods — a mod there loads into Claude Code and can override Supercharger denies; review and install mods yourself')
         sys.exit(0)
 
@@ -507,10 +519,11 @@ if 'selfmod' not in disabled:
     # this rule exists to protect. The prefix form covers both spellings.
     # 2026-11-17: + human-approval-gate's grant file; only the user's prompt writes it.
     _selfmod_basenames = ('.disabled-security-categories', '.disabled-hooks', '.gate-granted')
-    _bn = os.path.basename(p)
-    if any(_bn == b or _bn.startswith(b + '-') for b in _selfmod_basenames) or any(p == t for t in selfmod_targets):
-        print('self-modification — agent should not edit its own guardrail config (' + os.path.basename(p) + '); opt out via disableSecurityCategories: ["selfmod"]')
-        sys.exit(0)
+    for q in _cands:
+        _bn = os.path.basename(q)
+        if any(_bn == b or _bn.startswith(b + '-') for b in _selfmod_basenames) or any(q == t for t in selfmod_targets):
+            print('self-modification — agent should not edit its own guardrail config (' + _bn + ('' if q == p else ', via a symlink') + '); opt out via disableSecurityCategories: ["selfmod"]')
+            sys.exit(0)
     # Project-level: .supercharger.json (any depth — could be repo root or nested),
     # project-local .claude/settings.json, and .mcp.json (SymJack — MCP server
     # insertion via a project-scoped config write).
@@ -523,16 +536,17 @@ if 'selfmod' not in disabled:
     # `.CLAUDE/settings.json` resolve to the real guardrail config but the
     # case-sensitive checks missed them (proven bypass → could disable every
     # security category via `.SUPERCHARGER.json`).
-    _norm = p.replace('\\', '/')
-    if (os.path.basename(p).lower() in ('.supercharger.json', '.mcp.json')
-            or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', _norm, re.IGNORECASE)):
+    _hit = next((q for q in _cands
+                 if os.path.basename(q).lower() in ('.supercharger.json', '.mcp.json')
+                 or re.search(r'(^|/)\.claude/settings(\.local)?\.json$', q.replace('\\', '/'), re.IGNORECASE)), None)
+    if _hit:
         # v2.28.15: say WHO can lift this. The opt-out lives inside the very file
         # the rule protects, so the agent cannot apply it — that circularity is
         # deliberate (an agent able to grant itself an exemption has none), but the
         # old wording read like an action the agent could take, which turns a
         # correct block into a confusing one.
         print('self-modification — agent should not edit project guardrail config ('
-              + os.path.basename(p) + '). This is deliberate: the agent cannot edit '
+              + os.path.basename(_hit) + ('' if _hit == p else ', via a symlink') + '). This is deliberate: the agent cannot edit '
               'the file that governs it. YOU can, by hand — add '
               'disableSecurityCategories: ["selfmod"] to .supercharger.json yourself.')
         sys.exit(0)
