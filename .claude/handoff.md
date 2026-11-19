@@ -4,24 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-18, session `eaedd321`.*
+*Verified 2026-11-19, session `eaedd321`.*
 
-- **Released: v4.4.8** (2026-11-18, tag on `68071b2a`): #319–#333. Nothing unreleased. Only open PR:
-  #334 (this docs PR). Master = `68071b2a`; its release-base CI was green incl. Windows.
-- **Now in master:** the approval gate (#326; the user types `approve <code>` or `approve <code> 30m`, a window
-  over 4h is clamped with a notice); safety.sh fails closed on its own crash (#333); `>|` denied in 4 guards (#331).
-- **Known limits:** a crash inside lib-timing/lib-paths before safety.sh installs its trap relies on
-  `onFailure`; variable-built paths bypass string-matching guards; the office-read cache is never evicted.
-- **No worktrees.** The user asked (2026-11-18): switch branches in the main checkout instead.
-  (Session eaedd321 missed this line and used worktrees throughout; read this file first.)
-- **Open questions:** quoted remote bodies (`ssh host '…|sh'`, `watch`, `tmux send-keys`,
-  `script -c`) are allowed on master — design question, not started. office-read tested only with a
-  fake markitdown.
-- Per-machine: eaedd321's machine install is **v4.4.7**, so run `/sc-update`.
+- **Released: v4.4.8.** 4.4.9 is **held by the user** (#335–#339, #342 merged on master; B and C to
+  join). Release only on the user's word.
+- **Open PRs:** #340 (B, credential printers + env dumps) rebased on master after #339, pushed with
+  `--force-with-lease` at hand-off, full suite was still running locally — re-run before merge.
+  #341 (C) conflicts with master: rebase after B merges.
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` (steps 1–5). Step 2 is a confirmed BROKEN
+  guard: start there after B and C.
+- **No worktrees, no stash.** Switch branches in the main checkout. Per-machine: the work machine has
+  6 old stashes that are not this session's; never pop them.
+- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`.
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
-- **Open:** risk-review log ~2026-11-20; FP audit re-run ~2026-12-08; SpecLock (parked).
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -55,6 +52,12 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-19 (deep) — eaedd321
+Merged #335–#339 and #342 (symlink targets, managed MCP allowlist, claim-gate reviewer, compress
+negations, credential-read gaps A, review-prompt rules). Audits: avhn/secret, agent-white-hat (replays),
+vantage, Agasthy and four more. B/C open; plan in docs/GUARD-GAP-PLAN-2026-11-19.md.
+Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
+
 #### 2026-11-18 — eaedd321
 Reviewers found fail-opens in #325/#326/#329; fixed, then merged #324–#333 and released v4.4.8.
 New: #331 `>|` in 4 guards, #332 disk-watch `$(( ))` code exec, #333 safety.sh fail-closed + `--build-arg`.
@@ -75,8 +78,3 @@ Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
 Finished the cc-safety-net A/B/C PRs: merged #315 and #316, opened #317. A 10k transcript replay
 caught 9 real-work FPs the tests missed; two quadratic hot-path steps fixed (344 s, 4-14 s). N2 dropped.
 Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
-
-#### 2026-11-15 (deep) — 104cfc73
-cc-safety-net delta audit: 20 bypasses of our rules + 3 new classes; fixes split into three WIP
-branches (A/B/C), pushed at shutdown, no PRs. Posted anthropics/claude-code#110181.
-Detail: `.claude/handoff-104cfc73-8853-40b7-9d59-e1f2d891a351.md`
