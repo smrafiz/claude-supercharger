@@ -299,6 +299,8 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   case "$base" in
     .env|.env.*)
       block "Read of .env file blocked — credentials likely present" "$FILE_PATH" ;;
+    # 2026-11-19: a PUBLIC key is meant to be read (authorized_keys, deploy keys).
+    id_rsa*.pub|id_dsa*.pub|id_ecdsa*.pub|id_ed25519*.pub) ;;
     id_rsa*|id_dsa*|id_ecdsa*|id_ed25519*)
       block "Read of SSH private key blocked ($base) — key material" "$FILE_PATH" ;;
     *.pem|*.key|*.ppk|*.p12|*.pfx|*.crt|*.cer|*.kdbx|*.keystore)

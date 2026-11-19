@@ -174,4 +174,16 @@ else
   pass
 fi
 
+begin_test "normalize_cmd: script -qc BODY exposes BODY, keeps what follows"
+OUT=$(normalize_cmd "script -qc 'make test' /dev/null && ls")
+[ "$OUT" = "make test /dev/null && ls" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: flock -c BODY exposes BODY"
+OUT=$(normalize_cmd "flock -c \"cat notes\" /tmp/l")
+[ "$OUT" = "cat notes /tmp/l" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: xargs -a FILE keeps FILE as input"
+OUT=$(normalize_cmd "xargs -a list.txt cat")
+[ "$OUT" = "cat < list.txt" ] && pass || fail "got: '$OUT'"
+
 report
