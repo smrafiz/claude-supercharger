@@ -49,12 +49,18 @@ case "$_INPUT" in
   *) _CI_HIT=0 ;;
 esac
 eval "$_CI_NOCASE" 2>/dev/null || true
+# shellcheck source=hooks/lib-critical-infra.sh
+. "$HOOKS_DIR/lib-critical-infra.sh"
+# A decoy symlink (notes.txt -> .github/workflows/ci.yml) carries no critical
+# substring. Builtin -L tests on the path's components, still no fork.
+if [ "$_CI_HIT" != "1" ]; then
+  _ci_re='"(file_path|notebook_path)"[[:space:]]*:[[:space:]]*"([^"]+)"'
+  [[ $_INPUT =~ $_ci_re ]] && _sc_ci_has_link "${BASH_REMATCH[2]}" && _CI_HIT=1
+fi
 [ "$_CI_HIT" = "1" ] || exit 0
 
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
-# shellcheck source=hooks/lib-critical-infra.sh
-. "$HOOKS_DIR/lib-critical-infra.sh"
 PROJECT_DIR=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true); [ -z "$PROJECT_DIR" ] && PROJECT_DIR="$PWD"
 init_hook_suppress "$PROJECT_DIR"
 check_hook_disabled "critical-infra-guard" && exit 0
