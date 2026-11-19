@@ -1,86 +1,93 @@
-## Handoff — claude-supercharger — 2026-11-18 (session eaedd321, deep)
+## Handoff — claude-supercharger — 2026-11-19 (session eaedd321, deep)
 
 ### Done
-- Merged #324–#333 (squash, each at a head whose full CI incl. Windows passed) and released **v4.4.8**
-  (tag on `68071b2a`; CHANGELOG has the summary). This machine updated to 4.4.8 via `/sc-update`
-  (verified: installed `safety.sh` carries `_sc_fail_closed_exit`, `disk-watch.sh` and `office-read.sh` exist).
-- Before merge, read-only reviews found fail-opens in three PRs; each was fixed with a regression row
-  shown to fail on the pre-fix code:
-  - #326: approval-gate self-grant via a command containing `UserPromptSubmit`.
-  - #329: a quote scanner masked a real pipe via `$( )` nesting or a `#`-comment apostrophe.
-  - #325: `eval` allow-list matched on the first argument only.
-- New fixes: #331 `>|` in 4 guards · #332 disk-watch `$(( ))` code execution + `df` parse ·
-  #333 `safety.sh` fail-closed EXIT trap, grep rc>1 = hit, `grep -e` for `--build-arg`.
-- #330: shellcheck CI on ubuntu only.
-- Engineering notes: `docs/HOOK_AUTHORING.md` "Notes from 2026-11-18", second half.
+- Merged: #335 (symlink target in path-guard + critical-infra-guard), #336 (/sc-health managed MCP
+  allowlist), #337 (claim-gate counts a reviewer only once it completes), #338 (compress validator
+  fails on dropped negations / MUST / NEVER), #339 (A: credential reads via path spellings, extra
+  readers, git history, Terraform/Vault token files), #342 (7 review/fix prompt rules from the
+  vantage-security-agent audit).
+- Audits recorded in memory/repo-audits-index.md: coding-agent-security, token-optimizer,
+  skills-optimizer, claude-md-compress, avhn/secret, vantage-security-agent, Agasthy, agent-white-hat.
+- Engineering notes: `docs/HOOK_AUTHORING.md` "Notes from 2026-11-19".
+- Next-session plan: `docs/GUARD-GAP-PLAN-2026-11-19.md` (this PR, #343).
 
 ### In Flight
-- PR #334 (this branch, `docs/2026-11-18-handoff`): this brief, carry file, engineering notes. Not merged.
+- **#340 (B)** rebased on master after #339 (kept both blocks in `tests/test-safety-fp.sh`), pushed
+  at `88650ec9`. Local full suite at that head: 8548 passed, 0 failed; shellcheck clean. Windows
+  dispatched as run 44506111356 (result not seen). Merge on the user's word.
+- **#341 (C)** conflicts with master; rebase after B merges (plan Step 1).
+- **#343** (this docs PR): not merged.
 
 ### Decisions Made
-- Release 4.4.8 now, audits after: 17 fully tested commits; more audits would only grow the batch (user said "release").
-- Disk-watch stays registered on PowerShell: `tests/test-powershell-parity.sh` requires every Bash PostToolUse hook to run on PowerShell too.
-- #333 fails closed for a harmless command too, when the guard cannot finish. Fast-path commands exit before any fork, so they are unaffected.
-- #326 window over 4h: clamped to 4h with a notice to the user (no silent clamp).
-- #328 cache eviction left out: it is a feature, not a fix.
+- **Release 4.4.9 held** (user): batch B, C and more before releasing. Not an Issues item.
+- **No Artifacts** (user deleted one): plans go in `docs/*.md` in the repo, even though the repo is
+  public and the plan names unfixed gaps (user chose this after being told).
+- **~70 `python -c` subprocess FPs left alone** (user: report only); loosening risks a bypass.
+- **Grep-output grouping shelved**: replay of 222 real grep/rg outputs grouped 0 (see Rejected).
+- **B kept in `safety.sh` only; shaped printers stay with the output scanner** (existing decision).
 
 ### What Failed
-- **Worktrees all session**, against the user's 2026-11-18 "no worktrees" in `.claude/handoff.md`. I did not read the carry file first. Now a memory entry.
-- **Called macOS shellcheck "hangs".** The check-run annotations said "job was not acquired by Runner" (capacity).
-- **`set -- $var` in zsh does not split.** It broke a push loop and a CI-then-merge step; the merge was redone by hand at the tested head.
-- **Three full suites in parallel** gave load-only failures; all were re-run alone before being trusted.
-- **A dispatched CI on two branches that already had green Windows runs.** I cancelled them.
+- macOS CI flake on #342: `lib-bounded-run.sh: child setpgid (66223 to 66223): Operation not
+  permitted`; rerun passed. Not investigated.
+- First full suite for #342: 3 fails from a stale shipped-commands manifest.
+- #339 Windows: `mktemp -d` path handed to native Windows python; fixed with `native_path`.
+- zsh `$c:refs/...` ate `:r` as a history modifier, so `git push origin $c:refs/heads/x` pushed a
+  garbage refspec. Quote it: `"$c:refs/heads/x"` or `${c}:`.
+- The build agent for A/B/C routed around three of our own denies (plan Step 5: user decides).
 
 ### Blockers
 - none
 
 ### Worktrees
-- none (only the main checkout; `.claude/worktrees/` is empty)
+- none (main checkout only)
 
 ### Files Touched
-- See PRs #324–#334; nothing here that the diffs don't show.
+- See #335–#343 diffs. This PR: `.claude/handoff.md`, this brief, `docs/GUARD-GAP-PLAN-2026-11-19.md`,
+  `docs/HOOK_AUTHORING.md`.
 
 ### Resume With
-Read `.claude/handoff.md` first. v4.4.8 is released and #334 (docs) is the only open PR. Next work is repo
-audits (check `memory/repo-audits-index.md` first). Do not use worktrees in this repo: switch branches in the main checkout.
+Read `.claude/handoff.md`, then `docs/GUARD-GAP-PLAN-2026-11-19.md`, and start at Step 1 (check #340's
+Windows run 44506111356, merge B on the user's word, rebase C). Then Step 2 (PR D) is the top priority.
 
 ### Start With
-- `/sc-status`: confirm this machine is on 4.4.8 and the guards are on before starting audits.
+- `/sc-update` only if this machine's install is behind master's hooks you will test against;
+  otherwise none.
 
 ### Measurements
-- Fork exhaustion: `ulimit -u` just above the live process count, 12 runs of `safety.sh` on a
-  pipe-into-shell command → 5× rc=128, empty stdout (`fork: Resource temporarily unavailable`), 7× deny.
-- `tests/test-safety-fail-closed.sh` (#333): master's `safety.sh` 2 passed / 6 failed (rc 137 or 0
-  where 2 was expected); with the fix 8/8. Full suite on #333: 8449 passed, 0 failed (engineer's run).
-- `tests/test-safety-fp.sh` with the two `>|` selfmod rows: master 204/206 (both new rows GUARD GAP), fix 206/206.
-- #331 siblings on master vs fix: profile `echo x >| ~/.bashrc` rc 0 → 2; readonly `echo hi >| out.txt`
-  allowed → blocked; tamper `>|` over a hook SILENT → DENY.
-- #329 new deny rows against the pre-fix scanner: 16 passed / 3 failed (`$( )`, comment, backtick).
-- #326 new rows against the pre-fix hook: 5 failures, incl. "SELF-GRANT BYPASS: exit 0".
-- #328 timeout row with the inner timeout forced to 60: fails `took=21s`; with the fix passes.
-- macOS shellcheck, 2026-11-17: 3 jobs cancelled at 15–37 min with no runner and zero steps.
+- avhn/secret corpus: 4020 deny cases → we denied 937, asked 38, allowed 3045; 119 probes through all
+  24 Bash hooks, 78 stayed allowed on a serial re-run. A/B/C deny 17 / 24 / 16 of the 78 (57).
+  Their 948 allow cases: we denied 114.
+- Full suites: A at `7dc12e3a` 8498/0; #342 at `2fcda2bb` 8469/0; B rebased at `88650ec9` 8548/0.
+- agent-white-hat on master `8a8a1451`: attack chains stopped 9/12; key steps 7 deny / 1 ask /
+  7 allow of 15; trap repos 18/77 malicious flagged (12 real); benign 4/40 flagged.
+- Read PostToolUse payload, captured live: `{"type":"text","file":{"filePath":…,"content":…,
+  "numLines":…,"startLine":…,"totalLines":…}}`.
 
 ### Rejected — do not rebuild
-- Removing PowerShell from disk-watch's registration: `test-powershell-parity.sh` fails ("every
-  PostToolUse hook on Bash also runs on PowerShell"); master passes.
-- Modelling `$( )`/comments in the #329 quote scanner: bailing is smaller and fails safe; modelling is where both bypasses came from.
+- Grep/rg output grouping in `bash-output-compactor.sh`: 222 real outputs ≥1.5 KB from 72
+  transcripts grouped 0 (219 compound/context/single-file, 3 under 50 lines); 0.5% saving.
+- token-optimizer's "deny re-reads": rejected (re-reads are often deliberate after edits).
+- skills-optimizer: nothing to take (37 commands, 2,704 listing chars, none over the cap).
+- vantage-security-agent CVSS/confidence rubric/finding schema: ours (sc-security) is sharper.
+- Agasthy: off-thesis; its usage dedupe = our 4.3.21 fix.
 
 ### Dead ends
-- Looked for `fork: Resource temporarily unavailable` in the kept logs of the 3-parallel-suite failure
-  (`$TMPDIR/sc-suite-failure-136{58,59,61}`): none found. That run's cause stays unconfirmed.
-- The python quote scanner and the detector budget were ruled out as the case-B allow: a killed or slow
-  python3 still denied. The deny there comes from the bash pipe rule, not safety-detect.py.
+- none new beyond the rejected list.
 
 ### Open questions
-- **Unverified:** does Claude Code treat a hook's exit 128 as an `onFailure: block` failure? Settle it
-  with a live `claude -p --settings <file>` probe (see memory `onfailure-block-facts`).
-- **Not covered:** a crash inside lib-timing/lib-paths before `safety.sh` installs its trap.
-- **Design, not started:** quoted remote bodies (`ssh host '…|sh'`, `watch`, `tmux send-keys`, `script -c`) are allowed.
-- Git Bash `df` parsing (#332) was proven on Windows CI only, never run locally.
+- **Unverified:** WebFetch's PostToolUse text is under `.result` (agent-white-hat replay agent's
+  claim from transcripts). Settle with the same `claude -p` dump-hook probe.
+- **Unverified:** whether `output-secrets-scanner`, `mcp-provenance`, `mcp-output-truncator` are
+  blind on the real Read shape (plan Step 2).
+- **Unverified:** the claim-evidence gate treats an edit to a file outside the project (a scratchpad
+  `.html`) as a code edit after a test run; seen once this session. Check before changing it.
 
 ### Reproduce
-- `bash tests/test-safety-fail-closed.sh` (fake grep/sed first on PATH; deterministic, no ulimit race).
-- `bash tests/test-safety-fp.sh`, `bash tests/test-quoted-pipe.sh`, `bash tests/test-human-approval-gate.sh`,
-  `bash tests/test-memokit-delta.sh`, `bash tests/test-disk-watch.sh`, `bash tests/test-office-read.sh`.
-- Pre-fix comparison: `git archive <old-sha> | tar -x -C <tmpdir>`, copy the new test file in, run it there.
-- A cancelled job's cause: `gh api repos/smrafiz/claude-supercharger/check-runs/<job id>/annotations`.
+- Live payload probe: a settings file with `{"hooks":{"PostToolUse":[{"matcher":"Read|WebFetch",
+  "hooks":[{"type":"command","command":"<dir>/dump.sh"}]}]}}`, `dump.sh` = `cat > <dir>/post-$(date
+  +%s).json`, then `claude -p --settings s.json --allowedTools Read -- "Read note.txt ..."`.
+- Commit without touching a busy checkout: `GIT_INDEX_FILE=<tmp> git read-tree origin/master`,
+  `git update-index --add --cacheinfo 100644,$(git hash-object -w FILE),PATH`, `git write-tree`,
+  `git commit-tree <tree> -p origin/master -F msg`, push `"<sha>:refs/heads/<branch>"`.
+- Replay kits were in this machine's scratchpad only; re-create from the public corpora
+  (avhn/secret `testdata/hook/denied-commands.json`; agent-white-hat `bench/fixtures/`).

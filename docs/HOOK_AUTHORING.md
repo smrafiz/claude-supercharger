@@ -1401,3 +1401,32 @@ catch `SystemExit`, and call the handler directly.
 - **Two PRs that each bump a count merge "cleanly" to the wrong number.** #326 and #328 each moved
   the full-mode hook count from 177 to 178, so git saw identical edits. The merge was 179 hooks
   with a test that still said 178. Run `test-install.sh` after merging any two hook-adding branches.
+
+## Notes from 2026-11-19
+
+- **Capture a real payload before trusting a field name.** Claude Code sends a Read's text as
+  `tool_response.file.content`, not `.content` (checked live: `claude -p --settings` with a
+  PostToolUse hook that writes stdin to a file). A scanner that reads the wrong key exits as if
+  the output were clean; the injection scanner has done that on Read since it added Read. Test
+  rows must use the captured shape, not a shape written from memory.
+- **A guard can be correct and still never see the command.** The `safety.sh` fast path exited 0
+  on every `git show` / `git log` / `git diff`, so the dotenv rules for `HEAD:<file>` were
+  unreachable (#339). Likewise `cmd-normalize.sh` dropped the body of `script -c` / `flock -c` and
+  the file of `xargs -a` before any rule ran (#341). When a rule seems right but the probe passes,
+  trace what reaches it.
+- **One file, many spellings, again.** `~/.aws//credentials`, `~/.aws/./credentials`,
+  `cd ~/.aws && cat ./credentials` and a glob all named the same file and all passed (#339).
+  Collapse `//` and `/./` once, before any path rule.
+- **A replayed corpus counts its own noise.** avhn/secret's 4020 deny cases left 3045 allowed by
+  us, but about two thirds were its fail-closed policy (it denies whatever it cannot parse). Only
+  the 78 cases that stayed allowed on a serial re-run through every Bash hook were real misses.
+  Re-run each miss alone; under load a timeout looks like an allow.
+- **A test temp dir is not a Windows path.** `mktemp -d` gives `/tmp/tmp.X`, which native Windows
+  python cannot open; a glob row found nothing and read as a guard gap. Wrap it in `native_path`
+  (`tests/helpers.sh`).
+- **Editing a shipped command means regenerating two files.** After changing
+  `configs/commands/*.md`, run `tools/gen-plugin-commands.sh` and `tools/gen-commands-shipped.sh`,
+  or `test-commands-migrate` and `test-shipped-command-scan` fail on a stale manifest.
+- **A reviewer launch is not a review.** Every Agent launch in 60 transcripts came back
+  `async_launched`; the claim gate counted the launch. It now waits for the completion
+  notification (#337).
