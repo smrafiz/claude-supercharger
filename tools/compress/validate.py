@@ -114,6 +114,22 @@ def validate_bullets(orig: str, comp: str, result: ValidationResult):
         result.add_warning(f"Bullet count drift: {b1} → {b2} ({diff:.0%})")
 
 
+# A dropped "never" or "not" reverses a rule while every structural check above
+# still passes. Counted, not matched: rewording "do not" as "don't" or "never" keeps
+# the count; only losing one fails. Idea from SinnConsulting's claude-md-compress.
+NEGATION_REGEX = re.compile(
+    r"\b(?:never|not|no|none|nothing|nor|without|except|unless|cannot)\b|n't\b",
+    re.IGNORECASE)
+NORMATIVE_REGEX = re.compile(r"\b(?:must|never|only|always|required?)\b", re.IGNORECASE)
+
+
+def validate_rules(orig: str, comp: str, result: ValidationResult):
+    for name, rx in (("Negation", NEGATION_REGEX), ("MUST/NEVER/ONLY/ALWAYS", NORMATIVE_REGEX)):
+        n1, n2 = len(rx.findall(orig)), len(rx.findall(comp))
+        if n2 < n1:
+            result.add_error(f"{name} words dropped: {n1} → {n2}; a lost one can reverse a rule")
+
+
 def validate(original_path: Path, compressed_path: Path) -> ValidationResult:
     result = ValidationResult()
     orig = original_path.read_text(errors="ignore")
@@ -124,6 +140,7 @@ def validate(original_path: Path, compressed_path: Path) -> ValidationResult:
     validate_urls(orig, comp, result)
     validate_paths(orig, comp, result)
     validate_bullets(orig, comp, result)
+    validate_rules(orig, comp, result)
 
     return result
 
