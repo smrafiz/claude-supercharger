@@ -49,7 +49,7 @@ case "$_INPUT" in
   # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
   # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
   *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
-  *dangerously-skip-permissions*|*DisableSandbox*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*) : ;;
+  *dangerously-skip-permissions*|*DisableSandbox*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*|*plugin\ disable*|*plugin\ uninstall*) : ;;
   *) exit 0 ;;
 esac
 
@@ -98,6 +98,13 @@ if [ -z "$REASON" ]; then
   # approve a call a PreToolUse hook (this whole layer) denied.
   if printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|(/])claude[[:space:]][^;&|]*--plugin-dir([[:space:]=]|$)'; then
     REASON="launches Claude with --plugin-dir, loading an unreviewed plugin from a directory. A plugin can carry a mod whose code approves tool calls Supercharger denied. Install plugins through the plugin manager after reviewing them, or run this yourself."
+  fi
+fi
+if [ -z "$REASON" ]; then
+  # 2026-11-19: `claude plugin disable|uninstall` removes the plugin that carries these
+  # hooks. Needs the pre-filter token above AND this rule [[two-gate-trap]].
+  if printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|(/])claude[[:space:]]+plugins?[[:space:]]+(disable|uninstall)([[:space:]]|$)'; then
+    REASON="disables or uninstalls a Claude plugin through the CLI. That can remove the plugin carrying Supercharger's guards. Run it yourself if you mean it."
   fi
 fi
 if [ -z "$REASON" ]; then
