@@ -41,6 +41,7 @@ Read existing code first. Match naming, formatting, patterns exactly — don't i
 
 **Rule 3 — Verify**
 Run tests or build after changes. Never claim done without evidence.
+When fixing a reported finding, locate it by the quoted code, not the line number; if that code is gone, stop and report instead of editing elsewhere. Fix the cause: no catch-all, no lowered log level, no deleted assertion.
 
 **Rule 4 — Thinking economy**
 Output code and conclusions only. Don't narrate the process — show results.
