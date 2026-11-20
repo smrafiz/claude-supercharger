@@ -4,22 +4,26 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-19, session `eaedd321`.*
+*Verified 2026-11-20, session `e23c930b`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user** (#335–#339, #342 merged on master; B and C to
-  join). Release only on the user's word.
-- **Open PRs:** #340 (B, credential printers + env dumps) rebased on master after #339, pushed with
-  `--force-with-lease` at `88650ec9`: local full suite 8548 passed / 0 failed; Windows run
-  44506111356 dispatched (check it before merging).
-  #341 (C) conflicts with master: rebase after B merges.
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` (steps 1–5). Step 2 is a confirmed BROKEN
-  guard: start there after B and C.
-- **No worktrees, no stash.** Switch branches in the main checkout. Per-machine: the work machine has
-  6 old stashes that are not this session's; never pop them.
-- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
+- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #346. Release
+  only on the user's word.
+- **Master `5d3fafee`, CI and Host contract green.** No open PRs, no stash, no worktrees.
+- **Merged this session:** #341 (indirect/launcher/upload credential reads), #344 (Read `.file.content`
+  and WebFetch `.result` now scanned), #345 (`claude plugin disable|uninstall` denied), #346 (pip
+  `-r/-c/-e` values no longer read as package names).
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3. Done: gaps 2 and 7. Left: 1 (download then
+  chmod/run, `safety.sh:1025-1029`, key on the file written), 3 (`Unblock-File`, `mshta`), 4 (injection
+  worded as approval; watch FPs), 5 (sibling drift), 6 (pre-approved runner commands). Then Step 4
+  (install-gate design, ask before building) and Step 5 (user decision on routed-around denies).
+- **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`; check the
+  Windows dispatch AND master's post-merge CI. A macOS job cancelled with zero steps is capacity:
+  `gh run rerun <id> --failed`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
+- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`. Per-machine: the work machine has 6 old
+  stashes that are not this session's; never pop them.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -53,6 +57,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-20 — e23c930b
+Merged #341, #344, #345, #346 (credential-read gap C; Read/WebFetch payload shape; plugin disable
+guard; pip file-flag FP). Gap plan Step 3: gaps 2 and 7 done, 1/3/4/5/6 left.
+Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
+
 #### 2026-11-19 (deep) — eaedd321
 Merged #335–#339 and #342 (symlink targets, managed MCP allowlist, claim-gate reviewer, compress
 negations, credential-read gaps A, review-prompt rules). Audits: avhn/secret, agent-white-hat (replays),
@@ -75,7 +84,3 @@ Merged #319–#323: skill-scan FP, LC_ALL=C normalize (≈40% faster), container
 /sc-security chains, /sc-health allowManagedHooksOnly. Seven repo audits. 4.4.8 held by the user.
 Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
 
-#### 2026-11-16 (deep) — c8c4db43
-Finished the cc-safety-net A/B/C PRs: merged #315 and #316, opened #317. A 10k transcript replay
-caught 9 real-work FPs the tests missed; two quadratic hot-path steps fixed (344 s, 4-14 s). N2 dropped.
-Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
