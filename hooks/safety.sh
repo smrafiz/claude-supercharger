@@ -1963,6 +1963,13 @@ if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.[[:alnum:]_][[:alnum:]_.-]
   _NEED_PY=true
 fi
 
+# 2026-11-20: a download then a chmod / run of the file it wrote (check_download_then_run).
+# Gated on curl/wget AND a chain separator or chmod, so a lone `curl url` stays off the
+# Python path. Superset of the detector's trigger [[two-gate-trap]].
+if ! $_NEED_PY && [[ "$CMD" =~ (curl|wget) ]] && [[ "$CMD" =~ (chmod|&&|\|\||;|$'\n') ]]; then
+  _NEED_PY=true
+fi
+
 # `command -v python3` without the $( ) — the command substitution forked a
 # subshell on the hottest hook in the product to learn something the builtin
 # already reports through its exit status.
