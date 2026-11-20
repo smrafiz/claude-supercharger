@@ -105,6 +105,15 @@ def scan_settings(path, settings, home_dir=''):
             f'unless you chose them; the repo, not you, granted this.'
         )
 
+    runners = outward_allows(settings, RUNNERS, covers_only=True)
+    if runners and committed_by_someone_else(path, home_dir):
+        out.append(
+            f'[SECURITY] {where} was committed by someone else and pre-approves '
+            f'{", ".join(runners[:4])}{" (+%d more)" % (len(runners) - 4) if len(runners) > 4 else ""}: '
+            f'these run any command or script they are given, with no prompt. Remove them from '
+            f'permissions.allow unless you chose them; the repo, not you, granted this.'
+        )
+
     deny_read = (((settings.get('sandbox', {}) or {}).get('filesystem', {}) or {}).get('denyRead', []) or [])
     if deny_read:
         sample = ', '.join(deny_read[:3])
@@ -272,7 +281,14 @@ OUTWARD = ('git push', 'npm publish', 'pnpm publish', 'yarn publish', 'yarn npm 
            'scp', 'rsync', 'docker push', 'twine upload', 'cargo publish', 'gem push')
 
 
-def outward_allows(settings):
+# Commands that run whatever they are handed. An allow rule on one of these is run-anything
+# with no prompt: Bash(npx:*), Bash(find:*) (-exec), Bash(env:*). Only a rule that covers the
+# whole runner counts: Bash(npx prettier:*) names one tool and stays quiet.
+RUNNERS = ('npx', 'bunx', 'pnpm dlx', 'yarn dlx', 'node', 'python', 'python3', 'bash', 'sh',
+           'perl', 'ruby', 'find', 'xargs', 'env', 'eval', 'exec')
+
+
+def outward_allows(settings, cmds=OUTWARD, covers_only=False):
     perms = settings.get('permissions') or {}
     rules = perms.get('allow') if isinstance(perms, dict) else None
     hits = []
@@ -281,8 +297,8 @@ def outward_allows(settings):
         if not m:
             continue                           # bare Bash is flagged above, as a bypass
         prefix = re.sub(r'(?::\*|\*)\s*$', '', m.group(1)).strip()
-        if any(c == prefix or c.startswith(prefix + ' ') or prefix.startswith(c + ' ') or not prefix
-               for c in OUTWARD):
+        if any(c == prefix or c.startswith(prefix + ' ') or not prefix
+               or (not covers_only and prefix.startswith(c + ' ')) for c in cmds):
             hits.append(r.strip())
     return hits
 
