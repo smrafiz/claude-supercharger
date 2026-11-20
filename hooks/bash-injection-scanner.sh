@@ -33,7 +33,7 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # a fail-safe SUPERSET of the python panel below: matching a seed in the COMMAND
 # rather than the output just costs one wasted fork (python re-checks the actual
 # output field and exits 0). Zero-width chars are matched by their UTF-8 bytes.
-if ! LC_ALL=C grep -qiE 'ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|override your|override all|override system|override previous|override prior|override instructions|override rules|override guidelines|admin override|administrator override|supersedes? (all|previous|prior|other)|precedence over|priority over|developer mode|anything now|god mode|uncensored mode|unfiltered mode|you are dan|you are now dan|rot13|your new|your memory|your context|requires you|demands you|instructs you|orders you|from anthropic|from openai|from claude|conversation you|already agreed|previously agreed|already promised|previously promised|above was|everything above|everything before|instructions verbatim|prompt verbatim|translate your|1gn0r3|pr3v10us|syst3m|0v3rr1d3|j41lbr|im_end|endoftext|<.user|<.assistant|<.human|tool_output>|function_result>|tool_response>|decode this|decode the following|the decoded|and execute|and follow|end prompt|begin prompt|end of prompt|begin of prompt|end of new|begin of new|end new|begin new|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
+if ! LC_ALL=C grep -qiE 'approved|authori[sz]ed|confirmed|consented to|granted permission|(^|[^a-z])(ai|assistant|agent|claude|llm|copilot)[,:] |ignore|disregard|forget|instruction|jailbr|pretend|you are now|system prompt|override your|override all|override system|override previous|override prior|override instructions|override rules|override guidelines|admin override|administrator override|supersedes? (all|previous|prior|other)|precedence over|priority over|developer mode|anything now|god mode|uncensored mode|unfiltered mode|you are dan|you are now dan|rot13|your new|your memory|your context|requires you|demands you|instructs you|orders you|from anthropic|from openai|from claude|conversation you|already agreed|previously agreed|already promised|previously promised|above was|everything above|everything before|instructions verbatim|prompt verbatim|translate your|1gn0r3|pr3v10us|syst3m|0v3rr1d3|j41lbr|im_end|endoftext|<.user|<.assistant|<.human|tool_output>|function_result>|tool_response>|decode this|decode the following|the decoded|and execute|and follow|end prompt|begin prompt|end of prompt|begin of prompt|end of new|begin of new|end new|begin new|base64|aWdub3Jl|c3lzdGVt|<\||\[inst\]|<<sys>>|'$'\xe2\x80\x8b''|'$'\xe2\x80\x8c''|'$'\xe2\x80\x8d''|'$'\xef\xbb\xbf' <<<"$_INPUT"; then
   # v4.0.31: the tier-2 structural panel (see the python side) carries NONE of the
   # seeds above — "SYSTEM:", a role link, an HTML comment addressed to an AI. Adding
   # its seeds to the grep above would widen the gate on EVERY Bash call, which is the
@@ -234,6 +234,14 @@ patterns = (
                 r'|real instructions? (start|begin)s? (here|below)|ignore everything (above|before) this'), 'false memory'),
     (re.compile(r'decode (this|the following) (base64|hex|rot13)|execute the decoded'
                 r'|reverse (this|the following) (text|string) and (execute|follow)|apply rot13'), 'decode and execute'),
+    # Gap 4 (agentjacking): untrusted text claims the user already approved an action, or
+    # orders the assistant by name. The approval needs an action verb after it, and the order
+    # needs a comma or colon after the addressee, so "the agent should run tests" stays quiet.
+    (re.compile(r'\b(user|owner|admin(istrator)?|maintainer|developer)s? (has |have |had )?(already |explicitly |previously )?'
+                r'(approved|authori[sz]ed|confirmed|consented to|pre-?approved|granted permission)\b'
+                r'[^.\n]{0,60}\b(run|execut\w+|install\w*|npx|curl|download\w*|proceed|skip)'), 'claimed approval'),
+    (re.compile(r'\b(ai|assistant|agent|claude|llm|copilot)[,:] (you )?(must|need to|have to|should|are required to|are instructed to|are authori[sz]ed to)\b'
+                r'[^.\n]{0,40}\b(run|execut\w+|install\w*|npx|curl|wget|download\w*|npm)'), 'order to the assistant'),
     (re.compile(r'1gn0r3|pr3v10us|syst3m pr0mpt|j41lbr34k|0v3rr1d3'), 'leetspeak injection'),
 )
 
