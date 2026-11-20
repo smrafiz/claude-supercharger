@@ -1182,6 +1182,10 @@ WIN_NETWORK_PATTERNS=(
   '(^|[^[:alnum:]_])certutil(\.exe)?[^;&|]*-urlcache'
   '(^|[^[:alnum:]_])bitsadmin(\.exe)?[^;&|]*/transfer'
   '(^|[^[:alnum:]_])Start-BitsTransfer([[:space:]]|$)'
+  # 2026-11-20: mshta runs a remote HTA (code) from a URL; a local .hta stays allowed.
+  '(^|[^[:alnum:]_])mshta(\.exe)?[[:space:]]+[^;&|]*(https?:|ftp:|javascript:|vbscript:)'
+  # Unblock-File strips the download warning (Mark of the Web) so a fetched file runs unprompted.
+  '(^|[^[:alnum:]_])Unblock-File([[:space:]]|$)'
 )
 
 # 4.4.3: each rule carries a plain sentence the user and the agent read; the raw regex
