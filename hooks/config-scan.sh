@@ -112,7 +112,7 @@ injection = re.compile(
 # 2026-11-12 over ~17k .claude markdown files. 0 hits over 634 instruction files.
 conceal = re.compile(
     r'\bwithout\s+(?:telling|informing|notifying)\s+the\s+user'
-    r'|\b(?:never|do\s+not|don\x27t)\s+(?:mention|reveal|disclose)\s+(?:this|these|that|it)\b[^\n.]{0,40}?\bto\s+the\s+user'
+    r'|\b(?:never|do\s+not|don\x27t)\s+(?:mention|reveal|disclose|report)\s+(?:this|these|that|it)\b[^\n.]{0,40}?\bto\s+the\s+user'
     r'|\b(?:never|do\s+not|don\x27t)\s+(?:mention|reveal|disclose)\s+(?:this|these)\s+instructions'
     r'|\b(?:never|do\s+not|don\x27t)\s+(?:tell|inform|notify)\s+the\s+user\b',
     re.IGNORECASE
@@ -337,7 +337,7 @@ if root_local is not None and os.path.realpath(git_root) == os.path.realpath(pro
     root_local = None
 
 ant_files = []
-for rel in ('CLAUDE.md', '.claude/settings.json', '.claude/settings.local.json'):
+for rel in ('CLAUDE.md', 'AGENTS.md', '.claude/settings.json', '.claude/settings.local.json'):
     p = Path(project_dir) / rel
     if p.is_file():
         ant_files.append(p)

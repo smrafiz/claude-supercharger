@@ -105,7 +105,9 @@ for c in 'pip install --extra-index-url https://pkgs.example.net/simple internal
          'pip install git+https://github.com/someone/pkg.git' \
          'pip install https://files.example.net/pkg-1.0.tar.gz' \
          'npm install @acme/utils@99.0.0' 'cd app && npm i internal-lib@19999.1.0' \
-         'pip install corp-auth==99.9'; do
+         'pip install corp-auth==99.9' \
+         'pip config set global.index-url https://pkgs.example.net/simple' \
+         'python3 -m pip config set global.extra-index-url https://pkgs.example.net/simple'; do
   begin_test "Bash: asks on $c"
   [ "$(bash_v "$c")" = ASK ] && pass || fail "no ask"
 done
@@ -114,7 +116,8 @@ for c in 'pip install requests' 'npm install left-pad' 'pip install -r requireme
          'npm config set registry https://registry.npmjs.org/' 'npm config get registry' \
          'curl -s https://registry.example.net/health' 'git clone https://github.com/x/y.git' \
          'npm i react@18.3.1' 'pip install certifi==2024.8.30' 'npm i @types/node@22' \
-         'git commit -m "bump to 199"'; do
+         'git commit -m "bump to 199"' 'pip config get global.index-url' \
+         'pip config set global.index-url https://pypi.org/simple'; do
   begin_test "Bash: silent on $c"
   [ "$(bash_v "$c")" = allow ] && pass || fail "false ask"
 done

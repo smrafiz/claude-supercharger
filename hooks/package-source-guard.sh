@@ -148,6 +148,9 @@ if tool in ("Bash", "Monitor", "PowerShell"):
             urls += [("custom registry", u) for u in re.findall(r'--registry[\s=]+(\S+)', seg)]
             urls += [("registry setting", u) for u in re.findall(
                 r'\bconfig\s+set\s+(?:@[\w.-]+:)?(?:registry|npmRegistryServer)[\s=]+(\S+)', seg)]
+        if re.search(r'(^|[\s;&|(])(pip3?|uv\s+pip|python3?\s+-m\s+pip)\s+config\s+set\b', seg, re.I):
+            urls += [("pip index setting", u) for u in re.findall(
+                r'\bconfig\s+set\s+(?:[\w-]+\.)?(?:extra-)?index-url[\s=]+(\S+)', seg)]
         if NODE.search(seg) or PIP.search(seg):
             for tok in seg.split():
                 name, sep, ver = tok.strip('\'"').rpartition("==") if "==" in tok else tok.strip('\'"').rpartition("@")
