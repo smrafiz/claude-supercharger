@@ -171,6 +171,14 @@ patterns = (
                 r'|real instructions? (start|begin)s? (here|below)|ignore everything (above|before) this'), 'false memory'),
     (re.compile(r'decode (this|the following) (base64|hex|rot13)|execute the decoded'
                 r'|reverse (this|the following) (text|string) and (execute|follow)|apply rot13'), 'decode and execute'),
+    # Gap 4 (agentjacking): untrusted text claims the user already approved an action, or
+    # orders the assistant by name. The approval needs an action verb after it, and the order
+    # needs a comma or colon after the addressee, so "the agent should run tests" stays quiet.
+    (re.compile(r'\b(user|owner|admin(istrator)?|maintainer|developer)s? (has |have |had )?(already |explicitly |previously )?'
+                r'(approved|authori[sz]ed|confirmed|consented to|pre-?approved|granted permission)\b'
+                r'[^.\n]{0,60}\b(run|execut\w+|install\w*|npx|curl|download\w*|proceed|skip)'), 'claimed approval'),
+    (re.compile(r'\b(ai|assistant|agent|claude|llm|copilot)[,:] (you )?(must|need to|have to|should|are required to|are instructed to|are authori[sz]ed to)\b'
+                r'[^.\n]{0,40}\b(run|execut\w+|install\w*|npx|curl|wget|download\w*|npm)'), 'order to the assistant'),
     (re.compile(r'1gn0r3|pr3v10us|syst3m pr0mpt|j41lbr34k|0v3rr1d3'), 'leetspeak injection'),
 )
 
