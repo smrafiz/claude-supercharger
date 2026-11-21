@@ -6,14 +6,14 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-20, session `e23c930b`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #351. Release
+- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #352. Release
   only on the user's word.
-- **Master `7a79c335`, CI green.** Open: #352 (gap 4, claimed approval / orders to the assistant;
-  checks and Windows green at `8ad434c7`, waiting on the user's "merge"). No stash, no worktrees.
+- **Master `937f4e50`, CI green.** No open PRs, no stash, no worktrees.
 - **Merged this session:** #341, #344 (Read/WebFetch scanned), #345 (plugin disable denied), #346 (pip
   `-r/-c/-e`), #348 (download then chmod/run), #349 (`mshta`, `Unblock-File`), #350 (pip index-url,
-  AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`).
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3 is done once #352 merges. Left: Step 4
+  AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`), #352 (injection worded as claimed
+  approval or an order to the assistant).
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3 is done. Left: Step 4
   (install-gate design, ask before building), Step 5 (user decision on routed-around denies), and the
   separate-commands form of gap 1 (needs state across commands).
 - **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
@@ -61,7 +61,7 @@ session on any machine.**
 ## Log
 
 #### 2026-11-20 — e23c930b
-Merged #341, #344–#346, #348–#351; #352 open. Plan Step 3 gaps 1–7 done except the cross-command form
+Merged #341, #344–#346, #348–#352. Plan Step 3 gaps 1–7 done except the cross-command form
 of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
 Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
 
