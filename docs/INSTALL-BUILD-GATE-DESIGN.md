@@ -1,6 +1,12 @@
 # Install/build gate — design (Step 4, not built)
 
-Status: design only, 2026-11-21. Nothing here is implemented. Build only on the user's word.
+Status 2026-11-21: the **log-only first release is built** (`hooks/install-surface-gate.sh`,
+`tests/test-install-surface-gate.sh`), covering npm/pnpm/yarn/bun, pip and cargo. It never asks and
+prints nothing; findings go to `$SUPERCHARGER_STATE/install-surface.jsonl`. `make`, `pytest`, gradle,
+`$(shell)` and git hooks are not scanned yet. Turning it into an ASK waits on real findings.
+Measured: a non-install Bash call exits at the shell `case` (0.00 s); the scan path costs 65-110 ms
+(two git calls plus one python fork), on install/build commands only. The 20-40 ms estimate below
+was wrong.
 
 ## The gap
 
