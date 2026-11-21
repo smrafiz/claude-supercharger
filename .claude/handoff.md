@@ -6,17 +6,20 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-20, session `e23c930b`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #346. Release
+- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #351. Release
   only on the user's word.
-- **Master `5d3fafee`, CI and Host contract green.** No open PRs, no stash, no worktrees.
-- **Merged this session:** #341 (indirect/launcher/upload credential reads), #344 (Read `.file.content`
-  and WebFetch `.result` now scanned), #345 (`claude plugin disable|uninstall` denied), #346 (pip
-  `-r/-c/-e` values no longer read as package names).
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3. Done: gaps 2 and 7. Left: 1 (download then
-  chmod/run, `safety.sh:1025-1029`, key on the file written), 3 (`Unblock-File`, `mshta`), 4 (injection
-  worded as approval; watch FPs), 5 (sibling drift), 6 (pre-approved runner commands). Then Step 4
-  (install-gate design, ask before building) and Step 5 (user decision on routed-around denies).
+- **Master `7a79c335`, CI green.** Open: #352 (gap 4, claimed approval / orders to the assistant;
+  checks and Windows green at `8ad434c7`, waiting on the user's "merge"). No stash, no worktrees.
+- **Merged this session:** #341, #344 (Read/WebFetch scanned), #345 (plugin disable denied), #346 (pip
+  `-r/-c/-e`), #348 (download then chmod/run), #349 (`mshta`, `Unblock-File`), #350 (pip index-url,
+  AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`).
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3 is done once #352 merges. Left: Step 4
+  (install-gate design, ask before building), Step 5 (user decision on routed-around denies), and the
+  separate-commands form of gap 1 (needs state across commands).
 - **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
+  The Bash-scanner pre-filter widened in #352 has no latency measurement.
+- **Windows shard hang:** shard 2 of run 44716085537 hit the 90-minute timeout once with no output;
+  the rerun passed. Treat a repeat as a real hang.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`; check the
   Windows dispatch AND master's post-merge CI. A macOS job cancelled with zero steps is capacity:
   `gh run rerun <id> --failed`.
@@ -58,8 +61,8 @@ session on any machine.**
 ## Log
 
 #### 2026-11-20 — e23c930b
-Merged #341, #344, #345, #346 (credential-read gap C; Read/WebFetch payload shape; plugin disable
-guard; pip file-flag FP). Gap plan Step 3: gaps 2 and 7 done, 1/3/4/5/6 left.
+Merged #341, #344–#346, #348–#351; #352 open. Plan Step 3 gaps 1–7 done except the cross-command form
+of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
 Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
 
 #### 2026-11-19 (deep) — eaedd321
