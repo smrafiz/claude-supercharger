@@ -77,6 +77,10 @@ one rule edit reused the existing `_SECRET_DIRS` list instead of the literal nam
 assemble sensitive literals at runtime (the documented test convention). The user decides whether
 that is acceptable under "a block is final".
 
+**Decision (user, 2026-11-21): accepted.** Reusing `_SECRET_DIRS` is one rule written once, and
+runtime-assembled literals in tests are the documented convention. "A block is final" is about the
+session working around a deny to get the same effect, not about guard code and its tests.
+
 ## Left alone on purpose
 
 - ~70 `python -c` subprocess FPs (`hooks/safety-detect.py:236`): report only.

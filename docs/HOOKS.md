@@ -80,6 +80,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `harness-tamper-guard` | PreToolUse | Bash | Self-defense on the BASH channel. path-guard protects .claude/settings.json and |
 | `human-approval-gate` | PreToolUse | Bash,PowerShell | Soft gate: denies high-risk commands with an approval code; only the user's prompt grants. |
 | `install-script-guard` | PreToolUse | Write, Edit, MultiEdit | npm/pnpm/yarn/bun run lifecycle scripts automatically on `install` |
+| `install-surface-gate` | PreToolUse | Bash, Monitor, PowerShell | install-script-guard and pth-persistence-guard fire when the session WRITES a manifest. |
 | `lazy-refactor-check` | PostToolUse | Edit, MultiEdit | Detects when Claude renames a parameter `foo` to `_foo` instead of properly |
 | `learn-from-blocks` | SessionStart | (none) | Injects accumulated learnings: blocked commands, user corrections, |
 | `learn-from-prompts` | UserPromptSubmit | (none) | Detects correction AND reinforcement patterns in user prompts. |

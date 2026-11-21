@@ -373,6 +373,7 @@ get_hooks_for_mode() {
     # before a PostToolUse warning could speak. The registry lookup runs only
     # on install verbs (fast-path gate) and is capped at 6s in total.
     hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/package-credibility-guard.sh|")
+    hooks+=("PreToolUse|Bash,Monitor,PowerShell|${hooks_dir}/install-surface-gate.sh|")
     hooks+=("PostToolUse|Bash,PowerShell,Read|${hooks_dir}/repetition-detector.sh|")
     # 2026-11-17 (memokit): free disk space dropped a lot, or sits under a floor.
     hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/disk-watch.sh|")
