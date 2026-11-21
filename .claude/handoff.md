@@ -4,18 +4,21 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-20, session `e23c930b`.*
+*Verified 2026-11-22, session `e23c930b`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #352. Release
+- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #353. Release
   only on the user's word.
-- **Master `937f4e50`, CI green.** No open PRs, no stash, no worktrees.
+- **Master `a9617a49`, CI green** (CI and Host contract). No open PRs, no stash, no worktrees.
+- **#353 (Step 4, built log-only):** `hooks/install-surface-gate.sh` notes a foreign project's install
+  surfaces in `install-surface.jsonl`; never asks or blocks. Scan path 65-110 ms. Review the log in
+  about a month before deciding to ask. Step 5 decided: accepted.
 - **Merged this session:** #341, #344 (Read/WebFetch scanned), #345 (plugin disable denied), #346 (pip
   `-r/-c/-e`), #348 (download then chmod/run), #349 (`mshta`, `Unblock-File`), #350 (pip index-url,
   AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`), #352 (injection worded as claimed
   approval or an order to the assistant).
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3 is done. Left: Step 4
-  (install-gate design, ask before building), Step 5 (user decision on routed-around denies), and the
-  separate-commands form of gap 1 (needs state across commands).
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Steps 3-5 are done. Left: the separate-commands
+  form of gap 1 (skipped by recommendation; needs state across commands). Release 4.4.9 on the
+  user's word.
 - **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
   The Bash-scanner pre-filter widened in #352 has no latency measurement.
 - **Windows shard hang:** shard 2 of run 44716085537 hit the 90-minute timeout once with no output;
