@@ -4,22 +4,29 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-19, session `eaedd321`.*
+*Verified 2026-11-20, session `e23c930b`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user** (#335–#339, #342 merged on master; B and C to
-  join). Release only on the user's word.
-- **Open PRs:** #340 (B, credential printers + env dumps) rebased on master after #339, pushed with
-  `--force-with-lease` at `88650ec9`: local full suite 8548 passed / 0 failed; Windows run
-  44506111356 dispatched (check it before merging).
-  #341 (C) conflicts with master: rebase after B merges.
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` (steps 1–5). Step 2 is a confirmed BROKEN
-  guard: start there after B and C.
-- **No worktrees, no stash.** Switch branches in the main checkout. Per-machine: the work machine has
-  6 old stashes that are not this session's; never pop them.
-- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`.
+- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #352. Release
+  only on the user's word.
+- **Master `937f4e50`, CI green.** No open PRs, no stash, no worktrees.
+- **Merged this session:** #341, #344 (Read/WebFetch scanned), #345 (plugin disable denied), #346 (pip
+  `-r/-c/-e`), #348 (download then chmod/run), #349 (`mshta`, `Unblock-File`), #350 (pip index-url,
+  AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`), #352 (injection worded as claimed
+  approval or an order to the assistant).
+- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Step 3 is done. Left: Step 4
+  (install-gate design, ask before building), Step 5 (user decision on routed-around denies), and the
+  separate-commands form of gap 1 (needs state across commands).
+- **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
+  The Bash-scanner pre-filter widened in #352 has no latency measurement.
+- **Windows shard hang:** shard 2 of run 44716085537 hit the 90-minute timeout once with no output;
+  the rerun passed. Treat a repeat as a real hang.
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`; check the
+  Windows dispatch AND master's post-merge CI. A macOS job cancelled with zero steps is capacity:
+  `gh run rerun <id> --failed`.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
   `release.sh promote X.Y.Z --yes`.
+- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`. Per-machine: the work machine has 6 old
+  stashes that are not this session's; never pop them.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -53,6 +60,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-20 — e23c930b
+Merged #341, #344–#346, #348–#352. Plan Step 3 gaps 1–7 done except the cross-command form
+of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
+Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
+
 #### 2026-11-19 (deep) — eaedd321
 Merged #335–#339 and #342 (symlink targets, managed MCP allowlist, claim-gate reviewer, compress
 negations, credential-read gaps A, review-prompt rules). Audits: avhn/secret, agent-white-hat (replays),
@@ -75,7 +87,3 @@ Merged #319–#323: skill-scan FP, LC_ALL=C normalize (≈40% faster), container
 /sc-security chains, /sc-health allowManagedHooksOnly. Seven repo audits. 4.4.8 held by the user.
 Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
 
-#### 2026-11-16 (deep) — c8c4db43
-Finished the cc-safety-net A/B/C PRs: merged #315 and #316, opened #317. A 10k transcript replay
-caught 9 real-work FPs the tests missed; two quadratic hot-path steps fixed (344 s, 4-14 s). N2 dropped.
-Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
