@@ -1182,6 +1182,10 @@ WIN_NETWORK_PATTERNS=(
   '(^|[^[:alnum:]_])certutil(\.exe)?[^;&|]*-urlcache'
   '(^|[^[:alnum:]_])bitsadmin(\.exe)?[^;&|]*/transfer'
   '(^|[^[:alnum:]_])Start-BitsTransfer([[:space:]]|$)'
+  # 2026-11-20: mshta runs a remote HTA (code) from a URL; a local .hta stays allowed.
+  '(^|[^[:alnum:]_])mshta(\.exe)?[[:space:]]+[^;&|]*(https?:|ftp:|javascript:|vbscript:)'
+  # Unblock-File strips the download warning (Mark of the Web) so a fetched file runs unprompted.
+  '(^|[^[:alnum:]_])Unblock-File([[:space:]]|$)'
 )
 
 # 4.4.3: each rule carries a plain sentence the user and the agent read; the raw regex
@@ -1960,6 +1964,13 @@ if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.([[:alnum:]_.-]*[?*[]|\[) 
 fi
 # 2026-11-19: a glob inside a dot-directory (`~/.docker/c*.json`); the detector expands it.
 if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.[[:alnum:]_][[:alnum:]_.-]*/[^[:space:]]*[?*[] ]]; then
+  _NEED_PY=true
+fi
+
+# 2026-11-20: a download then a chmod / run of the file it wrote (check_download_then_run).
+# Gated on curl/wget AND a chain separator or chmod, so a lone `curl url` stays off the
+# Python path. Superset of the detector's trigger [[two-gate-trap]].
+if ! $_NEED_PY && [[ "$CMD" =~ (curl|wget) ]] && [[ "$CMD" =~ (chmod|&&|\|\||;|$'\n') ]]; then
   _NEED_PY=true
 fi
 

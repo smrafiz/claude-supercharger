@@ -37,6 +37,11 @@ done <<'CASES'
 ["Bash(git push:*)"]|me@here|quiet|your own commit stays quiet
 ["Bash(git push:*)"]|untracked|quiet|an untracked file you wrote stays quiet
 ["Bash(git status:*)","Bash(gh pr view:*)","Bash(npm test)"]|other@there|quiet|read-only allows stay quiet
+["Bash(npx:*)"]|other@there|warn|a foreign repo allowing npx is named
+["Bash(find:*)","Read"]|other@there|warn|a foreign repo allowing find (-exec) is named
+["Bash(node *)"]|other@there|warn|node with a space wildcard is named
+["Bash(npx prettier:*)"]|other@there|quiet|a named npx tool stays quiet
+["Bash(npx:*)"]|me@here|quiet|your own npx allow stays quiet
 CASES
 
 report

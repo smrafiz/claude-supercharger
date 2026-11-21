@@ -1356,6 +1356,67 @@ def check_powershell_secrets(c: str) -> str | None:
     return None
 
 
+# 2026-11-20: a download that WRITES a file, then makes that file executable or runs it.
+# safety.sh's dropper rules key on a script extension in the URL, so a payload fetched to
+# `/tmp/.cache-helper` passed. Key on the file the download writes instead. A download
+# split across separate commands is not visible here; only the same command chain is.
+_DL_SPLIT_RE = re.compile(r"&&|\|\||;|\n|\|")
+_DL_OUT_FLAG_RE = re.compile(r"^-[A-Za-z]*[oO]$")
+_DL_REDIR_RE = re.compile(r"(?:^|\s)>>?\s*(\S+)")
+_DL_PREFIX = {"sudo", "doas", "env", "exec", "nohup", "setsid", "time", "command"}
+_DL_INTERP = {"bash", "sh", "zsh", "dash", "ksh", "source", ".", "node", "deno", "bun",
+              "perl", "ruby", "php"}
+
+
+def _dl_norm(p: str) -> str:
+    p = p.strip("'\"")
+    return p[2:] if p.startswith("./") else p
+
+
+def _dl_outputs(seg: str) -> list[str]:
+    toks = seg.split()
+    while toks and (toks[0] in _DL_PREFIX or "=" in toks[0]):
+        toks.pop(0)
+    if not toks or toks[0] not in ("curl", "wget"):
+        return []
+    outs = [m.group(1) for m in _DL_REDIR_RE.finditer(seg)]
+    for i, t in enumerate(toks):
+        if t.startswith(("--output=", "--output-document=")):
+            outs.append(t.split("=", 1)[1])
+        elif t in ("--output", "--output-document") or _DL_OUT_FLAG_RE.match(t):
+            if i + 1 < len(toks):
+                outs.append(toks[i + 1])
+    return [o for o in map(_dl_norm, outs) if o and o not in ("-", "/dev/null") and not o.startswith("&")]
+
+
+def _dl_runs(seg: str, out: str) -> bool:
+    toks = seg.split()
+    while toks and (toks[0] in _DL_PREFIX or "=" in toks[0]):
+        toks.pop(0)
+    if not toks:
+        return False
+    norm = [_dl_norm(t) for t in toks]
+    if norm[0] == "chmod":
+        mode = next((t for t in norm[1:] if not t.startswith("-") and t != out), "")
+        mode_x = bool(re.fullmatch(r"[0-7]*[1357][0-7]?", mode)) or ("x" in mode and not mode.startswith("-"))
+        return out in norm[1:] and mode_x
+    if norm[0] == out:
+        return True
+    if norm[0].split("/")[-1].rstrip("0123456789.") in ("python", "python3") or norm[0] in _DL_INTERP:
+        args = [t for t in norm[1:] if not t.startswith("-")]
+        return bool(args) and args[0] == out
+    return False
+
+
+def check_download_then_run(c: str) -> str | None:
+    segs = _DL_SPLIT_RE.split(c)
+    for i, seg in enumerate(segs):
+        for out in _dl_outputs(seg):
+            if any(_dl_runs(later, out) for later in segs[i + 1:]):
+                return "downloads a file and then makes it executable or runs it in the same command — code nobody has read would run"
+    return None
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Main: run checks in order, first match wins. Categories may be disabled
 # via $DISABLED_CATS (newline-separated, from
@@ -1430,6 +1491,10 @@ if "pipeline_bypass" not in disabled:
 
 if "exfiltration" not in disabled:
     r = check_exfiltration(cmd)
+    if r:
+        _say(r)
+        sys.exit(0)
+    r = check_download_then_run(cmd)
     if r:
         _say(r)
         sys.exit(0)
