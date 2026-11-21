@@ -35,7 +35,19 @@ if d.get('tool_name') not in ('Bash', 'Monitor', 'PowerShell'):
     sys.exit(0)
 ti = d.get('tool_input') or {}
 cmd = ti.get('command') or ti.get('script') or ''
-cwd = d.get('cwd') or os.getcwd()
+
+def native(p):
+    # Git Bash hands native Windows Python MSYS paths (/tmp/x, /d/a/x) it cannot open.
+    if p and not os.path.exists(p):
+        try:
+            r = subprocess.run(['cygpath', '-m', p], capture_output=True, text=True, timeout=3).stdout.strip()
+            if r:
+                return r
+        except Exception:
+            pass
+    return p
+
+cwd = native(d.get('cwd') or os.getcwd())
 
 kinds = set()
 if re.search(r'\b(npm|pnpm|yarn|bun)\s+(i|install|ci|add)\b|^\s*yarn\s*$', cmd): kinds.add('node')
@@ -101,7 +113,7 @@ if 'rust' in kinds:
             found.append((c, 'cargo config swaps the compiler, linker or runner'))
 
 if found:
-    base = os.environ.get('SC_STATE') or ''
+    base = native(os.environ.get('SC_STATE') or '')
     if base:
         os.makedirs(base, exist_ok=True)
         with open(os.path.join(base, 'install-surface.jsonl'), 'a') as f:
