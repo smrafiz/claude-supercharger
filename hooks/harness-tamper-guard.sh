@@ -49,7 +49,10 @@ case "$_INPUT" in
   # 2026-09-13: +local approval plane tokens (see (1) below). A superset of what
   # _HT_APPROVE matches, else that rule is unreachable [[two-gate-trap]].
   *bypass-approvals*|*permissions/*|*permission/*|*behavior*|*ermMode*|*ermissionMode*|*erm_mode*|*ermission_mode*|\
-  *dangerously-skip-permissions*|*DisableSandbox*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*|*plugin\ disable*|*plugin\ uninstall*) : ;;
+  *dangerously-skip-permissions*|*DisableSandbox*|*permission-mode*|*--settings*|*--mcp-config*|*supercharger/hooks*|*supercharger-disabled*|*.claude/supercharger*|*.claude/hooks*|*.claude/plugins*|*sc-toggle*|*hook-toggle*|*trust-mcp*|*autopilot.sh*|*readonly.sh*|*strict.sh*|*dev-mods*|*--plugin-dir*|*.jsonl*|*blocked-commands*|*supercharger/audit*) : ;;
+  # 2026-11-22: any `plugin(s)` spelling, but only with a removing verb somewhere in the
+  # payload, so `claude plugin list` and plugin paths keep the early exit.
+  *plugin*) case "$_INPUT" in *disable*|*uninstall*|*remove*|*rm*) : ;; *) exit 0 ;; esac ;;
   *) exit 0 ;;
 esac
 
@@ -103,9 +106,21 @@ fi
 if [ -z "$REASON" ]; then
   # 2026-11-19: `claude plugin disable|uninstall` removes the plugin that carries these
   # hooks. Needs the pre-filter token above AND this rule [[two-gate-trap]].
-  if printf '%s' "$CMD" | grep -Eq -- '(^|[[:space:];&|(/])claude[[:space:]]+plugins?[[:space:]]+(disable|uninstall)([[:space:]]|$)'; then
-    REASON="disables or uninstalls a Claude plugin through the CLI. That can remove the plugin carrying Supercharger's guards. Run it yourself if you mean it."
-  fi
+  # 2026-11-22 (#345 review): quotes and tabs come out first (`claude 'plugin' disable`,
+  # `bash -c "claude plugin ..."`), flags may sit between the words, `plugins` and
+  # `remove` count, and `claude` must be in command position (after a separator, `-c`,
+  # a wrapper like sudo/env/npx, or a path), so a commit message or an echo that
+  # mentions the command is not denied. `--help` in the same command is a question.
+  case "$CMD" in *claude*plugin*)
+    _HT_PC=$(printf '%s' "$CMD" | tr '\t\n' ' ;' | tr -d "'\"\\")
+    _HT_PRE='(^|[;&|(`]|-c[[:space:]]+)[[:space:]]*'
+    _HT_WRAP='((sudo|env|command|exec|nohup|npx|bunx|pnpx|time|timeout)([[:space:]]+(-[^[:space:]]*|[A-Za-z_][A-Za-z0-9_]*=[^[:space:]]*|[0-9]+[smhd]?))*[[:space:]]+)*'
+    _HT_BIN='([^[:space:];&|]*/)?(claude|claude-code)(@[^[:space:];&|]*)?'
+    _HT_RX="$_HT_PRE$_HT_WRAP$_HT_BIN([[:space:]]+-[^[:space:];&|]*)*[[:space:]]+plugins?([[:space:]]+-[^[:space:];&|]*)*[[:space:]]+(disable|uninstall|remove|rm)([[:space:];&|]|\$)[^;&|]*"
+    if [[ "$_HT_PC" =~ $_HT_RX ]] && ! [[ "${BASH_REMATCH[0]}" =~ [[:space:]](--help|-h)([[:space:]]|$) ]]; then
+      REASON="disables or uninstalls a Claude plugin through the CLI. That can remove the plugin carrying Supercharger's guards. Run it yourself if you mean it."
+    fi ;;
+  esac
 fi
 if [ -z "$REASON" ]; then
   # The Codex CLI's equivalent of --dangerously-skip-permissions. The Claude flag

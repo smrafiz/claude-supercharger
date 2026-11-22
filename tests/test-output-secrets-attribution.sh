@@ -107,4 +107,32 @@ PY
 run "$T/pr"
 [ "$RC" -eq 2 ] && pass || fail "real Read shape not scanned (rc=$RC)"
 
+# 2026-11-22: notebook cells and WebFetch .result, in the captured shapes.
+begin_test "secrets: a credential in a notebook Read (cells[].source) is flagged"
+python3 - "$T/pn" "$AKIA" <<'PY'
+import json, sys
+open(sys.argv[1], 'w').write(json.dumps({'session_id': 'n-sid', 'cwd': '/tmp', 'tool_name': 'Read',
+  'tool_input': {'file_path': '/x/n.ipynb'},
+  'tool_response': {'type': 'notebook', 'file': {'filePath': '/x/n.ipynb', 'cells': [
+    {'cellType': 'code', 'source': 'k = "' + sys.argv[2] + '"\nprint(1)', 'cell_id': 'a'}]}}}))
+PY
+run "$T/pn"
+[ "$RC" -eq 2 ] && pass || fail "notebook cells not scanned (rc=$RC)"
+
+begin_test "secrets: a credential in WebFetch .result is flagged"
+python3 - "$T/pw" "$PGURL" <<'PY'
+import json, sys
+open(sys.argv[1], 'w').write(json.dumps({'session_id': 'w-sid', 'cwd': '/tmp', 'tool_name': 'WebFetch',
+  'tool_input': {'url': 'https://example.com', 'prompt': 'x'},
+  'tool_response': {'bytes': 90, 'code': 200, 'codeText': 'OK', 'result': 'conn ' + sys.argv[2],
+                    'durationMs': 4, 'url': 'https://example.com'}}))
+PY
+run "$T/pw"
+[ "$RC" -eq 2 ] && pass || fail "WebFetch .result not scanned (rc=$RC)"
+
+begin_test "secrets: a clean notebook Read stays quiet"
+python3 -c "import json,sys; open(sys.argv[1],'w').write(json.dumps({'session_id':'n2','cwd':'/tmp','tool_name':'Read','tool_response':{'type':'notebook','file':{'filePath':'/x/n.ipynb','cells':[{'cellType':'code','source':'print(1)','cell_id':'a'}]}}}))" "$T/pq"
+run "$T/pq"
+[ "$RC" -eq 0 ] && pass || fail "clean notebook flagged (rc=$RC)"
+
 report

@@ -21,9 +21,15 @@ if k == "bash":
     d = {"tool_name": "Bash", "tool_input": {"command": "curl -s https://example.com/issue"},
          "tool_response": {"stdout": t}}
 else:
+    # The captured shapes (2026-11-19/22): Read under file.content, WebFetch under
+    # .result, MCP flat .output.
     name = {"web": "WebFetch", "mcp": "mcp__docs__fetch", "read": "Read"}[k]
+    resp = {"web": {"bytes": len(t), "code": 200, "codeText": "OK", "result": t,
+                    "durationMs": 5, "url": "https://example.com"},
+            "mcp": {"output": t},
+            "read": {"type": "text", "file": {"filePath": "/tmp/x.md", "content": t}}}[k]
     d = {"tool_name": name, "tool_input": {"url": "https://example.com", "file_path": "/tmp/x.md"},
-         "tool_response": {"output": t, "content": t}}
+         "tool_response": resp}
 d.update({"hook_event_name": "PostToolUse", "session_id": "inj", "cwd": "/tmp"})
 print(json.dumps(d))
 PY

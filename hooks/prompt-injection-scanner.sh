@@ -28,8 +28,14 @@ fi
 # v2.6.37: one python3 fork replaces 3 (TOOL_NAME parse + OUTPUT parse +
 # pattern matching). Now: stdin parse, matcher gate, regex panel, JSON wrap —
 # all in one fork. ~80ms → ~40ms.
-RESULT=$(HOOK_INPUT="$_INPUT" python3 <<'PYEOF' 2>/dev/null
+RESULT=$(HOOK_INPUT="$_INPUT" SC_HOOKS_DIR="${BASH_SOURCE[0]%/*}" python3 <<'PYEOF' 2>/dev/null
 import base64, json, os, re, sys, unicodedata, urllib.parse
+sys.path.insert(0, os.environ.get('SC_HOOKS_DIR', ''))
+try:
+    from lib_tool_text import tool_text
+except Exception:  # a copied hook without its libs still scans the plain shapes
+    def tool_text(r):
+        return r if isinstance(r, str) else json.dumps(r)
 
 raw = os.environ.get('HOOK_INPUT', '')
 try:
@@ -62,14 +68,9 @@ else:
     if not (tool_name.startswith('mcp__') or tool_name in ('WebFetch', 'WebSearch', 'Read')):
         sys.exit(0)
 
-    resp = d.get('tool_response') or {}
-    # Real Read payload: {"type":"text","file":{"content":...}} (measured live
-    # 2026-11-19); flat `.output`/`.content` for MCP; `.result` for WebFetch.
-    if isinstance(resp, dict):
-        output = (resp.get('output') or resp.get('content')
-                  or (resp.get('file') or {}).get('content') or resp.get('result') or '')
-    else:
-        output = resp
+    # 2026-11-22: lib_tool_text owns the response shapes (Read text and notebook,
+    # WebFetch .result, MCP); a notebook's cells were never read here.
+    output = tool_text(d.get('tool_response'))
     # v2.8.2: MCP/Read responses often arrive as structured content (list of blocks
     # or a dict), not a bare string. Previously NFKC on a non-str raised → the whole
     # python errored under `2>/dev/null` → the scanner was INERT for structured
