@@ -111,6 +111,7 @@ for c in 'pip install --extra-index-url https://pkgs.example.net/simple internal
          'pip config --user set global.index-url https://pkgs.example.net/simple' \
          'pip config --global set global.index-url https://pkgs.example.net/simple' \
          '/usr/bin/pip3 config set global.index-url https://pkgs.example.net/simple' \
+         'C:\Python312\Scripts\pip.exe config set global.index-url https://pkgs.example.net/simple' \
          'pip3.12 config set global.index-url https://pkgs.example.net/simple' \
          'pip config set global.find-links https://pkgs.example.net/wheels' \
          'PIP_INDEX_URL=https://pkgs.example.net/simple pip install foo' \

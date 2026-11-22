@@ -138,7 +138,9 @@ if tool in ("Bash", "Monitor", "PowerShell"):
     cmd = (d.get("tool_input") or {}).get("command") or ""
     DEFAULT = re.compile(r'^https?://(pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com)(/|$)', re.I)
     # 2026-11-22 (#350 review): pip3.12, /usr/bin/pip3 and python3.12 -m pip are pip too.
-    PIPX = r'(^|[\s;&|(/])(pip[\d.]*|uv\s+pip|python[\d.]*\s+-m\s+pip)'
+    # A Windows path (`C:\\Python312\\Scripts\\pip.exe`, and Git Bash rewrites a `/usr/bin/pip3`
+    # env value to one) ends in a backslash before pip.
+    PIPX = r'(^|[\s;&|(/\\])(pip[\d.]*(?:\.exe)?|uv\s+pip|python[\d.]*(?:\.exe)?\s+-m\s+pip)'
     PIP = re.compile(PIPX + r'\s+install\b', re.I)
     NODE = re.compile(r'(^|[\s;&|(])(npm|pnpm|yarn|bun)\b', re.I)
     hits, sources = [], []
