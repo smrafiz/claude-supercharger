@@ -1430,3 +1430,20 @@ catch `SystemExit`, and call the handler directly.
 - **A reviewer launch is not a review.** Every Agent launch in 60 transcripts came back
   `async_launched`; the claim gate counted the launch. It now waits for the completion
   notification (#337).
+
+## Notes from 2026-11-22
+
+- **A watchdog timeout is a verdict.** The 0.5 s detector budget allowed `cat /*/*/*/*/* ~/.docker/c*.json`
+  because `glob.glob()` built 64,544 matches (3.6 s) before a `[:50]` cap. Use `iglob` + `islice`, and
+  make every gate that admits a credential path also set `_CRED_PATH`, so an overrun asks (#354).
+- **Windows joins keep the drive.** `os.path.join("C:/cwd", "/tmp/x")` is `C:/tmp/x` on native Windows
+  Python. Convert an MSYS path with `native()` BEFORE joining it to a native one (#356). Git Bash
+  also hands `/usr/bin/pip3` to python with backslashes, so a `/`-only separator regex misses it (#355).
+- **Tests that time things fail under load; count instead.** At load 300–500 the statusline cache
+  ratio fell to 1.52x and no two renders shared a wall-clock second. A python3 shim that counts
+  starts, with the clock pinned (`SUPERCHARGER_SL_NOW`), answers the same question deterministically:
+  cached 0/0/0, disabled 1/1/1 (#357).
+- **Review merged work before building on it.** Three agents reviewing #341–#353 found 3 HIGH bugs
+  (fail-open timeout, notebook Read unscanned, plural/wrapped `claude plugins disable`) in PRs whose
+  rows all failed on master and whose CI was green. Rows prove what they test, not what they miss.
+- **zsh `:r` applies inside double quotes.** `"$C:refs/heads/x"` still lost the `r`. Write `${C}:`.
