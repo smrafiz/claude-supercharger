@@ -514,16 +514,34 @@ _READER_ARGS = r"""[ \t]+((?:"(?:[^"\\\n]|\\.)*"|'[^'\n]*'|\\\n|&(?!&)|[^|;&"'\n
 # 2026-11-19: a glob the shell expands to a credential file (`~/.docker/c*.json`).
 # Expanded the way the shell would, against the filesystem; `**` is skipped (a
 # recursive walk on the hot path). Returns a match object like the regex search.
+# 2026-11-22: lazily (iglob + islice). glob.glob() built the whole list before the
+# [:50] cap, so `cat /*/*/*/*/* ~/.docker/c*.json` ran past the watchdog and was
+# allowed. A word with a wildcard in a non-dot directory and no dot component cannot
+# hide a credential path any cheaper than it costs to walk, so it is skipped; the
+# rest go cheapest first (fewest wildcard components).
+_GLOB_DOT_COMPONENT_RE = re.compile(r"(?:^|/)\.[^/.]")
+
+
+def _glob_wild_dirs(w: str) -> int:
+    return sum(1 for part in w.split("/")[:-1] if any(ch in part for ch in "*?["))
+
+
 def _glob_hits_sensitive(args: str):
     import glob
+    from itertools import islice
+    words = []
     for w in args.split():
         w = w.strip("'\"")
         if not any(ch in w for ch in "*?[") or "**" in w:
             continue
-        base = os.environ.get("CWD") or os.getcwd()
+        if _glob_wild_dirs(w) and not _GLOB_DOT_COMPONENT_RE.search(w):
+            continue
+        words.append(w)
+    base = os.environ.get("CWD") or os.getcwd()
+    for w in sorted(words, key=_glob_wild_dirs):
         pat = os.path.expanduser(w)
         try:
-            hits = glob.glob(pat if os.path.isabs(pat) else os.path.join(base, pat))[:50]
+            hits = list(islice(glob.iglob(pat if os.path.isabs(pat) else os.path.join(base, pat)), 50))
         except (OSError, ValueError, re.error):
             continue
         for h in hits:
@@ -1360,59 +1378,124 @@ def check_powershell_secrets(c: str) -> str | None:
 # safety.sh's dropper rules key on a script extension in the URL, so a payload fetched to
 # `/tmp/.cache-helper` passed. Key on the file the download writes instead. A download
 # split across separate commands is not visible here; only the same command chain is.
-_DL_SPLIT_RE = re.compile(r"&&|\|\||;|\n|\|")
-_DL_OUT_FLAG_RE = re.compile(r"^-[A-Za-z]*[oO]$")
+_DL_SPLIT_RE = re.compile(r"(&&|\|\||;|\n|\|)")
 _DL_REDIR_RE = re.compile(r"(?:^|\s)>>?\s*(\S+)")
 _DL_PREFIX = {"sudo", "doas", "env", "exec", "nohup", "setsid", "time", "command"}
 _DL_INTERP = {"bash", "sh", "zsh", "dash", "ksh", "source", ".", "node", "deno", "bun",
               "perl", "ruby", "php"}
+_DL_URL_RE = re.compile(r"^['\"]?(?:https?|ftp)://[^\s'\"]+")
 
 
-def _dl_norm(p: str) -> str:
+def _dl_words(seg: str) -> list[str]:
+    toks, popped = [t.strip("'\"") for t in seg.split()], False
+    while toks and (toks[0] in _DL_PREFIX or "=" in toks[0] or re.fullmatch(r"timeout|\d+[smhd]?", toks[0])
+                    or (popped and toks[0].startswith("-"))):
+        toks.pop(0); popped = True
+    if toks:
+        toks[0] = toks[0].rsplit("/", 1)[-1] if toks[0].rsplit("/", 1)[-1] in ("curl", "wget", "chmod", "install", "tee") else toks[0]
+    return toks
+
+
+# 2026-11-22 (#348 review): one spelling of a path. `cd /tmp && curl -o h URL && /tmp/h`
+# and `./h` vs `h` name the same file; resolve each against the cd before it.
+def _dl_path(p: str, cwd: str) -> str:
     p = p.strip("'\"")
-    return p[2:] if p.startswith("./") else p
+    if p.startswith("~"):
+        p = os.path.expanduser(p)
+    if cwd and not os.path.isabs(p):
+        p = os.path.join(cwd, p)
+    return os.path.normpath(p) if p else p
+
+
+def _dl_url_name(toks: list[str]) -> str:
+    for t in toks:
+        m = _DL_URL_RE.match(t)
+        if m:
+            name = m.group(0).strip("'\"").split("?", 1)[0].split("#", 1)[0].rstrip("/").rsplit("/", 1)[-1]
+            return name
+    return ""
 
 
 def _dl_outputs(seg: str) -> list[str]:
-    toks = seg.split()
-    while toks and (toks[0] in _DL_PREFIX or "=" in toks[0]):
-        toks.pop(0)
+    toks = _dl_words(seg)
     if not toks or toks[0] not in ("curl", "wget"):
         return []
-    outs = [m.group(1) for m in _DL_REDIR_RE.finditer(seg)]
-    for i, t in enumerate(toks):
+    tool, outs, named = toks[0], [m.group(1) for m in _DL_REDIR_RE.finditer(seg)], False
+    out_flag = "o" if tool == "curl" else "O"
+    for i, t in enumerate(toks[1:], 1):
         if t.startswith(("--output=", "--output-document=")):
-            outs.append(t.split("=", 1)[1])
-        elif t in ("--output", "--output-document") or _DL_OUT_FLAG_RE.match(t):
+            outs.append(t.split("=", 1)[1]); named = True
+        elif t in ("--output", "--output-document"):
+            named = True
             if i + 1 < len(toks):
                 outs.append(toks[i + 1])
-    return [o for o in map(_dl_norm, outs) if o and o not in ("-", "/dev/null") and not o.startswith("&")]
+        elif t in ("--remote-name", "--remote-name-all"):
+            outs.append(_dl_url_name(toks))
+        elif re.match(r"^-[A-Za-z]+", t) and not t.startswith("--"):
+            # A short-flag cluster: `-fsSLo/tmp/h`, `-fsSLo /tmp/h`, curl `-O`.
+            k = t.find(out_flag, 1)
+            if k > 0:
+                named = True
+                val = t[k + 1:]
+                outs.append(val if val else (toks[i + 1] if i + 1 < len(toks) else ""))
+            elif tool == "curl" and "O" in t[1:]:
+                outs.append(_dl_url_name(toks))
+    if tool == "wget" and not named:
+        outs.append(_dl_url_name(toks))  # wget saves under the URL's file name
+    return [o for o in outs if o and o not in ("-", "/dev/null") and not o.startswith("&")]
 
 
-def _dl_runs(seg: str, out: str) -> bool:
-    toks = seg.split()
-    while toks and (toks[0] in _DL_PREFIX or "=" in toks[0]):
-        toks.pop(0)
+# chmod makes a file executable when an octal mode sets any x bit, or a symbolic
+# clause adds or sets x (`+x`, `u=rwx`); `a-x` and `go-x` remove it.
+def _dl_mode_x(mode: str) -> bool:
+    if re.fullmatch(r"[0-7]{1,4}", mode):
+        return any(int(d) & 1 for d in mode[-3:])
+    for clause in mode.split(","):
+        for op, perms in re.findall(r"([-+=])([rwxXstugo]*)", clause):
+            if op in "+=" and ("x" in perms or "X" in perms):
+                return True
+    return False
+
+
+def _dl_runs(seg: str, out: str, cwd: str) -> bool:
+    toks = _dl_words(seg)
     if not toks:
         return False
-    norm = [_dl_norm(t) for t in toks]
-    if norm[0] == "chmod":
-        mode = next((t for t in norm[1:] if not t.startswith("-") and t != out), "")
-        mode_x = bool(re.fullmatch(r"[0-7]*[1357][0-7]?", mode)) or ("x" in mode and not mode.startswith("-"))
-        return out in norm[1:] and mode_x
-    if norm[0] == out:
+    args = [t for t in toks[1:] if not t.startswith("-")]
+    paths = [_dl_path(t, cwd) for t in args]
+    if toks[0] == "chmod":
+        return bool(args) and out in paths[1:] and _dl_mode_x(args[0])
+    if toks[0] == "install":
+        # install copies with mode 755 unless -m says otherwise.
+        m = next((toks[i + 1] for i, t in enumerate(toks[:-1]) if t == "-m"), None)
+        m = m or next((t[2:] or None for t in toks if t.startswith("-m") and len(t) > 2), None)
+        return out in paths and (m is None or _dl_mode_x(m))
+    if _dl_path(toks[0], cwd) == out and ("/" in toks[0]):
         return True
-    if norm[0].split("/")[-1].rstrip("0123456789.") in ("python", "python3") or norm[0] in _DL_INTERP:
-        args = [t for t in norm[1:] if not t.startswith("-")]
-        return bool(args) and args[0] == out
+    if toks[0].rstrip("0123456789.") in ("python", "python3") or toks[0] in _DL_INTERP:
+        return bool(paths) and paths[0] == out
     return False
 
 
 def check_download_then_run(c: str) -> str | None:
-    segs = _DL_SPLIT_RE.split(c)
+    parts = _DL_SPLIT_RE.split(c)
+    segs, seps = parts[0::2], parts[1::2]
+    cwds, cwd = [], ""
+    for seg in segs:
+        cwds.append(cwd)
+        toks = _dl_words(seg)
+        if len(toks) == 2 and toks[0] == "cd":
+            cwd = _dl_path(toks[1], cwd)
     for i, seg in enumerate(segs):
-        for out in _dl_outputs(seg):
-            if any(_dl_runs(later, out) for later in segs[i + 1:]):
+        outs = _dl_outputs(seg)
+        # `curl URL | tee /tmp/h`: tee writes the download.
+        if outs or (i + 1 < len(segs) and _dl_words(seg)[:1] in (["curl"], ["wget"])):
+            j = i
+            while j + 1 < len(segs) and seps[j] == "|" and _dl_words(segs[j + 1])[:1] == ["tee"]:
+                outs += [t for t in _dl_words(segs[j + 1])[1:] if not t.startswith("-") and not t.startswith(">")]
+                j += 1
+        for out in {_dl_path(o, cwds[i]) for o in outs}:
+            if any(_dl_runs(later, out, cwds[k]) for k, later in enumerate(segs[i + 1:], i + 1)):
                 return "downloads a file and then makes it executable or runs it in the same command — code nobody has read would run"
     return None
 

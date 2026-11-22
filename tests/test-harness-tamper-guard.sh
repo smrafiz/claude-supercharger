@@ -138,6 +138,20 @@ check "plain codex run"                "codex exec \"fix tests\"" SILENT
 check "plugin-disable"        "claude plugin disable supercharger" DENY
 check "plugin-uninstall"      "claude plugin uninstall supercharger@claude-supercharger" DENY
 check "plugin-disable-chain"  "cd /tmp && claude plugin disable supercharger" DENY
+# 2026-11-22 (#345 review): spellings the literal pre-filter missed, and data that names it.
+check "plugins-disable"       "claude plugins disable supercharger" DENY
+check "plugins-uninstall"     "claude plugins uninstall supercharger" DENY
+check "plugin-remove"         "claude plugin remove supercharger" DENY
+check "plugin-bash-c"         'bash -c "claude plugin disable supercharger"' DENY
+check "plugin-sh-c"           "sh -c 'claude plugin uninstall supercharger'" DENY
+check "plugin-quoted-word"    "claude 'plugin' disable supercharger" DENY
+check "plugin-double-space"   "claude  plugin disable supercharger" DENY
+check "plugin-tab"            "$(printf 'claude plugin\tdisable supercharger')" DENY
+check "plugin-flag-between"   "claude --debug plugin disable supercharger" DENY
+check "plugin-npx-package"    "npx @anthropic-ai/claude-code plugin disable supercharger" DENY
+check "plugin-commit-msg"     'git commit -m "docs: claude plugin disable foo instructions"' SILENT
+check "plugin-echo-docs"      'echo "run claude plugin uninstall X to remove" >> docs/x.md' SILENT
+check "plugin-disable-help"   "claude plugin disable --help" SILENT
 check "plugin-list-silent"    "claude plugin list" SILENT
 check "plugin-install-silent" "claude plugin install foo" SILENT
 

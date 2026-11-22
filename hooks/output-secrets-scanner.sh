@@ -44,20 +44,13 @@ if [ -z "$OUTPUT" ]; then
   # v2.9.17: MCP responses carry text under content[]/other shapes, not stdout —
   # for mcp__ tools, stringify the whole tool_response so secrets in an MCP reply
   # are scanned too. Bash/Read behavior is unchanged (still stdout/output).
-  OUTPUT=$(printf '%s\n' "$_INPUT" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-r = d.get('tool_response')
-tool = str(d.get('tool_name') or '')
-if isinstance(r, dict):
-    out = r.get('stdout') or r.get('output') or (r.get('file') or {}).get('content') or r.get('result') or ''
-    if not isinstance(out, str):
-        out = json.dumps(out)
-    if not out and tool.startswith('mcp__'):
-        out = json.dumps(r)
-    print(out)
-elif r is not None and tool.startswith('mcp__'):
-    print(json.dumps(r))
+  # 2026-11-22: shapes come from lib_tool_text (shared with prompt-injection-scanner):
+  # Read text and notebook cells, WebFetch .result, any other shape dumped whole.
+  OUTPUT=$(printf '%s\n' "$_INPUT" | SC_HOOKS_DIR="$HOOKS_DIR" python3 -c "
+import sys, json, os
+sys.path.insert(0, os.environ['SC_HOOKS_DIR'])
+from lib_tool_text import tool_text
+print(tool_text(json.load(sys.stdin).get('tool_response')))
 " 2>/dev/null || echo "")
 fi
 

@@ -1939,7 +1939,7 @@ case "$CMD" in
   # 2026-11-15: `php -nr` (clustered) -- the detector matches it, so must the gate.
   *php*\ -*r*|*awk*system*) _NEED_PY=true ;;
   *aws*|*gsutil*|*azcopy*|*az\ storage*|*rclone*|*s3cmd*) _NEED_PY=true ;;
-  *curl*|*wget*|*nc\ *|*netcat*) _NEED_PY=true ;;
+  *nc\ *|*netcat*) _NEED_PY=true ;;
   *dnscat*|*iodine*|*dns2tcp*|*dnsexfil*) _NEED_PY=true ;;
   # v2.9.16: DNS resolver tools — the detector's dig/nslookup exfil arm needs these.
   # v4.3.6: `host` in command position, incl. the very start and after `(`/`;`/a
@@ -1963,15 +1963,22 @@ if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.([[:alnum:]_.-]*[?*[]|\[) 
   _CRED_PATH=true; _NEED_PY=true
 fi
 # 2026-11-19: a glob inside a dot-directory (`~/.docker/c*.json`); the detector expands it.
-if ! $_NEED_PY && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.[[:alnum:]_][[:alnum:]_.-]*/[^[:space:]]*[?*[] ]]; then
-  _NEED_PY=true
+# 2026-11-22: _CRED_PATH too, even when another gate already wants python: the glob
+# expansion is the only check for it, so a detector overrun asks instead of allowing.
+if ! $_CRED_PATH && [[ "$CMD" =~ (^|[[:space:]/\'\"=])\.[[:alnum:]_][[:alnum:]_.-]*/[^[:space:]]*[?*[] ]]; then
+  _CRED_PATH=true; _NEED_PY=true
 fi
 
-# 2026-11-20: a download then a chmod / run of the file it wrote (check_download_then_run).
-# Gated on curl/wget AND a chain separator or chmod, so a lone `curl url` stays off the
-# Python path. Superset of the detector's trigger [[two-gate-trap]].
-if ! $_NEED_PY && [[ "$CMD" =~ (curl|wget) ]] && [[ "$CMD" =~ (chmod|&&|\|\||;|$'\n') ]]; then
-  _NEED_PY=true
+# curl/wget: the exfiltration checks and check_download_then_run (2026-11-20).
+# 2026-11-22: a whole word, outside commit messages and other blanked data, so
+# `git commit -m "fix curl retry; add tests"` stays off the Python path. Blanking also
+# removes a `$( )` inside the message, and that does run: any substitution keeps the
+# raw match [[two-gate-trap]].
+if ! $_NEED_PY && [[ "$CMD" == *curl* || "$CMD" == *wget* ]]; then
+  case "$CMD" in
+    *'$('*|*'`'*|*'<('*|*'>('*) _NEED_PY=true ;;
+    *) [[ "$CMD_SCAN" =~ (^|[^[:alnum:]_-])(curl|wget)([^[:alnum:]_-]|$) ]] && _NEED_PY=true ;;
+  esac
 fi
 
 # `command -v python3` without the $( ) — the command substitution forked a
