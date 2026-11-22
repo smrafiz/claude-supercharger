@@ -184,17 +184,18 @@ print('ok')
 done
 # 2026-11-22: under heavy load (load avg 100+) every spawn is slow, so the ratio collapses
 # (589 -> 387 ms = 1.52x) while the cache still hits. Fallback that load cannot fake: a
-# warm render starts no python3; a disabled cache starts one every time. Up to 5 tries,
-# since a render that crosses a wall-clock second misses legitimately.
+# warm render starts no python3; a disabled cache starts one every time. The clock is
+# pinned (SUPERCHARGER_SL_NOW): at load 500 no two renders shared a second, so all 5
+# unpinned tries missed. Retries stay for any other transient miss.
 if [ "$SJ_OK" -ne 0 ]; then
   _fk=$(mktemp -d); mkdir -p "$_fk/bin" "$_fk/state/scope"
   printf '#!/bin/sh\necho x >> "%s/forks"\nexec "%s" "$@"\n' "$_fk" "$(command -v python3)" > "$_fk/bin/python3"
   chmod +x "$_fk/bin/python3"
   _fp=$(printf '{"session_id":"fk%s","cwd":"%s","workspace":{"current_dir":"%s"},"model":{"display_name":"Opus"}}' "$$" "$REPO_DIR" "$REPO_DIR")
   for _try in 1 2 3 4 5; do
-    printf '%s' "$_fp" | PATH="$_fk/bin:$PATH" SUPERCHARGER_HOME="$REPO_DIR" SUPERCHARGER_STATE="$_fk/state" bash "$REPO_DIR/hooks/statusline.sh" >/dev/null 2>&1
+    printf '%s' "$_fp" | PATH="$_fk/bin:$PATH" SUPERCHARGER_SL_NOW=1700000000 SUPERCHARGER_HOME="$REPO_DIR" SUPERCHARGER_STATE="$_fk/state" bash "$REPO_DIR/hooks/statusline.sh" >/dev/null 2>&1
     : > "$_fk/forks"
-    printf '%s' "$_fp" | PATH="$_fk/bin:$PATH" SUPERCHARGER_HOME="$REPO_DIR" SUPERCHARGER_STATE="$_fk/state" bash "$REPO_DIR/hooks/statusline.sh" >/dev/null 2>&1
+    printf '%s' "$_fp" | PATH="$_fk/bin:$PATH" SUPERCHARGER_SL_NOW=1700000000 SUPERCHARGER_HOME="$REPO_DIR" SUPERCHARGER_STATE="$_fk/state" bash "$REPO_DIR/hooks/statusline.sh" >/dev/null 2>&1
     [ ! -s "$_fk/forks" ] && { SJ_OK=0; break; }
   done
   rm -rf "$_fk"
