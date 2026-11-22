@@ -42,6 +42,17 @@ done <<'CASES'
 ["Bash(node *)"]|other@there|warn|node with a space wildcard is named
 ["Bash(npx prettier:*)"]|other@there|quiet|a named npx tool stays quiet
 ["Bash(npx:*)"]|me@here|quiet|your own npx allow stays quiet
+["Bash(python3 -c:*)"]|other@there|warn|python3 -c (a code flag is the runner) is named
+["Bash(python -c:*)"]|other@there|warn|python -c is named
+["Bash(bash -c *)"]|other@there|warn|bash -c with a space wildcard is named
+["Bash(sh -c:*)"]|other@there|warn|sh -c is named
+["Bash(node -e:*)"]|other@there|warn|node -e is named
+["Bash(/usr/bin/env:*)"]|other@there|warn|env by absolute path is named
+["Bash(npm exec:*)"]|other@there|warn|npm exec is named
+["Bash(uvx:*)"]|other@there|warn|uvx is named
+["Bash(zsh:*)"]|other@there|warn|zsh is named
+["Bash(sudo:*)"]|other@there|warn|sudo is named
+["Bash(python3 -m pytest:*)","Bash(npm run lint:*)","Bash(sudo apt-get update)"]|other@there|quiet|named tools under a runner stay quiet
 CASES
 
 report

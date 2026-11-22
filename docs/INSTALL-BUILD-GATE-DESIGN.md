@@ -1,12 +1,28 @@
-# Install/build gate — design (Step 4, not built)
+# Install/build gate — design (Step 4, log-only release built)
 
-Status 2026-11-21: the **log-only first release is built** (`hooks/install-surface-gate.sh`,
-`tests/test-install-surface-gate.sh`), covering npm/pnpm/yarn/bun, pip and cargo. It never asks and
-prints nothing; findings go to `$SUPERCHARGER_STATE/install-surface.jsonl`. `make`, `pytest`, gradle,
-`$(shell)` and git hooks are not scanned yet. Turning it into an ASK waits on real findings.
-Measured: a non-install Bash call exits at the shell `case` (0.00 s); the scan path costs 65-110 ms
-(two git calls plus one python fork), on install/build commands only. The 20-40 ms estimate below
-was wrong.
+Status 2026-11-22: the **log-only first release is built** (`hooks/install-surface-gate.sh`,
+`tests/test-install-surface-gate.sh`). It never asks and prints nothing; findings go to
+`$SUPERCHARGER_STATE/install-surface.jsonl`, each finding once per session. Turning it into an ASK
+waits on real findings.
+
+**Built:**
+- Trigger: the command itself (not the whole payload) names `npm|pnpm|yarn|bun i|install|ci|add`, a
+  bare `yarn`, `pip install`, `python -m pip install`, `setup.py install|develop|build`, or
+  `cargo build|run|test|check|install`.
+- Scope: the command's working directory (a leading `cd <dir> &&` is followed), only when the
+  project is not the user's own (last commit by someone else, or no `.git`).
+- Surface: npm lifecycle scripts, `.pnpmfile.cjs`, `.yarnrc*` `yarnPath`, `binding.gyp`, `setup.py`,
+  `build.rs`, `.cargo/config*` wrapper/runner/linker. Regular files only (a FIFO or device is
+  skipped), bounded reads; a `package.json` that does not parse (or is over 1 MB) is logged as
+  unparsed, with its lifecycle scripts read by pattern.
+
+**Not built:** `pyproject.toml` build-backend, `.pth` files, `conftest.py`, Makefile `$(shell)`,
+gradle `distributionUrl`, `.git/hooks`, `make`/`pytest` triggers, and the "cloned this session"
+scope.
+
+Measured (2026-11-21): a non-install Bash call exits at the shell `case` (0.00 s); the scan path
+costs 65-110 ms (two git calls plus one python fork), on install/build commands only. The 20-40 ms
+estimate below was wrong.
 
 ## The gap
 
