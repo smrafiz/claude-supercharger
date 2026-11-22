@@ -284,8 +284,14 @@ OUTWARD = ('git push', 'npm publish', 'pnpm publish', 'yarn publish', 'yarn npm 
 # Commands that run whatever they are handed. An allow rule on one of these is run-anything
 # with no prompt: Bash(npx:*), Bash(find:*) (-exec), Bash(env:*). Only a rule that covers the
 # whole runner counts: Bash(npx prettier:*) names one tool and stays quiet.
+# 2026-11-22 (#351 review): the code flag IS the runner (`Bash(python3 -c:*)` runs any
+# script), and so are a few launchers and shells the first list missed.
 RUNNERS = ('npx', 'bunx', 'pnpm dlx', 'yarn dlx', 'node', 'python', 'python3', 'bash', 'sh',
-           'perl', 'ruby', 'find', 'xargs', 'env', 'eval', 'exec')
+           'perl', 'ruby', 'find', 'xargs', 'env', 'eval', 'exec',
+           'python -c', 'python3 -c', 'node -e', 'node --eval', 'node -p', 'perl -e', 'ruby -e',
+           'bash -c', 'sh -c', 'zsh', 'zsh -c', 'dash', 'ksh', 'fish', 'sudo', 'doas',
+           'npm exec', 'pnpm exec', 'yarn exec', 'uvx', 'uv run', 'pipx run', 'deno eval',
+           'bun -e', 'php -r', 'osascript', 'pwsh', 'powershell')
 
 
 def outward_allows(settings, cmds=OUTWARD, covers_only=False):
@@ -297,6 +303,7 @@ def outward_allows(settings, cmds=OUTWARD, covers_only=False):
         if not m:
             continue                           # bare Bash is flagged above, as a bypass
         prefix = re.sub(r'(?::\*|\*)\s*$', '', m.group(1)).strip()
+        prefix = re.sub(r'^\S*/', '', prefix)       # /usr/bin/env is env
         if any(c == prefix or c.startswith(prefix + ' ') or not prefix
                or (not covers_only and prefix.startswith(c + ' ')) for c in cmds):
             hits.append(r.strip())
