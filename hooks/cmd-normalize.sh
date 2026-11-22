@@ -360,13 +360,22 @@ _sc_wrapper_prelude_into() {
               break ;;
             # `xargs -a FILE` feeds FILE's lines to the command: keep FILE visible as
             # an input redirect instead of dropping it with the option.
-            xargs:-a|xargs:--arg-file)
+            xargs:-a|xargs:--arg-file|xargs:-[0rtxp]*a)
               cmd="${cmd#"${cmd%%[![:space:]]*}"}"
               _tok="${cmd%%[[:space:]]*}"
               cmd="${cmd#"$_tok"}"
               _xa="${_xa:+$_xa }< $_tok"
               continue ;;
             xargs:--arg-file=*) _xa="${_xa:+$_xa }< ${_tok#*=}"; continue ;;
+            # 2026-11-22 (#341 review): the attached spellings of the same two options.
+            xargs:-a?*) _xa="${_xa:+$_xa }< ${_tok#-a}"; continue ;;
+            script:--command=*|flock:--command=*)
+              cmd="${_tok#*=}$cmd"
+              case "$cmd" in
+                \'*\'*) _tok="${cmd#\'}"; cmd="${_tok%%\'*} ${_tok#*\'}" ;;
+                \"*\"*) _tok="${cmd#\"}"; cmd="${_tok%%\"*} ${_tok#*\"}" ;;
+              esac
+              break ;;
           esac
           # An option that takes a SEPARATE value: drop the value too, or it reads
           # as the command. `--opt=value` is one token and needs no second drop.

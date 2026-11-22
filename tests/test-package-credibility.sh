@@ -63,9 +63,8 @@ _tokens() {  # $1 = full command -> extracted names, space separated
 import importlib.util, os
 spec = importlib.util.spec_from_file_location('pc', os.environ['REPO'] + '/hooks/package-credibility.py')
 m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
-cmd = os.environ['P']
-mm = m.NPM_INSTALL.match(cmd) or m.PIP_INSTALL.match(cmd)
-print(' '.join(m.tokens(mm.group(1))) if mm else 'NOTINSTALL')
+r = m.install_names(os.environ['P'])
+print(' '.join(r[0]) if r else 'NOTINSTALL')
 " 2>/dev/null
 }
 
@@ -95,6 +94,8 @@ pip install -c constraints.txt flask|flask
 pip install -e mypkg|
 pip install --editable mypkg|
 pip install requests -r requirements.txt|requests
+pnpm add -r evilpkg|evilpkg
+npm install -e evilpkg|evilpkg
 CASES
 
 echo "=== verdict thresholds (pure, no network) ==="

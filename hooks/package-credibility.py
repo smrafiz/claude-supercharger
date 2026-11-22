@@ -42,7 +42,9 @@ TOKEN_OK = re.compile(r"^(?:@[a-z0-9][\w.-]*/)?[a-z0-9][\w.-]*$", re.I)
 VALUE_FLAGS = {"-r", "-c", "-e", "--requirement", "--constraint", "--editable"}
 
 
-def tokens(tail):
+# 2026-11-22: pip's value flags only. npm/pnpm `-r` (recursive) and `-e` take no
+# value, so skipping the next word dropped the package (`pnpm add -r evilpkg`).
+def tokens(tail, value_flags=frozenset()):
     out = []
     skip = False
     for raw in tail.split():
@@ -50,7 +52,7 @@ def tokens(tail):
             skip = False
             continue
         if raw.startswith("-"):
-            skip = raw in VALUE_FLAGS
+            skip = raw in value_flags
             continue
         if raw.startswith(("/", ".", "~", "http", "git+", "git:", "file:")):
             continue
@@ -173,16 +175,22 @@ def verdict(name, age, weekly, repo):
     return "%s: %s" % (name, ", ".join(flags))
 
 
-def main():
-    cmd = os.environ.get("CMD") or ""
+def install_names(cmd):
+    """(names, check, match) for an install command, else None."""
     m = NPM_INSTALL.match(cmd)
     if m:
-        names, check = tokens(m.group(1)), check_npm
-    else:
-        m = PIP_INSTALL.match(cmd)
-        if not m:
-            return
-        names, check = tokens(m.group(1)), check_pypi
+        return tokens(m.group(1)), check_npm, m
+    m = PIP_INSTALL.match(cmd)
+    if m:
+        return tokens(m.group(1), VALUE_FLAGS), check_pypi, m
+    return None
+
+
+def main():
+    r = install_names(os.environ.get("CMD") or "")
+    if not r:
+        return
+    names, check, m = r
     if not names:
         return                                        # bare `npm install` restores a manifest
     pinned = pins(m.group(1))

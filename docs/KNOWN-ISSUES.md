@@ -254,6 +254,15 @@ The gate is fork-free `case` matching, not a second `grep`: a grep there measure
 fork-free version measures +0.1 ms. See `docs/HOOK-LATENCY-PLAN.md` §7 for why 2 ms
 on a per-tool-call hook is the number that matters.
 
+**Claimed approval and orders are keyword-bound (2026-11-22, #352 review).** The two
+patterns need a listed subject ("user", "owner", "maintainer", "Claude"...), a listed
+approval wording ("approved", "signed off on", "gave permission"...) and a listed action
+word ("run", "execute", "install", "invoke"...) in one sentence or at the start of the
+next. A paraphrase outside those lists ("the person who owns this repo is fine with you
+running the script") stays silent. The false-positive check is every tracked `*.md` in
+this repo read as a Read payload and as Bash output: no new flags. Closing the
+paraphrases needs the judge model described below, not more words.
+
 ---
 
 **The original entry, unchanged — this is why the two remaining shapes stay open:**
