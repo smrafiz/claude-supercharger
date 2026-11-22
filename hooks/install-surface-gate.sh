@@ -64,7 +64,8 @@ if _cd:
     _d = _cd.group(1).strip('"\'')
     if _d == '~' or _d.startswith('~/'):  # $HOME first: expanduser reads USERPROFILE on Windows
         _d = (os.environ.get('HOME') or os.path.expanduser('~')) + _d[1:]
-    cwd = native(os.path.normpath(os.path.join(cwd, _d)))
+    # native(_d) before the join: Windows joins C:/cwd + /tmp/x into C:/tmp/x.
+    cwd = native(os.path.normpath(os.path.join(cwd, native(_d))))
 
 kinds = set()
 if re.search(r'\b(npm|pnpm|yarn|bun)\s+(i|install|ci|add)\b|(^|[;&|]\s*)yarn\s*($|[;&|])', cmd): kinds.add('node')
