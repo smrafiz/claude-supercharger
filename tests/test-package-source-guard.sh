@@ -107,7 +107,15 @@ for c in 'pip install --extra-index-url https://pkgs.example.net/simple internal
          'npm install @acme/utils@99.0.0' 'cd app && npm i internal-lib@19999.1.0' \
          'pip install corp-auth==99.9' \
          'pip config set global.index-url https://pkgs.example.net/simple' \
-         'python3 -m pip config set global.extra-index-url https://pkgs.example.net/simple'; do
+         'python3 -m pip config set global.extra-index-url https://pkgs.example.net/simple' \
+         'pip config --user set global.index-url https://pkgs.example.net/simple' \
+         'pip config --global set global.index-url https://pkgs.example.net/simple' \
+         '/usr/bin/pip3 config set global.index-url https://pkgs.example.net/simple' \
+         'pip3.12 config set global.index-url https://pkgs.example.net/simple' \
+         'pip config set global.find-links https://pkgs.example.net/wheels' \
+         'PIP_INDEX_URL=https://pkgs.example.net/simple pip install foo' \
+         'PIP_EXTRA_INDEX_URL=https://pkgs.example.net/simple pip install foo' \
+         'pip install --find-links https://pkgs.example.net/wheels foo'; do
   begin_test "Bash: asks on $c"
   [ "$(bash_v "$c")" = ASK ] && pass || fail "no ask"
 done
@@ -117,7 +125,9 @@ for c in 'pip install requests' 'npm install left-pad' 'pip install -r requireme
          'curl -s https://registry.example.net/health' 'git clone https://github.com/x/y.git' \
          'npm i react@18.3.1' 'pip install certifi==2024.8.30' 'npm i @types/node@22' \
          'git commit -m "bump to 199"' 'pip config get global.index-url' \
-         'pip config set global.index-url https://pypi.org/simple'; do
+         'pip config set global.index-url https://pypi.org/simple' \
+         'pip install --no-index --find-links ./wheels foo' 'pip config --user get global.index-url' \
+         'PIP_INDEX_URL=https://pypi.org/simple pip install foo'; do
   begin_test "Bash: silent on $c"
   [ "$(bash_v "$c")" = allow ] && pass || fail "false ask"
 done

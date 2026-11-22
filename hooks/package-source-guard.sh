@@ -64,6 +64,8 @@ case "$_INPUT" in
   # install command passed with no ask (cross-channel parity). A superset of the
   # python's command patterns below, so the gate can never skip a match.
   *index-url*|*registry*|*RegistryServer*|*git+*|*-i\ http*|*-ihttp*|*install*http*) : ;;
+  # 2026-11-22 (#350 review): pip's find-links and its environment spellings.
+  *find-links*|*PIP_INDEX_URL*|*PIP_EXTRA_INDEX_URL*|*PIP_FIND_LINKS*) : ;;
   # Widened WITH inflated(): a 3+ digit or 99 major after @ or ==.
   *@99*|*==99*|*@[1-9][0-9][0-9]*|*==[1-9][0-9][0-9]*) : ;;
   *) exit 0 ;;
@@ -135,22 +137,32 @@ def inflated(spec):
 if tool in ("Bash", "Monitor", "PowerShell"):
     cmd = (d.get("tool_input") or {}).get("command") or ""
     DEFAULT = re.compile(r'^https?://(pypi\.org|files\.pythonhosted\.org|registry\.npmjs\.org|registry\.yarnpkg\.com)(/|$)', re.I)
-    PIP = re.compile(r'(^|[\s;&|(])(pip3?|uv\s+pip|python3?\s+-m\s+pip)\s+install\b', re.I)
+    # 2026-11-22 (#350 review): pip3.12, /usr/bin/pip3 and python3.12 -m pip are pip too.
+    PIPX = r'(^|[\s;&|(/])(pip[\d.]*|uv\s+pip|python[\d.]*\s+-m\s+pip)'
+    PIP = re.compile(PIPX + r'\s+install\b', re.I)
     NODE = re.compile(r'(^|[\s;&|(])(npm|pnpm|yarn|bun)\b', re.I)
     hits, sources = [], []
     for seg in re.split(r'&&|\|\||;|\|', cmd):
         urls = []
         if PIP.search(seg):
             urls += [("custom package index", u) for u in re.findall(r'(?:--(?:extra-)?index-url|(?<!\S)-i)[\s=]*(\S+)', seg)]
+            # find-links also takes a local wheel dir (`-f ./wheels`); only a URL is a source.
+            urls += [("custom package index", u) for u in re.findall(r'(?:--find-links|(?<!\S)-f)[\s=]*[\'"]?((?:https?|ftp)://\S+)', seg)]
             urls += [("git+/url dependency", u) for u in re.findall(r'(?<!\S)((?:git\+|https?://)\S+)', seg)
-                     if not re.search(r'(?:index-url|-i)[\s=]*$', seg[:seg.find(u)])]
+                     if not re.search(r'(?:index-url|find-links|-[if])[\s=]*$', seg[:seg.find(u)])]
         if NODE.search(seg):
             urls += [("custom registry", u) for u in re.findall(r'--registry[\s=]+(\S+)', seg)]
             urls += [("registry setting", u) for u in re.findall(
                 r'\bconfig\s+set\s+(?:@[\w.-]+:)?(?:registry|npmRegistryServer)[\s=]+(\S+)', seg)]
-        if re.search(r'(^|[\s;&|(])(pip3?|uv\s+pip|python3?\s+-m\s+pip)\s+config\s+set\b', seg, re.I):
-            urls += [("pip index setting", u) for u in re.findall(
-                r'\bconfig\s+set\s+(?:[\w-]+\.)?(?:extra-)?index-url[\s=]+(\S+)', seg)]
+        # `pip config [--user|--global|--site] set <section>.index-url|extra-index-url|find-links`.
+        if re.search(PIPX + r'\s+config\s+(?:--?[\w-]+\s+)*set\b', seg, re.I):
+            urls += [("pip index setting", a or b) for a, b in re.findall(
+                r'\bset\s+(?:[\w-]+\.)?(?:(?:extra-)?index-url[\s=]+(\S+)|find-links[\s=]+[\'"]?((?:https?|ftp)://\S+))', seg)]
+        # The environment spelling of the same setting: `PIP_INDEX_URL=<url> pip install x`.
+        urls += [("pip index setting", u) for u in re.findall(
+            r'(?:^|[\s;&|(])(?:export\s+)?PIP_(?:EXTRA_INDEX_URL|INDEX_URL)=(\S+)', seg)]
+        urls += [("pip index setting", u) for u in re.findall(
+            r'(?:^|[\s;&|(])(?:export\s+)?PIP_FIND_LINKS=[\'"]?((?:https?|ftp)://\S+)', seg)]
         if NODE.search(seg) or PIP.search(seg):
             for tok in seg.split():
                 name, sep, ver = tok.strip('\'"').rpartition("==") if "==" in tok else tok.strip('\'"').rpartition("@")

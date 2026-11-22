@@ -560,10 +560,29 @@ _PATH_SEP_RUN_RE = re.compile(r"(?<=[\w~.$}-])/(?:\.?/)+")
 def _norm_path_seps(c: str) -> str:
     return _PATH_SEP_RUN_RE.sub("/", c)
 
-_SED_READS_RE = re.compile(r"""(?:[\d$/;{}'"]\s*[rR]\s+\S|/[a-zA-Z0-9]*e[a-zA-Z0-9]*['"\s]|(?:^|[;'"])\s*e\s)""")
+# 2026-11-22 (#341 review): sed's `e` flag only counts after the FINAL delimiter of an
+# s command (`s/x/cat f/e`). Any word with an e after a slash (`s/read the f/x/`)
+# read as the flag and denied ordinary edits of docs that mention a secret file.
+_SED_READS_RE = re.compile(r"""(?:[\d$/;{}'"]\s*[rR]\s+\S|\bs([/|#,:@!])(?:\\.|(?!\1).)*\1(?:\\.|(?!\1).)*\1[gpiImM0-9w]*e|(?:^|[;'"])\s*e\s)""")
+
+
+# 2026-11-22 (#341 review): every match is judged. `cat <key>.pub <key>` matched the
+# public key first, and its .pub exemption skipped the private key after it.
+def _secret_match(text: str):
+    for sm in _SENSITIVE_NAME_RE.finditer(text):
+        if not sm.group(0).endswith(".pub"):
+            return sm
+    return None
+
+
+# A file fed to a command on stdin (`cmd < f`; normalize_cmd writes `xargs -a f` this
+# way) is read by it. Not `<<` (heredoc) and not `<(` (process substitution).
+_STDIN_FILE_RE = re.compile(r"(?<![<\d])<(?![<(&])\s*(['\"]?[^\s;&|)'\"]+)")
+# perl -n/-p loops over its file operands like sed (`perl -ne print f`).
+_PERL_LOOP_RE = re.compile(r"\bperl\s+((?:-[A-Za-z]*[np][A-Za-z]*\b)[^|;&\n]*)")
 # An archive member printed to stdout: `tar -xOf a.tar <f>`, `unzip -p a.zip <f>`.
 _ARCHIVE_STDOUT_RE = re.compile(
-    r"\b(?:tar\s+(?:[^|;&\n]*\s)?(?:-?[a-zA-Z]*O[a-zA-Z]*|--to-stdout)|unzip\s+(?:[^|;&\n]*\s)?-[a-zA-Z]*[pc][a-zA-Z]*)\s[^|;&\n]*")
+    r"\b(?:(?:bsd)?tar\s+(?:[^|;&\n]*\s)?(?:-?[a-zA-Z]*O[a-zA-Z]*|--to-stdout)|unzip\s+(?:[^|;&\n]*\s)?-[a-zA-Z]*[pc][a-zA-Z]*)\s[^|;&\n]*")
 
 
 def check_sensitive_read(c: str) -> str | None:
@@ -587,13 +606,23 @@ def check_sensitive_read(c: str) -> str | None:
     # parses a private key and, with -text, prints it. From flightrules 76c678a:
     # its option-value spellings were already covered, these verbs were not.
     for m in _ARCHIVE_STDOUT_RE.finditer(c):
-        sm = _SENSITIVE_NAME_RE.search(m.group(0))
-        if sm and not sm.group(0).endswith(".pub"):
+        sm = _secret_match(m.group(0))
+        if sm:
             return f"sensitive file access: {sm.group(0)} — an archive member printed to stdout"
     for m in re.finditer(r"\b(?:dotenv\b[^|;&]*\b(?:list|get)|openssl\s+(?:pkey|rsa|ec|dsa|pkcs8|pkcs12))\b[^|;&]*", c):
-        sm = _SENSITIVE_NAME_RE.search(m.group(0))
-        if sm and not sm.group(0).endswith(".pub"):
+        sm = _secret_match(m.group(0))
+        if sm:
             return f"sensitive file access: {sm.group(0)} — credentials likely present"
+    for m in _STDIN_FILE_RE.finditer(c):
+        sm = _secret_match(m.group(1).strip("'\""))
+        if sm:
+            return f"sensitive file access: {sm.group(0)} — fed to a command on stdin"
+    for m in _PERL_LOOP_RE.finditer(c):
+        # Drop the -e code word that follows a flag cluster ending in e.
+        args = re.sub(r"""^((?:-[A-Za-z]*\s+)*-[A-Za-z]*e\s+)(?:'[^']*'|"[^"]*"|\S+)""", r"\1", m.group(1))
+        sm = _secret_match(args)
+        if sm:
+            return f"sensitive file access: {sm.group(0)} — read by perl -n/-p"
     # Capture the args of a reader command and search for sensitive names within
     # v4.1.16: the args run to the next UNQUOTED separator. The old lazy capture
     # stopped at the first `|` anywhere, including inside a quoted regex, so
@@ -610,8 +639,8 @@ def check_sensitive_read(c: str) -> str | None:
         # 2026-11-19: sed's script can itself read a file (`1r <f>`, `R <f>`) or run
         # one (`s/x/cat <f>/e`); then the script is scanned like the operands.
         if m.group("tool") == "sed" and _SED_READS_RE.search(args):
-            sm = _SENSITIVE_NAME_RE.search(args)
-            if sm and not sm.group(0).endswith(".pub"):
+            sm = _secret_match(args)
+            if sm:
                 return f"sensitive file access: {sm.group(0)} — credentials likely present"
         if m.group("tool") in _PATTERN_READERS:
             # BSD `sed -i ''`: the empty string is -i's backup suffix, not the script.
@@ -622,7 +651,7 @@ def check_sensitive_read(c: str) -> str | None:
         # `grep -r --exclude='<envfile>*' X .` was denied as an env read (FP audit).
         if m.group("tool") in ("grep", "egrep", "fgrep", "rg", "ag", "ack"):
             args = re.sub(r"""(?:^|\s)(?:--(?:exclude|include|exclude-dir|include-dir|glob|iglob)|-g)(?:[=]|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", args)
-        sm = _SENSITIVE_NAME_RE.search(args) or _glob_hits_sensitive(args)
+        sm = _secret_match(args) or _glob_hits_sensitive(args)
         if sm:
             # A PUBLIC key matches only because it contains the private
             # key's name. Reading one is what a public key is FOR:
@@ -950,8 +979,11 @@ def check_pipeline_bypass(c: str) -> str | None:
 
     # 2026-11-19: fd running a reader per match (`xargs -a <f>` is normalize_cmd's).
     for m in re.finditer(r"\bfd(?:find)?\b([^|;&\n]*)", c):
-        ops = [t for t in m.group(1).split() if not t.startswith("-")]
-        if ops and _SENSITIVE_NAME_RE.search(ops[0].strip("'\"")) and re.search(
+        ops = [t.strip("'\"") for t in m.group(1).split() if not t.startswith("-")]
+        # 2026-11-22: the pattern and each search path, alone and joined
+        # (`fd -H credentials ~/.aws` names ~/.aws/credentials).
+        cands = ops[:1] + [p.rstrip("/") + "/" + ops[0] for p in ops[1:]] if ops else []
+        if any(_secret_match(x) for x in cands) and re.search(
                 r"(?:\s(?:-[xX]|--exec(?:-batch)?)\s+|\|[\s\S]*?\bxargs\b[\s\S]*?)\b(?:cat|less|more|head|tail|nc|netcat|curl|wget)\b",
                 c[m.start():]):
             return f"find bypass: fd runs a reader on sensitive pattern '{ops[0]}'"

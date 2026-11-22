@@ -1183,9 +1183,14 @@ WIN_NETWORK_PATTERNS=(
   '(^|[^[:alnum:]_])bitsadmin(\.exe)?[^;&|]*/transfer'
   '(^|[^[:alnum:]_])Start-BitsTransfer([[:space:]]|$)'
   # 2026-11-20: mshta runs a remote HTA (code) from a URL; a local .hta stays allowed.
-  '(^|[^[:alnum:]_])mshta(\.exe)?[[:space:]]+[^;&|]*(https?:|ftp:|javascript:|vbscript:)'
+  # 2026-11-22 (#349 review): an inline `about:` page and a UNC share path are remote too.
+  '(^|[^[:alnum:]_])mshta(\.exe)?[[:space:]]+[^;&|]*(https?:|ftp:|javascript:|vbscript:|about:)'
+  '(^|[^[:alnum:]_])mshta(\.exe)?[[:space:]]+([^;&|]*[[:space:]"'"'"'])?\\\\[[:alnum:]]'
   # Unblock-File strips the download warning (Mark of the Web) so a fetched file runs unprompted.
-  '(^|[^[:alnum:]_])Unblock-File([[:space:]]|$)'
+  # Only in command position: `Get-Help Unblock-File` or a search pattern naming it runs nothing.
+  '(^|[;&|({]|[[:space:]]-[Cc](ommand)?[[:space:]]+["'"'"']?)[[:space:]]*Unblock-File([[:space:]]|$)'
+  # The same act by hand: deleting the Zone.Identifier stream the download wrote.
+  '(^|[^[:alnum:]_-])Remove-Item[^;&|]*Zone\.Identifier'
 )
 
 # 4.4.3: each rule carries a plain sentence the user and the agent read; the raw regex

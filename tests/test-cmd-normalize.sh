@@ -186,4 +186,13 @@ begin_test "normalize_cmd: xargs -a FILE keeps FILE as input"
 OUT=$(normalize_cmd "xargs -a list.txt cat")
 [ "$OUT" = "cat < list.txt" ] && pass || fail "got: '$OUT'"
 
+# 2026-11-22 (#341 review): the attached spellings.
+begin_test "normalize_cmd: script --command=BODY exposes BODY"
+OUT=$(normalize_cmd "script --command='cat notes' /dev/null")
+[ "$OUT" = "cat notes /dev/null" ] && pass || fail "got: '$OUT'"
+
+begin_test "normalize_cmd: xargs -aFILE and -0a FILE keep FILE as input"
+OUT=$(normalize_cmd "xargs -alist.txt cat"); OUT2=$(normalize_cmd "xargs -0a list.txt cat")
+[ "$OUT|$OUT2" = "cat < list.txt|cat < list.txt" ] && pass || fail "got: '$OUT' '$OUT2'"
+
 report
