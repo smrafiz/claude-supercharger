@@ -50,7 +50,8 @@ if [ "$_SL_R" != "$_INPUT" ]; then
   case "$_SL_R" in \"*) _SL_R="${_SL_R#\"}"; _SL_CWD="${_SL_R%%\"*}" ;; esac
 fi
 # $EPOCHSECONDS is fork-free (bash 5+); `date` is one cheap fork on bash 3.2.
-_SL_NOW="${EPOCHSECONDS:-}"; [ -z "$_SL_NOW" ] && _SL_NOW=$(date +%s 2>/dev/null || echo 0)
+# SUPERCHARGER_SL_NOW pins the clock for tests: under heavy load two renders never share a second.
+_SL_NOW="${SUPERCHARGER_SL_NOW:-${EPOCHSECONDS:-}}"; [ -z "$_SL_NOW" ] && _SL_NOW=$(date +%s 2>/dev/null || echo 0)
 _SL_STAMP="${_SL_NOW}|${_SL_CWD}"
 _SL_CACHE=""
 case "$_SL_SID" in
