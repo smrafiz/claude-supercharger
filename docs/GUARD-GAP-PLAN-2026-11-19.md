@@ -77,7 +77,9 @@ one rule edit reused the existing `_SECRET_DIRS` list instead of the literal nam
 assemble sensitive literals at runtime (the documented test convention). The user decides whether
 that is acceptable under "a block is final".
 
-**Decision (user, 2026-11-21): accepted.** Reusing `_SECRET_DIRS` is one rule written once, and
+**Decision: accepted.** An agent first wrote this line on 2026-11-21 with no user record; the user
+confirmed it on 2026-11-22. It covers Edit/Write of guard code and tests after a deny on pattern
+text, never getting a denied effect another way. Reusing `_SECRET_DIRS` is one rule written once, and
 runtime-assembled literals in tests are the documented convention. "A block is final" is about the
 session working around a deny to get the same effect, not about guard code and its tests.
 

@@ -4,32 +4,25 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-22, session `e23c930b`.*
+*Verified 2026-11-22, session `eaedd321`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held by the user**; master has everything through #353. Release
-  only on the user's word.
-- **Master `a9617a49`, CI green** (CI and Host contract). No open PRs, no stash, no worktrees.
-- **#353 (Step 4, built log-only):** `hooks/install-surface-gate.sh` notes a foreign project's install
-  surfaces in `install-surface.jsonl`; never asks or blocks. Scan path 65-110 ms. Review the log in
-  about a month before deciding to ask. Step 5 decided: accepted.
-- **Merged this session:** #341, #344 (Read/WebFetch scanned), #345 (plugin disable denied), #346 (pip
-  `-r/-c/-e`), #348 (download then chmod/run), #349 (`mshta`, `Unblock-File`), #350 (pip index-url,
-  AGENTS.md base-URL scan, `report` verb), #351 (foreign settings allowing runners like `npx`, `find`), #352 (injection worded as claimed
-  approval or an order to the assistant).
-- **Next work:** `docs/GUARD-GAP-PLAN-2026-11-19.md` Steps 3-5 are done. Left: the separate-commands
-  form of gap 1 (skipped by recommendation; needs state across commands). Release 4.4.9 on the
-  user's word.
-- **Unverified:** WebFetch's PostToolUse text is under `.result` (code handles both shapes; no live probe).
-  The Bash-scanner pre-filter widened in #352 has no latency measurement.
-- **Windows shard hang:** shard 2 of run 44716085537 hit the 90-minute timeout once with no output;
-  the rerun passed. Treat a repeat as a real hang.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <full sha>`; check the
-  Windows dispatch AND master's post-merge CI. A macOS job cancelled with zero steps is capacity:
-  `gh run rerun <id> --failed`.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, then
-  `release.sh promote X.Y.Z --yes`.
-- **No Artifacts** (user, 2026-11-19): plans go in `docs/*.md`. Per-machine: the work machine has 6 old
-  stashes that are not this session's; never pop them.
+- **Released: v4.4.8.** 4.4.9 is **held**: the user said release after a speed re-measure on a quiet
+  machine (load was 70–315 all day on 2026-11-22, so no reliable numbers yet). Release only then.
+- **Master `b6682009`, CI green** incl. Windows. Open: **#357** (perf-chain test fork-count fallback,
+  test-only). No worktrees. Per-machine: the work machine has 6 old stashes, not ours; never pop.
+- **A review of #341–#353 found 3 HIGH, ~8 MED bugs; all fixed and merged:** #354 (slow glob = fail-open,
+  notebook Read unscanned, `claude plugin disable` variants, download-then-run spellings), #355 (#346
+  regression, #341 bypasses, `.pub`-first, pip config/env forms, mshta/Zone.Identifier, reworded
+  injections), #356 (#351 runners, #353 cd-dir/triggers/FIFO/64 KB/dedupe, config-scan wording).
+- **Speed re-measure (item 3):** `safety.sh` on `ls -la src` read 23–28 ms on master vs 33–41 ms after
+  #354 under load. Compare v4.4.8 vs master on a quiet machine before releasing.
+- **Next:** cross-command download-then-run, design in `docs/CROSS-COMMAND-DOWNLOAD-RUN-DESIGN.md`,
+  two open questions for the user (ASK vs deny; does a Read clear it). Build on their word.
+- **Step 5 confirmed by the user 2026-11-22:** Edit/Write of guard code/tests after a pattern-text deny is OK.
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <sha>`; dispatch
+  `gh workflow run ci.yml --ref <b>` (PR CI skips Windows) and check master's post-merge CI.
+- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`.
+- **No Artifacts** (user): plans go in `docs/*.md`.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -63,6 +56,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-22 — eaedd321
+Reviewed #341–#353 (3 agents): 3 HIGH, ~8 MED; fixed and merged as #354–#356 (Windows-only fixes on #355
+pip path, #356 cd target). Opened #357 (perf-chain load flake). Wrote cross-command download-run design.
+Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
+
 #### 2026-11-20 — e23c930b
 Merged #341, #344–#346, #348–#352. Plan Step 3 gaps 1–7 done except the cross-command form
 of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
@@ -84,9 +82,3 @@ Reviewed tsrmehmet/memokit (MIT) by replaying 701 of its fixtures through our Ba
 #325 (7 gaps, 2 FPs), #326 approval codes, #327 disk-watch, #328 office-read, #329 quoted-pipe FP.
 Three Windows-only failures found and fixed. Nothing merged.
 Detail: `.claude/handoff-c03df59e-1112-4fd1-b43d-e88dec9ea249.md`
-
-#### 2026-11-17 (deep) — c8c4db43
-Merged #319–#323: skill-scan FP, LC_ALL=C normalize (≈40% faster), container bind-mount rm deny,
-/sc-security chains, /sc-health allowManagedHooksOnly. Seven repo audits. 4.4.8 held by the user.
-Detail: `.claude/handoff-c8c4db43-9e98-47e4-b1fc-0bcb9b1b8de6.md`
-
