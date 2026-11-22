@@ -4,25 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-22, session `eaedd321`.*
+*Verified 2026-11-22 (late), session `eaedd321`.*
 
-- **Released: v4.4.8.** 4.4.9 is **held**: the user said release after a speed re-measure on a quiet
-  machine (load was 70–315 all day on 2026-11-22, so no reliable numbers yet). Release only then.
-- **Master `b6682009`, CI green** incl. Windows. Open: **#357** (perf-chain test fork-count fallback,
-  test-only). No worktrees. Per-machine: the work machine has 6 old stashes, not ours; never pop.
-- **A review of #341–#353 found 3 HIGH, ~8 MED bugs; all fixed and merged:** #354 (slow glob = fail-open,
-  notebook Read unscanned, `claude plugin disable` variants, download-then-run spellings), #355 (#346
-  regression, #341 bypasses, `.pub`-first, pip config/env forms, mshta/Zone.Identifier, reworded
-  injections), #356 (#351 runners, #353 cd-dir/triggers/FIFO/64 KB/dedupe, config-scan wording).
-- **Speed re-measure (item 3):** `safety.sh` on `ls -la src` read 23–28 ms on master vs 33–41 ms after
-  #354 under load. Compare v4.4.8 vs master on a quiet machine before releasing.
-- **Next:** cross-command download-then-run, design in `docs/CROSS-COMMAND-DOWNLOAD-RUN-DESIGN.md`,
-  two open questions for the user (ASK vs deny; does a Read clear it). Build on their word.
-- **Step 5 confirmed by the user 2026-11-22:** Edit/Write of guard code/tests after a pattern-text deny is OK.
+- **Released: v4.4.8.** 4.4.9 held; the user said release after a speed re-measure on a quiet machine
+  (load was 100–546 all day, so not done).
+- **Master `003276d0`, CI green** incl. Windows. #354–#356 (review fixes) and #358 (docs) merged.
+- **Open #357** (`bef7db1a`): perf-chain statusline test, fork-count fallback with a pinned clock.
+  Suite + Windows were running; merge if green (user said go).
+- **Item 5 in progress, no PR:** cross-command download-then-run, user chose ASK and "a Read does not
+  clear it". Drafts on branch `wip/download-ledger`; remaining `safety.sh` steps are in the session brief.
+- **Speed:** `safety.sh` may be ~10 ms slower after #354 (noisy reading). Measure before releasing.
 - **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <sha>`; dispatch
-  `gh workflow run ci.yml --ref <b>` (PR CI skips Windows) and check master's post-merge CI.
+  `gh workflow run ci.yml --ref <b>` (PR CI skips Windows); check master's post-merge CI.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`.
-- **No Artifacts** (user): plans go in `docs/*.md`.
+- **No Artifacts** (user): plans go in `docs/*.md`. Per-machine: the work machine has 6 old stashes; never pop.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -56,9 +51,9 @@ session on any machine.**
 
 ## Log
 
-#### 2026-11-22 — eaedd321
-Reviewed #341–#353 (3 agents): 3 HIGH, ~8 MED; fixed and merged as #354–#356 (Windows-only fixes on #355
-pip path, #356 cd target). Opened #357 (perf-chain load flake). Wrote cross-command download-run design.
+#### 2026-11-22 (deep) — eaedd321
+Reviewed #341–#353 (3 agents): 3 HIGH, ~8 MED; fixed and merged as #354–#356 (+ Windows-only fixes).
+#358 docs merged. #357 perf-chain flake open. Item 5 (cross-command download ASK) drafted on wip branch.
 Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
 
 #### 2026-11-20 — e23c930b

@@ -1,35 +1,86 @@
-## Handoff — claude-supercharger — 2026-11-22 (session eaedd321)
+## Handoff — claude-supercharger — 2026-11-22 (session eaedd321, deep)
 
 ### Done
-- Reviewed #341, #344–#353 with 3 independent agents (code, security, claim check). Findings: 3 HIGH
-  (0.5 s detector timeout via a slow glob = fail-open; notebook Read bypassed both output scanners;
-  `claude plugins disable` and wrapped forms allowed), ~8 MED, several LOW/FP.
-- Fixed and merged: #354 (high), #355 (medium), #356 (low). Every new row fails on master.
-  Suites: 8686/0, 8760/0, 8785/1 (perf-chain timing under load; 14/14 alone). Windows green on all three.
-- Windows-only fixes found by CI: #355 `/usr/bin/pip3` reaches python with backslashes; #356 joining
-  `C:/cwd` with `/tmp/x` gives `C:/tmp/x` (resolve the cd target with `native()` first).
-- #357 opened: perf-chain statusline cache test falls back to a python3 fork count under load.
-- Design: `docs/CROSS-COMMAND-DOWNLOAD-RUN-DESIGN.md` (not built).
-- User confirmed plan Step 5 (Edit/Write guard code after a pattern-text deny is acceptable).
+- Reviewed #341, #344–#353 with 3 independent agents. Found 3 HIGH, ~8 MED and several LOW/FP. All
+  fixed and merged: #354 (high), #355 (medium), #356 (low). Every new row fails on master; Windows
+  green on all three; master CI green at each merge.
+- Windows-only fixes CI found: #355 `/usr/bin/pip3` arrives with backslashes; #356 `cd <dir>` target
+  joined onto `C:/cwd` became `C:/tmp/...` (fix: `native()` before the join).
+- #358 merged: carry file, Step 5 user confirmation in `docs/GUARD-GAP-PLAN-2026-11-19.md`, design
+  `docs/CROSS-COMMAND-DOWNLOAD-RUN-DESIGN.md`.
+- Audited EL4CTEO/fast-anything (README only): off-fit, our cost is process startup.
 
 ### In Flight
-- #357: suite + Windows dispatch at time of writing; merge on the user's word.
-- Release 4.4.9: user said go after a quiet-machine speed re-measure. Not done (load 70–315 all day).
+- **#357** `fix/perf-chain-load-flake` at `bef7db1a`: statusline cache test falls back to a python3
+  start count with the clock pinned (`SUPERCHARGER_SL_NOW`, one line in `hooks/statusline.sh`).
+  Full suite and Windows run 45019067567 were running at handoff. Merge if both pass (user said go).
+- **Item 5, cross-command download-then-run (user said build: ASK, a Read does not clear it).**
+  Drafts only, on branch `wip/download-ledger` (no PR): `wip/test-download-ledger.sh` (14 rows) and
+  `wip/ledger.py` (`check_download_ledger`, appended after `check_download_then_run` in
+  `hooks/safety-detect.py`, called last in main under "exfiltration"). Still to do in `hooks/safety.sh`:
+  read `session_id` with `_json_fast_str`, set `DL_LEDGER=$SUPERCHARGER_STATE/scope/.downloads-<sid>`,
+  pass it to the detector, gate `_NEED_PY` on `[ -s "$DL_LEDGER" ]` plus chmod/install/path/interpreter
+  words, and turn a `__SC_ASK__` reason into `sc_decision ask` right after the `block "$PY_REASON"` line
+  (only asks follow it, so no deny is hidden). Simplification vs the design doc: no size/mtime match,
+  so a file rewritten after download still asks; update the doc.
+- **Release 4.4.9:** user said release after a quiet-machine speed re-measure. Not done.
+
+### Decisions Made
+- Step 5 accepted (user, 2026-11-22): Edit/Write of guard code/tests after a pattern-text deny is fine;
+  never to get a denied effect.
+- Item 5 verdict: ASK, not deny; a Read in between does not clear it (user, "do as you recommend").
+- No Rust rewrite (discussed): cost is spawn, not compute; a single hot-path binary is the only
+  version worth measuring, and a dispatcher was rejected 2026-10-14 for reasons to re-read first.
 
 ### What Failed
-- The fix agent crashed once on an API error mid-PR; resumed via SendMessage with context intact.
-- Load avg 100–315 for hours: hook timeouts (Token Optimizer UserPromptSubmit 20 s), latency medians
-  swung 2x, perf-chain timing test failed falsely twice. Disk dropped 27 GB then recovered; source unknown.
+- Fix agent crashed once on an API error; resumed via SendMessage with context intact.
+- First #357 fallback (unpinned fork count) failed 5/5 at load ~500: no two renders shared a second.
+- `"$C:refs/heads/x"` push failed: zsh `:r` modifier applies inside double quotes.
 
-### Claims corrected from the 2026-11-20/21 carry file
-- "#344 Read/WebFetch scanned": notebooks were not (fixed #354). "#345 plugin disable denied": plural and
-  wrapped forms were not (fixed #354). "#350 4 deny rows": 2 ASK rows + 2 warnings. "No stash": 6 exist on
-  the work machine. "Step 5 accepted": had no user record until 2026-11-22.
+### Blockers
+- Machine load 100–546 all day (rustc builds, phpantom_lsp, CleanMyMac, Chrome, Teams). Blocks item 3.
+
+### Worktrees
+- none (main checkout only)
+
+### Files Touched
+- See #354–#358 diffs. This handoff: `.claude/handoff.md`, this brief, `docs/HOOK_AUTHORING.md`
+  ("Notes from 2026-11-22").
 
 ### Resume With
-Read `.claude/handoff.md`. Merge #357 if green. On a quiet machine: measure `safety.sh` and the Bash chain
-on v4.4.8 vs master (`tests/perf-chain.sh`); if no real regression, release 4.4.9 (user already said go).
-Then ask the two open questions in the cross-command design doc.
+Read `.claude/handoff.md`. Merge #357 if its suite and Windows passed. Then finish item 5 from branch
+`wip/download-ledger` (In Flight lists the safety.sh steps), prove rows fail on master, open a PR.
+On a quiet machine, re-measure the Bash chain v4.4.8 vs master and release 4.4.9.
+
+### Start With
+- none (no Supercharger command needed; `gh pr checks 357` first)
+
+### Measurements
+- Suites: #354 8686/0; #355 rebased 8760/0; #356 rebased 8785/1 (perf-chain timing, 14/14 alone);
+  #357 first head 8785/1 (same test).
+- Slow glob: `glob.glob` built 64,544 matches in 3.6 s; probe rc=0 in 1.8 s on master.
+- statusline at load ~500: cold 589 ms, warm 387 ms = 1.52x (floor 2.5). Pinned clock at load ~300:
+  cached 0/0/0 python3 starts, uncacheable session 1/1/1.
+- `safety.sh` on `ls -la src` (noisy, load 70–310): master 23–28 ms vs #354 33–41 ms. Unreliable.
+- `install-surface-gate` cwd named installer-tools: 67–118 ms master vs 16–39 ms after #356.
+
+### Rejected — do not rebuild
+- Full Rust rewrite: spawn cost dominates (bash ×18 + python3 ~20 ms); risk of new fail-opens.
+- fast-anything: speeds hot functions in long-running apps; a PyO3 port still starts python3; no bash.
+
+### Dead ends
+- none
+
+### Open questions
+- Is #354's `safety.sh` slowdown real? Unverified (load). Settle: quiet machine, `tests/perf-chain.sh`
+  on v4.4.8 vs master.
+- Source of the 27 GB disk drop (recovered later): unknown, not ours.
+
+### Reproduce
+- Review probe kits: scratchpad `rev1/`, `rev2/`, `rev3/` (this machine only).
+- Fork-count check: python3 shim on PATH writing to a file; `SUPERCHARGER_SL_NOW=1700000000`; render
+  `hooks/statusline.sh` twice with the same session id; second render must start none.
+- Windows log for a failing row: `gh run download <id> -n windows-suite-log`, grep `FAIL`.
 
 ---
 

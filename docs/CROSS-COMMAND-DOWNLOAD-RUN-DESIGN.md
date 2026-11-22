@@ -1,6 +1,9 @@
 # Cross-command download-then-run: design (not built)
 
-Status: design only, 2026-11-22. Build on the user's word.
+Status: being built, 2026-11-22. User decisions: ASK, not deny; a Read in between does not clear
+the record. Simplified for the first cut: record at PreToolUse inside `safety-detect.py` (no new
+hook, no new fork) and match on path only, no size/mtime, so a file rewritten after the download
+still asks. Drafts: branch `wip/download-ledger`.
 
 ## The gap
 
