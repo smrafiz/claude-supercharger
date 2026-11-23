@@ -27,7 +27,14 @@ print(json.dumps({"session_id": os.environ["SID"], "tool_name": "Bash",
 }
 expect() { # label, want, session, command
   local got; got=$(probe "$3" "$4")
-  [ "$got" = "$2" ] && pass || fail "$1: expected $2, got $got"
+  [ "$got" = "$2" ] && pass || fail "$1: expected $2, got $got; $(diag "$3" "$4")"
+}
+# Failure detail for CI logs (Windows only failed here, three times): the ledger and
+# the detector's own answer for this command.
+diag() {
+  local raw
+  raw=$(CMD="x" CMD_RAW="#$2" CWD="$ST/w" DL_LEDGER="$ST/scope/.downloads-$1" python3 "$REPO_DIR/hooks/safety-detect.py" 2>&1 | head -c 300)
+  printf 'ledger=[%s] detector=[%s]' "$(tr '\n' ' ' < "$ST/scope/.downloads-$1" 2>/dev/null)" "$raw"
 }
 
 echo "=== download ledger: download, then chmod/run in a later call ==="
