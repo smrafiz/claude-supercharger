@@ -4,20 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-22 (late), session `eaedd321`.*
+*Verified 2026-11-23, session `eaedd321`.*
 
-- **Released: v4.4.8.** 4.4.9 held; the user said release after a speed re-measure on a quiet machine
-  (load was 100–546 all day, so not done).
-- **Master `003276d0`, CI green** incl. Windows. #354–#356 (review fixes) and #358 (docs) merged.
-- **Open #357** (`bef7db1a`): perf-chain statusline test, fork-count fallback with a pinned clock.
-  Suite + Windows were running; merge if green (user said go).
-- **Item 5 in progress, no PR:** cross-command download-then-run, user chose ASK and "a Read does not
-  clear it". Drafts on branch `wip/download-ledger`; remaining `safety.sh` steps are in the session brief.
-- **Speed:** `safety.sh` may be ~10 ms slower after #354 (noisy reading). Measure before releasing.
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <sha>`; dispatch
-  `gh workflow run ci.yml --ref <b>` (PR CI skips Windows); check master's post-merge CI.
+- **Released: v4.4.8.** 4.4.9 = master; user said release on 2026-11-24, speed re-measure first if
+  load < ~10 (`tests/perf-chain.sh`, v4.4.8 vs master). Load was 30–103 on 2026-11-23.
+- **Master `e19b7050`, clean, no open PRs.** Merged 2026-11-23: #357, #359, #360 download ledger ASK,
+  #361 git-safety fail-closed, #362 model-ask guard (Fable), #363 detector stdin on Windows.
+- **Never use Fable** (user): not as the session model, Agent `model`, or in commands.
+- **Per-machine (work Mac):** installed v4.4.8, so #360–#363 are NOT live here until release + `/sc-update`.
+  6 old stashes; never pop. No worktrees (user rule; switch branches in the main checkout).
+- **Never `git checkout` while a background suite runs** in the checkout (twice on 2026-11-23).
+- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <sha>` only after
+  `gh pr checks N` shows nothing pending; Windows via `gh workflow run ci.yml --ref <b>` first.
 - **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`.
-- **No Artifacts** (user): plans go in `docs/*.md`. Per-machine: the work machine has 6 old stashes; never pop.
+- **No Artifacts** (user): plans go in `docs/*.md`.
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
@@ -51,6 +51,11 @@ session on any machine.**
 
 ## Log
 
+#### 2026-11-23 (deep) — eaedd321
+Merged #357, #359–#363: download ledger ASK, git-safety fail-closed, model-ask guard (Fable), detector
+stdin on Windows. 4.4.9 held to 2026-11-24. Two self-caused suite invalidations (checkout mid-run).
+Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
+
 #### 2026-11-22 (deep) — eaedd321
 Reviewed #341–#353 (3 agents): 3 HIGH, ~8 MED; fixed and merged as #354–#356 (+ Windows-only fixes).
 #358 docs merged. #357 perf-chain flake open. Item 5 (cross-command download ASK) drafted on wip branch.
@@ -71,9 +76,3 @@ Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
 Reviewers found fail-opens in #325/#326/#329; fixed, then merged #324–#333 and released v4.4.8.
 New: #331 `>|` in 4 guards, #332 disk-watch `$(( ))` code exec, #333 safety.sh fail-closed + `--build-arg`.
 Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
-
-#### 2026-11-18 (deep) — c03df59e
-Reviewed tsrmehmet/memokit (MIT) by replaying 701 of its fixtures through our Bash chain. Opened
-#325 (7 gaps, 2 FPs), #326 approval codes, #327 disk-watch, #328 office-read, #329 quoted-pipe FP.
-Three Windows-only failures found and fixed. Nothing merged.
-Detail: `.claude/handoff-c03df59e-1112-4fd1-b43d-e88dec9ea249.md`
