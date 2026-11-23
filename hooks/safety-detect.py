@@ -116,6 +116,10 @@ if _BUDGET_S > 0:
     _wd.start()
 
 cmd = os.environ.get("CMD", "")
+# 2026-11-23: the raw command arrives on stdin (CMD_RAW_STDIN=1). An env value would be
+# rewritten by Git Bash on the way to native Windows python: `/tmp/h` became `C:/.../h`.
+# Read at startup, before any check can exit, so the writer never meets a closed pipe.
+cmd_raw = sys.stdin.buffer.read().decode("utf-8", "replace") if os.environ.get("CMD_RAW_STDIN") == "1" else ""
 if not cmd:
     sys.exit(0)
 
@@ -1434,9 +1438,7 @@ def _dl_path(p: str, cwd: str) -> str:
     p = p.strip("'\"")
     if p.startswith("~"):
         p = os.path.expanduser(p)
-    # A leading slash is absolute on every platform; Python 3.13 on Windows says it is not
-    # (no drive), which joined `/tmp/h` onto the cwd for one check and not another.
-    if cwd and not os.path.isabs(p) and not p.startswith(("/", "\\")):
+    if cwd and not os.path.isabs(p):
         p = os.path.join(cwd, p)
     return os.path.normpath(p) if p else p
 
@@ -1676,10 +1678,8 @@ if "exfiltration" not in disabled:
         _say(r)
         sys.exit(0)
     # 2026-11-22: normalize_cmd shortens a command word to its basename (`/tmp/h` -> `h`),
-    # so the run of a downloaded file is only visible in the raw command (CMD_RAW).
-    # The leading "#" stops Git Bash from rewriting a value that starts with "/" into a
-    # Windows path on the way to native python (`/tmp/h` arrived as `C:/.../Temp/h`).
-    raw = _norm_path_seps(os.environ.get("CMD_RAW", "")[1:]) or cmd
+    # so the run of a downloaded file is only visible in the raw command (stdin).
+    raw = _norm_path_seps(cmd_raw) or cmd
     for c in dict.fromkeys((cmd, raw)):
         r = check_download_then_run(c)
         if r:

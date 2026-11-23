@@ -33,10 +33,8 @@ expect() { # label, want, session, command
 # the detector's own answer for this command.
 diag() {
   local raw
-  raw=$(CMD="x" CMD_RAW="#$2" CWD="$ST/w" DL_LEDGER="$ST/scope/.downloads-$1" python3 "$REPO_DIR/hooks/safety-detect.py" 2>&1 | head -c 300)
-  local seen
-  seen=$(CMD_RAW="#$2" python3 -c 'import os,sys; print(repr(os.environ["CMD_RAW"]), sys.version.split()[0], os.path.isabs("/tmp/h"), repr(os.path.normpath("/tmp/h")))' 2>&1)
-  printf 'ledger=[%s] detector=[%s] python-sees=[%s]' "$(tr '\n' ' ' < "$ST/scope/.downloads-$1" 2>/dev/null)" "$raw" "$seen"
+  raw=$(printf '%s' "$2" | CMD="x" CMD_RAW_STDIN=1 CWD="$ST/w" DL_LEDGER="$ST/scope/.downloads-$1" python3 "$REPO_DIR/hooks/safety-detect.py" 2>&1 | head -c 300)
+  printf 'ledger=[%s] detector=[%s]' "$(tr '\n' ' ' < "$ST/scope/.downloads-$1" 2>/dev/null)" "$raw"
 }
 
 echo "=== download ledger: download, then chmod/run in a later call ==="
