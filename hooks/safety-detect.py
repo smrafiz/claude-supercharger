@@ -1434,7 +1434,9 @@ def _dl_path(p: str, cwd: str) -> str:
     p = p.strip("'\"")
     if p.startswith("~"):
         p = os.path.expanduser(p)
-    if cwd and not os.path.isabs(p):
+    # A leading slash is absolute on every platform; Python 3.13 on Windows says it is not
+    # (no drive), which joined `/tmp/h` onto the cwd for one check and not another.
+    if cwd and not os.path.isabs(p) and not p.startswith(("/", "\\")):
         p = os.path.join(cwd, p)
     return os.path.normpath(p) if p else p
 
