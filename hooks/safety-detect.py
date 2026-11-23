@@ -1675,7 +1675,9 @@ if "exfiltration" not in disabled:
         sys.exit(0)
     # 2026-11-22: normalize_cmd shortens a command word to its basename (`/tmp/h` -> `h`),
     # so the run of a downloaded file is only visible in the raw command (CMD_RAW).
-    raw = _norm_path_seps(os.environ.get("CMD_RAW", "")) or cmd
+    # The leading "#" stops Git Bash from rewriting a value that starts with "/" into a
+    # Windows path on the way to native python (`/tmp/h` arrived as `C:/.../Temp/h`).
+    raw = _norm_path_seps(os.environ.get("CMD_RAW", "")[1:]) or cmd
     for c in dict.fromkeys((cmd, raw)):
         r = check_download_then_run(c)
         if r:

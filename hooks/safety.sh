@@ -2025,7 +2025,7 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   # only when a heredoc is present.
   _CMD_CODE=""
   case "$CMD" in *'<<'*) _CMD_CODE=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _CMD_CODE="" ;; esac
-  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" CWD="${PROJECT_DIR:-}" DL_LEDGER="$_DL_LEDGER" CMD_RAW="$COMMAND" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" CWD="${PROJECT_DIR:-}" DL_LEDGER="$_DL_LEDGER" CMD_RAW="#$COMMAND" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   # The deep scan ran out of time (the detector says so instead of exiting silently).
   # Everywhere else that fails open to the regex verdict above: failing closed showed
   # users phantom "hook error" denies under load. A credential path is different:
