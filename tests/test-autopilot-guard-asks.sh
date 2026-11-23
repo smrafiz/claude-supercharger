@@ -80,6 +80,12 @@ a=$(verdict "$FP"); b=$(verdict "$LP"); c=$(verdict "$CI")
 begin_test "full still declines both payment asks"
 a=$(verdict "$PAY"); b=$(verdict "$MPAY")
 [ "$a$b" = declineddeclined ] && pass || fail "x402=$a mcp=$b"
+begin_test "full still declines a Fable model ask (Bash and subagent)"
+MFB=$(payload "claude --model fable -p hi" s1)
+MFA='{"session_id":"s1","cwd":"/tmp","tool_name":"Agent","tool_input":{"description":"x","prompt":"y","model":"fable"}}'
+ga=$(guard safety.sh "$MFB"); gb=$(guard model-ask-guard.sh "$MFA")
+a=$(verdict "$MFB"); b=$(verdict "$MFA")
+[ "$ga$gb" = askask ] && [ "$a$b" = declineddeclined ] && pass || fail "guard bash=$ga agent=$gb; autopilot bash=$a agent=$b"
 begin_test "full still declines /sc off and autopilot renewing itself"
 a=$(verdict "$OFF"); b=$(verdict "$REN")
 [ "$g_off$g_ren" = askask ] && [ "$a$b" = declineddeclined ] && pass || fail "guard off=$g_off renew=$g_ren; autopilot off=$a renew=$b"

@@ -519,6 +519,11 @@ try:
  # Line 1: Model, project, branch, stack, eco, mem, scan, autopilot, read-only, strict, agent, mcp, lines
  if wt_label:
      dirname = wt_label
+ # 2026-11-23: the session runs on a model from the user's ask list (model-ask-guard.sh).
+ _ma_id = (str((data.get('model') or {}).get('id') or '') + ' ' + str(model)).lower()
+ _ma_hit = [w for w in (os.environ.get('SUPERCHARGER_MODEL_ASK', 'fable') or '').replace(',', ' ').lower().split() if w in _ma_id]
+ if _ma_hit and os.environ.get('SUPERCHARGER_MODEL_ASK_GUARD', '1') != '0':
+     model = f'{model}{RESET}{BOLD}{RED} ⚠ {_ma_hit[0]}: switch with /model'
  line1 = f'{CYAN}[{model}]{RESET} {dirname}{branch}{stack}{eco}{upd}{mem}{scan}{auto}{ro}{st}{agent}{mcp}{lines}'
 
  # Token display

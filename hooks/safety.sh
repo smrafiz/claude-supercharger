@@ -2202,6 +2202,25 @@ if [[ "$CMD" =~ [\"\'[:space:]]([Xx]-[Pp][Aa][Yy][Mm][Ee][Nn][Tt]|[Pp][Aa][Yy][M
   exit 0
 fi
 
+# 2026-11-23: a command that selects a model on the user's ask list (default: Fable),
+# e.g. `claude --model fable`, `ANTHROPIC_MODEL=claude-fable-5-2`, `"model": "claude-fable-…"`.
+# Never auto-approved. List: SUPERCHARGER_MODEL_ASK (empty turns this check off).
+_MA_LIST="${SUPERCHARGER_MODEL_ASK-fable}"
+if [ -n "${_MA_LIST//[ ,]/}" ]; then
+  shopt -s nocasematch
+  # Both copies: normalize_cmd drops a leading `ANTHROPIC_MODEL=...` assignment.
+  _MA_SRC="$CMD_SCAN"$'\n'"${_INJ_SRC:-}"
+  for _ma_w in ${_MA_LIST//,/ }; do
+    case "$_MA_SRC" in *"$_ma_w"*) ;; *) continue ;; esac
+    if [[ "$_MA_SRC" =~ (--model[=[:space:]]+[\"\']?|[\"\']?model[\"\']?[[:space:]]*[:=][[:space:]]*[\"\']?|_MODEL=[\"\']?|claude-)[^[:space:]\"\']*${_ma_w} ]]; then
+      shopt -u nocasematch
+      SC_ASK_KEEP=1 sc_decision ask "this command selects a model matching '$_ma_w', which is on your ask list." "approve only if you chose this model; otherwise use another model"
+      exit 0
+    fi
+  done
+  shopt -u nocasematch
+fi
+
 # v4.2.0: installing a plugin, adding a marketplace or a skill pulls in code that runs
 # with your privileges (plugin hooks, MCP servers, scripts). A self-hosted marketplace
 # auto-updates under the trust given at install, with no re-consent (claude-code
