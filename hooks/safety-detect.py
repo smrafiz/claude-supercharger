@@ -116,10 +116,17 @@ if _BUDGET_S > 0:
     _wd.start()
 
 cmd = os.environ.get("CMD", "")
-# 2026-11-23: the raw command arrives on stdin (CMD_RAW_STDIN=1). An env value would be
-# rewritten by Git Bash on the way to native Windows python: `/tmp/h` became `C:/.../h`.
-# Read at startup, before any check can exit, so the writer never meets a closed pipe.
-cmd_raw = sys.stdin.buffer.read().decode("utf-8", "replace") if os.environ.get("CMD_RAW_STDIN") == "1" else ""
+# 2026-11-23: safety.sh sends `raw NUL cmd NUL code` on stdin (CMD_RAW_STDIN=1). Env values
+# are rewritten by Git Bash on the way to native Windows python: `/tmp/h` became `C:/.../h`
+# and `open("/etc/x")` became `open("C:/Program Files/Git/etc/x")`. CMD/CMD_CODE env stay
+# as the fallback for direct callers. Read at startup, so the writer never meets a closed pipe.
+cmd_raw = ""
+if os.environ.get("CMD_RAW_STDIN") == "1":
+    _parts = sys.stdin.buffer.read().decode("utf-8", "replace").split("\0")
+    cmd_raw = _parts[0]
+    if len(_parts) == 3:
+        cmd = os.environ["CMD"] = _parts[1]
+        os.environ["CMD_CODE"] = _parts[2]
 if not cmd:
     sys.exit(0)
 
