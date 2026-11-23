@@ -1986,6 +1986,20 @@ if ! $_NEED_PY && [[ "$CMD" == *curl* || "$CMD" == *wget* ]]; then
   esac
 fi
 
+# 2026-11-22: download ledger (safety-detect.py check_download_ledger). A file downloaded in
+# an earlier Bash call is recorded per session; making it executable or running it later
+# asks. The ledger exists only after a download, so ordinary sessions never pay for this.
+_DL_LEDGER=""
+if command -v _json_fast_str >/dev/null 2>&1 && _json_fast_str session_id "$_INPUT"; then
+  _dl_sid="${_JSON_FAST_VAL//[^A-Za-z0-9_-]/}"
+  [ -n "$_dl_sid" ] && _DL_LEDGER="$SUPERCHARGER_STATE/scope/.downloads-$_dl_sid"
+fi
+if ! $_NEED_PY && [ -n "$_DL_LEDGER" ] && [ -s "$_DL_LEDGER" ]; then
+  case "$CMD $COMMAND" in
+    *chmod*|*install*|*/*|*sh\ *|*python*|*node*|*perl*|*ruby*|*php*|*deno*|*bun*|*source*|.\ *|*[\;\&\|]\ .\ *) _NEED_PY=true ;;
+  esac
+fi
+
 # `command -v python3` without the $( ) — the command substitution forked a
 # subshell on the hottest hook in the product to learn something the builtin
 # already reports through its exit status.
@@ -2011,7 +2025,7 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
   # only when a heredoc is present.
   _CMD_CODE=""
   case "$CMD" in *'<<'*) _CMD_CODE=$(strip_heredoc_bodies "$CMD" code 2>/dev/null) || _CMD_CODE="" ;; esac
-  PY_REASON=$(CMD="$CMD" CMD_CODE="$_CMD_CODE" CWD="${PROJECT_DIR:-}" DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
+  PY_REASON=$(printf '%s' "$COMMAND" | CMD="$CMD" CMD_CODE="$_CMD_CODE" CWD="${PROJECT_DIR:-}" DL_LEDGER="$_DL_LEDGER" CMD_RAW_STDIN=1 DISABLED_CATS="$_DISABLED_CATS" python3 "${BASH_SOURCE[0]%/*}/safety-detect.py" 2>/dev/null) || PY_REASON=""
   # The deep scan ran out of time (the detector says so instead of exiting silently).
   # Everywhere else that fails open to the regex verdict above: failing closed showed
   # users phantom "hook error" denies under load. A credential path is different:
@@ -2048,6 +2062,11 @@ if [ "$_NEED_PY" = "true" ] && command -v python3 >/dev/null 2>&1; then
     fi
   fi
   if [ -n "$PY_REASON" ]; then
+    # The ledger check runs last in the detector, so this ask never hides one of its denies.
+    case "$PY_REASON" in __SC_ASK__*)
+      sc_decision ask "${PY_REASON#__SC_ASK__}" "read the file first; approve only if you know what it does"
+      exit 0 ;;
+    esac
     block "$PY_REASON"
   fi
 fi

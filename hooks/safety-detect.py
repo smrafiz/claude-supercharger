@@ -116,6 +116,10 @@ if _BUDGET_S > 0:
     _wd.start()
 
 cmd = os.environ.get("CMD", "")
+# 2026-11-23: the raw command arrives on stdin (CMD_RAW_STDIN=1). An env value would be
+# rewritten by Git Bash on the way to native Windows python: `/tmp/h` became `C:/.../h`.
+# Read at startup, before any check can exit, so the writer never meets a closed pipe.
+cmd_raw = sys.stdin.buffer.read().decode("utf-8", "replace") if os.environ.get("CMD_RAW_STDIN") == "1" else ""
 if not cmd:
     sys.exit(0)
 
@@ -1532,6 +1536,70 @@ def check_download_then_run(c: str) -> str | None:
     return None
 
 
+# 2026-11-22: the same rule across separate Bash calls. Each file a download writes goes
+# into a per-session ledger (DL_LEDGER, set by safety.sh); a later command that makes a
+# recorded file executable or runs it ASKS (user decision 2026-11-22: ask, not deny, and a
+# Read in between does not clear it). Relative paths resolve against the session cwd.
+_DL_LEDGER_MAX = 200
+
+
+def _dl_ledger_paths(c: str, base: str) -> tuple[list[str], list[tuple[str, str]]]:
+    """Return (files this command downloads, [(segment, its cwd)])."""
+    parts = _DL_SPLIT_RE.split(c)
+    segs, seps = parts[0::2], parts[1::2]
+    cwd, outs, segcwd = base, [], []
+    for i, seg in enumerate(segs):
+        segcwd.append((seg, cwd))
+        toks = _dl_words(seg)
+        if len(toks) == 2 and toks[0] == "cd":
+            cwd = _dl_path(toks[1], cwd)
+            continue
+        o = _dl_outputs(seg)
+        j = i
+        while j + 1 < len(segs) and seps[j] == "|" and toks[:1] in (["curl"], ["wget"]) \
+                and _dl_words(segs[j + 1])[:1] == ["tee"]:
+            o += [t for t in _dl_words(segs[j + 1])[1:] if not t.startswith(("-", ">"))]
+            j += 1
+        outs += [_dl_path(p, cwd) for p in o]
+    return outs, segcwd
+
+
+def check_download_ledger(c: str) -> str | None:
+    ledger = os.environ.get("DL_LEDGER", "")
+    if not ledger:
+        return None
+    base = os.environ.get("CWD", "")
+    outs, segcwd = _dl_ledger_paths(c, base)
+    try:
+        with open(ledger, encoding="utf-8") as f:
+            known = [ln.rstrip("\n") for ln in f if ln.strip()]
+    except OSError:
+        known = []
+    reason = None
+    for p in dict.fromkeys(known):
+        if any(_dl_runs(seg, p, cwd) for seg, cwd in segcwd):
+            reason = (f"__SC_ASK__makes {p} executable or runs it; that file was downloaded earlier "
+                      "in this session and nobody has reviewed it")
+            break
+    if outs:
+        if not known:  # first download this session: drop ledgers untouched for a week
+            d = os.path.dirname(ledger)
+            try:
+                for n in os.listdir(d):
+                    f = os.path.join(d, n)
+                    if n.startswith(".downloads-") and time.time() - os.path.getmtime(f) > 7 * 86400:
+                        os.remove(f)
+            except OSError:
+                pass
+        try:
+            keep =[k for k in known if k not in outs] + list(dict.fromkeys(outs))
+            with open(ledger, "w", encoding="utf-8") as f:
+                f.write("\n".join(keep[-_DL_LEDGER_MAX:]) + "\n")
+        except OSError:
+            pass
+    return reason
+
+
 # ──────────────────────────────────────────────────────────────────────────
 # Main: run checks in order, first match wins. Categories may be disabled
 # via $DISABLED_CATS (newline-separated, from
@@ -1609,7 +1677,16 @@ if "exfiltration" not in disabled:
     if r:
         _say(r)
         sys.exit(0)
-    r = check_download_then_run(cmd)
-    if r:
-        _say(r)
-        sys.exit(0)
+    # 2026-11-22: normalize_cmd shortens a command word to its basename (`/tmp/h` -> `h`),
+    # so the run of a downloaded file is only visible in the raw command (stdin).
+    raw = _norm_path_seps(cmd_raw) or cmd
+    for c in dict.fromkeys((cmd, raw)):
+        r = check_download_then_run(c)
+        if r:
+            _say(r)
+            sys.exit(0)
+    for c in dict.fromkeys((cmd, raw)):
+        r = check_download_ledger(c)
+        if r:
+            _say(r)
+            sys.exit(0)
