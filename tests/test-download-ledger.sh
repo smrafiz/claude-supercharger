@@ -12,10 +12,12 @@ trap 'rm -rf "$ST"' EXIT
 # probe <session> <command> -> deny | ask | allow
 probe() {
   local out rc
-  out=$(SID="$1" CMD="$2" W="$ST/w" python3 -c '
-import json, os
+  # The command goes in on stdin: Git Bash rewrites an env value starting with "/" into a
+  # Windows path for native python, so CMD="/tmp/h" arrived as C:/.../Temp/h.
+  out=$(printf '%s' "$2" | SID="$1" W="$ST/w" python3 -c '
+import json, os, sys
 print(json.dumps({"session_id": os.environ["SID"], "tool_name": "Bash",
-                  "tool_input": {"command": os.environ["CMD"]}, "cwd": os.environ["W"]}))' \
+                  "tool_input": {"command": sys.stdin.read()}, "cwd": os.environ["W"]}))' \
     | env HOME="$ST/home" SUPERCHARGER_STATE="$ST" bash "$REPO_DIR/hooks/safety.sh" 2>/dev/null)
   rc=$?
   if [ "$rc" -eq 2 ]; then printf deny
