@@ -1578,8 +1578,17 @@ def check_download_ledger(c: str) -> str | None:
                       "in this session and nobody has reviewed it")
             break
     if outs:
+        if not known:  # first download this session: drop ledgers untouched for a week
+            d = os.path.dirname(ledger)
+            try:
+                for n in os.listdir(d):
+                    f = os.path.join(d, n)
+                    if n.startswith(".downloads-") and time.time() - os.path.getmtime(f) > 7 * 86400:
+                        os.remove(f)
+            except OSError:
+                pass
         try:
-            keep = [k for k in known if k not in outs] + list(dict.fromkeys(outs))
+            keep =[k for k in known if k not in outs] + list(dict.fromkeys(outs))
             with open(ledger, "w", encoding="utf-8") as f:
                 f.write("\n".join(keep[-_DL_LEDGER_MAX:]) + "\n")
         except OSError:
@@ -1664,11 +1673,16 @@ if "exfiltration" not in disabled:
     if r:
         _say(r)
         sys.exit(0)
-    r = check_download_then_run(cmd)
-    if r:
-        _say(r)
-        sys.exit(0)
-    r = check_download_ledger(cmd)
-    if r:
-        _say(r)
-        sys.exit(0)
+    # 2026-11-22: normalize_cmd shortens a command word to its basename (`/tmp/h` -> `h`),
+    # so the run of a downloaded file is only visible in the raw command (CMD_RAW).
+    raw = _norm_path_seps(os.environ.get("CMD_RAW", "")) or cmd
+    for c in dict.fromkeys((cmd, raw)):
+        r = check_download_then_run(c)
+        if r:
+            _say(r)
+            sys.exit(0)
+    for c in dict.fromkeys((cmd, raw)):
+        r = check_download_ledger(c)
+        if r:
+            _say(r)
+            sys.exit(0)
