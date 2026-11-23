@@ -5,6 +5,19 @@ set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
 # shellcheck source=hooks/lib-suppress.sh
 . "$HOOKS_DIR/lib-suppress.sh"
+# 2026-11-23: under `set -e` any failing step exited 1 with no output, and onFailure:block
+# showed "failed ... No stderr output" on `git commit` (noorjar session, load ~300). Still
+# fail closed, but say why. Replaces lib-suppress's timing trap, so call it here.
+_gs_fail_exit() {
+  local _rc=$?
+  if [ -n "${HOOK_START_MS:-}" ] && declare -F _emit_hook_timing >/dev/null; then _emit_hook_timing || true; fi
+  case "$_rc" in 0|2) return 0 ;; esac
+  trap - EXIT
+  printf '%s\n' "Supercharger: git-safety.sh exited $_rc (line ${_GS_LINE:-?}) before reaching a verdict; blocking (fail closed). Retry the command." >&2
+  exit 2
+}
+trap '_GS_LINE=$LINENO' ERR
+trap _gs_fail_exit EXIT
 
 # v2.26.35: fork-free stdin read. `$(cat)` forks /bin/cat in EVERY hook —
 # ~1.8ms each, and 18 blocking hooks fire per Bash tool call. The trailing

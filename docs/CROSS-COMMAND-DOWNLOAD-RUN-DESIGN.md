@@ -1,6 +1,6 @@
-# Cross-command download-then-run: design (not built)
+# Cross-command download-then-run: design
 
-Status: being built, 2026-11-22. User decisions: ASK, not deny; a Read in between does not clear
+Status: built on branch feat/download-ledger (hooks/safety-detect.py check_download_ledger, tests/test-download-ledger.sh), 2026-11-23. User decisions: ASK, not deny; a Read in between does not clear
 the record. Simplified for the first cut: record at PreToolUse inside `safety-detect.py` (no new
 hook, no new fork) and match on path only, no size/mtime, so a file rewritten after the download
 still asks. Drafts: branch `wip/download-ledger`.
