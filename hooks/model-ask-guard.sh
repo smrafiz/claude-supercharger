@@ -62,7 +62,7 @@ TYPE=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.subagent_type // empty' 2>/d
 WHERE="the call's model setting"
 if ! W=$(listed "$MODEL") && [ -n "$TYPE" ]; then
   # shortcut: plugin agents (plugin:name) are not looked up; add when a plugin ships one.
-  CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // empty' 2>/dev/null || true)
+  CWD=$(printf '%s\n' "$_INPUT" | jq -r '.cwd // .workspace.current_dir // empty' 2>/dev/null || true)
   for d in "${CLAUDE_PROJECT_DIR:-$CWD}/.claude/agents" "$HOME/.claude/agents"; do
     [ -d "$d" ] || continue
     for f in "$d"/*.md; do

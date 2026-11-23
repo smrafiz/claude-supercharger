@@ -2185,9 +2185,9 @@ fi
 
 # 2026-11-23: a command that selects a model on the user's ask list (default: Fable),
 # e.g. `claude --model fable`, `ANTHROPIC_MODEL=claude-fable-5-2`, `"model": "claude-fable-…"`.
-# Never auto-approved. List and switch: SUPERCHARGER_MODEL_ASK (model-ask-guard.sh).
+# Never auto-approved. List: SUPERCHARGER_MODEL_ASK (empty turns this check off).
 _MA_LIST="${SUPERCHARGER_MODEL_ASK-fable}"
-if [ "${SUPERCHARGER_MODEL_ASK_GUARD:-1}" != 0 ] && [ -n "${_MA_LIST//[ ,]/}" ]; then
+if [ -n "${_MA_LIST//[ ,]/}" ]; then
   shopt -s nocasematch
   # Both copies: normalize_cmd drops a leading `ANTHROPIC_MODEL=...` assignment.
   _MA_SRC="$CMD_SCAN"$'\n'"${_INJ_SRC:-}"
