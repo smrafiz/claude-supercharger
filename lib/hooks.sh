@@ -101,6 +101,10 @@ get_hooks_for_mode() {
   # 4.4.3: MCP tools that pay (x402/L402 pay-per-call, wallet servers) spend money
   # with no prompt and no shell guard sees them. ASK on a paying tool name.
   hooks+=("PreToolUse|mcp__|${hooks_dir}/mcp-spend-guard.sh|")
+  # 2026-11-23: subagents on a model the user must approve (default Fable) ASK; the
+  # session answering on one is reported at Stop. Bash channel: safety.sh.
+  hooks+=("PreToolUse|Agent|${hooks_dir}/model-ask-guard.sh|")
+  hooks+=("Stop|*|${hooks_dir}/model-ask-guard.sh|")
   # v2.23.7: Bash-channel parity for the above — the same destructive infra ops run
   # through the native CLI (aws/gcloud/az/kubectl/helm/gsutil/doctl/flyctl) where
   # safety.sh only guards cloud credential-theft/escape, not bulk deletes. ASK on

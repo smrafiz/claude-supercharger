@@ -98,6 +98,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `mcp-sql-guard` | PreToolUse | mcp__postgres__*,mcp__supabase__* | Blocks destructive SQL via the Postgres / Supabase MCP servers. Real incident: |
 | `mcp-tracker` | PostToolUse | mcp__ | Writes the active MCP server name to a scope file for statusline display. |
 | `memory-write-guard` | PreToolUse | Write,Edit | Blocks writes to AUTO-LOADED files (persistent memory AND agent-instruction files) |
+| `model-ask-guard` | — | — | Events: PreToolUse (Agent) | Stop |
 | `notebook-exec-guard` | PreToolUse | NotebookEdit | A Jupyter cell executes through the kernel, not the shell — so a cell that |
 | `notify-permission` | PermissionRequest | (none) | Only fires for tools not auto-approved by smart-approve. |
 | `notify-stop` | Stop | * | Notifies when a turn finishes — but only for turns longer than a threshold |
