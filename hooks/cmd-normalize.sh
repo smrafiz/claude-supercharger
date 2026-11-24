@@ -266,7 +266,17 @@ _sc_wrapper_prelude_into() {
         # A redirection may come first: `> /dev/null rm -rf /` runs rm. Never `<<`
         # (a heredoc) or `<(`/`>(` (a process substitution): the target class bars them.
         [\<\>]*|[0-9][\<\>]*|[0-9][0-9][\<\>]*|\&\>*)
-          [[ "$cmd" =~ $_SC_RD_RX ]] && cmd="${cmd#"${BASH_REMATCH[0]}"}" ;;
+          # An INPUT redirect is not dropped, it moves behind the verb: `< ~/.aws/credentials
+          # cat` is `cat < ~/.aws/credentials`, and the file is what the rules must see.
+          if [[ "$cmd" =~ $_SC_RD_RX ]]; then
+            _cr="${BASH_REMATCH[2]}"; _crt="${BASH_REMATCH[3]}"; cmd="${cmd#"${BASH_REMATCH[0]}"}"
+            # Only behind a verb: a rest that is empty or opens another redirect (`< a < b`) has
+            # none, and appending there swaps the two forever. The shell keeps the LAST stdin anyway.
+            case "$cmd" in
+              ''|[\<\>]*|[0-9][\<\>]*|[0-9][0-9][\<\>]*|\&\>*) ;;
+              *) [ "$_cr" = "<" ] && cmd="$cmd < $_crt" ;;
+            esac
+          fi ;;
         # A fully quoted command word: `'rm' -rf /` runs rm. Plain word chars only.
         # Slices, not a regex: a quote opens many heredoc body lines, and each is a segment.
         [\'\"]*)
