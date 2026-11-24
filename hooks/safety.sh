@@ -1738,7 +1738,11 @@ if _cat_enabled "browser"; then
     block "browser data access — agent should not read browser cookies, passwords, or history"
   fi
 
-  if [[ "$CMD" =~ (Library/Keychains|Library/Messages|Signal/sql|1Password|gnome-keyring|\.password-store) ]]; then
+  # 2026-11-24 (agent-white-hat delta): Discord's login token (Local Storage) and
+  # Telegram Desktop's session (tdata); a copy logs in as the user.
+  _CHAT_RE="discord(canary|ptb)?/[\"']?Local${_BR_SP}Storage|Telegram(${_BR_SP})?Desktop[\"']?/tdata"
+  if [[ "$CMD" =~ (Library/Keychains|Library/Messages|Signal/sql|1Password|gnome-keyring|\.password-store) ]] \
+     || [[ "$CMD" =~ $_CHAT_RE ]]; then
     block "sensitive app data — agent should not access keychains, messages, or password managers"
   fi
 fi

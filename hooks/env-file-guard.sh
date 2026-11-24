@@ -361,6 +361,20 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
       fi
       [ -z "$_efg_br_off" ] && block "Access to browser data blocked ($FILE_PATH) — saved passwords, cookies and history live here" "$FILE_PATH" ;;
   esac
+  # Chat-app token stores (2026-11-24, agent-white-hat delta): Discord's login token
+  # and Telegram Desktop's session. Bash parity: safety.sh "sensitive app data",
+  # same off-switch (category browser).
+  case "$FILE_PATH/" in
+    */discord/"Local Storage"/*|*/discordcanary/"Local Storage"/*|*/discordptb/"Local Storage"/*|\
+    */"Telegram Desktop"/tdata/*|*/TelegramDesktop/tdata/*)
+      shopt -u nocasematch
+      _efg_br_off=""
+      if type sc_scope_resolve >/dev/null 2>&1; then
+        sc_scope_resolve ".disabled-security-categories" "$PROJECT_DIR"
+        grep -qw browser "$SC_SCOPE_FILE" 2>/dev/null && _efg_br_off=1
+      fi
+      [ -z "$_efg_br_off" ] && block "Access to a chat app's login token blocked ($FILE_PATH) — a copy signs in as the user" "$FILE_PATH" ;;
+  esac
   # Secret DIRECTORIES on Read (2026-11-11, aidevops delta): Bash denied
   # `cat ~/.ssh/deploy_key` by location while Read only knew id_* names: parity
   # drift. Public members mirror safety-detect.py:_SECRET_DIR_PUBLIC.
