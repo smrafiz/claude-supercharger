@@ -1447,3 +1447,22 @@ catch `SystemExit`, and call the handler directly.
   (fail-open timeout, notebook Read unscanned, plural/wrapped `claude plugins disable`) in PRs whose
   rows all failed on master and whose CI was green. Rows prove what they test, not what they miss.
 - **zsh `:r` applies inside double quotes.** `"$C:refs/heads/x"` still lost the `r`. Write `${C}:`.
+
+## Notes from 2026-11-23
+
+- **Data for native Windows python goes on stdin, not env.** Git Bash rewrites an env value that
+  starts with `/` or has no spaces: `open("/etc/shadow")` reached python as
+  `open("C:/Program Files/Git/etc/shadow")`, `http://e.x` as `http;\e.x` (run 45159143262).
+  safety.sh sends the detector `raw NUL cmd NUL code` (#360, #363). Read stdin at startup, before
+  any early exit, so the writer never meets a closed pipe.
+- **`normalize_cmd` loses what some checks need.** It shortens a command word to its basename
+  (`/tmp/h --bg` → `h --bg`) and strips leading `VAR=` assignments, so a check about a path being run,
+  or `ANTHROPIC_MODEL=…`, must also look at the raw command (`$COMMAND` / `_INJ_SRC`) (#360, #362).
+- **A hook's own crash must not read as "no verdict".** git-safety.sh exited 1 with empty stderr on an
+  internal error, which Claude Code shows as "failed … No stderr output". An `ERR`/`EXIT` trap now
+  blocks with a reason (#361). A custom EXIT trap replaces lib-suppress's timing trap, so call
+  `_emit_hook_timing` from it when `HOOK_START_MS` is set.
+- **An ask autopilot must not approve:** `SC_ASK_KEEP=1 sc_decision ask` (model ask, #362).
+- **Probe on CI with a diagnostic, not a guess.** The #360 Windows row failed five times; three fixes
+  were guesses (one "Python 3.13 isabs" theory, ruled out: the runner is 3.12.10). One `repr()` of
+  what python received ended it.
