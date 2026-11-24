@@ -298,7 +298,7 @@ _SENSITIVE_NAME_RE = re.compile(
     r"(?<!process)(?<!meta)(?<!process\\)(?<!meta\\)\.env(?:rc)?"
     r"(?!\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
     # 2026-11-24: a template with a middle part (`.env.local.example`) is a template too.
-    r"(?!(?:\.[a-zA-Z0-9_-]+)+?\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
+    r"(?!(?:\.[a-zA-Z0-9_-]+)?\.(?:example|template|sample|dist)(?![a-zA-Z0-9_.-]))"
     r"(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
@@ -692,7 +692,7 @@ _RELOCATE_RE = re.compile(
     r"(?:^|[;&|]|\s)(?:cp|mv|install|rsync|scp)\b(?P<args>[^|;&]*)", re.I)
 # scp's `-i <key>` / `-o IdentityFile=<key>` name the key that logs in, not a file copied.
 # Per scp segment only: cp's and rsync's `-i` take no key, so `cp -i <key> x` stays a read.
-_SCP_SEG_RE = re.compile(r"\bscp\b[^|;&\n]*")
+_SCP_SEG_RE = re.compile(r"(?:^|(?<=[;&|(\n]))\s*(?:(?:sudo|doas|command|nohup|exec)\s+)*scp\b[^|;&\n]*")
 _IDENTITY_OPT_RE = re.compile(r"(?:(?<=\s)-i\s+|(?i:IdentityFile)=)\S+")
 # Encoders that read a credential and emit it transformed, hiding the name.
 _ENCODE_RE = re.compile(
@@ -1267,7 +1267,7 @@ _NETWORK_UPLOADS = [
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",
     # 2026-11-24: socat reads a file named by an address, `socat FILE:<f> TCP:host:port`.
-    r"\bsocat\b[^|;&]*\b(?:FILE|OPEN|GOPEN):",
+    r"\bsocat\s(?:(?!\bsocat\b)[^|;&])*\b(?:FILE|OPEN|GOPEN):",
     # v2.9.9: scp/rsync to a REMOTE host (host:path syntax). check_env_file
     # already covers `scp .env host:`, but a sensitive NON-.env file (id_rsa,
     # .pem, .aws/credentials) copied out slipped through — scp/rsync weren't an

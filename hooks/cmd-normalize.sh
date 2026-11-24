@@ -270,7 +270,12 @@ _sc_wrapper_prelude_into() {
           # cat` is `cat < ~/.aws/credentials`, and the file is what the rules must see.
           if [[ "$cmd" =~ $_SC_RD_RX ]]; then
             _cr="${BASH_REMATCH[2]}"; _crt="${BASH_REMATCH[3]}"; cmd="${cmd#"${BASH_REMATCH[0]}"}"
-            [ "$_cr" = "<" ] && cmd="$cmd < $_crt"
+            # Only behind a verb: a rest that is empty or opens another redirect (`< a < b`) has
+            # none, and appending there swaps the two forever. The shell keeps the LAST stdin anyway.
+            case "$cmd" in
+              ''|[\<\>]*|[0-9][\<\>]*|[0-9][0-9][\<\>]*|\&\>*) ;;
+              *) [ "$_cr" = "<" ] && cmd="$cmd < $_crt" ;;
+            esac
           fi ;;
         # A fully quoted command word: `'rm' -rf /` runs rm. Plain word chars only.
         # Slices, not a regex: a quote opens many heredoc body lines, and each is a segment.
