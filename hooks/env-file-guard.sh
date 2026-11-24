@@ -389,7 +389,7 @@ if [ "$TOOL" = "Read" ] || [ "$TOOL" = "ReadMcpResourceTool" ] || [ "$TOOL" = "R
   shopt -u nocasematch
   # credential paths not distinguished by basename alone
   case "$FILE_PATH" in
-    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.kube/config|\
+    */.aws/credentials|*/.ssh/id_*|*/.config/gcloud/*|*/.docker/config.json|*/.dockercfg|*/containers/auth.json|*/.kube/config|\
     */.config/gh/hosts.yml|*/.claude.json|*/.codex/auth.json|*/.cursor/config.json|\
     */.cargo/credentials*|*/.gem/credentials|*/pip.conf|*/.terraform.d/credentials.tfrc.json)
       block "Read of cloud/SSH credential blocked" "$FILE_PATH" ;;

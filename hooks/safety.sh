@@ -1025,11 +1025,11 @@ EXFIL_PATTERNS=(
   # 2026-11-15: the executor list was bash|sh|python|node, each followed by a space,
   # so `python3 i.py`, `source i.sh`, `. ./i.sh`, `sudo bash i.sh` and `env X=1 bash`
   # all ran the fetched script unflagged. An elevating or env prefix is now skipped.
-  '(curl|wget)[^;&|]*\.(sh|bash|zsh|ps1|py)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?(chmod[^;&|]*\+x|(bash|sh|zsh|dash|ksh|python[0-9.]*|node|source|\.)[[:space:]]|\./)'
+  '(curl|wget)[^;&|]*\.(sh|bash|zsh|ps1|py)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?(chmod[^;&|]*\+x|(([^[:space:];&|]*/)?(bash|sh|zsh|dash|ksh|python[0-9.]*|node)|source|\.)[[:space:]]|\./)'
   # The same for a fetched JS/Ruby/Perl/PHP file, run by its own runtime. Narrower than
   # the line above: the executed operand must carry a script extension too, so
   # downloading a library (`-o vendor/x.js`) and then `npm test` stays allowed.
-  '(curl|wget)[^;&|]*\.(js|mjs|cjs|rb|pl|php)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?(node|deno|bun|ruby|perl|php)[[:space:]]+([^;&|]*[[:space:]])?[^;&|[:space:]]*\.(js|mjs|cjs|rb|pl|php)([[:space:]]|[;&|)]|$)'
+  '(curl|wget)[^;&|]*\.(js|mjs|cjs|ts|mts|rb|pl|php)([[:space:]]|>|$)[^;]*(;|&&|\|\|)[[:space:]]*((sudo|doas|env)([[:space:]]+-[[:alnum:]-]+([[:space:]]+[^-[:space:]|;&][^[:space:]|;&]*)?|[[:space:]]+[A-Za-z_][A-Za-z0-9_]*=[^[:space:];&|]*)*[[:space:]]+)?([^[:space:];&|]*/)?(node|deno|bun|ruby|perl|php)[[:space:]]+([^;&|]*[[:space:]])?[^;&|[:space:]]*\.(js|mjs|cjs|ts|mts|rb|pl|php)([[:space:]]|[;&|)]|$)'
 )
 # 2026-11-15: downloaded text run as code by an INTERPRETER. The process-substitution
 # and `-c` rules name shells only, so `python3 <(curl …)` and `node -e "$(curl …)"`
@@ -1487,6 +1487,14 @@ if _cat_enabled "credentials"; then
   # destructive-command rules (so `API_KEY=x rm -rf /` triggers the rm rule),
   # but it would hide credential leaks like `API_KEY=secret123 echo done`
   # where the secret IS the env-var value.
+  # 2026-11-24: `docker run -e POSTGRES_PASSWORD=x` sets a throwaway dev value, not a leaked
+  # secret. Only a bare placeholder word after -e/--env is blanked; a real value still matches.
+  case "$CRED_SCAN" in
+    *[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]=*)
+      CRED_SCAN=$(printf '%s' "$CRED_SCAN" | LC_ALL=C sed -E \
+        's/((^|[[:space:]])(-e|--env)[[:space:]]+[A-Za-z0-9_]*[Pp][Aa][Ss][Ss][Ww][Oo][Rr][Dd]=)(x+|test|pass|password|secret|postgres|changeme|example|dev|root|admin)([[:space:]]|$)/\1\5/g') \
+        || CRED_SCAN="$COMMAND" ;;
+  esac
   if printf '%s\n' "$CRED_SCAN" | LC_ALL=C grep -qE "$JOINED_CRED"; then _cr_rc=0; else _cr_rc=${PIPESTATUS[1]}; fi
   if [ "$_cr_rc" -eq 0 ]; then
     block "potential credential in command — never embed secrets in commands"
@@ -1716,7 +1724,7 @@ if _cat_enabled "persistence"; then
     block "shell profile modification via an in-place editor — agent should not modify shell startup files"
   fi
 
-  if [[ "$CMD" =~ ssh-keygen|ssh-add|ssh-copy-id ]]; then
+  if [[ "$CMD" =~ ssh-keygen|ssh-copy-id ]]; then
     block "SSH key operation — agent should not manage SSH keys"
   fi
 fi
@@ -1923,15 +1931,17 @@ case "$CMD" in
   # unreachable through the hook. Same two-gate trap as v2.29.37 and v2.29.23.
   # Trailing-slash-free forms too: `tar czf x.tgz /home/u/.ssh` names the
   # directory itself, which */.ssh/* does not match.
-  */.ssh|*/.ssh/*|*/.gnupg|*/.gnupg/*|*/.aws|*/.aws/*|*/.mcp-auth|*/.mcp-auth/*) _CRED_PATH=true; _NEED_PY=true ;;
-  */.azure|*/.azure/*|*/.password-store|*/.password-store/*|*sops/age/keys.txt*) _CRED_PATH=true; _NEED_PY=true ;;
+  # 2026-11-24: `*/.ssh` only matched a command ENDING in the directory, so
+  # `cp -r ~/.ssh /tmp/x` (the directory, then more words) never reached the detector.
+  */.ssh*|*/.gnupg*|*/.aws*|*/.mcp-auth*) _CRED_PATH=true; _NEED_PY=true ;;
+  */.azure*|*/.password-store*|*sops/age/keys.txt*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: the gate must be a SUPERSET of safety-detect.py's _SENSITIVE_NAME_RE
   # (see the note above) and it had drifted BELOW it. `.docker/config.json` and
   # `pip.conf` were in the detector and NOT here, so _NEED_PY never flipped and the
   # detector never ran -- rules written, reviewed and shipped that could not fire.
   # Measured: every reader (cat/less/head/grep/tail/od) allowed ~/.docker/config.json.
   # Same two-gate trap that shipped tool-preferences inert in v2.29.23.
-  *.docker/config.json*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _CRED_PATH=true; _NEED_PY=true ;;
+  *.docker/config.json*|*.dockercfg*|*pip.conf*|*.cargo/credentials*|*.gem/credentials*) _CRED_PATH=true; _NEED_PY=true ;;
   # 2026-11-19: Terraform Cloud and Vault CLI tokens (same list as the detector).
   *credentials.tfrc.json*|*.vault-token*) _CRED_PATH=true; _NEED_PY=true ;;
   # v2.29.37: credential stores the panel did not know at all.

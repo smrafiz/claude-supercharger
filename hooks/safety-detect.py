@@ -147,6 +147,10 @@ _DANGEROUS_TARGET = (
 _WRAPPER_DESTRUCT = [
     r"rm\s+-[a-zA-Z]*[rR][a-zA-Z]*[fF]?\s+" + _DANGEROUS_TARGET,
     r"rm\s+-[a-zA-Z]*[fF][a-zA-Z]*[rR]?\s+" + _DANGEROUS_TARGET,
+    # 2026-11-24: the stdlib delete APIs are the sibling of the `rm -rf` arm above
+    # (python shutil.rmtree, node fs.rmSync, ruby FileUtils.rm_rf, rust-style
+    # remove_dir_all), same dangerous-target rule: root, home, `..`.
+    r"\b(?:rmtree|rmSync|rmdirSync|rm_rf|rm_r|remove_entry|removeSync|remove_dir_all)\s*\(\s*(?:os\.path\.expanduser\(\s*)?['\"]?" + _DANGEROUS_TARGET,
     r"git\s+reset\s+--hard",
     r"git\s+clean\s+-[fdFD]+",
     r"git\s+checkout\s+\.",
@@ -293,10 +297,12 @@ _SENSITIVE_NAME_RE = re.compile(
     # pattern), where the backslash sat between the name and the dot.
     r"(?<!process)(?<!meta)(?<!process\\)(?<!meta\\)\.env(?:rc)?"
     r"(?!\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
+    # 2026-11-24: a template with a middle part (`.env.local.example`) is a template too.
+    r"(?!(?:\.[a-zA-Z0-9_-]+)+?\.(?:example|template|sample|dist)(?![a-zA-Z0-9_-]))"
     r"(?:\.[a-zA-Z0-9_-]+)?"
     r"|\.npmrc|\.pypirc|\.pgpass|\.my\.cnf|\.netrc|\.authinfo(?:\.gpg)?|\.git-credentials"
     # v2.9.17: registry / package-manager credential stores (from efij Stallion)
-    r"|\.docker/config\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|[/\s])pip\.conf"
+    r"|\.docker/config\.json|\.dockercfg|containers/auth\.json|\.cargo/credentials(?:\.toml)?|\.gem/credentials|(?:^|[/\s])pip\.conf"
     # v2.29.37: ~/.aws/credentials was NOT here. The gate lists *aws* so the detector
     # ran, then matched nothing -- every reader allowed it while the Read channel
     # blocked it. Cross-channel drift in the direction the first probe did not test.
@@ -684,6 +690,10 @@ def check_sensitive_read(c: str) -> str | None:
 # `curl -T <cred>` was denied.
 _RELOCATE_RE = re.compile(
     r"(?:^|[;&|]|\s)(?:cp|mv|install|rsync|scp)\b(?P<args>[^|;&]*)", re.I)
+# scp's `-i <key>` / `-o IdentityFile=<key>` name the key that logs in, not a file copied.
+# Per scp segment only: cp's and rsync's `-i` take no key, so `cp -i <key> x` stays a read.
+_SCP_SEG_RE = re.compile(r"\bscp\b[^|;&\n]*")
+_IDENTITY_OPT_RE = re.compile(r"(?:(?<=\s)-i\s+|(?i:IdentityFile)=)\S+")
 # Encoders that read a credential and emit it transformed, hiding the name.
 _ENCODE_RE = re.compile(
     r"(?:^|[;&|]|\s)(?:base64|xxd|uuencode|gzip|bzip2|xz|zstd)\b(?P<args>[^|;&]*)", re.I)
@@ -1256,6 +1266,8 @@ _NETWORK_UPLOADS = [
     r"\bwget\b.*--post-file=",
     r"\bnc\b.*(?:-c|<|<<)",
     r"\bnetcat\b.*(?:-c|<|<<)",
+    # 2026-11-24: socat reads a file named by an address, `socat FILE:<f> TCP:host:port`.
+    r"\bsocat\b[^|;&]*\b(?:FILE|OPEN|GOPEN):",
     # v2.9.9: scp/rsync to a REMOTE host (host:path syntax). check_env_file
     # already covers `scp .env host:`, but a sensitive NON-.env file (id_rsa,
     # .pem, .aws/credentials) copied out slipped through — scp/rsync weren't an
@@ -1620,6 +1632,10 @@ disabled = set((os.environ.get("DISABLED_CATS", "") or "").split())
 # _expand_sensitive_bindings. A no-op unless the command binds a variable to a
 # credential filename, in which case every check below sees the path it was hiding.
 cmd = _norm_path_seps(_expand_sensitive_bindings(cmd))
+# 2026-11-24: `--exclude=.env` (rsync/tar/grep) names files to SKIP: the protective form,
+# not a read. Dropped once here so every check sees the command without it.
+cmd = _SCP_SEG_RE.sub(lambda m: _IDENTITY_OPT_RE.sub(" ", m.group(0)), cmd)
+cmd = re.sub(r"""(?:^|(?<=\s))--exclude(?:-dir)?(?:[=]|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", cmd)
 
 if "shell_wrapper" not in disabled:
     r = check_shell_wrapper(cmd)

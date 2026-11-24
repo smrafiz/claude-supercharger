@@ -82,6 +82,8 @@ secrets.tokens.json
 kubeconfig
 .kube/config
 .docker/config.json
+.dockercfg
+.config/containers/auth.json
 pip.conf
 .aws/credentials
 vault.kdbx
@@ -127,7 +129,7 @@ begin_test "the name list has not fallen behind the detector"
 #
 # It does NOT hash the pattern: the source carries long explanatory comments, and
 # a canary that fires on every comment edit gets pinned to whatever silences it.
-PINNED=39
+PINNED=40
 ACTUAL=$(python3 -c "
 import re, sys
 src = open(sys.argv[1]).read()
