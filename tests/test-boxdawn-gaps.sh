@@ -90,7 +90,8 @@ for _e in "$_RM" "'< x < y'" "'ls; < x < y'"; do
   [ "$_d" != timeout ] && pass || fail "timed out: $_e"
 done
 begin_test "boxdawn gap: a stacked input redirect still denies a quoted rm behind it"
-[ "$(timed "$_RM")" = deny ] && pass || fail "not denied"
+_got=$(timed "$_RM"); _plain=$(timed "'\"rm\" -rf /'")
+[ "$_got" = deny ] && pass || fail "not denied: got=$_got plain-quoted-rm=$_plain"
 
 # The detector alone: its regexes hold the GIL, so its own 0.5s watchdog cannot stop a
 # backtracking one. The whole hook is slow on inputs this size for other reasons (master too).
