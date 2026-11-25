@@ -174,11 +174,12 @@ done
 # round 2: a perl/ruby option-list regex that overruns the detector's 0.5s budget makes the hook
 # FAIL OPEN: detector-only denies (a credential read after the options) turn into allow. helpers.sh
 # raises the budget to 10s for load flakes; these rows run at the production 0.5s.
-for _e in "'perl -a '*4000+'; cat .env'" "'ruby -w\\t'*3000+'; cat ~/.aws/credentials'"; do
-  begin_test "guard gaps 2: long option list still denies a credential read: ${_e:0:30}"
-  _d=$(SUPERCHARGER_DETECT_BUDGET_S=0.5 timed "$_e")
-  [ "$_d" = deny ] && pass || fail "got $_d: $_e"
-done
+# (A ruby `-w\t` row was dropped: the shell layer denies a credential-path read on its own, so that
+# row also passed against the unfixed hooks and could not detect the regression.)
+_e="'perl -a '*4000+'; cat .env'"
+begin_test "guard gaps 2: long option list still denies a credential read: ${_e:0:30}"
+_d=$(SUPERCHARGER_DETECT_BUDGET_S=0.5 timed "$_e")
+[ "$_d" = deny ] && pass || fail "got $_d: $_e"
 
 # The detector alone: a backtracking regex holds the GIL past its own watchdog.
 timed_det() {
