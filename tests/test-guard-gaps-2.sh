@@ -69,6 +69,8 @@ expect allow 'interp home' "perl -MFile::Path=remove_tree -e 'remove_tree(\"\$EN
 expect allow 'interp home' "perl -I lib -MFile::Path=remove_tree -e 'remove_tree(\$ENV{HOME}.\"/build\")'"
 expect allow 'interp home' "node -e \"const {homedir}=require('os'); require('fs').rmSync(homedir()+'/x',{recursive:true})\""
 expect allow 'interp home' "bun -e 'await Bun.file(process.env.HOME + \"/x\").delete()'"
+expect deny  'interp home' "perl -MFile::Path=remove_tree -e 'remove_tree(\"\$ENV{HOME}/\")'"
+expect deny  'interp home' "node -e \"require('fs').promises.rm(require('os').homedir(),{recursive:true})\""
 
 # --- 3. a verb glued from quoted pieces ---------------------------------------------------------
 expect deny  'quote join' "\"r\"'m' -rf ~"
@@ -113,6 +115,14 @@ expect deny  'remote rm gap' 'docker compose exec web rm -rf /'
 expect deny  'remote rm gap' 'docker-compose exec web rm -rf /'
 expect allow 'remote rm gap' 'docker compose exec web rm -rf /tmp/x'
 expect allow 'remote rm gap' "ssh h 'rm -rf \"\$HOME/old\"'"
+# round 2: a substitution, subshell or group in the remote body ends at `)` `;` or a backtick
+expect deny  'remote rm sub' 'ssh h "$(echo rm -rf /)"'
+expect deny  'remote rm sub' 'ssh h $(echo rm -rf /)'
+expect deny  'remote rm sub' 'ssh h "`echo rm -rf /`"'
+expect deny  'remote rm sub' "ssh h '(rm -rf /)'"
+expect deny  'remote rm sub' "ssh h '{ rm -rf /; }'"
+expect allow 'remote rm sub' 'ssh h "$(echo rm -rf /tmp/x)"'
+expect allow 'docker volumes' 'docker rm --volumes=no web'
 
 # --- 6. shred / srm -----------------------------------------------------------------------------
 expect deny  'shred' 'srm -r ~'
@@ -161,6 +171,16 @@ for _e in "'ssh h '+'x rm -'*4000+'z /x'" "'ssh h '+\"'a b' \"*5000+'rm -rf /x'"
   [ "$_d" != timeout ] && [[ "$_d" != crash* ]] && pass || fail "timed out or crashed ($_d): $_e"
 done
 
+# round 2: a perl/ruby option-list regex that overruns the detector's 0.5s budget makes the hook
+# FAIL OPEN: detector-only denies (a credential read after the options) turn into allow. helpers.sh
+# raises the budget to 10s for load flakes; these rows run at the production 0.5s.
+for _e in "'perl -a '*4000+'; cat .env'" "'ruby -w\\t'*3000+'; cat ~/.aws/credentials'" \
+          "'perl -a;'*3000+' cat .env'"; do
+  begin_test "guard gaps 2: long option list still denies a credential read: ${_e:0:30}"
+  _d=$(SUPERCHARGER_DETECT_BUDGET_S=0.5 timed "$_e")
+  [ "$_d" = deny ] && pass || fail "got $_d: $_e"
+done
+
 # The detector alone: a backtracking regex holds the GIL past its own watchdog.
 timed_det() {
   python3 - "$REPO_DIR/hooks/safety-detect.py" "$1" <<'PY'
@@ -174,6 +194,27 @@ except subprocess.TimeoutExpired:
     print("timeout")
 PY
 }
+# Detector-only time, startup subtracted: the real limit is the 0.5s overrun, not a 5s kill.
+timed_det_fast() {
+  python3 - "$REPO_DIR/hooks/safety-detect.py" "$1" <<'PY'
+import os, subprocess, sys, time
+def run(cmd):
+    t = time.time()
+    r = subprocess.run(["python3", sys.argv[1]], input="", capture_output=True, text=True, timeout=30,
+                       env=dict(os.environ, CMD=cmd, CMD_CODE=cmd))
+    return time.time() - t, r.stdout
+base, _ = run("echo hi")
+dt, out = run(eval(sys.argv[2]))
+print("ok" if dt - base <= 0.4 and "__SC_DETECT_OVERRUN__" not in out else "slow:%.2f" % (dt - base))
+PY
+}
+for _e in "'perl -a '*8000" "'perl -a;'*8000" "'ruby -w\t'*6000" "'perl -I lib '*6000+'x'" \
+          "'perl -a '*3000+'; cat .env'"; do
+  begin_test "guard gaps 2: detector under 0.4s: ${_e:0:30}"
+  _d=$(timed_det_fast "$_e")
+  [ "$_d" = ok ] && pass || fail "$_d: $_e"
+done
+
 for _e in "'perl '+'-x '*20000+'z'" "'perl -e '+'remove_tree( '*5000+'$ENV{ HOME'" \
           "'bun -e '+'Bun.file(\"/'*5000" "'rsync '+'-e \"ssh -i '*5000" \
           "'deno eval '+'Deno.remove(require(\"os\")'*3000" "'perl -e '+'unlink glob(\"'*5000"; do

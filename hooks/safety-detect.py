@@ -147,7 +147,7 @@ _DANGEROUS_TARGET = (
 # The home directory spelled as an expression: perl $ENV{HOME} (bare or quoted), node/bun
 # homedir() (also destructured), process.env.HOME / ['HOME'], Deno.env.get("HOME") with an optional `!`.
 _HOME_EXPR = (
-    r"(?:['\"]?\$ENV\{\s*['\"]?HOME['\"]?\s*\}['\"]?"
+    r"(?:['\"]?\$ENV\{\s*['\"]?HOME['\"]?\s*\}/?['\"]?"
     r"|\b(?:(?:os|require\(\s*['\"](?:node:)?os['\"]\s*\))\.)?homedir\(\)"
     r"|Deno\.env\.get\(\s*['\"]HOME['\"]\s*\)!?"
     r"|process\.env(?:\.HOME\b|\[\s*['\"]HOME['\"]\s*\]))"
@@ -160,7 +160,7 @@ _WRAPPER_DESTRUCT = [
     # remove_dir_all), same dangerous-target rule: root, home, `..`.
     # 2026-11-25: + perl remove_tree, deno Deno.remove(Sync), and a home directory spelled
     # as an expression (perl $ENV{HOME}, node/bun homedir(), Deno.env.get("HOME")).
-    r"\b(?:rmtree|rmSync|rmdirSync|rm_rf|rm_r|remove_entry|removeSync|remove_dir_all|remove_tree|Deno\.remove(?:Sync)?)\s*\(\s*"
+    r"\b(?:rmtree|rmSync|rmdirSync|rm_rf|rm_r|remove_entry|removeSync|remove_dir_all|remove_tree|promises\.rm|Deno\.remove(?:Sync)?)\s*\(\s*"
     r"(?:(?:os\.path\.expanduser\(\s*)?['\"]?" + _DANGEROUS_TARGET
     + r"|" + _HOME_EXPR + r"\s*[,)])",
     # Bun.file(<root|home>).delete() and perl `unlink glob("~/*")`: same targets.
@@ -181,7 +181,7 @@ _INTERPRETERS = [
     # bare-flag forms (cc-safety-net corpus).
     (r"(?:^|[\s;&|])python[23]?(?:\.\d+)?\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c\s+", "python -c"),
     # 2026-11-25: any option word before -e (`perl -MFile::Path=remove_tree -e`).
-    (r"(?:^|[\s;&|])(?:perl|ruby)\s+(?:-\S+\s+(?:[^-\s]\S*\s+)?)*-[a-zA-Z]*[eE]\s+", "perl/ruby -e"),
+    (r"(?:^|[\s;&|])(?:perl|ruby)\s+(?:-[^\s;&|]+\s+(?:(?!(?:perl|ruby)\b)[^-\s;&|][^\s;&|]*\s+)?)*-[a-zA-Z]*[eE]\s+", "perl/ruby -e"),
     # v2.7.3: cover node's print/eval long forms, not just -e.
     (r"(?:^|[\s;&|])node\s+(?:-[a-zA-Z]*[ep]|--eval|--print)\s+", "node -e/--eval"),
     (r"(?:^|[\s;&|])(?:dash|ksh|fish)\s+-c\s+", "dash/ksh/fish -c"),
