@@ -92,14 +92,16 @@ expect allow 'shred' 'ls | grep shred'
 
 # --- Task A: rm -rf / with plain and quoted command words, bounded in time ------------------
 # timed <python expr building the command> -> deny | ask | allow | timeout (limit 8s)
+# The hook runs under THIS bash ($BASH), not whatever `bash` native Windows python finds first
+# (C:\Windows\System32\bash.exe is the WSL launcher: it never runs the hook, so all read allow).
 timed() {
-  python3 - "$H" "$1" <<'PY'
+  python3 - "$H" "$1" "${TIMED_BASH:-$BASH}" <<'PY'
 import json, os, subprocess, sys
-h, expr = sys.argv[1], sys.argv[2]
+h, expr, sh = sys.argv[1], sys.argv[2], sys.argv[3]
 cmd = eval(expr)
 j = json.dumps({"tool_name": "Bash", "session_id": "gg2t", "cwd": "/tmp", "tool_input": {"command": cmd}})
 try:
-    r = subprocess.run(["bash", h], input=j, capture_output=True, text=True, timeout=8, env=dict(os.environ))
+    r = subprocess.run([sh, h], input=j, capture_output=True, text=True, timeout=8, env=dict(os.environ))
 except subprocess.TimeoutExpired:
     print("timeout"); sys.exit()
 o = r.stdout
@@ -108,6 +110,8 @@ PY
 }
 _plain=$(timed "'rm -rf /'"); _dq=$(timed "'\"rm\" -rf /'"); _sq=$(timed "\"'rm' -rf /\"")
 echo "  [verdicts] OSTYPE=${OSTYPE:-} plain=$_plain dq=$_dq sq=$_sq"
+# Diagnostic: the same probe through the bare `bash` python resolves, and the decision() path.
+echo "  [verdicts] bare-bash=$(TIMED_BASH=bash timed "'rm -rf /'") which=$(python3 -c 'import shutil; print(shutil.which("bash"))') decision=$(decision 'rm -rf /')"
 begin_test "guard gaps 2: plain rm -rf / denies"
 [ "$_plain" = deny ] && pass || fail "plain rm -rf / got $_plain"
 begin_test "guard gaps 2: quoted rm -rf / denies (parity with each other on Git Bash)"
