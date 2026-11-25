@@ -4,20 +4,23 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-23, session `eaedd321`.*
+*Verified 2026-11-24, session `c7ed25f1`.*
 
-- **Released: v4.4.8.** 4.4.9 = master; user said release on 2026-11-24, speed re-measure first if
-  load < ~10 (`tests/perf-chain.sh`, v4.4.8 vs master). Load was 30–103 on 2026-11-23.
-- **Master `e19b7050`, clean, no open PRs.** Merged 2026-11-23: #357, #359, #360 download ledger ASK,
-  #361 git-safety fail-closed, #362 model-ask guard (Fable), #363 detector stdin on Windows.
-- **Never use Fable** (user): not as the session model, Agent `model`, or in commands.
-- **Per-machine (work Mac):** installed v4.4.8, so #360–#363 are NOT live here until release + `/sc-update`.
-  6 old stashes; never pop. No worktrees (user rule; switch branches in the main checkout).
-- **Never `git checkout` while a background suite runs** in the checkout (twice on 2026-11-23).
-- **Merging:** `gh pr merge N --squash --delete-branch --match-head-commit <sha>` only after
-  `gh pr checks N` shows nothing pending; Windows via `gh workflow run ci.yml --ref <b>` first.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`.
-- **No Artifacts** (user): plans go in `docs/*.md`.
+- **Released: v4.4.9** (tag + GitHub release 2026-11-24 05:15Z; the old "unreleased" line was wrong).
+- **Master `1476f7e2`** = #366 (boxdawn replay gaps + 5 FPs) on top of the release. NOT released: installed
+  copies lack it until the next release + `/sc-update`. No open PRs. Master CI for it was running, result unseen.
+- **Open:** is `"rm" -rf /` / plain `rm -rf /` allowed on Git Bash on master? Unverified; probe via Windows dispatch.
+- **Never use Fable** (user). **No worktrees; no Artifacts** (user). **Never `git checkout` during a background suite.**
+- **Merging:** wait until `gh pr checks N` shows NOTHING pending (I merged #366 with Version consistency pending);
+  Windows via `gh workflow run ci.yml --ref <b>` first (PR CI skips it). Guard changes: Opus review before the PR.
+- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`; only on the user's word.
+- **Per-machine (work Mac):** installed version not re-checked this session; 6 old stashes, never pop.
+
+### Log
+#### 2026-11-24 — c7ed25f1
+Audited boxdawn/guard, built + Opus-reviewed + merged #366 (review caught 2 fail-open defects we introduced).
+Windows needed a test fix (plain quoted rm is allowed on Git Bash). Memory pass done.
+Detail: `.claude/handoff-c7ed25f1-03ea-465a-820d-7e75d4eaf0d9.md`
 
 ### Per-machine / per-account facts
 - **Worktrees are per-machine.** `.claude/worktrees/` is not in git. On 2026-11-03 this machine had
