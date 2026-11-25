@@ -92,10 +92,11 @@ expect allow 'shred' 'ls | grep shred'
 
 # --- Task A: rm -rf / with plain and quoted command words, bounded in time ------------------
 # timed <python expr building the command> -> deny | ask | allow | timeout (limit 8s)
-# The hook runs under THIS bash ($BASH), not whatever `bash` native Windows python finds first
-# (C:\Windows\System32\bash.exe is the WSL launcher: it never runs the hook, so all read allow).
+# The hook runs under THIS bash ($BASH). Native Windows python resolving a bare "bash" takes
+# System32\bash.exe (the WSL launcher) before PATH: the hook never ran and every probe read
+# allow (CI run 45557432416: bare=allow, $BASH=deny, which() still named Git's bash).
 timed() {
-  python3 - "$H" "$1" "${TIMED_BASH:-$BASH}" <<'PY'
+  python3 - "$H" "$1" "$BASH" <<'PY'
 import json, os, subprocess, sys
 h, expr, sh = sys.argv[1], sys.argv[2], sys.argv[3]
 cmd = eval(expr)
@@ -110,15 +111,10 @@ PY
 }
 _plain=$(timed "'rm -rf /'"); _dq=$(timed "'\"rm\" -rf /'"); _sq=$(timed "\"'rm' -rf /\"")
 echo "  [verdicts] OSTYPE=${OSTYPE:-} plain=$_plain dq=$_dq sq=$_sq"
-# Diagnostic: the same probe through the bare `bash` python resolves, and the decision() path.
-echo "  [verdicts] bare-bash=$(TIMED_BASH=bash timed "'rm -rf /'") which=$(python3 -c 'import shutil; print(shutil.which("bash"))') decision=$(decision 'rm -rf /')"
 begin_test "guard gaps 2: plain rm -rf / denies"
 [ "$_plain" = deny ] && pass || fail "plain rm -rf / got $_plain"
-begin_test "guard gaps 2: quoted rm -rf / denies (parity with each other on Git Bash)"
-case "${OSTYPE:-}" in
-  msys*|cygwin*) [ "$_dq" = "$_sq" ] && [ "$_dq" != timeout ] && pass || fail "dq=$_dq sq=$_sq" ;;
-  *) [ "$_dq" = deny ] && [ "$_sq" = deny ] && pass || fail "dq=$_dq sq=$_sq" ;;
-esac
+begin_test "guard gaps 2: quoted rm -rf / denies"
+[ "$_dq" = deny ] && [ "$_sq" = deny ] && pass || fail "dq=$_dq sq=$_sq"
 
 # Hook-level time bounds for the new grep patterns and the quote join.
 for _e in "'ssh h '+'x rm -'*4000+'z /x'" "'docker compose '+'down '*4000+'-x'" \
