@@ -857,12 +857,13 @@ DESTRUCT_PATTERNS=(
   'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-[a-zA-Z]*a[a-zA-Z]*([[:space:]]|$)|--all([[:space:]]|$))'
   # 2026-11-25: the same volume destruction through rm and compose: `docker rm -v` drops the
   # container's anonymous volumes, `compose down -v` its named ones. Denied like `volume rm`.
-  'docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*v[a-zA-Z]*|--volumes)([[:space:]=]|$)'
+  'docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*v[a-zA-Z]*|--volumes)([[:space:]]|$|=[^fF0])'
   'docker([[:space:]]+|-)compose[[:space:]][^;&|]*down[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*v[a-zA-Z]*|--volumes)([[:space:]=]|$)'
   # 2026-11-25: rm -rf of root or home run on a remote host or in a container (ssh, docker/podman
   # exec, kubectl exec). Only those targets: other paths there are not this machine's files.
-  # `.*`, not [^;&|]*: the remote body is one quoted word that may hold `cd x; rm -rf /`.
-  '(^|[;&|(])[[:space:]]*(ssh|(docker|podman)[[:space:]]+(container[[:space:]]+)?exec|kubectl[[:space:]]+exec)[[:space:]].*[[:space:]"'"'"']rm[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*(/|/\*|~/?|\$HOME/?|\$\{HOME\}/?)(["'"'"'[:space:]]|$)'
+  # The remote body is ONE quoted word that may hold `cd x; rm -rf /`, so quoted runs are consumed
+  # whole, but an unquoted `;&|` ends the ssh/exec segment: a later command is not the remote one.
+  '(^|[;&|(])[[:space:]]*(ssh|(docker|podman)([[:space:]]+(container|compose)|-compose)?[[:space:]]+exec|kubectl[[:space:]]+exec)[[:space:]]([^;&|'"'"'"]|'"'"'[^'"'"']*'"'"'|"[^"]*")*(['"'"'"][^'"'"'"]*)?[[:space:]"'"'"'\\;&|]rm[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*["'"'"']?(/|/\*|~/?|\$HOME/?|\$\{HOME\}/?)(["'"'"'[:space:]]|$)'
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
