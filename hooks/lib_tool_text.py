@@ -8,14 +8,35 @@ of them read. Shapes captured live (2026-11-19/22):
   Read img  {"type":"image", "file":{"base64", ...}}   -> "" (pixels, not text)
   WebFetch  {"bytes","code","codeText","result","durationMs","url"}
   MCP       {"output"} / {"content":[blocks]} / anything else -> json.dumps
+            (image blocks keep their keys but base64 data/source.data is emptied first)
 """
 import json
+import re
 
 _TEXT_KEYS = ("stdout", "output", "content")
+# Only base64-shaped pixels are blanked: text or a token parked in image data stays scanned.
+_B64 = re.compile(r"[A-Za-z0-9+/]{256,}={0,2}")
+
+
+def _img(b):
+    """Copy of an image block with its base64 payload blanked; others pass through."""
+    if not (isinstance(b, dict) and b.get("type") == "image"):
+        return b
+    b = dict(b)
+    if isinstance(b.get("data"), str) and _B64.fullmatch(b["data"]):
+        b["data"] = ""
+    if isinstance(b.get("source"), dict) and isinstance(b["source"].get("data"), str) and _B64.fullmatch(b["source"]["data"]):
+        b["source"] = dict(b["source"], data="")
+    return b
+
+
+def _strip_images(v):
+    """json.dumps input with MCP image pixels emptied (they are not text); never mutates v."""
+    return [_img(b) for b in v] if isinstance(v, list) else _img(v)
 
 
 def _s(v):
-    return v if isinstance(v, str) else json.dumps(v)
+    return v if isinstance(v, str) else json.dumps(_strip_images(v))
 
 
 def tool_text(resp):
@@ -24,7 +45,7 @@ def tool_text(resp):
     if isinstance(resp, str):
         return resp
     if not isinstance(resp, dict):
-        return json.dumps(resp)
+        return _s(resp)
     for k in _TEXT_KEYS:
         if resp.get(k):
             return _s(resp[k])
@@ -50,7 +71,7 @@ def tool_text(resp):
     # is an answer: there is no text. Only an unknown shape is dumped whole.
     if any(k in resp for k in _TEXT_KEYS + ("result", "file")):
         return ""
-    return json.dumps(resp)
+    return _s(resp)
 
 
 if __name__ == "__main__":
@@ -62,5 +83,19 @@ if __name__ == "__main__":
     assert tool_text({"bytes": 3, "code": 200, "result": "r"}) == "r"
     assert tool_text({"stdout": "", "stderr": ""}) == ""
     assert tool_text({"weird": 1}) == '{"weird": 1}'
-    assert tool_text([{"type": "text", "text": "t"}]) == '[{"type": "text", "text": "t"}]'
+    b64 = "/9j/" + "A1b2" * 70 + "=="
+    img = {"type": "image", "source": {"data": b64}, "alt": "a"}
+    blank = {"type": "image", "source": {"data": ""}, "alt": "a"}
+    assert tool_text({"content": [img]}) == json.dumps([blank])
+    assert img["source"]["data"] == b64
+    short = {"type": "image", "data": "/9j/4AAQ"}
+    assert tool_text([short]) == json.dumps([short])
+    spaced = {"type": "image", "data": "ghp_" + "x" * 300}
+    assert tool_text([spaced]) == json.dumps([spaced])
+    aud = {"type": "audio", "data": b64}
+    assert tool_text([aud]) == json.dumps([aud])
+    assert tool_text(img) == json.dumps(blank)
+    for tl in ([{"type": "text", "text": "t"}], ["s", {"type": "text", "text": 1}], [{"type": "x", "data": "d"}]):
+        assert tool_text(tl) == json.dumps(tl)
+    assert tool_text([{"type": "x", "text": "t"}]) == '[{"type": "x", "text": "t"}]'
     print("ok")
