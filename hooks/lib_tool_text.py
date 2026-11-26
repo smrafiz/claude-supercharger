@@ -8,6 +8,7 @@ of them read. Shapes captured live (2026-11-19/22):
   Read img  {"type":"image", "file":{"base64", ...}}   -> "" (pixels, not text)
   WebFetch  {"bytes","code","codeText","result","durationMs","url"}
   MCP       {"output"} / {"content":[blocks]} / anything else -> json.dumps
+            (a list of only text/image blocks -> the text blocks; image data dropped)
 """
 import json
 
@@ -18,16 +19,31 @@ def _s(v):
     return v if isinstance(v, str) else json.dumps(v)
 
 
+def _blocks(v):
+    """MCP content-block list -> text blocks only (image pixels are not text), else None.
+
+    A list with any non-dict item, or a block type other than text/image, is not
+    treated as blocks: it keeps the json.dumps path so nothing else is silenced.
+    """
+    if not (isinstance(v, list) and v and all(isinstance(b, dict) for b in v)):
+        return None
+    if any(b.get("type") not in ("text", "image") for b in v):
+        return None
+    return "\n".join(b["text"] for b in v if b.get("type") == "text" and isinstance(b.get("text"), str))
+
+
 def tool_text(resp):
     if resp is None:
         return ""
     if isinstance(resp, str):
         return resp
     if not isinstance(resp, dict):
-        return json.dumps(resp)
+        t = _blocks(resp)
+        return json.dumps(resp) if t is None else t
     for k in _TEXT_KEYS:
         if resp.get(k):
-            return _s(resp[k])
+            t = _blocks(resp[k])
+            return _s(resp[k]) if t is None else t
     f = resp.get("file")
     if isinstance(f, dict):
         if f.get("content"):
@@ -62,5 +78,8 @@ if __name__ == "__main__":
     assert tool_text({"bytes": 3, "code": 200, "result": "r"}) == "r"
     assert tool_text({"stdout": "", "stderr": ""}) == ""
     assert tool_text({"weird": 1}) == '{"weird": 1}'
-    assert tool_text([{"type": "text", "text": "t"}]) == '[{"type": "text", "text": "t"}]'
+    img = {"type": "image", "source": {"data": "/9j/4AAQ"}}
+    assert tool_text([{"type": "text", "text": "t"}, img, {"type": "text", "text": "u"}]) == "t\nu"
+    assert tool_text({"content": [img]}) == ""
+    assert tool_text([{"type": "x", "text": "t"}]) == '[{"type": "x", "text": "t"}]'
     print("ok")
