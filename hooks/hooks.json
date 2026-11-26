@@ -1533,11 +1533,21 @@
         "hooks": [
           {
             "type": "command",
+            "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/failure-tracker.sh",
+            "timeout": 15
+          }
+        ],
+        "matcher": "Bash|PowerShell"
+      },
+      {
+        "hooks": [
+          {
+            "type": "command",
             "command": "\"${CLAUDE_PLUGIN_ROOT}\"/hooks/disk-watch.sh",
             "timeout": 15
           }
         ],
-        "matcher": "Bash,PowerShell"
+        "matcher": "Bash|PowerShell"
       },
       {
         "hooks": [

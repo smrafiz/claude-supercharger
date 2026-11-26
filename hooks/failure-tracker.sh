@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Claude Supercharger — Repeated Failure Tracker
-# Event: PostToolUse | Matcher: Bash,PowerShell
-# Detects when the same command fails repeatedly and logs the pattern.
+# Event: PostToolUse, PostToolUseFailure | Matcher: Bash,PowerShell
+# Detects when the same command fails repeatedly and logs the pattern. With READBACK.md at the project root, also counts failures of its declared gate commands and nudges at the 2nd.
 
 set -euo pipefail
 HOOKS_DIR="${BASH_SOURCE[0]%/*}"
@@ -22,6 +22,61 @@ IFS= read -r -d '' -t "${SUPERCHARGER_STDIN_TIMEOUT_S:-5}" _INPUT || [ $? -le 12
 # fatal:, …) so benign tools that merely write progress/warnings to stderr (git,
 # npm) don't trip a false "repeated failure" nudge.
 FAIL_MARKERS='command not found|: not found|No such file or directory|Permission denied|fatal:|Traceback \(most recent call|Segmentation fault|core dumped|Cannot find module|ModuleNotFoundError|ImportError|ENOENT|EACCES|exited with (code )?[1-9]|exit code [1-9]|panic:|undefined reference|[a-zA-Z]*Error:|FAILED|assertion failed|cannot access|unknown command|No such command|is not recognized as (the name of a cmdlet|an internal or external command)|CommandNotFoundException|FullyQualifiedErrorId'
+
+# readback mode: only when the project root has READBACK.md (one -f test, no fork
+# otherwise). Gate strings are repo content — lib-readback.sh matches them literally.
+# Every new command here is guarded: this file runs under set -e, and an errexit
+# in the branch would be a fail-open.
+. "$HOOKS_DIR/lib-readback.sh" 2>/dev/null || true
+SC_RB_DIR=""
+type sc_rb_dir >/dev/null 2>&1 && sc_rb_dir || true
+_rb_ev_re='"hook_event_name"[[:space:]]*:[[:space:]]*"PostToolUseFailure"'
+_rb_fail_event=false
+if [[ $_INPUT =~ $_rb_ev_re ]]; then _rb_fail_event=true; fi
+if [ -n "$SC_RB_DIR" ]; then
+  _rb_emit() { # $1 event, $2 integer count
+    printf '{"hookSpecificOutput":{"hookEventName":"%s","additionalContext":"readback: the same gate command has failed %s times this session. Stop patching: write readback-handoff now and continue in a fresh session."}}\n' "$1" "$2"
+  }
+  _rb_arm() {
+    local meta ev tool intr sid aid cmd key sf cur n tmp
+    _load_disabled_hooks "$SC_RB_DIR" 2>/dev/null || true
+    check_hook_disabled "failure-tracker" && return 0
+    hook_profile_skip "failure-tracker" && return 0
+    meta=$(printf '%s\n' "$_INPUT" | jq -r '[(.hook_event_name//""),(.tool_name//""),(((.tool_response|objects|.interrupted)//false)|tostring),((.session_id//"")|tostring|gsub("[^A-Za-z0-9-]";"")),((.agent_id//"")|tostring|gsub("[^A-Za-z0-9-]";""))]|join("\u001f")' 2>/dev/null) || return 0
+    IFS=$'\037' read -r ev tool intr sid aid <<<"$meta" || true
+    case "$tool" in Bash|PowerShell) ;; *) return 0 ;; esac
+    cmd=$(printf '%s\n' "$_INPUT" | jq -r '.tool_input.command // empty' 2>/dev/null) || return 0
+    [ -z "$cmd" ] && return 0
+    sc_rb_is_gate "$SC_RB_DIR" "$cmd" || return 0
+    [ -z "$sid" ] && sid="nosession"
+    key=$(printf '%s\n%s' "$aid" "$cmd" | cksum 2>/dev/null) || return 0
+    key="${key%% *}"
+    sf="$SUPERCHARGER_STATE/scope/.readback-fails-$sid"
+    mkdir -p "$SUPERCHARGER_STATE/scope" 2>/dev/null || true
+    tmp="$sf.tmp.$$"
+    if [ "$ev" = "PostToolUseFailure" ] || { [ "$ev" = "PostToolUse" ] && [ "$intr" = "true" ]; }; then
+      cur=0
+      [ -f "$sf" ] && cur=$(awk -v k="$key" '$1==k{print $2; exit}' "$sf" 2>/dev/null) || true
+      # a hand-edited or garbled count resets to 1 ("08" is not octal; >9 digits is junk)
+      case "$cur" in ''|*[!0-9]*) cur=0 ;; esac
+      [ "${#cur}" -gt 9 ] && cur=0
+      n=$((10#$cur + 1))
+      # shortcut: parallel gate runs can lose one count (read-modify-write, no lock); upgrade if parallel gates become common
+      { [ -f "$sf" ] && awk -v k="$key" -v n="$n" '$1==k{print k, n; d=1; next} {print} END{if(!d) print k, n}' "$sf" || printf '%s %s\n' "$key" "$n"; } > "$tmp" 2>/dev/null || true
+      mv "$tmp" "$sf" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true
+      # emit only from the failure event (the sync registration): an interrupted PostToolUse
+      # is async and counts silently, so stdout never carries two JSON objects
+      [ "$n" -ge 2 ] && [ "$ev" = "PostToolUseFailure" ] && _rb_emit "$ev" "$n"
+    elif [ "$ev" = "PostToolUse" ] && [ -f "$sf" ]; then
+      awk -v k="$key" '$1!=k' "$sf" > "$tmp" 2>/dev/null || true
+      mv "$tmp" "$sf" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true
+    fi
+    return 0
+  }
+  _rb_arm || true
+fi
+# A failure event is the readback branch's alone: never run the generic ledger on it.
+[ "$_rb_fail_event" = "true" ] && exit 0
 
 # v2.7.42 perf: most Bash commands SUCCEED — no failure signal in the payload.
 # One cheap grep over the raw payload (markers OR interrupted:true) short-circuits

@@ -68,7 +68,7 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `event-logger` | PermissionDenied | (none) | Logs to ~/.claude/supercharger/events.log (async, no output to Claude) |
 | `exitworktree-guard` | PreToolUse | ExitWorktree | Asks before ExitWorktree deletes a worktree together with its uncommitted work. |
 | `fact-gate` | PreToolUse | Edit,Write,MultiEdit,NotebookEdit | OPT-IN, default OFF. On the FIRST edit of a given file in a session it denies |
-| `failure-tracker` | PostToolUse | Bash,PowerShell | Detects when the same command fails repeatedly and logs the pattern. |
+| `failure-tracker` | PostToolUse, PostToolUseFailure | Bash,PowerShell | Detects when the same command fails repeatedly and logs the pattern. With READBACK.md at the project root, also counts failures of its declared gate commands and nudges at the 2nd. |
 | `file-lease` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Advisory guard for the concurrent-edit half of the scope-file-session-scoping |
 | `file-watcher` | FileChanged | .env .envrc package.json settings*.json .mcp.json .supercharger.json CLAUDE.md .vscode/tasks.json | Notifies Claude when watched files change so it doesn't act on stale assumptions. |
 | `generated-file-guard` | PreToolUse | Write, Edit, MultiEdit | Editing a GENERATED/derived file instead of its source is wasted work — the edit |

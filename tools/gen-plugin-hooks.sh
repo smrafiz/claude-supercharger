@@ -80,7 +80,7 @@ def commas_to_pipes(event, m):
 
     Rewriting to pipes is back-compat only; semantics are unchanged.
 
-    PreToolUse/PostToolUse, plus FileChanged. v4.1.31: FileChanged was excluded on
+    PreToolUse/PostToolUse/PostToolUseFailure, plus FileChanged. v4.1.31: FileChanged was excluded on
     the belief that it "matches file PATHS"; the binary says otherwise. Claude Code
     splits a FileChanged matcher on "|" to build its watch list and tests it as a
     regex against the BASENAME, so a comma list watched one nonexistent path and
@@ -92,7 +92,7 @@ def commas_to_pipes(event, m):
     """
     if event == 'FileChanged' and ',' in m:
         return '|'.join(t.strip() for t in m.split(',') if t.strip())
-    if event not in ('PreToolUse', 'PostToolUse'):
+    if event not in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
         return m
     if ',' not in m or set(m) - EXACT_MATCHER_CHARS:
         return m

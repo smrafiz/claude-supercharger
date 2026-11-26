@@ -82,6 +82,7 @@ patterns_max_age=(
   ".memory-restored-*:$SECS_DAY"
   ".active-mcp-*:$SECS_DAY"
   ".failed-commands-*:$SECS_WEEK"
+  ".readback-fails-*:$SECS_WEEK"
   ".scan-alert-*:$SECS_DAY"
   ".standards-inject-*:$SECS_MONTH"
   ".repetition-flag-*:$SECS_DAY"

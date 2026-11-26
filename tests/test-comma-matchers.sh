@@ -38,7 +38,7 @@ echo "=== Comma Matcher Back-Compat Tests ==="
 CC_PY="
 import json, re, sys
 SIMPLE = re.compile(r'^[A-Za-z0-9_,| -]*\$')
-TOOL_EVENTS = ('PreToolUse', 'PostToolUse')
+TOOL_EVENTS = ('PreToolUse', 'PostToolUse', 'PostToolUseFailure')
 
 def tokens(m):
     # The token set an exact-list matcher selects. Separator-agnostic on
