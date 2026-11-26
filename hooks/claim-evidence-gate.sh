@@ -135,7 +135,9 @@ TEST_CMD = re.compile(
 EVIDENCE_CMD = re.compile(
     # A test file counts only in command position (a runner), not as an argument to
     # cat/grep/git diff/shellcheck.
-    r"(?:^|[;&|(]\s*|\b(?:bash|sh)\s+)(?:\./)?tests?/test-[\w.-]+\.sh|\bbash\s+tests?/[\w./-]+\.sh"
+    # The optional path prefix cannot cross whitespace or ;&|( so it stays one linear scan.
+    r"(?:^|[;&|(]\s*|\b(?:bash|sh)\s+(?:-\w+\s+)?)(?:[\w.~/-]*/)?tests?/test-[\w.-]+\.sh"
+    r"|\bbash\s+(?:-\w+\s+)?(?:[\w.~/-]*/)?tests?/[\w./-]+\.sh"
     r"|\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b", re.I | re.M)
 
 # Failure markers, split by case sensitivity — this distinction is the whole
@@ -413,6 +415,8 @@ for ln in lines:
     elif t == "attachment":
         _a = e.get("attachment") or {}
         _p = str(_a.get("prompt") or "") if _a.get("type") == "queued_command" else ""
+        if "<task-notification>" in _p:
+            agent_evidence = True   # async subagent report delivered as an attachment
         _m = re.search(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", _p)
         if _m and reviews.get(_m.group(1)) == "async" and re.search(r"<status>\s*completed\s*</status>", _p):
             reviewed = True

@@ -38,6 +38,9 @@ def ed(path, tid="e1"):
          "input": {"file_path": path, "old_string": "a", "new_string": "b"}}]}}) + "\n" + res(tid, "ok")
 def usr(text):
     return json.dumps({"type": "user", "message": {"content": text}}) + "\n"
+def att(text):
+    return json.dumps({"type": "attachment", "attachment": {"type": "queued_command", "prompt":
+        "<task-notification>\n<status>completed</status>\n<result>" + text + "</result>\n</task-notification>"}}) + "\n"
 def res(tid, text, err=False):
     return json.dumps({"type": "user", "message": {"content": [
         {"type": "tool_result", "tool_use_id": tid, "is_error": err,
@@ -152,11 +155,15 @@ mk ev_shellcheck 'asst(cmd="shellcheck --severity=error tests/test-a.sh", tid="t
 mk ev_gitdiff 'asst(cmd="git diff tests/test-a.sh", tid="t1") + res("t1", "x") + asst(text="All tests pass.")'
 mk ev_direct 'asst(cmd="./tests/test-foo.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
 mk ev_bash 'asst(cmd="bash tests/test-foo.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
-for f in ev_agent_same ev_notif ev_direct ev_bash; do
+mk ev_att 'usr("go") + att("91 passed, 0 failed") + asst(text="All tests pass.")'
+mk ev_abs 'asst(cmd="bash /r/tests/test-a.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
+mk ev_flag 'asst(cmd="bash -x tests/test-a.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
+mk ev_att_old 'usr("go") + att("x") + asst(text="Reported.") + usr("next") + asst(cmd="ls", tid="t1") + res("t1", "a b") + asst(text="All tests pass.")'
+for f in ev_agent_same ev_notif ev_direct ev_bash ev_att ev_abs ev_flag; do
   begin_test "no unevidenced advisory: $f"
   [ "$(rc_for $f)" = "0" ] && [ -z "$(msg_for $f)" ] && pass || fail "advisory fired: $(msg_for $f)"
 done
-for f in ev_agent_old ev_cat ev_shellcheck ev_gitdiff; do
+for f in ev_agent_old ev_att_old ev_cat ev_shellcheck ev_gitdiff; do
   begin_test "unevidenced advisory still fires: $f"
   msg_for $f | grep -qi 'no test command ran' && pass || fail "advisory lost"
 done
