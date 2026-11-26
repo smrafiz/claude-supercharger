@@ -128,6 +128,18 @@ TEST_CMD = re.compile(
     r"|dotnet\s+test|gradle\s+test|mvn\s+test|make\s+test"
     r"|tests?/run\.sh|run_tests|test\.sh)\b", re.I)
 
+# Evidence-only: consulted ONLY to suppress the unevidenced advisory. Deliberately
+# NOT part of TEST_CMD, which feeds the blocking arms; widening that would create
+# new blocks. A single test file, a CI read, or any Agent/Task call (the subagent's
+# own Bash calls are not in this transcript) shows a result may have a source.
+EVIDENCE_CMD = re.compile(
+    # A test file counts only in command position (a runner), not as an argument to
+    # cat/grep/git diff/shellcheck.
+    # The optional path prefix cannot cross whitespace or ;&|( so it stays one linear scan.
+    r"(?:^|[;&|(]\s*|\b(?:bash|sh)\s+(?:-\w+\s+)?)(?:[\w.~/-]*/)?tests?/test-[\w.-]+\.sh"
+    r"|\bbash\s+(?:-\w+\s+)?(?:[\w.~/-]*/)?tests?/[\w./-]+\.sh"
+    r"|\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b", re.I | re.M)
+
 # Failure markers, split by case sensitivity — this distinction is the whole
 # correctness of the hook. The uppercase forms are runner markers (pytest's
 # "FAILED test_x::test_y", a red FAIL row) and MUST stay case-sensitive: under
@@ -309,6 +321,8 @@ def is_reviewer(name, inp):
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
+other_evidence = False  # EVIDENCE_CMD Bash call in the window
+agent_evidence = False  # Agent/Task call, or a task-notification report, in the CURRENT turn
 edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
@@ -351,7 +365,11 @@ for ln in lines:
                 cmd = (b.get("input") or {}).get("command", "") or ""
                 if TEST_CMD.search(cmd):
                     test_calls[b.get("id")] = cmd
+                elif EVIDENCE_CMD.search(cmd):
+                    other_evidence = True
             elif b.get("type") == "tool_use":
+                if b.get("name") in ("Agent", "Task"):
+                    agent_evidence = True
                 _ed = edits_of(b.get("name") or "", b.get("input") or {})
                 writes.extend(_ed)
                 for _p, _a, _r in _ed:
@@ -370,6 +388,8 @@ for ln in lines:
             reviews.clear()
             done_claim = None
             last_claim = None   # each turn's Stop judges that turn's claims only
+            # An async subagent report arrives as a task-notification turn start.
+            agent_evidence = "<task-notification>" in str((e.get("message") or {}).get("content"))
             continue
         for b in blocks(e):
             if b.get("type") != "tool_result":
@@ -395,6 +415,8 @@ for ln in lines:
     elif t == "attachment":
         _a = e.get("attachment") or {}
         _p = str(_a.get("prompt") or "") if _a.get("type") == "queued_command" else ""
+        if "<task-notification>" in _p:
+            agent_evidence = True   # async subagent report delivered as an attachment
         _m = re.search(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", _p)
         if _m and reviews.get(_m.group(1)) == "async" and re.search(r"<status>\s*completed\s*</status>", _p):
             reviewed = True
@@ -433,6 +455,8 @@ if not last_claim:
     sys.exit(0)
 
 if last_result is None:
+    if other_evidence or agent_evidence:
+        sys.exit(0)
     print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
     sys.exit(0)
 
