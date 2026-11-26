@@ -124,6 +124,30 @@ begin_test "a claim with no test run at all does not block"
 begin_test "but it does say so"
 msg_for unevidenced | grep -qi 'no test command ran' && pass || fail "no advisory emitted"
 
+# --- unevidenced: other evidence sources suppress the advisory ----------------
+# A single test file, a CI read and a relayed subagent report are results with a
+# source. They count ONLY for the advisory; TEST_CMD (the blocking arms) is unchanged.
+AG='json.dumps({"type":"assistant","message":{"content":[{"type":"tool_use","id":"a1","name":"Agent","input":{"description":"run suite"}}]}})+"\n"+res("a1","91 passed, 0 failed")'
+mk ev_single 'asst(cmd="bash tests/test-guard-gaps-2.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
+mk ev_ci_checks 'asst(cmd="gh pr checks 12", tid="t1") + res("t1", "all green") + asst(text="Suite is green.")'
+mk ev_ci_view 'asst(cmd="gh run view 99", tid="t1") + res("t1", "ok") + asst(text="Suite is green.")'
+mk ev_ci_watch 'asst(cmd="gh run watch 99", tid="t1") + res("t1", "ok") + asst(text="Suite is green.")'
+mk ev_ci_list 'asst(cmd="gh run list", tid="t1") + res("t1", "ok") + asst(text="Suite is green.")'
+mk ev_agent "$AG"' + asst(text="The subagent reports 91 passed, 0 failed.")'
+mk ev_none 'asst(cmd="ls", tid="t1") + res("t1", "a b") + asst(text="All tests pass.")'
+for f in ev_single ev_ci_checks ev_ci_view ev_ci_watch ev_ci_list ev_agent; do
+  begin_test "no unevidenced advisory: $f"
+  [ "$(rc_for $f)" = "0" ] && [ -z "$(msg_for $f)" ] && pass || fail "advisory fired: $(msg_for $f)"
+done
+
+begin_test "a claim with an unrelated command still gets the advisory"
+msg_for ev_none | grep -qi 'no test command ran' && pass || fail "advisory lost"
+
+# Blocking arms stay TEST_CMD-only: a failing single-file run is not newly a block.
+mk ev_single_fail 'asst(cmd="bash tests/test-x.sh", tid="t1") + res("t1", "FAIL something\n3 failed", err=True) + asst(text="All tests pass.")'
+begin_test "a failing single test file followed by a pass claim does NOT newly block"
+[ "$(rc_for ev_single_fail)" = "0" ] && pass || fail "blocking arms must stay TEST_CMD-only"
+
 # --- non-claims -------------------------------------------------------------
 mk hedged 'asst(text="Once all tests pass we can ship. I should verify the build succeeds first.")'
 begin_test "hedged/conditional wording is not a claim"

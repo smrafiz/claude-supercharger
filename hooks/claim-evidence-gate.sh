@@ -128,6 +128,14 @@ TEST_CMD = re.compile(
     r"|dotnet\s+test|gradle\s+test|mvn\s+test|make\s+test"
     r"|tests?/run\.sh|run_tests|test\.sh)\b", re.I)
 
+# Evidence-only: consulted ONLY to suppress the unevidenced advisory. Deliberately
+# NOT part of TEST_CMD, which feeds the blocking arms; widening that would create
+# new blocks. A single test file, a CI read, or any Agent/Task call (the subagent's
+# own Bash calls are not in this transcript) shows a result may have a source.
+EVIDENCE_CMD = re.compile(
+    r"\btests?/test-[\w.-]+\.sh|\bbash\s+tests?/[\w./-]+\.sh"
+    r"|\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b", re.I)
+
 # Failure markers, split by case sensitivity — this distinction is the whole
 # correctness of the hook. The uppercase forms are runner markers (pytest's
 # "FAILED test_x::test_y", a red FAIL row) and MUST stay case-sensitive: under
@@ -309,6 +317,7 @@ def is_reviewer(name, inp):
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
+other_evidence = False  # EVIDENCE_CMD Bash call or Agent/Task call in the window
 edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
@@ -351,7 +360,11 @@ for ln in lines:
                 cmd = (b.get("input") or {}).get("command", "") or ""
                 if TEST_CMD.search(cmd):
                     test_calls[b.get("id")] = cmd
+                elif EVIDENCE_CMD.search(cmd):
+                    other_evidence = True
             elif b.get("type") == "tool_use":
+                if b.get("name") in ("Agent", "Task"):
+                    other_evidence = True
                 _ed = edits_of(b.get("name") or "", b.get("input") or {})
                 writes.extend(_ed)
                 for _p, _a, _r in _ed:
@@ -433,6 +446,8 @@ if not last_claim:
     sys.exit(0)
 
 if last_result is None:
+    if other_evidence:
+        sys.exit(0)
     print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
     sys.exit(0)
 
