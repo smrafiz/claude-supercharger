@@ -457,6 +457,17 @@ print(json.dumps({
 PYEOF
 )
 
+# readback covers file: only in a project with READBACK.md. After the python block so
+# the per-project .disabled-hooks/.profile it just wrote are what get read (SessionStart
+# hooks run in parallel, so a separate hook could not rely on that). Both session ids are
+# written: on a resume the payload id is new but later tool calls carry the transcript's.
+if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/READBACK.md" ]; then
+  . "$HOOKS_DIR/lib-readback.sh" 2>/dev/null || true
+  . "$HOOKS_DIR/lib-readback-covers.sh" 2>/dev/null || true
+  _RB_SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
+  sc_rb_write_covers "$PROJECT_DIR" "$_RB_SID" "$_SR_SID" "$_SR_TID" 2>/dev/null || true
+fi
+
 if [ -n "$RESULT" ]; then
   echo "$RESULT"
 fi
