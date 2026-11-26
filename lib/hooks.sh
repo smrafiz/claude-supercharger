@@ -370,6 +370,9 @@ get_hooks_for_mode() {
     hooks+=("PostToolUse||${hooks_dir}/auto-compact.sh|async")
     hooks+=("PostToolUse|mcp__|${hooks_dir}/mcp-tracker.sh|async")
     hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/failure-tracker.sh|async")
+    # readback mode: SYNC (additionalContext cannot be injected from an async hook);
+    # silent unless the project root has READBACK.md.
+    hooks+=("PostToolUseFailure|Bash,PowerShell|${hooks_dir}/failure-tracker.sh|")
     hooks+=("PostToolUse|Bash,PowerShell|${hooks_dir}/dep-vuln-scanner.sh|async")
     # 2026-11-17 (memokit): opt-in markitdown conversion for a PDF/Office Read.
     hooks+=("PreToolUse|Read|${hooks_dir}/office-read.sh|")
