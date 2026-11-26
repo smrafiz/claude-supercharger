@@ -57,11 +57,16 @@ if [ -n "$SC_RB_DIR" ]; then
     if [ "$ev" = "PostToolUseFailure" ] || { [ "$ev" = "PostToolUse" ] && [ "$intr" = "true" ]; }; then
       cur=0
       [ -f "$sf" ] && cur=$(awk -v k="$key" '$1==k{print $2; exit}' "$sf" 2>/dev/null) || true
+      # a hand-edited or garbled count resets to 1 ("08" is not octal; >9 digits is junk)
       case "$cur" in ''|*[!0-9]*) cur=0 ;; esac
-      n=$((cur + 1))
+      [ "${#cur}" -gt 9 ] && cur=0
+      n=$((10#$cur + 1))
+      # shortcut: parallel gate runs can lose one count (read-modify-write, no lock); upgrade if parallel gates become common
       { [ -f "$sf" ] && awk -v k="$key" -v n="$n" '$1==k{print k, n; d=1; next} {print} END{if(!d) print k, n}' "$sf" || printf '%s %s\n' "$key" "$n"; } > "$tmp" 2>/dev/null || true
       mv "$tmp" "$sf" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true
-      [ "$n" -ge 2 ] && _rb_emit "$ev" "$n"
+      # emit only from the failure event (the sync registration): an interrupted PostToolUse
+      # is async and counts silently, so stdout never carries two JSON objects
+      [ "$n" -ge 2 ] && [ "$ev" = "PostToolUseFailure" ] && _rb_emit "$ev" "$n"
     elif [ "$ev" = "PostToolUse" ] && [ -f "$sf" ]; then
       awk -v k="$key" '$1!=k' "$sf" > "$tmp" 2>/dev/null || true
       mv "$tmp" "$sf" 2>/dev/null || rm -f "$tmp" 2>/dev/null || true

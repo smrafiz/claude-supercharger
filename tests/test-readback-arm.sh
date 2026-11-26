@@ -150,12 +150,76 @@ P=$(mkproj s12 "$TABLE_PY")
 a=$(run "$P" PostToolUseFailure "pytest m" s12); b=$(run "$P" PostToolUseFailure "pytest m" s12 ag1); c=$(run "$P" PostToolUseFailure "pytest m" s12 ag1)
 [ -z "$a" ] && [ -z "$b" ] && [ "$c" = "$EXP2" ] && pass || fail "a=[$a] b=[$b] c=[$c]"
 
-begin_test "S-13: interrupted PostToolUse on a gate counts; a clean one resets"
+begin_test "S-13: interrupted PostToolUse on a gate counts silently (no emit); a clean one resets"
 P=$(mkproj s13 "$TABLE_PY")
 a=$(run "$P" PostToolUse "pytest i" s13 "" intr); b=$(run "$P" PostToolUse "pytest i" s13 "" intr)
 c=$(run "$P" PostToolUse "pytest j" s13 "" intr); d=$(run "$P" PostToolUse "pytest j" s13 "" clean); e=$(run "$P" PostToolUse "pytest j" s13 "" intr)
-case "$b" in *"$EXPPTU"*) bok=1 ;; *) bok=0 ;; esac
-[ -z "$a" ] && [ "$bok" = 1 ] && [ -z "$c$d$e" ] && pass || fail "b=[$b] c=[$c] d=[$d] e=[$e]"
+f=$(run "$P" PostToolUseFailure "pytest i" s13)
+[ -z "$a$b" ] && [ -z "$c$d$e" ] && [ "$f" = "$EXP3" ] && pass || fail "a=[$a] b=[$b] c=[$c$d$e] f=[$f]"
+
+begin_test "S-13b: interrupted PostToolUse (count 1) then PostToolUseFailure of the same gate => N=2"
+P=$(mkproj s13b "$TABLE_PY")
+a=$(run "$P" PostToolUse "pytest w" s13b "" intr); b=$(run "$P" PostToolUseFailure "pytest w" s13b)
+[ -z "$a" ] && [ "$b" = "$EXP2" ] && pass || fail "a=[$a] b=[$b]"
+
+begin_test "single JSON object (or empty) on stdout for gate failures in each event"
+P=$(mkproj s13c "$TABLE_PY"); ok=1
+for i in 1 2 3; do
+  for ev in PostToolUseFailure PostToolUse; do
+    o=$(run "$P" "$ev" "pytest v" s13c "" intr)
+    [ -z "$o" ] || printf '%s' "$o" | python3 -c "import sys,json; json.loads(sys.stdin.read())" 2>/dev/null || ok=0
+  done
+done
+[ "$ok" = 1 ] && pass || fail "stdout was not a single JSON object"
+
+begin_test "gate cell cut leaving an unbalanced quote is skipped (shell -c with a quoted subshell)"
+P=$(mkproj s19 '| Targeted test | `bash -c "(cd web && npm test)"` | x |
+')
+o="$(run "$P" PostToolUseFailure "bash -c 'make lint'" s19)$(run "$P" PostToolUseFailure "bash -c 'make lint'" s19)$(run "$P" PostToolUseFailure 'bash -c' s19)$(run "$P" PostToolUseFailure 'bash -c' s19)"
+[ -z "$o" ] && pass || fail "o=[$o]"
+
+begin_test "gate cell cut leaving balanced quotes is kept (--grep (unit))"
+P=$(mkproj s19b '| Targeted test | `npm test -- --grep (unit)` | x |
+')
+o1=$(run "$P" PostToolUseFailure "npm test -- --grep x" s19b); o2=$(run "$P" PostToolUseFailure "npm test -- --grep x" s19b)
+[ -z "$o1" ] && [ "$o2" = "$EXP2" ] && pass || fail "o2=[$o2]"
+
+begin_test "a gate row straddling byte 65536 is dropped (no shorter gate)"
+P="$T/s20"; mkdir -p "$P"
+{ head -c $((65536 - 25)) /dev/zero | tr '\0' 'a'; printf '\n| Targeted test | pytest tests/unit | x |\n'; } > "$P/READBACK.md"
+o="$(run "$P" PostToolUseFailure "pytest" s20)$(run "$P" PostToolUseFailure "pytest" s20)"
+[ -z "$o" ] && pass || fail "o=[$o]"
+
+begin_test "hand-edited state count '08' does not crash; junk resets to 1"
+P=$(mkproj s21 "$TABLE_PY")
+K=$(printf '%s\n%s' "" "pytest h" | cksum); K="${K%% *}"
+printf '%s 08\n' "$K" > "$SCOPE/.readback-fails-s21"
+o=$(payload PostToolUseFailure "pytest h" s21 "" fail "$P" | CLAUDE_PROJECT_DIR="$P" bash "$FT" 2>/dev/null); rc=$?
+printf '%s junk\n' "$K" > "$SCOPE/.readback-fails-s21"
+o2=$(run "$P" PostToolUseFailure "pytest h" s21)
+printf '%s 99999999999999\n' "$K" > "$SCOPE/.readback-fails-s21"
+o3=$(run "$P" PostToolUseFailure "pytest h" s21)
+[ "$rc" = 0 ] && [ "$o" = "${EXP2/failed 2 times/failed 9 times}" ] && [ -z "$o2$o3" ] && pass || fail "rc=$rc o=[$o] o2=[$o2] o3=[$o3]"
+
+begin_test "profile fast/minimal => readback path silent"
+P=$(mkproj s22 "$TABLE_PY"); o=""
+for prof in fast minimal; do
+  pl=$(payload PostToolUseFailure "pytest pr" "s22$prof" "" fail "$P")
+  o="$o$(printf '%s' "$pl" | SUPERCHARGER_PROFILE=$prof CLAUDE_PROJECT_DIR="$P" bash "$FT" 2>/dev/null)$(printf '%s' "$pl" | SUPERCHARGER_PROFILE=$prof CLAUDE_PROJECT_DIR="$P" bash "$FT" 2>/dev/null)"
+done
+[ -z "$o" ] && pass || fail "o=[$o]"
+
+begin_test "hook listed in the disabled-hooks file => readback path silent"
+P=$(mkproj s23 "$TABLE_PY"); printf 'failure-tracker\n' > "$SCOPE/.disabled-hooks"
+o="$(run "$P" PostToolUseFailure "pytest dh" s23)$(run "$P" PostToolUseFailure "pytest dh" s23)"
+rm -f "$SCOPE/.disabled-hooks"
+[ -z "$o" ] && pass || fail "o=[$o]"
+
+begin_test "no READBACK.md: a failure event the generic path WOULD record is not recorded (early exit)"
+P="$T/s24"; mkdir -p "$P"; rm -f "$SCOPE"/.failed-commands-*
+pl=$(python3 -c "import json,sys; print(json.dumps({'hook_event_name':'PostToolUseFailure','tool_name':'Bash','tool_input':{'command':'make zz'},'error':'Exit code 1','tool_response':{'interrupted':True,'stderr':'make: command not found','stdout':''},'cwd':sys.argv[1],'session_id':'s24'}))" "$P")
+o="$(printf '%s' "$pl" | CLAUDE_PROJECT_DIR="$P" bash "$FT" 2>/dev/null)$(printf '%s' "$pl" | CLAUDE_PROJECT_DIR="$P" bash "$FT" 2>/dev/null)"
+[ -z "$o" ] && [ -z "$(ls -A "$SCOPE" | grep failed-commands)" ] && pass || fail "o=[$o]"
 
 begin_test "S-14: empty value cell never falls back to the Example column"
 P=$(mkproj s14 '| Targeted test | | pytest |

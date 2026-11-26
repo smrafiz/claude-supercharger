@@ -12,22 +12,38 @@ sc_rb_dir() {
   return 0
 }
 
-# Print one gate per line: the VALUE cell (field 3 of the `| Item | Value | Example |`
-# row, never the Example) of the four gate rows. Reads <= 64 KB.
+# Print one gate per line: the VALUE cell (field 3 of the `| Item | Your value | Example |`
+# row, never the Example) of the four gate rows. Reads <= 64 KB; when the file is longer
+# the final (possibly cut) line is dropped so a cut row never parses as a shorter gate.
+# A row whose `<`/`(` cut leaves an odd number of " or ' is skipped: under-count, never
+# over-count (`bash -c "(cd web && npm test)"` must not become `bash -c`). A balanced
+# cut is kept: `npm test -- --grep (unit)` => `npm test -- --grep`.
 # shortcut: an escaped `\|` inside a cell just cuts the cell; upgrade if gates need pipes.
 sc_rb_gates() {
-  head -c 65536 "$1/READBACK.md" 2>/dev/null | tr -d '\0' | awk -F'|' '
-    { gsub(/\r/, "") }
-    $0 !~ /^[ \t]*\|/ { next }
-    { l = $2; gsub(/^[ \t]+|[ \t]+$/, "", l) }
-    l != "Targeted test" && l != "Full suite" && l != "New warnings" && l != "Secret scan" { next }
-    {
-      v = $3
+  local big=0 sz
+  sz=$(wc -c < "$1/READBACK.md" 2>/dev/null) || sz=0
+  sz="${sz//[[:space:]]/}" # BSD wc pads
+  case "$sz" in ''|*[!0-9]*) sz=0 ;; esac
+  [ "$sz" -gt 65536 ] && big=1
+  head -c 65536 "$1/READBACK.md" 2>/dev/null | tr -d '\0' | awk -v big="$big" '
+    function row(line,   a, l, v, q) {
+      gsub(/\r/, "", line)
+      if (line !~ /^[ \t]*\|/) return
+      split(line, a, "|")
+      l = a[2]; gsub(/^[ \t]+|[ \t]+$/, "", l)
+      if (l != "Targeted test" && l != "Full suite" && l != "New warnings" && l != "Secret scan") return
+      v = a[3]
       if (match(v, /`[^`]*`/)) v = substr(v, RSTART + 1, RLENGTH - 2)
-      if (match(v, /[<(]/)) v = substr(v, 1, RSTART - 1)
+      if (match(v, /[<(]/)) {
+        v = substr(v, 1, RSTART - 1)
+        q = v; if (gsub(/"/, "", q) % 2) return
+        q = v; if (gsub(/\047/, "", q) % 2) return
+      }
       gsub(/^[ \t"\047]+|[ \t"\047]+$/, "", v)
       if (v != "") print v
-    }' 2>/dev/null || true
+    }
+    { if (have) row(prev); prev = $0; have = 1 }
+    END { if (have && !big) row(prev) }' 2>/dev/null || true
 }
 
 # sc_rb_is_gate DIR CMD — 0 if CMD is a gate, starts with one, or runs one after `&& `/`; `.

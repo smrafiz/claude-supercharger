@@ -905,7 +905,7 @@ def commas_to_pipes(event, m):
     # block: it sits inside a double-quoted python -c string.)
     if event == 'FileChanged' and ',' in m:
         return '|'.join(t.strip() for t in m.split(',') if t.strip())
-    if event not in ('PreToolUse', 'PostToolUse'):
+    if event not in ('PreToolUse', 'PostToolUse', 'PostToolUseFailure'):
         return m
     if ',' not in m or set(m) - EXACT_MATCHER_CHARS:
         return m

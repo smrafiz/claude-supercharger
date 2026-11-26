@@ -56,6 +56,16 @@ bash "$TOOL" --apply >/dev/null 2>&1
 [ ! -f "$SCOPE/.agent-classified-old" ] && [ -f "$SCOPE/.agent-classified-fresh" ] && pass || fail "TTL respected only on dedup, not agent-classified"
 cleanup_scope
 
+begin_test "scope-cleanup: prunes old readback fail counters (>7d), keeps fresh"
+setup_scope
+SCOPE="$HOME/.claude/supercharger/scope"
+touch "$SCOPE/.readback-fails-old"
+backdate_10d "$SCOPE/.readback-fails-old"
+touch "$SCOPE/.readback-fails-fresh"
+bash "$TOOL" --apply >/dev/null 2>&1
+[ ! -f "$SCOPE/.readback-fails-old" ] && [ -f "$SCOPE/.readback-fails-fresh" ] && pass || fail "readback-fails TTL not applied"
+cleanup_scope
+
 begin_test "scope-cleanup: dry run reports without deleting"
 setup_scope
 SCOPE="$HOME/.claude/supercharger/scope"
