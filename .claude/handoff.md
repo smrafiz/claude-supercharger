@@ -4,16 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-25 ~19:00, session `c7ed25f1`.*
+*Verified 2026-11-26 ~18:00, session `c7ed25f1` ("Claude SC").*
 
-- **Released: v4.4.9.** Master `e8f75d76` (= #366 + #367). NOT released: #366, and #368 once merged. Release on hold (user).
-- **Open PR #368** `fix/guard-gaps-2` HEAD `df519430`: not merged. At last look ubuntu + macOS suites were PENDING, Windows dispatch 45616838013 queued. An earlier dispatch (45607193376 on 1989a3e7) had ubuntu FAIL, cause unread: check first. Local full suite on df519430 never finished: rerun unpiped.
-- **Side repo:** `smrafiz/readback` PRIVATE, main `bfd6de7` (workflow, rule, skills, plugin + install.sh). Before public: the user's live plugin-hook test + GitHub render check.
-- **Queue (Sonnet build, Opus review):** batch-editor haiku->sonnet PR (`configs/agents/batch-editor.md`); Fable guard + statusline; compaction standing rules; input-size cap for >128KB commands (pre-existing fail-open); workflow integration into Supercharger (needs approval). Memory: `project-state-2026-11-25-end`.
-- **Rules:** Sonnet builds, Opus reviews/plans/research; never Fable unless asked; no worktrees; no Artifacts; never `git checkout` during a background suite; merge only when nothing is pending, on the user's word.
-- **Per-machine (work Mac):** only bash is 3.2.57; global rule `~/.claude/rules/workflow.md` installed here.
+- **Released: v4.4.9** (latest tag). Master `e8c780f4`, CI green (2 runs). NOT released and on hold (user): #366, #368 guard gaps, #370 claim-gate evidence, #371 pycache ignore, #372 scanner image blanking, #373 readback failure-tracker, #374 docs. No open PRs. Only branches: `master`, `origin/wip/download-ledger` (1 unmerged WIP commit, no PR, kept on purpose).
+- **Full list of open work with steps, probe and order:** `docs/PENDING-2026-11-26.md`. Next: (1) user runs the live probe (async vs sync hook context, interrupted-run event pairing); (2) `stop-verify` trust gate (HIGH: it runs a repo's `.claude/verify.sh` unapproved; plan done, needs the user's 3 decisions); (3) covers-file PR for readback; (4) batch-editor PR; (5) input-size fail-open (scanners exit 126 near 1 MB, ~40 hooks pass input via env var); (6) claim-gate readback arm.
+- **Side repo:** `smrafiz/readback` PRIVATE (peer session `Readback`, was `readback-2f`, builds `feat/hooks-init`). Before public: the user's live plugin-hook test + GitHub render check.
+- **Peers:** `FBT` (was `radius-bundles-aa`) was told the screenshot fix is on master, unreleased. `radius-bundles-84` (the reporter) no longer exists.
+- **Rules:** Sonnet builds, Opus reviews/plans/research; never Fable unless asked; no worktrees; no Artifacts; never `git checkout` during a background suite; guard-text denies: Edit/Write the guard/test file, never the denied action; merge only when nothing is pending, on the user's word.
+- **Per-machine (work Mac):** only bash is 3.2.57; global rule `~/.claude/rules/workflow.md` installed here; the installed `~/.claude/supercharger` does not have #368-#374.
 
 ### Log
+#### 2026-11-26 (deep) — c7ed25f1
+Merged #368-#374 after Opus loops (claim-gate false advisories, scanner screenshots fix, readback failure-tracker with a new sync PostToolUseFailure registration, pycache ignore, pending-items doc); deleted 7 merged branches. Planned (not built): stop-verify trust gate, covers file, claim-gate readback arm. Probe for the user not yet run.
+Detail: `.claude/handoff-c7ed25f1-03ea-465a-820d-7e75d4eaf0d9.md`
+
 #### 2026-11-25 (deep) — c7ed25f1
 Built and 3x Opus-reviewed guard-gaps-2 (PR #368, round 3 no MUST); researched the best workflow and shipped it as the private `readback` repo (plugin + install.sh, 3 review rounds). Builder looped 3h on the suite (stopped).
 Detail: `.claude/handoff-c7ed25f1-03ea-465a-820d-7e75d4eaf0d9.md`
@@ -64,8 +68,3 @@ Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
 Reviewed #341–#353 (3 agents): 3 HIGH, ~8 MED; fixed and merged as #354–#356 (+ Windows-only fixes).
 #358 docs merged. #357 perf-chain flake open. Item 5 (cross-command download ASK) drafted on wip branch.
 Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
-
-#### 2026-11-20 — e23c930b
-Merged #341, #344–#346, #348–#352. Plan Step 3 gaps 1–7 done except the cross-command form
-of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
-Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
