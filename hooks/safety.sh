@@ -566,6 +566,30 @@ PYEOF
       fi
     fi
   done <<< "$SEGMENTS"
+  # 2026-11-25: shred/srm overwrite before deleting, so nothing recovers what they hit. Root
+  # or home itself denies; any other path outside the project and temp dirs asks (emitted
+  # last). Temp and project files stay allowed: `shred -u /tmp/k`, `shred -u ./secret.txt`.
+  _SHRED_ASK=""
+  case "$CMD" in
+    *shred*|*srm*)
+      while IFS= read -r seg; do
+        seg="${seg#"${seg%%[![:space:]]*}"}"
+        case "$seg" in shred[[:space:]]*|srm[[:space:]]*) ;; *) continue ;; esac
+        read -r -a _sh_w <<< "${seg#*[[:space:]]}"
+        for _sh_t in ${_sh_w[@]+"${_sh_w[@]}"}; do
+          _sh_t="${_sh_t#[\"\']}"; _sh_t="${_sh_t%[\"\']}"
+          case "$_sh_t" in
+            -*) ;;
+            /|'/*'|'~'|'~/'|'~/*'|'$HOME'|'$HOME/'|'$HOME/*'|'${HOME}'|'${HOME}/'|'${HOME}/*')
+              block "shred/srm on the filesystem root or home directory" ;;
+            /tmp/*|/private/tmp/*|/var/folders/*|/private/var/folders/*|/dev/shm/*|'$TMPDIR'*|'${TMPDIR}'*) ;;
+            /*|'~'*|'$HOME'*|'${HOME}'*|..|../*)
+              case "$_sh_t" in "${PROJECT_DIR:-/nonexistent}"/*) ;; *) _SHRED_ASK="$_sh_t" ;; esac ;;
+          esac
+        done
+      done <<< "$SEGMENTS"
+      ;;
+  esac
 fi
 
 # --- Dangerous patterns (category: database, destructive, network) ---
@@ -831,6 +855,15 @@ DESTRUCT_PATTERNS=(
   # returned rc=2 while -a passed clean. (Clear-Capabilities/agentic-security)
   # v4.2.0: combined short flags (`-af`, `-fa`) are the same -a.
   'docker[[:space:]]+system[[:space:]]+prune[^;&|]*(-[a-zA-Z]*a[a-zA-Z]*([[:space:]]|$)|--all([[:space:]]|$))'
+  # 2026-11-25: the same volume destruction through rm and compose: `docker rm -v` drops the
+  # container's anonymous volumes, `compose down -v` its named ones. Denied like `volume rm`.
+  'docker[[:space:]]+(container[[:space:]]+)?rm[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*v[a-zA-Z]*|--volumes)([[:space:]]|$|=[^fFnN0])'
+  'docker([[:space:]]+|-)compose[[:space:]][^;&|]*down[[:space:]]([^;&|]*[[:space:]])?(-[a-zA-Z]*v[a-zA-Z]*|--volumes)([[:space:]=]|$)'
+  # 2026-11-25: rm -rf of root or home run on a remote host or in a container (ssh, docker/podman
+  # exec, kubectl exec). Only those targets: other paths there are not this machine's files.
+  # The remote body is ONE quoted word that may hold `cd x; rm -rf /`, so quoted runs are consumed
+  # whole, but an unquoted `;&|` ends the ssh/exec segment: a later command is not the remote one.
+  '(^|[;&|(])[[:space:]]*(ssh|(docker|podman)([[:space:]]+(container|compose)|-compose)?[[:space:]]+exec|kubectl[[:space:]]+exec)[[:space:]]([^;&|'"'"'"]|'"'"'[^'"'"']*'"'"'|"[^"]*")*(['"'"'"][^'"'"'"]*)?[[:space:]"'"'"'\\;&|(`{]rm[[:space:]]+(-[[:alpha:]-]+[[:space:]]+)*["'"'"']?(/|/\*|~/?|\$HOME/?|\$\{HOME\}/?)(["'"'"'[:space:]);`}]|$)'
   # v2.9.9: system power/shutdown — an agent must not halt the user's machine
   # mid-session. Anchored to COMMAND position (start / after a separator / sudo)
   # so a commit message or echo mentioning "reboot"/"shutdown" is NOT blocked.
@@ -2154,6 +2187,11 @@ fi
 if [ -n "${_RM_VAR_ASK:-}" ]; then
   echo "[Supercharger] safety: ASK — rm -r on \$${_RM_VAR_ASK}/ (unset/empty variable = rm -rf /)" >&2
   sc_decision ask "recursive rm on \"\$${_RM_VAR_ASK}/\": if ${_RM_VAR_ASK} is unset or empty this deletes from the filesystem root. Use \"\${${_RM_VAR_ASK}:?}/\" so the shell aborts when it is unset, or confirm ${_RM_VAR_ASK} is set." "confirm the variable is set, or use \${VAR:?}"
+  exit 0
+fi
+
+if [ -n "${_SHRED_ASK:-}" ]; then
+  sc_decision ask "this shreds $_SHRED_ASK, which is outside this project and the temp directories. shred and srm overwrite before deleting, so it cannot be recovered." "confirm that file is meant to go"
   exit 0
 fi
 

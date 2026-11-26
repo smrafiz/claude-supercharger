@@ -803,7 +803,9 @@ normalize_cmd() {
     *[[:alnum:]_/=][\'\"\\]*)
       if [ "${#_sb_src}" -le 4096 ]; then
         local _sc_j
+        # 2026-11-25: two quoted pieces glued together, `"r"'m'` / `'r'"m"`, are one word too.
         _sc_j=$(printf '%s' "$_sb_src" | LC_ALL=C sed -E \
+          -e "s/\"([[:alnum:]_./-]*)\"'([[:alnum:]_./-]*)'/\\1\\2/g" -e "s/'([[:alnum:]_./-]*)'\"([[:alnum:]_./-]*)\"/\\1\\2/g" \
           -e "s/([[:alnum:]_])''([[:alnum:]_])/\\1\\2/g" -e 's/([[:alnum:]_])""([[:alnum:]_])/\1\2/g' \
           -e 's/([[:alnum:]_])\\([[:alnum:]_])/\1\2/g' \
           -e "s/([[:alnum:]_/=])'([[:alnum:]_./-]*)'/\\1\\2/g" \

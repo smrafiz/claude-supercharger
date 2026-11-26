@@ -70,13 +70,14 @@ done
 # --- bounded time: each input once hung or ran for seconds -------------------------
 # timed <python expr building the command> -> deny | ask | allow | timeout (limit 8s)
 timed() {
-  python3 - "$H" "$1" <<'PY'
+  python3 - "$H" "$1" "$BASH" <<'PY'
 import json, os, subprocess, sys
-h, expr = sys.argv[1], sys.argv[2]
+h, expr, sh = sys.argv[1], sys.argv[2], sys.argv[3]
 cmd = eval(expr)
 j = json.dumps({"tool_name": "Bash", "session_id": "bdgt", "cwd": "/tmp", "tool_input": {"command": cmd}})
 try:
-    r = subprocess.run(["bash", h], input=j, capture_output=True, text=True, timeout=8, env=dict(os.environ))
+    # $BASH: a bare "bash" from native Windows python is System32's WSL launcher (no hook ran).
+    r = subprocess.run([sh, h], input=j, capture_output=True, text=True, timeout=8, env=dict(os.environ))
 except subprocess.TimeoutExpired:
     print("timeout"); sys.exit()
 o = r.stdout

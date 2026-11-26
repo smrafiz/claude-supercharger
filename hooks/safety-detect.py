@@ -144,13 +144,28 @@ _DANGEROUS_TARGET = (
     + r"|\.\." + _PATH_CONT
     + r")"
 )
+# The home directory spelled as an expression: perl $ENV{HOME} (bare or quoted), node/bun
+# homedir() (also destructured), process.env.HOME / ['HOME'], Deno.env.get("HOME") with an optional `!`.
+_HOME_EXPR = (
+    r"(?:['\"]?\$ENV\{\s*['\"]?HOME['\"]?\s*\}/?['\"]?"
+    r"|\b(?:(?:os|require\(\s*['\"](?:node:)?os['\"]\s*\))\.)?homedir\(\)"
+    r"|Deno\.env\.get\(\s*['\"]HOME['\"]\s*\)!?"
+    r"|process\.env(?:\.HOME\b|\[\s*['\"]HOME['\"]\s*\]))"
+)
 _WRAPPER_DESTRUCT = [
     r"rm\s+-[a-zA-Z]*[rR][a-zA-Z]*[fF]?\s+" + _DANGEROUS_TARGET,
     r"rm\s+-[a-zA-Z]*[fF][a-zA-Z]*[rR]?\s+" + _DANGEROUS_TARGET,
     # 2026-11-24: the stdlib delete APIs are the sibling of the `rm -rf` arm above
     # (python shutil.rmtree, node fs.rmSync, ruby FileUtils.rm_rf, rust-style
     # remove_dir_all), same dangerous-target rule: root, home, `..`.
-    r"\b(?:rmtree|rmSync|rmdirSync|rm_rf|rm_r|remove_entry|removeSync|remove_dir_all)\s*\(\s*(?:os\.path\.expanduser\(\s*)?['\"]?" + _DANGEROUS_TARGET,
+    # 2026-11-25: + perl remove_tree, deno Deno.remove(Sync), and a home directory spelled
+    # as an expression (perl $ENV{HOME}, node/bun homedir(), Deno.env.get("HOME")).
+    r"\b(?:rmtree|rmSync|rmdirSync|rm_rf|rm_r|remove_entry|removeSync|remove_dir_all|remove_tree|promises\.rm|Deno\.remove(?:Sync)?)\s*\(\s*"
+    r"(?:(?:os\.path\.expanduser\(\s*)?['\"]?" + _DANGEROUS_TARGET
+    + r"|" + _HOME_EXPR + r"\s*[,)])",
+    # Bun.file(<root|home>).delete() and perl `unlink glob("~/*")`: same targets.
+    r"\bBun\.file\(\s*(?:['\"]?" + _DANGEROUS_TARGET + r"[^)]*|" + _HOME_EXPR + r"\s*)\)\s*\.(?:delete|unlink)\s*\(",
+    r"\bunlink\s*\(?\s*glob\s*\(\s*['\"](?:~|\$ENV\{\s*['\"]?HOME['\"]?\s*\})?/\*",
     r"git\s+reset\s+--hard",
     r"git\s+clean\s+-[fdFD]+",
     r"git\s+checkout\s+\.",
@@ -165,7 +180,8 @@ _INTERPRETERS = [
     # 2026-10-27: clustered flags (`python -vc`, `perl -we`, `node -pe`) passed the
     # bare-flag forms (cc-safety-net corpus).
     (r"(?:^|[\s;&|])python[23]?(?:\.\d+)?\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*c\s+", "python -c"),
-    (r"(?:^|[\s;&|])(?:perl|ruby)\s+(?:-[a-zA-Z]+\s+)*-[a-zA-Z]*[eE]\s+", "perl/ruby -e"),
+    # 2026-11-25: any option word before -e (`perl -MFile::Path=remove_tree -e`).
+    (r"(?:^|[\s;&|])(?:perl|ruby)\s+(?:-[^\s;&|]+\s+(?:(?!(?:perl|ruby)\b)[^-\s;&|][^\s;&|]*\s+)?)*-[a-zA-Z]*[eE]\s+", "perl/ruby -e"),
     # v2.7.3: cover node's print/eval long forms, not just -e.
     (r"(?:^|[\s;&|])node\s+(?:-[a-zA-Z]*[ep]|--eval|--print)\s+", "node -e/--eval"),
     (r"(?:^|[\s;&|])(?:dash|ksh|fish)\s+-c\s+", "dash/ksh/fish -c"),
@@ -694,6 +710,22 @@ _RELOCATE_RE = re.compile(
 # Per scp segment only: cp's and rsync's `-i` take no key, so `cp -i <key> x` stays a read.
 _SCP_SEG_RE = re.compile(r"(?:^|(?<=[;&|(\n]))\s*(?:(?:sudo|doas|command|nohup|exec)\s+)*scp\b[^|;&\n]*")
 _IDENTITY_OPT_RE = re.compile(r"(?:(?<=\s)-i\s+|(?i:IdentityFile)=)\S+")
+# rsync's `-e '<ssh -i key>'` / `--rsh=` value is the login shell and its key, not a file
+# sent: only that quoted value loses its identity option, per rsync segment.
+_RSYNC_SEG_RE = re.compile(r"(?:^|(?<=[;&|(\n]))\s*(?:(?:sudo|doas|command|nohup|exec)\s+)*rsync\b[^|;&\n]*")
+_RSH_OPT_RE = re.compile(r"""(?:(?<=\s)-e\s*|--rsh[=\s]\s*)(?:'[^']*'|"[^"]*")""")
+_RSH_ID_RE = re.compile(r"""(?:(?<=\s)-i\s+|(?i:IdentityFile)=)[^\s'"]+""")
+# Only a plain `ssh ...` value: rsync hands any other word to a custom shell as an argument
+# (`-e "sh -c '...' x -i .env"`), so there the `-i` target is a file that program reads.
+_RSH_UNSAFE_RE = re.compile(r"[$`;&|]|\bsh\s+-c|ProxyCommand|LocalCommand", re.I)
+
+
+def _rsh_strip_identity(o: "re.Match[str]") -> str:
+    s = o.group(0)
+    body = s[s.index(s[-1]) + 1:-1]  # value between its quotes (first occurrence of the closing quote char)
+    if body.split(None, 1)[:1] != ["ssh"] or _RSH_UNSAFE_RE.search(body):
+        return s
+    return _RSH_ID_RE.sub(" ", s)
 # Encoders that read a credential and emit it transformed, hiding the name.
 _ENCODE_RE = re.compile(
     r"(?:^|[;&|]|\s)(?:base64|xxd|uuencode|gzip|bzip2|xz|zstd)\b(?P<args>[^|;&]*)", re.I)
@@ -1635,6 +1667,7 @@ cmd = _norm_path_seps(_expand_sensitive_bindings(cmd))
 # 2026-11-24: `--exclude=.env` (rsync/tar/grep) names files to SKIP: the protective form,
 # not a read. Dropped once here so every check sees the command without it.
 cmd = _SCP_SEG_RE.sub(lambda m: _IDENTITY_OPT_RE.sub(" ", m.group(0)), cmd)
+cmd = _RSYNC_SEG_RE.sub(lambda m: _RSH_OPT_RE.sub(_rsh_strip_identity, m.group(0)), cmd)
 cmd = re.sub(r"""(?:^|(?<=\s))--exclude(?:-dir)?(?:[=]|\s+)(?:'[^']*'|"[^"]*"|\S+)""", " ", cmd)
 
 if "shell_wrapper" not in disabled:
