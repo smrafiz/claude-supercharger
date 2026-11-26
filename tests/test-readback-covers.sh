@@ -48,6 +48,13 @@ begin_test ".supercharger.json disableHooks drops that guard (not claim-evidence
 _setup; echo '{"disableHooks":["failure-tracker","test-integrity-guard"]}' > "$P/.supercharger.json"; _run s1
 [ "$(_covers s1)" = $'test-mask-guard\nclaim-evidence-gate' ] && pass || fail "got [$(_covers s1)]"; teardown_test_home
 
+begin_test "CRLF disabled-hooks file (python text-mode write on Windows) still drops every listed guard"
+_setup; : > "$P/.supercharger.json"; _run s1   # seeds scope key
+. "$REPO_DIR/hooks/lib-paths.sh"; sc_project_key "$P"
+printf 'failure-tracker\r\ntest-integrity-guard\r\n' > "$SUPERCHARGER_STATE/scope/.disabled-hooks-$SC_PROJECT_KEY"
+_run s1
+[ "$(_covers s1)" = $'test-mask-guard\nclaim-evidence-gate' ] && pass || fail "got [$(_covers s1)]"; teardown_test_home
+
 begin_test "profile minimal drops failure-tracker"
 _setup; echo '{"profile":"minimal"}' > "$P/.supercharger.json"; _run s1
 [ "$(_covers s1)" = $'test-integrity-guard\ntest-mask-guard\nclaim-evidence-gate' ] && pass || fail "got [$(_covers s1)]"; teardown_test_home
