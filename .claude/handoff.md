@@ -4,16 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-26 ~18:00, session `c7ed25f1` ("Claude SC").*
+*Verified 2026-11-27, session `5623ea04` ("Supercharger"); machine `/Users/srafiz` (per-machine).*
 
-- **Released: v4.4.9** (latest tag). Master `e8c780f4`, CI green (2 runs). NOT released and on hold (user): #366, #368 guard gaps, #370 claim-gate evidence, #371 pycache ignore, #372 scanner image blanking, #373 readback failure-tracker, #374 docs. No open PRs. Only branches: `master`, `origin/wip/download-ledger` (1 unmerged WIP commit, no PR, kept on purpose).
-- **Full list of open work with steps, probe and order:** `docs/PENDING-2026-11-26.md`. Next: (1) user runs the live probe (async vs sync hook context, interrupted-run event pairing); (2) `stop-verify` trust gate (HIGH: it runs a repo's `.claude/verify.sh` unapproved; plan done, needs the user's 3 decisions); (3) covers-file PR for readback; (4) batch-editor PR; (5) input-size fail-open (scanners exit 126 near 1 MB, ~40 hooks pass input via env var); (6) claim-gate readback arm.
-- **Side repo:** `smrafiz/readback` PRIVATE (peer session `Readback`, was `readback-2f`, builds `feat/hooks-init`). Before public: the user's live plugin-hook test + GitHub render check.
-- **Peers:** `FBT` (was `radius-bundles-aa`) was told the screenshot fix is on master, unreleased. `radius-bundles-84` (the reporter) no longer exists.
-- **Rules:** Sonnet builds, Opus reviews/plans/research; never Fable unless asked; no worktrees; no Artifacts; never `git checkout` during a background suite; guard-text denies: Edit/Write the guard/test file, never the denied action; merge only when nothing is pending, on the user's word.
-- **Per-machine (work Mac):** only bash is 3.2.57; global rule `~/.claude/rules/workflow.md` installed here; the installed `~/.claude/supercharger` does not have #368-#374.
+- **Released: v4.4.9** (latest tag). Master `d1bc4692` (= #376 covers-file writer on top of #375). Master's own post-merge CI NOT read; #376's branch CI was green on Windows, macOS, Ubuntu (run 45866576025). Unreleased and on hold (user): #366, #368, #370-#376. No open PRs.
+- **Open work with steps:** `docs/PENDING-2026-11-26.md` (covers-file item 2.3 is DONE by #376; the rest stands). Next: user's live probe; `stop-verify` trust gate (needs the user's 3 decisions); batch-editor PR; input-size fail-open; claim-gate readback arm.
+- **Not yet done:** tell the `Readback` peer that #376 merged and about the CRLF fix `c3edd713` (it was told the PR number only). It keeps its settings-grep fallback until release.
+- **Found this session:** Windows python wrote `.disabled-hooks` as CRLF, so per-project `disableHooks` never matched all but the last entry, for every hook. Fixed in `_load_disabled_hooks`. Detail in the per-session brief.
+- **Local branches (per-machine, staleness unchecked):** `docs/2026-11-17-brief`, `feat/approval-codes`, `feat/disk-watch`, `feat/office-read`, `fix/memokit-delta`, `fix/quoted-pipe-fp`.
+- Rules from earlier briefs (Sonnet builds / Opus reviews, no worktrees, merge on the user's word) were not re-verified this session.
 
 ### Log
+#### 2026-11-27 (deep) — 5623ea04
+Built, tested and merged the readback covers-file writer (#376) and the CRLF `.disabled-hooks` fix it exposed on Windows CI. Full suite 9093/0. Merged #375 and #376 on the user's word. Memory: added the eighth Windows trap.
+Detail: `.claude/handoff-5623ea04-b8ad-4148-977a-0f0a1aac8ffc.md`
+
 #### 2026-11-26 (deep) — c7ed25f1
 Merged #368-#374 after Opus loops (claim-gate false advisories, scanner screenshots fix, readback failure-tracker with a new sync PostToolUseFailure registration, pycache ignore, pending-items doc); deleted 7 merged branches. Planned (not built): stop-verify trust gate, covers file, claim-gate readback arm. Probe for the user not yet run.
 Detail: `.claude/handoff-c7ed25f1-03ea-465a-820d-7e75d4eaf0d9.md`
