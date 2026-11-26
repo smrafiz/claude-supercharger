@@ -22,3 +22,7 @@ opencode.json
 /.version
 .commit-msg*.txt
 !.claude/CLAUDE.md
+
+# Python bytecode written when hooks import repo modules (release.sh stages with git add -A)
+__pycache__/
+*.pyc
