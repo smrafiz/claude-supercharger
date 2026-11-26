@@ -4,19 +4,20 @@ The project's carry file: **one per project, tracked in git, read first by a fre
 session on any machine.**
 
 ### Current State
-*Verified 2026-11-24, session `c7ed25f1`.*
+*Verified 2026-11-25 ~19:00, session `c7ed25f1`.*
 
-- **Released: v4.4.9** (tag + GitHub release 2026-11-24 05:15Z; the old "unreleased" line was wrong).
-- **Master `1476f7e2`** = #366 (boxdawn replay gaps + 5 FPs) on top of the release. NOT released: installed
-  copies lack it until the next release + `/sc-update`. No open PRs. Master CI for it was running, result unseen.
-- **Open:** is `"rm" -rf /` / plain `rm -rf /` allowed on Git Bash on master? Unverified; probe via Windows dispatch.
-- **Never use Fable** (user). **No worktrees; no Artifacts** (user). **Never `git checkout` during a background suite.**
-- **Merging:** wait until `gh pr checks N` shows NOTHING pending (I merged #366 with Version consistency pending);
-  Windows via `gh workflow run ci.yml --ref <b>` first (PR CI skips it). Guard changes: Opus review before the PR.
-- **Releasing:** `release.sh stage X.Y.Z --message ... --yes`, wait for rel CI, `release.sh promote X.Y.Z --yes`; only on the user's word.
-- **Per-machine (work Mac):** installed version not re-checked this session; 6 old stashes, never pop.
+- **Released: v4.4.9.** Master `e8f75d76` (= #366 + #367). NOT released: #366, and #368 once merged. Release on hold (user).
+- **Open PR #368** `fix/guard-gaps-2` HEAD `df519430`: not merged. At last look ubuntu + macOS suites were PENDING, Windows dispatch 45616838013 queued. An earlier dispatch (45607193376 on 1989a3e7) had ubuntu FAIL, cause unread: check first. Local full suite on df519430 never finished: rerun unpiped.
+- **Side repo:** `smrafiz/readback` PRIVATE, main `bfd6de7` (workflow, rule, skills, plugin + install.sh). Before public: the user's live plugin-hook test + GitHub render check.
+- **Queue (Sonnet build, Opus review):** batch-editor haiku->sonnet PR (`configs/agents/batch-editor.md`); Fable guard + statusline; compaction standing rules; input-size cap for >128KB commands (pre-existing fail-open); workflow integration into Supercharger (needs approval). Memory: `project-state-2026-11-25-end`.
+- **Rules:** Sonnet builds, Opus reviews/plans/research; never Fable unless asked; no worktrees; no Artifacts; never `git checkout` during a background suite; merge only when nothing is pending, on the user's word.
+- **Per-machine (work Mac):** only bash is 3.2.57; global rule `~/.claude/rules/workflow.md` installed here.
 
 ### Log
+#### 2026-11-25 (deep) — c7ed25f1
+Built and 3x Opus-reviewed guard-gaps-2 (PR #368, round 3 no MUST); researched the best workflow and shipped it as the private `readback` repo (plugin + install.sh, 3 review rounds). Builder looped 3h on the suite (stopped).
+Detail: `.claude/handoff-c7ed25f1-03ea-465a-820d-7e75d4eaf0d9.md`
+
 #### 2026-11-24 — c7ed25f1
 Audited boxdawn/guard, built + Opus-reviewed + merged #366 (review caught 2 fail-open defects we introduced).
 Windows needed a test fix (plain quoted rm is allowed on Git Bash). Memory pass done.
@@ -68,14 +69,3 @@ Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
 Merged #341, #344–#346, #348–#352. Plan Step 3 gaps 1–7 done except the cross-command form
 of gap 1. Master CI green throughout; one macOS capacity cancel, one Windows shard timeout (rerun green).
 Detail: `.claude/handoff-e23c930b-242b-4a70-ad35-626553c9e4dd.md`
-
-#### 2026-11-19 (deep) — eaedd321
-Merged #335–#339 and #342 (symlink targets, managed MCP allowlist, claim-gate reviewer, compress
-negations, credential-read gaps A, review-prompt rules). Audits: avhn/secret, agent-white-hat (replays),
-vantage, Agasthy and four more. B/C open; plan in docs/GUARD-GAP-PLAN-2026-11-19.md.
-Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
-
-#### 2026-11-18 — eaedd321
-Reviewers found fail-opens in #325/#326/#329; fixed, then merged #324–#333 and released v4.4.8.
-New: #331 `>|` in 4 guards, #332 disk-watch `$(( ))` code exec, #333 safety.sh fail-closed + `--build-arg`.
-Detail: `.claude/handoff-eaedd321-5e4c-41af-80ed-a51a6c772596.md`
