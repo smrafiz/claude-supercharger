@@ -147,7 +147,7 @@ h, expr, sh = sys.argv[1], sys.argv[2], sys.argv[3]
 cmd = eval(expr)
 j = json.dumps({"tool_name": "Bash", "session_id": "gg2t", "cwd": "/tmp", "tool_input": {"command": cmd}})
 try:
-    r = subprocess.run([sh, h], input=j, capture_output=True, text=True, timeout=8, env=dict(os.environ))
+    r = subprocess.run([sh, h], input=j, capture_output=True, text=True, timeout=float(os.environ.get('TIMED_S', '8')), env=dict(os.environ))
 except subprocess.TimeoutExpired:
     print("timeout"); sys.exit()
 o = r.stdout
@@ -174,11 +174,13 @@ done
 # round 2: a perl/ruby option-list regex that overruns the detector's 0.5s budget makes the hook
 # FAIL OPEN: detector-only denies (a credential read after the options) turn into allow. helpers.sh
 # raises the budget to 10s for load flakes; these rows run at the production 0.5s.
+# TIMED_S=14: the 32KB command runs the whole hook; on a loaded CI runner that can pass 8s (production
+# hook timeout is 15s). The verdict must still be exactly deny.
 # (A ruby `-w\t` row was dropped: the shell layer denies a credential-path read on its own, so that
 # row also passed against the unfixed hooks and could not detect the regression.)
 _e="'perl -a '*4000+'; cat .env'"
 begin_test "guard gaps 2: long option list still denies a credential read: ${_e:0:30}"
-_d=$(SUPERCHARGER_DETECT_BUDGET_S=0.5 timed "$_e")
+_d=$(SUPERCHARGER_DETECT_BUDGET_S=0.5 TIMED_S=14 timed "$_e")
 [ "$_d" = deny ] && pass || fail "got $_d: $_e"
 
 # The detector alone: a backtracking regex holds the GIL past its own watchdog.
