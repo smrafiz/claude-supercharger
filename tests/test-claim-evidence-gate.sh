@@ -143,6 +143,24 @@ done
 begin_test "a claim with an unrelated command still gets the advisory"
 msg_for ev_none | grep -qi 'no test command ran' && pass || fail "advisory lost"
 
+# Agent evidence is per-turn; a test file counts only when RUN, not when read/linted.
+mk ev_agent_old 'usr("go") + '"$AG"' + asst(text="Reported.") + usr("next") + asst(cmd="ls", tid="t1") + res("t1", "a b") + asst(text="All tests pass.")'
+mk ev_agent_same 'usr("go") + '"$AG"' + asst(text="All tests pass.")'
+mk ev_notif 'usr("<task-notification>\n<status>completed</status>\n<result>91 passed, 0 failed</result>\n</task-notification>") + asst(text="All tests pass.")'
+mk ev_cat 'asst(cmd="cat tests/test-foo.sh", tid="t1") + res("t1", "x") + asst(text="All tests pass.")'
+mk ev_shellcheck 'asst(cmd="shellcheck --severity=error tests/test-a.sh", tid="t1") + res("t1", "x") + asst(text="All tests pass.")'
+mk ev_gitdiff 'asst(cmd="git diff tests/test-a.sh", tid="t1") + res("t1", "x") + asst(text="All tests pass.")'
+mk ev_direct 'asst(cmd="./tests/test-foo.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
+mk ev_bash 'asst(cmd="bash tests/test-foo.sh", tid="t1") + res("t1", "ok") + asst(text="All tests pass.")'
+for f in ev_agent_same ev_notif ev_direct ev_bash; do
+  begin_test "no unevidenced advisory: $f"
+  [ "$(rc_for $f)" = "0" ] && [ -z "$(msg_for $f)" ] && pass || fail "advisory fired: $(msg_for $f)"
+done
+for f in ev_agent_old ev_cat ev_shellcheck ev_gitdiff; do
+  begin_test "unevidenced advisory still fires: $f"
+  msg_for $f | grep -qi 'no test command ran' && pass || fail "advisory lost"
+done
+
 # Blocking arms stay TEST_CMD-only: a failing single-file run is not newly a block.
 mk ev_single_fail 'asst(cmd="bash tests/test-x.sh", tid="t1") + res("t1", "FAIL something\n3 failed", err=True) + asst(text="All tests pass.")'
 begin_test "a failing single test file followed by a pass claim does NOT newly block"

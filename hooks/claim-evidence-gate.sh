@@ -133,8 +133,10 @@ TEST_CMD = re.compile(
 # new blocks. A single test file, a CI read, or any Agent/Task call (the subagent's
 # own Bash calls are not in this transcript) shows a result may have a source.
 EVIDENCE_CMD = re.compile(
-    r"\btests?/test-[\w.-]+\.sh|\bbash\s+tests?/[\w./-]+\.sh"
-    r"|\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b", re.I)
+    # A test file counts only in command position (a runner), not as an argument to
+    # cat/grep/git diff/shellcheck.
+    r"(?:^|[;&|(]\s*|\b(?:bash|sh)\s+)(?:\./)?tests?/test-[\w.-]+\.sh|\bbash\s+tests?/[\w./-]+\.sh"
+    r"|\bgh\s+(pr\s+checks|run\s+(view|watch|list))\b", re.I | re.M)
 
 # Failure markers, split by case sensitivity — this distinction is the whole
 # correctness of the hook. The uppercase forms are runner markers (pytest's
@@ -317,7 +319,8 @@ def is_reviewer(name, inp):
 last_claim = None
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
-other_evidence = False  # EVIDENCE_CMD Bash call or Agent/Task call in the window
+other_evidence = False  # EVIDENCE_CMD Bash call in the window
+agent_evidence = False  # Agent/Task call, or a task-notification report, in the CURRENT turn
 edited_after = None  # a code file edited after last_result was recorded
 writes = []          # (path, added, removed) — CURRENT turn only
 done_claim = None    # completion stated in the CURRENT turn
@@ -364,7 +367,7 @@ for ln in lines:
                     other_evidence = True
             elif b.get("type") == "tool_use":
                 if b.get("name") in ("Agent", "Task"):
-                    other_evidence = True
+                    agent_evidence = True
                 _ed = edits_of(b.get("name") or "", b.get("input") or {})
                 writes.extend(_ed)
                 for _p, _a, _r in _ed:
@@ -383,6 +386,8 @@ for ln in lines:
             reviews.clear()
             done_claim = None
             last_claim = None   # each turn's Stop judges that turn's claims only
+            # An async subagent report arrives as a task-notification turn start.
+            agent_evidence = "<task-notification>" in str((e.get("message") or {}).get("content"))
             continue
         for b in blocks(e):
             if b.get("type") != "tool_result":
@@ -446,7 +451,7 @@ if not last_claim:
     sys.exit(0)
 
 if last_result is None:
-    if other_evidence:
+    if other_evidence or agent_evidence:
         sys.exit(0)
     print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
     sys.exit(0)
