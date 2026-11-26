@@ -54,6 +54,18 @@ _flag_dirs() {
     [ -d "$pd" ] && printf '%s\n' "$pd/scope"
   done
 }
+
+# The readback covers files (hooks/lib-readback-covers.sh) are a SessionStart snapshot of
+# which guards are active. A toggle makes every one stale, so empty them all: an empty file
+# means "nothing covered", and readback then keeps its own hooks on. Next SessionStart
+# rewrites the real list.
+_covers_empty() {
+  local f
+  for f in "$HOME/.claude/readback-covers/"*; do
+    [ -f "$f" ] && : > "$f" 2>/dev/null
+  done
+  return 0
+}
 # True if the disable-flag exists in ANY scope dir.
 _any_flag() {
   local d
@@ -485,6 +497,7 @@ case "${1:-status}" in
     # Same for the rules/ half of the prompt layer. After the CLAUDE.md strip, so
     # a failure here cannot leave the block removed AND the rules gone with no
     # record; both are restored from STATE_DIR by `on`.
+    _covers_empty
     _RULES_MOVED=$(_rules_off || true)
     _AGENTS_MOVED=$(_agents_off || true)
 
@@ -574,6 +587,7 @@ $(_flag_dirs)
 EOF
     # Restore the MCP servers and rules we moved aside. Both read from STATE_DIR,
     # so they must run BEFORE it is deleted.
+    _covers_empty
     _MCP_BACK=$(_mcp_on || true)
     _RULES_BACK=$(_rules_on || true)
     _AGENTS_BACK=$(_agents_on || true)

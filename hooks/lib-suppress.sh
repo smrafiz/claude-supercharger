@@ -44,6 +44,9 @@ _load_disabled_hooks() { # optional: project dir
   fi
   [ ! -f "$disabled_file" ] && return
   _DISABLED_HOOKS_CONTENT=$(<"$disabled_file")
+  # Windows python writes this file in text mode (CRLF). check_hook_disabled matches whole
+  # lines, so every entry but the last kept a trailing \r and silently never matched.
+  _DISABLED_HOOKS_CONTENT=${_DISABLED_HOOKS_CONTENT//$'\r'/}
 }
 
 # Append a {hook, elapsed_ms, ts} line to today's audit log. Called via EXIT trap
