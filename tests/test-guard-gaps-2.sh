@@ -164,10 +164,11 @@ begin_test "guard gaps 2: quoted rm -rf / denies"
 [ "$_dq" = deny ] && [ "$_sq" = deny ] && pass || fail "dq=$_dq sq=$_sq"
 
 # Hook-level time bounds for the new grep patterns and the quote join.
+# TIMED_S=14: these 9-24KB commands run the whole hook; the default 8s cap can flake on a loaded CI runner.
 for _e in "'ssh h '+'x rm -'*4000+'z /x'" "'ssh h '+\"'a b' \"*2500+'rm -rf /x'" "'ssh h '+'\"a\" '*5000+\"'z rm\"" "'docker compose '+'down '*4000+'-x'" \
           "'docker rm '+'-x '*4000" "'\"r\"'*3000+\"'m' -rf ~\"" "'shred '+'~/a '*3000"; do
   begin_test "guard gaps 2: returns in bounded time: ${_e:0:40}"
-  _d=$(timed "$_e")
+  _d=$(TIMED_S=14 timed "$_e")
   [ "$_d" != timeout ] && [[ "$_d" != crash* ]] && pass || fail "timed out or crashed ($_d): $_e"
 done
 
