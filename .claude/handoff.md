@@ -6,16 +6,16 @@ session on any machine.**
 ### Current State
 *Verified 2026-11-27, session `5623ea04` ("Supercharger"); machine `/Users/srafiz` (per-machine).*
 
-- **Released: v4.4.9** (latest tag). Master `d1bc4692` (= #376 covers-file writer on top of #375). Master's own post-merge CI NOT read; #376's branch CI was green on Windows, macOS, Ubuntu (run 45866576025). Unreleased and on hold (user): #366, #368, #370-#376. No open PRs.
-- **Open work with steps:** `docs/PENDING-2026-11-26.md` (covers-file item 2.3 is DONE by #376; the rest stands). Next: user's live probe; `stop-verify` trust gate (needs the user's 3 decisions); batch-editor PR; input-size fail-open; claim-gate readback arm.
-- **Not yet done:** tell the `Readback` peer that #376 merged and about the CRLF fix `c3edd713` (it was told the PR number only). It keeps its settings-grep fallback until release.
-- **Found this session:** Windows python wrote `.disabled-hooks` as CRLF, so per-project `disableHooks` never matched all but the last entry, for every hook. Fixed in `_load_disabled_hooks`. Detail in the per-session brief.
-- **Local branches (per-machine, staleness unchecked):** `docs/2026-11-17-brief`, `feat/approval-codes`, `feat/disk-watch`, `feat/office-read`, `fix/memokit-delta`, `fix/quoted-pipe-fp`.
+- **Released: v4.4.9** (latest tag). Master `6064cc01` (= #377 on top of #376). Master CI on `a74be28c` read: green. #377's branch CI green on Windows (run 45954965831), macOS, Ubuntu. Unreleased and on hold (user): #366, #368, #370-#377. No open PRs.
+- **Open work with steps:** `docs/PENDING-2026-11-26.md` (covers-file 2.3 done by #376; claim-gate nits and `TERMINATED_RE` done by #377). Next: user's #373 live probe; `stop-verify` trust gate (3 decisions); batch-editor PR; input-size fail-open; claim-gate readback arm (needs the user's block-once decision, rebase on #370).
+- **Readback peer:** told #376 merged + CRLF fix `c3edd713`, and answered its installer-hooks questions. NOT told #377. It keeps its settings-grep fallback until release.
+- **GUI research (nothing built):** a Claude Code mod (pane + band) can read `~/.claude/supercharger/*` via `$.fs` and run the toggle tools via `$.process.run`. UNKNOWN whether `$.process.run` passes the PreToolUse guards. Plan if wanted: read-only pane first, outside the repo in `~/.claude/dev-mods/`. Detail in the brief.
+- **Local branches (per-machine, none on origin, merged-or-abandoned UNKNOWN):** `docs/2026-11-17-brief`, `feat/approval-codes`, `feat/disk-watch`, `feat/office-read`, `fix/memokit-delta`, `fix/quoted-pipe-fp`, each 1-4 commits ahead of master.
 - Rules from earlier briefs (Sonnet builds / Opus reviews, no worktrees, merge on the user's word) were not re-verified this session.
 
 ### Log
 #### 2026-11-27 (deep) — 5623ea04
-Built, tested and merged the readback covers-file writer (#376) and the CRLF `.disabled-hooks` fix it exposed on Windows CI. Full suite 9093/0. Merged #375 and #376 on the user's word. Memory: added the eighth Windows trap.
+Built and merged the readback covers-file writer (#376) with the CRLF `.disabled-hooks` fix it exposed on Windows CI, then #377 (`TERMINATED_RE` `\\b` raw-string bug, two readback nits). Full suite 9094/0. Researched a GUI for Supercharger (mod pane feasible, nothing built). Memory: eighth Windows trap, plus the vacuous-test lesson.
 Detail: `.claude/handoff-5623ea04-b8ad-4148-977a-0f0a1aac8ffc.md`
 
 #### 2026-11-26 (deep) — c7ed25f1
