@@ -926,10 +926,15 @@ if 'hooks' not in settings:
 
 # Remove existing supercharger hook entries
 for event in list(settings['hooks'].keys()):
-    settings['hooks'][event] = [
-        entry for entry in settings['hooks'][event]
-        if not any(tag in h.get('command', '') or tag in h.get('prompt', '') for h in entry.get('hooks', []))
-    ]
+    # Strip per hook: a group still holding a hook that is not ours (readback's
+    # tagged entries) stays, minus our hooks. Dropped only once it is empty.
+    kept = []
+    for entry in settings['hooks'][event]:
+        hs = entry.get('hooks', [])
+        left = [h for h in hs if not (tag in h.get('command', '') or tag in h.get('prompt', ''))]
+        if left or not hs:
+            kept.append(dict(entry, hooks=left) if hs else entry)
+    settings['hooks'][event] = kept
     if not settings['hooks'][event]:
         del settings['hooks'][event]
 
@@ -1053,10 +1058,13 @@ with open(settings_file, 'r') as f:
 
 if 'hooks' in settings:
     for event in list(settings['hooks'].keys()):
-        settings['hooks'][event] = [
-            entry for entry in settings['hooks'][event]
-            if not any(tag in h.get('command', '') or tag in h.get('prompt', '') for h in entry.get('hooks', []))
-        ]
+        kept = []
+        for entry in settings['hooks'][event]:
+            hs = entry.get('hooks', [])
+            left = [h for h in hs if not (tag in h.get('command', '') or tag in h.get('prompt', ''))]
+            if left or not hs:
+                kept.append(dict(entry, hooks=left) if hs else entry)
+        settings['hooks'][event] = kept
         if not settings['hooks'][event]:
             del settings['hooks'][event]
     if not settings['hooks']:

@@ -357,7 +357,12 @@ back = 0
 for ev, entries in saved.get("hooks", {}).items():
     cur = hooks.setdefault(ev, [])
     for entry in entries:
-        match = next((c for c in cur if c.get("matcher") == entry.get("matcher")), None)
+        # Merge only into a group made entirely of our hooks. A group holding a hook
+        # someone else tagged (readback's " #readback") stays theirs: our install
+        # and uninstall drop a group whole, so a merged one would lose their hook.
+        match = next((c for c in cur if c.get("matcher") == entry.get("matcher")
+                      and all("#supercharger" in (h.get("command", "") or h.get("prompt", "") or "")
+                              for h in c.get("hooks", []))), None)
         if match is None:
             cur.append(entry)
         else:
