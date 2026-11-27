@@ -476,8 +476,8 @@ cmd, is_error, out = last_result
 # that also happened to be killed still contradicts the claim.
 TERMINATED_RE = re.compile(
     r'command timed out after'
-    r'|\\bexit code (13[0-9]|14[0-9]|15[0-9])\\b'
-    r'|terminated by signal|\\bsigterm\\b|\\bsigkill\\b|\\bsigint\\b',
+    r'|\bexit code (13[0-9]|14[0-9]|15[0-9])\b'
+    r'|terminated by signal|\bsigterm\b|\bsigkill\b|\bsigint\b',
     re.IGNORECASE)
 
 if is_error and not is_failure(out) and TERMINATED_RE.search(out):

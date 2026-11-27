@@ -239,6 +239,14 @@ mk killed_sigint 'asst("Running.", "bash tests/run.sh", "t1") + \
 begin_test "SIGINT (130) is treated the same as a timeout"
 [ "$(rc_for killed_sigint)" = "0" ] && pass || fail "Ctrl-C treated as a test failure"
 
+mk killed_bare143 'asst("Running.", "bash tests/run.sh", "t1") + \
+  res("t1", "Exit code 143", err=True) + \
+  asst("All tests pass — the suite is green.")'
+begin_test "bare SIGTERM (exit code 143, no timeout text) is not a test failure"
+# The alternation used `\\b` in a raw string (a literal backslash + b), so only the
+# "timed out" text ever matched and a bare 143 fell through to a block.
+[ "$(rc_for killed_bare143)" = "0" ] && pass || fail "bare exit code 143 treated as a test failure"
+
 mk failed_and_killed 'asst("Running.", "bash tests/run.sh", "t1") + \
   res("t1", "  FAIL something broke\nTotal: 3200 passed, 1 failed\nCommand timed out after 10m 0s", err=True) + \
   asst("All tests pass now.")'   # must match CLAIM: "everything passes" does not

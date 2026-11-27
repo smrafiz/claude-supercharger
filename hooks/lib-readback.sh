@@ -21,6 +21,7 @@ sc_rb_dir() {
 # shortcut: an escaped `\|` inside a cell just cuts the cell; upgrade if gates need pipes.
 sc_rb_gates() {
   local big=0 sz
+  # wc -c reads nothing but the size, but is unbounded: callers must have checked `[ -f ]` first.
   sz=$(wc -c < "$1/READBACK.md" 2>/dev/null) || sz=0
   sz="${sz//[[:space:]]/}" # BSD wc pads
   case "$sz" in ''|*[!0-9]*) sz=0 ;; esac

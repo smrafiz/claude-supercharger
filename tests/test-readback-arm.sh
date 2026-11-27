@@ -162,15 +162,16 @@ P=$(mkproj s13b "$TABLE_PY")
 a=$(run "$P" PostToolUse "pytest w" s13b "" intr); b=$(run "$P" PostToolUseFailure "pytest w" s13b)
 [ -z "$a" ] && [ "$b" = "$EXP2" ] && pass || fail "a=[$a] b=[$b]"
 
-begin_test "single JSON object (or empty) on stdout for gate failures in each event"
-P=$(mkproj s13c "$TABLE_PY"); ok=1
+begin_test "gate failures emit a single JSON object when they nudge (and do nudge at least once)"
+P=$(mkproj s13c "$TABLE_PY"); ok=1; n=0
 for i in 1 2 3; do
   for ev in PostToolUseFailure PostToolUse; do
     o=$(run "$P" "$ev" "pytest v" s13c "" intr)
-    [ -z "$o" ] || printf '%s' "$o" | python3 -c "import sys,json; json.loads(sys.stdin.read())" 2>/dev/null || ok=0
+    [ -z "$o" ] && continue
+    n=$((n+1)); printf '%s' "$o" | python3 -c "import sys,json; json.loads(sys.stdin.read())" 2>/dev/null || ok=0
   done
 done
-[ "$ok" = 1 ] && pass || fail "stdout was not a single JSON object"
+[ "$ok" = 1 ] && [ "$n" -ge 1 ] && pass || fail "ok=$ok nudges=$n"
 
 begin_test "gate cell cut leaving an unbalanced quote is skipped (shell -c with a quoted subshell)"
 P=$(mkproj s19 '| Targeted test | `bash -c "(cd web && npm test)"` | x |
