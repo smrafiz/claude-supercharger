@@ -81,13 +81,26 @@ TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/
 # The completion alternatives belong in THIS grep, not only in the python: an arm
 # whose evidence never reaches the detector is dead code that tests still pass
 # (see [[two-gate-trap]] — six instances of exactly this).
+# Readback project (READBACK.md at the root): its declared gate commands count as test
+# runs, and a bare "done" / "is fixed" is a claim. The stat is the only cost elsewhere.
+_RB_MODE=""; _RB_GATES=""; _FP='tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean|implemented|implementation is (complete|done)|nothing (left|else) to |production.?ready|ready to (ship|merge)|(it.s|this is|that.s|all) (done|complete|finished)'
+if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/READBACK.md" ]; then
+  . "$HOOKS_DIR/lib-readback.sh" 2>/dev/null || true
+  if command -v sc_rb_dir >/dev/null 2>&1; then
+    sc_rb_dir
+    if [ -n "$SC_RB_DIR" ]; then
+      _RB_MODE=1; _RB_GATES=$(sc_rb_gates "$SC_RB_DIR" | tr '\n' '\037')   # command strings, \x1f-separated (not a path list)
+      _FP="$_FP|done|(is|are|now|been) fixed"
+    fi
+  fi
+fi
 tail -c 20000 "$TRANSCRIPT" 2>/dev/null \
-  | LC_ALL=C grep -qiE 'tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean|implemented|implementation is (complete|done)|nothing (left|else) to |production.?ready|ready to (ship|merge)|(it.s|this is|that.s|all) (done|complete|finished)' \
+  | LC_ALL=C grep -qiE "$_FP" \
   || exit 0
 
 _SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 VERDICT=$(TRANSCRIPT_PATH="$TRANSCRIPT" RISK_LOG="$SUPERCHARGER_STATE/audit/risk-review.jsonl" \
-  RISK_SID="$_SID" python3 <<'PYEOF' 2>/dev/null || true
+  RISK_SID="$_SID" RB_MODE="$_RB_MODE" RB_GATES="$_RB_GATES" python3 <<'PYEOF' 2>/dev/null || true
 import json, os, re, sys
 
 path = os.environ.get("TRANSCRIPT_PATH", "")
@@ -127,6 +140,18 @@ TEST_CMD = re.compile(
     r"|cargo\s+test|pytest|go\s+test|jest|vitest|mocha|rspec|phpunit"
     r"|dotnet\s+test|gradle\s+test|mvn\s+test|make\s+test"
     r"|tests?/run\.sh|run_tests|test\.sh)\b", re.I)
+
+# Readback projects only (bash sets RB_MODE when READBACK.md is at the project root).
+# The gate strings come from untrusted repo content: compared as literals, never as a regex.
+RB = os.environ.get("RB_MODE") == "1"
+RB_GATES = [g for g in os.environ.get("RB_GATES", "").split("\x1f") if g]
+RB_CLAIM = re.compile(r"\bdone\b|\b(is|are|now|been)\s+fixed\b", re.I)
+RB_NEG = re.compile(r"\bnot\s+(done|fixed|checked|run)\b", re.I)
+
+def is_gate(cmd):
+    return any(cmd == g or cmd.startswith(g + " ") or cmd.endswith("&& " + g)
+               or ("&& " + g + " ") in cmd or cmd.endswith("; " + g) or ("; " + g + " ") in cmd
+               for g in RB_GATES)
 
 # Evidence-only: consulted ONLY to suppress the unevidenced advisory. Deliberately
 # NOT part of TEST_CMD, which feeds the blocking arms; widening that would create
@@ -357,13 +382,14 @@ for ln in lines:
                 txt = re.sub(r'"[^"\n]{0,200}"|“[^”\n]{0,200}”|`[^`\n]{0,200}`', '""', txt)
                 for sent in re.split(r"(?<=[.!?\n])\s+", txt):
                     hedged = HEDGE.search(sent) or DISCLAIM.search(sent)
-                    if CLAIM.search(sent) and not hedged:
+                    if (CLAIM.search(sent) or (RB and RB_CLAIM.search(sent)
+                                               and not RB_NEG.search(sent))) and not hedged:
                         last_claim = sent.strip()[:180]
                     if DONE.search(sent) and not hedged:
                         done_claim = sent.strip()[:180]
             elif b.get("type") == "tool_use" and b.get("name") == "Bash":
                 cmd = (b.get("input") or {}).get("command", "") or ""
-                if TEST_CMD.search(cmd):
+                if TEST_CMD.search(cmd) or (RB and is_gate(cmd)):
                     test_calls[b.get("id")] = cmd
                 elif EVIDENCE_CMD.search(cmd):
                     other_evidence = True
@@ -457,7 +483,12 @@ if not last_claim:
 if last_result is None:
     if other_evidence or agent_evidence:
         sys.exit(0)
-    print(json.dumps({"verdict": "unevidenced", "claim": last_claim}))
+    # Readback projects: code edited this turn and no test or gate run after it is a
+    # block-once, not an advisory (the continuation carries stop_hook_active).
+    _edited = edited_after and any(w[0] and os.path.splitext(w[0])[1].lower() not in PROSE_EXT
+                                   for w in writes)
+    print(json.dumps({"verdict": "unevidenced_edit" if RB and _edited else "unevidenced",
+                      "claim": last_claim}))
     sys.exit(0)
 
 cmd, is_error, out = last_result
@@ -589,6 +620,19 @@ if [ "$KIND" = "stale" ]; then
   # Blocks once: a Stop continuation carries stop_hook_active and exits at the top.
   # Exit 0 stderr reaches neither the agent nor a -p user (verified live, CC 2.1.318).
   exit 2
+fi
+
+if [ "$KIND" = "unevidenced_edit" ]; then
+  CLAIM=$(printf '%s' "$VERDICT" | python3 -c "import sys,json; print(json.load(sys.stdin).get('claim',''))" 2>/dev/null || true)
+  {
+    echo "[Supercharger] claim-evidence-gate: you claimed this work is done or passing, but code was edited this turn and no test or gate command ran after it."
+    echo "  You wrote : ${CLAIM}"
+    echo "  Run the project's gate (READBACK.md) and report the real result, or say plainly that it was not run."
+  } >&2
+  BLOG="$SUPERCHARGER_STATE/scope/.blocked-commands"
+  mkdir -p "$(dirname "$BLOG")" 2>/dev/null || true
+  printf '[%s] readback project: completion claimed after a code edit with no test or gate run — stop blocked\n' "$(date '+%Y-%m-%d %H:%M')" >> "$BLOG" 2>/dev/null || true
+  exit 2   # once: the continuation carries stop_hook_active
 fi
 
 if [ "$KIND" = "unevidenced" ]; then
