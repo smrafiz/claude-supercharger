@@ -173,6 +173,8 @@ Global: add hook name to `~/.claude/supercharger/scope/.disabled-hooks` (one per
 | `workflow-pwn-guard` | PreToolUse | Write, Edit, MultiEdit | A privileged workflow trigger (`pull_request_target` / `workflow_run` / `issue_comment`) runs with the |
 | `write-secret-guard` | PreToolUse | Write,Edit,MultiEdit,NotebookEdit | Asks before WRITING a credential into a file. The secret patterns were already |
 
+**Alongside readback.** readback's own hooks are tagged ` #readback` and Supercharger never touches them: `/sc off`, `/sc on`, install and uninstall strip and restore per ` #supercharger` hook, and a group holding a hook that is not ours stays. When `READBACK.md` is at the project root, `project-config.sh` writes `~/.claude/readback-covers/<session id>` listing the guards (`test-integrity-guard`, `test-mask-guard`, `claim-evidence-gate`, `failure-tracker`) that are active, and readback stands down for each one named. `SUPERCHARGER_CLAIM_READBACK_ARM=0` turns off only the readback arm of `claim-evidence-gate`.
+
 ## Standalone tools
 
 Run any of these manually:

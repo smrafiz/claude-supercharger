@@ -84,7 +84,7 @@ TRANSCRIPT=$(printf '%s\n' "$_INPUT" | jq -r '.transcript_path // empty' 2>/dev/
 # Readback project (READBACK.md at the root): its declared gate commands count as test
 # runs, and a bare "done" / "is fixed" is a claim. The stat is the only cost elsewhere.
 _RB_MODE=""; _RB_GATES=""; _FP='tests? (are )?(now )?pass|all tests|suite (is )?green|0 failed|no failures|build succeed|lint (is )?clean|implemented|implementation is (complete|done)|nothing (left|else) to |production.?ready|ready to (ship|merge)|(it.s|this is|that.s|all) (done|complete|finished)'
-if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/READBACK.md" ]; then
+if [ "${SUPERCHARGER_CLAIM_READBACK_ARM:-1}" != "0" ] && [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/READBACK.md" ]; then
   . "$HOOKS_DIR/lib-readback.sh" 2>/dev/null || true
   if command -v sc_rb_dir >/dev/null 2>&1; then
     sc_rb_dir
@@ -94,13 +94,17 @@ if [ -f "${CLAUDE_PROJECT_DIR:-$PWD}/READBACK.md" ]; then
     fi
   fi
 fi
-tail -c 20000 "$TRANSCRIPT" 2>/dev/null \
-  | LC_ALL=C grep -qiE "$_FP" \
+# Stop can fire before the final assistant text is flushed to the transcript (see
+# notify-stop.sh), so the Stop payload's own last_assistant_message is also a source of
+# the final-turn claim. Capped: it is only ever scanned for sentences.
+_LM=$(printf '%s\n' "$_INPUT" | jq -r '.last_assistant_message // empty' 2>/dev/null | head -c 4000 || true)
+{ tail -c 20000 "$TRANSCRIPT" 2>/dev/null | LC_ALL=C grep -qiE "$_FP"; } \
+  || { [ -n "$_LM" ] && printf '%s' "$_LM" | LC_ALL=C grep -qiE "$_FP"; } \
   || exit 0
 
 _SID=$(printf '%s\n' "$_INPUT" | jq -r '.session_id // empty' 2>/dev/null || true)
 VERDICT=$(TRANSCRIPT_PATH="$TRANSCRIPT" RISK_LOG="$SUPERCHARGER_STATE/audit/risk-review.jsonl" \
-  RISK_SID="$_SID" RB_MODE="$_RB_MODE" RB_GATES="$_RB_GATES" python3 <<'PYEOF' 2>/dev/null || true
+  RISK_SID="$_SID" RB_MODE="$_RB_MODE" RB_GATES="$_RB_GATES" LAST_MSG="$_LM" python3 <<'PYEOF' 2>/dev/null || true
 import json, os, re, sys
 
 path = os.environ.get("TRANSCRIPT_PATH", "")
@@ -344,6 +348,19 @@ def is_reviewer(name, inp):
     return re.search(r"review|critic", who, re.I) is not None
 
 last_claim = None
+turn_text = ""       # assistant text of the CURRENT turn, to tell whether the Stop payload's is already in
+def scan_text(txt):
+    global last_claim, done_claim
+    # A quoted span is an example or a quote, not this turn's claim.
+    txt = re.sub(r'"[^"\n]{0,200}"|“[^”\n]{0,200}”|`[^`\n]{0,200}`', '""', txt)
+    for sent in re.split(r"(?<=[.!?\n])\s+", txt):
+        hedged = HEDGE.search(sent) or DISCLAIM.search(sent)
+        if (CLAIM.search(sent) or (RB and RB_CLAIM.search(sent)
+                                   and not RB_NEG.search(sent))) and not hedged:
+            last_claim = sent.strip()[:180]
+        if DONE.search(sent) and not hedged:
+            done_claim = sent.strip()[:180]
+
 test_calls = {}      # tool_use_id -> command
 last_result = None   # (command, is_error, text)
 other_evidence = False  # EVIDENCE_CMD Bash call in the window
@@ -377,16 +394,8 @@ for ln in lines:
     if t == "assistant":
         for b in blocks(e):
             if b.get("type") == "text":
-                txt = b.get("text") or ""
-                # A quoted span is an example or a quote, not this turn's claim.
-                txt = re.sub(r'"[^"\n]{0,200}"|“[^”\n]{0,200}”|`[^`\n]{0,200}`', '""', txt)
-                for sent in re.split(r"(?<=[.!?\n])\s+", txt):
-                    hedged = HEDGE.search(sent) or DISCLAIM.search(sent)
-                    if (CLAIM.search(sent) or (RB and RB_CLAIM.search(sent)
-                                               and not RB_NEG.search(sent))) and not hedged:
-                        last_claim = sent.strip()[:180]
-                    if DONE.search(sent) and not hedged:
-                        done_claim = sent.strip()[:180]
+                turn_text += " " + (b.get("text") or "")
+                scan_text(b.get("text") or "")
             elif b.get("type") == "tool_use" and b.get("name") == "Bash":
                 cmd = (b.get("input") or {}).get("command", "") or ""
                 if TEST_CMD.search(cmd) or (RB and is_gate(cmd)):
@@ -414,6 +423,7 @@ for ln in lines:
             reviews.clear()
             done_claim = None
             last_claim = None   # each turn's Stop judges that turn's claims only
+            turn_text = ""
             # An async subagent report arrives as a task-notification turn start.
             agent_evidence = "<task-notification>" in str((e.get("message") or {}).get("content"))
             continue
@@ -446,6 +456,12 @@ for ln in lines:
         _m = re.search(r"<tool-use-id>\s*([^<\s]+)\s*</tool-use-id>", _p)
         if _m and reviews.get(_m.group(1)) == "async" and re.search(r"<status>\s*completed\s*</status>", _p):
             reviewed = True
+
+# The Stop payload carries the final reply; the transcript may not have it yet. Judge it
+# as the last sentence of the turn unless the transcript already holds that text.
+_lm = (os.environ.get("LAST_MSG") or "").strip()
+if _lm and _lm[:80] not in turn_text:
+    scan_text(_lm)
 
 if os.environ.get("SUPERCHARGER_RISK_REVIEW", "1") != "0" and (done_claim or last_claim):
     _code = [w for w in writes if w[0] and os.path.splitext(w[0])[1].lower() not in PROSE_EXT
